@@ -1,6 +1,8 @@
-# TradeX High-Fidelity Interactive Prototype — v1.0 Final
+# TradeX High-Fidelity Interactive Prototype — v1.0 RevA
 
-Standalone, no-build clickable prototype aligned to `TradeX_PRD_v1.0_Final.md` and the final UI specification.
+Standalone, no-build clickable prototype aligned to `TradeX_PRD_v1.0_RevA.md` and `TradeX_UI_Prototype_Spec_v1.0_RevA.md`.
+
+This package is the QA / coverage assessment baseline referenced by the RevA documentation set (git tag: `prototype-v1.0-reva-baseline`). Known gaps against Revision A are recorded in `TradeX_Prototype_Coverage_Matrix_v1.0_RevA.md` and `TradeX_Prototype_QA_Report_v1.0_RevA.md`; this README lists target review flows, not proven-complete behavior.
 
 ## Run
 
@@ -27,7 +29,7 @@ You can also open `index.html` directly in a browser, although serving it locall
 10. **Market-order safety** — Binance Live → BTC market buy → expected/max spend → approval.
 11. **Approval invalidation** — stale quote / approval expiry → fresh proposal required.
 12. **Risk rejection** — deterministic `RISK_REJECTED`; agent cannot override.
-13. **Broker rejection / ambiguous state** — `BROKER_REJECTED` and `UNKNOWN_RECONCILING`.
+13. **Broker rejection / ambiguous state** — `REJECTED` (error category `SUBMISSION_REJECTED`) and `UNKNOWN_RECONCILING`.
 14. **Cancel order** — partial fill → cancel remaining → approval → `CANCEL_PENDING` → `CANCELLED`.
 15. **Strategy** — list → editable sandbox → running → result / failed → v11-v12 compare.
 16. **Artifacts** — list → detail → provenance → export.
