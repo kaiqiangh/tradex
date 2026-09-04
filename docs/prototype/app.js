@@ -7,7 +7,7 @@ const state = {
   threadStatus: 'empty',
   threadId: 'us-tech-earnings',
   modal: null,
-  liveArmed: false,
+  _legacyGlobalArmUnused: false,
   pendingOrder: null,
   currentOrder: null,
   orderState: null,
@@ -134,12 +134,7 @@ function titleFor(){
     strategies:'Strategies',artifacts:'Artifacts',settings:state.settings==='providers'?'Providers & Models':state.settings==='risk'?'Risk & Limits':'Data & Storage',orderMonitor:'Order activity',recovery:'Account Health'
   };return m[state.view]||'TradeX';
 }
-function topbar(){
-  if(state.view==='onboarding') return '';
-  let mode=state.view==='thread'?state.mode:(state.view==='orderMonitor'||state.view==='accountDetail'?'Live':'Research');
-  let account=state.view==='thread'?state.account:(state.view==='orderMonitor'&&state.currentOrder?state.currentOrder.account:state.view==='accountDetail'?state.selectedAccount:'No account');
-  return `${state.liveArmed?`<div class="live-banner"><span>LIVE EXECUTION ARMED · Every live transaction still requires one-time approval.</span><button class="btn danger" style="height:28px" onclick="disarmLive()">Disable Live</button></div>`:''}<header class="topbar"><div class="title">${esc(titleFor())}</div><div class="top-actions"><span class="pill ${mode.toLowerCase()}">${mode}</span>${account!=='No account'?`<span class="pill">${account}</span>`:''}<button class="btn ghost" onclick="showToast('Share link copied for prototype review')">Share</button></div></header>`;
-}
+function topbar(){ return `<header class="topbar"><div class="title">${esc(titleFor())}</div></header>`; }
 function shell(content){return `<div class="app">${sidebar()}<section class="shell">${topbar()}<main class="main">${content}</main></section>${mobileNav()}${modal()}${toast()}</div>`}
 function toast(){if(!state.toast)return '';return `<div class="toast">${esc(state.toast)}</div>`}
 
@@ -209,11 +204,11 @@ function equityInstrument(){
   return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>AAPL</h1><span class="muted">Apple Inc. · NASDAQ</span></div><div class="price">221.42 <span class="positive" style="font-size:12px">+1.24%</span></div></div><button class="btn" onclick="openAddWatchlist()">+ Watchlist</button></div><div class="chart-large">${chart()}</div><div class="card" style="padding:0"><div class="tabs">${['overview','financials','news','filings','analysis'].map(t=>`<button class="${state.instrumentTab===t?'active':''}" onclick="instrumentTab('${t}')">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div><div style="padding:20px"><h3>${state.instrumentTab[0].toUpperCase()+state.instrumentTab.slice(1)}</h3><p style="line-height:1.7">${tabCopy[state.instrumentTab]}</p><div class="artifact-row"><span class="artifact-chip blue">AAPL quality compounder</span><span class="artifact-chip">Quote source: MarketData-X · 420 ms</span><span class="artifact-chip">Next earnings: Oct 29</span></div></div></div>`);
 }
 function cryptoInstrument(){
-  return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>BTC / USDT</h1><span class="muted">Crypto Spot · Binance</span></div><div class="price">62,418.20 <span class="positive" style="font-size:12px">+2.18%</span></div></div><div class="toolbar-actions"><button class="btn" onclick="state.threadId='btc-liquidity';state.threadStatus='result';go('thread')">Open research thread</button><button class="btn ${state.liveArmed?'danger':'primary'}" onclick="requestLiveOrder('btcMarket')">Prepare Market Buy</button></div></div><div class="chart-large">${chart('#2563eb','#dbeafe')}</div><div class="split"><div class="card"><h3>Venue market context</h3>${[['Best bid','62,416.80'],['Best ask','62,418.20'],['Spread','1.8 bps'],['24h volume','$1.8B'],['Top 10 book depth','$18.2M'],['Quote age','280 ms']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="card"><h3>Cross-venue comparison</h3>${[['Binance spread','1.8 bps'],['Bitget spread','2.6 bps'],['Binance top-10 depth','$18.2M'],['Bitget top-10 depth','$9.7M'],['My Binance balance','0.083 BTC']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">Spot trading only in v1.0. Futures, leverage and margin actions are not available.</div></div></div>`);
+  return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>BTC / USDT</h1><span class="muted">Crypto Spot · Binance</span></div><div class="price">62,418.20 <span class="positive" style="font-size:12px">+2.18%</span></div></div><div class="toolbar-actions"><button class="btn" onclick="state.threadId='btc-liquidity';state.threadStatus='result';go('thread')">Open research thread</button><button class="btn ${state._legacyGlobalArmUnused?'danger':'primary'}" onclick="requestLiveOrder('btcMarket')">Prepare Market Buy</button></div></div><div class="chart-large">${chart('#2563eb','#dbeafe')}</div><div class="split"><div class="card"><h3>Venue market context</h3>${[['Best bid','62,416.80'],['Best ask','62,418.20'],['Spread','1.8 bps'],['24h volume','$1.8B'],['Top 10 book depth','$18.2M'],['Quote age','280 ms']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="card"><h3>Cross-venue comparison</h3>${[['Binance spread','1.8 bps'],['Bitget spread','2.6 bps'],['Binance top-10 depth','$18.2M'],['Bitget top-10 depth','$9.7M'],['My Binance balance','0.083 BTC']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">Spot trading only in v1.0. Futures, leverage and margin actions are not available.</div></div></div>`);
 }
 
 function watchlists(){
-  return shell(`<div class="toolbar"><div><h1>Watchlists</h1><p>Watchlists drive warm subscriptions and thesis monitoring.</p></div><button class="btn primary" onclick="openNewWatchlist()">+ New Watchlist</button></div><div class="watchlist-layout"><div class="watchlist-menu">${['Tech Giants','AI Semiconductors','Crypto Top 10','Earnings Watch','Swing Trading','Long-term'].map(v=>`<button class="${state.watchlist===v?'active':''}" onclick="setWatchlist('${v}')">${v}</button>`).join('')}</div><div class="table-wrap"><div class="table-head"><h3>${state.watchlist}</h3><small class="muted">Warm market-data tier</small></div>${table(['Symbol','Price','Change','Market Cap','Thesis','Alert'],watchRows,'openInstrument')}</div></div>`);
+  return shell(`<div class="toolbar"><div><h1>Watchlists</h1><p>Watchlists organize symbols and thesis monitoring; quotes refresh on demand or at a coarse configured interval.</p></div><button class="btn primary" onclick="openNewWatchlist()">+ New Watchlist</button></div><div class="watchlist-layout"><div class="watchlist-menu">${['Tech Giants','AI Semiconductors','Crypto Top 10','Earnings Watch','Swing Trading','Long-term'].map(v=>`<button class="${state.watchlist===v?'active':''}" onclick="setWatchlist('${v}')">${v}</button>`).join('')}</div><div class="table-wrap"><div class="table-head"><h3>${state.watchlist}</h3><small class="muted">On-demand / coarse refresh</small></div>${table(['Symbol','Price','Change','Market Cap','Thesis','Alert'],watchRows,'openInstrument')}</div></div>`);
 }
 
 function accountsView(){
@@ -229,7 +224,7 @@ function accountDetail(){
   const isCrypto=a.provider==='Binance'||a.provider==='Bitget';
   const perms=isLive?['Account read','Positions read','Order read','Place order','Cancel order']:['Account read','Positions read','Order read','Paper/Demo execute'];
   const title=`${a.provider} ${fmtEnv(a.env)} <span class="status ok">Healthy</span>`;
-  return shell(`<div class="toolbar"><div><h1>${title}</h1><p>${isCrypto?'Crypto spot':'US equities'} · ${a.env} · reconciled 12 sec ago</p></div>${isLive?`<button class="btn ${state.liveArmed?'danger':'primary'}" onclick="${state.liveArmed?'disarmLive()':'openArmLive()'}">${state.liveArmed?'Disable Live':'Arm Live Trading'}</button>`:''}</div><div class="grid3">${metric('Equity',a.equity,a.pnl+' today')}${metric('Available cash',isCrypto?'€3,884.12':'€3,212.43','Primary currency EUR')}${metric('Open orders',isLive?'2':'1','Broker reconciled')}</div><div class="split" style="margin-top:20px"><div class="card"><h3>Connection health</h3>${[['REST','Healthy · 142 ms'],['Order reconciliation','Healthy · 12 sec ago'],['Credentials','Valid · Keychain'],['Capability',isLive?'Live orders · approval gated':'Demo/Paper execution']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="section-label">Permissions</div><div class="artifact-row">${perms.map(p=>`<span class="artifact-chip">✓ ${p}</span>`).join('')}</div><div class="warning-box">Withdrawals, transfers, leverage changes and custody actions are not implemented by TradeX.</div></div><div><div class="card"><h3>Open orders</h3><div class="open-order"><div><b>${isCrypto?'BTC/USDT':'AAPL'}</b><small>${isCrypto?'BUY 0.005 BTC · LIMIT':'BUY 2 AAPL · LIMIT $220.50'}</small></div><span class="status warn">PARTIAL</span></div><div class="kv"><span>Filled</span><span>${isCrypto?'0.002 / 0.005 BTC':'1 / 2 shares'}</span></div>${isLive?`<button class="btn full" style="margin-top:12px" onclick="requestCancel()">Cancel remaining</button>`:''}</div><div class="card"><h3>Account diagnostics</h3><button class="btn full" onclick="showRecovery('auth')">Simulate auth error</button><button class="btn full" style="margin-top:8px" onclick="showRecovery('stream')">Simulate stream disconnect</button><button class="btn full" style="margin-top:8px" onclick="showRecovery('rate')">Simulate rate limit</button></div></div></div>`);
+  return shell(`<div class="toolbar"><div><h1>${title}</h1><p>${isCrypto?'Crypto spot':'US equities'} · ${a.env} · reconciled 12 sec ago</p></div>${isLive?`<button class="btn ${state._legacyGlobalArmUnused?'danger':'primary'}" onclick="${state._legacyGlobalArmUnused?'disarmLive()':'openArmLive()'}">${state._legacyGlobalArmUnused?'Disable Live':'Arm Live Trading'}</button>`:''}</div><div class="grid3">${metric('Equity',a.equity,a.pnl+' today')}${metric('Available cash',isCrypto?'€3,884.12':'€3,212.43','Primary currency EUR')}${metric('Open orders',isLive?'2':'1','Broker reconciled')}</div><div class="split" style="margin-top:20px"><div class="card"><h3>Connection health</h3>${[['REST','Healthy · 142 ms'],['Order reconciliation','Healthy · 12 sec ago'],['Credentials','Valid · Keychain'],['Capability',isLive?'Live orders · approval gated':'Demo/Paper execution']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="section-label">Permissions</div><div class="artifact-row">${perms.map(p=>`<span class="artifact-chip">✓ ${p}</span>`).join('')}</div><div class="warning-box">Withdrawals, transfers, leverage changes and custody actions are not implemented by TradeX.</div></div><div><div class="card"><h3>Open orders</h3><div class="open-order"><div><b>${isCrypto?'BTC/USDT':'AAPL'}</b><small>${isCrypto?'BUY 0.005 BTC · LIMIT':'BUY 2 AAPL · LIMIT $220.50'}</small></div><span class="status warn">PARTIAL</span></div><div class="kv"><span>Filled</span><span>${isCrypto?'0.002 / 0.005 BTC':'1 / 2 shares'}</span></div>${isLive?`<button class="btn full" style="margin-top:12px" onclick="requestCancel()">Cancel remaining</button>`:''}</div><div class="card"><h3>Account diagnostics</h3><button class="btn full" onclick="showRecovery('auth')">Simulate auth error</button><button class="btn full" style="margin-top:8px" onclick="showRecovery('stream')">Simulate stream disconnect</button><button class="btn full" style="margin-top:8px" onclick="showRecovery('rate')">Simulate rate limit</button></div></div></div>`);
 }
 
 function strategiesView(){
@@ -335,7 +330,7 @@ function modal(){
   if(state.modal==='cancelPending') return modalShell('Cancellation pending','The cancel request was accepted locally and is waiting for broker confirmation.',`<span class="status warn">CANCEL_PENDING</span><div class="kv"><span>Order</span><span>${state.selectedInstrument==='BTC/USDT'?'BTC/USDT':'AAPL'} remaining quantity</span></div><div class="warning-box">The order may still fill until the broker confirms cancellation.</div>`,button('Confirm broker cancellation','confirmCancelled()','primary'));
   if(state.modal==='cancelled') return modalShell('Order cancelled','Broker state confirms the remaining quantity is cancelled.',`<span class="status ok">CANCELLED</span><div class="kv"><span>Broker state</span><span>Confirmed</span></div><div class="kv"><span>Local projection</span><span>Reconciled</span></div>`,button('Done','closeModal()','primary'));
   if(state.modal==='screenerBuilder') return screenerBuilderModal();
-  if(state.modal==='newWatchlist') return modalShell('Create watchlist','Create a local watchlist and warm data subscription group.',`<div class="field"><label>Name</label><input id="newWatchName" value="AI Infrastructure"/></div><div class="field"><label>Market</label><select><option>US Stocks</option><option>Crypto</option></select></div>`,`${button('Cancel','closeModal()')}${button('Create watchlist','createWatchlist()','primary')}`);
+  if(state.modal==='newWatchlist') return modalShell('Create watchlist','Create a local watchlist with on-demand or coarse periodic refresh.',`<div class="field"><label>Name</label><input id="newWatchName" value="AI Infrastructure"/></div><div class="field"><label>Market</label><select><option>US Stocks</option><option>Crypto</option></select></div>`,`${button('Cancel','closeModal()')}${button('Create watchlist','createWatchlist()','primary')}`);
   if(state.modal==='addWatchlist') return modalShell('Add AAPL to watchlist','Choose a destination watchlist.',`<div class="selection-list">${['Tech Giants','AI Semiconductors','Earnings Watch','Long-term'].map(x=>`<button class="selection-row" onclick="addToWatchlist('${x}')"><strong>${x}</strong><span>›</span></button>`).join('')}</div>`,'');
   if(state.modal==='providerConfig') return connectProviderModal(true);
   if(state.modal==='provenance') return provenanceModal();
@@ -398,7 +393,7 @@ window.retryTool=()=>{state.threadStatus='running';render();setTimeout(()=>{stat
 window.cancelTurn=()=>{state.threadStatus='empty';render()};
 window.portfolioReview=()=>go('portfolio');
 window.openStrategy=()=>{state.view='strategies';state.strategy='editor';render()};
-window.cycleMode=()=>{const modes=['Research','Backtest','Paper','Live'];state.mode=modes[(modes.indexOf(state.mode)+1)%modes.length];if(state.mode==='Live')state.account='Trading 212 Live';else if(state.mode==='Paper')state.account='Alpaca Paper';render()};
+window.cycleMode=()=>{const modes=['Ask','Research','Backtest','Trade'];state.mode=modes[(modes.indexOf(state.mode)+1)%modes.length];if(state.mode==='Backtest')state.account='No account';render()};
 window.sendPrompt=()=>{const p=document.getElementById('prompt');if(p&&p.value.trim())startResearch()};
 window.openContextPicker=()=>{state.modal='contextPicker';render()};window.attachContext=()=>{state.modal=null;showToast('Context attached: AAPL + Trading 212 Live');render()};
 window.openAccountPicker=()=>{state.modal='accountPicker';render()};window.chooseAccount=n=>{state.account=n;state.modal=null;render()};
@@ -422,10 +417,10 @@ window.openAccount=n=>{state.selectedAccount=n;state.selectedInstrument=(n.inclu
 
 // live trading safety
 window.openArmLive=()=>{state.pendingOrder=null;state.modal='armLive';render()};
-window.requestLiveOrder=type=>{state.pendingOrder=type==='btcMarket'?btcOrder():defaultAaplOrder();if(!state.liveArmed){state.modal='armLive'}else{state.modal=type==='btcMarket'?'marketApproval':'liveApproval'}render()};
+window.requestLiveOrder=type=>{state.pendingOrder=type==='btcMarket'?btcOrder():defaultAaplOrder();if(!state._legacyGlobalArmUnused){state.modal='armLive'}else{state.modal=type==='btcMarket'?'marketApproval':'liveApproval'}render()};
 window.openMarketOrder=()=>requestLiveOrder('btcMarket');
-window.confirmArmLive=()=>{state.liveArmed=true;const p=state.pendingOrder;if(p)state.modal=p.instrument==='BTC/USDT'?'marketApproval':'liveApproval';else state.modal=null;render()};
-window.disarmLive=()=>{state.liveArmed=false;state.modal=null;showToast('Live execution disabled');render()};
+window.confirmArmLive=()=>{state._legacyGlobalArmUnused=true;const p=state.pendingOrder;if(p)state.modal=p.instrument==='BTC/USDT'?'marketApproval':'liveApproval';else state.modal=null;render()};
+window.disarmLive=()=>{state._legacyGlobalArmUnused=false;state.modal=null;showToast('Live execution disabled');render()};
 window.cancelPendingOrder=()=>{state.pendingOrder=null;state.modal=null;render()};
 window.invalidateApproval=()=>{state.modal='approvalInvalid';render()};
 window.expireApproval=()=>{state.modal='approvalExpired';render()};
@@ -437,7 +432,7 @@ window.simulateBrokerReject=()=>{state.orderState='BROKER_REJECTED';render()};
 
 // paper / cancel
 window.openPaperModal=()=>{state.modal='paper';render()};window.paperSuccess=()=>{state.modal='paperSuccess';render()};
-window.requestCancel=()=>{if(!state.liveArmed){state.pendingOrder={account:state.selectedAccount,instrument:state.selectedInstrument,operation:'CANCEL'};state.modal='armLive'}else state.modal='cancelApproval';render()};
+window.requestCancel=()=>{if(!state._legacyGlobalArmUnused){state.pendingOrder={account:state.selectedAccount,instrument:state.selectedInstrument,operation:'CANCEL'};state.modal='armLive'}else state.modal='cancelApproval';render()};
 window.requestCancelFilledDemo=()=>{state.selectedAccount=state.currentOrder?.account||'Trading 212 Live';state.selectedInstrument=state.currentOrder?.instrument||'AAPL';state.modal='cancelApproval';render()};
 window.submitCancel=()=>{state.modal='cancelPending';render()};window.confirmCancelled=()=>{state.modal='cancelled';render()};
 
@@ -448,9 +443,9 @@ window.runBacktest=()=>{state.strategy='running';render();setTimeout(()=>{if(sta
 // artifacts / settings / recovery
 window.openArtifact=v=>{state.artifact=v;render()};window.openProvenance=()=>{state.modal='provenance';render()};window.exportArtifact=()=>{state.modal='success';state.toast='Artifact exported to local workspace exports folder';render()};
 window.exportWorkspace=()=>{state.modal='success';state.toast='Workspace export created locally';render()};window.backupWorkspace=()=>{state.modal='success';state.toast='Local backup completed';render()};
-window.saveRiskSettings=()=>{captureRiskInputs();state.liveArmed=false;showToast('Risk limits saved; live session remains/disarms for safety');render()};
+window.saveRiskSettings=()=>{captureRiskInputs();state._legacyGlobalArmUnused=false;showToast('Risk limits saved; live session remains/disarms for safety');render()};
 window.captureRiskInputs=captureRiskInputs;
-window.showRecovery=t=>{state.recoveryState=t;state.view='recovery';state.liveArmed=false;render()};
+window.showRecovery=t=>{state.recoveryState=t;state.view='recovery';state._legacyGlobalArmUnused=false;render()};
 window.closeModal=()=>{state.modal=null;render()};
 window.showToast=showToast;
 
@@ -459,5 +454,476 @@ function captureRiskInputs(){
   map.forEach(k=>{const e=document.getElementById('risk-'+k);if(e)state.risk[k]=e.value});const m=document.getElementById('risk-marketOrders');if(m)state.risk.marketOrders=m.value;
 }
 function showToast(msg){state.toast=msg;render();setTimeout(()=>{if(state.toast===msg){state.toast=null;render()}},1700)}
+
+/* Initial paint occurs after RevC state/model overrides below. */
+
+/* ===== TradeX v1.0 Revision C alignment overrides ===== */
+const legacyUI = {
+  sidebar, mobileNav, topbar, contextPanel, composer, onboarding, thread, researchResult,
+  cryptoResearchResult, watchlists, portfolio, accountDetail, backtestResults,
+  settingsView, providersSettings, riskSettings, dataSettings, recoveryView, orderMonitor,
+  modal, modalShell, connectProviderModal, armLiveModal, liveApprovalModal, marketApprovalModal,
+  ambiguousModal, provenanceModal, equityInstrument, cryptoInstrument, paperModal
+};
+
+state.mode = ['Ask','Research','Backtest','Trade'].includes(state.mode) ? state.mode : 'Research';
+state.model = 'gpt-5.6-sol';
+state.armedAccounts = new Set();
+state.riskPolicyVersion = 7;
+state.pendingApproval = null;
+state.llm = {
+  cli: {state:'Running', auth:'Authorized', version:'pinned-revc', models:['gpt-5.6-sol','gpt-5.6-luna']},
+  deepseek: {state:'Connected', key:'Keychain', models:['deepseek-chat','deepseek-reasoner']},
+  fallbackAuto: false,
+  error: null
+};
+state.marketState = 'OPEN';
+state.corporateAction = 'AAPL ex-dividend fixture · informational';
+state.fx = {source:'FX Provider (fixture)', path:'USD → EUR', rate:'0.9241', providerTs:'14:42:10.180', receivedTs:'14:42:10.244', freshness:'HEALTHY', quality:'NORMAL'};
+state.reservation = {account:'Trading 212 Live', available:10000, reserved:4000, effective:6000, threadA:'US tech earnings analysis', threadB:'Portfolio rebalance'};
+state.simOrderAccount = 'Alpaca Paper';
+state.simOrderState = 'PROPOSED';
+state.importStage = 'choose';
+state.errorCategory = 'AUTH_ERROR';
+state.permissionIssue = false;
+state.timeHealth = 'SYNCHRONIZED';
+
+const providerSchemas = {
+  'Alpaca Paper': [
+    {label:'API Key', secret:true, value:'••••••••••••'},
+    {label:'API Secret', secret:true, value:'••••••••••••'}
+  ],
+  'Trading 212 Demo': [
+    {label:'API Key', secret:true, value:'••••••••••••'},
+    {label:'Account identifier', secret:false, value:'demo-account'}
+  ],
+  'Trading 212 Live': [
+    {label:'API Key', secret:true, value:'••••••••••••'},
+    {label:'Account identifier', secret:false, value:'live-account'}
+  ],
+  'Binance Testnet': [
+    {label:'API Key', secret:true, value:'••••••••••••'},
+    {label:'API Secret', secret:true, value:'••••••••••••'},
+    {label:'IP allow-list status', secret:false, value:'Configured'}
+  ],
+  'Binance Live': [
+    {label:'API Key', secret:true, value:'••••••••••••'},
+    {label:'API Secret', secret:true, value:'••••••••••••'},
+    {label:'IP allow-list status', secret:false, value:'Configured'}
+  ],
+  'Bitget Demo': [
+    {label:'API Key', secret:true, value:'••••••••••••'},
+    {label:'API Secret', secret:true, value:'••••••••••••'},
+    {label:'Passphrase', secret:true, value:'••••••••'}
+  ],
+  'Bitget Live': [
+    {label:'API Key', secret:true, value:'••••••••••••'},
+    {label:'API Secret', secret:true, value:'••••••••••••'},
+    {label:'Passphrase', secret:true, value:'••••••••'}
+  ],
+  'US Market Data': [
+    {label:'Data API key', secret:true, value:'••••••••••••'},
+    {label:'Entitlement', secret:false, value:'Realtime fixture'}
+  ]
+};
+
+function revcAccount(name){ return accounts.find(a=>a.name===name); }
+function isLiveAccount(name){ return revcAccount(name)?.env === 'Live'; }
+function isArmed(name){ return !!name && state.armedAccounts.has(name); }
+function modelRoute(model=state.model){ return model.startsWith('deepseek-') ? 'CLIProxyAPI → DeepSeek' : 'CLIProxyAPI → ChatGPT'; }
+function modelHealth(model=state.model){
+  return model.startsWith('deepseek-') ? state.llm.deepseek.state : (state.llm.cli.state==='Running' && state.llm.cli.auth==='Authorized' ? 'Ready' : 'Unavailable');
+}
+function usableLLM(){ return modelHealth('gpt-5.6-sol')==='Ready' || state.llm.deepseek.state==='Connected'; }
+function executionContext(){
+  if(state.mode==='Backtest') return 'HISTORICAL_SIMULATION';
+  if(state.mode!=='Trade') return state.account==='No account' ? 'READ_ONLY' : `${revcAccount(state.account)?.env?.toUpperCase()||'READ_ONLY'} · READ-ONLY`;
+  if(state.account==='No account') return 'SELECT EXECUTION ACCOUNT';
+  const a=revcAccount(state.account);
+  if(!a) return 'SELECT EXECUTION ACCOUNT';
+  if(a.name==='Local Paper') return 'LOCAL_PAPER';
+  if(a.env==='Paper') return 'ALPACA_PAPER';
+  if(a.env==='Demo') return `${a.provider.toUpperCase().replaceAll(' ','')}_DEMO`;
+  if(a.env==='Testnet') return `${a.provider.toUpperCase()}_TESTNET`;
+  return `${a.provider.toUpperCase().replaceAll(' ','')}_LIVE`;
+}
+function modePillClass(){ return state.mode==='Research'?'research':state.mode==='Trade'?'warn':state.mode==='Backtest'?'research':''; }
+function execPillClass(ctx=executionContext()){ return ctx.includes('LIVE')?'live':(ctx.includes('PAPER')||ctx.includes('DEMO')||ctx.includes('TESTNET'))?'paper':ctx.includes('HISTORICAL')?'research':''; }
+function marketSnapshot(o){
+  const btc=o?.instrument==='BTC/USDT';
+  return btc ? {
+    source:'Binance Spot bookTicker (fixture)', providerTs:'14:42:18.201', receivedTs:'14:42:18.276', venue:'Binance', entitlement:'REALTIME fixture', age:'280 ms', freshness:'HEALTHY'
+  } : {
+    source:'US Market Data (fixture)', providerTs:'14:42:18.201', receivedTs:'14:42:18.312', venue:'NASDAQ', entitlement:'REALTIME fixture', age:'420 ms', freshness:'HEALTHY'
+  };
+}
+function snapshotHTML(o){ const s=marketSnapshot(o); return `<div class="provenance-card"><b>Market snapshot provenance</b>${[['Source',s.source],['Provider timestamp',s.providerTs],['TradeX received',s.receivedTs],['Venue',s.venue],['Entitlement',s.entitlement],['Quote age',s.age],['Freshness',s.freshness],['Time service',state.timeHealth]].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div>`; }
+function orderWithIdentity(base){
+  const seed=base.instrument==='BTC/USDT'?'btc':'aapl';
+  return {...base, proposalId:`ordp_${seed}_01`, proposalHash:`sha256:${seed}8d1…`, policyVersion:`risk_v${state.riskPolicyVersion}`, tif:'DAY'};
+}
+function riskWeakening(oldRisk,newRisk){
+  const greater=['maxOrderNotional','maxExposure','maxDailyNotional','maxDailyLoss','staleQuote','inactivity'].some(k=>Number(newRisk[k])>Number(oldRisk[k]));
+  return greater || (oldRisk.marketOrders==='Disabled' && newRisk.marketOrders==='Enabled');
+}
+function errorInfo(cat){
+  const map={
+    AUTH_ERROR:['Authentication failed','Reconnect provider credentials. Live execution remains disabled for the affected account.'],
+    PERMISSION_ERROR:['Permission scope is unsafe or incomplete','Remove forbidden withdrawal/transfer/custody permissions or grant required read/order permissions.'],
+    RATE_LIMITED:['Provider rate limited','Back off low-priority traffic; keep execution reconciliation highest priority.'],
+    NETWORK_ERROR:['Network unavailable','Retry connectivity checks; do not infer broker state.'],
+    UNSUPPORTED_CAPABILITY:['Capability unsupported','Change order/account/action to a supported capability.'],
+    MARKET_CLOSED:['Market is closed','Block unsupported execution and show the next valid session when known.'],
+    INSTRUMENT_HALTED:['Instrument halted','Block new execution until authoritative market state is tradable.'],
+    INVALID_ORDER:['Order invalid','Fix quantity/price/TIF using InstrumentRulesService.'],
+    INSUFFICIENT_FUNDS:['Insufficient effective capacity','Show Available, Reserved, Effective Available, and required capacity.'],
+    RISK_REJECTED:['Risk policy rejected proposal','Agent cannot override deterministic risk.'],
+    SUBMISSION_REJECTED:['Broker rejected order','Show broker reason; state is REJECTED.'],
+    SUBMISSION_AMBIGUOUS:['Submission state ambiguous','Move to UNKNOWN_RECONCILING; never blindly retry.'],
+    STREAM_DISCONNECTED:['Private stream disconnected','Use REST reconciliation and disable new live execution until healthy.'],
+    STATE_STALE:['State or time freshness is stale','Refresh account/market/time state before live authority decisions.'],
+    RECONCILIATION_REQUIRED:['Reconciliation required','Keep live execution disabled until authoritative state converges.'],
+    MODEL_UNAVAILABLE:['Model gateway unavailable','Agent turns pause; launch/recover CLIProxyAPI or choose an available provider.'],
+    QUOTA_EXCEEDED:['Model quota exhausted','Retry after cooldown or explicitly switch provider. Auto fallback occurs only if opt-in is enabled.'],
+    OAUTH_EXPIRED:['ChatGPT OAuth expired','Re-login or explicitly switch to DeepSeek.'],
+    INTERNAL_ERROR:['Internal error','Preserve state, show diagnostics, and avoid financial assumptions.']
+  }; return map[cat]||map.INTERNAL_ERROR;
+}
+
+sidebar = function(){
+  const history = state.view==='thread' ? `<div class="thread-history"><div class="thread-history-label">Today</div>${threadHistory.slice(0,2).map(r=>`<button class="${state.threadId===r[0]?'active':''}" onclick="openThread('${r[0]}')"><span>${r[1]}</span><small>${r[2]}</small></button>`).join('')}<div class="thread-history-label">Earlier</div>${threadHistory.slice(2).map(r=>`<button class="${state.threadId===r[0]?'active':''}" onclick="openThread('${r[0]}')"><span>${r[1]}</span><small>${r[2]}</small></button>`).join('')}</div>`:'';
+  return `<aside class="sidebar"><div class="brand">Trade<b>X</b></div><button class="new-thread" onclick="newThread()">+ New Thread</button><div class="nav">${navItem('thread','Threads')}${navItem('markets','Markets')}${navItem('watchlists','Watchlists')}${navItem('accounts','Accounts')}${navItem('strategies','Strategies')}${navItem('artifacts','Artifacts')}${navItem('settings','Settings')}</div>${history}<div class="runtime"><strong><span class="dot"></span>Local workspace</strong><small>Codex + CLIProxyAPI · RevC</small></div></aside>`;
+};
+
+mobileNav = function(){
+  return `<nav class="mobile-nav"><button onclick="go('thread')" class="${state.view==='thread'?'active':''}">Chat</button><button onclick="go('markets')" class="${state.view==='markets'||state.view==='instrument'?'active':''}">Markets</button><button onclick="go('accounts')" class="${['accounts','portfolio','accountDetail'].includes(state.view)?'active':''}">Accounts</button><button onclick="go('strategies')" class="${state.view==='strategies'?'active':''}">Strategy</button><button onclick="openMoreNav()">More</button></nav>`;
+};
+
+topbar = function(){
+  if(state.view==='onboarding') return '';
+  const ctx=executionContext();
+  const account=state.view==='orderMonitor'&&state.currentOrder?state.currentOrder.account:state.view==='accountDetail'?state.selectedAccount:state.account;
+  const armed=[...state.armedAccounts];
+  const liveBanner=armed.length?`<div class="live-banner"><span>${armed.map(a=>`LIVE · ${a} · ARMED`).join(' · ')} · Every live transaction still needs one-time approval.</span><button class="btn danger compact" onclick="disableAllLive()">Disable All Live</button></div>`:'';
+  const armLabel=account!=='No account'&&isLiveAccount(account)?` · ${isArmed(account)?'ARMED':'DISARMED'}`:'';
+  return `${liveBanner}<header class="topbar"><div class="title">${esc(titleFor())}</div><div class="top-actions"><span class="pill ${modePillClass()}">${state.mode}</span><span class="pill ${execPillClass(ctx)}">${ctx}</span>${account&&account!=='No account'?`<span class="pill">${account}${armLabel}</span>`:''}</div></header>`;
+};
+
+contextPanel = function(){
+  const crypto=state.selectedInstrument==='BTC/USDT'; const o=crypto?btcOrder():defaultAaplOrder(); const s=marketSnapshot(o);
+  return `<aside class="context"><h3>${crypto?'BTC / USDT':'AAPL'}</h3><div class="sub">${crypto?'Binance · Spot':'NASDAQ · Equity'}</div><div class="quote-row"><div class="quote">${crypto?'62,418.20':'221.42'}</div><div class="positive"><b>${crypto?'+2.18%':'+1.24%'}</b></div></div><div class="mini-chart">${chart()}</div><div class="section-label">Position</div><div class="kv"><span>${crypto?'Balance':'Shares'}</span><span>${crypto?'0.083 BTC':'12'}</span></div><div class="kv"><span>Unrealized P&L</span><span class="positive">${crypto?'+€184.22':'+$164.40'}</span></div><div class="section-label">Market context</div><div class="kv"><span>Spread</span><span>${crypto?'1.8 bps':'$0.03'}</span></div><div class="kv"><span>Session</span><span>${state.marketState}</span></div><div class="kv"><span>Source</span><span>${s.source}</span></div><div class="kv"><span>Quote age</span><span>${s.age}</span></div><div class="kv"><span>Time</span><span>${state.timeHealth}</span></div><div class="section-label">Execution context</div><div class="small">${executionContext()}</div>${state.mode==='Trade'&&crypto?`<button class="btn full" style="margin-top:14px" onclick="requestLiveOrder('btcMarket')">Prepare BTC Market Proposal</button>`:''}</aside>`;
+};
+
+composer = function(){
+  const ctx=executionContext();
+  return `<div class="composer"><textarea id="prompt" aria-label="Agent prompt" placeholder="Ask TradeX to research, compare, backtest, or prepare a trade…"></textarea><div class="turn-route">Next turn · ${modelRoute()} · ${state.model} · fallback ${state.llm.fallbackAuto?'ON':'OFF'}</div><div class="composer-footer"><div class="composer-left"><button class="pill" onclick="openContextPicker()" style="border:0;cursor:pointer">@ Context</button><button class="pill ${modePillClass()}" onclick="cycleMode()" style="border:0;cursor:pointer">${state.mode}</button><span class="pill ${execPillClass(ctx)}">${ctx}</span><button class="pill" onclick="openAccountPicker()" style="border:0;cursor:pointer">${state.account}</button><button class="pill" onclick="openModelPicker()" style="border:0;cursor:pointer">${state.model}</button></div><button class="btn primary" onclick="sendPrompt()">Send</button></div></div>`;
+};
+
+onboarding = function(){
+  const steps=['Workspace','Providers','Model','Risk defaults','Ready'];
+  const stepChips=steps.map((x,i)=>`<span class="pill ${i+1===state.onboardingStep?'research':''}">${i+1} ${x}</span>`).join('');
+  let body='';
+  if(state.onboardingStep===1){
+    body=`<h2>Create local workspace</h2><div class="field"><label>Workspace name</label><input id="workspaceName" value="My Trading Workspace"/></div><div class="field"><label>Base currency</label><select><option>EUR — Euro</option><option>USD — US Dollar</option></select></div><div class="field"><label>Local storage</label><input value="~/.tradex/workspaces/default"/></div><div class="modal-actions">${button('Continue to providers','nextOnboarding()','primary')}</div>`;
+  } else if(state.onboardingStep===2){
+    body=`<h2>Connect broker & data providers</h2><p class="muted">Connections are environment-specific. Local Paper is built in; Live credentials remain DISARMED.</p><div class="provider-grid"><div class="provider-card"><div><strong>Local Paper</strong><small>TradeX-managed simulation · no credentials</small></div>${fmtEnv('Paper')}<span class="status ok">Built in</span></div>${providers.map(p=>`<div class="provider-card"><div><strong>${p[0]}</strong><small>${p[1]}</small></div>${fmtEnv(p[2])}<button class="btn" onclick="connectProvider('${p[0]}')">${state.connectedProviders.has(p[0])?'Review':'Connect'}</button></div>`).join('')}</div><div class="modal-actions">${button('Back','prevOnboarding()')}${button('Continue to model','nextOnboarding()','primary')}</div>`;
+  } else if(state.onboardingStep===3){
+    body=`<h2>Configure LLM providers</h2><p class="muted">All model traffic uses CLIProxyAPI on localhost. Provider switching never changes trading authority.</p><div class="llm-grid"><div class="card inner-card"><div class="provider-header"><div><b>CLIProxyAPI → ChatGPT</b><small>Sidecar ${state.llm.cli.version}</small></div><span class="status ok">${state.llm.cli.state} · ${state.llm.cli.auth}</span></div>${state.llm.cli.models.map(m=>`<button class="selection-row ${state.model===m?'selected':''}" onclick="selectModel('${m}')"><div><strong>${m}</strong><small>/v1/models discovered</small></div><span>${state.model===m?'✓':''}</span></button>`).join('')}<button class="btn full" onclick="showToast('OAuth authorization flow opened (prototype)')">Re-login ChatGPT</button></div><div class="card inner-card"><div class="provider-header"><div><b>CLIProxyAPI → DeepSeek</b><small>Official API key · OS keychain</small></div><span class="status ok">${state.llm.deepseek.state}</span></div>${state.llm.deepseek.models.map(m=>`<button class="selection-row ${state.model===m?'selected':''}" onclick="selectModel('${m}')"><div><strong>${m}</strong><small>Probe + test inference fixture</small></div><span>${state.model===m?'✓':''}</span></button>`).join('')}</div></div><label class="check-row"><input id="fallback-onboard" type="checkbox" ${state.llm.fallbackAuto?'checked':''} onchange="toggleFallback(this.checked)"/><span><b>Allow automatic fallback to DeepSeek</b><small>Off by default. Any provider change is disclosed and audited.</small></span></label>${!usableLLM()?'<div class="error-box">No usable LLM provider. Ready is blocked.</div>':''}<div class="modal-actions">${button('Back','prevOnboarding()')}${button('Continue to risk defaults','nextOnboarding()','primary')}</div>`;
+  } else if(state.onboardingStep===4){
+    body=`<h2>Set conservative live-trading defaults</h2><p class="muted">The agent cannot modify these controls. Relevant changes invalidate pending approvals.</p>${riskForm(true)}<div class="modal-actions">${button('Back','prevOnboarding()')}${button('Review setup','nextOnboarding()','primary')}</div>`;
+  } else {
+    body=`<h2>Workspace ready</h2><div class="ready-grid"><div class="ready-item"><b>Workspace</b><span>My Trading Workspace · EUR</span></div><div class="ready-item"><b>Providers</b><span>${state.connectedProviders.size} external + Local Paper</span></div><div class="ready-item"><b>Model route</b><span>${modelRoute()} · ${state.model}</span></div><div class="ready-item"><b>Fallback</b><span>${state.llm.fallbackAuto?'Explicit opt-in ON':'OFF (default)'}</span></div><div class="ready-item"><b>Live accounts</b><span>All DISARMED</span></div><div class="ready-item"><b>Storage</b><span>SQLite + DuckDB · Parquet optional</span></div></div><div class="warning-box">Live execution is not enabled by onboarding. Trade mode + Live account still requires account-scoped arming and one-time approval.</div><div class="modal-actions">${button('Back','prevOnboarding()')}<button class="btn primary" ${usableLLM()?'':'disabled'} onclick="finishOnboarding()">Create first thread</button></div>`;
+  }
+  return `<div class="onboarding-full"><div class="onboard-left"><div class="brand" style="margin:0">Trade<b>X</b></div><h1>Your markets.<br>Your agent.<br>Your workspace.</h1><p>Research, strategy and execution stay connected while authority stays deterministic.</p><small>Primary data stays local. Broker credentials remain in the OS credential vault.</small></div><div class="onboard-main"><h1>Welcome to TradeX</h1><p class="muted">Revision C product-state baseline.</p><div class="steps">${stepChips}</div><div class="onboard-card">${body}</div></div>${modal()}${toast()}</div>`;
+};
+
+thread = function(){
+  if(state.mode==='Ask' && state.threadStatus!=='running' && state.threadStatus!=='toolError' && state.threadStatus!=='empty') return askResult();
+  return legacyUI.thread();
+};
+function askResult(){
+  return shell(`<div class="workspace"><section class="content"><div class="toolbar"><div><h1 style="font-size:18px">Quick answer</h1><p>Ask mode · read-only · ${modelRoute()} · ${state.model}</p></div><span class="status neutral">NO EXECUTION</span></div><div class="card analysis-result"><h2>NVDA currently has the strongest estimate-revision momentum of the selected semiconductor peers.</h2><div class="bullet">This answer used public market data and the explicitly attached account only as read-only context.</div><div class="bullet">No paper/live execution tools were exposed.</div><div class="turn-provenance"><b>Turn snapshot</b>${[['Agent Mode','Ask'],['Execution Context',executionContext()],['Account',state.account],['Model',state.model],['Provider',modelRoute()],['Attached context hash','sha256:ctx91…']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="action-strip"><button class="btn" onclick="state.mode='Research';render()">Continue in Research</button><button class="btn" onclick="state.mode='Backtest';render()">Continue in Backtest</button><button class="btn primary" onclick="state.mode='Trade';render()">Continue in Trade</button></div></div>${composer()}</section>${contextPanel()}</div>`);
+}
+
+researchResult = function(){
+  if(state.threadId==='btc-liquidity') return cryptoResearchResult();
+  const tradeActions=state.mode==='Trade'?`<button class="btn" onclick="openPaperModal()">Prepare Alpaca Paper</button><button class="btn danger" onclick="requestLiveOrder('aaplLimit')">Prepare Trading 212 Live</button>`:`<span class="muted small">Switch Agent Mode to Trade to prepare an order.</span>`;
+  return shell(`<div class="workspace"><section class="content"><div class="toolbar"><div><h1 style="font-size:18px">Research complete</h1><p>6 sources · immutable turn snapshot recorded</p></div><span class="status ok">Completed</span></div><div class="card analysis-result"><h2>NVDA remains the strongest setup, but current exposure limits incremental size.</h2><div class="section-label">Key findings</div>${['Revenue estimate revisions remain strongest for NVDA.','AMD valuation is cheaper but estimate momentum is weaker.','AVGO has lower beta but slower near-term growth.','Current semiconductor exposure is 8.6% of portfolio.'].map(v=>`<div class="bullet">${v}</div>`).join('')}<div class="section-label">Scenario view</div><div class="scenario-grid"><div class="scenario"><strong class="positive">Bull</strong><div class="big">+18% upside</div><small>$152</small></div><div class="scenario"><strong style="color:var(--blue)">Base</strong><div class="big">+7%</div><small>$138</small></div><div class="scenario"><strong class="negative">Bear</strong><div class="big">Multiple compression</div><small>$112</small></div></div><div class="turn-provenance"><b>Immutable turn provenance</b>${[['Mode at start',state.mode],['Execution context at start',executionContext()],['Selected account',state.account],['Model',state.model],['Provider',modelRoute()],['Provider attempts','1'],['Context hash','sha256:ctx8ad…']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="section-label">Artifacts created</div><div class="artifact-row"><span class="artifact-chip blue">Research report.md</span><span class="artifact-chip">Peer comparison.csv</span><span class="artifact-chip">Scenario chart</span></div><div class="action-strip">${tradeActions}<button class="btn" onclick="openRiskRejected()">Risk reject example</button></div></div>${composer()}</section>${contextPanel()}</div>`);
+};
+
+cryptoResearchResult = function(){
+  const tradeAction=state.mode==='Trade'?`<button class="btn danger" onclick="requestLiveOrder('btcMarket')">Prepare Binance Live market proposal</button>`:`<span class="muted small">Trade action hidden outside Trade mode.</span>`;
+  return shell(`<div class="workspace"><section class="content"><div class="toolbar"><div><h1 style="font-size:18px">BTC liquidity comparison</h1><p>Binance and Bitget · read-only research evidence</p></div><span class="status ok">Completed</span></div><div class="card"><h2>Binance has the tighter spread and deeper displayed top-of-book depth in this fixture.</h2><div class="venue-compare"><div class="venue-card compare-highlight"><b>Binance</b>${[['Spread','1.8 bps'],['Top-10 depth','$18.2M'],['Quote age','280 ms'],['Source','Binance fixture']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="venue-card"><b>Bitget</b>${[['Spread','2.6 bps'],['Top-10 depth','$9.7M'],['Quote age','340 ms'],['Source','Bitget fixture']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div></div><div class="turn-provenance"><b>Turn snapshot</b>${[['Mode',state.mode],['Execution',executionContext()],['Model',state.model],['Provider',modelRoute()]].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="action-strip">${tradeAction}</div></div>${composer()}</section>${contextPanel()}</div>`);
+};
+
+watchlists = function(){
+  return shell(`<div class="toolbar"><div><h1>Watchlists</h1><p>MVP uses on-demand/coarse refresh; watchlists do not imply persistent tick-level subscriptions.</p></div><button class="btn primary" onclick="openNewWatchlist()">+ New Watchlist</button></div><div class="watchlist-layout"><div class="watchlist-menu">${['Tech Giants','AI Semiconductors','Crypto Top 10','Earnings Watch','Swing Trading','Long-term'].map(v=>`<button class="${state.watchlist===v?'active':''}" onclick="setWatchlist('${v}')">${v}</button>`).join('')}</div><div class="table-wrap"><div class="table-head"><h3>${state.watchlist}</h3><small class="muted">On-demand/coarse refresh</small></div>${table(['Symbol','Price','Change','Market Cap','Thesis','Alert'],watchRows,'openInstrument')}</div></div>`);
+};
+
+portfolio = function(){
+  const f=state.fx;
+  return shell(`<div class="toolbar"><div><h1>Portfolio</h1><p>Cross-account exposure normalized to EUR with explicit FX/stablecoin provenance.</p></div><span class="pill">Base: EUR</span></div><div class="grid3">${metric('Portfolio value','€125,432','+2.34%')}${metric('1D P&L','+€2,864','+2.34%','positive')}${metric('Cash','€32,118','25.6%')}</div><div class="allocation" style="margin-top:20px"><div class="card"><h3>Allocation</h3>${[['US Equities',58],['Crypto',16],['Cash',26]].map(r=>`<div style="margin-top:20px"><div class="kv"><span>${r[0]}</span><span>${r[1]}%</span></div><div class="bar"><span style="width:${r[1]}%"></span></div></div>`).join('')}<div class="section-label">FX / stablecoin provenance</div>${[['Source',f.source],['Path',f.path],['Rate',f.rate],['Provider timestamp',f.providerTs],['TradeX received',f.receivedTs],['Freshness',f.freshness],['Quality/depeg',f.quality]].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<button class="btn full" onclick="simulateDepeg()">Simulate depeg warning</button></div><div class="table-wrap"><div class="table-head"><h3>Positions</h3><small class="muted">FX provenance attached</small></div>${table(['Instrument','Account','Value (EUR)','P&L','Weight'],positions)}</div></div>`);
+};
+
+accountDetail = function(){
+  const a=revcAccount(state.selectedAccount)||accounts[3]; const isLive=a.env==='Live'; const isCrypto=['Binance','Bitget'].includes(a.provider); const armed=isArmed(a.name);
+  const reserved=isLive&&a.name===state.reservation.account?state.reservation.reserved:0; const avail=isCrypto?3884:10000; const effective=Math.max(0,avail-reserved);
+  const perms=isLive?['Account read','Positions read','Order read','Place order','Cancel order']:['Account read','Positions read','Order read','Simulated execute'];
+  return shell(`<div class="toolbar"><div><h1>${a.provider} ${fmtEnv(a.env)} <span class="status ok">Healthy</span></h1><p>${isCrypto?'Crypto spot':'US equities'} · ${a.env} · reconciled 12 sec ago</p></div><div class="toolbar-actions">${isLive?`<button class="btn ${armed?'danger':'primary'}" onclick="${armed?`disarmLive('${a.name}')`:`openArmLive('${a.name}')`}">${armed?'Disable Live':'Arm Live Trading'}</button>`:`<button class="btn primary" onclick="openSimulatedOrder('${a.name}')">Prepare ${a.name==='Local Paper'?'Local Paper':'Simulated'} Trade</button>`}</div></div><div class="grid4">${metric('Equity',a.equity,a.pnl+' today')}${metric('Available',`€${avail.toLocaleString()}`,'Before reservations')}${metric('Reserved',`€${reserved.toLocaleString()}`,'Approved/submitting')}${metric('Effective available',`€${effective.toLocaleString()}`,'Risk capacity')}</div><div class="split" style="margin-top:20px"><div class="card"><h3>Account health</h3>${[['Connection','Healthy'],['Authentication','Healthy'],['Private stream','Healthy'],['Reconciliation','Healthy · 12 sec'],['Execution eligibility',isLive?'Approval-gated':'Simulated'],['Arming',isLive?(armed?'ARMED':'DISARMED'):'N/A']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="section-label">Permissions & capabilities</div><div class="artifact-row">${perms.map(p=>`<span class="artifact-chip">✓ ${p}</span>`).join('')}</div><div class="artifact-row"><span class="artifact-chip">Withdrawal ✕ forbidden</span><span class="artifact-chip">Transfer ✕ forbidden</span><span class="artifact-chip">Leverage ✕ unsupported</span></div><button class="btn full" onclick="simulatePermissionIssue('${a.name}')">Simulate forbidden permission</button></div><div><div class="card"><h3>Open orders</h3><div class="open-order"><div><b>${isCrypto?'BTC/USDT':'AAPL'}</b><small>${isCrypto?'BUY 0.005 BTC · LIMIT':'BUY 2 AAPL · LIMIT $220.50'}</small></div><span class="status warn">PARTIALLY_FILLED</span></div><div class="kv"><span>Filled</span><span>${isCrypto?'0.002 / 0.005 BTC':'1 / 2 shares'}</span></div>${isLive?`<button class="btn full" style="margin-top:12px" onclick="requestCancel()">Cancel remaining</button>`:''}</div><div class="card"><h3>Diagnostics</h3><button class="btn full" onclick="showRecovery('auth')">Auth error</button><button class="btn full" style="margin-top:8px" onclick="showRecovery('stream')">Stream disconnect</button><button class="btn full" style="margin-top:8px" onclick="showRecovery('rate')">Rate limit</button><button class="btn full" style="margin-top:8px" onclick="showRecovery('clock')">Clock/freshness issue</button>${isLive?`<button class="btn full" style="margin-top:8px" onclick="openReservationConflict()">Reservation conflict</button>`:''}</div></div></div>`);
+};
+
+backtestResults = function(){
+  return shell(`<div class="toolbar"><div><h1>Backtest Results</h1><p>MA Crossover · deterministic local run</p></div><div class="toolbar-actions"><span class="status ok">Reproducible</span><button class="btn" onclick="compareBacktests()">Compare v11 / v12</button></div></div><div class="grid4">${metric('Total return','+28.34%','vs +16.12% benchmark')}${metric('Sharpe','1.42','Risk adjusted')}${metric('Sortino','1.88','Downside adjusted')}${metric('Max drawdown','-18.21%','Worst peak-to-trough','negative')}</div><div class="grid4" style="margin-top:14px">${metric('Win rate','62.3%','24 trades')}${metric('Profit factor','1.71','Gross profit / loss')}${metric('Turnover','184%','Annualized fixture')}${metric('Trades','24','Deterministic fill model')}</div><div class="split" style="margin-top:20px"><div class="backtest-chart">${chart('#2563eb','#dbeafe')}</div><div class="manifest"><h3>Reproducibility</h3>${[['Strategy','v12 · 83d8…'],['Dataset','DuckDB · sha256:a71c…'],['Provider','MarketData fixture'],['Adjustment','Split/dividend'],['Timezone','America/New_York'],['Slippage','5 bps'],['Engine','tradex-bt 1.0']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div></div><div class="table-wrap" style="margin-top:20px"><div class="table-head"><h3>Recent trades</h3></div>${table(['Entry','Exit','Side','Return','Duration'],[['2026-08-12','2026-08-18','Long','+4.8%','6d'],['2026-07-29','2026-08-03','Long','-1.6%','5d']])}</div>`);
+};
+
+settingsView = function(){
+  const tabs=[['providers','Providers & Models'],['risk','Risk & Limits'],['data','Data & Storage'],['health','Account Health'],['appearance','Appearance'],['about','About']];
+  let body='';
+  if(state.settings==='providers') body=providersSettings();
+  else if(state.settings==='risk') body=riskSettings();
+  else if(state.settings==='data') body=dataSettings();
+  else if(state.settings==='health') body=accountHealthSettings();
+  else if(state.settings==='appearance') body=appearanceSettings();
+  else body=aboutSettings();
+  // body already shell in legacy-compatible functions; unwrap is not practical, so those functions are overridden to include subnav.
+  return body;
+};
+function settingsSubnav(){
+  const tabs=[['providers','Providers & Models'],['risk','Risk & Limits'],['data','Data & Storage'],['health','Account Health'],['appearance','Appearance'],['about','About']];
+  return `<div class="settings-tabs">${tabs.map(t=>`<button class="${state.settings===t[0]?'active':''}" onclick="goSettings('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
+}
+providersSettings = function(){
+  const modelRows=[['CLIProxyAPI → ChatGPT',`${state.llm.cli.state} · OAuth ${state.llm.cli.auth}`,state.llm.cli.models.join(', ')],['CLIProxyAPI → DeepSeek',state.llm.deepseek.state,state.llm.deepseek.models.join(', ')]];
+  return shell(`${settingsSubnav()}<div class="toolbar"><div><h1>Providers & Models</h1><p>Schema-driven connections, permissions, local LLM gateway health and routing.</p></div><button class="btn primary" onclick="openConnectAccount()">+ Add Provider</button></div><div class="card"><h3>Broker & data providers</h3>${providers.map(p=>`<div class="provider-row"><div><b>${p[0]}</b><small>${p[1]}</small></div><span>${fmtEnv(p[2])}</span><span class="status ${state.connectedProviders.has(p[0])?'ok':'neutral'}">${state.connectedProviders.has(p[0])?'Connected':'Not connected'}</span><button class="btn" onclick="configureProvider('${p[0]}')">Configure</button></div>`).join('')}</div><div class="card"><h3>LLM gateway & models</h3>${modelRows.map(r=>`<div class="provider-row"><div><b>${r[0]}</b><small>${r[2]}</small></div><span>${r[1]}</span><span class="status ${r[1].includes('Running')||r[1]==='Connected'?'ok':'warn'}">${r[1].includes('Running')||r[1]==='Connected'?'Healthy':'Needs attention'}</span><button class="btn" onclick="openModelPicker()">Models</button></div>`).join('')}<div class="check-row"><input type="checkbox" ${state.llm.fallbackAuto?'checked':''} onchange="toggleFallback(this.checked)"/><span><b>Allow automatic fallback to DeepSeek</b><small>OFF by default. Provider changes are disclosed and audited.</small></span></div><div class="action-strip"><button class="btn" onclick="simulateLLMError('MODEL_UNAVAILABLE')">Sidecar unavailable</button><button class="btn" onclick="simulateLLMError('QUOTA_EXCEEDED')">Quota exceeded</button><button class="btn" onclick="simulateLLMError('OAUTH_EXPIRED')">OAuth expired</button></div></div>`);
+};
+riskSettings = function(){
+  return shell(`${settingsSubnav()}<div class="toolbar"><div><h1>Risk & Limits</h1><p>Policy version risk_v${state.riskPolicyVersion}. The agent cannot modify these settings.</p></div></div><div class="settings-layout"><div class="card"><h3>Live trading guardrails</h3>${riskForm()}<div class="modal-actions"><button class="btn primary" onclick="saveRiskSettings()">Save limits</button></div></div><div class="card"><h3>Security behavior</h3><div class="bullet">Any relevant policy change invalidates affected pending approval.</div><div class="bullet">Weakening a policy also DISARMS the affected Live account.</div><div class="bullet">Pre-execution validation re-runs after approval.</div><div class="bullet">Concurrent orders reserve capacity atomically.</div><div class="warning-box">Risk policy changes cannot be made through an agent tool call.</div></div></div>`);
+};
+dataSettings = function(){
+  return shell(`${settingsSubnav()}<div class="toolbar"><div><h1>Data & Storage</h1><p>Revision C MVP: SQLite + DuckDB; Parquet is optional for large Phase 2+ datasets.</p></div></div><div class="settings-layout"><div class="card"><h3>Local workspace storage</h3>${[['Domain / financial state','SQLite','284 MB'],['OHLCV + analytics + backtests','DuckDB','6.6 GB'],['Artifacts / exports / backups','Filesystem','1.8 GB'],['Large immutable historical datasets','Parquet · optional','Not required']].map(r=>`<div class="storage-row"><span>${r[0]}</span><span>${r[1]}</span><b>${r[2]}</b></div>`).join('')}<div class="section-label">Retention</div>${[['Raw order book','Memory only'],['1m+ OHLCV','DuckDB · configurable'],['Artifacts','Keep'],['Resolved execution audit','Keep'],['Unresolved reconciliation audit','Protected from auto-delete']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="modal-actions"><button class="btn" onclick="exportWorkspace()">Export workspace</button><button class="btn" onclick="openImportWorkspace()">Workspace Import / Restore</button><button class="btn primary" onclick="backupWorkspace()">Backup now</button></div></div><div class="card"><h3>Privacy boundaries</h3>${[['LOCAL ONLY','Workspace files'],['TURN DISCLOSURE',modelRoute()],['BROKER ONLY','Orders + account calls'],['SECRET','Never sent to model']].map((r,i)=>`<div class="privacy-item"><span class="status ${i===3?'live':i===1?'research':'ok'}">${r[0]}</span><p>${r[1]}</p></div>`).join('')}</div></div>`);
+};
+function accountHealthSettings(){
+  const live=['Trading 212 Live','Binance Live','Bitget Live'];
+  return shell(`${settingsSubnav()}<div class="toolbar"><div><h1>Account Health</h1><p>Connection, auth, stream, reconciliation, eligibility and arming are independent states.</p></div><button class="btn danger" onclick="disableAllLive()">Disable All Live Execution</button></div><div class="card">${live.map(a=>`<div class="health-row"><div><b>${a}</b><small>Live account</small></div><span>Connection ✓</span><span>Auth ✓</span><span>Stream ✓</span><span>Reconciled ✓</span><span>${isArmed(a)?'<b class="negative">ARMED</b>':'DISARMED'}</span><button class="btn" onclick="openAccount('${a}')">Open</button></div>`).join('')}</div><div class="action-strip"><button class="btn" onclick="showRecovery('startup')">Startup reconciliation</button><button class="btn" onclick="showRecovery('sleep')">Sleep/resume</button><button class="btn" onclick="showRecovery('clock')">Clock skew</button></div>`);
+}
+function appearanceSettings(){ return shell(`${settingsSubnav()}<div class="toolbar"><div><h1>Appearance</h1><p>Prototype preference surface.</p></div></div><div class="card"><h3>Theme</h3><div class="selection-list"><button class="selection-row selected"><b>System / Light prototype</b><span>✓</span></button><button class="selection-row" disabled><b>Dark workspace</b><span>Future</span></button></div></div>`); }
+function aboutSettings(){ return shell(`${settingsSubnav()}<div class="toolbar"><div><h1>About TradeX</h1><p>Local-first AI Trading Agent Workspace</p></div></div><div class="card">${[['Version','1.0 Final · Revision C'],['Prototype','Standalone HTML/CSS/JS'],['Runtime','Codex App Server + CLIProxyAPI fixture'],['Docs','PRD/UI Spec/Coverage/QA RevC aligned'],['Trading','Prototype only · fixture data']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div>`); }
+
+recoveryView = function(){
+  const type=state.recoveryState;
+  if(type==='clock') return shell(`<div class="reconnect"><span class="status warn">STATE_STALE · CLOCK SKEW</span><h2>Time synchronization is outside the live-safety tolerance</h2><p class="muted">Quote age and approval TTL cannot be trusted. Live approval/submission is blocked until TimeService is synchronized.</p>${[['Wall-clock jump','Detected +4.2 s'],['Monotonic timer','Healthy'],['Provider offset','Re-checking'],['New live execution','Blocked']].map(r=>`<div class="reconnect-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')}<div class="modal-actions"><button class="btn" onclick="goSettings('health')">Keep blocked</button><button class="btn primary" onclick="restoreTimeHealth()">Synchronize time</button></div></div>`);
+  return legacyUI.recoveryView();
+};
+
+orderMonitor = function(){
+  const o=state.currentOrder||orderWithIdentity(defaultAaplOrder()); const status=state.orderState||'FILLED'; const isBtc=o.instrument==='BTC/USDT';
+  const steps=[
+    ['APPROVED','User approval',`Proposal ${o.proposalId||'ordp_01'} approved under ${o.policyVersion||'risk_v'+state.riskPolicyVersion}`],
+    ['RESERVED','Capacity reserved',`Reserved ${o.notional||'capacity'} on ${o.account}`],
+    ['SUBMITTING','Submitted',`Execution attempt sent to ${o.provider}`],
+    ['ACCEPTED','Broker acknowledged','Acknowledgement is explicitly not a fill'],
+    ['FILLED','Broker fill',isBtc?'0.01 BTC authoritative fill':'2 AAPL authoritative fill'],
+    ['RECONCILED','Reconciled','Broker and local projection converged']
+  ];
+  const rank={APPROVED:0,RESERVED:1,SUBMITTING:2,ACCEPTED:3,FILLED:4,RECONCILED:5,REJECTED:3,BROKER_REJECTED:3}; const upto=rank[status]??4;
+  const events=status==='BROKER_REJECTED'||status==='REJECTED'?[...steps.slice(0,3),['REJECTED','Broker rejected order','Error category SUBMISSION_REJECTED']]:steps.slice(0,upto+1);
+  const statusLabel=status==='BROKER_REJECTED'?'REJECTED':status; const cls=statusLabel==='REJECTED'?'live':['RESERVED','SUBMITTING','ACCEPTED'].includes(statusLabel)?'warn':'ok';
+  return shell(`<div class="toolbar"><div><h1>Order activity</h1><p>Immutable proposal identity · explicit reservation · broker state authoritative.</p></div><span class="status ${cls}">${statusLabel}</span></div><div class="split"><div class="card event-timeline">${events.map((r,i)=>`<div class="event"><span class="time">14:42:${String(18+i).padStart(2,'0')}</span><span class="circle"></span><div><div class="event-title">${r[0]} · ${r[1]}</div><div class="event-desc">${r[2]}</div></div></div>`).join('')}</div><div><div class="card"><span class="status ${cls}">${statusLabel}</span><h2>${o.side} ${o.quantity} ${o.instrument}</h2>${[['Proposal',o.proposalId],['Proposal hash',o.proposalHash],['Policy',o.policyVersion],['Order',o.orderType+' · '+o.price],['Account',o.account],['Broker ID',['ACCEPTED','FILLED','RECONCILED'].includes(statusLabel)?'8942…312':'Pending'],['TradeX ID','txo_01…8d']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]||'—'}</span></div>`).join('')}<div class="action-stack"><button class="btn full" onclick="showAmbiguous()">Ambiguous submission + Manual Resolution</button><button class="btn full" onclick="simulateBrokerReject()">Broker rejection</button><button class="btn full" onclick="openReservationConflict()">Reservation conflict</button>${statusLabel==='FILLED'?'<button class="btn full" onclick="requestCancelFilledDemo()">Cancel-order flow</button>':''}</div></div><div class="card"><h3>Audit chain</h3>${['User intent','Immutable Turn snapshot','OrderDraft → OrderProposal','Risk evaluation','User approval','Reservation','Pre-execution revalidation','Execution attempt','Broker state'].map(v=>`<div class="bullet">${v}</div>`).join('')}</div></div></div>`);
+};
+
+defaultAaplOrder = function(){return {provider:'Trading 212',account:'Trading 212 Live',instrument:'AAPL',side:'BUY',quantity:'2',orderType:'LIMIT',price:'$221.50',notional:'$443.00',quote:'$221.42',quoteAge:'420 ms'}};
+btcOrder = function(){return {provider:'Binance',account:'Binance Live',instrument:'BTC/USDT',side:'BUY',quantity:'0.01 BTC',orderType:'MARKET',price:'Expected €620 · max €630',notional:'€620 expected',quote:'62,418.20',quoteAge:'280 ms'}};
+
+modalShell = function(title,sub,body,actions=''){
+  const id='dialog-title';
+  return `<div class="modal-layer"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="${id}" tabindex="-1"><h2 id="${id}">${title}</h2>${sub?`<p class="muted">${sub}</p>`:''}${body}${actions?`<div class="modal-actions">${actions}</div>`:''}</div></div>`;
+};
+
+connectProviderModal = function(config=false){
+  const name=state.pendingProvider||'Trading 212 Live'; const live=name.includes('Live'); const schema=providerSchemas[name]||[{label:'Provider credential',secret:true,value:'••••••••••'}];
+  return modalShell(config?`Configure ${name}`:`Connect ${name}`,live?'Live readiness requires safe permissions. Credentials stay in the OS credential vault.':'Provider fields are rendered from its credential schema.',`<div class="schema-badge">ProviderCredentialSchemaForm · ${schema.length} fields</div>${schema.map(f=>`<div class="field"><label>${f.label}${f.secret?' · SECRET':''}</label><input ${f.secret?'type="password"':''} value="${f.value}"/></div>`).join('')}<div class="permission-grid"><div class="permission ok"><b>Required</b><span>Account / positions / orders read</span></div><div class="permission ok"><b>${live?'Required':'Environment dependent'}</b><span>Place / cancel order</span></div><div class="permission bad"><b>Forbidden</b><span>Withdrawal / transfer / custody</span></div><div class="permission warn"><b>Unsupported</b><span>Margin borrowing / leverage management</span></div></div><label class="check-row"><input type="checkbox" onchange="state.permissionIssue=this.checked"/><span>Simulate detected withdrawal permission (blocks Live readiness)</span></label>`,`${button('Cancel','closeModal()')}${button('Test connection','testConnection()','primary')}`);
+};
+
+armLiveModal = function(){
+  const account=state.pendingOrder?.account||state.armTarget||state.selectedAccount||state.account; const a=revcAccount(account);
+  return modalShell('Arm Live Trading',`This action binds only to ${account}. It does not approve any order.`,`<span class="status live">LIVE · ${account} · DISARMED</span><div class="order-summary">${[['Account',account],['Provider',a?.provider||'—'],['Risk policy',`risk_v${state.riskPolicyVersion}`],['Session timeout',`${state.risk.inactivity} min`],['Other live accounts','Remain DISARMED']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="warning-box">Every live order and cancellation still requires a separate transaction-specific approval.</div>`,`${button('Cancel','cancelPendingOrder()')}${button(`Arm ${account}`,'confirmArmLive()','danger')}`);
+};
+
+liveApprovalModal = function(base){
+  const o=base.proposalId?base:orderWithIdentity(base); state.pendingOrder=o; state.pendingApproval=state.pendingApproval||{status:'NEEDS_APPROVAL',proposalId:o.proposalId,policyVersion:o.policyVersion};
+  const r=state.reservation; return modalShell('Approve live order','Review the immutable proposal and exact market snapshot. Approval is single-use.',`<span class="status live">LIVE · ${o.account} · ${isArmed(o.account)?'ARMED':'DISARMED'}</span><div class="order-summary"><h3>${o.side} ${o.quantity} ${o.instrument}</h3><p class="muted">${o.orderType} · ${o.price} · ${o.tif}</p>${[['Proposal ID',o.proposalId],['Proposal hash',o.proposalHash],['Policy version',o.policyVersion],['Estimated value',o.notional],['Account',o.account],['Available',`€${r.available.toLocaleString()}`],['Reserved',`€${r.reserved.toLocaleString()}`],['Effective available',`€${r.effective.toLocaleString()}`]].map(x=>`<div class="kv"><span>${x[0]}</span><span>${x[1]}</span></div>`).join('')}</div>${snapshotHTML(o)}<div class="risk-box"><b class="positive">Risk checks passed</b>${[['Account reconciled','Healthy'],['Instrument tradable','Yes'],['Projected concentration','8.4% < 10%'],['Policy version',o.policyVersion],['Quote freshness',marketSnapshot(o).age+' < 3 sec']].map(x=>`<div class="risk-row"><span>${x[0]}</span><span>✓ ${x[1]}</span></div>`).join('')}</div><div class="warning-box">Approval expires in 00:42. Any material OrderDraft edit generates a new proposal and invalidates this approval.</div>`,`${button('Stale quote','invalidateApproval()')}${button('Policy change','simulatePolicyChangeInvalidation()')}${button('Reservation conflict','openReservationConflict()')}${button('Reject','cancelPendingOrder()')}<button class="btn danger" data-live-approve="true" onclick="approveLive()">Approve & Place</button>`);
+};
+
+marketApprovalModal = function(){
+  const o=state.pendingOrder?.proposalId?state.pendingOrder:orderWithIdentity(state.pendingOrder||btcOrder()); state.pendingOrder=o; state.pendingApproval=state.pendingApproval||{status:'NEEDS_APPROVAL',proposalId:o.proposalId,policyVersion:o.policyVersion};
+  return modalShell('Approve market order','Market orders require an explicit maximum authorized spend and complete provenance.',`<span class="status live">BINANCE LIVE · ${isArmed(o.account)?'ARMED':'DISARMED'}</span><div class="order-summary"><h3>BUY BTC MARKET</h3>${[['Proposal',o.proposalId],['Policy',o.policyVersion],['Expected spend','€620'],['Maximum authorized','€630'],['Best bid','62,416.80'],['Best ask','62,418.20'],['Spread','1.8 bps'],['Estimated fee','€0.62']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div>${snapshotHTML(o)}<div class="risk-box"><b class="positive">Pre-approval checks passed</b><div class="risk-row"><span>Available USDT</span><span>✓ Sufficient</span></div><div class="risk-row"><span>Max authorized spend</span><span>✓ €630 enforced by gateway</span></div><div class="risk-row"><span>Time service</span><span>✓ ${state.timeHealth}</span></div></div><div class="warning-box">The gateway rejects the transaction if required spend exceeds €630 or the snapshot/time state becomes stale.</div>`,`${button('Reject','cancelPendingOrder()')}<button class="btn danger" data-live-approve="true" onclick="approveLive()">Approve up to €630</button>`);
+};
+
+ambiguousModal = function(){
+  const o=state.currentOrder||orderWithIdentity(defaultAaplOrder());
+  return modalShell('Submission state is ambiguous','Automatic query-first reconciliation timed out. Reservation remains frozen and the account is DISARMED.',`<span class="status warn">UNKNOWN_RECONCILING</span>${[['Provider',o.provider],['Account',o.account],['Reservation','FROZEN'],['Automatic retry','BLOCKED'],['Account health','UNHEALTHY · DISARMED']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">There is no generic reservation release. Manual Resolution requires evidence.</div>`,`${button('Keep reconciling','keepReconciling()')}${button('Manual Resolution','openManualResolution()','primary')}`);
+};
+
+provenanceModal = function(){
+  return modalShell('Artifact / Turn provenance','Inspect the immutable context that produced this artifact.',`<div class="provenance">${[['Thread','US tech earnings analysis'],['Turn','Turn #4'],['Agent mode at start',state.mode],['Execution context at start',executionContext()],['Selected account',state.account],['Model',state.model],['Provider route',modelRoute()],['Provider attempts','1'],['Context hash','sha256:ctx8ad…'],['Sources','6']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="section-label">Tool calls</div>${['market.earnings','research.news_search','portfolio.exposure'].map(x=>`<div class="evidence-row">${x}</div>`).join('')}<div class="section-label">Dataset hashes</div><div class="evidence-row">market_snapshot sha256:8ad1…</div></div>`,button('Close','closeModal()'));
+};
+
+modal = function(){
+  if(!state.modal) return '';
+  if(state.modal==='accountPicker') return modalShell('Choose account',`Agent Mode: ${state.mode}. Execution Context is a separate dimension.`,`<div class="selection-list"><button class="selection-row ${state.account==='No account'?'selected':''}" onclick="chooseAccount('No account')"><div><strong>No account</strong><small>Public/read-only context</small></div><span>READ_ONLY</span></button>${accounts.map(a=>`<button class="selection-row ${state.account===a.name?'selected':''}" onclick="chooseAccount('${a.name}')"><div><strong>${a.name}</strong><small>${a.provider} · ${a.env}${state.mode!=='Trade'?' · READ-ONLY':''}</small></div><span>${a.env==='Live'?`LIVE · ${isArmed(a.name)?'ARMED':'DISARMED'}`:a.name==='Local Paper'?'LOCAL_PAPER':a.env.toUpperCase()}</span></button>`).join('')}</div>`,'');
+  if(state.modal==='modelPicker') return modalShell('Choose model','Model/provider affects reasoning only. Cross-provider automatic fallback is OFF unless explicitly enabled.',`<div class="picker-groups"><h4>CLIProxyAPI → ChatGPT <span class="status ok">${state.llm.cli.state} · ${state.llm.cli.auth}</span></h4>${state.llm.cli.models.map(m=>`<button class="selection-row ${state.model===m?'selected':''}" onclick="selectModelAndClose('${m}')"><div><strong>${m}</strong><small>/v1/models · provider path disclosed</small></div><span>${state.model===m?'✓':''}</span></button>`).join('')}<h4>CLIProxyAPI → DeepSeek <span class="status ok">${state.llm.deepseek.state}</span></h4>${state.llm.deepseek.models.map(m=>`<button class="selection-row ${state.model===m?'selected':''}" onclick="selectModelAndClose('${m}')"><div><strong>${m}</strong><small>Official API via local gateway</small></div><span>${state.model===m?'✓':''}</span></button>`).join('')}</div>`,'');
+  if(state.modal==='connectSuccess'){
+    if(state.permissionIssue) return modalShell('Connection blocked','Detected permission scope is unsafe for TradeX live execution.',`<div class="error-box"><b>PERMISSION_ERROR</b><br/>Withdrawal permission detected. Remove withdrawal/transfer/custody authority before this connection can become live-ready.</div><div class="kv"><span>Credential storage</span><span>OS keychain</span></div><div class="kv"><span>Execution eligibility</span><span>BLOCKED</span></div>`,button('Review configuration','closeModal()'));
+    return modalShell('Provider connected','Credential schema validated; only non-secret metadata/reference is persisted locally.',`<div class="risk-box"><b class="positive">Connection test passed</b><div class="risk-row"><span>Required read permissions</span><span>✓ Allowed</span></div><div class="risk-row"><span>Place/cancel where supported</span><span>✓ Allowed</span></div></div><div class="warning-box">Withdrawal/transfer/custody permissions: not detected. Live accounts remain DISARMED.</div>`,button('Done','closeModal()','primary'));
+  }
+  if(state.modal==='reservationConflict') return reservationConflictModal();
+  if(state.modal==='riskPolicyInvalid') return riskPolicyInvalidModal();
+  if(state.modal==='manualResolution') return manualResolutionModal();
+  if(state.modal==='simOrder') return simulatedOrderModal();
+  if(state.modal==='simOrderStatus') return simulatedOrderStatusModal();
+  if(state.modal==='workspaceImport') return workspaceImportModal();
+  if(state.modal==='errorRecovery') return errorRecoveryModal();
+  if(state.modal==='moreNav') return moreNavModal();
+  if(state.modal==='depeg') return depegModal();
+  return legacyUI.modal();
+};
+
+function reservationConflictModal(){ const r=state.reservation; return modalShell('Reservation conflict','A concurrent thread evaluates against effective capacity, not gross cash.',`<span class="status live">RISK_REJECTED · RESERVED_CAPACITY</span><div class="order-summary">${[['Account',r.account],['Available',`€${r.available.toLocaleString()}`],['Thread A reserved',`€${r.reserved.toLocaleString()}`],['Effective available',`€${r.effective.toLocaleString()}`],['Thread B requires','€7,000'],['Result','Rejected before approval']].map(x=>`<div class="kv"><span>${x[0]}</span><span>${x[1]}</span></div>`).join('')}</div><div class="warning-box">Thread B cannot double-spend capacity already held by Thread A.</div>`,button('Close','closeModal()')) }
+function riskPolicyInvalidModal(){ const p=state.pendingApproval; return modalShell('Approval invalidated by policy change','The proposal remains in audit history but cannot execute.',`<span class="status warn">APPROVAL INVALIDATED</span>${[['Proposal',p?.proposalId||'ordp_aapl_01'],['Approved policy',p?.previousPolicyVersion||'risk_v7'],['Current policy',`risk_v${state.riskPolicyVersion}`],['Reason','Relevant policy changed'],['Live arming','DISARMED because this fixture simulates a weakening']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">Generate/revalidate a fresh proposal and obtain a new approval.</div>`,`${button('Close','cancelPendingOrder()')}${button('Regenerate proposal','refreshProposal()','primary')}`) }
+function manualResolutionModal(){ const o=state.currentOrder||orderWithIdentity(defaultAaplOrder()); return modalShell('Manual Resolution','Choose only after checking provider/account evidence. The reservation remains frozen until a resolution is recorded.',`<div class="order-summary">${[['Order',`${o.side} ${o.quantity} ${o.instrument}`],['Account',o.account],['State','UNKNOWN_RECONCILING'],['Reservation','FROZEN'],['Live readiness','BLOCKED']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="resolution-grid"><button class="selection-row" onclick="resolveNotSubmitted()"><div><b>Confirmed not submitted</b><small>Provider evidence checked; release reservation, then revalidate account health.</small></div></button><button class="selection-row" onclick="resolveSubmitted()"><div><b>Confirmed submitted</b><small>Record broker order identity and reconcile authoritative state.</small></div></button><button class="selection-row" onclick="keepReconciling()"><div><b>Keep reconciling</b><small>Reservation stays frozen.</small></div></button></div>`,button('Close','closeModal()')) }
+function simulatedOrderModal(){ const a=revcAccount(state.simOrderAccount)||accounts[1]; const label=a.name==='Local Paper'?'LOCAL PAPER':a.env.toUpperCase(); return modalShell(`Prepare ${a.name} order`,`${label} · non-live execution context`,`<span class="status ok">${label}</span><div class="order-summary"><h3>BUY ${a.provider==='Binance'||a.provider==='Bitget'?'0.01 BTC':'3 AAPL'}</h3>${[['State','PROPOSED'],['Environment',label],['Account',a.name],['Execution truth',a.name==='Local Paper'?'TradeX simulation':'Provider-hosted non-live environment']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="warning-box">This environment is not Live and cannot be presented as live execution.</div>`,`${button('Cancel','closeModal()')}${button('Submit simulated order','placeSimulatedOrder()','primary')}`) }
+function simulatedOrderStatusModal(){ const a=revcAccount(state.simOrderAccount)||accounts[1]; const label=a.name==='Local Paper'?'LOCAL PAPER':a.env.toUpperCase(); return modalShell(`${a.name} order lifecycle`,'Normalized non-live state flow.',`<span class="status ok">${label} · ${state.simOrderState}</span>${[['PROPOSED','Normalized proposal created'],['ACCEPTED','Environment/provider acknowledged'],['FILLED','Fill/update applied'],['ACCOUNT_REFRESH','Position/equity refreshed']].map((r,i)=>`<div class="event compact-event"><span class="time">${i+1}</span><span class="circle"></span><div><div class="event-title">${r[0]}</div><div class="event-desc">${r[1]}</div></div></div>`).join('')}`,state.simOrderState==='FILLED'?button('Done','closeModal()','primary'):`${button('Close','closeModal()')}${button('Advance to fill','advanceSimulatedOrder()','primary')}`) }
+function workspaceImportModal(){ const stage=state.importStage; if(stage==='choose') return modalShell('Import / Restore Workspace','Workspace archives never contain broker secrets.',`<div class="field"><label>Archive</label><input value="tradex-workspace-2026-09-04.zip" readonly/></div><div class="kv"><span>Expected manifest</span><span>schema v1</span></div>`,`${button('Cancel','closeModal()')}${button('Validate archive','validateImport()','primary')}`); if(stage==='validated') return modalShell('Archive validated','Manifest/schema are compatible. Credential references will be re-linked, not imported.',`<div class="risk-box"><b class="positive">Validation passed</b>${[['Threads','18'],['Artifacts','42'],['Strategies','5'],['Broker secrets','0'],['Live accounts after restore','DISARMED']].map(r=>`<div class="risk-row"><span>${r[0]}</span><span>✓ ${r[1]}</span></div>`).join('')}</div>`,`${button('Cancel','closeModal()')}${button('Restore workspace','completeImport()','primary')}`); return modalShell('Workspace restored','Non-secret state restored. Accounts require credential verification + reconciliation before Live is eligible.',`<span class="status ok">RESTORED</span><div class="warning-box">All Live accounts remain DISARMED.</div>`,button('Done','closeModal()','primary')); }
+function errorRecoveryModal(){ const [title,help]=errorInfo(state.errorCategory); return modalShell(state.errorCategory,title,`<div class="error-box"><b>${state.errorCategory}</b><br/>${help}</div><div class="kv"><span>Authority behavior</span><span>${['MODEL_UNAVAILABLE','QUOTA_EXCEEDED','OAUTH_EXPIRED'].includes(state.errorCategory)?'Agent turns affected; control plane continues':'Fail closed where live correctness is uncertain'}</span></div>`,`${button('Close','closeModal()')}${['OAUTH_EXPIRED','QUOTA_EXCEEDED'].includes(state.errorCategory)?button('Switch to DeepSeek','switchToDeepSeek()','primary'):''}`) }
+function moreNavModal(){ return modalShell('More','Secondary navigation remains reachable in narrow layouts.',`<div class="selection-list"><button class="selection-row" onclick="closeModal();go('watchlists')"><b>Watchlists</b><span>›</span></button><button class="selection-row" onclick="closeModal();go('artifacts')"><b>Artifacts</b><span>›</span></button><button class="selection-row" onclick="closeModal();goSettings('providers')"><b>Settings</b><span>›</span></button><button class="selection-row" onclick="closeModal();goSettings('health')"><b>Account Health</b><span>›</span></button></div>`,'') }
+function depegModal(){ return modalShell('Stablecoin / FX quality warning','Normalized valuation cannot silently assume parity.',`<span class="status warn">QUALITY DEGRADED</span>${[['Path','USDT → USD → EUR'],['Stablecoin deviation','1.8% fixture'],['Freshness','HEALTHY'],['Portfolio analytics','DEGRADED'],['Live risk using this conversion','BLOCKED until trusted conversion restored']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}`,button('Close','closeModal()')) }
+
+equityInstrument = function(){
+  const base=legacyUI.equityInstrument();
+  // Rebuild to expose market-session/corporate-action states without relying on string surgery.
+  return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>AAPL</h1><span class="muted">Apple Inc. · NASDAQ</span></div><div class="price">221.42 <span class="positive" style="font-size:12px">+1.24%</span></div></div><div class="toolbar-actions"><button class="btn" onclick="openAddWatchlist()">+ Watchlist</button>${state.mode==='Trade'?'<button class="btn danger" onclick="requestLiveOrder(\'aaplLimit\')">Prepare Live Proposal</button>':''}</div></div><div class="market-state-grid"><div class="card"><h3>Market session</h3>${[['State',state.marketState],['Venue','NASDAQ'],['Time service',state.timeHealth],['Execution eligibility',state.marketState==='OPEN'&&state.timeHealth==='SYNCHRONIZED'?'Tradable fixture':'Blocked']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="action-strip"><button class="btn" onclick="setMarketState('CLOSED')">Simulate closed</button><button class="btn" onclick="setMarketState('HALTED')">Simulate halt</button><button class="btn" onclick="setMarketState('OPEN')">Open</button></div></div><div class="card"><h3>Corporate action</h3><div class="warning-box">${state.corporateAction}</div><p class="muted">Fixture only; production source remains an open product decision.</p></div></div><div class="chart-large">${chart('#2563eb','#dbeafe')}</div>${snapshotHTML(defaultAaplOrder())}<div class="tabs">${['overview','financials','news','filings','analysis'].map(t=>`<button class="${state.instrumentTab===t?'active':''}" onclick="instrumentTab('${t}')">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div><div class="card" style="margin-top:18px"><h3>${state.instrumentTab[0].toUpperCase()+state.instrumentTab.slice(1)}</h3><p class="muted">Instrument detail fixture content. Market state and provenance above are authoritative for this prototype review.</p></div>`);
+};
+cryptoInstrument = function(){
+  const o=btcOrder(); return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>BTC / USDT</h1><span class="muted">Crypto Spot · Binance</span></div><div class="price">62,418.20 <span class="positive" style="font-size:12px">+2.18%</span></div></div><div class="toolbar-actions"><button class="btn" onclick="state.threadId='btc-liquidity';state.threadStatus='result';go('thread')">Open research thread</button>${state.mode==='Trade'?'<button class="btn danger" onclick="requestLiveOrder(\'btcMarket\')">Prepare Market Proposal</button>':''}</div></div><div class="chart-large">${chart('#2563eb','#dbeafe')}</div>${snapshotHTML(o)}<div class="split"><div class="card"><h3>Venue market context</h3>${[['Best bid','62,416.80'],['Best ask','62,418.20'],['Spread','1.8 bps'],['24h volume','$1.8B'],['Top 10 book depth','$18.2M'],['Quote age','280 ms']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="card"><h3>Cross-venue comparison</h3>${[['Binance spread','1.8 bps'],['Bitget spread','2.6 bps'],['Binance depth','$18.2M'],['Bitget depth','$9.7M'],['My Binance balance','0.083 BTC']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">Spot only in v1.0. Futures, leverage, margin and transfer actions are unavailable.</div></div></div>`); 
+};
+
+// Window actions aligned to RevC state model.
+window.cycleMode=()=>{const modes=['Ask','Research','Backtest','Trade'];state.mode=modes[(modes.indexOf(state.mode)+1)%modes.length];if(state.mode==='Backtest')state.account='No account';render()};
+window.selectModel=m=>{state.model=m;render()};
+window.selectModelAndClose=m=>{state.model=m;state.modal=null;render()};
+window.toggleFallback=v=>{state.llm.fallbackAuto=!!v;showToast(`Automatic DeepSeek fallback ${v?'enabled (explicit opt-in)':'disabled'}`)};
+window.chooseAccount=n=>{state.account=n;state.modal=null;render()};
+window.openArmLive=(account)=>{state.armTarget=account||state.pendingOrder?.account||state.selectedAccount||state.account;if(!isLiveAccount(state.armTarget)){showToast('Select a Live account to arm');return;}state.modal='armLive';render()};
+window.confirmArmLive=()=>{const account=state.pendingOrder?.account||state.armTarget||state.selectedAccount||state.account;state.armedAccounts.add(account);state.armTarget=null;const p=state.pendingOrder;if(p){state.pendingApproval={status:'NEEDS_APPROVAL',proposalId:p.proposalId,policyVersion:p.policyVersion};state.modal=p.instrument==='BTC/USDT'?'marketApproval':'liveApproval'}else state.modal=null;render()};
+window.disarmLive=(account)=>{const a=account||state.selectedAccount||state.account;state.armedAccounts.delete(a);state.modal=null;showToast(`${a} DISARMED`);render()};
+window.disableAllLive=()=>{state.armedAccounts.clear();state.modal=null;showToast('All Live accounts DISARMED');render()};
+window.requestLiveOrder=type=>{state.mode='Trade';state.pendingOrder=orderWithIdentity(type==='btcMarket'?btcOrder():defaultAaplOrder());state.account=state.pendingOrder.account;state.pendingApproval=null;if(!isArmed(state.pendingOrder.account)){state.armTarget=state.pendingOrder.account;state.modal='armLive'}else{state.pendingApproval={status:'NEEDS_APPROVAL',proposalId:state.pendingOrder.proposalId,policyVersion:state.pendingOrder.policyVersion};state.modal=type==='btcMarket'?'marketApproval':'liveApproval'}render()};
+window.openMarketOrder=()=>window.requestLiveOrder('btcMarket');
+window.cancelPendingOrder=()=>{state.pendingOrder=null;state.pendingApproval=null;state.modal=null;render()};
+window.approveLive=()=>{const o=state.pendingOrder||orderWithIdentity(defaultAaplOrder());if(!isArmed(o.account)){state.modal='armLive';render();return;}state.pendingApproval={...(state.pendingApproval||{}),status:'APPROVED'};state.currentOrder={...o};state.pendingOrder=null;state.modal=null;state.orderState='RESERVED';state.view='orderMonitor';render();setTimeout(()=>{if(state.currentOrder&&state.orderState==='RESERVED'){state.orderState='SUBMITTING';render()}},500);setTimeout(()=>{if(state.currentOrder&&state.orderState==='SUBMITTING'){state.orderState='ACCEPTED';render()}},1100);setTimeout(()=>{if(state.currentOrder&&state.orderState==='ACCEPTED'){state.orderState='FILLED';render()}},1800)};
+window.simulateBrokerReject=()=>{state.orderState='REJECTED';render()};
+window.showAmbiguous=()=>{const a=state.currentOrder?.account||state.selectedAccount;if(isLiveAccount(a))state.armedAccounts.delete(a);state.orderState='UNKNOWN_RECONCILING';state.modal='ambiguous';render()};
+window.openManualResolution=()=>{state.modal='manualResolution';render()};
+window.keepReconciling=()=>{state.modal=null;showToast('Reconciliation continues; reservation remains frozen');render()};
+window.resolveNotSubmitted=()=>{const a=state.currentOrder?.account||state.selectedAccount;state.armedAccounts.delete(a);state.modal=null;state.orderState='RECONCILIATION_REQUIRED';showToast('Resolution recorded: not submitted; reservation released, account still DISARMED pending health revalidation');render()};
+window.resolveSubmitted=()=>{const a=state.currentOrder?.account||state.selectedAccount;state.armedAccounts.delete(a);state.modal=null;state.orderState='ACCEPTED';showToast('Broker order identity linked; reconciling authoritative state');render()};
+window.openReservationConflict=()=>{state.modal='reservationConflict';render()};
+window.simulatePolicyChangeInvalidation=()=>{const o=state.pendingOrder||orderWithIdentity(defaultAaplOrder());const prev=o.policyVersion||`risk_v${state.riskPolicyVersion}`;state.riskPolicyVersion++;state.pendingApproval={status:'INVALIDATED_POLICY_CHANGED',proposalId:o.proposalId,previousPolicyVersion:prev,policyVersion:`risk_v${state.riskPolicyVersion}`};state.armedAccounts.delete(o.account);state.modal='riskPolicyInvalid';render()};
+window.saveRiskSettings=()=>{const old={...state.risk};captureRiskInputs();const now={...state.risk};const changed=JSON.stringify(old)!==JSON.stringify(now);if(!changed){showToast('No risk-policy change');return;}const weakening=riskWeakening(old,now);const prev=`risk_v${state.riskPolicyVersion}`;state.riskPolicyVersion++;if(state.pendingApproval||state.pendingOrder){const o=state.pendingOrder||state.currentOrder||orderWithIdentity(defaultAaplOrder());state.pendingApproval={status:'INVALIDATED_POLICY_CHANGED',proposalId:o.proposalId,previousPolicyVersion:prev,policyVersion:`risk_v${state.riskPolicyVersion}`};if(weakening&&o.account)state.armedAccounts.delete(o.account);state.modal='riskPolicyInvalid';}else if(weakening){[...state.armedAccounts].forEach(a=>state.armedAccounts.delete(a));showToast(`Risk policy saved as risk_v${state.riskPolicyVersion}; weakening DISARMED affected Live accounts`);}else showToast(`Risk policy saved as risk_v${state.riskPolicyVersion}`);render()};
+window.refreshProposal=()=>{const base=state.pendingOrder||state.currentOrder||defaultAaplOrder();state.pendingOrder=orderWithIdentity({...base,proposalId:undefined,proposalHash:undefined,policyVersion:undefined});state.pendingApproval={status:'NEEDS_APPROVAL',proposalId:state.pendingOrder.proposalId,policyVersion:state.pendingOrder.policyVersion};state.modal=state.pendingOrder.instrument==='BTC/USDT'?'marketApproval':'liveApproval';render()};
+window.invalidateApproval=()=>{state.pendingApproval={...(state.pendingApproval||{}),status:'INVALIDATED_STALE'};state.modal='approvalInvalid';render()};
+window.expireApproval=()=>{state.pendingApproval={...(state.pendingApproval||{}),status:'EXPIRED'};state.modal='approvalExpired';render()};
+window.requestCancel=()=>{const a=state.selectedAccount;if(!isArmed(a)){state.pendingOrder={account:a,instrument:state.selectedInstrument,operation:'CANCEL'};state.armTarget=a;state.modal='armLive'}else state.modal='cancelApproval';render()};
+window.showRecovery=t=>{state.recoveryState=t;state.view='recovery';if(isLiveAccount(state.selectedAccount))state.armedAccounts.delete(state.selectedAccount);if(t==='clock')state.timeHealth='UNTRUSTED';render()};
+window.restoreTimeHealth=()=>{state.timeHealth='SYNCHRONIZED';state.view='settings';state.settings='health';showToast('TimeService synchronized; Live still requires explicit re-arming');render()};
+window.openSimulatedOrder=a=>{state.mode='Trade';state.account=a;state.simOrderAccount=a;state.simOrderState='PROPOSED';state.modal='simOrder';render()};
+window.placeSimulatedOrder=()=>{state.simOrderState='ACCEPTED';state.modal='simOrderStatus';render()};
+window.advanceSimulatedOrder=()=>{state.simOrderState='FILLED';render()};
+window.openPaperModal=()=>window.openSimulatedOrder('Alpaca Paper');
+window.paperSuccess=()=>{state.simOrderAccount='Alpaca Paper';state.simOrderState='FILLED';state.modal='simOrderStatus';render()};
+window.openImportWorkspace=()=>{state.importStage='choose';state.modal='workspaceImport';render()};
+window.validateImport=()=>{state.importStage='validated';render()};
+window.completeImport=()=>{state.importStage='done';state.armedAccounts.clear();render()};
+window.simulateLLMError=cat=>{state.errorCategory=cat;state.llm.error=cat;state.modal='errorRecovery';render()};
+window.switchToDeepSeek=()=>{state.model='deepseek-chat';state.llm.error=null;state.modal=null;showToast('Next turn will use CLIProxyAPI → DeepSeek; provider switch audited');render()};
+window.openMoreNav=()=>{state.modal='moreNav';render()};
+window.simulatePermissionIssue=()=>{state.errorCategory='PERMISSION_ERROR';state.modal='errorRecovery';render()};
+window.simulateDepeg=()=>{state.modal='depeg';render()};
+window.setMarketState=s=>{state.marketState=s;if(s==='CLOSED')state.errorCategory='MARKET_CLOSED';if(s==='HALTED')state.errorCategory='INSTRUMENT_HALTED';if(s==='OPEN')state.errorCategory='AUTH_ERROR';render();if(s!=='OPEN'){state.modal='errorRecovery';render()}};
+window.goSettings=v=>{state.view='settings';state.settings=v;state.modal=null;render()};
+window.newThread=()=>{state.view='thread';state.threadStatus='empty';state.threadId='us-tech-earnings';state.mode='Research';state.account='No account';state.selectedInstrument='AAPL';render()};
+window.startResearch=()=>{state.threadId='us-tech-earnings';state.threadStatus='running';state.selectedInstrument='AAPL';render();setTimeout(()=>{if(state.threadStatus==='running'){state.threadStatus='result';render()}},900)};
+window.sendPrompt=()=>{const p=document.getElementById('prompt');if(!p||!p.value.trim())return;if(state.mode==='Ask'){state.threadStatus='result';render()}else startResearch()};
+window.testConnection=()=>{state.connectedProviders.add(state.pendingProvider||'Trading 212 Live');state.modal='connectSuccess';render()};
+
+// Global keyboard/accessibility behavior for the standalone prototype.
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && state.modal){e.preventDefault();state.modal=null;render();return;}
+  if(e.key==='Enter' && e.target?.closest?.('.modal') && !e.target?.matches?.('[data-live-approve="true"]')){
+    // Do not treat generic Enter inside dialogs/forms as a financial approval.
+  }
+});
+
+render();
+
+// RevC consistency/accessibility finishing overrides
+state.policyWeakening = false;
+
+titleFor = function(){
+  const names={
+    new:'New thread',thread:'Thread',screener:'Market screener',instrument:'Instrument',
+    watchlists:'Watchlists',watchlist:'Watchlist',accounts:'Accounts',account:'Account',portfolio:'Portfolio',
+    strategies:'Strategies',backtest:'Backtest',order:'Order activity',artifacts:'Artifacts',artifact:'Artifact',
+    recovery:'Recovery',settings:'Settings'
+  };
+  if(state.view==='settings'){
+    const tabs={providers:'Providers & Models',risk:'Risk & Limits',data:'Data & Storage',health:'Account Health',appearance:'Appearance',about:'About'};
+    return tabs[state.settings]||'Settings';
+  }
+  return names[state.view]||'TradeX';
+};
+
+toast = function(){if(!state.toast)return '';return `<div class="toast" role="status" aria-live="polite">${esc(state.toast)}</div>`};
+
+riskPolicyInvalidModal = function(){
+  const p=state.pendingApproval;
+  const armEffect=state.policyWeakening?'Affected Live account DISARMED because the change weakens policy':'Arming unchanged; approval is still invalidated because policy version changed';
+  return modalShell('Approval invalidated by policy change','The proposal remains in audit history but cannot execute.',`<span class="status warn">APPROVAL INVALIDATED</span>${[['Proposal',p?.proposalId||'ordp_aapl_01'],['Approved policy',p?.previousPolicyVersion||'risk_v7'],['Current policy',`risk_v${state.riskPolicyVersion}`],['Reason','Relevant policy changed'],['Live arming',armEffect]].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">Generate/revalidate a fresh proposal and obtain a new approval.</div>`,`${button('Close','cancelPendingOrder()')}${button('Regenerate proposal','refreshProposal()','primary')}`)
+};
+
+window.saveRiskSettings=()=>{
+  const old={...state.risk};captureRiskInputs();const now={...state.risk};
+  const changed=JSON.stringify(old)!==JSON.stringify(now);if(!changed){showToast('No risk-policy change');return;}
+  const weakening=riskWeakening(old,now);state.policyWeakening=weakening;
+  const prev=`risk_v${state.riskPolicyVersion}`;state.riskPolicyVersion++;
+  if(state.pendingApproval||state.pendingOrder){
+    const o=state.pendingOrder||state.currentOrder||orderWithIdentity(defaultAaplOrder());
+    state.pendingApproval={status:'INVALIDATED_POLICY_CHANGED',proposalId:o.proposalId,previousPolicyVersion:prev,policyVersion:`risk_v${state.riskPolicyVersion}`};
+    if(weakening&&o.account)state.armedAccounts.delete(o.account);
+    state.modal='riskPolicyInvalid';
+  }else if(weakening){
+    [...state.armedAccounts].forEach(a=>state.armedAccounts.delete(a));
+    showToast(`Risk policy saved as risk_v${state.riskPolicyVersion}; weakening DISARMED affected Live accounts`);
+  }else showToast(`Risk policy saved as risk_v${state.riskPolicyVersion}`);
+  render();
+};
+
+window.simulatePolicyChange=()=>{
+  const o=state.pendingOrder||state.currentOrder||orderWithIdentity(defaultAaplOrder());
+  state.policyWeakening=true;
+  const prev=`risk_v${state.riskPolicyVersion}`;state.riskPolicyVersion++;
+  if(o.account)state.armedAccounts.delete(o.account);
+  state.pendingApproval={status:'INVALIDATED_POLICY_CHANGED',proposalId:o.proposalId,previousPolicyVersion:prev,policyVersion:`risk_v${state.riskPolicyVersion}`};
+  state.modal='riskPolicyInvalid';render();
+};
+
+window.resolveNotSubmitted=()=>{
+  state.reservation.active=false;
+  state.accountHealth='REVALIDATION_REQUIRED';
+  state.orderState='UNKNOWN_RECONCILING';
+  state.modal=null;
+  showToast('Resolution recorded: not submitted. Live execution remains blocked until account health is revalidated.');
+  render();
+};
 
 render();

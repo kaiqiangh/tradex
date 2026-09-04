@@ -1,8 +1,13 @@
-# TradeX High-Fidelity Interactive Prototype — v1.0 RevA
+# TradeX High-Fidelity Interactive Prototype — v1.0 RevC
 
-Standalone, no-build clickable prototype aligned to `TradeX_PRD_v1.0_RevB.md` and `TradeX_UI_Prototype_Spec_v1.0_RevB.md`.
+Standalone, no-build clickable prototype aligned to:
 
-This package is the QA / coverage assessment baseline referenced by the RevA/RevB documentation set (git tag: `prototype-v1.0-reva-baseline`). Known gaps against Revision B are recorded in `TradeX_Prototype_Coverage_Matrix_v1.0_RevB.md` and `TradeX_Prototype_QA_Report_v1.0_RevA.md`; this README lists target review flows, not proven-complete behavior.
+- `../docs/TradeX_PRD_v1.0_RevC.md`
+- `../docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md`
+- `../docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md`
+- `../docs/TradeX_Prototype_QA_Report_v1.0_RevC.md`
+
+This is a **product/design and engineering-handoff prototype**, not a production trading client. All market/account/order/model behavior is fixture data. It does not contact a broker, exchange, market-data service, Codex App Server, CLIProxyAPI, or LLM provider.
 
 ## Run
 
@@ -13,41 +18,73 @@ python3 -m http.server 8080
 
 Open `http://localhost:8080`.
 
-You can also open `index.html` directly in a browser, although serving it locally is recommended.
+Opening `index.html` directly also works in most browsers.
+
+## Revision C product model
+
+TradeX no longer treats Paper and Live as Agent Modes.
+
+**Agent Mode** describes the task:
+
+- Ask
+- Research
+- Backtest
+- Trade
+
+**Execution Context** describes the selected execution/account environment:
+
+- None / Read-only
+- Local Paper
+- Alpaca Paper
+- Trading 212 Demo / Live
+- Binance Testnet / Live
+- Bitget Demo / Live
+
+Selecting `Trade` never grants authority. A Live transaction additionally requires the exact Live account to be ARMED, deterministic validation, an immutable proposal, transaction-specific approval, capacity reservation, and pre-execution revalidation.
 
 ## Primary review flows
 
-1. **Complete onboarding** — Workspace → Providers → Model → Risk defaults → Ready.
-2. **Agent thread** — New Thread → Research Running → Tool failure/retry → Research Result.
-3. **Context controls** — `@ Context` → Account picker → Model picker → Mode switch.
-4. **Screener** — Markets → Screeners → natural-language FilterSpec → results.
-5. **Equity detail** — AAPL → tabs → add to Watchlist.
-6. **Crypto detail** — BTC/USDT → cross-venue context → Binance market-order preview.
-7. **Accounts** — all Paper/Demo/Testnet/Live account variants → provider-specific Account Detail.
-8. **Explicit live arming** — Prepare Live Order while DISARMED → Arm Live Trading → order approval.
-9. **AAPL live order** — Trading 212 Live → BUY 2 AAPL → approval → submitting → fills → reconciliation.
-10. **Market-order safety** — Binance Live → BTC market buy → expected/max spend → approval.
-11. **Approval invalidation** — stale quote / approval expiry → fresh proposal required.
-12. **Risk rejection** — deterministic `RISK_REJECTED`; agent cannot override.
-13. **Broker rejection / ambiguous state** — `REJECTED` (error category `SUBMISSION_REJECTED`) and `UNKNOWN_RECONCILING`.
-14. **Cancel order** — partial fill → cancel remaining → approval → `CANCEL_PENDING` → `CANCELLED`.
-15. **Strategy** — list → editable sandbox → running → result / failed → v11-v12 compare.
-16. **Artifacts** — list → detail → provenance → export.
-17. **Settings** — provider configure/test, editable risk limits, workspace export/backup.
-18. **Recovery** — sleep/resume, startup reconciliation, auth error, stream disconnect, rate limiting.
+1. **Onboarding** — Workspace → Providers → Model → Risk defaults → Ready.
+2. **LLM setup** — CLIProxyAPI/ChatGPT OAuth + DeepSeek; model discovery/health; automatic cross-provider fallback OFF by default.
+3. **Ask** — read-only lightweight analysis with no execution action.
+4. **Research** — plan/tool/result/artifact/Turn provenance.
+5. **Backtest** — deterministic result manifest plus Sharpe, Sortino, drawdown, Profit Factor and Turnover.
+6. **Trade context** — select a Paper/Demo/Testnet/Live account independently from Agent Mode.
+7. **Account-scoped Live arming** — arm one Live account; switch accounts and verify arming is not inherited; use Disable All.
+8. **Live limit approval** — immutable proposal ID/hash, risk policy version, complete market-data provenance, reservation and one-time approval.
+9. **Market-order safety** — expected notional plus maximum authorized spend.
+10. **Reservation conflict** — Available / Reserved / Effective Available and deterministic rejection.
+11. **Risk-policy invalidation** — any relevant policy change invalidates approval; a weakening additionally disarms the affected Live account.
+12. **Ambiguous submission** — `UNKNOWN_RECONCILING`, frozen reservation, account unhealthy/disarmed, evidence-based Manual Resolution.
+13. **Broker rejection / cancellation** — acknowledgement is not a fill; cancel remains approval-gated.
+14. **Non-live execution** — Local Paper, Alpaca Paper, Trading 212 Demo, Binance Testnet and Bitget Demo remain visibly non-live through lifecycle.
+15. **Markets** — full provenance, market closed/halted/corporate-action fixtures.
+16. **Portfolio** — EUR normalization with FX/stablecoin route, source, timestamp/freshness and depeg-quality fixture.
+17. **Settings** — Providers & Models / Risk & Limits / Data & Storage / Account Health / Appearance / About.
+18. **Workspace portability** — local Export / Workspace Import-Restore; no cloud Share-link feature.
+19. **Recovery** — auth, stream, rate, clock/freshness, LLM unavailable/quota/OAuth, startup/sleep reconciliation.
+20. **Accessibility baseline** — visible focus, modal ARIA, live-region toast, reduced-motion CSS, narrow navigation with More.
 
-## Safety behavior demonstrated
+## Safety invariants demonstrated
 
-- Selecting `Live` mode does **not** arm live execution.
-- Preparing a live order while DISARMED requires a separate explicit **Arm Live Trading** action.
-- Every live order and live cancellation still requires transaction-specific approval.
-- The approved AAPL / Trading 212 proposal remains the same order throughout submission and fill monitoring.
-- Risk checks run before approval and are described as running again immediately before submission.
-- Stale or expired approvals cannot be reused.
-- Ambiguous provider submission never triggers blind retry.
-- Broker/exchange state is treated as authoritative.
-- Strategy code is visually isolated from broker secrets and the Order Gateway.
+- Live arming is **account-scoped**, not a global Boolean.
+- Switching account, Agent Mode, or model/provider does not inherit or increase trading authority.
+- Every Live order/cancel requires transaction-specific approval.
+- Approved proposal identity is immutable; material edits create a new proposal.
+- Market data used for Live approval exposes source/provider timestamp/TradeX receive timestamp/venue/entitlement/freshness.
+- `APPROVED → RESERVED → SUBMITTING` is explicit.
+- Ambiguous submission never uses blind retry or blind reservation release.
+- Cross-provider LLM automatic fallback is OFF by default and requires explicit opt-in.
+- Dangerous broker permissions such as withdrawal/transfer/custody/margin/leverage are blocked/reviewed.
+- Workspace restore leaves all Live accounts DISARMED.
 
-## Prototype notes
+## Storage terminology
 
-This is a product-review and engineering-handoff prototype, not a production trading client. Market values and account data are illustrative fixture data.
+Revision C uses one consistent MVP model:
+
+- SQLite — transactional/domain state
+- DuckDB — 1-minute+ OHLCV, analytics and backtests
+- Filesystem — artifacts, exports and backups
+- Parquet — optional for large immutable datasets in Phase 2+
+
+Raw/tick/order-book data is not persistently subscribed or retained by default in the MVP.

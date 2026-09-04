@@ -1,14 +1,14 @@
 # TradeX 产品需求文档
 
-**版本:** 1.0 Final — Revision B(中文版)  
+**版本:** 1.0 Final — Revision C(中文版)  
 **日期:** 2026-09-04  
 **产品:** TradeX  
 **类别:** 本地优先的 AI 交易智能体工作区  
 **主运行时方向:** OpenAI Codex App Server / Codex Harness  
 **状态:** 架构、UI 规范、原型追溯、QA 规划与 MVP 实现的规范性基线  
-**原型评估基线:** `docs/prototype/` @ git tag `prototype-v1.0-reva-baseline` + UI 一致性修复(commit `867ec00`)
+**原型基线:** 本 Revision C 包中的 `prototype/`;Coverage Matrix 与 QA Report 均针对同一源码基线生成。
 
-> **本文件是英文权威版 `TradeX_PRD_v1.0_RevB.md` 的简体中文翻译**,内容以英文版为准;术语与状态 token 保留英文原文,见 `docs/zh/README.md` 的术语约定。
+> **本文件是英文权威版 `TradeX_PRD_v1.0_RevC.md` 的简体中文翻译**,内容以英文版为准;术语与状态 token 保留英文原文,见 `docs/zh/README.md` 的术语约定。
 
 ---
 
@@ -19,13 +19,14 @@
 | 1.0 Final | 2026-09-04 | 初始定稿(2,980 行、30 章;pre-baseline,未入 git 历史)。 |
 | 1.0 RevA | 2026-09-04 | 规范性重基线:新增 AC-039–AC-054 与 NFR/SEC/DATA/OPS/UX 需求表(§62.2–62.5);规范化订单状态机与错误分类(§45、§51);新增端到端状态断言要求(§67.5)与实施阶段/开放决策/成功标准(§70–§73);QA 与覆盖文档从"全部 Complete"改为分级证据。 |
 | 1.0 RevB | 2026-09-04 | LLM 网关架构重构:模型接入限定为两个来源——本地 CLIProxyAPI(ChatGPT 订阅 OAuth → GPT-5.6)与 DeepSeek 官方 API key——统一经由单一本地 OpenAI 兼容端点(§16、§26.3、§27、§58、§64);OD-009/OD-015 转为已决议(§72);安全增补 SEC-007/SEC-008 与 Model-credential zone(§17、§62.2);审批/预留时序加固(§15、§18、§21.3、§22、§23、§45、§46、§47);MVP 存储画像简化(§32、§54);适配器合并(§24);LLM 错误分类(§51);FR-068–FR-073 与 AC-055–AC-058(§61、§69);隐私披露(§56);JTBD/范围/成功标准更新(§8、§68、§73)。 |
+| 1.0 RevC | 2026-09-04 | 产品状态模型与原型统一:将 Agent Mode 与 Execution Context 分离(§12–§15);新增每轮不可变上下文/模型快照、OrderDraft→OrderProposal 语义、兼容矩阵、账户级布防、基于证据的对账人工处置、提供方权限安全门、时间/FX 溯源与更细粒度能力描述;跨提供方 LLM 自动回退默认关闭并改为显式 opt-in/默认手动(§16、§26.3、§51、§56);统一 DuckDB/Parquet 与市场数据分层语义(§32、§54、§63);强化 FR/AC/NFR/SEC/DATA/OPS/UX 追溯、Phase 0 门槛、成功指标与开放决策治理;同步英文/中文 PRD、UI Spec、Coverage Matrix、QA Report 与独立原型。 |
 
 ## 目录
 
 - §1–§5 总览:执行摘要 · 问题陈述 · 产品愿景 · 产品目标 · 非目标
 - §6–§8 原则与用户:产品原则 · 目标用户 · 待完成的工作
 - §9–§11 产品形态:核心用户旅程 · 产品信息架构 · Codex 风格 UX 模型
-- §12–§15 核心模型:线程/轮次/条目模型 · 工作空间模式 · 能力模型 · 实盘交易账户武装状态
+- §12–§15 核心模型:线程/轮次/条目模型 · Agent Mode 与 Execution Context · 能力模型 · 实盘交易账户武装状态
 - §16–§20 执行权威:智能体运行时架构 · 安全边界 · 金融审批模型 · 订单提案 · 审批 UI
 - §21–§24 防护栏:确定性风险引擎 · 审批前与执行前校验 · 执行保留与并发 · 券商适配器架构
 - §25–§29 券商与数据:支持的券商与交易所 · 账户连接模型 · 凭证安全 · 市场与标的模型 · 订单数量语义
@@ -235,7 +236,7 @@ TradeX v1.0 不打算提供:
 
 应用运行无需云端后端。
 
-本地优先主要指存储与应用架构层面。模型推理始终涉及远程提供商:在 RevB 的 LLM 策略下(§16),所有为推理而发送的智能体上下文仅通过唯一一个通道离开设备——本地 CLIProxyAPI 端点(127.0.0.1:8317)——并由 ChatGPT 订阅后端(GPT-5.6 系列)或 DeepSeek API 处理,具体取决于所选模型。任何其他数据类别都不会离开设备:券商凭据、keychain 条目、工作空间数据库、产物与审计日志永不离开本地存储。
+本地优先主要指存储与应用架构层面。模型推理始终涉及远程提供商:在 RevC 的 LLM 策略下(§16),所有为推理而发送的智能体上下文仅通过唯一一个通道离开设备——本地 CLIProxyAPI 端点(127.0.0.1:8317)——并由 ChatGPT 订阅后端(GPT-5.6 系列)或 DeepSeek API 处理,具体取决于所选模型。任何其他数据类别都不会离开设备:券商凭据、keychain 条目、工作空间数据库、产物与审计日志永不离开本地存储。
 
 ---
 
@@ -538,6 +539,24 @@ strategy load
 
 ---
 
+## 9.6 关键失败与恢复旅程
+
+MVP 还必须把以下非 happy-path 旅程作为一等产品流程:
+
+1. 选择实盘账户期间提供方认证过期;
+2. thread 执行期间 LLM sidecar 或模型提供方不可用;
+3. 实盘审批因到期、行情或风控策略变更失效;
+4. 第二个 thread 与已预留现金/敞口发生冲突;
+5. 实盘请求离开 TradeX 后超时,提交状态不明确;
+6. 应用重启时存在未结或未知实盘订单;
+7. 实盘撤单与部分成交发生竞态;
+8. 恢复工作区时只有账户引用而没有券商密钥;
+9. 市场数据陈旧/延迟、市场休市/停牌,或时间同步超出容差。
+
+每条旅程必须落到显式权威状态、确定性修复路径与审计事件。
+
+---
+
 # 10. 产品信息架构
 
 TradeX 刻意采用极简的主导航,使产品保持为一个智能体工作空间,而非演变成一个模块繁重的交易终端。
@@ -680,7 +699,7 @@ Threads
 - 恢复线程绝不恢复先前已被消费或已过期的实盘执行审批;
 - 用户可以在不丢失先前线程状态的情况下新建线程。
 
-## 11.5 上下文、账户、模式与模型选择器
+## 11.5 上下文、账户、Agent Mode 与模型选择器
 
 输入区控件是可交互的产品原语,而非装饰性标签。
 
@@ -746,13 +765,9 @@ TradeX v1.0 **不**提供原生的移动端实盘执行客户端。未来的移�
 
 # 12. 线程、轮次与条目模型
 
-每个用户任务映射到一个持久的智能体线程(Thread)。
+每个用户任务对应一个持久化 Agent Thread。Thread 包含一个或多个 Turn;Turn 包含类型化 Item。
 
-每个线程包含一个或多个轮次(Turn)。
-
-每个轮次包含带类型的条目(Item)。
-
-TradeX 存储:
+Thread 仅保存长期导航/默认上下文,不作为每个历史 Turn 的权威状态:
 
 ```text
 workspace_id
@@ -760,14 +775,42 @@ codex_thread_id
 title
 created_at
 updated_at
-mode
+default_agent_mode
 linked_accounts[]
 linked_instruments[]
 linked_strategies[]
 linked_artifacts[]
 ```
 
-推荐的领域条目(Item)类型:
+每个 Turn 在开始时保存**不可变快照**,从而确保回放/审计不依赖后续 picker 变化:
+
+```text
+turn_id
+agent_mode_at_start
+selected_account_id?
+execution_context_at_start
+capability_level_at_start
+model_id
+model_provider
+provider_attempts[]
+attached_context_ids[]
+attached_context_hashes[]
+started_at
+completed_at?
+```
+
+金融 Item 还引用权威决策所使用的不可变策略与市场上下文:
+
+```text
+proposal_id / proposal_hash
+policy_version
+market_snapshot_id
+reservation_id?
+approval_id?
+execution_attempt_id?
+```
+
+推荐的领域 Item 类型:
 
 ```text
 user_message
@@ -782,9 +825,11 @@ chart
 screener_result
 strategy
 backtest_result
+order_draft
 order_proposal
 risk_check
 approval_request
+reservation
 order_submitted
 order_update
 fill
@@ -794,7 +839,7 @@ error
 artifact
 ```
 
-条目生命周期:
+Item 生命周期:
 
 ```text
 started
@@ -803,30 +848,65 @@ completed
 failed
 ```
 
+恢复 Thread 可以恢复当前默认值与附加上下文,但绝不恢复已消费/过期审批、陈旧 market snapshot 或 `ARMED` 状态。
+
 ---
 
-# 13. 工作空间模式
+# 13. Agent Mode 与 Execution Context
 
-| 模式 | 用途 | 账户访问 | 执行 |
+TradeX 将**智能体正在做什么**与**执行可能发生在哪里**分成两个正交产品状态,不得编码为同一个 enum。
+
+## 13.1 Agent Mode
+
+| Agent Mode | 用途 | 执行权限 |
+|---|---|---|
+| Ask | 轻量问题 / 快速分析 | 无 |
+| Research | 深度市场 + 投资组合研究 | 无 |
+| Backtest | 策略研究 | 仅历史模拟 |
+| Trade | 准备/检查当前市场交易 | 由所选 Execution Context、风控、布防与审批共同决定 |
+
+Agent Mode 控制工具暴露与工作流密度。仅选择 `Trade` 不会授予执行权限。
+
+## 13.2 Execution Context
+
+Execution Context 由所选账户/环境与当前 Agent Mode 推导:
+
+```text
+NONE / READ_ONLY
+HISTORICAL_SIMULATION
+LOCAL_PAPER
+ALPACA_PAPER
+TRADING212_DEMO
+TRADING212_LIVE
+BINANCE_TESTNET
+BINANCE_LIVE
+BITGET_DEMO
+BITGET_LIVE
+```
+
+实盘账户可在 Ask/Research 中作为**只读上下文**附加;只有 Trade 模式且全部安全门通过后,同一账户才具备执行能力。
+
+## 13.3 兼容矩阵
+
+| Agent Mode | 无账户 | Paper/Demo/Testnet 账户 | Live 账户 |
 |---|---|---|---|
-| Ask | 轻量提问 / 快速分析 | 可选只读 | 无 |
-| Research | 市场 + 投资组合研究 | 只读 | 无 |
-| Backtest | 策略研究 | 仅历史 | 模拟历史执行 |
-| Paper | 模拟 / demo / testnet 工作流 | 模拟 / demo / testnet 账户 | 仅模拟 / demo / testnet |
-| Live | 真实账户上下文 | 所选实盘账户 | 提案 + 显式武装 + 审批 |
+| Ask | 公共/只读 | 只读上下文 | 只读上下文 |
+| Research | 公共/只读 | 只读上下文 | 只读上下文 |
+| Backtest | 历史模拟 | 可作为组合初始条件;无券商执行 | 可作为组合初始条件;无券商执行 |
+| Trade | 必须选择执行账户 | 本地/券商托管模拟执行 | proposal → risk → account arming → transaction approval → execution |
 
-模式控制可用的工具能力,而不仅是视觉外观。
+UI 必须禁用非法组合或解释原因,不得通过静默切换来改变权限。
 
-## 13.1 Ask 模式规则
+## 13.4 Ask 模式规则
 
-Ask 模式有意比 Research 模式更轻量:
+Ask 有意比 Research 更轻量:
 
-- 可使用公开市场数据以及显式附带的只读上下文;
-- 不暴露模拟或实盘执行工具;
+- 可使用公开市场数据及显式附加的只读上下文;
+- 不暴露当前市场的 paper/live 执行工具;
 - 默认不创建研究产物;
-- 当需要更深入的工作时,可由用户提升为 Research、Backtest、Paper 或 Live。
+- 用户可提升为 Research、Backtest 或 Trade。
 
-选择 `Live` 会更改可用的上下文 / 工具,但**不会**武装任何账户。
+在 Ask/Research 中选择 Live 账户,或仅选择 Trade 模式,都**不会**布防该账户。
 
 ---
 
@@ -895,55 +975,62 @@ UI 必须提供:
 
 # 16. 智能体运行时架构
 
-TradeX 使用 **Codex App Server / Codex Harness** 作为主要的智能体运行时(协议层:线程生命周期、轮次执行、条目流式、工具调用、通用审批)。
+TradeX 使用 **Codex App Server / Codex Harness** 作为主要智能体运行时(线程生命周期、turn 执行、item 流式、工具调用、通用审批)。
 
-## 16.1 模型访问策略(RevB)
+## 16.1 模型访问策略(RevC)
 
-模型推理被严格限制为恰好两个来源,经由单一的本地 OpenAI-compatible 端点路由:
+模型推理严格限制为两个来源,统一经由单一本地 OpenAI-compatible 端点:
 
 1. **CLIProxyAPI**(本地网关,固定版本):ChatGPT 订阅 OAuth(`--codex-login`)→ GPT-5.6 系列;
-2. **DeepSeek 官方 API**:`deepseek-chat` / `deepseek-reasoner`,配置为 CLIProxyAPI 的 OpenAI-compatible 上游,密钥由 OS keychain 注入。
+2. **DeepSeek 官方 API**:`deepseek-chat` / `deepseek-reasoner`,作为 CLIProxyAPI 上游,密钥由 OS keychain 注入。
 
-v1.0 不允许任何其他模型 provider(参见已决议的 OD-015,§72)。所有模型流量终止于 `127.0.0.1:8317`;禁止 TradeX 或 Codex 对外部分 LLM 端点的直接连接(SEC-007)。
-
-高层模型:
+v1.0 不允许其他模型 provider。所有模型流量终止于 `127.0.0.1:8317`;TradeX、Codex、策略代码或研究工具都不得直接连接外部 LLM 端点(SEC-007)。
 
 ```text
 TradeX Desktop (React/Tauri)
-      │
       │ JSON-RPC / JSONL over local IPC
       ▼
-Codex App Server ──── model_provider ────► CLIProxyAPI (127.0.0.1:8317)
-      │                                      ├─ ChatGPT OAuth (--codex-login) → GPT-5.6 series
-      ├── Thread lifecycle                   └─ DeepSeek upstream (api.deepseek.com) → deepseek-*
-      ├── Turn execution
-      ├── Item streaming            TradeX Control Plane
-      ├── Tool calls                (Risk Engine / Approval Authority /
-      ├── Model interaction          Execution Reservations / Order Gateway)
-      └── Generic approvals          ←— independent of the LLM chain
+Codex App Server ─── model_provider ───► CLIProxyAPI (127.0.0.1:8317)
+      │                                  ├─ ChatGPT OAuth → GPT-5.6
+      │                                  └─ DeepSeek official API → deepseek-*
+      │
+      └──────── TradeX Control Plane
+                 Risk / Approval / Reservations / Order Gateway / Reconciliation
 ```
 
-控制平面(风险、审批、预留、Order Gateway、对账)绝不依赖模型可用性:当 LLM 链宕机时,审批、执行与对账仍继续运转。
+Control Plane 绝不依赖模型可用性。
 
 ## 16.2 CLIProxyAPI Sidecar 生命周期
 
-CLIProxyAPI 作为**由 TradeX Rust 控制平面管理的用户级 sidecar** 运行:
+CLIProxyAPI 作为**由 TradeX Rust 控制平面管理的用户级 sidecar**运行:
 
-- 由控制平面启动 / 监管 / 重启(带退避);版本随应用固定,并通过 §58 的 schema-diff 流程升级;
-- 健康检查探测 `/v1/models`;探测失败将 LLM 链标记为不健康;
-- 8317 端口冲突以 `MODEL_UNAVAILABLE` 错误暴露,并附带修复指引(§51);
-- 该 sidecar 仅持有模型凭据:ChatGPT OAuth 令牌(其自身的 auth-dir)以及由 Rust 层在启动时从 OS keychain 渲染的 DeepSeek key(文件权限 0600,退出时清除)。它绝不持有券商凭据(SEC-008)。
+- 启动/监管/退避重启;
+- 固定并展示 sidecar 版本;
+- 探测 `/v1/models`,失败则标记模型链不健康;
+- 8317 端口冲突映射为 `MODEL_UNAVAILABLE`;
+- sidecar 仅持有模型凭证;券商凭证绝不进入该域(SEC-008)。
 
-## 16.3 LLM 失败模式
+## 16.3 Provider 路由、回退与失败模式
+
+跨 provider fallback 会改变接收模型输入的外部处理方,因此**跨 provider 自动 fallback 默认关闭**。
+
+默认行为:
+
+- 进行中的 turn 保持启动时的 provider/model 快照;
+- OAuth 过期或持续配额耗尽会暂停/失败当前模型 attempt 并显示修复;
+- 用户可 `Re-login`、`Retry` 或显式 `Switch to DeepSeek` 用于下一 attempt/turn;
+- provider/model 变化记录在 `provider_attempts[]` 与审计轨迹;
+- provider 切换不得改变 capability、账户布防、风控或审批要求。
+
+用户可显式开启 **Allow automatic fallback to DeepSeek**。开启后,TradeX 可对符合条件的失败 attempt 通过 DeepSeek 重试,但必须明显披露 provider 变化并记录前后两个 attempt。
 
 | 失败 | 行为 |
 |---|---|
-| Sidecar 未运行 / 端口被占用 | 失败封闭(fail closed):智能体轮次暂停,显示 `MODEL_UNAVAILABLE` + 修复 UI;交易、审批、对账不受影响 |
-| OAuth 过期(401) | 提供商标记为不可用;自动回退至 DeepSeek;显示重新登录指引 |
-| 配额耗尽(429) | CLIProxyAPI 的轮询 / 冷却处理瞬时限制;持续耗尽则回退至 DeepSeek |
-| 两个提供商均不可用 | 智能体轮次被禁用;审批、执行、对账继续 —— 绝不被 LLM 状态阻塞 |
-
-TradeX 特有的金融功能位于 Codex 核心之外。
+| Sidecar 未运行 / 端口占用 | agent turn 暂停,显示 `MODEL_UNAVAILABLE` + 修复;交易/审批/对账不受影响 |
+| ChatGPT OAuth 过期(401) | `OAUTH_EXPIRED`;重新登录或显式切 provider;仅在用户已 opt-in 时自动 fallback |
+| ChatGPT 配额耗尽(429) | `QUOTA_EXCEEDED`;冷却/重试或显式切 provider;仅在已 opt-in 时自动 fallback |
+| DeepSeek 不可用 | 相关 DeepSeek turn 暂停/失败;不会静默切回 ChatGPT |
+| 两个 provider 均不可用 | agent turn 禁用;非模型控制平面继续工作 |
 
 ---
 
@@ -985,7 +1072,7 @@ TradeX 应分离三个信任区域。
 
 ┌─────────────────────────────┐
 │ Model-credential Zone       │
-│ (RevB)                      │
+│ (RevC)                      │
 │                             │
 │ CLIProxyAPI sidecar         │
 │ ChatGPT OAuth tokens        │
@@ -1037,13 +1124,18 @@ nonce: ...
 
 ---
 
-# 19. 订单提案
+# 19. Order Draft 与不可变 Order Proposal
 
-智能体不直接下达实盘订单。
+Agent 或用户可先创建可编辑 `OrderDraft`;draft 没有审批权限。
 
-它创建一个不可变的 `OrderProposal`。
+```text
+OrderDraft (editable)
+→ Generate Proposal
+→ OrderProposal (immutable id + hash)
+→ Risk / Approval / Reservation / Execution
+```
 
-示例:
+Proposal 生成后的任何编辑都会创建**新的 proposal_id/proposal_hash**;旧 proposal 与审批保留在审计中但不可再使用。
 
 ```yaml
 proposal_id: ordp_01
@@ -1062,9 +1154,9 @@ estimated_notional:
   amount: 443.00
   currency: USD
 market_snapshot_id: ms_01
+policy_version: risk_v7
 status: NEEDS_APPROVAL
 ```
-
 
 ---
 
@@ -1216,56 +1308,36 @@ PRE_EXECUTION_CHECK
 
 ---
 
-# 23. 执行保留与并发
+# 23. 执行预留与并发
 
-并发线程不得各自独立占用同一笔可用资金或敞口。
-
-在实盘执行之前,TradeX 必须计入:
-
-```text
-Current holdings
-+
-Open orders
-+
-Approved-but-not-submitted orders
-+
-Submitted-but-unconfirmed orders
-+
-Reserved cash
-+
-Reserved position exposure
-+
-Pending cancellations
-```
-
-执行容量按账户原子化保留。
-
-示例:
+并发 thread 不得独立消耗同一份可用现金或敞口。Live 执行前必须计入持仓、未结订单、已批准未提交订单、已提交未确认订单、预留现金/敞口与待撤单。执行容量按**账户**原子预留。
 
 ```text
 Trading 212 Live cash = €10,000
-
-Thread A proposal reserves €4,000
-Risk-available cash = €6,000
-
+Thread A reserves €4,000
+Effective available = €6,000
 Thread B evaluates against €6,000, not €10,000
 ```
 
-若第二份提案超出可用风险容量,确定性风险会在交易审批前返回 `RISK_REJECTED`(或具体的保留容量原因)。
-
-保留生命周期:
+第二个提案若超出有效容量,在审批前由确定性风控返回 `RISK_REJECTED` 与 reservation-capacity 原因。
 
 ```text
 APPROVED
 → RESERVED
 → SUBMITTING
 → ACCEPTED / REJECTED / UNKNOWN_RECONCILING
-→ release/adjust reservation from authoritative broker state
+→ 仅根据权威结果释放或调整 reservation
 ```
 
-`UNKNOWN_RECONCILING` 会冻结相关保留(既不释放也不重新占用),直到对账完成。对账必须在有限时间窗口内完成(默认 5 分钟);超时后订单转入明确的用户复核,账户被标记为异常(按 §15 解除武装),并向用户提供明确的手动释放操作。审批在提交前过期或失效,将原子化释放其保留(§18、§45)。
+`UNKNOWN_RECONCILING` 会冻结 reservation。自动对账窗口(默认 5 分钟)结束后,订单仍保持 `UNKNOWN_RECONCILING`,账户变为 unhealthy / DISARMED,并进入 **Manual Resolution**——绝不提供盲目的“release reservation”按钮。
 
-必须采用账户级串行化或等价的事务并发控制,以防止超额分配。当能实质解释提案受阻原因时,用户界面应展示已保留的资金/敞口。
+Manual Resolution 必须基于证据:
+
+1. **Confirmed not submitted**——要求 provider/account 证据;可释放 reservation,但 live 恢复前仍需重新验证账户健康;
+2. **Confirmed submitted**——记录/关联 broker order identity,再按券商状态对账/调整 reservation;
+3. **Keep reconciling**——保持冻结并继续 query-first 对账。
+
+仅凭本地/用户声明不能让模糊状态账户恢复健康。UI 在有助于解释阻断时展示 `Available`、`Reserved`、`Effective Available`。
 
 ---
 
@@ -1273,7 +1345,7 @@ APPROVED
 
 不要将每个提供方都塞进一个臃肿的接口。
 
-推荐的接口(RevB:标的元数据并入市场数据适配器——元数据属于低频市场数据;ExecutionAdapter 因特权边界而保持独立):
+推荐的接口(RevC:标的元数据并入市场数据适配器——元数据属于低频市场数据;ExecutionAdapter 因特权边界而保持独立):
 
 ```ts
 interface AccountAdapter {}
@@ -1506,7 +1578,7 @@ UI 不得假设每个提供方都采用相同的 `API Key + Secret` 形态。
 - 可选 IP 允许列表状态;
 - 相关的实盘武装状态。
 
-## 26.3 LLM 提供方连接模型(RevB)
+## 26.3 LLM 提供方连接模型(RevC)
 
 LLM 提供方遵循与券商提供方相同的模式驱动连接方式(§26.1),v1.0 含两个来源(OD-015 已解决):
 
@@ -1641,28 +1713,35 @@ TradeX 不应假定每个券商同时也是完整的市场数据提供方。
 
 ---
 
-# 32. 市场数据分层
+# 32. 市场数据访问分层与 MVP 持久化
 
-| 层级 | 范围 | 持久化 |
+产品使用访问/订阅层级控制资源使用;这些层级**不是**存储引擎选择。
+
+| 层级 | 范围 | 典型行为 |
 |---|---|---|
-| Census | 广泛市场范围,粗粒度数据 | 紧凑本地表 |
-| Warm | 自选列表与候选标的 | K线 + 特征 |
-| Hot | 当前查看或主动监控的 | 内存 + 短缓冲 |
-| Cold | 历史研究/回测 | Parquet |
+| Census | 广泛市场范围、粗粒度快照 | 按需 universe 查询 |
+| Warm | watchlist/候选标的 | 周期性/粗粒度刷新;不是 tick 常驻订阅 |
+| Hot | 当前查看/主动监控 | 内存 + 短缓冲 / active stream |
+| Cold | 历史研究/回测 | 按需持久化历史数据 |
 
-默认行为:
+默认数据行为:
 
-- 原始 tick:内存或短可选缓冲;
-- 原始订单簿增量:内存;
-- 派生的微观结构特征:短持久化;
+- 原始 tick/order-book delta:内存/短可选缓冲;
 - 1 分钟及以上 OHLCV:持久化;
-- 日频/基本面数据:持久化并版本化;
-- 资金费/未平仓量:采样历史;
+- 日频/基本面:持久化并版本化;
+- funding/OI:采样历史;
 - 券商账户/订单事件:持久化审计。
 
-TradeX 默认不应以 tick 级别订阅每个支持的标的。
+TradeX 默认绝不对全部支持标的进行 tick 级订阅。
 
-MVP 存储概况(RevB 简化):v1.0 仅实现 **Hot** 层(内存 + 短缓冲)与单一 **DuckDB** 引擎中的持久化 1 分钟及以上 OHLCV(SQLite 仍作为交易状态的事务/领域存储)。Census 层推迟至筛选器覆盖范围需要时使用(第 2 阶段),Parquet 推迟至回测数据集规模证明其必要性时——DuckDB 原生读取 Parquet,故迁移成本低。
+**MVP 持久化画像(RevC):**
+
+- SQLite:事务/领域状态与金融审计;
+- DuckDB:持久化 1-minute+ OHLCV、分析表/特征、screener materialization 与 MVP backtest 输出;
+- Filesystem:artifacts、strategies、exports、backups;
+- Parquet:Phase 2+ 可选的大型不可变历史数据/交换格式;不是 v1.0 MVP 正确性的前置条件。
+
+MVP 支持 Hot active subscriptions + watchlist/universe 按需刷新。Persistent always-on Warm subscriptions 与完整 materialized Census universe 延后,直到资源测量证明有必要。
 
 ---
 
@@ -1680,7 +1759,11 @@ venue
 data quality / freshness state
 ```
 
-UI 不得将以延迟数据当作实时数据呈现。
+UI 不得将延迟数据当作实时数据呈现。
+
+### 时间同步要求
+
+TradeX 维护 `TimeService` 用于 quote age、approval TTL、reconciliation window 与审计排序。它同时记录 wall-clock 与 monotonic time,检测显著时钟跳变,在可用时估计 provider/server offset,并在超出配置容差时暴露 `CLOCK_SKEW`/stale remediation。若时间不确定性使 freshness/TTL 判断不可信,Live 审批/执行必须 fail closed。
 
 ---
 
@@ -1838,6 +1921,12 @@ UI 可以使用 EUR 作为固设数据，但产品需求不得硬编码 EUR。�
 
 ---
 
+## 38.1 FX 与 Stablecoin 估值
+
+跨账户估值绝不能假设 `USDT = USD = workspace currency`。FX/stablecoin 转换必须记录 source、pair/path、provider timestamp、TradeX received timestamp、freshness 与 depeg/quality warning。陈旧或显著脱锚的转换可降级投资组合分析,并必须阻止依赖不可靠转换的 Live 风控计算。
+
+---
+
 # 39. 回测
 
 回测保持本地化与确定性。
@@ -1959,6 +2048,9 @@ TradeX 支持两类模拟家族。
 
 ## 42.1 本地模拟
 
+`Local Paper` 是 v1.0 明确的 TradeX 自管模拟账户,与券商托管 Paper/Demo/Testnet 不同,绝不代表 provider execution truth。
+
+
 TradeX 自有的确定性模拟，用于：
 
 - 策略测试；
@@ -2059,7 +2151,11 @@ Open order
 
 TradeX 必须警告：在券商确认撤单之前，订单可能继续成交。
 
-## 43.4 Live 失败状态
+## 43.4 订单修改 / Replace 范围
+
+v1.0 不提供可绕过审批的 broker-native amend/replace 快捷方式。修改未结 Live 订单时:刷新 broker state → 审批 cancellation → 确认权威 cancellation/remaining fill → 生成新 `OrderProposal` → 获取新审批。
+
+## 43.5 Live 失败状态
 
 产品必须可见地呈现至少：
 
@@ -2389,46 +2485,19 @@ invoke privileged gateway
 
 # 54. 本地存储架构
 
-## SQLite
+## SQLite — 事务/领域状态
 
-用于:
+用于 workspace、Thread/Turn mapping、account metadata、watchlist、strategy/backtest metadata、Local Paper 状态、order draft/proposal、approval、reservation、execution/reconciliation event、portfolio snapshot、risk policy、settings 与 memory。
 
-- 工作区;
-- thread 映射;
-- 账户元数据;
-- 自选列表;
-- 策略元数据;
-- 回测元数据;
-- paper 账户状态;
-- 订单提案;
-- 审批;
-- 执行事件;
-- 投资组合快照;
-- 风控策略;
-- 应用设置;
-- 记忆。
+## DuckDB — MVP 分析与历史存储
 
-## DuckDB
+用于持久化 1-minute+ OHLCV、screener materialization、feature join、portfolio analytics、historical feature、MVP backtest datasets/results 与大型本地分析查询。
 
-用于:
+## Parquet — 可选的大数据集/交换层
 
-- 筛选器;
-- 大型本地分析查询;
-- 特征连接;
-- 投资组合分析。
-
-## Parquet
-
-用于:
-
-- OHLCV;
-- 历史特征;
-- 大型回测数据集;
-- 回测成交输出。
+Parquet **不是 v1.0 MVP 必需项**。当不可变历史/backtest 数据集足够大,需要文件分区/交换时再引入;DuckDB 必须可直接读写这些数据而不改变领域接口。
 
 ## 文件系统
-
-建议:
 
 ```text
 ~/.tradex/
@@ -2439,9 +2508,10 @@ invoke privileged gateway
   logs/
   broker-cache/
   backups/
+  exports/
 ```
 
-密钥被排除在外。
+Secrets 被排除。Workspace retention 必须将 unresolved execution/reconciliation records 与普通 artifact/cache 分开;未解决金融审计记录不得被自动删除。
 
 ---
 
@@ -2507,12 +2577,18 @@ never sent to model
 
 用户应能够检查附加到某个 agent thread 的账户/上下文对象。
 
-RevB 披露说明:`AGENT_CONTEXT` 仅通过唯一一个通道离开设备——本地 CLIProxyAPI 端点(§16.1)——并由 ChatGPT 订阅后端或 DeepSeek 处理,二者各自受其隐私政策约束。Model 选择器会呈现此来源信息,以便用户针对每项任务做出知情选择;券商凭证、keychain 项以及 `SECRET` 级数据绝不进入 LLM 链路。
+RevC 披露说明:`AGENT_CONTEXT` 仅通过唯一一个通道离开设备——本地 CLIProxyAPI 端点(§16.1)——并由 ChatGPT 订阅后端或 DeepSeek 处理,二者各自受其隐私政策约束。Model 选择器会呈现此来源信息,以便用户针对每项任务做出知情选择;券商凭证、keychain 项以及 `SECRET` 级数据绝不进入 LLM 链路。
 
 未来的隐私选项:
 
 - 屏蔽绝对账户数值;
 - 仅向模型暴露归一化百分比。
+
+---
+
+## 56.1 每个 Turn 的外部处理方披露
+
+发送前 composer 展示下一 turn 的 provider path(如 `CLIProxyAPI → ChatGPT` 或 `CLIProxyAPI → DeepSeek`)。Provider route 变化时必须记录并明显披露。仅选择模型不代表允许跨 provider 自动 fallback;自动 fallback 始终为 opt-in(§16.3)。
 
 ---
 
@@ -2564,7 +2640,7 @@ App Server 过载或队列背压应在客户端层通过重试/退避优雅处�
 
 TradeX 不应在生产版本中直接跟踪 Codex 的 `main` 分支。
 
-RevB 新增——CLIProxyAPI 网关依赖:CLIProxyAPI 版本与应用一起固定,并视为与 App Server 同等处理(兼容性测试、升级时的 schema/配置差异比对、受控升级)。Rust 控制平面监管 sidecar 生命周期(§16.2);任何改变端点或认证行为的 CLIProxyAPI 升级,在发布前必须通过兼容性测试。
+RevC 基线——CLIProxyAPI 网关依赖:CLIProxyAPI 版本与应用一起固定,并视为与 App Server 同等处理(兼容性测试、升级时的 schema/配置差异比对、受控升级)。Rust 控制平面监管 sidecar 生命周期(§16.2);任何改变端点或认证行为的 CLIProxyAPI 升级,在发布前必须通过兼容性测试。
 
 ---
 
@@ -2736,7 +2812,7 @@ graph TD
 | FR-053 | 实现完整的自然语言筛选器构建流程 | P1 |
 | FR-054 | 实现回测运行中/失败/对比状态 | P1 |
 | FR-055 | 实现产物溯源展示 | P1 |
-| FR-056 | 实现无执行能力的 Ask 模式 | P1 |
+| FR-056 | 实现无执行能力的 Ask 模式 | P0 |
 | FR-057 | 实现完整的实时审批市场快照溯源 | P0 |
 | FR-058 | 实现风控策略变更导致审批失效的生命周期 | P0 |
 | FR-059 | 实现预留冲突 UI/推理展示 | P0 |
@@ -2750,10 +2826,17 @@ graph TD
 | FR-067 | 实现由提供方 schema 驱动的凭证/配置表单 | P1 |
 | FR-068 | 实现 LLM 提供方连接工作流(CLIProxyAPI OAuth / DeepSeek 密钥),基于 §26.3 的 schema 驱动 | P0 |
 | FR-069 | 实现 CLIProxyAPI sidecar 生命周期:启动/监管/健康检查(`/v1/models` 探测)/退避重启/端口冲突处理 | P0 |
-| FR-070 | 实现订阅配额展示与耗尽处理(每周 5 小时上限;进行中 turn 的行为;手动切换至 DeepSeek) | P0 |
+| FR-070 | 实现订阅配额展示与耗尽处理(provider 可报告的窗口;进行中 attempt 行为;显式切换/重试) | P0 |
 | FR-071 | 实现 LLM 错误类别与恢复状态(`MODEL_UNAVAILABLE` / `QUOTA_EXCEEDED` / `OAUTH_EXPIRED`)及修复 UI | P0 |
 | FR-072 | 记录每个 turn 的模型/提供方来源,并将模型切换/降级写入审计轨迹 | P0 |
-| FR-073 | 实现模型回退/路由策略(LLM 不可用绝不阻塞审批/执行/对账;降级绝不改变能力等级) | P1 |
+| FR-073 | 实现模型路由/fallback:跨 provider 自动 fallback 默认关闭、显式 opt-in、完整审计/披露且不改变 capability | P0 |
+| FR-074 | 将 Agent Mode 与 Execution Context 分离并强制执行兼容矩阵 | P0 |
+| FR-075 | 持久化不可变的每 turn mode/account/execution/model/provider/context 快照 | P0 |
+| FR-076 | 为 `UNKNOWN_RECONCILING` 实现基于证据的 Manual Resolution;禁止盲目释放 reservation | P0 |
+| FR-077 | 实现 TimeService 的 clock-skew/freshness/TTL Live 安全门 | P0 |
+| FR-078 | Live readiness 前阻断/审查危险 provider 权限(withdrawal/transfer/custody/margin/leverage) | P0 |
+| FR-079 | 实现 FX/stablecoin 估值溯源与 depeg/quality 处理 | P1 |
+| FR-080 | 实现可编辑 OrderDraft → 不可变 OrderProposal 的重新生成语义 | P0 |
 
 需求重叠说明(用于可追溯性,ID 保持稳定):
 
@@ -2785,6 +2868,10 @@ graph TD
 | NFR-015 | 核心桌面 UI 可通过键盘访问且具可见焦点;`Enter` 绝不隐式批准实时交易 | 100% |
 | NFR-016 | 窄窗口布局保留实时安全信息;v1.0 不提供原生移动端实时执行客户端 | 100% |
 
+| NFR-017 | 每个 agent turn 的 model/provider/context provenance 完整 | 100% |
+| NFR-018 | Live freshness/TTL 校验使用可信时间语义,不可接受的 clock uncertainty 必须 fail closed | 100% |
+| NFR-019 | 模糊提交不能仅靠本地 release 就恢复 healthy/live-ready;必须基于权威/证据完成 resolution | 100% |
+
 ## 62.2 安全需求
 
 | ID | Requirement |
@@ -2797,6 +2884,7 @@ graph TD
 | SEC-006 | 实时审批与账户/操作/提案绑定,短期有效且一次性使用。 |
 | SEC-007 | 所有模型推理流量仅有唯一出口:本地 CLIProxyAPI 端点(127.0.0.1:8317)。TradeX、Codex 与策略沙箱不得直接连接任何外部 LLM 端点。 |
 | SEC-008 | CLIProxyAPI sidecar 仅持有模型凭证(ChatGPT OAuth、渲染出的 DeepSeek 密钥);它绝不得持有或接收券商凭证、keychain 券商项或 Order Gateway 能力。 |
+| SEC-009 | 检测到 withdrawal/transfer/custody 权限的 Live 券商连接在移除这些权限前不得 execution-ready;TradeX 不得使用不支持的 margin/leverage 权限。 |
 
 ## 62.3 数据完整性需求
 
@@ -2808,6 +2896,8 @@ graph TD
 | DATA-004 | 跨账户估值记录工作区基础货币、FX 来源、时间戳与新鲜度。 |
 | DATA-005 | 市场数据提供方元数据包含授权、保留与再分发约束。 |
 | DATA-006 | 回测持久化可复现清单,含策略/数据哈希以及调整/日历假设。 |
+| DATA-007 | 每个 Turn 持久化不可变的 Agent Mode、Execution Context、账户、model/provider 与 attached-context provenance。 |
+| DATA-008 | FX/stablecoin 归一化估值持久化 source/path/timestamps/freshness 与 quality/depeg 状态。 |
 
 ## 62.4 运维需求
 
@@ -2820,36 +2910,40 @@ graph TD
 | OPS-005 | 执行预留跨并发 thread 为原子且账户作用域隔离。 |
 | OPS-006 | 桌面构建通过可重复的发布流水线打包并代码签名。 |
 | OPS-007 | 自动更新与崩溃报告为显式产品界面;崩溃报告不含券商密钥,遥测遵循 NFR-013 的选择加入。 |
+| OPS-008 | `UNKNOWN_RECONCILING` reservation 在自动超时后继续冻结,仅能通过审计化 Manual Resolution 解决。 |
+| OPS-009 | TimeService 检测显著 wall-clock jump/skew,恢复可信时间前阻止 Live freshness/TTL 权限判断。 |
 
 ## 62.5 UX 安全需求
 
 | ID | Requirement |
 |---|---|
-| UX-001 | 选择 Live 模式绝不布防执行。 |
+| UX-001 | 选择 Trade 模式或 Live Execution Context 绝不布防执行。 |
 | UX-002 | 实时布防为显式且账户作用域隔离;布防一个券商账户不会布防另一个。 |
 | UX-003 | 实时审批展示不可变的订单标识与市场数据溯源。 |
 | UX-004 | Paper / Demo / Testnet / Live 状态除颜色外还使用显式文本。 |
 | UX-005 | 键盘交互不能隐式批准实时订单或取消。 |
 | UX-006 | 主导航为 New Thread / Threads / Markets / Watchlists / Accounts / Strategies / Artifacts / Settings。 |
 | UX-007 | 响应式行为面向窄桌面/平板级窗口;原生移动端执行不在 v1.0 范围内。 |
+| UX-008 | Agent Mode 与 Execution Context 在 UI 中明确区分;非法组合被禁用或解释。 |
+| UX-009 | 跨 provider 模型 fallback 在发生前/发生时明确披露,且默认不开启。 |
+| UX-010 | Manual Resolution 不展示不安全的通用“release reservation and continue”操作。 |
 
 ---
 
 # 63. 本地资源约束
 
-默认应用行为应避免过度占用本地资源。
-
-初始指引:
+默认行为应避免过度占用本地资源。
 
 ```text
-Hot instruments: <= 20 by default
-Warm universe: <= 500 by default
-Raw order book: memory only unless explicitly enabled
+Hot active instruments: <= 20 by default
+Watchlist/candidates: 按需或粗粒度刷新;默认无持续 tick 订阅
+Raw order book: 除非显式开启,否则仅内存
 Historical data: lazy/on-demand fetch
-Storage warnings: configurable
+DuckDB historical cache: 可配置容量/保留告警
+Parquet: 大型不可变数据集的可选层,不是 MVP 必需
 ```
 
-具体上限可在实现期间调整。
+在磁盘/内存压力可能静默影响正确性前,产品必须给出 storage/resource warning。
 
 ---
 
@@ -3022,7 +3116,7 @@ TradeX 被设计为用户主导的研究与执行工作区。
 必需示例:
 
 ```text
-Select Live mode
+Select Trade mode with a Live execution context
 ASSERT selected account remains DISARMED
 
 Request Trading 212 live order while DISARMED
@@ -3110,6 +3204,7 @@ NFR 验证必须记录实际证据,或显式声明 `NOT TESTED` / `NOT APPLICABL
 
 ### 账户
 
+- Local Paper;
 - Alpaca Paper;
 - Trading 212 Demo;
 - Trading 212 Live;
@@ -3135,7 +3230,8 @@ NFR 验证必须记录实际证据,或显式声明 `NOT TESTED` / `NOT APPLICABL
 
 ### 交易
 
-- paper/demo 交易;
+- Trade Agent Mode + 显式 Execution Context;
+- Local Paper / broker paper/demo/testnet 交易;
 - 实时提案;
 - 确定性风控;
 - 一次性审批;
@@ -3254,7 +3350,7 @@ Agent 无法直接访问特权 Order Gateway。
 模型绝不接收券商密钥。
 
 **AC-030**
-选择 Live 模式不布防实时执行。
+选择 Trade 模式或 Live Execution Context 不布防实时执行。
 
 **AC-031**
 在 DISARMED 状态下请求实时订单,需在展示交易审批前执行单独的显式 Arm 操作。
@@ -3351,78 +3447,72 @@ TradeX 绝不在模糊超时后盲目重试非幂等的提供方订单 POST。
 当 CLIProxyAPI sidecar 停止、端口冲突或未授权时,agent turn 暂停并提供修复指引,而审批、执行与对账继续运行(仅对 LLM 故障关闭)。
 
 **AC-057**
-订阅配额耗尽与 OAuth 过期呈现 `QUOTA_EXCEEDED` / `OAUTH_EXPIRED` 状态,自动回退至 DeepSeek 并提供重新登录指引;模型回退绝不改变能力等级或绕过审批。
+订阅配额耗尽与 OAuth 过期呈现 `QUOTA_EXCEEDED` / `OAUTH_EXPIRED`,并提供 retry/re-login/显式 provider switch。只有用户显式开启时才允许跨 provider 自动 fallback;fallback 必须明显披露并写入审计,且绝不改变 capability 或绕过审批。
 
 **AC-058**
-每个 turn 记录产生它的模型与提供方,模型切换或降级被写入审计轨迹(§57)。
+每个 turn 记录产生/失败该 turn 的 model/provider 与全部 provider attempt;模型切换/降级写入审计轨迹(§57)。
+
+**AC-059**
+Agent Mode 与 Execution Context 作为独立维度存储与呈现;Ask/Research + Live account 始终只读,Backtest 不能调用当前市场 broker execution,Trade + Live context 仍需 arming + approval。
+
+**AC-060**
+每个启动的 turn 持久化 Agent Mode、Execution Context、所选 account、capability、model/provider 与 attached context reference/hash 的不可变快照。
+
+**AC-061**
+模糊 Live submission 超过自动对账窗口后 reservation 继续冻结,仅暴露 §23 的 evidence-based Manual Resolution;不存在可恢复 Live readiness 的通用 release 操作。
+
+**AC-062**
+Live broker credential 检测到 withdrawal/transfer/custody 权限时阻止 execution-ready 直至移除;无法 introspect 的权限持续标记 `UNVERIFIED`。
+
+**AC-063**
+当 TimeService 报告不可接受 clock uncertainty 时,quote age、approval expiry 与 reconciliation timer 对 Live 权限判断必须 fail closed。
+
+**AC-064**
+Local Paper 明确标记为 TradeX simulation,不得与 provider-hosted Paper/Demo/Testnet 或 Live 混淆。
+
+**AC-065**
+编辑已生成订单会创建新的不可变 `OrderProposal` identity,并使旧 proposal 的 approval 失效。
+
+**AC-066**
+涉及 stablecoin/FX 的跨账户估值展示 source/path/timestamps/freshness 与 quality/depeg 状态;不可靠转换不得静默驱动 Live 风控。
 
 ---
 
 # 70. 实现阶段
 
-## Phase 0 — 框架基础
+## Phase 0 — Harness、Model Gateway 与产品状态基础
 
-- Tauri 桌面外壳;
-- 打包与代码签名流水线;
-- React UI;
-- 固定版本的 Codex App Server;
-- JSON-RPC 客户端;
-- Thread / Turn / Item 渲染;
-- SQLite;
-- OS keychain;
-- 控制平面进程边界。
+退出门槛:
 
-## Phase 1 — 研究工作区
+- Tauri shell、打包/签名、React UI、固定 Codex App Server、JSON-RPC client;
+- SQLite domain store + DuckDB analytical store;OS keychain;process boundaries;
+- CLIProxyAPI sidecar lifecycle、`/v1/models` health、ChatGPT OAuth、DeepSeek key path;
+- provider/model picker + per-turn provenance;跨 provider fallback 默认关闭;
+- Agent Mode / Execution Context 状态模型与兼容矩阵;
+- account-scoped live arming(重启全部 DISARMED);
+- provider-schema credential forms 与 permission safety gate。
 
-- 规范化标的;
-- 美股/加密市场数据;
-- 上下文面板;
-- 自选列表;
-- 投资组合读取;
-- 研究工具;
-- 产物;
-- 筛选器。
+## Phase 1 — Research Workspace
 
-## Phase 2 — 策略与 Paper 交易
+- canonical instrument;美股/crypto market data;TimeService;context panel;watchlist;portfolio reads;FX/stablecoin provenance;research tools/artifacts/screener;market session/corporate-action surfaces。
 
-- 回测引擎;
-- 策略沙箱;
-- Alpaca Paper;
-- Trading 212 Demo;
-- Binance Testnet;
-- Bitget Demo;
-- paper/demo 订单生命周期。
+## Phase 2 — Strategy 与 Simulated Trading
 
-## Phase 3 — 可信实时执行
+- backtest engine + 完整 metrics/manifest;strategy sandbox/versioning;Local Paper;Alpaca Paper;Trading 212 Demo;Binance Testnet;Bitget Demo;归一化 non-live order lifecycle。
 
-- 金融审批授权;
-- 风控引擎;
-- 执行预留;
-- Order Gateway;
-- Trading 212 Live;
-- Binance Spot Live;
-- Bitget Spot Live;
-- 对账;
-- 崩溃恢复。
+## Phase 3 — Trusted Live Execution
 
-## Phase 4 — 产品加固
+进入前必须完成 Phase 0/1 safety gates 并解决阻断型 OD。
 
-- 提供方能力测试;
-- 本地可观测性;
-- 自动更新与崩溃报告;
-- 工作区备份/导出;
-- 数据保留;
-- 公司行为;
-- 市场日历;
-- 更健壮的研究来源。
+- financial approval;deterministic risk;reservations;Order Gateway;Trading 212/Binance/Bitget Spot Live;完整 market provenance;cancellation;reconciliation;Manual Resolution;crash/sleep recovery;危险权限阻断证据。
 
-## Phase 5 — 更广泛的市场
+## Phase 4 — Product Hardening
 
-- 更多券商;
-- 更多交易所;
-- A 股研究;
-- 期货研究与模拟;
-- 未来的实时能力需经独立安全审查。
+- state-assertion/browser accessibility QA;observability;auto-update/crash reporting;workspace export/import;retention;capability contract coverage;数据许可/公司行为加固。
+
+## Phase 5 — Broader Markets
+
+- 更多 brokers/exchanges;A-share research;futures research/simulation;任何新 Live capability 都需独立安全 review。
 
 ---
 
@@ -3450,62 +3540,73 @@ TradeX 绝不在模糊超时后盲目重试非幂等的提供方订单 POST。
 
 # 72. 开放产品决策
 
-开放决策使用稳定 ID,以便追溯矩阵可引用它们而无需复制列表。
+开放决策使用稳定 ID。`未决时默认`刻意保守:被阻断的 Live capability 保持 disabled,而不是依赖隐式假设。
 
-| ID | Decision |
-|---|---|
-| OD-001 | 美股实时市场数据提供方 |
-| OD-002 | 历史股票数据提供方 |
-| OD-003 | 基本面提供方 |
-| OD-004 | 新闻与申报文件提供方 |
-| OD-005 | 交易所日历 / 公司行为来源 |
-| OD-006 | FX 来源 |
-| OD-007 | 图表库与授权模式 |
-| OD-008 | Python 回测运行时与 Rust 原生引擎的分工 |
-| OD-010 | 本地数据库加密策略 |
-| OD-011 | 默认实时风控策略值 |
-| OD-012 | 默认市价单可用性 |
-| OD-013 | 默认每账户实时布防非活跃超时 |
-| OD-014 | 受支持的桌面操作系统发布顺序 |
-| OD-016 | v1.0 的 UI 语言范围(仅英语 vs 从一开始就引入本地化框架) |
+| ID | 决策 | 阻断 | Owner | 决策时点 | 未决时默认 |
+|---|---|---|---|---|---|
+| OD-001 | 美股实时 market-data provider | Phase 3 Live | Product + Data | Phase 1 exit 前 | Live equity execution disabled;research 仅可显式 delayed |
+| OD-002 | 历史 equity-data provider | Phase 2 backtest | Data | Phase 2 前 | 相关 backtest unavailable |
+| OD-003 | fundamentals provider | Phase 1 research | Product | Phase 1 前 | 依赖功能 disabled |
+| OD-004 | news/filings provider | Phase 1 research | Product | Phase 1 前 | source-specific tools disabled |
+| OD-005 | exchange-calendar/corporate-actions source | Phase 3 safety | Data + Risk | Phase 3 前 | 相关 equity Live disabled |
+| OD-006 | FX source | portfolio/Live risk | Data + Risk | Phase 1 exit 前 | cross-currency Live risk disabled |
+| OD-007 | charting library/licensing | UI | Frontend | Phase 1 | minimal internal charting |
+| OD-008 | Python backtest runtime vs Rust-native split | Phase 2 | Eng | Phase 2 前 | 隔离 Python runtime |
+| OD-010 | local DB encryption policy | Phase 0 | Security | Phase 0 exit 前 | 依赖 OS disk protection,不宣称 DB-level encryption |
+| OD-011 | default Live risk policy | Phase 3 | Product + Risk | Phase 3 前 | 用户设置前 Live disabled |
+| OD-012 | default market-order availability | Phase 3 | Product + Risk | Phase 3 前 | disabled |
+| OD-013 | default Live arming inactivity timeout | Phase 3 | Product + Risk | Phase 3 前 | 20 minutes |
+| OD-014 | desktop OS launch order | packaging | Product + Eng | Phase 0 | macOS first |
+| OD-016 | v1.0 UI language scope | localization | Product | Phase 0 | English UI + localization-ready strings |
 
-已解决的产品方向(不再开放):
+已解决方向:
 
-- 实时布防为账户作用域;
-- `Markets` 为主导航,而 Portfolio/Orders 保持上下文相关;
-- 原生移动端实时执行不在 v1.0 范围内;
-- `REJECTED` 为规范化订单状态,`SUBMISSION_REJECTED` 为对应错误类别;
-- **OD-009(已于 RevB 解决)**:Order Gateway 是 TradeX 主进程的一个独立特权子进程,通过 OS 命名管道 / UDS 暴露最小 RPC;CLIProxyAPI 是具有独立生命周期与自身凭证域的用户级 sidecar;Codex App Server、Gateway 与 CLIProxyAPI 绝不共享凭证——Gateway 仅作用于由控制平面签名的、作用域受限的能力;
-- **OD-015(已于 RevB 解决)**:v1.0 采用受控的双源模型访问——唯一的模型出口是本地 CLIProxyAPI 端点(绑定 127.0.0.1、api-key 认证),上游仅限 ChatGPT 订阅 OAuth(GPT-5.6)与 DeepSeek 官方 API;提供方接口抽象予以保留,但不得注册其他厂商;新增上游需经发布审查,且 agent 与用户均不得在运行时附加任意 base_url。
+- Agent Mode 与 Execution Context 为独立维度;
+- Live arming 为 account-scoped;
+- `Markets` 为主导航,Portfolio/Orders 保持 context-driven;
+- v1.0 不提供 native mobile Live execution;
+- `REJECTED` 为券商拒绝的规范 order state;
+- OD-009:Order Gateway 为独立 privileged child process;CLIProxyAPI 为独立 user-level sidecar;credential domain 不混用;
+- OD-015:v1.0 模型访问仅允许 CLIProxyAPI 路由的 ChatGPT OAuth 与 DeepSeek official API;禁止 arbitrary base URL/provider;
+- 跨 provider 自动 LLM fallback 默认关闭,需用户显式 opt-in。
 
 ---
 
 # 73. 产品成功标准
 
-当目标用户能不离开 TradeX 完成以下工作流时,MVP 即告成功:
+MVP 成功意味着目标用户无需离开 TradeX 即可完成:
 
 ```text
 Ask a market question
-→ inspect evidence
-→ inspect portfolio impact
+→ inspect evidence + provider provenance
+→ inspect portfolio/FX impact
 → run or inspect a strategy
-→ paper trade
-→ prepare a live order
-→ understand exact execution risk
-→ explicitly approve
-→ observe broker state
-→ later review why the trade happened
+→ Local Paper or broker Demo/Testnet trade
+→ switch to Trade mode with a Live account
+→ explicitly arm that exact account
+→ review immutable proposal + market provenance + risk
+→ approve once
+→ observe RESERVED → broker state → reconciliation
+→ later reconstruct why the trade happened
 ```
 
-用户应当感受到 TradeX 融合了:
+可度量发布目标:
 
-- Codex 的工作流流畅性;
-- 交易系统的确定性;
-- 研究笔记的可审计性;
-- 审批门控执行网关的安全性。
+| 指标 | v1.0 目标 |
+|---|---:|
+| 未经审批的 Live submission | 0 |
+| TradeX retry 导致的 duplicate submission | 0 |
+| 包含完整 market provenance 的 Live approval | 100% |
+| 包含 model/provider/context provenance 的 agent turn | 100% |
+| restart 测试后 open Live orders reconciled | 100% |
+| 检测到危险 broker 权限仍被接受为 live-ready | 0 |
+| Critical prototype/user-flow state assertions | sign-off 前 100% |
+| Critical controls keyboard reachable + visible focus | 100% |
+| Workspace export/import 排除 broker secrets | 100% |
 
-降级预期:当 LLM 链路不可用时(sidecar 宕机、配额耗尽、OAuth 过期),用户仍可查阅历史结论与产物、批准或拒绝待处理订单、取消未结订单并对账账户——所有非模型操作仍可完整运行,且审批/执行绝不因模型可用性而被门控(§16.3)。
+体验目标:Codex 的工作流流畅性、交易系统的确定性、研究笔记本的可审计性、approval-gated authority separation。
 
-定义性的产品边界是:
+LLM 链不可用时,用户仍可查看既有 artifacts、处理已创建且仍有效的 approval、cancel/reconcile open orders、检查 account health 与使用非模型 control-plane 功能。任何 Live authority 都不依赖模型可用性。
 
-> **Agent 负责推理。可信的 TradeX 控制平面负责授权。券商负责执行真相。**
+> **Agent 负责推理。TradeX Control Plane 负责授权。Broker/Exchange 是执行事实来源。**
+

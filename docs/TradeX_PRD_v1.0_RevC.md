@@ -1,12 +1,12 @@
 # TradeX Product Requirements Document
 
-**Version:** 1.0 Final — Revision B  
+**Version:** 1.0 Final — Revision C  
 **Date:** 2026-09-04  
 **Product:** TradeX  
 **Category:** Local-first AI Trading Agent Workspace  
 **Primary Runtime Direction:** OpenAI Codex App Server / Codex Harness  
 **Status:** Normative product baseline for architecture, UI specification, prototype traceability, QA planning, and MVP implementation  
-**Prototype assessment baseline:** `docs/prototype/` @ git tag `prototype-v1.0-reva-baseline` (commit `5af4ee5`)
+**Prototype baseline:** `prototype/` shipped with this Revision C package; the Coverage Matrix and QA Report are generated against the same source baseline.
 
 ---
 
@@ -17,13 +17,14 @@
 | 1.0 Final | 2026-09-04 | Initial final PRD (2,980 lines, 30 chapters). |
 | 1.0 RevA | 2026-09-04 | Normative re-baseline: added AC-039–AC-054 and the NFR/SEC/DATA/OPS/UX requirement tables (§62.2–62.5); normalized the order state machine and error taxonomy (§45, §51); added end-to-end state-assertion requirements (§67.5) and implementation phases / open decisions / success criteria (§70–§73); QA and coverage documentation moved from "all Complete" to graded evidence. |
 | 1.0 RevB | 2026-09-04 | LLM gateway re-architecture: model access restricted to two sources — local CLIProxyAPI (ChatGPT subscription OAuth → GPT-5.6) and DeepSeek official API key — routed through a single local OpenAI-compatible endpoint (§16, §26.3, §27, §58, §64); OD-009/OD-015 resolved (§72); security additions SEC-007/SEC-008 and Model-credential zone (§17, §62.2); approval/reservation timing hardening (§15, §18, §21.3, §22, §23, §45, §46, §47); MVP storage profile simplification (§32, §54); adapter consolidation (§24); LLM error taxonomy (§51); FR-068–FR-073 and AC-055–AC-058 (§61, §69); privacy disclosure (§56); JTBD/scope/success-criteria updates (§8, §68, §73). |
+| 1.0 RevC | 2026-09-04 | Product-state consolidation and prototype alignment: separated Agent Mode from Execution Context (§12–§15); added per-turn immutable context/model snapshots, OrderDraft→OrderProposal semantics, compatibility rules, account-scoped arming, evidence-based reconciliation resolution, provider-permission safety gates, time/FX provenance, and provider capability dimensions; made cross-provider LLM fallback explicit opt-in/manual by default (§16, §26.3, §51, §56); reconciled DuckDB/Parquet and market-data-tier semantics (§32, §54, §63); strengthened FR/AC/NFR/SEC/DATA/OPS/UX traceability and Phase 0 gates; added measurable product success criteria and open-decision ownership/defaults; synchronized UI Spec, Coverage Matrix, QA Report, English/Chinese documentation, and the standalone prototype. |
 
 ## Table of Contents
 
 - §1–§5 Overview: Executive Summary · Problem Statement · Product Vision · Product Goals · Non-Goals
 - §6–§8 Principles & Users: Product Principles · Target Users · Jobs to Be Done
 - §9–§11 Product Shape: Core User Journeys · Information Architecture · Codex-style UX Model
-- §12–§15 Core Models: Thread/Turn/Item Model · Workspace Modes · Capability Model · Live Trading Account Arming
+- §12–§15 Core Models: Thread/Turn/Item Model · Agent Modes & Execution Contexts · Capability Model · Live Trading Account Arming
 - §16–§20 Execution Authority: Agent Runtime Architecture · Security Boundary · Financial Approval Model · Order Proposal · Approval UI
 - §21–§24 Guardrails: Deterministic Risk Engine · Pre-approval/Pre-execution Validation · Reservations & Concurrency · Broker Adapter Architecture
 - §25–§29 Providers & Data: Supported Brokers · Account Connection Model · Credential Security · Market/Instrument Model · Order Quantity Semantics
@@ -230,7 +231,7 @@ The following should be stored locally by default:
 
 A cloud backend is not required for the application to function.
 
-Local-first refers primarily to storage and application architecture. Model inference always involves remote providers: under the RevB LLM policy (§16), all agent context sent for inference leaves the device through exactly one channel — the local CLIProxyAPI endpoint (127.0.0.1:8317) — and is processed either by the ChatGPT subscription backend (GPT-5.6 series) or the DeepSeek API, depending on the selected model. No other data category leaves the device: broker credentials, keychain items, workspace databases, artifacts, and audit logs never leave local storage.
+Local-first refers primarily to storage and application architecture. Model inference always involves remote providers: under the RevC LLM policy (§16), all agent context sent for inference leaves the device through exactly one channel — the local CLIProxyAPI endpoint (127.0.0.1:8317) — and is processed either by the ChatGPT subscription backend (GPT-5.6 series) or the DeepSeek API, depending on the selected model. No other data category leaves the device: broker credentials, keychain items, workspace databases, artifacts, and audit logs never leave local storage.
 
 ---
 
@@ -533,6 +534,24 @@ Expected result:
 
 ---
 
+## 9.6 Critical Failure and Recovery Journeys
+
+The MVP must also make the following non-happy-path journeys first-class:
+
+1. provider authentication expires while a live account is selected;
+2. LLM sidecar or model provider becomes unavailable during a thread;
+3. a live approval expires or is invalidated by market/risk-policy change;
+4. a second thread conflicts with already-reserved cash/exposure;
+5. a live submission times out after leaving TradeX and becomes ambiguous;
+6. the app restarts with open or unknown live orders;
+7. a live cancellation races with a partial fill;
+8. a restored workspace contains account references but no broker secrets;
+9. market data is stale, delayed, closed, halted, or time synchronization is outside tolerance.
+
+Each journey must end in an explicit authoritative state, a deterministic remediation path, and an audit event.
+
+---
+
 # 10. Product Information Architecture
 
 TradeX uses a deliberately small primary navigation so the product remains an agent workspace rather than becoming a module-heavy trading terminal.
@@ -675,7 +694,7 @@ Requirements:
 - resuming a thread never restores a previously consumed or expired live execution approval;
 - users can create a new thread without losing prior thread state.
 
-## 11.5 Context, Account, Mode, and Model Pickers
+## 11.5 Context, Account, Agent Mode, and Model Pickers
 
 The composer controls are interactive product primitives, not decorative labels.
 
@@ -741,13 +760,9 @@ For live financial actions:
 
 # 12. Thread, Turn, and Item Model
 
-Each user task maps to a persistent agent Thread.
+Each user task maps to a persistent agent Thread. A Thread contains one or more Turns; a Turn contains typed Items.
 
-Each Thread contains one or more Turns.
-
-Each Turn contains typed Items.
-
-TradeX stores:
+A Thread stores long-lived navigation/default context, not the authoritative historical state of every turn:
 
 ```text
 workspace_id
@@ -755,11 +770,39 @@ codex_thread_id
 title
 created_at
 updated_at
-mode
+default_agent_mode
 linked_accounts[]
 linked_instruments[]
 linked_strategies[]
 linked_artifacts[]
+```
+
+Every Turn stores an **immutable start snapshot** so replay/audit does not depend on later picker changes:
+
+```text
+turn_id
+agent_mode_at_start
+selected_account_id?
+execution_context_at_start
+capability_level_at_start
+model_id
+model_provider
+provider_attempts[]
+attached_context_ids[]
+attached_context_hashes[]
+started_at
+completed_at?
+```
+
+Financial Items additionally reference the immutable policy and market context used for authority decisions:
+
+```text
+proposal_id / proposal_hash
+policy_version
+market_snapshot_id
+reservation_id?
+approval_id?
+execution_attempt_id?
 ```
 
 Recommended domain Item types:
@@ -777,9 +820,11 @@ chart
 screener_result
 strategy
 backtest_result
+order_draft
 order_proposal
 risk_check
 approval_request
+reservation
 order_submitted
 order_update
 fill
@@ -798,30 +843,65 @@ completed
 failed
 ```
 
+A resumed Thread may restore current defaults and attached context, but it never restores a consumed/expired approval, a stale market snapshot, or an `ARMED` state.
+
 ---
 
-# 13. Workspace Modes
+# 13. Agent Modes and Execution Contexts
 
-| Mode | Purpose | Account Access | Execution |
+TradeX separates **what the agent is doing** from **where execution could occur**. These are orthogonal product states and must not be encoded in one enum.
+
+## 13.1 Agent Modes
+
+| Agent Mode | Purpose | Execution authority |
+|---|---|---|
+| Ask | lightweight questions / quick analysis | none |
+| Research | deeper market + portfolio research | none |
+| Backtest | strategy research | historical simulation only |
+| Trade | prepare/inspect a current-market transaction | determined by selected execution context, risk, arming, and approval |
+
+Agent Mode controls tool exposure and workflow density. Selecting `Trade` by itself grants no execution authority.
+
+## 13.2 Execution Context
+
+Execution Context is derived from the selected account/environment and the current Agent Mode:
+
+```text
+NONE / READ_ONLY
+HISTORICAL_SIMULATION
+LOCAL_PAPER
+ALPACA_PAPER
+TRADING212_DEMO
+TRADING212_LIVE
+BINANCE_TESTNET
+BINANCE_LIVE
+BITGET_DEMO
+BITGET_LIVE
+```
+
+A live account can be attached to Ask/Research as **read-only context**. The same account becomes execution-capable only in Trade mode and only after all safety gates pass.
+
+## 13.3 Compatibility Rules
+
+| Agent Mode | No account | Paper/Demo/Testnet account | Live account |
 |---|---|---|---|
-| Ask | lightweight questions / quick analysis | optional read-only | none |
-| Research | market + portfolio research | read-only | none |
-| Backtest | strategy research | historical only | simulated historical execution |
-| Paper | paper/demo/testnet workflow | paper/demo/testnet account | paper/demo/testnet only |
-| Live | real account context | selected live account | proposal + explicit arming + approval |
+| Ask | public/read-only | read-only context | read-only context |
+| Research | public/read-only | read-only context | read-only context |
+| Backtest | historical simulation | optional portfolio seed only; no broker execution | optional portfolio seed only; no broker execution |
+| Trade | must select an execution account | simulated/provider-hosted execution | proposal → risk → account arming → transaction approval → execution |
 
-Mode controls available tool capabilities, not only visual appearance.
+The UI must disable or explain illegal combinations rather than silently changing authority.
 
-## 13.1 Ask mode rules
+## 13.4 Ask Mode Rules
 
 Ask mode is intentionally lighter than Research mode:
 
 - may use public market data and explicitly attached read-only context;
-- does not expose paper or live execution tools;
+- does not expose current-market paper/live execution tools;
 - does not create a research artifact by default;
-- may be promoted by the user to Research, Backtest, Paper, or Live when deeper work is required.
+- may be promoted by the user to Research, Backtest, or Trade when deeper work is required.
 
-Selecting `Live` changes available context/tools but does **not** arm any account.
+Selecting a live account in Ask/Research, or selecting Trade mode, does **not** arm that account.
 
 ---
 
@@ -892,53 +972,60 @@ The UI must provide:
 
 TradeX uses **Codex App Server / Codex Harness** as the primary agent runtime (protocol layer: thread lifecycle, turn execution, item streaming, tool calls, generic approvals).
 
-## 16.1 Model Access Policy (RevB)
+## 16.1 Model Access Policy (RevC)
 
-Model inference is restricted to exactly two sources, routed through a single local OpenAI-compatible endpoint:
+Model inference is restricted to exactly two sources, routed through one local OpenAI-compatible endpoint:
 
 1. **CLIProxyAPI** (local gateway, pinned version): ChatGPT subscription OAuth (`--codex-login`) → GPT-5.6 series;
-2. **DeepSeek official API**: `deepseek-chat` / `deepseek-reasoner`, configured as a CLIProxyAPI OpenAI-compatible upstream with the key injected from the OS keychain.
+2. **DeepSeek official API**: `deepseek-chat` / `deepseek-reasoner`, configured as a CLIProxyAPI upstream with the key injected from the OS keychain.
 
-No other model provider is permitted in v1.0 (see resolved OD-015, §72). All model traffic terminates at `127.0.0.1:8317`; direct connections from TradeX or Codex to external LLM endpoints are prohibited (SEC-007).
-
-High-level model:
+No other model provider is permitted in v1.0. All model traffic terminates at `127.0.0.1:8317`; direct external LLM connections from TradeX, Codex, strategy code, or research tools are prohibited (SEC-007).
 
 ```text
 TradeX Desktop (React/Tauri)
-      │
       │ JSON-RPC / JSONL over local IPC
       ▼
-Codex App Server ──── model_provider ────► CLIProxyAPI (127.0.0.1:8317)
-      │                                      ├─ ChatGPT OAuth (--codex-login) → GPT-5.6 series
-      ├── Thread lifecycle                   └─ DeepSeek upstream (api.deepseek.com) → deepseek-*
-      ├── Turn execution
-      ├── Item streaming            TradeX Control Plane
-      ├── Tool calls                (Risk Engine / Approval Authority /
-      ├── Model interaction          Execution Reservations / Order Gateway)
-      └── Generic approvals          ←— independent of the LLM chain
+Codex App Server ─── model_provider ───► CLIProxyAPI (127.0.0.1:8317)
+      │                                  ├─ ChatGPT OAuth → GPT-5.6
+      │                                  └─ DeepSeek official API → deepseek-*
+      │
+      └──────── TradeX Control Plane
+                 Risk / Approval / Reservations / Order Gateway / Reconciliation
 ```
 
-The Control Plane (risk, approval, reservations, Order Gateway, reconciliation) never depends on model availability: approvals, execution, and reconciliation continue to function when the LLM chain is down.
+The Control Plane never depends on model availability.
 
 ## 16.2 CLIProxyAPI Sidecar Lifecycle
 
 CLIProxyAPI runs as a **user-level sidecar managed by the TradeX Rust control plane**:
 
-- started/supervised/restarted (with backoff) by the control plane; version pinned with the application and upgraded through the §58 schema-diff process;
-- health check probes `/v1/models`; a failed probe marks the LLM chain unhealthy;
-- port conflict on 8317 is surfaced as a `MODEL_UNAVAILABLE` error with remediation guidance (§51);
-- the sidecar holds only model credentials: ChatGPT OAuth tokens (its own auth-dir) and the DeepSeek key rendered at startup by the Rust layer from the OS keychain (file mode 0600, cleared on exit). It never holds broker credentials (SEC-008).
+- start/supervise/restart with backoff;
+- pin and surface the sidecar version;
+- probe `/v1/models`; failed probe marks the model chain unhealthy;
+- port conflict on 8317 maps to `MODEL_UNAVAILABLE`;
+- keep model credentials in the sidecar credential domain only; broker credentials never cross into it (SEC-008).
 
-## 16.3 LLM Failure Modes
+## 16.3 Provider Routing, Fallback, and Failure Modes
+
+Cross-provider fallback changes the external processor that receives model input, so **automatic cross-provider fallback is OFF by default**.
+
+Default behavior:
+
+- an in-flight turn keeps the provider/model snapshot it started with;
+- OAuth expiry or sustained quota exhaustion pauses/fails the affected model attempt and surfaces remediation;
+- the user may `Re-login`, `Retry`, or explicitly `Switch to DeepSeek` for the next attempt/turn;
+- provider/model changes are recorded in `provider_attempts[]` and the audit trail;
+- no provider switch may change capability level, account arming, risk limits, or approval requirements.
+
+An optional setting, **Allow automatic fallback to DeepSeek**, may be enabled explicitly by the user. When enabled, TradeX may retry an eligible failed model attempt through DeepSeek, but must visibly disclose the provider change and record both attempts.
 
 | Failure | Behavior |
 |---|---|
-| Sidecar not running / port occupied | Fail closed: agent turns pause with `MODEL_UNAVAILABLE` + remediation UI; trading, approvals, reconciliation unaffected |
-| OAuth expired (401) | Provider marked unavailable; automatic fallback to DeepSeek; re-login guidance shown |
-| Quota exhausted (429) | CLIProxyAPI round-robin/cooldown handles transient limits; sustained exhaustion falls back to DeepSeek |
-| Both providers unavailable | Agent turns disabled; approvals, execution, reconciliation continue — never blocked by LLM state |
-
-TradeX-specific financial functions remain outside Codex core.
+| Sidecar not running / port occupied | agent turns pause with `MODEL_UNAVAILABLE` + remediation; trading/approval/reconciliation unaffected |
+| ChatGPT OAuth expired (401) | `OAUTH_EXPIRED`; re-login or explicit provider switch; optional auto fallback only if user enabled it |
+| ChatGPT quota exhausted (429) | `QUOTA_EXCEEDED`; cooldown/retry or explicit provider switch; optional auto fallback only if enabled |
+| DeepSeek unavailable | affected DeepSeek turns pause/fail; no silent switch back to ChatGPT unless explicitly configured |
+| Both providers unavailable | agent turns disabled; non-model trading control-plane operations continue |
 
 ---
 
@@ -980,7 +1067,7 @@ TradeX should separate three trust zones.
 
 ┌─────────────────────────────┐
 │ Model-credential Zone       │
-│ (RevB)                      │
+│ (RevC)                      │
 │                             │
 │ CLIProxyAPI sidecar         │
 │ ChatGPT OAuth tokens        │
@@ -1032,13 +1119,20 @@ Each approval additionally carries the `policy_version` in effect at approval ti
 
 ---
 
-# 19. Order Proposal
+# 19. Order Draft and Immutable Order Proposal
 
-The agent does not directly place a live order.
+The agent or user may first create an editable `OrderDraft`. A draft has no approval authority.
 
-It creates an immutable `OrderProposal`.
+```text
+OrderDraft (editable)
+→ Generate Proposal
+→ OrderProposal (immutable id + hash)
+→ Risk / Approval / Reservation / Execution
+```
 
-Example:
+Any edit after proposal generation creates a **new proposal_id/proposal_hash**. The prior proposal and any approval remain in audit history but become unusable.
+
+Example immutable proposal:
 
 ```yaml
 proposal_id: ordp_01
@@ -1057,6 +1151,7 @@ estimated_notional:
   amount: 443.00
   currency: USD
 market_snapshot_id: ms_01
+policy_version: risk_v7
 status: NEEDS_APPROVAL
 ```
 
@@ -1214,38 +1309,16 @@ If a material condition changed — including a `policy_version` mismatch (§18)
 
 Concurrent threads must not independently consume the same available cash or exposure.
 
-Before live execution, TradeX must account for:
-
-```text
-Current holdings
-+
-Open orders
-+
-Approved-but-not-submitted orders
-+
-Submitted-but-unconfirmed orders
-+
-Reserved cash
-+
-Reserved position exposure
-+
-Pending cancellations
-```
-
-Execution capacity is reserved atomically **per account**.
-
-Example:
+Before live execution, TradeX accounts for current holdings, open orders, approved-but-not-submitted orders, submitted-but-unconfirmed orders, reserved cash/exposure, and pending cancellations. Execution capacity is reserved atomically **per account**.
 
 ```text
 Trading 212 Live cash = €10,000
-
-Thread A proposal reserves €4,000
-Risk-available cash = €6,000
-
+Thread A reserves €4,000
+Effective available = €6,000
 Thread B evaluates against €6,000, not €10,000
 ```
 
-If a second proposal would exceed available risk capacity, deterministic risk returns `RISK_REJECTED` (or a specific reservation-capacity reason) before transaction approval.
+If the second proposal exceeds effective capacity, deterministic risk returns `RISK_REJECTED` with a reservation-capacity reason before approval.
 
 Reservation lifecycle:
 
@@ -1254,12 +1327,20 @@ APPROVED
 → RESERVED
 → SUBMITTING
 → ACCEPTED / REJECTED / UNKNOWN_RECONCILING
-→ release/adjust reservation from authoritative broker state
+→ release or adjust only from authoritative resolution
 ```
 
-`UNKNOWN_RECONCILING` freezes the associated reservation (it is neither released nor re-consumed) until reconciliation settles. Reconciliation must complete within a bounded window (default 5 minutes); on timeout the order transitions to explicit user review, the account is marked unhealthy (disarming it per §15), and the user is offered an explicit manual release action. Expiration or invalidation of an approval before submission releases its reservation atomically (§18, §45).
+`UNKNOWN_RECONCILING` freezes the reservation. After the bounded automatic reconciliation window (default 5 minutes), the order remains `UNKNOWN_RECONCILING`, the account becomes unhealthy/disarmed, and TradeX opens **Manual Resolution** — never a blind “release reservation” button.
 
-Account-scoped serialization or equivalent transactional concurrency control must prevent over-allocation. The user interface should expose reserved cash/exposure when it materially explains why a proposal is blocked.
+Manual Resolution options are evidence-based:
+
+1. **Confirmed not submitted** — requires provider/account evidence; reservation may be released, but account health must still be revalidated before live execution resumes;
+2. **Confirmed submitted** — record/link the broker order identity and reconcile/adjust the reservation from broker state;
+3. **Keep reconciling** — leave reservation frozen and continue query-first reconciliation.
+
+A mere local/user assertion cannot make an ambiguous account healthy. Expiration/invalidation before submission releases the reservation atomically.
+
+The UI exposes `Available`, `Reserved`, and `Effective Available` where they explain a block.
 
 ---
 
@@ -1267,7 +1348,7 @@ Account-scoped serialization or equivalent transactional concurrency control mus
 
 Do not force every provider into one oversized interface.
 
-Recommended interfaces (RevB: instrument metadata is folded into the market-data adapter — metadata is low-frequency market data; the ExecutionAdapter stays separate because of the privileged boundary):
+Recommended interfaces (RevC: instrument metadata is folded into the market-data adapter — metadata is low-frequency market data; the ExecutionAdapter stays separate because of the privileged boundary):
 
 ```ts
 interface AccountAdapter {}
@@ -1458,7 +1539,7 @@ The provider adapter supplies a credential/capability schema so the UI can suppo
 - environment selector;
 - other provider-required non-secret metadata.
 
-The UI must not assume every provider uses the same `API Key + Secret` shape.
+The UI must not assume every provider uses the same `API Key + Secret` shape. Provider schemas also declare field sensitivity, validation, environment applicability, help text, and whether a permission is required/optional/forbidden.
 
 The connection UX must explicitly show that TradeX does not require or implement:
 
@@ -1469,6 +1550,13 @@ The connection UX must explicitly show that TradeX does not require or implement
 - leverage management.
 
 For providers supporting IP allow-listing, the UX should recommend it.
+
+Permission safety gate:
+
+- detected withdrawal/transfer/custody permissions are **forbidden** for a TradeX live connection and block execution readiness until removed;
+- margin/leverage-management permissions are out of scope and surface a blocking or unsupported-capability warning;
+- where a provider cannot expose permission introspection, TradeX labels permission scope `UNVERIFIED`, requires explicit user acknowledgement, and keeps the limitation visible in Account Health;
+- connection tests persist only non-secret capability/permission metadata plus keychain references.
 
 ## 26.2 Provider-specific Account Detail
 
@@ -1500,7 +1588,7 @@ Each account view should show where available:
 - optional IP allow-list status;
 - live arming state where relevant.
 
-## 26.3 LLM Provider Connection Model (RevB)
+## 26.3 LLM Provider Connection Model (RevC)
 
 LLM providers follow the same schema-driven connection pattern as broker providers (§26.1), with two v1.0 sources (OD-015 resolved):
 
@@ -1509,7 +1597,7 @@ LLM providers follow the same schema-driven connection pattern as broker provide
 | CLIProxyAPI (local gateway) | none held by TradeX — ChatGPT OAuth lives in the sidecar auth-dir | sidecar install/launch → `--codex-login` browser authorization → probe `/v1/models` → model list discovery | sidecar running + probe OK |
 | DeepSeek official API | API key in OS keychain (injected into sidecar config by the Rust layer, §27) | key entry → keychain storage → probe + test inference | probe OK + key valid |
 
-Connection UI shows: sidecar state (Running / Stopped / Port conflict / Unauthorized), per-provider model availability, and version (pinned). LLM providers never appear in the broker account picker and never grant trading capabilities. Onboarding gate: onboarding cannot reach Ready without at least one usable LLM provider (AC-055).
+Connection UI shows: sidecar state (Running / Stopped / Port conflict / Unauthorized), per-provider model availability, pinned version, current provider/model, and fallback policy. LLM providers never appear in the broker account picker and never grant trading capabilities. Onboarding cannot reach Ready without at least one usable LLM provider (AC-055). Cross-provider automatic fallback is an explicit opt-in and is OFF by default (§16.3).
 
 # 27. Credential Security
 
@@ -1635,28 +1723,35 @@ TradeX should not assume each broker is also a complete market-data provider.
 
 ---
 
-# 32. Market Data Tiers
+# 32. Market Data Access Tiers and MVP Persistence
 
-| Tier | Scope | Persistence |
+The product uses access/subscription tiers to control resource use. These are **not** storage-engine choices.
+
+| Tier | Scope | Typical behavior |
 |---|---|---|
-| Census | broad market universe, coarse data | compact local tables |
-| Warm | watchlists and candidates | bars + features |
-| Hot | currently viewed or actively monitored | memory + short buffer |
-| Cold | historical research/backtest | Parquet |
+| Census | broad universe, coarse snapshots | on-demand/universe queries |
+| Warm | watchlists/candidates | periodic/coarse refresh; not tick subscriptions |
+| Hot | currently viewed/actively monitored | memory + short buffer / active stream |
+| Cold | historical research/backtest | on-demand persisted historical data |
 
-Default behavior:
+Default data behavior:
 
-- raw ticks: memory or short optional buffer;
-- raw order-book deltas: memory;
-- derived microstructure features: short persistence;
+- raw ticks/order-book deltas: memory/short optional buffer;
 - 1-minute and higher OHLCV: persistent;
 - daily/fundamental data: persistent and versioned;
 - funding/OI: sampled history;
 - broker account/order events: persistent audit.
 
-TradeX should not subscribe to every supported instrument at tick-level by default.
+TradeX never subscribes to every supported instrument at tick-level by default.
 
-MVP storage profile (RevB simplification): v1.0 implements only the **Hot** tier (memory + short buffer) and persistent 1-minute+ OHLCV in a single **DuckDB** engine (SQLite remains transactional/domain storage for trading state). The Census tier is deferred until the screener universe requires it (Phase 2), and Parquet is deferred until backtest dataset size justifies it — DuckDB reads Parquet natively, so migration cost is low.
+**MVP persistence profile (RevC):**
+
+- SQLite: transactional/domain state and financial audit;
+- DuckDB: persistent 1-minute+ OHLCV, analytical tables/features, screener materializations, and MVP backtest outputs;
+- Filesystem: artifacts, strategies, exports, backups;
+- Parquet: optional/Phase 2+ for large immutable historical datasets and interchange; not required for v1.0 MVP correctness.
+
+MVP runtime supports Hot active subscriptions plus on-demand watchlist/universe refresh. Persistent always-on Warm subscriptions and a fully materialized Census universe are deferred until justified by resource measurements.
 
 ---
 
@@ -1675,6 +1770,10 @@ data quality / freshness state
 ```
 
 The UI must not present delayed data as realtime.
+
+### Time synchronization requirements
+
+TradeX maintains a `TimeService` for quote age, approval TTLs, reconciliation windows, and audit ordering. It records wall-clock and monotonic time, detects material clock jumps, estimates provider/server offset where available, and exposes `CLOCK_SKEW`/stale-state remediation when configured tolerance is exceeded. Live approval/execution is blocked when time uncertainty makes freshness/TTL checks unreliable.
 
 ---
 
@@ -1831,6 +1930,12 @@ The UI may use EUR as fixture data, but product requirements must not hard-code 
 
 ---
 
+## 38.1 FX and Stablecoin Valuation
+
+Cross-account valuation must never assume `USDT = USD = workspace currency`. FX/stablecoin conversions record source, pair/path, provider timestamp, TradeX received timestamp, freshness, and any depeg/quality warning. A stale or materially dislocated stablecoin conversion may degrade portfolio analytics and must block live risk calculations that depend on an unreliable conversion.
+
+---
+
 # 39. Backtesting
 
 Backtesting remains local and deterministic.
@@ -1954,6 +2059,9 @@ TradeX supports two simulation families.
 
 ## 42.1 Local Simulation
 
+`Local Paper` is an explicit v1.0 TradeX-managed simulation account. It is distinct from broker-hosted Paper/Demo/Testnet connections and never represents provider execution truth.
+
+
 TradeX-owned deterministic simulation for:
 
 - strategy testing;
@@ -2055,7 +2163,11 @@ Open order
 
 TradeX must warn that an order may continue to fill until the broker confirms cancellation.
 
-## 43.4 Live Failure States
+## 43.4 Order Amendment / Replace Scope
+
+v1.0 does not expose broker-native amend/replace as a shortcut around approval. To change a live open order: refresh broker state → approve cancellation → confirm authoritative cancellation/remaining fill state → generate a new `OrderProposal` → obtain a new approval.
+
+## 43.5 Live Failure States
 
 The product must visibly represent at least:
 
@@ -2202,7 +2314,7 @@ resolve or require user review
 
 TradeX must not silently infer fill, rejection, or cancellation.
 
-Reconciliation of an ambiguous submission must complete within a bounded window (default 5 minutes). On timeout: the order moves to explicit user review, the reservation stays frozen until the user resolves or explicitly releases it, and the account is marked unhealthy — disarming it per §15.
+Reconciliation of an ambiguous submission runs automatically for a bounded window (default 5 minutes). On timeout, the order remains `UNKNOWN_RECONCILING`, the reservation stays frozen, the account is marked unhealthy/disarmed, and the UI opens the evidence-based Manual Resolution flow defined in §23. There is no unaudited “release and continue trading” shortcut.
 
 ---
 
@@ -2322,8 +2434,9 @@ Minimum remediation examples:
 - `STATE_STALE` / `RECONCILIATION_REQUIRED` → disable live execution until refreshed;
 - `SUBMISSION_AMBIGUOUS` → transition to `UNKNOWN_RECONCILING`, no blind retry;
 - `MODEL_UNAVAILABLE` → pause agent turns with sidecar remediation guidance (§16.3); approvals/execution/reconciliation unaffected;
-- `QUOTA_EXCEEDED` → show quota state, offer manual switch to the other provider; sustained exhaustion degrades agent turns only;
-- `OAUTH_EXPIRED` → mark CLIProxyAPI provider unavailable, automatic DeepSeek fallback, show re-login guidance.
+- `QUOTA_EXCEEDED` → show quota state; offer cooldown/retry and explicit switch to DeepSeek; optional automatic fallback only when the user enabled it;
+- `OAUTH_EXPIRED` → mark the ChatGPT route unavailable; show re-login and explicit switch actions; optional automatic fallback only when enabled;
+- time/freshness uncertainty → map to `STATE_STALE` / `RECONCILIATION_REQUIRED` with clock/time remediation rather than inventing a conflicting order state.
 
 The model may explain an error but does not assign its authoritative category.
 
@@ -2385,46 +2498,19 @@ Live trading authorization is never inferred from memory.
 
 # 54. Local Storage Architecture
 
-## SQLite
+## SQLite — transactional/domain state
 
-Use for:
+Use for workspaces, Thread/Turn mappings, accounts metadata, watchlists, strategy/backtest metadata, Local Paper state, order drafts/proposals, approvals, reservations, execution/reconciliation events, portfolio snapshots, risk policies, settings, and memory.
 
-- workspaces;
-- thread mapping;
-- accounts metadata;
-- watchlists;
-- strategy metadata;
-- backtest metadata;
-- paper account state;
-- order proposals;
-- approvals;
-- execution events;
-- portfolio snapshots;
-- risk policies;
-- application settings;
-- memory.
+## DuckDB — MVP analytical and historical store
 
-## DuckDB
+Use for persistent 1-minute+ OHLCV, screener materializations, feature joins, portfolio analytics, historical features, MVP backtest datasets/results, and large local analytical queries.
 
-Use for:
+## Parquet — optional large-dataset/interchange layer
 
-- screeners;
-- large local analytical queries;
-- feature joins;
-- portfolio analytics.
-
-## Parquet
-
-Use for:
-
-- OHLCV;
-- historical features;
-- large backtest datasets;
-- backtest trade outputs.
+Parquet is **not required for v1.0 MVP**. Introduce it when immutable historical/backtest datasets become large enough to justify file partitioning/interchange. DuckDB must be able to read/write those datasets without changing the domain interfaces.
 
 ## Filesystem
-
-Suggested:
 
 ```text
 ~/.tradex/
@@ -2435,9 +2521,10 @@ Suggested:
   logs/
   broker-cache/
   backups/
+  exports/
 ```
 
-Secrets are excluded.
+Secrets are excluded. Workspace retention rules must treat unresolved execution/reconciliation records separately from ordinary artifacts/cache; unresolved financial audit records cannot be auto-deleted.
 
 ---
 
@@ -2503,12 +2590,18 @@ never sent to model
 
 Users should be able to inspect which account/context objects are attached to an agent thread.
 
-RevB disclosure note: `AGENT_CONTEXT` leaves the device through exactly one channel — the local CLIProxyAPI endpoint (§16.1) — and is processed either by the ChatGPT subscription backend or by DeepSeek, each governed by its own privacy policy. The Model picker surfaces this provenance so users can make an informed choice per task; broker credentials, keychain items, and `SECRET`-class data never enter the LLM chain.
+RevC disclosure note: `AGENT_CONTEXT` leaves the device through exactly one channel — the local CLIProxyAPI endpoint (§16.1) — and is processed either by the ChatGPT subscription backend or by DeepSeek, each governed by its own privacy policy. The Model picker surfaces this provenance so users can make an informed choice per task; broker credentials, keychain items, and `SECRET`-class data never enter the LLM chain.
 
 Future privacy option:
 
 - mask absolute account values;
 - expose only normalized percentages to the model.
+
+---
+
+## 56.1 Per-turn External Processor Disclosure
+
+Before send, the composer surfaces the provider path for the next turn (for example `CLIProxyAPI → ChatGPT` or `CLIProxyAPI → DeepSeek`). If provider routing changes, TradeX records and visibly discloses the change. Automatic cross-provider fallback is never implied by selecting a model and remains opt-in (§16.3).
 
 ---
 
@@ -2560,7 +2653,7 @@ App Server overload or queue backpressure should be handled gracefully with retr
 
 TradeX should not track Codex `main` directly in production releases.
 
-RevB addition — CLIProxyAPI gateway dependency: the CLIProxyAPI version is pinned with the application and treated identically to the App Server (compatibility tests, schema/config diff on upgrade, controlled upgrade). The Rust control plane supervises the sidecar lifecycle (§16.2); a CLIProxyAPI upgrade that changes endpoints or auth behavior requires a compatibility test pass before release.
+RevC baseline — CLIProxyAPI gateway dependency: the CLIProxyAPI version is pinned with the application and treated identically to the App Server (compatibility tests, schema/config diff on upgrade, controlled upgrade). The Rust control plane supervises the sidecar lifecycle (§16.2); a CLIProxyAPI upgrade that changes endpoints or auth behavior requires a compatibility test pass before release.
 
 ---
 
@@ -2732,7 +2825,7 @@ graph TD
 | FR-053 | Implement complete natural-language screener builder flow | P1 |
 | FR-054 | Implement backtest running/failed/compare states | P1 |
 | FR-055 | Implement artifact provenance surface | P1 |
-| FR-056 | Implement Ask mode with no execution capability | P1 |
+| FR-056 | Implement Ask mode with no execution capability | P0 |
 | FR-057 | Implement complete live-approval market snapshot provenance | P0 |
 | FR-058 | Implement risk-policy-change approval invalidation lifecycle | P0 |
 | FR-059 | Implement reservation-conflict UI/reasoning surface | P0 |
@@ -2746,10 +2839,17 @@ graph TD
 | FR-067 | Implement provider-schema-driven credential/configuration forms | P1 |
 | FR-068 | Implement LLM provider connection workflow (CLIProxyAPI OAuth / DeepSeek key), schema-driven per §26.3 | P0 |
 | FR-069 | Implement CLIProxyAPI sidecar lifecycle: launch/supervise/health-check (`/v1/models` probe)/backoff restart/port-conflict handling | P0 |
-| FR-070 | Implement subscription quota display and exhaustion handling (5h/weekly limits; in-flight turn behavior; manual switch to DeepSeek) | P0 |
+| FR-070 | Implement subscription quota display and exhaustion handling (provider-reported windows where available; in-flight attempt behavior; explicit switch/retry) | P0 |
 | FR-071 | Implement LLM error categories and recovery states (`MODEL_UNAVAILABLE` / `QUOTA_EXCEEDED` / `OAUTH_EXPIRED`) with remediation UI | P0 |
 | FR-072 | Record per-turn model/provider provenance and write model switches/degradations to the audit trail | P0 |
-| FR-073 | Implement model fallback/routing policy (LLM unavailability never blocks approvals/execution/reconciliation; degradation never changes capability level) | P1 |
+| FR-073 | Implement model routing/fallback policy: cross-provider automatic fallback OFF by default, explicit opt-in, full audit/disclosure, and no capability change | P0 |
+| FR-074 | Separate Agent Mode from Execution Context and enforce the compatibility matrix | P0 |
+| FR-075 | Persist immutable per-turn mode/account/execution/model/provider/context snapshots | P0 |
+| FR-076 | Implement evidence-based Manual Resolution for `UNKNOWN_RECONCILING`; no blind reservation release | P0 |
+| FR-077 | Implement TimeService clock-skew/freshness/TTL safeguards for live authority decisions | P0 |
+| FR-078 | Block/review dangerous provider permissions (withdrawal/transfer/custody/margin/leverage) before live readiness | P0 |
+| FR-079 | Implement FX/stablecoin valuation provenance and depeg/quality handling | P1 |
+| FR-080 | Implement editable OrderDraft → immutable OrderProposal regeneration semantics | P0 |
 
 Requirement-overlap notes (for traceability, IDs are kept stable):
 
@@ -2781,6 +2881,10 @@ Requirement-overlap notes (for traceability, IDs are kept stable):
 | NFR-015 | Core desktop UI is keyboard reachable with visible focus; `Enter` never implicitly approves a live transaction | 100% |
 | NFR-016 | Narrow-window layouts preserve live safety information; v1.0 ships no native mobile live-execution client | 100% |
 
+| NFR-017 | Turn/provider provenance is complete for every agent turn | 100% |
+| NFR-018 | Live freshness/TTL checks use synchronized time semantics and fail closed on unacceptable clock uncertainty | 100% |
+| NFR-019 | Ambiguous submissions cannot be locally released into a healthy/live-ready state without authoritative/evidence-based resolution | 100% |
+
 ## 62.2 Security Requirements
 
 | ID | Requirement |
@@ -2793,6 +2897,7 @@ Requirement-overlap notes (for traceability, IDs are kept stable):
 | SEC-006 | Live approvals are account/action/proposal-bound, short-lived, and single-use. |
 | SEC-007 | All model inference traffic has exactly one exit: the local CLIProxyAPI endpoint (127.0.0.1:8317). TradeX, Codex, and the strategy sandbox must not connect to any external LLM endpoint directly. |
 | SEC-008 | The CLIProxyAPI sidecar holds only model credentials (ChatGPT OAuth, rendered DeepSeek key); it must never hold or receive broker credentials, keychain broker items, or Order Gateway capabilities. |
+| SEC-009 | A Live broker connection with withdrawal/transfer/custody permissions detected must not become execution-ready until those permissions are removed; TradeX must not use unsupported margin/leverage permissions. |
 
 ## 62.3 Data Integrity Requirements
 
@@ -2804,6 +2909,8 @@ Requirement-overlap notes (for traceability, IDs are kept stable):
 | DATA-004 | Cross-account valuation records workspace-base currency, FX source, timestamp, and freshness. |
 | DATA-005 | Market-data provider metadata includes entitlement, retention, and redistribution constraints. |
 | DATA-006 | Backtests persist reproducibility manifests including strategy/data hashes and adjustment/calendar assumptions. |
+| DATA-007 | Every Turn persists an immutable Agent Mode, Execution Context, account, model/provider, and attached-context provenance snapshot. |
+| DATA-008 | FX/stablecoin normalized valuation persists source/path/timestamps/freshness and quality/depeg state. |
 
 ## 62.4 Operational Requirements
 
@@ -2816,36 +2923,40 @@ Requirement-overlap notes (for traceability, IDs are kept stable):
 | OPS-005 | Execution reservations are atomic and account-scoped across concurrent threads. |
 | OPS-006 | Desktop builds are packaged and code-signed through a repeatable release pipeline. |
 | OPS-007 | Auto-update and crash reporting are explicit product surfaces; crash reports contain no broker secrets and telemetry follows NFR-013 opt-in. |
+| OPS-008 | An `UNKNOWN_RECONCILING` reservation remains frozen after automated timeout and may only be resolved through audited Manual Resolution. |
+| OPS-009 | TimeService detects material wall-clock jumps/skew and blocks Live freshness/TTL authority decisions until trusted time is restored. |
 
 ## 62.5 UX Safety Requirements
 
 | ID | Requirement |
 |---|---|
-| UX-001 | Selecting Live mode never arms execution. |
+| UX-001 | Selecting Trade mode or a Live execution context never arms execution. |
 | UX-002 | Live arming is explicit and account-scoped; arming one broker account does not arm another. |
 | UX-003 | Live approval displays immutable order identity and market-data provenance. |
 | UX-004 | Paper / Demo / Testnet / Live states use explicit text in addition to color. |
 | UX-005 | Keyboard interaction cannot implicitly approve live order or cancellation. |
 | UX-006 | Primary navigation is New Thread / Threads / Markets / Watchlists / Accounts / Strategies / Artifacts / Settings. |
 | UX-007 | Responsive behavior is for narrow desktop/tablet-class windows; native mobile execution is out of v1.0 scope. |
+| UX-008 | Agent Mode and Execution Context are visibly distinct; illegal combinations are disabled or explained. |
+| UX-009 | Cross-provider model fallback is visibly disclosed before/when it occurs and is not enabled by default. |
+| UX-010 | Manual Resolution never presents an unsafe generic “release reservation and continue” action. |
 
 ---
 
 # 63. Local Resource Constraints
 
-Default application behavior should avoid excessive local resource usage.
-
-Initial guidance:
+Default behavior avoids excessive local resource use.
 
 ```text
-Hot instruments: <= 20 by default
-Warm universe: <= 500 by default
+Hot active instruments: <= 20 by default
+Watchlists/candidates: on-demand or coarse refresh; no persistent tick subscriptions by default
 Raw order book: memory only unless explicitly enabled
 Historical data: lazy/on-demand fetch
-Storage warnings: configurable
+DuckDB historical cache: configurable size/retention warnings
+Parquet: optional for large immutable datasets, not an MVP requirement
 ```
 
-Exact limits may be tuned during implementation.
+The product must expose storage/resource warnings before local disk or memory pressure can silently degrade correctness.
 
 ---
 
@@ -3018,7 +3129,7 @@ End-to-end QA must assert resulting state, not merely verify that an action does
 Required examples:
 
 ```text
-Select Live mode
+Select Trade mode with a Live execution context
 ASSERT selected account remains DISARMED
 
 Request Trading 212 live order while DISARMED
@@ -3106,6 +3217,7 @@ Before frontend implementation is accepted:
 
 ### Accounts
 
+- Local Paper;
 - Alpaca Paper;
 - Trading 212 Demo;
 - Trading 212 Live;
@@ -3131,7 +3243,8 @@ Before frontend implementation is accepted:
 
 ### Trading
 
-- paper/demo trading;
+- Trade Agent Mode with explicit execution context;
+- Local Paper / broker paper/demo/testnet trading;
 - live proposal;
 - deterministic risk;
 - one-time approval;
@@ -3250,7 +3363,7 @@ Agent cannot access the privileged Order Gateway directly.
 Model never receives broker secrets.
 
 **AC-030**  
-Selecting Live mode does not arm live execution.
+Selecting Trade mode or a Live execution context does not arm live execution.
 
 **AC-031**  
 Requesting a live order while DISARMED requires a separate explicit Arm action before transaction approval is shown.
@@ -3347,78 +3460,72 @@ Narrow desktop/tablet-class layouts preserve live safety information; v1.0 expos
 When the CLIProxyAPI sidecar is stopped, port-conflicted, or unauthorized, agent turns pause with remediation guidance while approvals, execution, and reconciliation continue to function (fail-closed for LLM only).
 
 **AC-057**  
-Subscription quota exhaustion and OAuth expiry surface `QUOTA_EXCEEDED` / `OAUTH_EXPIRED` states with automatic fallback to DeepSeek and re-login guidance; model fallback never changes capability levels or bypasses approvals.
+Subscription quota exhaustion and OAuth expiry surface `QUOTA_EXCEEDED` / `OAUTH_EXPIRED` with retry/re-login/explicit provider-switch remediation. Cross-provider automatic fallback occurs only when the user explicitly enabled it, is visibly disclosed/audited, and never changes capability levels or bypasses approvals.
 
 **AC-058**  
-Every turn records the model and provider that produced it, and model switches or degradations are written to the audit trail (§57).
+Every turn records the model/provider and all provider attempts that produced or failed that turn; model switches/degradations are written to the audit trail (§57).
+
+**AC-059**  
+Agent Mode and Execution Context are stored and rendered as separate dimensions; Ask/Research with a live account remains read-only, Backtest cannot invoke current-market broker execution, and Trade with a Live context still requires arming + approval.
+
+**AC-060**  
+Every started turn persists an immutable snapshot of Agent Mode, execution context, selected account, capability level, model/provider, and attached context references/hashes.
+
+**AC-061**  
+An ambiguous live submission that exceeds the automatic reconciliation window keeps its reservation frozen and exposes only the evidence-based Manual Resolution options in §23; no generic release action restores live readiness.
+
+**AC-062**  
+Detected withdrawal/transfer/custody permission on a live broker credential blocks execution readiness until removed; permission scope that cannot be inspected is labeled `UNVERIFIED` and remains visible.
+
+**AC-063**  
+Quote age, approval expiry, and reconciliation timers fail closed for live authority decisions when TimeService reports unacceptable clock uncertainty.
+
+**AC-064**  
+Local Paper is explicitly identified as TradeX simulation and cannot be confused with provider-hosted Paper/Demo/Testnet or Live execution.
+
+**AC-065**  
+Editing a generated order creates a new immutable `OrderProposal` identity and invalidates any approval tied to the prior proposal.
+
+**AC-066**  
+Cross-account valuation involving stablecoins/FX shows source/path/timestamps/freshness and a quality/depeg state; unreliable conversion cannot silently drive live risk calculations.
 
 ---
 
 # 70. Implementation Phases
 
-## Phase 0 — Harness Foundation
+## Phase 0 — Harness, Model Gateway, and Product-state Foundation
 
-- Tauri desktop shell;
-- packaging and code signing pipeline;
-- React UI;
-- pinned Codex App Server;
-- JSON-RPC client;
-- Thread / Turn / Item rendering;
-- SQLite;
-- OS keychain;
-- control-plane process boundaries.
+Exit gate:
+
+- Tauri shell, packaging/signing, React UI, pinned Codex App Server, JSON-RPC client;
+- SQLite domain store + DuckDB analytical store; OS keychain; process boundaries;
+- CLIProxyAPI sidecar lifecycle, `/v1/models` health, ChatGPT OAuth, DeepSeek key path;
+- provider/model picker + per-turn provenance; cross-provider fallback OFF by default;
+- Agent Mode / Execution Context state model and compatibility rules;
+- account-scoped live arming state model (all DISARMED on restart);
+- provider-schema credential forms and permission safety gate.
 
 ## Phase 1 — Research Workspace
 
-- canonical instruments;
-- US equity/crypto market data;
-- context panel;
-- watchlists;
-- portfolio reads;
-- research tools;
-- artifacts;
-- screener.
+- canonical instruments; US equity/crypto market data; TimeService; context panel; watchlists; portfolio reads; FX/stablecoin provenance; research tools/artifacts/screener; market session/corporate-action surfaces.
 
-## Phase 2 — Strategy and Paper Trading
+## Phase 2 — Strategy and Simulated Trading
 
-- backtest engine;
-- strategy sandbox;
-- Alpaca Paper;
-- Trading 212 Demo;
-- Binance Testnet;
-- Bitget Demo;
-- paper/demo order lifecycle.
+- backtest engine + complete metrics/manifest; strategy sandbox/versioning; Local Paper; Alpaca Paper; Trading 212 Demo; Binance Testnet; Bitget Demo; normalized non-live order lifecycle.
 
 ## Phase 3 — Trusted Live Execution
 
-- financial approval authority;
-- risk engine;
-- execution reservations;
-- Order Gateway;
-- Trading 212 Live;
-- Binance Spot Live;
-- Bitget Spot Live;
-- reconciliation;
-- crash recovery.
+Entry requires Phase 0/1 safety gates and resolved blocking ODs.
+
+- financial approval authority; deterministic risk; reservations; Order Gateway; Trading 212/Binance/Bitget Spot Live; full market provenance; cancellation; reconciliation; Manual Resolution; crash/sleep recovery; evidence that dangerous permissions are blocked.
 
 ## Phase 4 — Product Hardening
 
-- provider capability testing;
-- local observability;
-- auto-update and crash reporting;
-- workspace backup/export;
-- data retention;
-- corporate actions;
-- market calendars;
-- more robust research sources.
+- state-assertion/browser accessibility QA; observability; auto-update/crash reporting; workspace export/import; retention; capability contract coverage; source licensing/corporate-action hardening.
 
 ## Phase 5 — Broader Markets
 
-- additional brokers;
-- additional exchanges;
-- A-share research;
-- futures research and simulation;
-- future live capabilities subject to separate safety review.
+- additional brokers/exchanges; A-share research; futures research/simulation; any new live capability requires separate safety review.
 
 ---
 
@@ -3446,62 +3553,78 @@ Unattended live execution should require a separate product and safety review ra
 
 # 72. Open Product Decisions
 
-Open decisions use stable IDs so the traceability matrix can reference them without duplicating the list.
+Open decisions use stable IDs. `Default if unresolved` is deliberately conservative; a blocked live capability stays disabled rather than relying on an implicit assumption.
 
-| ID | Decision |
-|---|---|
-| OD-001 | US equity realtime market-data provider |
-| OD-002 | Historical equity-data provider |
-| OD-003 | Fundamentals provider |
-| OD-004 | News and filings providers |
-| OD-005 | Exchange-calendar / corporate-actions source |
-| OD-006 | FX source |
-| OD-007 | Charting library and licensing model |
-| OD-008 | Python backtest runtime versus Rust-native engine split |
-| OD-010 | Local database encryption policy |
-| OD-011 | Default live-risk policy values |
-| OD-012 | Default market-order availability |
-| OD-013 | Default per-account live-arming inactivity timeout |
-| OD-014 | Supported desktop operating-system launch order |
-| OD-016 | UI language scope for v1.0 (English-only versus localization framework from the start) |
+| ID | Decision | Blocks | Owner | Decision by | Default if unresolved |
+|---|---|---|---|---|---|
+| OD-001 | US equity realtime market-data provider | Phase 3 live | Product + Data | before Phase 1 exit | live equity execution disabled; research may use explicitly delayed data |
+| OD-002 | Historical equity-data provider | Phase 2 backtest | Data | before Phase 2 | affected backtests unavailable |
+| OD-003 | Fundamentals provider | Phase 1 research | Product | before Phase 1 | fundamentals-dependent screens disabled |
+| OD-004 | News and filings providers | Phase 1 research | Product | before Phase 1 | source-specific tools disabled |
+| OD-005 | Exchange-calendar / corporate-actions source | Phase 3 live safety | Data + Risk | before Phase 3 | affected equity live execution disabled |
+| OD-006 | FX source | portfolio/live risk | Data + Risk | before Phase 1 exit | cross-currency live risk disabled |
+| OD-007 | Charting library/licensing | UI handoff | Frontend | Phase 1 | minimal internal charting only |
+| OD-008 | Python backtest runtime vs Rust-native split | Phase 2 | Eng | before Phase 2 | isolated Python runtime with documented limits |
+| OD-010 | Local database encryption policy | Phase 0 | Security | before Phase 0 exit | rely on OS disk protection; no claim of DB-level encryption |
+| OD-011 | Default live-risk policy values | Phase 3 | Product + Risk | before Phase 3 | live execution disabled until user sets policy |
+| OD-012 | Default market-order availability | Phase 3 | Product + Risk | before Phase 3 | disabled |
+| OD-013 | Default live-arming inactivity timeout | Phase 3 | Product + Risk | before Phase 3 | 20 minutes |
+| OD-014 | Desktop OS launch order | packaging | Product + Eng | Phase 0 | macOS first, other platforms not promised |
+| OD-016 | v1.0 UI language scope | localization | Product | Phase 0 | English UI, localization-ready strings |
 
-Resolved product direction (no longer open):
+Resolved direction:
 
+- Agent Mode and Execution Context are separate dimensions;
 - live arming is account-scoped;
 - `Markets` is primary navigation while Portfolio/Orders remain contextual;
-- native mobile live execution is out of v1.0 scope;
-- `REJECTED` is the canonical order state and `SUBMISSION_REJECTED` is the corresponding error category;
-- **OD-009 (resolved in RevB)**: the Order Gateway is a separate privileged child process of the TradeX main process exposing a minimal RPC over an OS named pipe / UDS; CLIProxyAPI is a user-level sidecar with an independent lifecycle and its own credential domain; Codex App Server, the Gateway, and CLIProxyAPI never share credentials — the Gateway acts only on scoped capabilities signed by the control plane;
-- **OD-015 (resolved in RevB)**: v1.0 uses controlled dual-source model access — the only model exit is the local CLIProxyAPI endpoint (bound to 127.0.0.1, api-key authenticated), with upstreams limited to ChatGPT subscription OAuth (GPT-5.6) and the DeepSeek official API; the provider interface abstraction is retained but no other vendor may be registered; adding an upstream requires a release review, and neither the agent nor the user may attach arbitrary base_urls at runtime.
+- native mobile live execution is outside v1.0;
+- `REJECTED` is the canonical broker-rejection order state;
+- OD-009: Order Gateway is a separate privileged child process; CLIProxyAPI is an independent user-level sidecar; credential domains never mix;
+- OD-015: v1.0 model access is limited to CLIProxyAPI-routed ChatGPT OAuth and DeepSeek official API; arbitrary base URLs/providers are prohibited;
+- cross-provider automatic LLM fallback is OFF by default and requires explicit user opt-in.
 
 ---
 
 # 73. Product Success Criteria
 
-The MVP is successful when a target user can complete the following workflow without leaving TradeX:
+The MVP is successful when a target user can complete, without leaving TradeX:
 
 ```text
 Ask a market question
-→ inspect evidence
-→ inspect portfolio impact
+→ inspect evidence + provider provenance
+→ inspect portfolio/FX impact
 → run or inspect a strategy
-→ paper trade
-→ prepare a live order
-→ understand exact execution risk
-→ explicitly approve
-→ observe broker state
-→ later review why the trade happened
+→ Local Paper or broker Demo/Testnet trade
+→ switch to Trade mode with a Live account
+→ explicitly arm that exact account
+→ review immutable proposal + market provenance + risk
+→ approve once
+→ observe RESERVED → broker state → reconciliation
+→ later reconstruct why the trade happened
 ```
 
-The user should feel that TradeX combines:
+Measurable release targets:
 
-- the workflow fluidity of Codex;
-- the determinism of a trading system;
-- the auditability of a research notebook;
-- the safety of an approval-gated execution gateway.
+| Metric | v1.0 target |
+|---|---:|
+| Unapproved live submissions | 0 |
+| Duplicate submissions caused by TradeX retry | 0 |
+| Live approvals with complete market provenance | 100% |
+| Agent turns with model/provider/context provenance | 100% |
+| Open live orders reconciled after restart test | 100% |
+| Dangerous detected broker permissions accepted as live-ready | 0 |
+| Critical prototype/user-flow state assertions passing | 100% before sign-off |
+| Keyboard-accessible critical controls with visible focus | 100% |
+| Workspace export/import excludes broker secrets | 100% |
 
-Degradation expectation: when the LLM chain is unavailable (sidecar down, quota exhausted, OAuth expired), the user can still review historical conclusions and artifacts, approve or reject pending orders, cancel open orders, and reconcile accounts — every non-model operation remains fully functional, and approvals/execution are never gated on model availability (§16.3).
+Experience goals:
 
-The defining product boundary is:
+- workflow fluidity of Codex;
+- determinism of a trading system;
+- auditability of a research notebook;
+- approval-gated authority separation.
 
-> **The agent is responsible for reasoning. The trusted TradeX control plane is responsible for authority. The broker is responsible for execution truth.**
+When the LLM chain is unavailable, the user can still review existing artifacts, approve/reject already-created valid approvals, cancel/reconcile open orders, inspect account health, and use non-model control-plane functions. No live authority depends on model availability.
+
+> **The agent reasons. The TradeX control plane authorizes. The broker/exchange is execution truth.**
+
