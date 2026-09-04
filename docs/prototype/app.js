@@ -100,7 +100,7 @@ const providers = [
   ['Alpaca Paper','US equities · Paper','Paper'],
   ['Trading 212 Demo','US equities · Demo','Demo'],
   ['Trading 212 Live','US equities · Live','Live'],
-  ['Binance Testnet','Crypto spot · Testnet','Demo'],
+  ['Binance Testnet','Crypto spot · Testnet','Testnet'],
   ['Binance Live','Crypto spot · Live','Live'],
   ['Bitget Demo','Crypto spot · Demo','Demo'],
   ['Bitget Live','Crypto spot · Live','Live'],
@@ -109,7 +109,8 @@ const providers = [
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmtEnv(env){const cls=(env==='Live')?'live':(env==='Paper'||env==='Demo'||env==='Testnet')?'paper':'research';return `<span class="status ${cls==='paper'?'ok':cls}">${env}</span>`}
-function chart(color='#16a34a', fill='#dcfce7'){
+function statusCell(st){const ok=(st==='Active'||st==='Healthy');return `<span class="status ${ok?'ok':'neutral'}">${st}</span>`}
+function chart(color='#2563eb', fill='#dbeafe'){
   const id='g'+Math.random().toString(36).slice(2,7);
   return `<svg viewBox="0 0 300 140" preserveAspectRatio="none"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${fill}" stop-opacity=".75"/><stop offset="1" stop-color="${fill}" stop-opacity="0"/></linearGradient></defs><path d="M0 116 L18 102 L32 108 L50 79 L70 88 L88 65 L105 70 L122 48 L138 58 L156 43 L174 52 L192 36 L208 42 L226 28 L242 34 L260 21 L276 28 L300 16 L300 140 L0 140 Z" fill="url(#${id})"/><path d="M0 116 L18 102 L32 108 L50 79 L70 88 L88 65 L105 70 L122 48 L138 58 L156 43 L174 52 L192 36 L208 42 L226 28 L242 34 L260 21 L276 28 L300 16" fill="none" stroke="${color}" stroke-width="2"/></svg>`;
 }
@@ -208,7 +209,7 @@ function equityInstrument(){
   return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>AAPL</h1><span class="muted">Apple Inc. · NASDAQ</span></div><div class="price">221.42 <span class="positive" style="font-size:12px">+1.24%</span></div></div><button class="btn" onclick="openAddWatchlist()">+ Watchlist</button></div><div class="chart-large">${chart()}</div><div class="card" style="padding:0"><div class="tabs">${['overview','financials','news','filings','analysis'].map(t=>`<button class="${state.instrumentTab===t?'active':''}" onclick="instrumentTab('${t}')">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div><div style="padding:20px"><h3>${state.instrumentTab[0].toUpperCase()+state.instrumentTab.slice(1)}</h3><p style="line-height:1.7">${tabCopy[state.instrumentTab]}</p><div class="artifact-row"><span class="artifact-chip blue">AAPL quality compounder</span><span class="artifact-chip">Quote source: MarketData-X · 420 ms</span><span class="artifact-chip">Next earnings: Oct 29</span></div></div></div>`);
 }
 function cryptoInstrument(){
-  return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>BTC / USDT</h1><span class="muted">Crypto Spot · Binance</span></div><div class="price">62,418.20 <span class="positive" style="font-size:12px">+2.18%</span></div></div><div class="toolbar-actions"><button class="btn" onclick="state.threadId='btc-liquidity';state.threadStatus='result';go('thread')">Open research thread</button><button class="btn danger" onclick="requestLiveOrder('btcMarket')">Prepare Market Buy</button></div></div><div class="chart-large">${chart('#2563eb','#dbeafe')}</div><div class="split"><div class="card"><h3>Venue market context</h3>${[['Best bid','62,416.80'],['Best ask','62,418.20'],['Spread','1.8 bps'],['24h volume','$1.8B'],['Top 10 book depth','$18.2M'],['Quote age','280 ms']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="card"><h3>Cross-venue comparison</h3>${[['Binance spread','1.8 bps'],['Bitget spread','2.6 bps'],['Binance top-10 depth','$18.2M'],['Bitget top-10 depth','$9.7M'],['My Binance balance','0.083 BTC']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">Spot trading only in v1.0. Futures, leverage and margin actions are not available.</div></div></div>`);
+  return shell(`<div class="toolbar"><div><div class="instrument-header"><h1>BTC / USDT</h1><span class="muted">Crypto Spot · Binance</span></div><div class="price">62,418.20 <span class="positive" style="font-size:12px">+2.18%</span></div></div><div class="toolbar-actions"><button class="btn" onclick="state.threadId='btc-liquidity';state.threadStatus='result';go('thread')">Open research thread</button><button class="btn ${state.liveArmed?'danger':'primary'}" onclick="requestLiveOrder('btcMarket')">Prepare Market Buy</button></div></div><div class="chart-large">${chart('#2563eb','#dbeafe')}</div><div class="split"><div class="card"><h3>Venue market context</h3>${[['Best bid','62,416.80'],['Best ask','62,418.20'],['Spread','1.8 bps'],['24h volume','$1.8B'],['Top 10 book depth','$18.2M'],['Quote age','280 ms']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div><div class="card"><h3>Cross-venue comparison</h3>${[['Binance spread','1.8 bps'],['Bitget spread','2.6 bps'],['Binance top-10 depth','$18.2M'],['Bitget top-10 depth','$9.7M'],['My Binance balance','0.083 BTC']].map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}<div class="warning-box">Spot trading only in v1.0. Futures, leverage and margin actions are not available.</div></div></div>`);
 }
 
 function watchlists(){
@@ -216,7 +217,7 @@ function watchlists(){
 }
 
 function accountsView(){
-  const rows=accounts.map(a=>[a.name,a.env,a.equity,a.pnl,a.status]);
+  const rows=accounts.map(a=>[a.name,fmtEnv(a.env),a.equity,a.pnl,statusCell(a.status)]);
   return shell(`<div class="toolbar"><div><h1>Accounts</h1><p>Demo/testnet and live environments are always separate connections.</p></div><div class="toolbar-actions"><button class="btn" onclick="go('portfolio')">Portfolio</button><button class="btn primary" onclick="openConnectAccount()">+ Connect Account</button></div></div><div class="grid3">${metric('Total equity','€125,432.21','+2.34% today')}${metric('Unrealized P&L','+€8,432.21','+7.21%','positive')}${metric('Available cash','€32,118.43','Across connected accounts')}</div><div class="table-wrap" style="margin-top:20px"><div class="table-head"><h3>Connected accounts</h3><small class="muted">Broker state authoritative</small></div>${table(['Account','Environment','Equity','P&L','Status'],rows,'openAccount')}</div>`);
 }
 function portfolio(){
@@ -237,7 +238,7 @@ function strategiesView(){
   if(state.strategy==='results') return backtestResults();
   if(state.strategy==='failed') return strategyFailed();
   if(state.strategy==='compare') return strategyCompare();
-  return shell(`<div class="toolbar"><div><h1>Strategies</h1><p>Versioned local strategies execute inside a restricted sandbox.</p></div><button class="btn primary" onclick="newStrategy()">+ New Strategy</button></div><div class="table-wrap"><div class="table-head"><h3>My strategies</h3><small class="muted">Local workspace</small></div>${table(['Name','Type','Assets','Version','Last run','Status'],strategies,'selectStrategy')}</div>`);
+  return shell(`<div class="toolbar"><div><h1>Strategies</h1><p>Versioned local strategies execute inside a restricted sandbox.</p></div><button class="btn primary" onclick="newStrategy()">+ New Strategy</button></div><div class="table-wrap"><div class="table-head"><h3>My strategies</h3><small class="muted">Local workspace</small></div>${table(['Name','Type','Assets','Version','Last run','Status'],strategies.map(r=>[r[0],r[1],r[2],r[3],r[4],statusCell(r[5])]),'selectStrategy')}</div>`);
 }
 function strategyEditor(){
   return shell(`<div class="toolbar"><div><h1>MA Crossover · v12</h1><p>Agent-assisted strategy code · restricted sandbox</p></div><div class="toolbar-actions"><button class="btn" onclick="askAgentReview()">Ask agent to review</button><button class="btn primary" onclick="runBacktest()">Run backtest</button></div></div><div class="code-shell"><div class="files"><strong>MA Crossover</strong><div class="active">strategy.py</div><div>parameters.yaml</div><div>README.md</div><div>runs/</div><div>&nbsp;&nbsp;2026-09-04.json</div></div><textarea class="editor editable-code" spellcheck="false">class MovingAverageCrossover(Strategy):
