@@ -1,8 +1,8 @@
 # TradeX High-Fidelity Interactive Prototype — v1.0 RevA
 
-Standalone, no-build clickable prototype aligned to `TradeX_PRD_v1.0_RevA.md` and `TradeX_UI_Prototype_Spec_v1.0_RevA.md`.
+Standalone, no-build clickable prototype aligned to `TradeX_PRD_v1.0_RevB.md` and `TradeX_UI_Prototype_Spec_v1.0_RevB.md`.
 
-This package is the QA / coverage assessment baseline referenced by the RevA documentation set (git tag: `prototype-v1.0-reva-baseline`). Known gaps against Revision A are recorded in `TradeX_Prototype_Coverage_Matrix_v1.0_RevA.md` and `TradeX_Prototype_QA_Report_v1.0_RevA.md`; this README lists target review flows, not proven-complete behavior.
+This package is the QA / coverage assessment baseline referenced by the RevA/RevB documentation set (git tag: `prototype-v1.0-reva-baseline`). Known gaps against Revision B are recorded in `TradeX_Prototype_Coverage_Matrix_v1.0_RevB.md` and `TradeX_Prototype_QA_Report_v1.0_RevA.md`; this README lists target review flows, not proven-complete behavior.
 
 ## Run
 

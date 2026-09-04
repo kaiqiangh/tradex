@@ -1,11 +1,11 @@
 # TradeX High-Fidelity Prototype / UI Specification
 
-**Version:** 1.0 Final — Revision A  
+**Version:** 1.0 Final — Revision B  
 **Date:** 2026-09-04  
-**Source of truth:** `TradeX_PRD_v1.0_RevA.md`  
+**Source of truth:** `TradeX_PRD_v1.0_RevB.md`  
 **Prototype type:** Desktop-first interactive product prototype target specification  
 **Current prototype implementation:** Standalone HTML / CSS / JavaScript  
-**Traceability source:** `TradeX_Prototype_Coverage_Matrix_v1.0_RevA.md`
+**Traceability source:** `TradeX_Prototype_Coverage_Matrix_v1.0_RevB.md`
 
 > This specification is normative for the target UI. The Coverage Matrix records which parts are already implemented in the current standalone prototype versus partial, visual-only, missing, implementation-only, or QA-pending.
 
@@ -163,11 +163,21 @@ Bitget · LIVE · DISARMED
 
 ## 4.4 Model Picker
 
-Prototype fixture models may include GPT-5.6 Sol and GPT-5.6 Luna. Production model inventory is supplied by the runtime/capability layer.
+Models are displayed in two provider groups (OD-015 resolved, PRD §16.1):
 
-A local-model row may appear only as disabled/future; whether v1.0 ships OpenAI-only inference or a model-provider abstraction is open decision `OD-015` (PRD §72).
+```text
+CLIProxyAPI (local gateway)
+  gpt-5.6-sol
+  gpt-5.6-luna
 
-Model selection never changes financial authority.
+DeepSeek (official API)
+  deepseek-chat
+  deepseek-reasoner
+```
+
+Each row carries a provider pill (CLIProxyAPI = green/local, DeepSeek = blue/API). Prototype fixture models follow the list above; production model inventory comes from the CLIProxyAPI `/v1/models` probe via the runtime/capability layer.
+
+Selecting a model changes the reasoning model only — it takes effect on the next turn, never mutates an in-flight turn, and never changes trading authority or permissions. Model rows surface availability (probe state) so quota/OAuth degradation is visible before sending a prompt.
 
 ---
 
@@ -211,11 +221,16 @@ Provider/environment
 
 UI explicitly excludes withdrawal, transfer, custody, margin borrowing, and leverage-management permissions.
 
-### A4. Model
+### A4. LLM Providers (Model)
 
-- runtime-provided model options;
-- prototype fixture model choices;
-- explicit note: model does not change trading authority.
+The Model step configures the LLM sources (PRD §26.3):
+
+- CLIProxyAPI sidecar state: Running / Stopped / Port conflict / Unauthorized — a stopped or unauthorized sidecar offers launch and browser (`--codex-login`) authorization flows;
+- DeepSeek: key entry → OS keychain storage → probe + test inference;
+- probe `/v1/models` and model-list discovery for each source; provider rows show health pills;
+- default model selection from the discovered inventory (§4.4 grouping);
+- explicit note: model/provider choice does not change trading authority;
+- onboarding gate: Ready is unreachable without at least one usable LLM provider (AC-055).
 
 ### A5. Risk Defaults
 
@@ -611,6 +626,8 @@ Provenance includes Thread, Turn, model, tools, sources, snapshot/dataset hashes
 
 Reuse provider-schema-driven connection/configuration flow.
 
+RevB addition — LLM providers section: shows `CLIProxyAPI · local sidecar` (state: Running / Stopped / Port conflict / Unauthorized; pinned version; Open Auth / Re-login action) and `DeepSeek · official API` (Connected / Key missing; key managed in OS keychain). Each row exposes probe result and model availability; LLM providers are visually separated from broker/data providers and never grant trading capabilities (PRD §26.3).
+
 ### J2. Risk & Limits
 
 Saving policy:
@@ -682,6 +699,9 @@ One reusable Error/Recovery component maps:
 - `STREAM_DISCONNECTED`;
 - `STATE_STALE`;
 - `RECONCILIATION_REQUIRED`;
+- `MODEL_UNAVAILABLE`;
+- `QUOTA_EXCEEDED`;
+- `OAUTH_EXPIRED`;
 - `INTERNAL_ERROR`.
 
 ---
@@ -735,6 +755,8 @@ One reusable Error/Recovery component maps:
 19. Broker/exchange state is authoritative.
 20. Paper / Demo / Testnet / Live are textually and structurally distinct.
 21. Enter-key submission cannot approve a live transaction.
+22. Model fallback or switching never changes capability levels, risk limits, or approval requirements; switches are written to the audit trail (PRD §16.3).
+23. LLM unavailability (sidecar down / quota / OAuth) pauses agent turns only — approvals, execution, and reconciliation are never gated on model availability.
 
 ---
 
@@ -747,6 +769,8 @@ One reusable Error/Recovery component maps:
 - TopBar
 - AccountLiveStateBadge
 - DisableAllLiveControl
+- LLMGatewayStatusBadge (sidecar state + provider availability)
+- ModelProviderPill (CLIProxyAPI / DeepSeek origin on model rows)
 - Composer
 - ContextPicker
 - AccountPicker

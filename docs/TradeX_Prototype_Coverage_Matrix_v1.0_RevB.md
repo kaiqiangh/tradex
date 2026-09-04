@@ -1,10 +1,10 @@
 # TradeX PRD / Prototype Requirement Traceability Matrix
 
-**Version:** 1.0 Final — Revision A  
+**Version:** 1.0 Final — Revision B  
 **Date:** 2026-09-04  
-**PRD:** `TradeX_PRD_v1.0_RevA.md`  
-**UI Specification:** `TradeX_UI_Prototype_Spec_v1.0_RevA.md`  
-**Current prototype assessed:** `docs/prototype/` @ git tag `prototype-v1.0-reva-baseline` (commit `5af4ee5`, unchanged from the prior v1.0 Final package)
+**PRD:** `TradeX_PRD_v1.0_RevB.md`  
+**UI Specification:** `TradeX_UI_Prototype_Spec_v1.0_RevB.md`  
+**Current prototype assessed:** `docs/prototype/` @ git tag `prototype-v1.0-reva-baseline` (commit `5af4ee5`) plus the UI-consistency fixes in `867ec00`; re-verified at `867ec00`: `node --check` PASS, 47/47 unique `onclick` references defined. The RevB LLM-provider requirements (FR-068–FR-073) are new target requirements and are not yet implemented in the prototype.
 
 ## 1. Status Legend
 
@@ -97,6 +97,12 @@
 | FR-065 | Portfolio FX provenance | E3 | EUR fixture only | Not covered | no FX source/timestamp |
 | FR-066 | Full backtest metrics | H5 | return/Sharpe/drawdown/win rate | Partial | Sortino/profit factor/turnover absent |
 | FR-067 | Provider-schema-driven credential form | A3 | generic API key/secret form | Not covered | provider form schema missing |
+| FR-068 | LLM provider connection workflow (CLIProxyAPI OAuth / DeepSeek key) | A4/J1 | absent | Not covered | RevB requirement; A4/J1 redesign pending |
+| FR-069 | CLIProxyAPI sidecar lifecycle + health UI | A4/J1 | runtime card shows static "Codex runtime connected" | Not covered | sidecar supervision is implementation work |
+| FR-070 | Subscription quota display / exhaustion handling | §4.4/§16.3 | absent | Not covered | RevB requirement |
+| FR-071 | LLM error categories (MODEL_UNAVAILABLE/QUOTA_EXCEEDED/OAUTH_EXPIRED) | K6 | absent from canonical error variants | Not covered | taxonomy extended in RevB |
+| FR-072 | Per-turn model/provider provenance + audit | I3/B5 | model picker exists; per-turn provenance not rendered | Not covered | RevB requirement |
+| FR-073 | Model fallback/routing policy surface | §4.4 | absence of fallback UI consistent with policy | Not covered | routing policy is P1 implementation |
 
 **Source-audit addendum (2026-09-04, baseline tag `prototype-v1.0-reva-baseline`):** PRD §11.6 requires six tool/turn states; the baseline prototype implements four (`Tool: Running / Completed / Failed`, `Turn: Cancelled`) and lacks `Tool: Retrying` and `Turn: Interrupted`. PRD §11.1 lists `Chart` in the context panel; the baseline prototype's context panel has no chart. Revision A had no dedicated AC row for either gap — both are tracked here for the next revision.
 
@@ -139,6 +145,10 @@
 | OPS-003 | Covered visually | startup/resume recovery states shown; real runtime test required |
 | OPS-004 | Visual-only | rate-limit priority screen shown; scheduler not implemented |
 | OPS-005 | Not covered | no competing-reservation interactive state |
+| OPS-006 | N/A — implementation | packaging/code-signing pipeline required |
+| OPS-007 | N/A — implementation | auto-update + crash reporting require production runtime |
+| SEC-007 | N/A — implementation | single model exit (127.0.0.1:8317) requires production network test |
+| SEC-008 | N/A — implementation | sidecar credential isolation requires process-boundary test |
 | UX-001 | Covered | source flow confirms selecting Live does not arm |
 | UX-002 | Partial | current prototype arming is global, not account-scoped |
 | UX-003 | Partial | immutable order shown, provenance incomplete |
@@ -207,12 +217,16 @@
 | AC-052 | QA pending | keyboard safety not tested |
 | AC-053 | Not covered | FX provenance absent |
 | AC-054 | QA pending | responsive visual signoff pending |
+| AC-055 | Not covered | onboarding LLM gate (no Ready without usable LLM provider) absent |
+| AC-056 | Not covered | sidecar fail-closed behavior not representable |
+| AC-057 | Not covered | quota/OAuth fallback surfaces absent |
+| AC-058 | Not covered | per-turn model/provider provenance not rendered |
 
 ---
 
 ## 5. Open Decisions
 
-Open product decisions live in PRD §72 (`OD-001`–`OD-015`) and are the single source of truth.
+Open product decisions live in PRD §72 (`OD-001`–`OD-016`, of which `OD-009` and `OD-015` are resolved as of RevB) and are the single source of truth.
 
 > Maintenance note (editors): do not duplicate or shorten that list inside this matrix; reference IDs only.
 
@@ -237,4 +251,5 @@ Before calling the prototype itself **coverage-complete** against Revision A, cl
 11. portfolio FX provenance;
 12. Sortino / profit factor / turnover;
 13. provider-schema-driven credential form;
-14. desktop + narrow visual QA and keyboard/accessibility QA.
+14. desktop + narrow visual QA and keyboard/accessibility QA;
+15. LLM provider surfaces per RevB (FR-068–FR-072): onboarding LLM gate, sidecar health UI, quota/fallback states, per-turn model provenance.

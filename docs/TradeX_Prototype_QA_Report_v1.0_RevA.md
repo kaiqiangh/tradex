@@ -1,8 +1,8 @@
 # TradeX Prototype QA Report — v1.0 Final Revision A
 
 **Date:** 2026-09-04 (automated checks re-verified 2026-09-04)  
-**PRD:** `TradeX_PRD_v1.0_RevA.md`  
-**Coverage Matrix:** `TradeX_Prototype_Coverage_Matrix_v1.0_RevA.md`  
+**PRD:** `TradeX_PRD_v1.0_RevB.md`  
+**Coverage Matrix:** `TradeX_Prototype_Coverage_Matrix_v1.0_RevB.md`  
 **Target:** `docs/prototype/` @ git tag `prototype-v1.0-reva-baseline` (commit `5af4ee5`, unchanged from the prior TradeX v1.0 Final release)  
 **Purpose:** Separate verified prototype behavior from unverified requirements and document the new Revision A QA baseline.
 
