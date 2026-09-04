@@ -21,3 +21,7 @@ The TradeX product baseline lives in `docs/` and is read in this authority order
 3. `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevB.md` — requirement ↔ prototype traceability;
 4. `docs/TradeX_Prototype_QA_Report_v1.0_RevA.md` — QA evidence baseline;
 5. `docs/prototype/` — clickable prototype package (assessment baseline @ git tag `prototype-v1.0-reva-baseline`).
+
+### Chinese translations
+
+`docs/zh/` holds Simplified Chinese translations of the PRD, UI Specification, and Coverage Matrix (RevB baseline). The English versions remain the source of truth; see `docs/zh/README.md` for the terminology conventions. Keep both languages in sync when the English docs change.
