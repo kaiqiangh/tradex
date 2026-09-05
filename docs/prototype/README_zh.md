@@ -1,90 +1,40 @@
-# TradeX 高保真可交互 Prototype — v1.0 RevC
+# TradeX 可点击原型 — v1.0 RevC
 
-该 standalone、无需 build 的可点击 prototype 与以下 RevC 文档对齐：
+**文档修订：2026-09-05。当前原型交付：NOT PASS。**
 
-- `../docs/zh/TradeX_PRD_v1.0_RevC_zh.md`
-- `../docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md`
-- `../docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md`
-- `../docs/zh/TradeX_Prototype_QA_Report_v1.0_RevC_zh.md`
+此目录是无需构建的 HTML/CSS/JS 产品原型。行情、账户、订单和模型均为模拟数据，不连接券商、交易所、行情服务、Codex App Server、CLIProxyAPI 或 LLM。此次文档修订未改变原型代码。
 
-这是 **产品/设计 review 与工程交接 prototype**，不是 production trading client。所有 market/account/order/model 行为均为 fixture，不会连接真实 broker、exchange、market-data service、Codex App Server、CLIProxyAPI 或 LLM provider。
+## 从仓库根目录运行
 
-## 运行
+~~~bash
+python3 -m http.server 8080 --bind 127.0.0.1 --directory docs/prototype
+~~~
 
-```bash
-cd prototype
-python3 -m http.server 8080
-```
+打开 http://127.0.0.1:8080 。也可直接打开 [index.html](./index.html)，但浏览器行为可能不同。演示只使用假凭据。
 
-打开 `http://localhost:8080`。
+## 目标与实际证据
 
-多数浏览器也可直接打开 `index.html`。
+- [PRD](../zh/TradeX_PRD_v1.0_RevC_zh.md) 定义业务范围与权限规则。
+- [UI Spec](../zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md) 定义 A–K 页面；§14 细化所需交互。
+- [Frontend ARD](../zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md) / [Backend ARD](../zh/TradeX_Backend_ARD_v1.0_RevC_zh.md) 定义实现边界与协议。
+- [Coverage Matrix](../zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md) 区分失败、部分、源码存在性、运行时待验证和未来范围。
+- [QA Report](../zh/TradeX_Prototype_QA_Report_v1.0_RevC_zh.md) 记录当前缺陷、重现步骤及修复后验收。
 
-## Revision C 产品模型
+原型展示目标的部分页面与状态，不代表所有安全规则均已演示成功。尤其不要把以下现状作为实现规范：
 
-TradeX 不再把 Paper 和 Live 当作 Agent Mode。
+| 检查入口 | 已知缺口 | 回归场景 |
+|---|---|---|
+| DISARMED Live 账户撤单后 Arm | 错入新建订单审批 | QA-01 |
+| 未知订单 / Manual Resolution | 捏造成交时间线，缺少证据核验 | QA-02/QA-03 |
+| 休市、时钟、Disable All、sleep | 部分阻断和全局作用域未落实 | QA-04/QA-05 |
+| 改模型/模式后查看历史 | 历史溯源随当前选择变化 | QA-06 |
+| 编辑/重新生成 proposal | 草稿流程不完整，身份复用 | QA-07 |
+| Screener / Context / Markets | 输入和标的选择未正确传递 | QA-08 |
+| Backtest Send / LLM recovery | 入口与错误恢复不完整 | QA-09/QA-10 |
+| 弹窗键盘 / 窄屏 | 背景可获焦点，线程/Provider 操作缺失 | QA-11/QA-12 |
 
-**Agent Mode** 表示任务类型：
+## 保留的产品范围
 
-- Ask
-- Research
-- Backtest
-- Trade
+Agent Mode 是 Ask / Research / Backtest / Trade；执行上下文与账户环境单独选择。非 Live 环境包括 Local Paper、Alpaca Paper、Trading 212 Demo、Binance Testnet、Bitget Demo；Live 操作另需账户 arming、不可变意图、特定审批、权限校验和权威对账。
 
-**Execution Context** 表示所选 execution/account 环境：
-
-- None / Read-only
-- Local Paper
-- Alpaca Paper
-- Trading 212 Demo / Live
-- Binance Testnet / Live
-- Bitget Demo / Live
-
-选择 `Trade` 本身不会授予任何执行权限。Live transaction 还必须满足：精确 Live account 已 ARMED、deterministic validation、immutable proposal、transaction-specific approval、capacity reservation，以及 pre-execution revalidation。
-
-## 主要 Review Flow
-
-1. **Onboarding** — Workspace → Providers → Model → Risk defaults → Ready。
-2. **LLM setup** — CLIProxyAPI/ChatGPT OAuth + DeepSeek；model discovery/health；跨 provider 自动 fallback 默认 OFF。
-3. **Ask** — 只读轻量分析，不显示 execution action。
-4. **Research** — plan/tool/result/artifact/Turn provenance。
-5. **Backtest** — deterministic manifest + Sharpe、Sortino、drawdown、Profit Factor、Turnover。
-6. **Trade context** — Agent Mode 与 Paper/Demo/Testnet/Live account 独立选择。
-7. **Account-scoped Live arming** — arm 一个 Live account，切换账户不继承；可 Disable All。
-8. **Live limit approval** — immutable proposal ID/hash、risk policy version、完整 market-data provenance、reservation、one-time approval。
-9. **Market-order safety** — expected notional + maximum authorized spend。
-10. **Reservation conflict** — Available / Reserved / Effective Available + deterministic rejection。
-11. **Risk-policy invalidation** — 任何相关 policy change 都使 approval 失效；weakening 额外 disarm 对应 Live account。
-12. **Ambiguous submission** — `UNKNOWN_RECONCILING`、frozen reservation、account unhealthy/disarmed、基于证据的 Manual Resolution。
-13. **Broker rejection / cancellation** — acknowledgement 不等于 fill；cancel 同样需要 approval。
-14. **Non-live execution** — Local Paper、Alpaca Paper、T212 Demo、Binance Testnet、Bitget Demo 全程保留 non-live identity。
-15. **Markets** — 完整 provenance、market closed/halted/corporate-action fixture。
-16. **Portfolio** — EUR normalization + FX/stablecoin route/source/timestamp/freshness/depeg-quality fixture。
-17. **Settings** — Providers & Models / Risk & Limits / Data & Storage / Account Health / Appearance / About。
-18. **Workspace portability** — 本地 Export / Workspace Import-Restore；没有 cloud Share-link 功能。
-19. **Recovery** — auth、stream、rate、clock/freshness、LLM unavailable/quota/OAuth、startup/sleep reconciliation。
-20. **Accessibility baseline** — visible focus、modal ARIA、live-region toast、reduced-motion CSS、带 More 的窄屏导航。
-
-## Prototype 展示的安全 Invariant
-
-- Live arming **按账户管理**，不是 global Boolean。
-- 切换 account、Agent Mode、model/provider 不会继承或扩大 trading authority。
-- 每个 Live order/cancel 都需要 transaction-specific approval。
-- Approved proposal identity 不可变；material edit 必须生成新 proposal。
-- Live approval 所使用的 market data 必须展示 source/provider timestamp/TradeX receive timestamp/venue/entitlement/freshness。
-- 明确 `APPROVED → RESERVED → SUBMITTING`。
-- Ambiguous submission 不允许 blind retry，也不允许 blind reservation release。
-- 跨 provider LLM 自动 fallback 默认 OFF，必须显式 opt-in。
-- withdrawal/transfer/custody/margin/leverage 等危险 broker permission 会在 Ready 前阻断/审查。
-- Workspace restore 后全部 Live account 保持 DISARMED。
-
-## Storage 术语
-
-Revision C 统一使用：
-
-- SQLite — transactional/domain state
-- DuckDB — 1-minute+ OHLCV、analytics、backtests
-- Filesystem — artifacts、exports、backups
-- Parquet — Phase 2+ 大型 immutable dataset 的可选方案
-
-MVP 默认不持续订阅或持久化 raw/tick/order-book 数据。
+存储目标为 SQLite + DuckDB + 文件系统，Parquet 为 Phase 2+ 可选；当前原型不执行真实数据库、keychain 或归档 I/O。数据源/风险参数等开放决策以 PRD 为准。完整视觉、读屏、运行时和真实提供方验收尚待完成。

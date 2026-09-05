@@ -1,10 +1,12 @@
 # TradeX Frontend Architecture Requirements & Design (ARD)
 
+**Contract clarification date:** 2026-09-05; prototype behavior is evidence only, subject to the QA Report defects and pending gates.
+
 **Version:** v1.0 Revision C (RevC)  
 **Status:** Engineering baseline  
 **Scope:** Desktop frontend only  
 **Target stack:** Tauri + React + TypeScript  
-**Source baseline:** `TradeX_PRD_v1.0_RevC.md`, `TradeX_UI_Prototype_Spec_v1.0_RevC.md`, RevC prototype  
+**Source baseline:** `TradeX_PRD_v1.0_RevC.md`, `TradeX_UI_Prototype_Spec_v1.0_RevC.md`; prototype observations are recorded separately in the QA Report\
 **Language:** English
 
 > This ARD translates the RevC product requirements into an implementable frontend architecture. Product semantics and safety invariants come from the RevC PRD/UI specification. Concrete module boundaries, state-store decomposition, IPC shapes, folder layout, and test structure below are architectural decisions for implementation.
@@ -220,7 +222,7 @@ Below the narrow-layout breakpoint:
 - sidebar collapses;
 - primary workspace remains reachable;
 - secondary inspectors stack below main content;
-- a `More` entry exposes Artifacts and Settings if compact navigation cannot fit all primary items;
+- a drawer or `More` preserves New Thread, Thread History, Watchlists, Artifacts, Settings, and Account Health when the sidebar is collapsed; Provider Configure/Models and row actions wrap/stack instead of disappearing;
 - live account identity, arming status, Reject, Approve, Cancel, Manual Resolution, and Disable All Live remain reachable without hover.
 
 ---
@@ -257,15 +259,15 @@ interface TurnSnapshot {
   capabilityLevelAtStart: CapabilityLevel;
   modelId: string;
   modelProvider: ModelProvider;
-  providerAttempts: ProviderAttempt[];
   attachedContextIds: string[];
   attachedContextHashes: string[];
   startedAt: string;
-  completedAt?: string;
 }
 ```
 
 Picker changes after a turn starts never mutate this object.
+
+The immutable snapshot contains start-time inputs only. Provider attempts are append-only Turn events; completion time belongs to the Turn lifecycle record. Historical Turn/Artifact provenance reads the stored snapshot and event history, never the current composer selectors.
 
 ### 7.3 Agent Mode
 
@@ -382,74 +384,20 @@ Do **not** store authoritative approval validity, broker order truth, reservatio
 
 ## 10. IPC Contract Architecture
 
-The frontend talks only to the Rust control plane through versioned, typed commands and events.
+The canonical command/result/event envelopes, exact command names, payload requirements, schema-version rules, and replay protocol are owned by [Backend ARD §41–42](./TradeX_Backend_ARD_v1.0_RevC.md#41-backend-api--ipc-surface). Frontend IPC code must consume that contract; it must not invent trade.draft.*, trade.approval.*, or other aliases for the documented commands.
 
-### 10.1 Command envelope
+### 10.1 Client responsibilities
 
-```ts
-interface CommandEnvelope<T> {
-  requestId: string;
-  command: string;
-  schemaVersion: number;
-  payload: T;
-}
-```
+- Use schemaVersion 1 on commands and validate it on results/events.
+- Match requestId; handle success and error as disjoint result types.
+- Send the expected authoritative state version for mutations; a stale result requires reload and fresh consent, not blind retry.
+- Subscribe/replay by aggregate identity and sequence; deduplicate repeated events and reload a coherent snapshot when a sequence gap, conflicting duplicate, or unavailable replay range occurs.
+- Keep financial controls unavailable while their authoritative projection is missing or incompatible. Model-only failures disable affected Agent Turns while preserving account/reconciliation controls.
+- Navigation and unsubmitted picker/draft changes remain local UI state. Typed account/trade/model/domain commands cross only the trusted Tauri control-plane boundary.
 
-### 10.2 Result envelope
+### 10.2 Safety rules
 
-```ts
-interface ResultEnvelope<T> {
-  requestId: string;
-  ok: boolean;
-  data?: T;
-  error?: TradeXError;
-  stateVersion?: string;
-}
-```
-
-### 10.3 Event envelope
-
-```ts
-interface DomainEvent<T> {
-  eventId: string;
-  eventType: string;
-  occurredAt: string;
-  aggregateType: string;
-  aggregateId: string;
-  sequence?: number;
-  payload: T;
-}
-```
-
-### 10.4 Required frontend command groups
-
-```text
-workspace.*
-thread.*
-turn.*
-market.*
-watchlist.*
-account.*
-provider.*
-risk.*
-trade.draft.*
-trade.proposal.*
-trade.approval.*
-trade.cancel.*
-trade.resolution.*
-strategy.*
-backtest.*
-artifact.*
-settings.*
-```
-
-### 10.5 Safety rules
-
-- no raw keychain value is returned to the frontend;
-- no frontend command accepts a raw broker secret after initial secure-entry handoff;
-- live execution commands reference `account_id`, `proposal_id`, `approval_id`, etc.;
-- UI never builds provider-signed requests;
-- malformed or unknown event versions fail visibly instead of being silently coerced.
+No keychain secret is returned to the frontend. Credential entry uses only the dedicated secure-entry handoff; subsequent commands reference credential IDs. The UI neither signs provider requests nor calls the Gateway directly. Financial commands carry canonical account/proposal/approval/cancellation-intent IDs and cannot derive authority from a generic Agent approval. The client checks all required safety/error fields defined by the canonical contract and displays backend remediation without inventing new order states.
 
 ---
 
@@ -658,6 +606,18 @@ If a proposal fails due to reduced effective capacity, render the backend reason
 - Keep reconciling.
 
 There is no generic “release reservation and continue” action.
+
+---
+
+### 14.8 Operation-preserving approval and cancellation
+
+Keep a discriminated pending intent with operation PLACE_ORDER or CANCEL and its immutable backend identity. Opening Arm does not replace the intent, change the account, or populate a default order. After arming, ask the backend to refresh eligibility and return to the matching approval. Cancellation displays the broker order ID and remaining quantity; a changed provider snapshot invalidates prior consent.
+
+### 14.9 State-derived rendering and eligibility
+
+Render explicit order-state cases; an unrecognized or UNKNOWN_RECONCILING value has no successful-fill fallback. Show only persisted observed events, and keep account health, order status, reservation status, and approval expiry separate. Manual Resolution first loads backend evidence and allowed decisions via trade.resolution_evidence, then submits evidence references/version via trade.manual_resolution; local text or a checkbox cannot verify evidence.
+
+Buttons reflect backend eligibility for the exact operation. Re-evaluate on account, mode, market, clock, permission, policy, proposal, and reservation changes. Disable All awaits a result identifying disarmed accounts and stopped/possibly-submitted attempts; it does not optimistically erase a reservation or imply a broker cancellation. UI Spec §14 supplies the required interaction and accessibility cases.
 
 ---
 

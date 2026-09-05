@@ -1,7 +1,7 @@
 # TradeX High-Fidelity Prototype / UI Specification
 
 **Version:** 1.0 Final — Revision C  
-**Date:** 2026-09-04  
+**Date:** 2026-09-05\
 **Source of truth:** `TradeX_PRD_v1.0_RevC.md`  
 **Prototype type:** Desktop-first interactive product prototype target specification  
 **Prototype implementation:** `prototype/index.html`, `prototype/styles.css`, `prototype/app.js`  
@@ -990,7 +990,7 @@ Below 900 px:
 
 - sidebar collapses;
 - compact bottom nav appears;
-- `More` exposes Watchlists / Artifacts / Settings / Account Health;
+- a drawer or `More` exposes New Thread / Thread History / Watchlists / Artifacts / Settings / Account Health;
 - multi-column layouts stack;
 - context panel moves below primary content;
 - strategy side panels may collapse;
@@ -1062,4 +1062,89 @@ Onboard
 → narrow-window + keyboard/focus safety
 ```
 
-The Coverage Matrix is authoritative for prototype evidence versus implementation-only requirements.
+The Coverage Matrix classifies prototype evidence separately from runtime requirements; the QA Report owns observed results. This is a completion standard, not a claim that the current prototype meets it. See §14 for detailed interaction contracts and the remaining repair cases.
+
+---
+
+# 14. Interaction Contracts for Implementation and Prototype Repair
+
+These contracts refine the existing A–K screen inventory; they do not add business scope or certify the current HTML implementation. [QA Report](./TradeX_Prototype_QA_Report_v1.0_RevC.md) records observed failures and regression cases. Backend authority remains defined by the PRD and Backend ARD.
+
+## 14.1 Thread, picker, and instrument identity (B1/B2/B4/B9, C4/C5, I3)
+
+- New Thread creates a distinct empty thread; selecting a history item restores that item's own timeline and saved next-turn defaults. Loading, empty history, and failed resume have explicit states with retry/back navigation.
+- Context Picker edits a temporary selection. Cancel discards changes; Attach shows the exact selected account/instrument/strategy/artifact chips and preserves their canonical IDs. Removing a chip affects the next Turn only.
+- Mode/account/model changes affect the next Turn. Switching to Backtest preserves the selected account as optional read-only portfolio seed; it does not silently replace it with No account. An incompatible selection displays a reason and blocks Send until the user chooses a supported context.
+- At Send, the backend freezes mode, execution context, account, capability, model/provider route, and context IDs/hashes. Historical cards and Artifact provenance continue to show this snapshot. Later provider attempts append provenance events; they never rewrite the initial route.
+- Clicking a market row uses the selected canonical instrument/venue, not a default AAPL/BTC mapping. An unsupported fixture displays a clearly identified unavailable state with Back; it must not show another instrument's identity as the selected one.
+
+## 14.2 Editable OrderDraft and immutable OrderProposal (F2/F4/F5/F12)
+
+The draft editor exposes account/environment, instrument, side, quantity semantics, order type, price or maximum spend as applicable, and TIF. Invalid/missing values show field errors and disable Generate Proposal. Switching account/instrument reloads applicable capabilities and marks incompatible draft fields for correction.
+
+Generate Proposal freezes the displayed values into a new proposal ID/hash and policy/snapshot references. The approval summary is read-only. Edit returns to a draft, invalidates the prior proposal's approval, and requires Generate Proposal plus new consent; Refresh after stale market data or policy change also creates a new identity. Keep the old proposal and invalidation reason inspectable. A fixture may use clearly labelled synthetic revision IDs/hashes, but changed revisions must differ; production uses backend canonical serialization.
+
+## 14.3 Eligibility, arming, and Disable All (F1–F4, J2/J5, K1/K2/K6)
+
+| Action | Required state | Visible blocked behavior |
+|---|---|---|
+| Arm account | Exact Live account, healthy/reconciled, acceptable permissions, trusted time, supported Live capability | Explain failed checks and provide relevant recovery; Arm disabled |
+| Prepare/approve new Live order | Trade mode, compatible account/instrument, account ARMED, eligible market/session/order type, fresh quote/FX where required, current proposal/policy and sufficient capacity | Show backend reason; Approve disabled; Refresh never silently approves |
+| Dispatch reserved attempt | All authority checks still valid at the trusted dispatch boundary | Stop undispatched work; show invalidation/revalidation outcome |
+| Cancel existing order | Exact provider order, cancellable remaining quantity, current broker state, account authority, cancellation-specific capability | Show why cancellation is unavailable; do not apply a new-order rule blindly |
+| Disable All / restart / sleep / session lock | All Live accounts in scope | Disarm all; distinguish stopped-before-dispatch from possibly submitted attempts |
+
+Account-specific faults affect that account; shared policy changes affect all bound accounts. The selected UI account never limits system-wide recovery. Disable All blocks new transmissions and invalidates undispatched consent; it does not cancel an already submitted broker order. Retain/reconcile capacity for attempts that may have left TradeX. Recovery and model switching never auto-arm accounts.
+
+## 14.4 Expiry and cancellation continuation (F6/F10)
+
+Approval TTL expiry uses the guarded PRD §45 release rules. The expiry screen shows proposal/account, expiry time/reason, whether submission may have begun, and the backend-provided reservation disposition. Refresh creates a new proposal requiring approval; a submitted/unknown attempt routes to order activity/reconciliation, not a replacement order.
+
+Cancellation flow: select an open order → refresh its broker state → preserve an immutable CANCEL intent → Arm exact account if needed → refresh/revalidate cancellation intent → cancellation approval → CANCEL_PENDING → broker-confirmed CANCELLED or a fill race. The approval displays provider order ID, account/environment, instrument, observed filled/remaining quantity and timestamp. Its action reads Approve Cancellation; it never uses Approve & Place. Reject/Back dismisses consent without a mutation. A changed/filled order invalidates the old cancellation intent and explains the new state.
+
+## 14.5 Unknown submission and Manual Resolution (F3/F9, K7)
+
+UNKNOWN_RECONCILING uses an amber pending/uncertain treatment with explicit text; it is never a green success fallback. The activity timeline contains only observed events. ACCEPTED requires broker acknowledgement, and FILLED requires broker fill evidence. Pending broker identity cannot coexist with invented acknowledgement/fill events.
+
+Layout: order/account identity and unknown-state banner first; observed timeline and frozen reservation next; evidence/reconciliation panel and actions last. The panel shows last query time, provider source, coverage window, results, errors, and next reconciliation action.
+
+Manual Resolution starts by loading backend-owned evidence and allowed decisions. Confirmed submitted requires a verified broker order ID matched to the account/instrument/action. Confirmed not submitted requires sufficient provider absence evidence; an empty query or checkbox is insufficient. Show the evidence summary and intended reservation effect before final confirmation. Missing/stale/conflicting evidence disables confirmation and explains how to refresh. A concurrent fill invalidates stale manual input. Keep reconciling or closing the dialog preserves the frozen reservation. After valid resolution, show health revalidation progress and keep DISARMED until explicitly armed again.
+
+## 14.6 Screener review and result flow (C2/C3)
+
+Use explicit stages: Describe → Parse → Inspect/edit FilterSpec → Run → Results. Expose editable universe, predicates, thresholds, sort/rank, and result limit supported by the schema. Editing natural language after parsing marks the interpretation stale and requires Parse again; structured edits invalidate previous results. Run uses the displayed validated FilterSpec revision.
+
+Show parse failure beside the input, unsupported filters beside the relevant field, and separate Running, Empty, Failed, and Completed result states. Retry preserves the reviewed inputs; Back to filters preserves edits. Results show applied conditions and count. Opening a row preserves its instrument ID; attaching checked candidates adds only those candidates to the selected/new Thread. Fixture data may be bounded to documented scenarios, but controls must either affect that scenario or disclose an unsupported operation.
+
+## 14.7 Backtest entry and lifecycle (B4, H2–H6)
+
+Backtest Send and the strategy editor converge on one run-configuration flow: select a saved strategy/version or explicitly save the edited strategy; choose instrument/dataset, date range, bar interval, initial capital, fees/slippage, and optional read-only portfolio seed. Missing/invalid inputs block Run with field-level messages. A request to create/revise a strategy may use the Agent, but must produce a selected saved version before deterministic execution begins.
+
+Freeze inputs at Run and show a run ID plus Running progress. Cancel stops that run; Failed retains inputs and a concrete retry action; Completed shows metrics/trades and the reproducibility manifest for the frozen run. Editing strategy/configuration creates a new run and cannot change old results. Compare selects two completed run IDs. No Backtest action enters a broker order flow; an unavailable model blocks strategy-generation turns but does not by itself stop an already configured deterministic backtest.
+
+## 14.8 Model setup and error recovery (A4, J1, K7)
+
+| State | Required controls and outcome |
+|---|---|
+| CLIProxyAPI stopped | Launch → starting/probing → ready or specific failure |
+| Port conflict / unauthorized | Show endpoint/status; Retry probe after configuration repair; no false Ready |
+| ChatGPT OAuth missing/expired | Re-login and explicit provider switch; verify route health before enabling Send |
+| DeepSeek key missing/invalid | Masked secure key entry, save to keychain, probe + test inference, error/success; no secret in logs/history |
+| QUOTA_EXCEEDED | Show known quota/cooldown; explicit Retry when eligible or Switch provider |
+| MODEL_UNAVAILABLE | Preserve draft/history, block affected Send, offer probe/restart guidance and explicit alternate route |
+| Fallback OFF / opt-in ON | Default OFF; automatic cross-provider retry only after explicit opt-in, with attempt disclosure/audit and unchanged capabilities |
+
+Onboarding Ready requires at least one verified usable route. Closing an error dialog does not restore availability. In-flight attempts retain their error/provenance; a retry/switch is an explicit new attempt and does not erase the failed attempt. Pure model outages leave account/reconciliation controls usable. Prototype credential examples must be visibly fake and must not collect real secrets.
+
+## 14.9 Keyboard, narrow layout, and visual states (all screens)
+
+- On dialog open, store the invoker, make the background inert, and focus the title/neutral safe control. Trap Tab/Shift+Tab within the dialog. Escape rejects/dismisses only where allowed; close restores focus to the invoker or a stable logical fallback. Generic Enter never approves a financial action.
+- Use semantic links/buttons for clickable rows; icon-only controls have accessible names. Focus order follows visual reading order. Status transitions are announced without repeatedly announcing streaming noise.
+- At widths below 900 px, provide New Thread and Thread History in a drawer or More, alongside Watchlists, Artifacts, Settings, and Account Health. Provider Configure/Models, retry controls, and table-row actions remain reachable by wrapping/stacking rather than hiding them.
+- At 768 px and a smaller 390 px stress viewport, keep content inside the window; wide data tables may scroll internally. A tall dialog scrolls its body while identity, close/reject and approval controls remain reachable; do not cover actions with the bottom navigation.
+- Apply the existing §2 tokens, type scale and spacing. Green indicates a confirmed healthy/success state; uncertain/reconciling is amber; rejection/blocking uses error treatment. Every color has a text label. Empty, loading, failed, stale, permission-limited, disabled and completed states must explain the next available action.
+- Long account/instrument IDs may truncate in lists only if the full identity is available by keyboard/touch; approval and evidence views expose the full inspectable identity. Reduced motion removes nonessential transitions without hiding progress.
+
+## 14.10 Acceptance evidence
+
+The QA Report's QA-01–QA-12 scenarios define the minimum regression set for these refinements. Passing requires actual action/state assertions, including negative and interruption paths. A screenshot proves layout only; an interface or status label proves presence only. Runtime integration, provider truth, persistence, and assistive-technology checks retain separate gates. Existing FR/AC IDs remain stable, and both language editions must record the same case status.

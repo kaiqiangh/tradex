@@ -1,16 +1,18 @@
 # TradeX 产品需求文档
 
 **版本:** 1.0 Final — Revision C(中文版)  
-**日期:** 2026-09-04  
+**日期:** 2026-09-05\
 **产品:** TradeX  
 **类别:** 本地优先的 AI 交易智能体工作区  
 **主运行时方向:** OpenAI Codex App Server / Codex Harness  
 **状态:** 架构、UI 规范、原型追溯、QA 规划与 MVP 实现的规范性基线  
-**原型基线:** 本 Revision C 包中的 `prototype/`;Coverage Matrix 与 QA Report 均针对同一源码基线生成。
+**原型证据:** [docs/prototype](../prototype/README_zh.md)，审查源码 main@6c4b267。2026-09-05 澄清更新规范文档；当前原型缺陷及剩余门槛记录在 Coverage Matrix 和 QA Report 中。
 
-> **本文件是英文权威版 `TradeX_PRD_v1.0_RevC.md` 的简体中文翻译**,内容以英文版为准;术语与状态 token 保留英文原文,见 `docs/zh/README.md` 的术语约定。
+> **本文件是英文权威版 `TradeX_PRD_v1.0_RevC.md` 的简体中文翻译**,内容以英文版为准;术语与状态 token 保留英文原文,见 [中文目录](./README.md) 的术语约定。
 
 ---
+
+本次澄清保留 v1.0 范围和 FR/AC 标识。UI Spec §14 细化交互；Backend ARD §5/§24 和 §41–42 定义 Gateway 与权威传输契约。文档可用于开发，不代表原型/运行时已验收。
 
 ## 修订历史
 
@@ -20,6 +22,7 @@
 | 1.0 RevA | 2026-09-04 | 规范性重基线:新增 AC-039–AC-054 与 NFR/SEC/DATA/OPS/UX 需求表(§62.2–62.5);规范化订单状态机与错误分类(§45、§51);新增端到端状态断言要求(§67.5)与实施阶段/开放决策/成功标准(§70–§73);QA 与覆盖文档从"全部 Complete"改为分级证据。 |
 | 1.0 RevB | 2026-09-04 | LLM 网关架构重构:模型接入限定为两个来源——本地 CLIProxyAPI(ChatGPT 订阅 OAuth → GPT-5.6)与 DeepSeek 官方 API key——统一经由单一本地 OpenAI 兼容端点(§16、§26.3、§27、§58、§64);OD-009/OD-015 转为已决议(§72);安全增补 SEC-007/SEC-008 与 Model-credential zone(§17、§62.2);审批/预留时序加固(§15、§18、§21.3、§22、§23、§45、§46、§47);MVP 存储画像简化(§32、§54);适配器合并(§24);LLM 错误分类(§51);FR-068–FR-073 与 AC-055–AC-058(§61、§69);隐私披露(§56);JTBD/范围/成功标准更新(§8、§68、§73)。 |
 | 1.0 RevC | 2026-09-04 | 产品状态模型与原型统一:将 Agent Mode 与 Execution Context 分离(§12–§15);新增每轮不可变上下文/模型快照、OrderDraft→OrderProposal 语义、兼容矩阵、账户级布防、基于证据的对账人工处置、提供方权限安全门、时间/FX 溯源与更细粒度能力描述;跨提供方 LLM 自动回退默认关闭并改为显式 opt-in/默认手动(§16、§26.3、§51、§56);统一 DuckDB/Parquet 与市场数据分层语义(§32、§54、§63);强化 FR/AC/NFR/SEC/DATA/OPS/UX 追溯、Phase 0 门槛、成功指标与开放决策治理;同步英文/中文 PRD、UI Spec、Coverage Matrix、QA Report 与独立原型。 |
+| 1.0 RevC 澄清 | 2026-09-05 | 按提交状态限定过期/预留释放，明确全局 disarm 范围与撤单身份，补充 Gateway/IPC 契约引用，校正证据等级并同步双语；原型代码未变。 |
 
 ## 目录
 
@@ -973,6 +976,12 @@ UI 必须提供:
 
 ---
 
+### 15.1 Disarm 作用域与进行中的工作
+
+应用重启、OS 休眠/锁屏和 Disable All 解除全部 Live 账户的 arming。账户专属健康/凭据故障影响该账户；策略变化影响绑定该策略的全部账户。UI 当前选择不能决定作用范围。Disable All 撤销尚未派发工作的待处理审批/派发许可，并阻止新传输。可能已跨过受信派发边界的尝试保留容量并对账，不能假定已撤销。释放任何预留前按 §45 判断。恢复需要健康重新校验和独立显式 Arm，不能恢复旧同意。
+
+---
+
 # 16. 智能体运行时架构
 
 TradeX 使用 **Codex App Server / Codex Harness** 作为主要智能体运行时(线程生命周期、turn 执行、item 流式、工具调用、通用审批)。
@@ -1120,7 +1129,11 @@ nonce: ...
 
 任何实质性的订单变更都会使审批失效。
 
-每份审批还附带审批生效时的 `policy_version`。`PRE_EXECUTION_CHECK` 会重新校验该账户当前的策略版本是否仍匹配;不匹配则使审批失效。过期或失效会以原子方式释放账户级的预留(§45)。
+每份审批还附带审批生效时的 `policy_version`。`PRE_EXECUTION_CHECK` 会重新校验该账户当前的策略版本是否仍匹配；不匹配则使审批失效。只有受信执行边界确认尚未开始提交时，过期或失效才原子释放已有的账户级预留。一旦可能已经开始提交，本地审批过期不能释放容量，也不能覆盖券商订单状态；按 §45 的条件处理。
+
+---
+
+撤单金融审批绑定不可变 cancellation_intent_id/intent_hash，而非新建订单的 proposal_id/proposal_hash。意图固定 operation=CANCEL、账户/环境、提供方订单身份及新鲜的剩余订单快照。Arming 和导航不能改变操作类型（§43.3）。
 
 ---
 
@@ -1337,7 +1350,7 @@ Manual Resolution 必须基于证据:
 2. **Confirmed submitted**——记录/关联 broker order identity,再按券商状态对账/调整 reservation;
 3. **Keep reconciling**——保持冻结并继续 query-first 对账。
 
-仅凭本地/用户声明不能让模糊状态账户恢复健康。UI 在有助于解释阻断时展示 `Available`、`Reserved`、`Effective Available`。
+仅凭本地/用户声明不能让模糊状态账户恢复健康。确认提交前的过期/失效按 §45 原子释放已有预留。UI 在有助于解释阻断时展示 `Available`、`Reserved`、`Effective Available`。
 
 ---
 
@@ -2224,7 +2237,17 @@ UNKNOWN_RECONCILING
 
 `REJECTED` 是券商/交易所拒绝的规范化订单状态。`SUBMISSION_REJECTED` 是解释状态为何变为 `REJECTED` 的错误类别；不得引入 `BROKER_REJECTED` 作为第三种机器状态。
 
-`EXPIRED`（审批或订单过期）始终带有一次预约释放事件：为该 proposal 持有的账户级预约在过期时原子性释放（§18、§23）。
+审批过期与券商订单过期是不同事件。过期审批不可复用，但过期本身不能证明订单尚未提交。每个过期事件必须记录作用对象（`approval` 或 `broker_order`）、权威来源/证据引用，以及预留处置结果；只有实际释放容量时才产生预留释放事件。
+
+| 触发条件与已知执行状态 | 权威状态转换 | 预留处置 |
+|---|---|---|
+| 审批过期/失效，且确认任何传输均未开始；包括在派发前被原子停止的 `RESERVED` 工作 | Approval Authority 使同意失效；未提交 proposal 可带原因进入 `EXPIRED` | 原子释放已有预留；没有预留时不得伪造释放事件 |
+| 已进入 `SUBMITTING` 后本地审批过期，或传输结果不确定 | 仅使审批记录过期；保留已观察订单状态或 `UNKNOWN_RECONCILING` | 保持容量冻结，直至权威对账 |
+| 券商确认订单终态为过期、撤销、拒绝或成交 | Adapter/reconciliation 应用券商状态与累计成交 | 计入成交/费用后，仅释放未使用部分，且只释放一次 |
+| 自动对账超时，或用户关闭 Manual Resolution | 保持 `UNKNOWN_RECONCILING`；账户仍 unhealthy/DISARMED | 不释放 |
+| Manual Resolution 核验提供方证据，确认未提交 | 将执行尝试记为已解决且未提交；保留审计历史并重新校验账户健康 | 基于已验证证据原子释放；此后仍需用户显式 arming |
+
+撤单确认收到请求不等于最终撤销。`CANCEL_PENDING` 和部分成交仍保留剩余占用，直至券商证据允许调整。重启、休眠、时钟不确定性及 Disable All 均不能绕过这些规则（§15、§23、§47–49）。
 
 最低 UI 映射：
 
@@ -2301,7 +2324,7 @@ resolve or require user review
 
 TradeX 不得静默推断成交、拒绝或撤销。
 
-不明确提交的对账必须在有界的窗口内完成（默认 5 分钟）。超时时：订单转入显式用户复核，预约保持冻结直至用户解决或显式释放，账户被标记为不健康——按照 §15 解除其武装。
+对未知提交的自动对账运行一个有界窗口（默认 5 分钟）。超时后订单仍保持 `UNKNOWN_RECONCILING`，预留继续冻结，账户被标记为 unhealthy/DISARMED，UI 打开 §23 定义的证据型 Manual Resolution。不存在未经审计的“释放后继续交易”捷径；不能仅凭用户声明释放。
 
 ---
 
@@ -2417,12 +2440,13 @@ UI 应使用一个可复用的错误/状态组件族，配以类别特定的修�
 - `PERMISSION_ERROR` → 显示缺失的权限/能力；
 - `RATE_LIMITED` → 退避并保留对账优先级；
 - `MARKET_CLOSED` / `INSTRUMENT_HALTED` → 阻止不支持的执行并显示市场状态；
-- `INSUFFICIENT_FUNDS` → 显示可用与所需容量（含预约）；
+- `INSUFFICIENT_FUNDS` → 显示可用与所需容量（含预留）；
 - `STATE_STALE` / `RECONCILIATION_REQUIRED` → 在刷新前禁用 Live 执行；
 - `SUBMISSION_AMBIGUOUS` → 转入 `UNKNOWN_RECONCILING`，不盲目重试；
 - `MODEL_UNAVAILABLE` → 暂停 agent 回合并附 sidecar 修复指引（§16.3）；审批/执行/对账不受影响；
-- `QUOTA_EXCEEDED` → 显示配额状态，提供手动切换至另一提供商的选项；持续耗尽仅降级 agent 回合；
-- `OAUTH_EXPIRED` → 标记 CLIProxyAPI 提供商不可用，自动 DeepSeek 回退，显示重新登录指引。
+- `QUOTA_EXCEEDED` → 显示配额状态；提供冷却后重试和显式切换至 DeepSeek；只有用户已开启时才允许自动回退；
+- `OAUTH_EXPIRED` → 标记 ChatGPT 路由不可用；显示重新登录与显式切换操作；只有用户已开启时才允许自动回退；
+- 时间/新鲜度不确定性 → 映射到 `STATE_STALE` / `RECONCILIATION_REQUIRED` 并提供时钟/时间修复，不得另造冲突的订单状态。
 
 model 可以解释错误，但不负责分配其权威类别。
 
@@ -3609,4 +3633,3 @@ Ask a market question
 LLM 链不可用时,用户仍可查看既有 artifacts、处理已创建且仍有效的 approval、cancel/reconcile open orders、检查 account health 与使用非模型 control-plane 功能。任何 Live authority 都不依赖模型可用性。
 
 > **Agent 负责推理。TradeX Control Plane 负责授权。Broker/Exchange 是执行事实来源。**
-

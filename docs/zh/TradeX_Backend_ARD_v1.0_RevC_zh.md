@@ -1,10 +1,12 @@
 # TradeX 后端架构需求与设计（ARD）
 
+**契约澄清日期：** 2026-09-05；原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
+
 **版本：** v1.0 Revision C (RevC)  
 **状态：** 工程基线  
 **范围：** 本地后端 / Control Plane / Agent Runtime 集成 / Domain Services / Execution Boundary  
 **主要实现：** 以 Rust Control Plane 为核心，并在合理场景使用本地 Sidecar / Process  
-**来源基线：** `TradeX_PRD_v1.0_RevC_zh.md`、`TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md`、RevC Prototype  
+**来源基线：** `TradeX_PRD_v1.0_RevC_zh.md`、`TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md`；原型观察另见 QA Report\
 **语言：** 简体中文
 
 > 本 ARD 将 RevC 产品需求落实为可实施的后端架构。安全语义、产品状态、Provider 范围和存储职责以 RevC PRD 为准；下文中的进程边界、服务拆分、持久化模式、Command/Event Contract、并发控制和 Adapter Pattern 属于工程实现层面的架构决策。
@@ -204,6 +206,7 @@ Broker credentials 绝不能进入该区域。
 tradex-desktop (Tauri/Rust main process)
  ├─ React webview
  ├─ embedded/control-plane Rust services
+ ├─ child: order-gateway [privileged execution; private IPC only]
  ├─ child: codex-app-server [pinned]
  ├─ child: cliproxyapi [pinned, localhost:8317]
  ├─ child: research-mcp (Rust or Python, restricted contract)
@@ -230,15 +233,23 @@ Rust main process 负责：
 open/migrate SQLite
 → load settings + provider metadata
 → initialize TimeService
-→ start CLIProxyAPI
-→ probe /v1/models
-→ start Codex App Server
-→ initialize domain services
+→ initialize domain services + durable event/authority store
+→ start/authenticate Order Gateway (new mutations disabled)
 → restore account metadata
 → reconcile all live/open-order accounts
 → expose live execution readiness only for healthy accounts
-→ enable normal agent workspace
+→ require explicit per-account arming before new Live mutations
 ```
+
+领域服务初始化后，以独立且有界退避的分支执行 CLIProxyAPI 启动 → `/v1/models` 探测 → Codex App Server 启动。模型启动失败不得阻塞订单查询、对账、账户 disarm 或执行控制面。只有所选模型路由健康后才能开始 Agent Turn；此前工作区可显示历史与恢复入口。
+
+### 5.3 Order Gateway 进程边界
+
+独立子进程是强制要求（PRD OD-009），桌面主进程内的模块不能代替该边界。“Privileged”表示独占交易/凭据能力，不表示以 root/管理员身份运行。父进程固定并验证二进制版本，负责健康检查、有界重启、日志脱敏和关闭。
+
+使用专属继承式双向 IPC 通道，以消息长度分帧，并在启动时握手协议版本。父进程持有唯一对端句柄；不得开放监听 TCP 端口，也不得把该句柄传给 webview、Codex、CLIProxyAPI、研究或策略 worker。每次子进程会话通过继承通道传递随机会话凭证完成认证；凭证不能放入命令行参数、日志或普通工作区文件。协议不兼容时，在接受任何请求前拒绝连接。
+
+Gateway 经认证的控制面通道读取权威不可变对象，不成为第二个 SQLite 写入者。只有其提供方签名层解析执行凭据引用。模型凭据和任意前端/Agent 订单字段不得进入 Gateway 请求。Gateway 故障使受影响 Live 账户 disarm，停止未派发工作，并对所有可能到达提供方的尝试完成对账后才允许显式重新 arming。重启子进程绝不自动重放订单修改请求。
 
 Agent workspace 可以在 broker reconciliation 尚未结束时部分可用，但受影响 account 的 Live execution 必须保持 blocked。
 
@@ -372,14 +383,12 @@ execution_context_at_start
 capability_level_at_start
 model_id
 model_provider
-provider_attempts[]
 attached_context_ids[]
 attached_context_hashes[]
 started_at
-completed_at?
 ```
 
-Turn 启动后该 snapshot 不可修改。
+Turn 启动后该 snapshot 不可修改。Provider attempts 和完成时间属于启动快照之外只追加的 Turn 生命周期事件；历史模型/上下文不能从当前工作区默认值读取。
 
 ### 8.3 Runtime adapter
 
@@ -902,8 +911,7 @@ Hashing 使用 deterministic serialization，并明确 decimal/string normalizat
 ```rust
 struct FinancialApproval {
     approval_id: ApprovalId,
-    proposal_id: ProposalId,
-    proposal_hash: Hash,
+    intent: ApprovedFinancialIntent,
     account_id: AccountId,
     operation: FinancialOperation,
     policy_version: PolicyVersion,
@@ -913,6 +921,8 @@ struct FinancialApproval {
     consumed_at: Option<DateTime<Utc>>,
 }
 ```
+
+ApprovedFinancialIntent 是带类型标签的联合：PLACE_ORDER 绑定 proposal_id/proposal_hash；CANCEL 绑定 cancellation_intent_id/intent_hash。operation 必须匹配标签、账户及不可变意图。撤单审批不能授权新建订单。
 
 ### 20.2 属性
 
@@ -969,6 +979,10 @@ account C: DISARMED/ARMED
 
 单个 Control Plane operation 原子地把全部 live account 设为 DISARMED，并追加 audit event。
 
+应用重启、OS 休眠/锁屏和 Disable All 影响全部 Live 账户。凭据/健康故障影响指定账户；共享策略变更影响绑定该策略版本的全部账户。UI 当前选择不能决定作用范围。
+
+Disable All 同时撤销尚未派发的执行许可。在受信派发边界之前停止的 `RESERVED` 尝试失效，并按 PRD §45 释放预留。已经进入提供方 I/O 的尝试保留预留并对账；Disable All 不等于隐式券商撤单。重新 arming 不恢复旧审批或派发许可。
+
 ---
 
 ## 22. Execution Reservation Service
@@ -1007,6 +1021,8 @@ APPROVED
 ### 22.4 Unknown state
 
 `UNKNOWN_RECONCILING` 冻结 capacity，超时后也不能自动 release。
+
+以 PRD §45 的过期/释放条件表为准。可能已经传输后的审批过期仅修改审批记录。提供方终态证据应先计入累计成交/费用，再释放未使用部分；仅收到撤单请求确认不能释放。证据引用、原状态、释放金额及最终账户状态须与预留处置在同一事务中持久化。
 
 ---
 
@@ -1063,14 +1079,28 @@ Order Gateway 是唯一允许执行 Live provider mutation 的组件。
 ```rust
 struct GatewayExecutionRequest {
     execution_attempt_id: ExecutionAttemptId,
-    proposal_id: ProposalId,
+    intent_id: FinancialIntentId,
+    operation: FinancialOperation,
     approval_id: ApprovalId,
-    reservation_id: ReservationId,
+    reservation_id: Option<ReservationId>,
     account_id: AccountId,
 }
 ```
 
 Gateway 在 privileged boundary 内重新加载权威 proposal/account data，不信任 caller 复制的 mutable fields。
+
+intent_id 在 PLACE_ORDER 时解析为不可变 OrderProposal，在 CANCEL 时解析为 CancellationIntent。新建订单必须有 reservation_id；撤单可以引用已有预留，但不能仅为了撤单而新增购买预留。
+
+### 24.1.1 派发权威与故障边界
+
+1. 控制面在账户/策略串行化边界内创建预留、消费审批，并将执行尝试持久化为 `RESERVED`。
+2. Gateway 经私有通道为该尝试申请一次性派发许可。控制面使用与 disarm/策略保存相同的串行化边界，重新校验 arming、健康、权限、策略、proposal 身份、行情/时钟/FX 可执行性及当前预留；先持久化许可，再回复。
+3. Gateway 按账户串行处理派发与撤销，确认许可仍有效，并在提供方 I/O 前通过控制面持久化 `SUBMITTING` 意图。在此边界前已确认的 disable 阻止 I/O；跨过边界后，取消本地工作不能证明提供方没有收到请求。
+4. 许可发出后若交付、子进程健康或传输确认不确定，必须保留容量并优先查询提供方。控制面不能根据 Gateway 未回复推断“未提交”。只有持久化的派发/撤销证据证明传输从未开始，或后续提供方证据解决了尝试，才允许释放。
+
+Disable All 返回各账户 disarm 状态，以及各尝试的 STOPPED_BEFORE_DISPATCH 或 MAY_HAVE_SUBMITTED 处置。前者要求 Gateway 在派发边界前确认撤销；Gateway 不可达时按后者处理并保留容量。这些是派发处置，不是新增券商订单状态。
+
+许可绑定执行尝试、账户、操作、proposal/hash、审批、适用的预留以及权限版本。沿用 execution attempt ID 去重；传输 request ID 本身不是金融幂等保证。Gateway 或控制面重启使许可失效，同时保留尝试用于对账。
 
 ### 24.2 Keychain access
 
@@ -1178,6 +1208,12 @@ Private WebSocket/account stream 是低延迟 signal，不是唯一真相。REST
 
 仅用户口头/本地 assertion 不能恢复 account healthy/live-ready。
 
+### 27.4 证据契约
+
+Manual Resolution 提交 `{execution_attempt_id, account_id, decision, evidence_ids, broker_order_id?, expected_state_version}`。decision 为 `CONFIRMED_NOT_SUBMITTED`、`CONFIRMED_SUBMITTED` 或 `KEEP_RECONCILING`；这些是处置决策，不是新增订单状态。后端持有脱敏证据记录：提供方/账户、查询范围、查询时间与覆盖窗口、提供方请求/引用、结果及关联券商身份。凭据缺失、分页不完整、提供方可见性延迟或单次空查询均不能证明未提交。
+
+确认已提交必须提供与目标标的/操作相符、已核验且属于该账户的券商订单身份；确认未提交必须满足适配器专属的充分缺席证据规则。无法证明缺席时，只允许 Keep reconciling。后端在提交处置时再次校验证据与预期状态版本；期间到达的成交优先于陈旧人工输入。UI 可以查看证据，但不能自行宣告证据已验证。处置成功后重新校验健康，且保持 DISARMED，直至另一次显式用户操作。
+
 ---
 
 ## 28. Order State Machine
@@ -1206,10 +1242,10 @@ UNKNOWN_RECONCILING
 
 - Draft/Proposal：proposal service；
 - Risk rejected：Risk Engine；
-- Needs approval/Approved/Expired：Approval Authority；
+- Needs approval/Approved 与审批过期：Approval Authority；
 - Reserved：Reservation Service；
 - Submitting：Order Gateway；
-- Accepted/Partial/Filled/Rejected/Cancelled：adapter/reconciliation 获得的 provider truth；
+- Accepted/Partial/Filled/Rejected/Cancelled 与券商订单过期：adapter/reconciliation 获得的 provider truth；
 - Unknown reconciling：submission/reconciliation coordinator。
 
 UI 或 Agent text 不得直接写入这些 state。
@@ -1219,6 +1255,8 @@ UI 或 Agent text 不得直接写入这些 state。
 ## 29. Cancellation 架构
 
 Cancellation 是 transaction-specific。
+
+撤单意图不可变，绑定 `operation=CANCEL`、账户/环境、标的、提供方订单 ID、最新观察订单状态、累计成交/剩余数量以及提供方快照时间。Arming 是前置条件，完成后必须返回同一撤单意图，绝不进入新建订单审批。Arming 后再次刷新提供方状态；剩余数量/状态变化时，刷新撤单意图并重新获得同意。已成交/终态订单不能撤销。使用撤单专属可执行性规则：股票市场不接受新订单，不自动等于提供方禁止撤单。
 
 流程：
 
@@ -1608,7 +1646,7 @@ Strategy/research subprocess 使用 least privilege、restricted filesystem/envi
 
 ## 41. Backend API / IPC Surface
 
-推荐暴露给前端的 command groups：
+前端使用的规范命令名（版本 1，见 §41.1）：
 
 ### Workspace/runtime
 
@@ -1674,6 +1712,7 @@ trade.reject
 trade.cancel_request
 trade.cancel_approve
 trade.manual_resolution
+trade.resolution_evidence
 ```
 
 ### Strategy/backtest
@@ -1688,6 +1727,54 @@ backtest.compare
 ```
 
 每个 command 都使用明确 schema version 和 sanitized error。
+
+---
+
+
+### 41.1 权威传输契约（版本 1）
+
+本节和 §42 是前端/控制面传输契约的权威来源，Frontend ARD §10 引用它们；概念模块分组不是另一套命令名。本节命令为精确传输名称，不能由两端独立改名。新增操作必须先定义 schema，再实现。
+
+~~~ts
+interface CommandEnvelope<T> {
+  requestId: string;
+  command: string;
+  schemaVersion: 1;
+  payload: T;
+}
+type ResultEnvelope<T> =
+  | { requestId: string; schemaVersion: 1; ok: true; data: T; stateVersion?: string }
+  | { requestId: string; schemaVersion: 1; ok: false; error: TradeXError };
+interface TradeXError {
+  category: string; // PRD §51 canonical error category
+  code: string;     // stable operation-specific reason, not an order state
+  message: string;  // sanitized user-facing explanation
+  retryable: boolean; // not permission to retry a financial mutation
+  blocking: boolean;
+  remediationActions: Array<{ id: string; label: string }>;
+  aggregateId?: string;
+  providerCode?: string; // sanitized, optional
+}
+~~~
+
+不支持的 schema 版本必须在派发前以 category INTERNAL_ERROR、code IPC_SCHEMA_UNSUPPORTED 失败；UI 提供运行时兼容性/重连指引。未知命令返回 IPC_COMMAND_UNKNOWN；传输 payload 格式错误返回 INTERNAL_ERROR、code IPC_PAYLOAD_INVALID，订单值无效使用 INVALID_ORDER。状态版本不匹配时返回 STATE_STALE、code STATE_VERSION_CONFLICT 且不发生修改；客户端重新读取权威对象后才能请求新的同意。
+
+| 前端职责 | 精确命令 | 最小 payload 契约 |
+|---|---|---|
+| 保存可编辑草稿 | trade.save_draft | 更新时含 draft_id、草稿字段和 expected_state_version；不授予权限 |
+| 生成 proposal | trade.generate_proposal | draft_id、expected_draft_version；后端生成不可变身份/hash |
+| 刷新陈旧 proposal | trade.refresh_proposal | proposal_id、expected_state_version；返回新 proposal 并使旧同意失效 |
+| 请求审批 | trade.request_approval | proposal_id、expected_state_version；返回可执行性与不可变审批摘要 |
+| 显式批准 | trade.approve | proposal_id、proposal_hash、approval_id、expected_state_version；后端重新校验后才能消费 |
+| 拒绝审批 | trade.reject | approval_id、expected_state_version；不执行券商操作 |
+| 准备撤单 | trade.cancel_request | account_id、broker_order_id、expected_state_version；查询提供方状态并返回不可变撤单意图 |
+| 批准撤单 | trade.cancel_approve | cancellation_intent_id、approval_id、expected_state_version；operation 始终为 CANCEL |
+| 查看处置证据 | trade.resolution_evidence | execution_attempt_id、account_id；返回后端持有的证据与允许的决策 |
+| 处置未知提交 | trade.manual_resolution | §27.4 payload；提交处置时再次核验 decision/evidence |
+
+状态版本是后端生成、限于返回聚合对象的不透明 token。Decimal 金额使用规范化字符串；ID、枚举、时间表示及必填/可选字段属于命令的版本化 schema。request ID 只关联一次交互，不能替代 proposal/approval/execution 身份。改变权限的命令超时后必须先查询状态再决定重试；不得把传输重试变成重复同意。
+
+模型推理不可用时，运行时状态、账户查询、事件订阅/重放和对账仍必须可用。纯前端导航/草稿输入不需要后端命令。
 
 ---
 
@@ -1721,6 +1808,32 @@ provider.health.changed
 ```
 
 Event payload 使用 canonical IDs 和 versioned schemas。
+
+---
+
+
+### 42.1 事件封装、顺序与恢复
+
+~~~ts
+interface DomainEvent<T> {
+  eventId: string;
+  eventType: string;
+  schemaVersion: 1;
+  occurredAt: string;
+  aggregateType: string;
+  aggregateId: string;
+  sequence: number;
+  payload: T;
+}
+~~~
+
+对同一 aggregateType/aggregateId，sequence 是从 1 开始、持久化且严格递增的整数；封装不隐含跨聚合对象的全局顺序。领域变更与 outbox 事件在同一事务中持久化；重放保留原 eventId、sequence、schemaVersion 和 occurredAt。流式 UI delta 使用所属 Turn 的 sequence；瞬时动画帧不是领域事件。
+
+IPC 传输提供精确命令 domain.subscribe({aggregateType, aggregateId, afterSequence}) 与 domain.snapshot({aggregateType, aggregateId})。Subscribe 重放游标之后保留的事件，再无缝接续实时事件；afterSequence=0 表示从头开始。Snapshot 返回一致投影和 lastSequence；新订阅从该游标之后继续。
+
+前端忽略相同 eventId/sequence 的重复事件，不无限缓存缺口，也不推测更新金融权限；sequence 缺口或冲突重复触发快照重载。重放范围已被压缩时，返回 STATE_STALE、code IPC_REPLAY_UNAVAILABLE，并要求读取快照。快照丢失/schema 未知时，金融控件保持不可用，直至加载受支持的权威投影。未知事件类型/版本必须显式提示兼容性错误，不能静默越过并推进游标。
+
+审批、预留、券商订单状态、账户就绪及模型路由健康保留为不同 payload。Agent item 完成、收到请求确认或未知状态均不能合成券商成交。实现 IPC 模块时，前端类型与 Rust serde 类型必须从同一实现 schema 生成或对其校验，避免维护独立漂移的定义。
 
 ---
 

@@ -1,14 +1,16 @@
 # TradeX Product Requirements Document
 
 **Version:** 1.0 Final — Revision C  
-**Date:** 2026-09-04  
+**Date:** 2026-09-05\
 **Product:** TradeX  
 **Category:** Local-first AI Trading Agent Workspace  
 **Primary Runtime Direction:** OpenAI Codex App Server / Codex Harness  
 **Status:** Normative product baseline for architecture, UI specification, prototype traceability, QA planning, and MVP implementation  
-**Prototype baseline:** `prototype/` shipped with this Revision C package; the Coverage Matrix and QA Report are generated against the same source baseline.
+**Prototype evidence:** [docs/prototype](./prototype/README.md), reviewed at main@6c4b267. The 2026-09-05 clarification updates normative documents; current prototype defects and remaining gates are recorded in the Coverage Matrix and QA Report.
 
 ---
+
+This clarification preserves v1.0 scope and FR/AC identifiers. UI Spec §14 refines interaction requirements; Backend ARD §5/§24 and §41–42 specify the Gateway and canonical wire contract. Documentation readiness does not establish prototype/runtime acceptance.
 
 ## Revision History
 
@@ -18,6 +20,7 @@
 | 1.0 RevA | 2026-09-04 | Normative re-baseline: added AC-039–AC-054 and the NFR/SEC/DATA/OPS/UX requirement tables (§62.2–62.5); normalized the order state machine and error taxonomy (§45, §51); added end-to-end state-assertion requirements (§67.5) and implementation phases / open decisions / success criteria (§70–§73); QA and coverage documentation moved from "all Complete" to graded evidence. |
 | 1.0 RevB | 2026-09-04 | LLM gateway re-architecture: model access restricted to two sources — local CLIProxyAPI (ChatGPT subscription OAuth → GPT-5.6) and DeepSeek official API key — routed through a single local OpenAI-compatible endpoint (§16, §26.3, §27, §58, §64); OD-009/OD-015 resolved (§72); security additions SEC-007/SEC-008 and Model-credential zone (§17, §62.2); approval/reservation timing hardening (§15, §18, §21.3, §22, §23, §45, §46, §47); MVP storage profile simplification (§32, §54); adapter consolidation (§24); LLM error taxonomy (§51); FR-068–FR-073 and AC-055–AC-058 (§61, §69); privacy disclosure (§56); JTBD/scope/success-criteria updates (§8, §68, §73). |
 | 1.0 RevC | 2026-09-04 | Product-state consolidation and prototype alignment: separated Agent Mode from Execution Context (§12–§15); added per-turn immutable context/model snapshots, OrderDraft→OrderProposal semantics, compatibility rules, account-scoped arming, evidence-based reconciliation resolution, provider-permission safety gates, time/FX provenance, and provider capability dimensions; made cross-provider LLM fallback explicit opt-in/manual by default (§16, §26.3, §51, §56); reconciled DuckDB/Parquet and market-data-tier semantics (§32, §54, §63); strengthened FR/AC/NFR/SEC/DATA/OPS/UX traceability and Phase 0 gates; added measurable product success criteria and open-decision ownership/defaults; synchronized UI Spec, Coverage Matrix, QA Report, English/Chinese documentation, and the standalone prototype. |
+| 1.0 RevC clarification | 2026-09-05 | Guarded expiry/reservation release, global disarm scope, cancellation identity, Gateway/IPC contract references, corrected evidence grades, and bilingual synchronization; prototype code unchanged. |
 
 ## Table of Contents
 
@@ -968,6 +971,12 @@ The UI must provide:
 
 ---
 
+### 15.1 Disarm scope and in-flight work
+
+Application restart, OS sleep/session lock, and Disable All disarm every Live account. Account-specific health/credential failures affect that account; policy changes affect all accounts bound to the changed policy. UI selection does not determine the affected set. Disable All revokes pending approvals/dispatch grants for undispatched work and prevents new transmissions. An attempt that may already have crossed the trusted dispatch boundary retains capacity and is reconciled, rather than being assumed cancelled. Apply §45 before releasing any reservation. Recovery requires health revalidation and a separate explicit Arm; it never restores prior consent.
+
+---
+
 # 16. Agent Runtime Architecture
 
 TradeX uses **Codex App Server / Codex Harness** as the primary agent runtime (protocol layer: thread lifecycle, turn execution, item streaming, tool calls, generic approvals).
@@ -1115,7 +1124,11 @@ nonce: ...
 
 Any material order change invalidates the approval.
 
-Each approval additionally carries the `policy_version` in effect at approval time. `PRE_EXECUTION_CHECK` revalidates that the account's current policy version still matches; a mismatch invalidates the approval. Expiration or invalidation releases the account-scoped reservation atomically (§45).
+Each approval additionally carries the `policy_version` in effect at approval time. `PRE_EXECUTION_CHECK` revalidates that the account's current policy version still matches; a mismatch invalidates the approval. Expiration/invalidation releases an existing account-scoped reservation atomically only when the trusted execution boundary confirms that submission has not begun. Once submission may have begun, local approval expiry cannot release capacity or replace broker order state; apply the guarded rules in §45.
+
+---
+
+For cancellation, the financial approval binds an immutable cancellation_intent_id/intent_hash instead of a new-order proposal_id/proposal_hash. The intent fixes operation=CANCEL, account/environment, provider order identity, and the fresh remaining-order snapshot. Arming and navigation cannot change the operation (§43.3).
 
 ---
 
@@ -2237,7 +2250,17 @@ UNKNOWN_RECONCILING
 
 `REJECTED` is the canonical order state for broker/exchange rejection. `SUBMISSION_REJECTED` is an error category explaining why the state became `REJECTED`; `BROKER_REJECTED` must not be introduced as a third machine state.
 
-`EXPIRED` (approval or order expiry) always carries a reservation-release event: the account-scoped reservation held for the proposal is released atomically at expiry (§18, §23).
+Approval expiry and broker order expiry are distinct events. An expired approval is never reusable, but expiry does not by itself prove that an order was not submitted. Every expiry event records its scope (`approval` or `broker_order`), authority/evidence reference, and reservation disposition; emit a reservation-release event only for capacity actually released.
+
+| Trigger and known execution state | Authoritative transition | Reservation disposition |
+|---|---|---|
+| Approval expires/is invalidated before any transmission can have begun, including `RESERVED` work atomically stopped before dispatch | Approval Authority invalidates consent; the unsubmitted proposal may end as `EXPIRED` with a reason | Release any existing reservation atomically; no reservation means no fabricated release |
+| Local approval expires after `SUBMITTING`, or transmission outcome is uncertain | Expire the approval record only; keep the observed order state or `UNKNOWN_RECONCILING` | Keep capacity frozen until authoritative reconciliation |
+| Broker confirms terminal order expiry, cancellation, rejection, or fill | Adapter/reconciliation applies the broker state and cumulative fills | Account for fills/fees and release only the unused remainder, exactly once |
+| Automatic reconciliation times out or the user closes Manual Resolution | Keep `UNKNOWN_RECONCILING`; account remains unhealthy/DISARMED | No release |
+| Manual Resolution verifies provider evidence of no submission | Resolve the execution attempt as not submitted; retain its audit history and revalidate account health | Release atomically from the verified evidence; arming remains an explicit later action |
+
+Cancellation acknowledgement is not terminal cancellation. `CANCEL_PENDING` and partial fills retain the remaining commitment until broker evidence permits adjustment. Restart, sleep, clock uncertainty, and Disable All cannot bypass these rules (§15, §23, §47–49).
 
 Minimum UI mapping:
 
@@ -3627,4 +3650,3 @@ Experience goals:
 When the LLM chain is unavailable, the user can still review existing artifacts, approve/reject already-created valid approvals, cancel/reconcile open orders, inspect account health, and use non-model control-plane functions. No live authority depends on model availability.
 
 > **The agent reasons. The TradeX control plane authorizes. The broker/exchange is execution truth.**
-

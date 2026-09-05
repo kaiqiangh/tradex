@@ -1,10 +1,12 @@
 # TradeX 前端架构需求与设计（ARD）
 
+**契约澄清日期：** 2026-09-05；原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
+
 **版本：** v1.0 Revision C (RevC)  
 **状态：** 工程基线  
 **范围：** 仅桌面前端  
 **目标技术栈：** Tauri + React + TypeScript  
-**来源基线：** `TradeX_PRD_v1.0_RevC_zh.md`、`TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md`、RevC Prototype  
+**来源基线：** `TradeX_PRD_v1.0_RevC_zh.md`、`TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md`；原型观察另见 QA Report\
 **语言：** 简体中文
 
 > 本 ARD 将 RevC 产品需求落实为可实施的前端架构。产品语义和安全不变量以 RevC PRD / UI Spec 为准；下文中的模块边界、状态存储拆分、IPC contract、目录结构和测试结构属于工程实现层面的架构决策。
@@ -220,7 +222,7 @@ Portfolio 与 Orders 是 account/context surface，不是永久一级导航。
 - sidebar 折叠；
 - 主 Workspace 仍然可访问；
 - secondary inspector 堆叠到主内容下方；
-- 如果 compact navigation 空间不足，使用 `More` 暴露 Artifacts 与 Settings；
+- 侧栏折叠后，在抽屉或 `More` 保留 New Thread、Thread History、Watchlists、Artifacts、Settings、Account Health；Provider Configure/Models 与表格行动作通过换行/堆叠保留；
 - live account identity、arming status、Reject、Approve、Cancel、Manual Resolution 和 Disable All Live 均必须无需 hover 即可访问。
 
 ---
@@ -257,15 +259,15 @@ interface TurnSnapshot {
   capabilityLevelAtStart: CapabilityLevel;
   modelId: string;
   modelProvider: ModelProvider;
-  providerAttempts: ProviderAttempt[];
   attachedContextIds: string[];
   attachedContextHashes: string[];
   startedAt: string;
-  completedAt?: string;
 }
 ```
 
 Turn 启动后的 picker 修改不得改变该对象。
+
+不可变快照只保存启动时输入。Provider attempts 是只追加的 Turn 事件，完成时间属于 Turn 生命周期记录。历史 Turn/Artifact 溯源读取已保存快照和事件历史，不能读取当前 composer 选择器。
 
 ### 7.3 Agent Mode
 
@@ -382,74 +384,20 @@ TradeX 必须区分后端权威状态与临时 UI 状态。
 
 ## 10. IPC Contract 架构
 
-前端仅通过 versioned typed commands/events 与 Rust Control Plane 交互。
+命令/结果/事件封装、精确命令名、payload 要求、schema 版本规则和重放协议统一由 [Backend ARD §41–42](./TradeX_Backend_ARD_v1.0_RevC_zh.md#41-backend-api--ipc-surface) 定义。前端 IPC 使用该契约，不得为既定命令另造 trade.draft.*、trade.approval.* 等别名。
 
-### 10.1 Command envelope
+### 10.1 客户端职责
 
-```ts
-interface CommandEnvelope<T> {
-  requestId: string;
-  command: string;
-  schemaVersion: number;
-  payload: T;
-}
-```
+- 命令使用 schemaVersion 1，并验证结果/事件中的版本。
+- 匹配 requestId；成功与错误使用互斥结果类型。
+- 修改请求携带预期权威状态版本；状态陈旧时重新加载并取得新的同意，不能盲目重试。
+- 按聚合身份和 sequence 订阅/重放；重复事件去重，sequence 缺口、冲突重复或重放范围不可用时重新加载一致快照。
+- 权威投影缺失/不兼容时，金融控件保持不可用。纯模型故障禁用受影响 Agent Turn，同时保留账户/对账操作。
+- 导航、尚未提交的选择器/草稿变更属于本地 UI 状态。类型化的 account/trade/model/domain 命令只通过受信 Tauri 控制面边界。
 
-### 10.2 Result envelope
+### 10.2 安全规则
 
-```ts
-interface ResultEnvelope<T> {
-  requestId: string;
-  ok: boolean;
-  data?: T;
-  error?: TradeXError;
-  stateVersion?: string;
-}
-```
-
-### 10.3 Event envelope
-
-```ts
-interface DomainEvent<T> {
-  eventId: string;
-  eventType: string;
-  occurredAt: string;
-  aggregateType: string;
-  aggregateId: string;
-  sequence?: number;
-  payload: T;
-}
-```
-
-### 10.4 前端命令组
-
-```text
-workspace.*
-thread.*
-turn.*
-market.*
-watchlist.*
-account.*
-provider.*
-risk.*
-trade.draft.*
-trade.proposal.*
-trade.approval.*
-trade.cancel.*
-trade.resolution.*
-strategy.*
-backtest.*
-artifact.*
-settings.*
-```
-
-### 10.5 安全规则
-
-- 不向前端返回原始 keychain value；
-- 完成 secure-entry handoff 后，不再接受前端传入的原始 broker secret；
-- live execution command 使用 `account_id`、`proposal_id`、`approval_id` 等引用；
-- UI 不生成 provider-signed request；
-- 未知或不兼容的 event schema 必须显式失败，不能静默强转。
+前端不能获得 keychain secret。凭据输入只使用专用 secure-entry handoff，后续命令引用凭据 ID。UI 不签名提供方请求，也不直接调用 Gateway。金融命令携带规范 account/proposal/approval/cancellation-intent ID，不能从通用 Agent 审批取得权限。客户端检查权威契约要求的安全/错误字段，显示后端修复措施，不另造订单状态。
 
 ---
 
@@ -658,6 +606,18 @@ Global Disable All 调用一次后端动作，再渲染后端返回的每个账�
 - Keep reconciling。
 
 不得存在通用 “release reservation and continue”。
+
+---
+
+### 14.8 保留操作类型的审批与撤单
+
+待处理意图按 PLACE_ORDER 或 CANCEL 区分，并保存其不可变后端身份。打开 Arm 不替换意图、不修改账户、不填入默认订单。Arming 后请求后端刷新可执行性，并返回对应审批。撤单必须展示券商订单 ID 与剩余数量；提供方快照变化使旧同意失效。
+
+### 14.9 按状态呈现与控制可执行性
+
+显式处理各订单状态；无法识别或 UNKNOWN_RECONCILING 状态不得回退到成功成交。只显示已持久化的观察事件，并区分账户健康、订单状态、预留状态和审批过期。Manual Resolution 先通过 trade.resolution_evidence 读取后端证据及允许的决策，再通过 trade.manual_resolution 提交证据引用/版本；本地文字或复选框不能验证证据。
+
+按钮反映精确操作的后端可执行性。账户、模式、行情、时钟、权限、策略、proposal 或预留变化时重新评估。Disable All 等待结果说明哪些账户已 disarm、哪些尝试已停止/可能提交；不能乐观删除预留或暗示已券商撤单。UI Spec §14 定义所需交互与无障碍场景。
 
 ---
 

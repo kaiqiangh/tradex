@@ -1,10 +1,12 @@
 # TradeX Backend Architecture Requirements & Design (ARD)
 
+**Contract clarification date:** 2026-09-05; prototype behavior is evidence only, subject to the QA Report defects and pending gates.
+
 **Version:** v1.0 Revision C (RevC)  
 **Status:** Engineering baseline  
 **Scope:** Local backend / control plane / agent runtime integration / domain services / execution boundary  
 **Primary implementation:** Rust control plane with local sidecars/processes where justified  
-**Source baseline:** `TradeX_PRD_v1.0_RevC.md`, `TradeX_UI_Prototype_Spec_v1.0_RevC.md`, RevC prototype  
+**Source baseline:** `TradeX_PRD_v1.0_RevC.md`, `TradeX_UI_Prototype_Spec_v1.0_RevC.md`; prototype observations are recorded separately in the QA Report\
 **Language:** English
 
 > This ARD translates the RevC product requirements into an implementable backend architecture. Safety semantics, product state, provider scope, and storage responsibilities come from the RevC PRD. Concrete process boundaries, service decomposition, persistence patterns, command/event contracts, concurrency controls, and adapter patterns below are architectural decisions for implementation.
@@ -204,6 +206,7 @@ Recommended v1.0 topology:
 tradex-desktop (Tauri/Rust main process)
  ├─ React webview
  ├─ embedded/control-plane Rust services
+ ├─ child: order-gateway [privileged execution; private IPC only]
  ├─ child: codex-app-server [pinned]
  ├─ child: cliproxyapi [pinned, localhost:8317]
  ├─ child: research-mcp (Rust or Python, restricted contract)
@@ -230,15 +233,23 @@ Recommended sequence:
 open/migrate SQLite
 → load settings + provider metadata
 → initialize TimeService
-→ start CLIProxyAPI
-→ probe /v1/models
-→ start Codex App Server
-→ initialize domain services
+→ initialize domain services + durable event/authority store
+→ start/authenticate Order Gateway (new mutations disabled)
 → restore account metadata
 → reconcile all live/open-order accounts
 → expose live execution readiness only for healthy accounts
-→ enable normal agent workspace
+→ require explicit per-account arming before new Live mutations
 ```
+
+After domain initialization, start CLIProxyAPI → probe `/v1/models` → start Codex App Server as an independent, bounded-backoff branch. Model startup failures must not block order queries, reconciliation, account disarming, or the execution control plane. Agent turns become available only when their selected model route is healthy; the workspace may display history and recovery controls earlier.
+
+### 5.3 Order Gateway process boundary
+
+The separate child process is mandatory (PRD OD-009); a module inside the desktop process does not satisfy this boundary. “Privileged” means exclusive trading/credential capabilities, not root/administrator execution. The parent pins/verifies its binary and supervises health, bounded restart, redacted logs, and shutdown.
+
+Use a dedicated inherited duplex IPC channel, framed with message lengths and a startup protocol-version handshake. The parent retains the only peer handle; never expose a listening TCP endpoint or pass this handle to the webview, Codex, CLIProxyAPI, research, or strategy workers. Authenticate each new child session with a random session credential sent through the inherited channel, never command-line arguments, logs, or ordinary workspace files. Reject an incompatible protocol before accepting requests.
+
+The Gateway retrieves authoritative immutable objects through the authenticated control-plane channel; it does not become a second SQLite writer. Only its provider signing layer resolves execution credential references. Neither model credentials nor arbitrary frontend/agent order fields enter a Gateway request. Gateway failure disarms affected Live accounts, stops undispatched work, and reconciles every attempt that might have reached a provider before allowing explicit re-arming. Restarting the child never replays an order mutation automatically.
 
 Agent workspace may become partially usable before broker reconciliation completes, but live execution remains blocked until the affected account is healthy.
 
@@ -372,14 +383,12 @@ execution_context_at_start
 capability_level_at_start
 model_id
 model_provider
-provider_attempts[]
 attached_context_ids[]
 attached_context_hashes[]
 started_at
-completed_at?
 ```
 
-This snapshot is immutable after the turn starts.
+This snapshot is immutable after the turn starts. Provider attempts and completion time belong to append-only Turn lifecycle events outside the start snapshot; the displayed historical model/context must not be read from current workspace defaults.
 
 ### 8.3 Runtime adapter
 
@@ -902,8 +911,7 @@ A `FinancialApproval` is separate from Codex approval.
 ```rust
 struct FinancialApproval {
     approval_id: ApprovalId,
-    proposal_id: ProposalId,
-    proposal_hash: Hash,
+    intent: ApprovedFinancialIntent,
     account_id: AccountId,
     operation: FinancialOperation,
     policy_version: PolicyVersion,
@@ -913,6 +921,8 @@ struct FinancialApproval {
     consumed_at: Option<DateTime<Utc>>,
 }
 ```
+
+ApprovedFinancialIntent is a tagged union: PLACE_ORDER binds proposal_id/proposal_hash; CANCEL binds cancellation_intent_id/intent_hash. The operation must match the tag, account, and immutable intent. A cancellation approval cannot authorize an order creation.
 
 ### 20.2 Properties
 
@@ -969,6 +979,10 @@ Disarm affected account on:
 
 One control-plane operation atomically sets all live account arming states to DISARMED and appends audit events.
 
+Application restart, OS sleep/session lock, and Disable All affect every Live account. Credential/health failures affect the identified account; a shared policy change affects every account bound to that policy version. Selection in the UI never determines the scope.
+
+Disable All also revokes undispatched execution grants. A `RESERVED` attempt stopped before the trusted dispatch boundary is invalidated and its reservation released under PRD §45. An attempt already handed to provider I/O retains its reservation and is reconciled; Disable All is not an implicit broker cancellation. Re-arming never restores an old approval or dispatch grant.
+
 ---
 
 ## 22. Execution Reservation Service
@@ -1007,6 +1021,8 @@ APPROVED
 ### 22.4 Unknown state
 
 `UNKNOWN_RECONCILING` freezes reservation capacity. It cannot be auto-released after timeout.
+
+The guarded expiry/release table in PRD §45 is normative. Approval expiry after possible transmission changes only the approval record. Provider terminal evidence adjusts for cumulative fills/fees before releasing the unused remainder; cancellation acknowledgement alone cannot release it. Persist the evidence reference, previous state, release amount, and resulting account state in the same transaction as the reservation disposition.
 
 ---
 
@@ -1063,14 +1079,28 @@ It accepts a narrow internal request containing validated identifiers, not free-
 ```rust
 struct GatewayExecutionRequest {
     execution_attempt_id: ExecutionAttemptId,
-    proposal_id: ProposalId,
+    intent_id: FinancialIntentId,
+    operation: FinancialOperation,
     approval_id: ApprovalId,
-    reservation_id: ReservationId,
+    reservation_id: Option<ReservationId>,
     account_id: AccountId,
 }
 ```
 
 Gateway reloads authoritative proposal/account data inside the privileged boundary rather than trusting duplicated mutable fields from the caller.
+
+The intent_id resolves to an immutable OrderProposal for PLACE_ORDER or CancellationIntent for CANCEL. A reservation_id is mandatory for new orders; cancellation may reference an existing reservation but never creates a new purchase reservation merely to cancel.
+
+### 24.1.1 Dispatch ownership and failure boundary
+
+1. The control plane creates the reservation and consumes approval under account/policy serialization, persisting the execution attempt as `RESERVED`.
+2. The Gateway requests a one-use dispatch grant for that attempt over the private channel. Under the same serialization used by disarm/policy-save, the control plane rechecks arming, health, permissions, policy, proposal identity, market/clock/FX eligibility and current reservation; it records the grant before replying.
+3. The Gateway serializes dispatch and revocation per account, confirms the grant is current, and records a durable `SUBMITTING` intent through the control plane immediately before provider I/O. A disable acknowledged before this boundary prevents I/O. Once the boundary is crossed, cancellation of local work cannot prove absence at the provider.
+4. If delivery, child health, or transmission acknowledgement is uncertain after a grant, retain capacity and query the provider first. The control plane must not infer “not submitted” from a missing Gateway reply. Release is allowed only when durable dispatch/revocation evidence proves that transmission never began, or later provider evidence resolves the attempt.
+
+Disable All returns per-account disarm state and per-attempt STOPPED_BEFORE_DISPATCH or MAY_HAVE_SUBMITTED disposition. The former requires an acknowledged Gateway revocation before its dispatch boundary; an unreachable Gateway yields the latter and retains capacity. These are dispatch dispositions, not new broker order states.
+
+The grant binds the execution attempt, account, operation, proposal/hash, approval, reservation where applicable, and authority version. The existing execution attempt ID deduplicates requests; a transport request ID alone is not financial idempotency. Gateway and control-plane restarts invalidate grants and preserve attempts for reconciliation.
 
 ### 24.2 Keychain access
 
@@ -1178,6 +1208,12 @@ Leave reservation frozen and continue query-first resolution.
 
 A user assertion alone cannot make the account healthy/live-ready.
 
+### 27.4 Evidence contract
+
+Manual Resolution submits `{execution_attempt_id, account_id, decision, evidence_ids, broker_order_id?, expected_state_version}`. Decisions are `CONFIRMED_NOT_SUBMITTED`, `CONFIRMED_SUBMITTED`, or `KEEP_RECONCILING`; these are resolution decisions, not new order states. The backend owns sanitized evidence records: provider/account, query scope, query time and coverage window, provider request/reference, outcome, and related broker identity. Missing credentials, incomplete pagination, lagging provider visibility, or an empty single query do not prove absence.
+
+Confirmed submission requires an account-scoped broker identity verified against the intended instrument/action; confirmed non-submission requires an adapter-specific sufficient-absence rule. Unsupported absence proof leaves the only available decision as Keep reconciling. The backend validates evidence and expected state version again at commit; a fill arriving meanwhile wins over stale manual input. The UI can inspect evidence but cannot declare it verified. A successful resolution triggers health revalidation and keeps arming DISARMED until a separate user action.
+
 ---
 
 ## 28. Order State Machine
@@ -1206,10 +1242,10 @@ UNKNOWN_RECONCILING
 
 - Draft/Proposal: proposal service;
 - Risk rejected: Risk Engine;
-- Needs approval/Approved/Expired: Approval Authority;
+- Needs approval/Approved and approval expiry: Approval Authority;
 - Reserved: Reservation Service;
 - Submitting: Order Gateway;
-- Accepted/Partial/Filled/Rejected/Cancelled: provider truth via adapter/reconciliation;
+- Accepted/Partial/Filled/Rejected/Cancelled and broker order expiry: provider truth via adapter/reconciliation;
 - Unknown reconciling: submission/reconciliation coordinator.
 
 No UI or agent text may write these states directly.
@@ -1219,6 +1255,8 @@ No UI or agent text may write these states directly.
 ## 29. Cancellation Architecture
 
 Cancellation is transaction-specific.
+
+Cancellation intent is immutable and binds `operation=CANCEL`, account/environment, instrument, provider order ID, latest observed order state, cumulative filled/remaining quantity, and provider snapshot time. Arming is a prerequisite that returns to this same cancellation intent, never a create-order approval. After arming, refresh provider state again; changed remaining quantity/state requires a refreshed cancellation intent and new consent. A filled/terminal order cannot be cancelled. Use cancellation eligibility rules: an equity market closed to new orders does not automatically mean the provider forbids cancellation.
 
 Flow:
 
@@ -1608,7 +1646,7 @@ Upgrade requires compatibility/schema diff tests.
 
 ## 41. Backend API / IPC Surface
 
-Recommended command groups exposed to the frontend:
+Canonical command names exposed to the frontend (version 1; see §41.1):
 
 ### Workspace/runtime
 
@@ -1674,6 +1712,7 @@ trade.reject
 trade.cancel_request
 trade.cancel_approve
 trade.manual_resolution
+trade.resolution_evidence
 ```
 
 ### Strategy/backtest
@@ -1688,6 +1727,54 @@ backtest.compare
 ```
 
 Every command has explicit schema versioning and sanitized errors.
+
+---
+
+
+### 41.1 Canonical wire contract (version 1)
+
+This section and §42 own the frontend/control-plane wire contract. Frontend ARD §10 references it; conceptual module groups are not alternate command names. The command names in this section are exact wire names, not examples to rename independently. New operations require an explicit schema entry before implementation.
+
+~~~ts
+interface CommandEnvelope<T> {
+  requestId: string;
+  command: string;
+  schemaVersion: 1;
+  payload: T;
+}
+type ResultEnvelope<T> =
+  | { requestId: string; schemaVersion: 1; ok: true; data: T; stateVersion?: string }
+  | { requestId: string; schemaVersion: 1; ok: false; error: TradeXError };
+interface TradeXError {
+  category: string; // PRD §51 canonical error category
+  code: string;     // stable operation-specific reason, not an order state
+  message: string;  // sanitized user-facing explanation
+  retryable: boolean; // not permission to retry a financial mutation
+  blocking: boolean;
+  remediationActions: Array<{ id: string; label: string }>;
+  aggregateId?: string;
+  providerCode?: string; // sanitized, optional
+}
+~~~
+
+Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNSUPPORTED, before dispatch; the UI offers runtime compatibility/reconnect guidance. An unknown command fails as IPC_COMMAND_UNKNOWN. Malformed wire payloads fail as INTERNAL_ERROR with code IPC_PAYLOAD_INVALID; invalid order values use INVALID_ORDER. A state-version mismatch fails as STATE_STALE with code STATE_VERSION_CONFLICT and returns no mutation; the client reloads the authoritative object before requesting new consent.
+
+| Frontend responsibility | Exact command | Minimum payload contract |
+|---|---|---|
+| Save editable draft | trade.save_draft | draft_id when updating, draft fields, expected_state_version when updating; no authority granted |
+| Generate proposal | trade.generate_proposal | draft_id, expected_draft_version; backend generates immutable identity/hash |
+| Refresh stale proposal | trade.refresh_proposal | proposal_id, expected_state_version; return a new proposal and invalidate old consent |
+| Request approval | trade.request_approval | proposal_id, expected_state_version; returns eligibility and immutable approval summary |
+| Explicitly approve | trade.approve | proposal_id, proposal_hash, approval_id, expected_state_version; consume only after backend revalidation |
+| Reject approval | trade.reject | approval_id, expected_state_version; no broker action |
+| Prepare cancellation | trade.cancel_request | account_id, broker_order_id, expected_state_version; fetch provider state and return immutable cancellation intent |
+| Approve cancellation | trade.cancel_approve | cancellation_intent_id, approval_id, expected_state_version; operation is always CANCEL |
+| Inspect resolution evidence | trade.resolution_evidence | execution_attempt_id, account_id; return backend-owned evidence and allowed decisions |
+| Resolve ambiguity | trade.manual_resolution | §27.4 payload; decision/evidence validated again at commit |
+
+State versions are opaque backend tokens, scoped to the returned aggregate. Decimal amounts use normalized strings; IDs, enum values, time representations, and required/optional fields are part of the command's versioned schema. A request ID correlates one exchange and never substitutes for proposal/approval/execution identity. After timeout on an authority-changing command, query state before any retry; never turn transport retries into repeated consent.
+
+Runtime status, account queries, event subscription/replay, and reconciliation must remain available when model inference is unavailable. Frontend-only navigation/draft typing does not require a backend command.
 
 ---
 
@@ -1721,6 +1808,32 @@ provider.health.changed
 ```
 
 Event payloads carry canonical IDs and versioned schemas.
+
+---
+
+
+### 42.1 Event envelope, ordering, and recovery
+
+~~~ts
+interface DomainEvent<T> {
+  eventId: string;
+  eventType: string;
+  schemaVersion: 1;
+  occurredAt: string;
+  aggregateType: string;
+  aggregateId: string;
+  sequence: number;
+  payload: T;
+}
+~~~
+
+For a given aggregateType/aggregateId, sequence is a durable, strictly increasing integer starting at 1. The envelope has no implied cross-aggregate order. Persist domain changes and their outbox events in one transaction; replay retains the original eventId, sequence, schemaVersion, and occurredAt. Streaming UI deltas carry the owning Turn sequence; transient animation frames are not domain events.
+
+The IPC transport exposes domain.subscribe({aggregateType, aggregateId, afterSequence}) and domain.snapshot({aggregateType, aggregateId}) as exact commands. Subscribe replays retained events after the cursor and then follows live events without a gap; afterSequence=0 starts from the beginning. Snapshot returns a coherent projection and lastSequence; a new subscription resumes after that cursor.
+
+The frontend ignores duplicate eventId/sequence pairs, buffers neither unbounded gaps nor speculative authority updates, and reloads a snapshot on a sequence gap or conflicting duplicate. If the replay range was compacted, return STATE_STALE with code IPC_REPLAY_UNAVAILABLE and require a snapshot. Snapshot loss/unknown schema keeps financial controls unavailable until a supported authoritative projection is loaded. Unknown event types/versions are visible compatibility errors; do not silently advance the cursor past them.
+
+Approval, reservation, broker order state, account readiness, and model-route health remain separate payloads. A completed agent item, acknowledgement, or unknown status must never synthesize a broker fill. Frontend types and Rust serde types must be generated or checked against one implementation schema when the IPC module is built; do not maintain independently drifting definitions.
 
 ---
 
