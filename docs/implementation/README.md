@@ -2,7 +2,7 @@
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
-**这是完整应用的实施计划，应用尚未实现。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。
+**这是完整应用的实施计划；当前 S01 正在实现及验证，完整应用尚未完成。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
 
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
@@ -94,7 +94,7 @@
 | 运行时/API 版本 | 未固定，必须当前资料验证 | 在负责工作项查询官方源与当前代码，保存版本/hash/compatibility 结果，禁止沿用历史仓库记忆中的旧运行时实现。 |
 | 外部验收资源 | 尚未确认账户、数据订阅和 signing identity | 先完成可审阅实现、contract/fault 测试和具体验收步骤；缺少资源时明确请求必要输入。构建软件的授权不等于授权真实资金交易。 |
 
-## 5. 统一验证边界（待用户确认）
+## 5. 统一验证边界（已用于 S01 Spec / implementation）
 
 仓库尚无测试设施。默认最高公共边界为**桌面 UI → 真实版本化 Rust command dispatcher → 临时真实 SQLite/文件 → durable event → UI projection**。共用同一 command schema；renderer 的 mock transport 仅做组件错误/焦点/布局测试，不作为后端或金融权限证明。
 

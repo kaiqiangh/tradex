@@ -1,0 +1,38 @@
+[package]
+name = "tradex"
+version = "0.1.0"
+edition = "2024"
+default-run = "tradex"
+
+[lib]
+name = "tradex"
+
+[features]
+default = []
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[[bin]]
+name = "tradex"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[[bin]]
+name = "tradex-ipc"
+path = "src/bin/ipc.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+uuid = { version = "=1.26.0", features = ["v4"] }
+time = { version = "=0.3.55", features = ["formatting"] }
+schemars = "=1.2.2"
+tauri = { version = "=2.11.5", optional = true, features = [] }
+tauri-plugin-dialog = { version = "=2.7.3", optional = true }
+
+[dev-dependencies]
+tempfile = "=3.27.0"

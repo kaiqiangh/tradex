@@ -221,3 +221,11 @@ __marimo__/
 .workbuddy/
 # WorkBuddy workspace metadata
 .workbuddy/
+
+# Desktop/frontend build and local verification output
+node_modules/
+test-results/
+playwright-report/
+.artifacts/
+src-tauri/gen/
+.tradex/

@@ -1,14 +1,14 @@
 # TradeX v1.0 RevC — File Manifest / 文件清单
 
-**Generated / 生成日期:** 2026-09-05
+**Generated / 生成日期:** 2026-09-06
 
-Paths below are relative to the repository root. Hashes describe the current local file bytes after the documentation clarification, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
+Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01 workspace IPC contract addition, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
 
-以下路径相对仓库根目录。哈希描述本次文档澄清后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
+以下路径相对仓库根目录。哈希描述S01 工作区 IPC 契约增补后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
 
-This manifest excludes its own hash to avoid self-reference. Existing docs/agents workflow guides are outside this product-document manifest. There is no root README.md or root prototype/ package in this checkout.
+This manifest excludes its own hash to avoid self-reference. Existing docs/agents workflow guides are outside this product-document manifest. The root README.md describes the application build; docs/implementation tracks delivery separately from this product-document manifest.
 
-为避免自引用，本文件不计算自身哈希。既有 docs/agents 工作流说明不属于本产品文档清单。当前检出目录不存在根 README.md 或根 prototype/ 包。
+为避免自引用，本文件不计算自身哈希。既有 docs/agents 工作流说明不属于本产品文档清单。根 README.md 说明应用构建；docs/implementation 单独记录交付，不计入本产品文档清单。
 
 | File / 文件 | Purpose / 用途 | Lines / 行数 | SHA-256 |
 |---|---|---:|---|
@@ -21,8 +21,8 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 859 | `64b02b2350873248dfbbd598f414338529937d2466155033fbd3fb921f39b629` |
 | `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 951 | `d0e7a620e96240d93933f90898c71fb293c04bf24c0e2ce6f94c6a47ed78b6d8` |
 | `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 949 | `2f08e3c5c711e7dc6071406bcf9da6382b038d2aef3fda3e84b7263d51652617` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2047 | `a10d9a9f672ad90479af8e8808a7a5f49df81d7015b9f1dddec1b9b04deb294d` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2045 | `cd97e1d6269672c660151d3d9a7ecc472ceb27dc966d57d52acf9f56c3199670` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2066 | `932dcd390a68a244554eae2d64dfe8070ddce89c902271eca6968036d2977be8` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2064 | `002b3c03962ead61f56d9b4b6078d5c8b86852fffc8152bbbccc5fb68b4cdc6e` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 212 | `04a5c1a163f97467c3c1d736f97ea76982183bbb9a62605d1662858fc2df649e` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 212 | `025990daf57f354f831a06eb41c8df8b0cac45c519c1a0782025a7beeab4a2f4` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 177 | `42ad6359f057aa2a4fae91864de37b8b4b1de97aab87d385242a69611a4ecc1b` |

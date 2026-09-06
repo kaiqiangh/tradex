@@ -1778,6 +1778,25 @@ Runtime status, account queries, event subscription/replay, and reconciliation m
 
 ---
 
+### 41.2 Workspace bootstrap payloads (S01)
+
+The following version-1 payloads define the first desktop vertical slice. All objects reject undeclared fields. IDs are non-empty opaque strings; sequences are integers from 0 through JavaScript's safe integer maximum. Times are UTC RFC 3339 strings. No command below grants financial authority.
+
+| Command | Payload | Success data |
+|---|---|---|
+| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`; omitted means the application default workspace directory; a supplied path must be an absolute directory path | Workspace projection: `{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 1}` and opaque `stateVersion` in the result envelope |
+| runtime.status | `{}` | `{components: [{id, status, message}], modelAvailable: boolean, liveExecutionAvailable: boolean}`; initial Codex/CLIProxyAPI status is `NOT_CONFIGURED`, never inferred healthy |
+| domain.snapshot | `{aggregateType: "workspace", aggregateId: string}` | `{aggregateType, aggregateId, projection: Workspace, lastSequence}` |
+| domain.subscribe | `{aggregateType: "workspace", aggregateId: string, afterSequence: number}` | `{aggregateType, aggregateId, afterSequence, lastSequence, replayedCount}` after all retained events through the acknowledged cursor have been delivered; subsequent events use the same transport channel |
+
+The desktop transport supplies a Tauri Channel outside the canonical command envelope. The control plane identifies the consumer from the native webview, not a caller-supplied identity. Re-subscribing replaces that consumer's subscription to this aggregate. Delivery failure removes the subscription; the client reloads a snapshot and subscribes again. Replacing the active workspace revokes its subscriptions. The replay-to-live handoff and command mutations share one serialization boundary, so a concurrent committed event cannot fall between them. The headless integration runner uses framed JSON lines on inherited stdio, no listening network port.
+
+An absent/unknown aggregate yields `STATE_STALE / IPC_AGGREGATE_NOT_FOUND`. A future cursor yields `STATE_STALE / STATE_VERSION_CONFLICT`. A retained-event gap yields `STATE_STALE / IPC_REPLAY_UNAVAILABLE`; clients reload the snapshot. Missing/failed subscription delivery yields `INTERNAL_ERROR / IPC_SUBSCRIPTION_CHANNEL_REQUIRED` or `IPC_SUBSCRIPTION_DELIVERY_FAILED`. Failed storage opening yields sanitized `INTERNAL_ERROR` codes `WORKSPACE_PATH_INVALID`, `WORKSPACE_BUSY`, `WORKSPACE_OPEN_FAILED`, `WORKSPACE_SCHEMA_UNSUPPORTED` or `WORKSPACE_INTEGRITY_FAILED`; it must preserve the previously active workspace and never overwrite corrupted/foreign databases. No raw filesystem/SQL diagnostic is returned.
+
+Name (1–120 characters without control characters) and baseCurrency (three uppercase letters) apply only when creating a workspace; reopening returns its persisted configuration. Defaults are the folder name and USD. Unsupported conversion pairs remain unavailable until the portfolio/data integration supplies them. Opening creates the non-secret workspace database if absent, or reopens the existing identity. Each successful open transaction updates `lastOpenedAt` and appends one `workspace.opened` domain event whose payload is the resulting Workspace projection. Workspace ID and `createdAt` remain immutable. New-database initialization is transactional; existing recognized schema upgrades require a consistent backup before migration and integrity verification. A process-scoped OS lock prevents two control planes from treating the same workspace as active writers. Unknown newer schemas and foreign SQLite databases are rejected without migration. Browser projection/render checks cannot substitute for actual Tauri and persistent-store checks.
+
+---
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

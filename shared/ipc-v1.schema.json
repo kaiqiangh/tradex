@@ -1,0 +1,463 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IpcSchema",
+  "description": "Exported to JSON Schema and TypeScript, and used for renderer runtime validation.",
+  "type": "object",
+  "properties": {
+    "aggregate": {
+      "$ref": "#/$defs/Aggregate"
+    },
+    "command": {
+      "$ref": "#/$defs/CommandEnvelope"
+    },
+    "empty": {
+      "$ref": "#/$defs/EmptyPayload"
+    },
+    "event": {
+      "$ref": "#/$defs/DomainEvent"
+    },
+    "result": {
+      "$ref": "#/$defs/ResultEnvelope"
+    },
+    "subscribe": {
+      "$ref": "#/$defs/Subscribe"
+    },
+    "workspaceOpen": {
+      "$ref": "#/$defs/OpenWorkspace"
+    }
+  },
+  "required": [
+    "command",
+    "result",
+    "event",
+    "workspaceOpen",
+    "aggregate",
+    "subscribe",
+    "empty"
+  ],
+  "$defs": {
+    "Aggregate": {
+      "type": "object",
+      "properties": {
+        "aggregateId": {
+          "type": "string"
+        },
+        "aggregateType": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "aggregateType",
+        "aggregateId"
+      ]
+    },
+    "CommandEnvelope": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "payload": true,
+        "requestId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "const": 1,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "schemaVersion",
+        "command",
+        "payload"
+      ]
+    },
+    "DomainEvent": {
+      "type": "object",
+      "properties": {
+        "aggregateId": {
+          "type": "string"
+        },
+        "aggregateType": {
+          "type": "string",
+          "const": "workspace"
+        },
+        "eventId": {
+          "type": "string"
+        },
+        "eventType": {
+          "type": "string",
+          "const": "workspace.opened"
+        },
+        "occurredAt": {
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/Workspace"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "const": 1,
+          "minimum": 0
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "occurredAt",
+        "aggregateType",
+        "aggregateId",
+        "sequence",
+        "payload"
+      ]
+    },
+    "EmptyPayload": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "FailureEnvelope": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/TradeXError"
+        },
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "const": 1,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "schemaVersion",
+        "ok",
+        "error"
+      ]
+    },
+    "OpenWorkspace": {
+      "type": "object",
+      "properties": {
+        "baseCurrency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Remediation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label"
+      ]
+    },
+    "ReplyData": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Workspace"
+        },
+        {
+          "$ref": "#/$defs/Snapshot"
+        },
+        {
+          "$ref": "#/$defs/RuntimeStatus"
+        },
+        {
+          "$ref": "#/$defs/SubscriptionAck"
+        }
+      ]
+    },
+    "ResultEnvelope": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SuccessEnvelope"
+        },
+        {
+          "$ref": "#/$defs/FailureEnvelope"
+        }
+      ]
+    },
+    "RuntimeComponent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "message"
+      ]
+    },
+    "RuntimeStatus": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RuntimeComponent"
+          }
+        },
+        "liveExecutionAvailable": {
+          "type": "boolean"
+        },
+        "modelAvailable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "components",
+        "modelAvailable",
+        "liveExecutionAvailable"
+      ]
+    },
+    "Snapshot": {
+      "type": "object",
+      "properties": {
+        "aggregateId": {
+          "type": "string"
+        },
+        "aggregateType": {
+          "type": "string",
+          "const": "workspace"
+        },
+        "lastSequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "projection": {
+          "$ref": "#/$defs/Workspace"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "aggregateType",
+        "aggregateId",
+        "projection",
+        "lastSequence"
+      ]
+    },
+    "Subscribe": {
+      "type": "object",
+      "properties": {
+        "afterSequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "aggregateId": {
+          "type": "string"
+        },
+        "aggregateType": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "aggregateType",
+        "aggregateId",
+        "afterSequence"
+      ]
+    },
+    "SubscriptionAck": {
+      "type": "object",
+      "properties": {
+        "afterSequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "aggregateId": {
+          "type": "string"
+        },
+        "aggregateType": {
+          "type": "string"
+        },
+        "lastSequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "replayedCount": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "aggregateType",
+        "aggregateId",
+        "afterSequence",
+        "lastSequence",
+        "replayedCount"
+      ]
+    },
+    "SuccessEnvelope": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/ReplyData"
+        },
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "const": 1,
+          "minimum": 0
+        },
+        "stateVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "schemaVersion",
+        "ok",
+        "data"
+      ]
+    },
+    "TradeXError": {
+      "type": "object",
+      "properties": {
+        "blocking": {
+          "type": "boolean"
+        },
+        "category": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "remediationActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Remediation"
+          }
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "code",
+        "message",
+        "retryable",
+        "blocking",
+        "remediationActions"
+      ]
+    },
+    "Workspace": {
+      "type": "object",
+      "properties": {
+        "baseCurrency": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "lastOpenedAt": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "storageSchemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "const": 1,
+          "minimum": 0
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "name",
+        "baseCurrency",
+        "path",
+        "createdAt",
+        "lastOpenedAt",
+        "storageSchemaVersion"
+      ]
+    }
+  },
+  "$id": "https://tradex.local/schema/ipc-v1"
+}

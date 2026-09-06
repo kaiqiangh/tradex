@@ -1,0 +1,39 @@
+{
+  "name": "tradex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:browser": "cargo build --quiet --bin tradex-ipc && vite --host 127.0.0.1 --mode integration",
+    "desktop": "tauri dev --features desktop",
+    "build": "npm run typecheck && vite build",
+    "desktop:build": "tauri build --features desktop --no-bundle",
+    "typecheck": "tsc --noEmit",
+    "schema:generate": "node scripts/ipc-schema.mjs",
+    "schema:check": "node scripts/ipc-schema.mjs --check",
+    "test:unit": "node --test tests/projection.test.ts",
+    "check": "npm run schema:check && npm run build && npm run test:unit && cargo test --workspace && python3 scripts/check_requirements.py"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.102.8",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-dialog": "2.7.3",
+    "ajv": "8.20.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "@types/node": "26.4.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "json-schema-to-typescript": "16.0.0",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  }
+}
