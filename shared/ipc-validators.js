@@ -27,6 +27,7 @@ var require_ucs2length = /* @__PURE__ */ __commonJSMin(((exports) => {
 //#region shared/ipc-validators-input.cjs
 var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Aggregate = validate37;
+	var func1 = require_ucs2length().default;
 	function validate37(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		const evaluated0 = validate37.evaluated;
@@ -55,7 +56,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				}
 				if (data.aggregateId !== void 0) {
-					if (typeof data.aggregateId !== "string") {
+					let data0 = data.aggregateId;
+					if (typeof data0 === "string") {
+						if (func1(data0) > 128) {
+							validate37.errors = [{
+								instancePath: instancePath + "/aggregateId",
+								schemaPath: "#/properties/aggregateId/maxLength",
+								keyword: "maxLength",
+								params: { limit: 128 },
+								message: "must NOT have more than 128 characters"
+							}];
+							return false;
+						} else if (func1(data0) < 1) {
+							validate37.errors = [{
+								instancePath: instancePath + "/aggregateId",
+								schemaPath: "#/properties/aggregateId/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
 						validate37.errors = [{
 							instancePath: instancePath + "/aggregateId",
 							schemaPath: "#/properties/aggregateId/type",
@@ -69,7 +91,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else var valid0 = true;
 				if (valid0) {
 					if (data.aggregateType !== void 0) {
-						if (typeof data.aggregateType !== "string") {
+						let data1 = data.aggregateType;
+						if (typeof data1 === "string") {
+							if (func1(data1) > 64) {
+								validate37.errors = [{
+									instancePath: instancePath + "/aggregateType",
+									schemaPath: "#/properties/aggregateType/maxLength",
+									keyword: "maxLength",
+									params: { limit: 64 },
+									message: "must NOT have more than 64 characters"
+								}];
+								return false;
+							} else if (func1(data1) < 1) {
+								validate37.errors = [{
+									instancePath: instancePath + "/aggregateType",
+									schemaPath: "#/properties/aggregateType/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
 							validate37.errors = [{
 								instancePath: instancePath + "/aggregateType",
 								schemaPath: "#/properties/aggregateType/type",
@@ -102,7 +145,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.CommandEnvelope = validate38;
-	var func1 = require_ucs2length().default;
 	function validate38(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		const evaluated0 = validate38.evaluated;
@@ -268,7 +310,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				}
 				if (data.aggregateId !== void 0) {
-					if (typeof data.aggregateId !== "string") {
+					let data0 = data.aggregateId;
+					if (typeof data0 === "string") {
+						if (func1(data0) < 1) {
+							validate39.errors = [{
+								instancePath: instancePath + "/aggregateId",
+								schemaPath: "#/properties/aggregateId/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
 						validate39.errors = [{
 							instancePath: instancePath + "/aggregateId",
 							schemaPath: "#/properties/aggregateId/type",
@@ -307,7 +361,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					} else var valid0 = true;
 					if (valid0) {
 						if (data.eventId !== void 0) {
-							if (typeof data.eventId !== "string") {
+							let data2 = data.eventId;
+							if (typeof data2 === "string") {
+								if (func1(data2) < 1) {
+									validate39.errors = [{
+										instancePath: instancePath + "/eventId",
+										schemaPath: "#/properties/eventId/minLength",
+										keyword: "minLength",
+										params: { limit: 1 },
+										message: "must NOT have fewer than 1 characters"
+									}];
+									return false;
+								}
+							} else {
 								validate39.errors = [{
 									instancePath: instancePath + "/eventId",
 									schemaPath: "#/properties/eventId/type",
@@ -494,7 +560,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	} else var valid2 = true;
 																	if (valid2) {
 																		if (data5.workspaceId !== void 0) {
-																			if (typeof data5.workspaceId !== "string") {
+																			let data12 = data5.workspaceId;
+																			if (typeof data12 === "string") {
+																				if (func1(data12) < 1) {
+																					validate39.errors = [{
+																						instancePath: instancePath + "/payload/workspaceId",
+																						schemaPath: "#/$defs/Workspace/properties/workspaceId/minLength",
+																						keyword: "minLength",
+																						params: { limit: 1 },
+																						message: "must NOT have fewer than 1 characters"
+																					}];
+																					return false;
+																				}
+																			} else {
 																				validate39.errors = [{
 																					instancePath: instancePath + "/payload/workspaceId",
 																					schemaPath: "#/$defs/Workspace/properties/workspaceId/type",
@@ -780,7 +858,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 													if (data5.id !== void 0) {
-														if (typeof data5.id !== "string") {
+														let data6 = data5.id;
+														if (typeof data6 === "string") {
+															if (func1(data6) < 1) {
+																validate33.errors = [{
+																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
+																	schemaPath: "#/$defs/Remediation/properties/id/minLength",
+																	keyword: "minLength",
+																	params: { limit: 1 },
+																	message: "must NOT have fewer than 1 characters"
+																}];
+																return false;
+															}
+														} else {
 															validate33.errors = [{
 																instancePath: instancePath + "/remediationActions/" + i0 + "/id",
 																schemaPath: "#/$defs/Remediation/properties/id/type",
@@ -942,16 +1032,39 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							} else var valid0 = true;
 							if (valid0) {
 								if (data.requestId !== void 0) {
+									let data2 = data.requestId;
 									const _errs5 = errors;
-									if (typeof data.requestId !== "string") {
-										validate41.errors = [{
-											instancePath: instancePath + "/requestId",
-											schemaPath: "#/properties/requestId/type",
-											keyword: "type",
-											params: { type: "string" },
-											message: "must be string"
-										}];
-										return false;
+									if (errors === _errs5) {
+										if (typeof data2 === "string") {
+											if (func1(data2) > 128) {
+												validate41.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/maxLength",
+													keyword: "maxLength",
+													params: { limit: 128 },
+													message: "must NOT have more than 128 characters"
+												}];
+												return false;
+											} else if (func1(data2) < 1) {
+												validate41.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/minLength",
+													keyword: "minLength",
+													params: { limit: 1 },
+													message: "must NOT have fewer than 1 characters"
+												}];
+												return false;
+											}
+										} else {
+											validate41.errors = [{
+												instancePath: instancePath + "/requestId",
+												schemaPath: "#/properties/requestId/type",
+												keyword: "type",
+												params: { type: "string" },
+												message: "must be string"
+											}];
+											return false;
+										}
 									}
 									var valid0 = _errs5 === errors;
 								} else var valid0 = true;
@@ -1163,7 +1276,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				}
 				if (data.id !== void 0) {
-					if (typeof data.id !== "string") {
+					let data0 = data.id;
+					if (typeof data0 === "string") {
+						if (func1(data0) < 1) {
+							validate44.errors = [{
+								instancePath: instancePath + "/id",
+								schemaPath: "#/properties/id/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
 						validate44.errors = [{
 							instancePath: instancePath + "/id",
 							schemaPath: "#/properties/id/type",
@@ -1238,7 +1363,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				}
 				if (data.aggregateId !== void 0) {
-					if (typeof data.aggregateId !== "string") {
+					let data0 = data.aggregateId;
+					if (typeof data0 === "string") {
+						if (func1(data0) < 1) {
+							validate26.errors = [{
+								instancePath: instancePath + "/aggregateId",
+								schemaPath: "#/properties/aggregateId/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
 						validate26.errors = [{
 							instancePath: instancePath + "/aggregateId",
 							schemaPath: "#/properties/aggregateId/type",
@@ -1453,7 +1590,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															} else var valid2 = true;
 															if (valid2) {
 																if (data3.workspaceId !== void 0) {
-																	if (typeof data3.workspaceId !== "string") {
+																	let data10 = data3.workspaceId;
+																	if (typeof data10 === "string") {
+																		if (func1(data10) < 1) {
+																			validate26.errors = [{
+																				instancePath: instancePath + "/projection/workspaceId",
+																				schemaPath: "#/$defs/Workspace/properties/workspaceId/minLength",
+																				keyword: "minLength",
+																				params: { limit: 1 },
+																				message: "must NOT have fewer than 1 characters"
+																			}];
+																			return false;
+																		}
+																	} else {
 																		validate26.errors = [{
 																			instancePath: instancePath + "/projection/workspaceId",
 																			schemaPath: "#/$defs/Workspace/properties/workspaceId/type",
@@ -1562,7 +1711,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 									if (data1.id !== void 0) {
-										if (typeof data1.id !== "string") {
+										let data2 = data1.id;
+										if (typeof data2 === "string") {
+											if (func1(data2) < 1) {
+												validate28.errors = [{
+													instancePath: instancePath + "/components/" + i0 + "/id",
+													schemaPath: "#/$defs/RuntimeComponent/properties/id/minLength",
+													keyword: "minLength",
+													params: { limit: 1 },
+													message: "must NOT have fewer than 1 characters"
+												}];
+												return false;
+											}
+										} else {
 											validate28.errors = [{
 												instancePath: instancePath + "/components/" + i0 + "/id",
 												schemaPath: "#/$defs/RuntimeComponent/properties/id/type",
@@ -1851,18 +2012,34 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											} else var valid2 = true;
 											if (valid2) {
 												if (data.workspaceId !== void 0) {
+													let data6 = data.workspaceId;
 													const _errs17 = errors;
-													if (typeof data.workspaceId !== "string") {
-														const err10 = {
-															instancePath: instancePath + "/workspaceId",
-															schemaPath: "#/$defs/Workspace/properties/workspaceId/type",
-															keyword: "type",
-															params: { type: "string" },
-															message: "must be string"
-														};
-														if (vErrors === null) vErrors = [err10];
-														else vErrors.push(err10);
-														errors++;
+													if (errors === _errs17) {
+														if (typeof data6 === "string") {
+															if (func1(data6) < 1) {
+																const err10 = {
+																	instancePath: instancePath + "/workspaceId",
+																	schemaPath: "#/$defs/Workspace/properties/workspaceId/minLength",
+																	keyword: "minLength",
+																	params: { limit: 1 },
+																	message: "must NOT have fewer than 1 characters"
+																};
+																if (vErrors === null) vErrors = [err10];
+																else vErrors.push(err10);
+																errors++;
+															}
+														} else {
+															const err11 = {
+																instancePath: instancePath + "/workspaceId",
+																schemaPath: "#/$defs/Workspace/properties/workspaceId/type",
+																keyword: "type",
+																params: { type: "string" },
+																message: "must be string"
+															};
+															if (vErrors === null) vErrors = [err11];
+															else vErrors.push(err11);
+															errors++;
+														}
 													}
 													var valid2 = _errs17 === errors;
 												} else var valid2 = true;
@@ -1875,15 +2052,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				const err11 = {
+				const err12 = {
 					instancePath,
 					schemaPath: "#/$defs/Workspace/type",
 					keyword: "type",
 					params: { type: "object" },
 					message: "must be object"
 				};
-				if (vErrors === null) vErrors = [err11];
-				else vErrors.push(err11);
+				if (vErrors === null) vErrors = [err12];
+				else vErrors.push(err12);
 				errors++;
 			}
 		}
@@ -1927,28 +2104,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing1;
 				if (data.aggregateType === void 0 && (missing1 = "aggregateType") || data.aggregateId === void 0 && (missing1 = "aggregateId") || data.afterSequence === void 0 && (missing1 = "afterSequence") || data.lastSequence === void 0 && (missing1 = "lastSequence") || data.replayedCount === void 0 && (missing1 = "replayedCount")) {
-					const err12 = {
+					const err13 = {
 						instancePath,
 						schemaPath: "#/$defs/SubscriptionAck/required",
 						keyword: "required",
 						params: { missingProperty: missing1 },
 						message: "must have required property '" + missing1 + "'"
 					};
-					if (vErrors === null) vErrors = [err12];
-					else vErrors.push(err12);
+					if (vErrors === null) vErrors = [err13];
+					else vErrors.push(err13);
 					errors++;
 				} else {
 					const _errs24 = errors;
 					for (const key1 in data) if (!(key1 === "afterSequence" || key1 === "aggregateId" || key1 === "aggregateType" || key1 === "lastSequence" || key1 === "replayedCount")) {
-						const err13 = {
+						const err14 = {
 							instancePath,
 							schemaPath: "#/$defs/SubscriptionAck/additionalProperties",
 							keyword: "additionalProperties",
 							params: { additionalProperty: key1 },
 							message: "must NOT have additional properties"
 						};
-						if (vErrors === null) vErrors = [err13];
-						else vErrors.push(err13);
+						if (vErrors === null) vErrors = [err14];
+						else vErrors.push(err14);
 						errors++;
 						break;
 					}
@@ -1957,21 +2134,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							let data7 = data.afterSequence;
 							const _errs25 = errors;
 							if (!(typeof data7 == "number" && !(data7 % 1) && !isNaN(data7))) {
-								const err14 = {
+								const err15 = {
 									instancePath: instancePath + "/afterSequence",
 									schemaPath: "#/$defs/SubscriptionAck/properties/afterSequence/type",
 									keyword: "type",
 									params: { type: "integer" },
 									message: "must be integer"
 								};
-								if (vErrors === null) vErrors = [err14];
-								else vErrors.push(err14);
+								if (vErrors === null) vErrors = [err15];
+								else vErrors.push(err15);
 								errors++;
 							}
 							if (errors === _errs25) {
 								if (typeof data7 == "number") {
 									if (data7 > 9007199254740991 || isNaN(data7)) {
-										const err15 = {
+										const err16 = {
 											instancePath: instancePath + "/afterSequence",
 											schemaPath: "#/$defs/SubscriptionAck/properties/afterSequence/maximum",
 											keyword: "maximum",
@@ -1981,11 +2158,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											},
 											message: "must be <= 9007199254740991"
 										};
-										if (vErrors === null) vErrors = [err15];
-										else vErrors.push(err15);
+										if (vErrors === null) vErrors = [err16];
+										else vErrors.push(err16);
 										errors++;
 									} else if (data7 < 0 || isNaN(data7)) {
-										const err16 = {
+										const err17 = {
 											instancePath: instancePath + "/afterSequence",
 											schemaPath: "#/$defs/SubscriptionAck/properties/afterSequence/minimum",
 											keyword: "minimum",
@@ -1995,8 +2172,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											},
 											message: "must be >= 0"
 										};
-										if (vErrors === null) vErrors = [err16];
-										else vErrors.push(err16);
+										if (vErrors === null) vErrors = [err17];
+										else vErrors.push(err17);
 										errors++;
 									}
 								}
@@ -2005,34 +2182,63 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						} else var valid4 = true;
 						if (valid4) {
 							if (data.aggregateId !== void 0) {
+								let data8 = data.aggregateId;
 								const _errs27 = errors;
-								if (typeof data.aggregateId !== "string") {
-									const err17 = {
-										instancePath: instancePath + "/aggregateId",
-										schemaPath: "#/$defs/SubscriptionAck/properties/aggregateId/type",
-										keyword: "type",
-										params: { type: "string" },
-										message: "must be string"
-									};
-									if (vErrors === null) vErrors = [err17];
-									else vErrors.push(err17);
-									errors++;
+								if (errors === _errs27) {
+									if (typeof data8 === "string") {
+										if (func1(data8) < 1) {
+											const err18 = {
+												instancePath: instancePath + "/aggregateId",
+												schemaPath: "#/$defs/SubscriptionAck/properties/aggregateId/minLength",
+												keyword: "minLength",
+												params: { limit: 1 },
+												message: "must NOT have fewer than 1 characters"
+											};
+											if (vErrors === null) vErrors = [err18];
+											else vErrors.push(err18);
+											errors++;
+										}
+									} else {
+										const err19 = {
+											instancePath: instancePath + "/aggregateId",
+											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateId/type",
+											keyword: "type",
+											params: { type: "string" },
+											message: "must be string"
+										};
+										if (vErrors === null) vErrors = [err19];
+										else vErrors.push(err19);
+										errors++;
+									}
 								}
 								var valid4 = _errs27 === errors;
 							} else var valid4 = true;
 							if (valid4) {
 								if (data.aggregateType !== void 0) {
+									let data9 = data.aggregateType;
 									const _errs29 = errors;
-									if (typeof data.aggregateType !== "string") {
-										const err18 = {
+									if (typeof data9 !== "string") {
+										const err20 = {
 											instancePath: instancePath + "/aggregateType",
 											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/type",
 											keyword: "type",
 											params: { type: "string" },
 											message: "must be string"
 										};
-										if (vErrors === null) vErrors = [err18];
-										else vErrors.push(err18);
+										if (vErrors === null) vErrors = [err20];
+										else vErrors.push(err20);
+										errors++;
+									}
+									if ("workspace" !== data9) {
+										const err21 = {
+											instancePath: instancePath + "/aggregateType",
+											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/const",
+											keyword: "const",
+											params: { allowedValue: "workspace" },
+											message: "must be equal to constant"
+										};
+										if (vErrors === null) vErrors = [err21];
+										else vErrors.push(err21);
 										errors++;
 									}
 									var valid4 = _errs29 === errors;
@@ -2042,21 +2248,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data10 = data.lastSequence;
 										const _errs31 = errors;
 										if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10))) {
-											const err19 = {
+											const err22 = {
 												instancePath: instancePath + "/lastSequence",
 												schemaPath: "#/$defs/SubscriptionAck/properties/lastSequence/type",
 												keyword: "type",
 												params: { type: "integer" },
 												message: "must be integer"
 											};
-											if (vErrors === null) vErrors = [err19];
-											else vErrors.push(err19);
+											if (vErrors === null) vErrors = [err22];
+											else vErrors.push(err22);
 											errors++;
 										}
 										if (errors === _errs31) {
 											if (typeof data10 == "number") {
 												if (data10 > 9007199254740991 || isNaN(data10)) {
-													const err20 = {
+													const err23 = {
 														instancePath: instancePath + "/lastSequence",
 														schemaPath: "#/$defs/SubscriptionAck/properties/lastSequence/maximum",
 														keyword: "maximum",
@@ -2066,11 +2272,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														},
 														message: "must be <= 9007199254740991"
 													};
-													if (vErrors === null) vErrors = [err20];
-													else vErrors.push(err20);
+													if (vErrors === null) vErrors = [err23];
+													else vErrors.push(err23);
 													errors++;
 												} else if (data10 < 0 || isNaN(data10)) {
-													const err21 = {
+													const err24 = {
 														instancePath: instancePath + "/lastSequence",
 														schemaPath: "#/$defs/SubscriptionAck/properties/lastSequence/minimum",
 														keyword: "minimum",
@@ -2080,8 +2286,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														},
 														message: "must be >= 0"
 													};
-													if (vErrors === null) vErrors = [err21];
-													else vErrors.push(err21);
+													if (vErrors === null) vErrors = [err24];
+													else vErrors.push(err24);
 													errors++;
 												}
 											}
@@ -2093,21 +2299,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											let data11 = data.replayedCount;
 											const _errs33 = errors;
 											if (!(typeof data11 == "number" && !(data11 % 1) && !isNaN(data11))) {
-												const err22 = {
+												const err25 = {
 													instancePath: instancePath + "/replayedCount",
 													schemaPath: "#/$defs/SubscriptionAck/properties/replayedCount/type",
 													keyword: "type",
 													params: { type: "integer" },
 													message: "must be integer"
 												};
-												if (vErrors === null) vErrors = [err22];
-												else vErrors.push(err22);
+												if (vErrors === null) vErrors = [err25];
+												else vErrors.push(err25);
 												errors++;
 											}
 											if (errors === _errs33) {
 												if (typeof data11 == "number") {
 													if (data11 > 9007199254740991 || isNaN(data11)) {
-														const err23 = {
+														const err26 = {
 															instancePath: instancePath + "/replayedCount",
 															schemaPath: "#/$defs/SubscriptionAck/properties/replayedCount/maximum",
 															keyword: "maximum",
@@ -2117,11 +2323,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															},
 															message: "must be <= 9007199254740991"
 														};
-														if (vErrors === null) vErrors = [err23];
-														else vErrors.push(err23);
+														if (vErrors === null) vErrors = [err26];
+														else vErrors.push(err26);
 														errors++;
 													} else if (data11 < 0 || isNaN(data11)) {
-														const err24 = {
+														const err27 = {
 															instancePath: instancePath + "/replayedCount",
 															schemaPath: "#/$defs/SubscriptionAck/properties/replayedCount/minimum",
 															keyword: "minimum",
@@ -2131,8 +2337,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															},
 															message: "must be >= 0"
 														};
-														if (vErrors === null) vErrors = [err24];
-														else vErrors.push(err24);
+														if (vErrors === null) vErrors = [err27];
+														else vErrors.push(err27);
 														errors++;
 													}
 												}
@@ -2146,15 +2352,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				const err25 = {
+				const err28 = {
 					instancePath,
 					schemaPath: "#/$defs/SubscriptionAck/type",
 					keyword: "type",
 					params: { type: "object" },
 					message: "must be object"
 				};
-				if (vErrors === null) vErrors = [err25];
-				else vErrors.push(err25);
+				if (vErrors === null) vErrors = [err28];
+				else vErrors.push(err28);
 				errors++;
 			}
 		}
@@ -2164,15 +2370,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		if (!valid0) {
-			const err26 = {
+			const err29 = {
 				instancePath,
 				schemaPath: "#/anyOf",
 				keyword: "anyOf",
 				params: {},
 				message: "must match a schema in anyOf"
 			};
-			if (vErrors === null) vErrors = [err26];
-			else vErrors.push(err26);
+			if (vErrors === null) vErrors = [err29];
+			else vErrors.push(err29);
 			errors++;
 			validate45.errors = vErrors;
 			return false;
@@ -2192,31 +2398,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ResultEnvelope = validate48;
-	var schema38 = {
-		"type": "object",
-		"properties": {
-			"data": { "$ref": "#/$defs/ReplyData" },
-			"ok": {
-				"type": "boolean",
-				"const": true
-			},
-			"requestId": { "type": "string" },
-			"schemaVersion": {
-				"type": "integer",
-				"format": "uint32",
-				"const": 1,
-				"minimum": 0
-			},
-			"stateVersion": { "type": ["string", "null"] }
-		},
-		"additionalProperties": false,
-		"required": [
-			"requestId",
-			"schemaVersion",
-			"ok",
-			"data"
-		]
-	};
 	function validate25(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
@@ -2391,18 +2572,34 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											} else var valid2 = true;
 											if (valid2) {
 												if (data.workspaceId !== void 0) {
+													let data6 = data.workspaceId;
 													const _errs17 = errors;
-													if (typeof data.workspaceId !== "string") {
-														const err10 = {
-															instancePath: instancePath + "/workspaceId",
-															schemaPath: "#/$defs/Workspace/properties/workspaceId/type",
-															keyword: "type",
-															params: { type: "string" },
-															message: "must be string"
-														};
-														if (vErrors === null) vErrors = [err10];
-														else vErrors.push(err10);
-														errors++;
+													if (errors === _errs17) {
+														if (typeof data6 === "string") {
+															if (func1(data6) < 1) {
+																const err10 = {
+																	instancePath: instancePath + "/workspaceId",
+																	schemaPath: "#/$defs/Workspace/properties/workspaceId/minLength",
+																	keyword: "minLength",
+																	params: { limit: 1 },
+																	message: "must NOT have fewer than 1 characters"
+																};
+																if (vErrors === null) vErrors = [err10];
+																else vErrors.push(err10);
+																errors++;
+															}
+														} else {
+															const err11 = {
+																instancePath: instancePath + "/workspaceId",
+																schemaPath: "#/$defs/Workspace/properties/workspaceId/type",
+																keyword: "type",
+																params: { type: "string" },
+																message: "must be string"
+															};
+															if (vErrors === null) vErrors = [err11];
+															else vErrors.push(err11);
+															errors++;
+														}
 													}
 													var valid2 = _errs17 === errors;
 												} else var valid2 = true;
@@ -2415,15 +2612,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				const err11 = {
+				const err12 = {
 					instancePath,
 					schemaPath: "#/$defs/Workspace/type",
 					keyword: "type",
 					params: { type: "object" },
 					message: "must be object"
 				};
-				if (vErrors === null) vErrors = [err11];
-				else vErrors.push(err11);
+				if (vErrors === null) vErrors = [err12];
+				else vErrors.push(err12);
 				errors++;
 			}
 		}
@@ -2467,28 +2664,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing1;
 				if (data.aggregateType === void 0 && (missing1 = "aggregateType") || data.aggregateId === void 0 && (missing1 = "aggregateId") || data.afterSequence === void 0 && (missing1 = "afterSequence") || data.lastSequence === void 0 && (missing1 = "lastSequence") || data.replayedCount === void 0 && (missing1 = "replayedCount")) {
-					const err12 = {
+					const err13 = {
 						instancePath,
 						schemaPath: "#/$defs/SubscriptionAck/required",
 						keyword: "required",
 						params: { missingProperty: missing1 },
 						message: "must have required property '" + missing1 + "'"
 					};
-					if (vErrors === null) vErrors = [err12];
-					else vErrors.push(err12);
+					if (vErrors === null) vErrors = [err13];
+					else vErrors.push(err13);
 					errors++;
 				} else {
 					const _errs24 = errors;
 					for (const key1 in data) if (!(key1 === "afterSequence" || key1 === "aggregateId" || key1 === "aggregateType" || key1 === "lastSequence" || key1 === "replayedCount")) {
-						const err13 = {
+						const err14 = {
 							instancePath,
 							schemaPath: "#/$defs/SubscriptionAck/additionalProperties",
 							keyword: "additionalProperties",
 							params: { additionalProperty: key1 },
 							message: "must NOT have additional properties"
 						};
-						if (vErrors === null) vErrors = [err13];
-						else vErrors.push(err13);
+						if (vErrors === null) vErrors = [err14];
+						else vErrors.push(err14);
 						errors++;
 						break;
 					}
@@ -2497,21 +2694,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							let data7 = data.afterSequence;
 							const _errs25 = errors;
 							if (!(typeof data7 == "number" && !(data7 % 1) && !isNaN(data7))) {
-								const err14 = {
+								const err15 = {
 									instancePath: instancePath + "/afterSequence",
 									schemaPath: "#/$defs/SubscriptionAck/properties/afterSequence/type",
 									keyword: "type",
 									params: { type: "integer" },
 									message: "must be integer"
 								};
-								if (vErrors === null) vErrors = [err14];
-								else vErrors.push(err14);
+								if (vErrors === null) vErrors = [err15];
+								else vErrors.push(err15);
 								errors++;
 							}
 							if (errors === _errs25) {
 								if (typeof data7 == "number") {
 									if (data7 > 9007199254740991 || isNaN(data7)) {
-										const err15 = {
+										const err16 = {
 											instancePath: instancePath + "/afterSequence",
 											schemaPath: "#/$defs/SubscriptionAck/properties/afterSequence/maximum",
 											keyword: "maximum",
@@ -2521,11 +2718,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											},
 											message: "must be <= 9007199254740991"
 										};
-										if (vErrors === null) vErrors = [err15];
-										else vErrors.push(err15);
+										if (vErrors === null) vErrors = [err16];
+										else vErrors.push(err16);
 										errors++;
 									} else if (data7 < 0 || isNaN(data7)) {
-										const err16 = {
+										const err17 = {
 											instancePath: instancePath + "/afterSequence",
 											schemaPath: "#/$defs/SubscriptionAck/properties/afterSequence/minimum",
 											keyword: "minimum",
@@ -2535,8 +2732,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											},
 											message: "must be >= 0"
 										};
-										if (vErrors === null) vErrors = [err16];
-										else vErrors.push(err16);
+										if (vErrors === null) vErrors = [err17];
+										else vErrors.push(err17);
 										errors++;
 									}
 								}
@@ -2545,34 +2742,63 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						} else var valid4 = true;
 						if (valid4) {
 							if (data.aggregateId !== void 0) {
+								let data8 = data.aggregateId;
 								const _errs27 = errors;
-								if (typeof data.aggregateId !== "string") {
-									const err17 = {
-										instancePath: instancePath + "/aggregateId",
-										schemaPath: "#/$defs/SubscriptionAck/properties/aggregateId/type",
-										keyword: "type",
-										params: { type: "string" },
-										message: "must be string"
-									};
-									if (vErrors === null) vErrors = [err17];
-									else vErrors.push(err17);
-									errors++;
+								if (errors === _errs27) {
+									if (typeof data8 === "string") {
+										if (func1(data8) < 1) {
+											const err18 = {
+												instancePath: instancePath + "/aggregateId",
+												schemaPath: "#/$defs/SubscriptionAck/properties/aggregateId/minLength",
+												keyword: "minLength",
+												params: { limit: 1 },
+												message: "must NOT have fewer than 1 characters"
+											};
+											if (vErrors === null) vErrors = [err18];
+											else vErrors.push(err18);
+											errors++;
+										}
+									} else {
+										const err19 = {
+											instancePath: instancePath + "/aggregateId",
+											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateId/type",
+											keyword: "type",
+											params: { type: "string" },
+											message: "must be string"
+										};
+										if (vErrors === null) vErrors = [err19];
+										else vErrors.push(err19);
+										errors++;
+									}
 								}
 								var valid4 = _errs27 === errors;
 							} else var valid4 = true;
 							if (valid4) {
 								if (data.aggregateType !== void 0) {
+									let data9 = data.aggregateType;
 									const _errs29 = errors;
-									if (typeof data.aggregateType !== "string") {
-										const err18 = {
+									if (typeof data9 !== "string") {
+										const err20 = {
 											instancePath: instancePath + "/aggregateType",
 											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/type",
 											keyword: "type",
 											params: { type: "string" },
 											message: "must be string"
 										};
-										if (vErrors === null) vErrors = [err18];
-										else vErrors.push(err18);
+										if (vErrors === null) vErrors = [err20];
+										else vErrors.push(err20);
+										errors++;
+									}
+									if ("workspace" !== data9) {
+										const err21 = {
+											instancePath: instancePath + "/aggregateType",
+											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/const",
+											keyword: "const",
+											params: { allowedValue: "workspace" },
+											message: "must be equal to constant"
+										};
+										if (vErrors === null) vErrors = [err21];
+										else vErrors.push(err21);
 										errors++;
 									}
 									var valid4 = _errs29 === errors;
@@ -2582,21 +2808,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data10 = data.lastSequence;
 										const _errs31 = errors;
 										if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10))) {
-											const err19 = {
+											const err22 = {
 												instancePath: instancePath + "/lastSequence",
 												schemaPath: "#/$defs/SubscriptionAck/properties/lastSequence/type",
 												keyword: "type",
 												params: { type: "integer" },
 												message: "must be integer"
 											};
-											if (vErrors === null) vErrors = [err19];
-											else vErrors.push(err19);
+											if (vErrors === null) vErrors = [err22];
+											else vErrors.push(err22);
 											errors++;
 										}
 										if (errors === _errs31) {
 											if (typeof data10 == "number") {
 												if (data10 > 9007199254740991 || isNaN(data10)) {
-													const err20 = {
+													const err23 = {
 														instancePath: instancePath + "/lastSequence",
 														schemaPath: "#/$defs/SubscriptionAck/properties/lastSequence/maximum",
 														keyword: "maximum",
@@ -2606,11 +2832,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														},
 														message: "must be <= 9007199254740991"
 													};
-													if (vErrors === null) vErrors = [err20];
-													else vErrors.push(err20);
+													if (vErrors === null) vErrors = [err23];
+													else vErrors.push(err23);
 													errors++;
 												} else if (data10 < 0 || isNaN(data10)) {
-													const err21 = {
+													const err24 = {
 														instancePath: instancePath + "/lastSequence",
 														schemaPath: "#/$defs/SubscriptionAck/properties/lastSequence/minimum",
 														keyword: "minimum",
@@ -2620,8 +2846,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														},
 														message: "must be >= 0"
 													};
-													if (vErrors === null) vErrors = [err21];
-													else vErrors.push(err21);
+													if (vErrors === null) vErrors = [err24];
+													else vErrors.push(err24);
 													errors++;
 												}
 											}
@@ -2633,21 +2859,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											let data11 = data.replayedCount;
 											const _errs33 = errors;
 											if (!(typeof data11 == "number" && !(data11 % 1) && !isNaN(data11))) {
-												const err22 = {
+												const err25 = {
 													instancePath: instancePath + "/replayedCount",
 													schemaPath: "#/$defs/SubscriptionAck/properties/replayedCount/type",
 													keyword: "type",
 													params: { type: "integer" },
 													message: "must be integer"
 												};
-												if (vErrors === null) vErrors = [err22];
-												else vErrors.push(err22);
+												if (vErrors === null) vErrors = [err25];
+												else vErrors.push(err25);
 												errors++;
 											}
 											if (errors === _errs33) {
 												if (typeof data11 == "number") {
 													if (data11 > 9007199254740991 || isNaN(data11)) {
-														const err23 = {
+														const err26 = {
 															instancePath: instancePath + "/replayedCount",
 															schemaPath: "#/$defs/SubscriptionAck/properties/replayedCount/maximum",
 															keyword: "maximum",
@@ -2657,11 +2883,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															},
 															message: "must be <= 9007199254740991"
 														};
-														if (vErrors === null) vErrors = [err23];
-														else vErrors.push(err23);
+														if (vErrors === null) vErrors = [err26];
+														else vErrors.push(err26);
 														errors++;
 													} else if (data11 < 0 || isNaN(data11)) {
-														const err24 = {
+														const err27 = {
 															instancePath: instancePath + "/replayedCount",
 															schemaPath: "#/$defs/SubscriptionAck/properties/replayedCount/minimum",
 															keyword: "minimum",
@@ -2671,8 +2897,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															},
 															message: "must be >= 0"
 														};
-														if (vErrors === null) vErrors = [err24];
-														else vErrors.push(err24);
+														if (vErrors === null) vErrors = [err27];
+														else vErrors.push(err27);
 														errors++;
 													}
 												}
@@ -2686,15 +2912,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				const err25 = {
+				const err28 = {
 					instancePath,
 					schemaPath: "#/$defs/SubscriptionAck/type",
 					keyword: "type",
 					params: { type: "object" },
 					message: "must be object"
 				};
-				if (vErrors === null) vErrors = [err25];
-				else vErrors.push(err25);
+				if (vErrors === null) vErrors = [err28];
+				else vErrors.push(err28);
 				errors++;
 			}
 		}
@@ -2704,15 +2930,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		if (!valid0) {
-			const err26 = {
+			const err29 = {
 				instancePath,
 				schemaPath: "#/anyOf",
 				keyword: "anyOf",
 				params: {},
 				message: "must match a schema in anyOf"
 			};
-			if (vErrors === null) vErrors = [err26];
-			else vErrors.push(err26);
+			if (vErrors === null) vErrors = [err29];
+			else vErrors.push(err29);
 			errors++;
 			validate25.errors = vErrors;
 			return false;
@@ -2804,16 +3030,39 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							} else var valid0 = true;
 							if (valid0) {
 								if (data.requestId !== void 0) {
+									let data2 = data.requestId;
 									const _errs5 = errors;
-									if (typeof data.requestId !== "string") {
-										validate24.errors = [{
-											instancePath: instancePath + "/requestId",
-											schemaPath: "#/properties/requestId/type",
-											keyword: "type",
-											params: { type: "string" },
-											message: "must be string"
-										}];
-										return false;
+									if (errors === _errs5) {
+										if (typeof data2 === "string") {
+											if (func1(data2) > 128) {
+												validate24.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/maxLength",
+													keyword: "maxLength",
+													params: { limit: 128 },
+													message: "must NOT have more than 128 characters"
+												}];
+												return false;
+											} else if (func1(data2) < 1) {
+												validate24.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/minLength",
+													keyword: "minLength",
+													params: { limit: 1 },
+													message: "must NOT have fewer than 1 characters"
+												}];
+												return false;
+											}
+										} else {
+											validate24.errors = [{
+												instancePath: instancePath + "/requestId",
+												schemaPath: "#/properties/requestId/type",
+												keyword: "type",
+												params: { type: "string" },
+												message: "must be string"
+											}];
+											return false;
+										}
 									}
 									var valid0 = _errs5 === errors;
 								} else var valid0 = true;
@@ -2864,15 +3113,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (data.stateVersion !== void 0) {
 											let data4 = data.stateVersion;
 											const _errs9 = errors;
-											if (typeof data4 !== "string" && data4 !== null) {
-												validate24.errors = [{
-													instancePath: instancePath + "/stateVersion",
-													schemaPath: "#/properties/stateVersion/type",
-													keyword: "type",
-													params: { type: schema38.properties.stateVersion.type },
-													message: "must be string,null"
-												}];
-												return false;
+											if (errors === _errs9) {
+												if (typeof data4 === "string") {
+													if (func1(data4) < 1) {
+														validate24.errors = [{
+															instancePath: instancePath + "/stateVersion",
+															schemaPath: "#/properties/stateVersion/minLength",
+															keyword: "minLength",
+															params: { limit: 1 },
+															message: "must NOT have fewer than 1 characters"
+														}];
+														return false;
+													}
+												} else {
+													validate24.errors = [{
+														instancePath: instancePath + "/stateVersion",
+														schemaPath: "#/properties/stateVersion/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
 											}
 											var valid0 = _errs9 === errors;
 										} else var valid0 = true;
@@ -2974,16 +3236,39 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							} else var valid0 = true;
 							if (valid0) {
 								if (data.requestId !== void 0) {
+									let data2 = data.requestId;
 									const _errs5 = errors;
-									if (typeof data.requestId !== "string") {
-										validate32.errors = [{
-											instancePath: instancePath + "/requestId",
-											schemaPath: "#/properties/requestId/type",
-											keyword: "type",
-											params: { type: "string" },
-											message: "must be string"
-										}];
-										return false;
+									if (errors === _errs5) {
+										if (typeof data2 === "string") {
+											if (func1(data2) > 128) {
+												validate32.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/maxLength",
+													keyword: "maxLength",
+													params: { limit: 128 },
+													message: "must NOT have more than 128 characters"
+												}];
+												return false;
+											} else if (func1(data2) < 1) {
+												validate32.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/minLength",
+													keyword: "minLength",
+													params: { limit: 1 },
+													message: "must NOT have fewer than 1 characters"
+												}];
+												return false;
+											}
+										} else {
+											validate32.errors = [{
+												instancePath: instancePath + "/requestId",
+												schemaPath: "#/properties/requestId/type",
+												keyword: "type",
+												params: { type: "string" },
+												message: "must be string"
+											}];
+											return false;
+										}
 									}
 									var valid0 = _errs5 === errors;
 								} else var valid0 = true;
@@ -3149,7 +3434,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				}
 				if (data.id !== void 0) {
-					if (typeof data.id !== "string") {
+					let data0 = data.id;
+					if (typeof data0 === "string") {
+						if (func1(data0) < 1) {
+							validate51.errors = [{
+								instancePath: instancePath + "/id",
+								schemaPath: "#/properties/id/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
 						validate51.errors = [{
 							instancePath: instancePath + "/id",
 							schemaPath: "#/properties/id/type",
@@ -3267,7 +3564,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 									if (data1.id !== void 0) {
-										if (typeof data1.id !== "string") {
+										let data2 = data1.id;
+										if (typeof data2 === "string") {
+											if (func1(data2) < 1) {
+												validate52.errors = [{
+													instancePath: instancePath + "/components/" + i0 + "/id",
+													schemaPath: "#/$defs/RuntimeComponent/properties/id/minLength",
+													keyword: "minLength",
+													params: { limit: 1 },
+													message: "must NOT have fewer than 1 characters"
+												}];
+												return false;
+											}
+										} else {
 											validate52.errors = [{
 												instancePath: instancePath + "/components/" + i0 + "/id",
 												schemaPath: "#/$defs/RuntimeComponent/properties/id/type",
@@ -3411,7 +3720,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				}
 				if (data.aggregateId !== void 0) {
-					if (typeof data.aggregateId !== "string") {
+					let data0 = data.aggregateId;
+					if (typeof data0 === "string") {
+						if (func1(data0) < 1) {
+							validate53.errors = [{
+								instancePath: instancePath + "/aggregateId",
+								schemaPath: "#/properties/aggregateId/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
 						validate53.errors = [{
 							instancePath: instancePath + "/aggregateId",
 							schemaPath: "#/properties/aggregateId/type",
@@ -3626,7 +3947,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															} else var valid2 = true;
 															if (valid2) {
 																if (data3.workspaceId !== void 0) {
-																	if (typeof data3.workspaceId !== "string") {
+																	let data10 = data3.workspaceId;
+																	if (typeof data10 === "string") {
+																		if (func1(data10) < 1) {
+																			validate53.errors = [{
+																				instancePath: instancePath + "/projection/workspaceId",
+																				schemaPath: "#/$defs/Workspace/properties/workspaceId/minLength",
+																				keyword: "minLength",
+																				params: { limit: 1 },
+																				message: "must NOT have fewer than 1 characters"
+																			}];
+																			return false;
+																		}
+																	} else {
 																		validate53.errors = [{
 																			instancePath: instancePath + "/projection/workspaceId",
 																			schemaPath: "#/$defs/Workspace/properties/workspaceId/type",
@@ -3750,7 +4083,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else var valid0 = true;
 				if (valid0) {
 					if (data.aggregateId !== void 0) {
-						if (typeof data.aggregateId !== "string") {
+						let data1 = data.aggregateId;
+						if (typeof data1 === "string") {
+							if (func1(data1) > 128) {
+								validate54.errors = [{
+									instancePath: instancePath + "/aggregateId",
+									schemaPath: "#/properties/aggregateId/maxLength",
+									keyword: "maxLength",
+									params: { limit: 128 },
+									message: "must NOT have more than 128 characters"
+								}];
+								return false;
+							} else if (func1(data1) < 1) {
+								validate54.errors = [{
+									instancePath: instancePath + "/aggregateId",
+									schemaPath: "#/properties/aggregateId/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
 							validate54.errors = [{
 								instancePath: instancePath + "/aggregateId",
 								schemaPath: "#/properties/aggregateId/type",
@@ -3764,7 +4118,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					} else var valid0 = true;
 					if (valid0) {
 						if (data.aggregateType !== void 0) {
-							if (typeof data.aggregateType !== "string") {
+							let data2 = data.aggregateType;
+							if (typeof data2 === "string") {
+								if (func1(data2) > 64) {
+									validate54.errors = [{
+										instancePath: instancePath + "/aggregateType",
+										schemaPath: "#/properties/aggregateType/maxLength",
+										keyword: "maxLength",
+										params: { limit: 64 },
+										message: "must NOT have more than 64 characters"
+									}];
+									return false;
+								} else if (func1(data2) < 1) {
+									validate54.errors = [{
+										instancePath: instancePath + "/aggregateType",
+										schemaPath: "#/properties/aggregateType/minLength",
+										keyword: "minLength",
+										params: { limit: 1 },
+										message: "must NOT have fewer than 1 characters"
+									}];
+									return false;
+								}
+							} else {
 								validate54.errors = [{
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/type",
@@ -3868,7 +4243,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else var valid0 = true;
 				if (valid0) {
 					if (data.aggregateId !== void 0) {
-						if (typeof data.aggregateId !== "string") {
+						let data1 = data.aggregateId;
+						if (typeof data1 === "string") {
+							if (func1(data1) < 1) {
+								validate55.errors = [{
+									instancePath: instancePath + "/aggregateId",
+									schemaPath: "#/properties/aggregateId/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
 							validate55.errors = [{
 								instancePath: instancePath + "/aggregateId",
 								schemaPath: "#/properties/aggregateId/type",
@@ -3882,13 +4269,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					} else var valid0 = true;
 					if (valid0) {
 						if (data.aggregateType !== void 0) {
-							if (typeof data.aggregateType !== "string") {
+							let data2 = data.aggregateType;
+							if (typeof data2 !== "string") {
 								validate55.errors = [{
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/type",
 									keyword: "type",
 									params: { type: "string" },
 									message: "must be string"
+								}];
+								return false;
+							}
+							if ("workspace" !== data2) {
+								validate55.errors = [{
+									instancePath: instancePath + "/aggregateType",
+									schemaPath: "#/properties/aggregateType/const",
+									keyword: "const",
+									params: { allowedValue: "workspace" },
+									message: "must be equal to constant"
 								}];
 								return false;
 							}
@@ -4075,16 +4473,39 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							} else var valid0 = true;
 							if (valid0) {
 								if (data.requestId !== void 0) {
+									let data2 = data.requestId;
 									const _errs5 = errors;
-									if (typeof data.requestId !== "string") {
-										validate56.errors = [{
-											instancePath: instancePath + "/requestId",
-											schemaPath: "#/properties/requestId/type",
-											keyword: "type",
-											params: { type: "string" },
-											message: "must be string"
-										}];
-										return false;
+									if (errors === _errs5) {
+										if (typeof data2 === "string") {
+											if (func1(data2) > 128) {
+												validate56.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/maxLength",
+													keyword: "maxLength",
+													params: { limit: 128 },
+													message: "must NOT have more than 128 characters"
+												}];
+												return false;
+											} else if (func1(data2) < 1) {
+												validate56.errors = [{
+													instancePath: instancePath + "/requestId",
+													schemaPath: "#/properties/requestId/minLength",
+													keyword: "minLength",
+													params: { limit: 1 },
+													message: "must NOT have fewer than 1 characters"
+												}];
+												return false;
+											}
+										} else {
+											validate56.errors = [{
+												instancePath: instancePath + "/requestId",
+												schemaPath: "#/properties/requestId/type",
+												keyword: "type",
+												params: { type: "string" },
+												message: "must be string"
+											}];
+											return false;
+										}
 									}
 									var valid0 = _errs5 === errors;
 								} else var valid0 = true;
@@ -4135,15 +4556,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (data.stateVersion !== void 0) {
 											let data4 = data.stateVersion;
 											const _errs9 = errors;
-											if (typeof data4 !== "string" && data4 !== null) {
-												validate56.errors = [{
-													instancePath: instancePath + "/stateVersion",
-													schemaPath: "#/properties/stateVersion/type",
-													keyword: "type",
-													params: { type: schema38.properties.stateVersion.type },
-													message: "must be string,null"
-												}];
-												return false;
+											if (errors === _errs9) {
+												if (typeof data4 === "string") {
+													if (func1(data4) < 1) {
+														validate56.errors = [{
+															instancePath: instancePath + "/stateVersion",
+															schemaPath: "#/properties/stateVersion/minLength",
+															keyword: "minLength",
+															params: { limit: 1 },
+															message: "must NOT have fewer than 1 characters"
+														}];
+														return false;
+													}
+												} else {
+													validate56.errors = [{
+														instancePath: instancePath + "/stateVersion",
+														schemaPath: "#/properties/stateVersion/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
 											}
 											var valid0 = _errs9 === errors;
 										} else var valid0 = true;
@@ -4285,7 +4719,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 													if (data5.id !== void 0) {
-														if (typeof data5.id !== "string") {
+														let data6 = data5.id;
+														if (typeof data6 === "string") {
+															if (func1(data6) < 1) {
+																validate58.errors = [{
+																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
+																	schemaPath: "#/$defs/Remediation/properties/id/minLength",
+																	keyword: "minLength",
+																	params: { limit: 1 },
+																	message: "must NOT have fewer than 1 characters"
+																}];
+																return false;
+															}
+														} else {
 															validate58.errors = [{
 																instancePath: instancePath + "/remediationActions/" + i0 + "/id",
 																schemaPath: "#/$defs/Remediation/properties/id/type",
@@ -4513,7 +4959,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									} else var valid0 = true;
 									if (valid0) {
 										if (data.workspaceId !== void 0) {
-											if (typeof data.workspaceId !== "string") {
+											let data6 = data.workspaceId;
+											if (typeof data6 === "string") {
+												if (func1(data6) < 1) {
+													validate59.errors = [{
+														instancePath: instancePath + "/workspaceId",
+														schemaPath: "#/properties/workspaceId/minLength",
+														keyword: "minLength",
+														params: { limit: 1 },
+														message: "must NOT have fewer than 1 characters"
+													}];
+													return false;
+												}
+											} else {
 												validate59.errors = [{
 													instancePath: instancePath + "/workspaceId",
 													schemaPath: "#/properties/workspaceId/type",

@@ -53,6 +53,7 @@ pub struct EmptyPayload {}
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RuntimeComponent {
+    #[schemars(length(min = 1))]
     pub id: String,
     pub status: String,
     pub message: String,
@@ -69,14 +70,18 @@ pub struct RuntimeStatus {
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Aggregate {
+    #[schemars(length(min = 1, max = 64))]
     pub aggregate_type: String,
+    #[schemars(length(min = 1, max = 128))]
     pub aggregate_id: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Subscribe {
+    #[schemars(length(min = 1, max = 64))]
     pub aggregate_type: String,
+    #[schemars(length(min = 1, max = 128))]
     pub aggregate_id: String,
     #[schemars(range(min = 0, max = 9_007_199_254_740_991_u64))]
     pub after_sequence: u64,
@@ -85,7 +90,9 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
+    #[schemars(extend("const" = "workspace"))]
     pub aggregate_type: String,
+    #[schemars(length(min = 1))]
     pub aggregate_id: String,
     #[schemars(range(min = 0, max = 9_007_199_254_740_991_u64))]
     pub after_sequence: u64,
@@ -100,13 +107,15 @@ pub type EventSink = std::sync::Arc<dyn Fn(DomainEvent) -> bool + Send + Sync>;
 #[derive(JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SuccessEnvelope {
+    #[schemars(length(min = 1, max = 128))]
     pub request_id: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     #[schemars(extend("const" = true))]
     pub ok: bool,
     pub data: ReplyData,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1))]
     pub state_version: Option<String>,
 }
 
@@ -122,6 +131,7 @@ pub enum ReplyData {
 #[derive(JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FailureEnvelope {
+    #[schemars(length(min = 1, max = 128))]
     pub request_id: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
@@ -153,6 +163,7 @@ pub struct IpcSchema {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Workspace {
+    #[schemars(length(min = 1))]
     pub workspace_id: String,
     pub name: String,
     pub base_currency: String,
@@ -166,6 +177,7 @@ pub struct Workspace {
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DomainEvent {
+    #[schemars(length(min = 1))]
     pub event_id: String,
     #[schemars(extend("const" = "workspace.opened"))]
     pub event_type: String,
@@ -174,6 +186,7 @@ pub struct DomainEvent {
     pub occurred_at: String,
     #[schemars(extend("const" = "workspace"))]
     pub aggregate_type: String,
+    #[schemars(length(min = 1))]
     pub aggregate_id: String,
     #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
     pub sequence: u64,
@@ -185,6 +198,7 @@ pub struct DomainEvent {
 pub struct Snapshot {
     #[schemars(extend("const" = "workspace"))]
     pub aggregate_type: String,
+    #[schemars(length(min = 1))]
     pub aggregate_id: String,
     pub projection: Workspace,
     #[schemars(range(min = 0, max = 9_007_199_254_740_991_u64))]
@@ -194,6 +208,7 @@ pub struct Snapshot {
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Remediation {
+    #[schemars(length(min = 1))]
     pub id: String,
     pub label: String,
 }

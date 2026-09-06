@@ -83,7 +83,7 @@ export interface SuccessEnvelope {
   ok: true;
   requestId: string;
   schemaVersion: 1;
-  stateVersion?: string | null;
+  stateVersion?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -120,7 +120,7 @@ export interface RuntimeComponent {
 export interface SubscriptionAck {
   afterSequence: number;
   aggregateId: string;
-  aggregateType: string;
+  aggregateType: "workspace";
   lastSequence: number;
   replayedCount: number;
 }

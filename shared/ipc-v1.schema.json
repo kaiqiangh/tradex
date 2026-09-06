@@ -40,10 +40,14 @@
       "type": "object",
       "properties": {
         "aggregateId": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
         },
         "aggregateType": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
         }
       },
       "additionalProperties": false,
@@ -83,14 +87,16 @@
       "type": "object",
       "properties": {
         "aggregateId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "aggregateType": {
           "type": "string",
           "const": "workspace"
         },
         "eventId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "eventType": {
           "type": "string",
@@ -142,7 +148,9 @@
           "const": false
         },
         "requestId": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
         },
         "schemaVersion": {
           "type": "integer",
@@ -181,7 +189,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "label": {
           "type": "string"
@@ -223,7 +232,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "message": {
           "type": "string"
@@ -266,7 +276,8 @@
       "type": "object",
       "properties": {
         "aggregateId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "aggregateType": {
           "type": "string",
@@ -300,10 +311,14 @@
           "minimum": 0
         },
         "aggregateId": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
         },
         "aggregateType": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
         }
       },
       "additionalProperties": false,
@@ -323,10 +338,12 @@
           "minimum": 0
         },
         "aggregateId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "aggregateType": {
-          "type": "string"
+          "type": "string",
+          "const": "workspace"
         },
         "lastSequence": {
           "type": "integer",
@@ -361,7 +378,9 @@
           "const": true
         },
         "requestId": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
         },
         "schemaVersion": {
           "type": "integer",
@@ -370,10 +389,8 @@
           "minimum": 0
         },
         "stateVersion": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false,
@@ -444,7 +461,8 @@
           "minimum": 0
         },
         "workspaceId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false,

@@ -38,5 +38,7 @@ test('generated result schema rejects false success, mixed envelopes and foreign
     { ...good, error: { message: 'unexpected' } },
     { ...good, data: { ...workspace, armed: true } },
     { ...good, data: { ...workspace, workspaceId: null } },
+    { ...good, data: { ...workspace, workspaceId: '' } },
+    { ...good, stateVersion: null },
   ]) assert.throws(() => decode('ResultEnvelope', invalid));
 });
