@@ -2,17 +2,17 @@
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
-**这是完整应用的实施计划；当前 S01 正在实现及验证，完整应用尚未完成。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
+**这是完整应用的实施计划；当前 S01 已完成；S02–S35 尚未完成。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
 
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
-- [首个工作项 Spec 和拆票草稿](first-slice.md)：可审阅的测试边界与第一个垂直切片。
+- [首个工作项 Spec 和实现票](first-slice.md)：可审阅的测试边界与第一个垂直切片。
 
 ## 1. 文档分析与实施约束
 
 1. 英文 PRD 为产品权威；UI Spec §14 定义目标交互；Backend ARD §41–42 定义唯一 IPC wire contract。中文翻译、覆盖矩阵和原型不能改变该顺序。
-2. 当前仓库没有应用代码、数据库、测试或构建工程。采用规定的 Tauri + React/TypeScript + Rust Control Plane；复用原型视觉、信息架构和状态术语。原型全局变量、定时器金融状态和固定身份不能成为应用权限实现。
+2. 原始阅读基线没有应用代码、数据库、测试或构建工程；S01 已建立首条真实工作区路径。采用规定的 Tauri + React/TypeScript + Rust Control Plane；复用原型视觉、信息架构和状态术语。原型全局变量、定时器金融状态和固定身份不能成为应用权限实现。
 3. Rust 负责金融权限；Codex/研究/策略属于不可信区域。Order Gateway 必须是固定版本的独立子进程，通过继承私有双向通道认证；不开放 TCP，也不成为第二个 SQLite 写入者。不要按 ARD 推荐目录树预建空 crate；有实际边界需要时拆分。
 4. SQLite WAL/事务保存权威领域状态和 outbox；DuckDB 保存历史行情、筛选和回测分析数据；文件保存策略、产物及备份。金融金额、数量、费用、FX 使用十进制定点/decimal，wire 使用规范字符串。
 5. Model inference 只经过 `127.0.0.1:8317` CLIProxyAPI；ChatGPT OAuth 与 DeepSeek 官方模型是两个允许的 provider。Codex 与 CLIProxyAPI 的精确版本和协议须通过当前官方资料与实测固定。默认关闭跨 provider fallback，保留全部 attempt 审计。模型故障不停止可信控制面。

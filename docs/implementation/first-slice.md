@@ -1,6 +1,6 @@
 # 首个垂直切片：打开并恢复本地桌面工作区
 
-状态：已发布为 Spec #3 / implementation #4，正在实现及验证。计划起点为 `9255feae39b646245acaf6db7db29fea0cb710c7`；实际 dev 审查起始 SHA 为 `177edd3a91980a4686699d281345df231625a8ce`。验收进度见 [S01 evidence](s01-evidence.md)。
+状态：已发布为 Spec #3 / implementation #4，S01 已完成实现、验证及串行审查。计划起点为 `9255feae39b646245acaf6db7db29fea0cb710c7`；实际 dev 审查起始 SHA 为 `177edd3a91980a4686699d281345df231625a8ce`。验收进度见 [S01 evidence](s01-evidence.md)。
 
 ## Problem Statement
 

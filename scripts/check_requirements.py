@@ -40,7 +40,7 @@ def check():
 
     slices = set(re.findall(r"^\| (S\d{2}) \|", (PLAN / "README.md").read_text(), re.M))
     assert slices == {f"S{n:02}" for n in range(1, 36)}
-    statuses = {"NOT_STARTED", "IMPLEMENTED_UNVERIFIED", "BLOCKED_EXTERNAL", "VERIFIED"}
+    statuses = {"NOT_STARTED", "IN_PROGRESS", "IMPLEMENTED_UNVERIFIED", "BLOCKED_EXTERNAL", "VERIFIED"}
     for row in requirements + surfaces:
         if row["status"] == "DEFERRED":
             assert row["id"] in {"FR-041", "FR-042", "FR-043"}

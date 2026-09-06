@@ -1,5 +1,5 @@
 id,title,source,line,implementation_slices,status,evidence
-A1,Workspace,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,241,"S01,S33",NOT_STARTED,
+A1,Workspace,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,241,"S01,S33",VERIFIED,S01: docs/implementation/s01-evidence.md; code 2424dd5bdadb76a63fdf485caff4bc66d7466781. Current slice verified; S33 repeats cross-application checks.
 A2,Broker / Data Providers,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,247,"S02,S33",NOT_STARTED,
 A3,Provider Connection / Permission Review,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,256,"S02,S33",NOT_STARTED,
 A4,LLM Providers (Model),docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,291,"S03,S33",NOT_STARTED,
