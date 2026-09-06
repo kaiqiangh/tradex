@@ -7,6 +7,7 @@
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
+- [S02 提供方连接 Spec 与拆票](provider-connections.md)：四个提供方垂直切片、权限差异、原生凭据边界及官方资料。
 - [首个工作项 Spec 和实现票](first-slice.md)：可审阅的测试边界与第一个垂直切片。
 
 ## 1. 文档分析与实施约束
