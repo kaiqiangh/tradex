@@ -6,7 +6,13 @@ use std::{
 };
 use tradex::{ControlPlane, protocol::EventSink};
 
+#[cfg(feature = "integration-test")]
+#[path = "../../tests/support/provider_fixtures.rs"]
+mod fixtures;
+
 fn main() -> io::Result<()> {
+    #[cfg(feature = "integration-test")]
+    let (vault, http) = (fixtures::Vault::default(), fixtures::Http::default());
     let Some(path) = std::env::args_os().nth(1) else {
         eprintln!("Usage: tradex-ipc <isolated-workspace-directory>");
         std::process::exit(2);
@@ -40,6 +46,26 @@ fn main() -> io::Result<()> {
             } else {
                 serde_json::from_slice(&frame).unwrap_or(Value::Null)
             };
+            #[cfg(feature = "integration-test")]
+            let result = match control.prepare_provider(&request) {
+                Ok(Some(job)) => {
+                    let outcome = job.run(
+                        &vault,
+                        |_| fixtures::credentials(),
+                        &http,
+                        || control.provider_job_current(&job),
+                    );
+                    let reply = control.complete_provider(&job, outcome);
+                    if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, &vault) {
+                        control.record_credential_cleanup(&job, cleanup);
+                    }
+                    reply
+                }
+                Ok(None) | Err(_) => {
+                    control.dispatch_with_events(request, "stdio", Some(sink.clone()))
+                }
+            };
+            #[cfg(not(feature = "integration-test"))]
             let result = control.dispatch_with_events(request, "stdio", Some(sink.clone()));
             write_frame(&output, &json!({"kind":"result", "result":result}))?;
             frame.clear();

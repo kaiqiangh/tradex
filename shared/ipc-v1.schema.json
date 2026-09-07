@@ -4,6 +4,12 @@
   "description": "Exported to JSON Schema and TypeScript, and used for renderer runtime validation.",
   "type": "object",
   "properties": {
+    "accountMutation": {
+      "$ref": "#/$defs/AccountMutation"
+    },
+    "accountQuery": {
+      "$ref": "#/$defs/AccountQuery"
+    },
     "aggregate": {
       "$ref": "#/$defs/Aggregate"
     },
@@ -16,6 +22,12 @@
     "event": {
       "$ref": "#/$defs/DomainEvent"
     },
+    "providerConnect": {
+      "$ref": "#/$defs/Connect"
+    },
+    "providerSelection": {
+      "$ref": "#/$defs/ProviderSelection"
+    },
     "result": {
       "$ref": "#/$defs/ResultEnvelope"
     },
@@ -24,6 +36,9 @@
     },
     "workspaceOpen": {
       "$ref": "#/$defs/OpenWorkspace"
+    },
+    "workspaceQuery": {
+      "$ref": "#/$defs/WorkspaceQuery"
     }
   },
   "required": [
@@ -33,9 +48,243 @@
     "workspaceOpen",
     "aggregate",
     "subscribe",
-    "empty"
+    "empty",
+    "providerSelection",
+    "workspaceQuery",
+    "accountQuery",
+    "accountMutation",
+    "providerConnect"
   ],
   "$defs": {
+    "AccountConnection": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "connectionState": {
+          "$ref": "#/$defs/ConnectionState"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccountData"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environment": {
+          "type": "string"
+        },
+        "health": {
+          "$ref": "#/$defs/AccountHealth"
+        },
+        "label": {
+          "type": "string"
+        },
+        "lastSuccessfulSync": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionReview"
+        },
+        "providerId": {
+          "type": "string"
+        },
+        "stateVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "workspaceId",
+        "providerId",
+        "environment",
+        "label",
+        "createdAt",
+        "updatedAt",
+        "stateVersion",
+        "connectionState",
+        "health",
+        "permissions"
+      ]
+    },
+    "AccountData": {
+      "type": "object",
+      "properties": {
+        "accountType": {
+          "type": "string"
+        },
+        "balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Balance"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "openOrders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpenOrder"
+          }
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Position"
+          }
+        },
+        "remoteAccountId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "remoteAccountId",
+        "accountType",
+        "balances",
+        "positions",
+        "openOrders",
+        "capabilities",
+        "limitations"
+      ]
+    },
+    "AccountHealth": {
+      "type": "object",
+      "properties": {
+        "arming": {
+          "type": "string"
+        },
+        "authentication": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "credential": {
+          "type": "string"
+        },
+        "executionEligibility": {
+          "type": "string"
+        },
+        "privateStream": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "reconciliation": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connection",
+        "authentication",
+        "credential",
+        "privateStream",
+        "reconciliation",
+        "executionEligibility",
+        "arming",
+        "reason"
+      ]
+    },
+    "AccountMutation": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedStateVersion"
+      ]
+    },
+    "AccountQuery": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId"
+      ]
+    },
+    "Accounts": {
+      "type": "object",
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AccountConnection"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "accounts"
+      ]
+    },
     "Aggregate": {
       "type": "object",
       "properties": {
@@ -54,6 +303,28 @@
       "required": [
         "aggregateType",
         "aggregateId"
+      ]
+    },
+    "Balance": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string"
+        },
+        "available": {
+          "type": "string"
+        },
+        "total": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "available"
       ]
     },
     "CommandEnvelope": {
@@ -83,6 +354,78 @@
         "payload"
       ]
     },
+    "Connect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "providerId": {
+              "type": "string"
+            },
+            "step": {
+              "type": "string",
+              "const": "test"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "workspaceId",
+            "providerId",
+            "environment",
+            "label"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "acknowledgeUnverified": {
+              "type": "boolean"
+            },
+            "connectionId": {
+              "type": "string"
+            },
+            "expectedStateVersion": {
+              "type": "string"
+            },
+            "step": {
+              "type": "string",
+              "const": "confirm"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "workspaceId",
+            "connectionId",
+            "expectedStateVersion",
+            "acknowledgeUnverified"
+          ]
+        }
+      ]
+    },
+    "ConnectionState": {
+      "type": "string",
+      "enum": [
+        "CONNECTING",
+        "REVIEW_REQUIRED",
+        "CONNECTED",
+        "FAILED",
+        "DISCONNECTED"
+      ]
+    },
     "DomainEvent": {
       "type": "object",
       "properties": {
@@ -92,7 +435,10 @@
         },
         "aggregateType": {
           "type": "string",
-          "const": "workspace"
+          "enum": [
+            "workspace",
+            "account"
+          ]
         },
         "eventId": {
           "type": "string",
@@ -100,13 +446,16 @@
         },
         "eventType": {
           "type": "string",
-          "const": "workspace.opened"
+          "enum": [
+            "workspace.opened",
+            "account.health.changed"
+          ]
         },
         "occurredAt": {
           "type": "string"
         },
         "payload": {
-          "$ref": "#/$defs/Workspace"
+          "$ref": "#/$defs/DomainProjection"
         },
         "schemaVersion": {
           "type": "integer",
@@ -131,6 +480,16 @@
         "aggregateId",
         "sequence",
         "payload"
+      ]
+    },
+    "DomainProjection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Workspace"
+        },
+        {
+          "$ref": "#/$defs/AccountConnection"
+        }
       ]
     },
     "EmptyPayload": {
@@ -167,6 +526,52 @@
         "error"
       ]
     },
+    "OpenOrder": {
+      "type": "object",
+      "properties": {
+        "brokerOrderId": {
+          "type": "string"
+        },
+        "filledQuantity": {
+          "type": "string"
+        },
+        "limitPrice": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notional": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "quantity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "side": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "brokerOrderId",
+        "symbol",
+        "side",
+        "filledQuantity",
+        "status"
+      ]
+    },
     "OpenWorkspace": {
       "type": "object",
       "properties": {
@@ -184,6 +589,208 @@
         }
       },
       "additionalProperties": false
+    },
+    "PermissionReview": {
+      "type": "object",
+      "properties": {
+        "acknowledged": {
+          "type": "boolean"
+        },
+        "detected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ipAllowListStatus": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "VERIFIED",
+            "UNVERIFIED"
+          ]
+        },
+        "unsupported": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "detected",
+        "forbidden",
+        "unsupported",
+        "acknowledged",
+        "ipAllowListStatus"
+      ]
+    },
+    "Position": {
+      "type": "object",
+      "properties": {
+        "averageEntryPrice": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "marketValue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "quantity"
+      ]
+    },
+    "ProviderCatalog": {
+      "type": "object",
+      "properties": {
+        "providers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProviderDefinition"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providers"
+      ]
+    },
+    "ProviderDefinition": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProviderField"
+          }
+        },
+        "forbiddenPermissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "helpText": {
+          "type": "string"
+        },
+        "optionalPermissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "providerId": {
+          "type": "string"
+        },
+        "requiredPermissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerId",
+        "displayName",
+        "environment",
+        "available",
+        "helpText",
+        "fields",
+        "requiredPermissions",
+        "optionalPermissions",
+        "forbiddenPermissions"
+      ]
+    },
+    "ProviderField": {
+      "type": "object",
+      "properties": {
+        "environment": {
+          "type": "string"
+        },
+        "helpText": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "inputType": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "maxLength": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "secret": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "inputType",
+        "required",
+        "secret",
+        "maxLength",
+        "helpText",
+        "environment"
+      ]
+    },
+    "ProviderSelection": {
+      "type": "object",
+      "properties": {
+        "environment": {
+          "type": "string"
+        },
+        "providerId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerId",
+        "environment"
+      ]
     },
     "Remediation": {
       "type": "object",
@@ -215,6 +822,21 @@
         },
         {
           "$ref": "#/$defs/SubscriptionAck"
+        },
+        {
+          "$ref": "#/$defs/ProviderCatalog"
+        },
+        {
+          "$ref": "#/$defs/ProviderDefinition"
+        },
+        {
+          "$ref": "#/$defs/Accounts"
+        },
+        {
+          "$ref": "#/$defs/AccountConnection"
+        },
+        {
+          "$ref": "#/$defs/PermissionReview"
         }
       ]
     },
@@ -281,7 +903,10 @@
         },
         "aggregateType": {
           "type": "string",
-          "const": "workspace"
+          "enum": [
+            "workspace",
+            "account"
+          ]
         },
         "lastSequence": {
           "type": "integer",
@@ -290,7 +915,7 @@
           "minimum": 0
         },
         "projection": {
-          "$ref": "#/$defs/Workspace"
+          "$ref": "#/$defs/DomainProjection"
         }
       },
       "additionalProperties": false,
@@ -343,7 +968,10 @@
         },
         "aggregateType": {
           "type": "string",
-          "const": "workspace"
+          "enum": [
+            "workspace",
+            "account"
+          ]
         },
         "lastSequence": {
           "type": "integer",
@@ -457,8 +1085,8 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "const": 1,
-          "minimum": 0
+          "maximum": 2,
+          "minimum": 1
         },
         "workspaceId": {
           "type": "string",
@@ -474,6 +1102,20 @@
         "createdAt",
         "lastOpenedAt",
         "storageSchemaVersion"
+      ]
+    },
+    "WorkspaceQuery": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
       ]
     }
   },

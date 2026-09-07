@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { browserIntegration, desktop, explainError, transportAvailable } from './client.ts';
+import { Accounts } from './Accounts.tsx';
 import { useWorkspace } from './useWorkspace.ts';
 import type { OpenWorkspace, Workspace } from '../shared/ipc-types.ts';
 
@@ -103,7 +104,7 @@ export default function App() {
         <button className="workspace-button" onClick={() => { setPage('New Thread'); setSetup(true); }}>Workspace</button>
       </header>
       <main id="main" tabIndex={-1}>
-        {browserIntegration && <div className="integration-notice">Browser verification · isolated temporary workspace</div>}
+        {browserIntegration && <div className="integration-notice">Browser verification · isolated temporary workspace · provider responses are test fixtures</div>}
         {state.error != null && <div className="error-banner" role="alert"><div><strong>Workspace needs attention</strong><p>{explainError(state.error)}</p></div><button onClick={state.recover}>Retry connection</button></div>}
         {state.opening.isPending && !workspace ? <p role="status">Opening local workspace…</p> :
           (setup || (!workspace && page === 'New Thread')) ? <WorkspaceSetup busy={state.opening.isPending} submit={submit} /> :
@@ -123,18 +124,20 @@ export default function App() {
               <div className="settings-tabs" role="group" aria-label="Settings sections">{['Providers & Models', 'Risk & Limits', 'Data & Storage', 'Account Health', 'Appearance', 'About'].map(tab =>
                 <button key={tab} aria-pressed={settingsTab === tab} onClick={() => setSettingsTab(tab)}>{tab}</button>)}</div>
               <section className="card settings-section"><h2>{settingsTab}</h2>
+                {workspace && (settingsTab === 'Providers & Models' || settingsTab === 'Account Health') && <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} healthOnly={settingsTab === 'Account Health'} />}
                 {settingsTab === 'Providers & Models' || settingsTab === 'About' ? <>
                   <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : 'No model provider is configured. Agent turns and onboarding Ready remain unavailable.'}</p>
                   <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : 'Not configured'}</span></li>)}</ul>
                   <button onClick={() => { void state.runtime.refetch(); }} disabled={state.runtime.isFetching}>Refresh runtime status</button>
                 </> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => setSetup(true)}>Open another workspace</button></> :
-                  <p className="muted">{settingsTab === 'Risk & Limits' ? 'Risk policy configuration is not available in this build. Live execution remains unavailable.' : settingsTab === 'Account Health' ? 'No broker accounts are connected.' : 'The workspace currently uses the RevC light theme.'}</p>}
+                  <p className="muted">{settingsTab === 'Risk & Limits' ? 'Risk policy configuration is not available in this build. Live execution remains unavailable.' : settingsTab === 'Account Health' ? 'Connection, authentication, stream, reconciliation and execution are separate checks.' : 'The workspace currently uses the RevC light theme.'}</p>}
               </section>
             </>}
-            {page !== 'New Thread' && page !== 'Settings' && <>
+            {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}
+            {page !== 'New Thread' && page !== 'Settings' && page !== 'Accounts' && <>
               <div className="page-heading"><h1>{page}</h1></div>
-              <section className="card empty-page"><h2>{page === 'Threads' ? 'No saved threads' : page === 'Accounts' ? 'No connected accounts' : page === 'Markets' ? 'Market data is not connected' : page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
-                <p>{page === 'Threads' ? 'Configure a model provider before starting a persistent thread.' : page === 'Accounts' || page === 'Markets' ? 'Provider connections are not available in this build. No account or market data has been loaded.' : 'This workflow is not available in this build. Your local workspace is ready for the next setup steps.'}</p>
+              <section className="card empty-page"><h2>{page === 'Threads' ? 'No saved threads' : page === 'Markets' ? 'Market data is not connected' : page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
+                <p>{page === 'Threads' ? 'Configure a model provider before starting a persistent thread.' : page === 'Markets' ? 'Provider connections are not available in this build. No account or market data has been loaded.' : 'This workflow is not available in this build. Your local workspace is ready for the next setup steps.'}</p>
                 <button onClick={() => navigate('Settings')}>Open settings</button>
               </section>
             </>}

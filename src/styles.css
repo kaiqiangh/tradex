@@ -131,3 +131,26 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
   .thread-welcome { padding-top: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+.accounts-panel { display: grid; gap: 20px; min-width: 0; }
+.provider-config, .account-detail { padding: 20px; min-width: 0; }
+.provider-config form { max-width: 680px; }
+.account-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+.account-row { display: grid; gap: 6px; text-align: left; white-space: normal; padding: 14px; }
+.account-row[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; }
+.account-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.account-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.health-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); margin: 20px 0; }
+.health-grid dt { color: #64748b; font-size: 12px; margin-bottom: 5px; }
+.health-grid dd { margin: 0; overflow-wrap: anywhere; }
+.permission-review { padding: 16px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; }
+.check-field { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0; }
+.check-field input { width: auto; margin-top: 3px; flex: none; }
+.table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 6px; }
+.table-scroll table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.table-scroll th, .table-scroll td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+.table-scroll th { background: #f8fafc; font-weight: 600; }
+.order-identity { display: block; max-width: 150px; white-space: normal; margin-top: 4px; font-size: 10px; color: #64748b; }
+.account-detail h3 { margin: 22px 0 12px; }
+.settings-section:has(.accounts-panel) { padding: 20px; }
+@media (max-width: 600px) { .provider-config, .account-detail { padding: 14px; } .account-actions { width: 100%; } }

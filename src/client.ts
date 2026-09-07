@@ -1,20 +1,47 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
+import type { DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
+  'provider.list_definitions': EmptyPayload;
+  'provider.get_schema': ProviderSelection;
+  'provider.connect': Connect;
+  'provider.probe': AccountMutation;
+  'provider.disconnect': AccountMutation;
+  'provider.permissions': AccountQuery;
+  'account.list': WorkspaceQuery;
+  'account.get': AccountQuery;
+  'account.refresh': AccountMutation;
   'workspace.open': OpenWorkspace;
   'runtime.status': EmptyPayload;
   'domain.snapshot': Aggregate;
   'domain.subscribe': Subscribe;
 }
 interface Outputs {
+  'provider.list_definitions': ProviderCatalog;
+  'provider.get_schema': ProviderDefinition;
+  'provider.connect': AccountConnection;
+  'provider.probe': AccountConnection;
+  'provider.disconnect': AccountConnection;
+  'provider.permissions': PermissionReview;
+  'account.list': Accounts;
+  'account.get': AccountConnection;
+  'account.refresh': AccountConnection;
   'workspace.open': Workspace;
   'runtime.status': RuntimeStatus;
   'domain.snapshot': Snapshot;
   'domain.subscribe': SubscriptionAck;
 }
 const definitions = {
+  'provider.list_definitions': ['EmptyPayload', 'ProviderCatalog'],
+  'provider.get_schema': ['ProviderSelection', 'ProviderDefinition'],
+  'provider.connect': ['Connect', 'AccountConnection'],
+  'provider.probe': ['AccountMutation', 'AccountConnection'],
+  'provider.disconnect': ['AccountMutation', 'AccountConnection'],
+  'provider.permissions': ['AccountQuery', 'PermissionReview'],
+  'account.list': ['WorkspaceQuery', 'Accounts'],
+  'account.get': ['AccountQuery', 'AccountConnection'],
+  'account.refresh': ['AccountMutation', 'AccountConnection'],
   'workspace.open': ['OpenWorkspace', 'Workspace'],
   'runtime.status': ['EmptyPayload', 'RuntimeStatus'],
   'domain.snapshot': ['Aggregate', 'Snapshot'],
@@ -67,7 +94,7 @@ export async function subscribe(payload: Subscribe, onEvent: (event: unknown) =>
     });
     stream.onmessage = message => {
       if (active) {
-        try { onEvent(JSON.parse(message.data)); } catch (error) { onError(error); }
+        try { const event = decode<DomainEvent>('DomainEvent', JSON.parse(message.data)); if (event.aggregateType === payload.aggregateType && event.aggregateId === payload.aggregateId) onEvent(event); } catch (error) { onError(error); }
       }
     };
     stream.onerror = () => { if (active) { stream.close(); onError(new Error('IPC_TRANSPORT_UNAVAILABLE')); } };

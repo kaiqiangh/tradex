@@ -1797,6 +1797,33 @@ name（1–120 个字符，不含控制字符）与 baseCurrency（三个大写�
 
 ---
 
+### 41.3 券商连接载荷（S02）
+
+版本 1 增加以下精确操作。所有输入对象拒绝额外字段和显式 null；字符串及集合长度受限，opaque ID/state version 不得为空。连接绑定活动 `workspaceId`，创建后 provider/environment 不可变。wire 不接受原始秘密、HTTP 目标地址、调用方声明的权限、arming 标志或自行指定的 Keychain 引用。
+
+| Command | Payload | Success data |
+|---|---|---|
+| provider.list_definitions | `{}` | `{providers: ProviderDefinition[]}`，包含提供方/环境可用性、字段敏感性/必填性/验证/帮助、请求权限规则及支持能力 |
+| provider.get_schema | `{providerId, environment}` | 该受支持组合的 ProviderDefinition；不支持的组合在秘密输入前拒绝 |
+| provider.connect | `{step: "test", workspaceId, providerId, environment, label}` | 原生安全输入及只读认证后的 AccountConnection，状态 REVIEW_REQUIRED；秘密字段不经过 webview command envelope |
+| provider.connect | `{step: "confirm", workspaceId, connectionId, expectedStateVersion, acknowledgeUnverified: boolean}` | AccountConnection；仅确认已成功测试的精确审阅版本；未知权限须显式确认且继续标为 UNVERIFIED |
+| provider.probe / account.refresh | `{workspaceId, connectionId, expectedStateVersion}` | 实际读取结果/健康状态；读取失败保留旧观察和上次成功同步时间，标记 stale/error 并返回脱敏错误 |
+| provider.permissions / account.get | `{workspaceId, connectionId}` | 分别为 PermissionReview / AccountConnection |
+| account.list | `{workspaceId}` | `{accounts: AccountConnection[]}`；包含待处理、失败及断开记录以供恢复/历史查询 |
+| provider.disconnect | `{workspaceId, connectionId, expectedStateVersion}` | 删除凭据前先持久化 DISCONNECTED；删除失败保持 DELETE_PENDING，可使用新版本重试；不修改提供方、不取消外部订单 |
+
+ProviderDefinition 包含 `providerId`、`displayName`、`environment`、`available`、`helpText`、`fields`（`id`、`label`、`inputType`、`required`、`secret`、`maxLength`、`helpText`、适用环境）及权限要求。仅已实现的受支持组合可连接；不可用的目录项说明原因。Local Paper 内置且无需凭据，不代表外部探测成功。
+
+AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerId`、`environment`、`createdAt`；`label`、opaque `stateVersion`、`updatedAt`、`connectionState`（CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED）；分开的连接/认证/凭据/私有流/对账/执行资格/arming 健康状态；可选的既有账户数据、上次成功同步及 PermissionReview。数据包含远端身份/类型、可用时的币种、规范 decimal 字符串余额/持仓/未完成订单、已观察能力及明确限制。缺失值不可用，不能默认零。PermissionReview 区分 VERIFIED/UNVERIFIED、已检测权限、禁止/不支持权限、确认记录及 IP 限制状态。读取成功不代表完整密钥权限或金融授权。所有 Live 账户保持 DISARMED；S02 不授予执行资格。
+
+控制面在原生输入前分配不可变连接及私有引用；仅受信提供方层采集/保存/解析 Keychain 值，普通存储只有 metadata/reference。取消使待处理连接失效并只清理自身凭据；初次测试失败保持明确失败并清理自身凭据；清理失败显示 DELETE_PENDING，可重试断开，期间禁止探测。原生弹窗和网络 I/O 不持有领域状态锁。提交结果前再次校验工作区会话、连接身份及期望状态；断开或切换工作区使进行中的结果失效。受信层在继续 I/O 前检查有效性，并清理放弃的新凭据。重启时中断的 CONNECTING 连接转为 DISCONNECTED / DELETE_PENDING，须清理后重新连接；旧观察保持 stale，直至引用检查及新探测成功；不得自动确认审阅或恢复 arming。
+
+连接/健康变更与 `account.health.changed` 事件在同一 SQLite 事务提交。`account` aggregate 使用 `connectionId`、独立连续序列及 AccountConnection projection。`domain.snapshot` / `domain.subscribe` 接受该 aggregate，复用 §41.2 的恢复及 replay-to-live 保证。同一 consumer 可订阅不同 aggregate；替换只作用于 consumer + aggregate。
+
+错误使用 PRD §51 类别与稳定 code：`PROVIDER_UNSUPPORTED`、`PROVIDER_NATIVE_ENTRY_REQUIRED`、`PROVIDER_ENTRY_CANCELLED`、`PROVIDER_ENTRY_BUSY`、`PROVIDER_ALREADY_CONNECTED`、`PROVIDER_AUTH_FAILED`、`PROVIDER_UNAVAILABLE`、`PROVIDER_RATE_LIMITED`、`PROVIDER_RESPONSE_INVALID`、`PROVIDER_DATA_INCOMPLETE`、`PROVIDER_IDENTITY_CHANGED`、`PROVIDER_REVIEW_REQUIRED`、`PROVIDER_PERMISSION_BLOCKED`、`CREDENTIAL_UNAVAILABLE`、`CREDENTIAL_STORE_FAILED`、`CREDENTIAL_DELETE_FAILED`，以及既有 payload/state/storage 错误。不返回原始 provider body、带签名 URL、认证 header 或原生诊断；request correlation 不能替代连接/同意身份。
+
+---
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

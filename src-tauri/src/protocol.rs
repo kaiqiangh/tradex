@@ -1,3 +1,4 @@
+use crate::providers::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -90,7 +91,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("const" = "workspace"))]
+    #[schemars(extend("enum" = ["workspace", "account"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -126,6 +127,11 @@ pub enum ReplyData {
     Snapshot(Snapshot),
     Runtime(RuntimeStatus),
     Subscription(SubscriptionAck),
+    ProviderCatalog(ProviderCatalog),
+    ProviderDefinition(ProviderDefinition),
+    Accounts(Accounts),
+    Account(Box<AccountConnection>),
+    Permissions(PermissionReview),
 }
 
 #[derive(JsonSchema)]
@@ -143,7 +149,7 @@ pub struct FailureEnvelope {
 #[derive(JsonSchema)]
 #[serde(untagged)]
 pub enum ResultEnvelope {
-    Success(SuccessEnvelope),
+    Success(Box<SuccessEnvelope>),
     Failure(FailureEnvelope),
 }
 
@@ -158,6 +164,11 @@ pub struct IpcSchema {
     pub aggregate: Aggregate,
     pub subscribe: Subscribe,
     pub empty: EmptyPayload,
+    pub provider_selection: ProviderSelection,
+    pub workspace_query: WorkspaceQuery,
+    pub account_query: AccountQuery,
+    pub account_mutation: AccountMutation,
+    pub provider_connect: Connect,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -170,8 +181,30 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(extend("const" = 1))]
+    #[schemars(range(min = 1, max = 2))]
     pub storage_schema_version: u32,
+}
+
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum DomainProjection {
+    Workspace(Workspace),
+    Account(Box<AccountConnection>),
+}
+
+impl DomainProjection {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Workspace(w) => &w.workspace_id,
+            Self::Account(a) => &a.connection_id,
+        }
+    }
+    pub fn kind(&self) -> &str {
+        match self {
+            Self::Workspace(_) => "workspace",
+            Self::Account(_) => "account",
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
@@ -179,28 +212,28 @@ pub struct Workspace {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("const" = "workspace.opened"))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("const" = "workspace"))]
+    #[schemars(extend("enum" = ["workspace", "account"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
     #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
     pub sequence: u64,
-    pub payload: Workspace,
+    pub payload: DomainProjection,
 }
 
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("const" = "workspace"))]
+    #[schemars(extend("enum" = ["workspace", "account"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
-    pub projection: Workspace,
+    pub projection: DomainProjection,
     #[schemars(range(min = 0, max = 9_007_199_254_740_991_u64))]
     pub last_sequence: u64,
 }
@@ -277,6 +310,86 @@ impl TradeXError {
                 "retry_request",
                 "Review and retry",
             ),
+            "PROVIDER_ALREADY_CONNECTED" => (
+                "This account is already connected in this environment. Use the existing connection.",
+                "select_account",
+                "Open existing connection",
+            ),
+            "PROVIDER_UNSUPPORTED" => (
+                "This provider/environment is not supported in this build.",
+                "choose_provider",
+                "Choose a supported provider",
+            ),
+            "PROVIDER_NATIVE_ENTRY_REQUIRED" => (
+                "Open the desktop app to enter credentials securely.",
+                "open_desktop",
+                "Open TradeX",
+            ),
+            "PROVIDER_ENTRY_BUSY" => (
+                "Finish or cancel the open credential window before starting another connection.",
+                "finish_entry",
+                "Return to credential entry",
+            ),
+            "PROVIDER_ENTRY_CANCELLED" => (
+                "Credential entry was cancelled. No connection was confirmed.",
+                "connect_provider",
+                "Connect again",
+            ),
+            "PROVIDER_AUTH_FAILED" => (
+                "The provider rejected these credentials or their read permissions.",
+                "reconnect_provider",
+                "Reconnect with valid credentials",
+            ),
+            "PROVIDER_RATE_LIMITED" => (
+                "The provider rate limit was reached. Wait before retrying.",
+                "retry_provider",
+                "Retry later",
+            ),
+            "PROVIDER_UNAVAILABLE" => (
+                "The provider could not be reached. Saved observations are stale.",
+                "retry_provider",
+                "Retry connection",
+            ),
+            "PROVIDER_RESPONSE_INVALID" => (
+                "The provider response could not be validated. Saved observations were preserved.",
+                "retry_provider",
+                "Retry connection",
+            ),
+            "PROVIDER_DATA_INCOMPLETE" => (
+                "The provider result is incomplete. It cannot be treated as a fresh account snapshot.",
+                "retry_provider",
+                "Retry connection",
+            ),
+            "PROVIDER_IDENTITY_CHANGED" => (
+                "The provider returned a different account identity. Disconnect and reconnect.",
+                "reconnect_provider",
+                "Reconnect account",
+            ),
+            "PROVIDER_REVIEW_REQUIRED" => (
+                "Test this connection and explicitly review its current permissions before confirming.",
+                "review_permissions",
+                "Review permissions",
+            ),
+            "PROVIDER_PERMISSION_BLOCKED" => (
+                "Forbidden or unsupported permissions block readiness. Remove them at the provider and test again.",
+                "review_permissions",
+                "Review permissions",
+            ),
+            "CREDENTIAL_UNAVAILABLE" => (
+                "The OS Keychain credential is missing or unavailable. Reconnect this account.",
+                "reconnect_provider",
+                "Reconnect account",
+            ),
+            "CREDENTIAL_STORE_FAILED" => (
+                "The credential could not be saved to OS Keychain. No file fallback was used.",
+                "retry_provider",
+                "Retry secure entry",
+            ),
+            "CREDENTIAL_DELETE_FAILED" => (
+                "Local access is stopped, but Keychain cleanup needs another attempt.",
+                "disconnect_provider",
+                "Retry Disconnect",
+            ),
             _ => (
                 "The control plane could not complete this operation.",
                 "reload_snapshot",
@@ -284,7 +397,17 @@ impl TradeXError {
             ),
         };
         Self {
-            category: if matches!(
+            category: if code == "PROVIDER_AUTH_FAILED" || code.starts_with("CREDENTIAL_") {
+                "AUTH_ERROR"
+            } else if code == "PROVIDER_RATE_LIMITED" {
+                "RATE_LIMITED"
+            } else if code == "PROVIDER_UNAVAILABLE" {
+                "NETWORK_ERROR"
+            } else if code == "PROVIDER_UNSUPPORTED" {
+                "UNSUPPORTED_CAPABILITY"
+            } else if code == "PROVIDER_PERMISSION_BLOCKED" {
+                "PERMISSION_ERROR"
+            } else if matches!(
                 code,
                 "IPC_AGGREGATE_NOT_FOUND" | "STATE_VERSION_CONFLICT" | "IPC_REPLAY_UNAVAILABLE"
             ) {

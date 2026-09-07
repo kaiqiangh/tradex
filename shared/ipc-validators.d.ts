@@ -1,11 +1,28 @@
 /* Generated from Rust JSON Schema. */
 declare const validators: {
+  AccountConnection: (value: unknown) => boolean;
+  AccountData: (value: unknown) => boolean;
+  AccountHealth: (value: unknown) => boolean;
+  AccountMutation: (value: unknown) => boolean;
+  AccountQuery: (value: unknown) => boolean;
+  Accounts: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
+  Balance: (value: unknown) => boolean;
   CommandEnvelope: (value: unknown) => boolean;
+  Connect: (value: unknown) => boolean;
+  ConnectionState: (value: unknown) => boolean;
   DomainEvent: (value: unknown) => boolean;
+  DomainProjection: (value: unknown) => boolean;
   EmptyPayload: (value: unknown) => boolean;
   FailureEnvelope: (value: unknown) => boolean;
+  OpenOrder: (value: unknown) => boolean;
   OpenWorkspace: (value: unknown) => boolean;
+  PermissionReview: (value: unknown) => boolean;
+  Position: (value: unknown) => boolean;
+  ProviderCatalog: (value: unknown) => boolean;
+  ProviderDefinition: (value: unknown) => boolean;
+  ProviderField: (value: unknown) => boolean;
+  ProviderSelection: (value: unknown) => boolean;
   Remediation: (value: unknown) => boolean;
   ReplyData: (value: unknown) => boolean;
   ResultEnvelope: (value: unknown) => boolean;
@@ -17,5 +34,6 @@ declare const validators: {
   SuccessEnvelope: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;
   Workspace: (value: unknown) => boolean;
+  WorkspaceQuery: (value: unknown) => boolean;
 };
 export default validators;

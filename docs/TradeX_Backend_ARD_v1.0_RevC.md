@@ -1797,6 +1797,33 @@ Name (1–120 characters without control characters) and baseCurrency (three upp
 
 ---
 
+### 41.3 Broker connection payloads (S02)
+
+Version 1 adds the following exact operations. All input objects reject extra fields and explicit nulls. Strings and collection sizes are bounded; opaque IDs/state versions are non-empty. A broker connection is scoped to the active `workspaceId`; provider/environment never change after creation. No wire field accepts a secret, HTTP destination, permission assertion, arming flag or caller-selected Keychain reference.
+
+| Command | Payload | Success data |
+|---|---|---|
+| provider.list_definitions | `{}` | `{providers: ProviderDefinition[]}` with provider/environment availability, credential field sensitivity/requiredness/validation/help, requested permission rules and supported capabilities |
+| provider.get_schema | `{providerId, environment}` | ProviderDefinition for that supported selection; unsupported combinations fail before secret entry |
+| provider.connect | `{step: "test", workspaceId, providerId, environment, label}` | AccountConnection after native secure entry and read-only authentication; status REVIEW_REQUIRED; secret fields never cross the webview command envelope |
+| provider.connect | `{step: "confirm", workspaceId, connectionId, expectedStateVersion, acknowledgeUnverified: boolean}` | AccountConnection; confirms only the exact successfully tested review version; unknown scope requires explicit acknowledgement and remains UNVERIFIED |
+| provider.probe / account.refresh | `{workspaceId, connectionId, expectedStateVersion}` | AccountConnection with actual read results/health; a failed read preserves prior observations and last successful sync, marks stale/error, and returns a sanitized error |
+| provider.permissions / account.get | `{workspaceId, connectionId}` | PermissionReview / AccountConnection respectively |
+| account.list | `{workspaceId}` | `{accounts: AccountConnection[]}`; includes pending/failed/disconnected records for recovery/history |
+| provider.disconnect | `{workspaceId, connectionId, expectedStateVersion}` | AccountConnection marked DISCONNECTED before credential cleanup; failed deletion remains DELETE_PENDING and is retryable with the new version; no provider mutation or external-order cancellation |
+
+ProviderDefinition includes `providerId`, `displayName`, `environment`, `available`, `helpText`, `fields` (`id`, `label`, `inputType`, `required`, `secret`, `maxLength`, `helpText`, applicable environment), and permission requirements. Only supported implemented combinations can enter the connection workflow; unavailable catalog entries explain why. Local Paper is built-in and credential-free; it is not a successful external probe.
+
+AccountConnection includes immutable `connectionId`, `workspaceId`, `providerId`, `environment`, `createdAt`; `label`, opaque `stateVersion`, `updatedAt`, `connectionState` (CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED); separate connection/authentication/credential/private-stream/reconciliation/execution-eligibility/arming health; optional prior account data; optional last successful sync; and PermissionReview. Account data includes remote identity/type, currency where available, exact normalized decimal balances, positions and open orders, observed capabilities and explicit limitations. Missing values are unavailable, never zero by default. PermissionReview distinguishes scope VERIFIED/UNVERIFIED, detected permissions, forbidden/unsupported permissions, acknowledgement and IP restriction status. Read success cannot establish complete key scope or financial authority. All Live accounts remain DISARMED; S02 supplies no execution readiness.
+
+The control plane allocates the immutable connection and its private reference before native entry. Keychain values are captured/stored/resolved only in the trusted provider layer; ordinary connection storage contains metadata/reference only. Cancellation invalidates the pending connection and deletes only its own credential. A failed initial test remains visibly failed and removes its own credential; failed cleanup is DELETE_PENDING, blocks probes and supports retrying disconnect. Native dialogs and network I/O never hold the domain-state lock. Each result is committed only if workspace session, connection identity and expected state still match; disconnect/workspace switch invalidate in-flight completion. The privileged layer checks validity before further I/O and removes abandoned newly captured credentials. On restart, interrupted CONNECTING records become DISCONNECTED / DELETE_PENDING for cleanup and reconnection; previous observations are stale until reference checks and a successful fresh probe; restart cannot confirm a review or restore arming.
+
+Every accepted connection/health change and its `account.health.changed` event commit in one SQLite transaction. The `account` aggregate uses `connectionId`, its own contiguous sequence and an AccountConnection projection. `domain.snapshot` / `domain.subscribe` accept this aggregate with the same recovery and replay-to-live guarantees as §41.2. A consumer may subscribe to different aggregates; replacement is scoped to consumer + aggregate, not to all its subscriptions.
+
+Errors use PRD §51 categories with stable codes: `PROVIDER_UNSUPPORTED`, `PROVIDER_NATIVE_ENTRY_REQUIRED`, `PROVIDER_ENTRY_CANCELLED`, `PROVIDER_ENTRY_BUSY`, `PROVIDER_ALREADY_CONNECTED`, `PROVIDER_AUTH_FAILED`, `PROVIDER_UNAVAILABLE`, `PROVIDER_RATE_LIMITED`, `PROVIDER_RESPONSE_INVALID`, `PROVIDER_DATA_INCOMPLETE`, `PROVIDER_IDENTITY_CHANGED`, `PROVIDER_REVIEW_REQUIRED`, `PROVIDER_PERMISSION_BLOCKED`, `CREDENTIAL_UNAVAILABLE`, `CREDENTIAL_STORE_FAILED`, `CREDENTIAL_DELETE_FAILED`, plus existing payload/state/storage errors. Provider bodies, URLs containing signatures, auth headers and native diagnostics are never returned. Request correlation never substitutes for connection or consent identity.
+
+---
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

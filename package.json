@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "dev:browser": "cargo build --quiet --bin tradex-ipc && vite --host 127.0.0.1 --mode integration",
+    "dev:browser": "cargo build --quiet --bin tradex-ipc --features integration-test && vite --host 127.0.0.1 --mode integration",
     "desktop": "tauri dev --features desktop",
     "build": "npm run typecheck && vite build",
     "desktop:build": "tauri build --features desktop --no-bundle",

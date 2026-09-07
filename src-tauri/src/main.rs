@@ -4,8 +4,9 @@ use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, ipc::Channel};
 use tradex::{
-    ControlPlane,
+    ControlPlane, native_credentials,
     protocol::{DomainEvent, TradeXError},
+    provider_io::{AlpacaHttp, NativeVault},
 };
 
 struct Service(Arc<Mutex<ControlPlane>>);
@@ -31,18 +32,44 @@ async fn control(
     }
     let engine = service.0.clone();
     let fallback = request.clone();
-    Ok(
-        tauri::async_runtime::spawn_blocking(move || match engine.lock() {
-            Ok(mut engine) => engine.dispatch_with_events(
-                request,
-                &consumer,
-                Some(Arc::new(move |event| events.send(event).is_ok())),
-            ),
+    Ok(tauri::async_runtime::spawn_blocking(move || {
+        let prepared = match engine.lock() {
+            Ok(mut engine) => match engine.prepare_provider(&request) {
+                Ok(Some(job)) => job,
+                Ok(None) => {
+                    return engine.dispatch_with_events(
+                        request,
+                        &consumer,
+                        Some(Arc::new(move |event| events.send(event).is_ok())),
+                    );
+                }
+                Err(error) => return failed(&request, &error.code),
+            },
+            Err(_) => return failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
+        };
+        let outcome = prepared.run(
+            &NativeVault,
+            |schema| native_credentials::capture(window.app_handle(), schema),
+            &AlpacaHttp::default(),
+            || {
+                engine
+                    .lock()
+                    .is_ok_and(|engine| engine.provider_job_current(&prepared))
+            },
+        );
+        let reply = match engine.lock() {
+            Ok(mut engine) => engine.complete_provider(&prepared, outcome),
             Err(_) => failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
-        })
-        .await
-        .unwrap_or_else(|_| failed(&fallback, "IPC_CONTROL_PLANE_UNAVAILABLE")),
-    )
+        };
+        if let Some(cleanup) = prepared.cleanup_after_failed_commit(&reply, &NativeVault)
+            && let Ok(mut engine) = engine.lock()
+        {
+            engine.record_credential_cleanup(&prepared, cleanup);
+        }
+        reply
+    })
+    .await
+    .unwrap_or_else(|_| failed(&fallback, "IPC_CONTROL_PLANE_UNAVAILABLE")))
 }
 
 fn failed(request: &Value, code: &str) -> Value {
