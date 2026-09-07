@@ -1,6 +1,6 @@
 # S02 / Alpaca Paper verification record
 
-Status: **Checks and serial review passed — awaiting the implementation commit and task #6 resolution.** Spec [#5](https://github.com/kaiqiangh/tradex/issues/5), task [#6](https://github.com/kaiqiangh/tradex/issues/6), map [#1](https://github.com/kaiqiangh/tradex/issues/1). Implementation/review baseline: `de79e94b6190ad96dcfdfea0c689b12e0678951d`. The implementation is currently uncommitted on `dev`; no delivered application SHA or full S02 acceptance is claimed.
+Status: **Task #6 accepted; S02 remains in progress.** Spec [#5](https://github.com/kaiqiangh/tradex/issues/5), task [#6](https://github.com/kaiqiangh/tradex/issues/6), map [#1](https://github.com/kaiqiangh/tradex/issues/1). Implementation/review baseline: `de79e94b6190ad96dcfdfea0c689b12e0678951d`. Implemented and reviewed on `dev` at `c36296ba0d121e54703555430542bb573146b2c4`. The checks below ran against the identical code committed at that SHA; full S02 acceptance is not claimed.
 
 ## Executed checks — 2026-09-07
 
@@ -27,10 +27,10 @@ Contract/fault checks also cover unknown renderer secret fields, unsupported Alp
 
 The packaged application submitted two disposable invalid values to the real Alpaca Paper HTTPS endpoint. Connection `b1b5993a-2e6b-4c24-b4ce-a14ef6509922` reported authentication `INVALID`, credential `MISSING`, execution `BLOCKED`, no account observation and no successful-sync timestamp. Refresh remained disabled. A lookup of only that connection's Keychain reference returned exit 44 (item not found). This demonstrates a real authenticated-request rejection and failed-attempt cleanup; successful credentialed broker authentication is not claimed.
 
-The isolated native workspace, SQLite/WAL and backup files, accessibility output, and 320,744 bytes of this application process's unified log contained neither synthetic credential sentinel. Local evidence: `.artifacts/s02/native-results.json`, `native-validation.png`, `native-failed-connection.png`, and `native-cancel-focus.png`. The three native screenshots were viewed. The macOS Desktop-folder prompt was handled by the user and the packaged application resumed successfully; that earlier external wait is resolved.
+The isolated native workspace, SQLite/WAL and backup files, accessibility output, and 320,744 bytes of this application process's unified log contained neither synthetic credential sentinel. Local evidence: `.artifacts/s02/native-results.json`, `native-validation.png`, `native-failed-connection.png`, and `native-cancel-focus.png`. The three native screenshots were viewed. The final rebuilt package was launched again and restored the same workspace successfully. The macOS Desktop-folder prompt was handled by the user and the packaged application resumed successfully; that earlier external wait is resolved.
 
 ## Delivery scope
 
-Record the exact implementation SHA on `dev` and close only task #6. The parent S02 specification remains open until all four provider tickets and their integration checks pass. Credentialed sandbox order acceptance belongs to S17, not this read-only connection ticket.
+Delivered implementation: `c36296ba0d121e54703555430542bb573146b2c4`. Only task #6 is complete. The parent S02 specification remains open until all four provider tickets and their integration checks pass. Credentialed sandbox order acceptance belongs to S17, not this read-only connection ticket.
 
 No real broker credentials, external orders, transfers or withdrawals were used. Trading 212 (#7), Binance (#8), Bitget (#9), the rest of S02 and S03–S35 remain incomplete. No `dev → main` PR has been created.
