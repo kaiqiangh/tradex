@@ -1,6 +1,6 @@
 # S02 — 安全连接并查看提供方账户
 
-状态：Spec [#5](https://github.com/kaiqiangh/tradex/issues/5) 已发布；实现票 [#6](https://github.com/kaiqiangh/tradex/issues/6) → [#7](https://github.com/kaiqiangh/tradex/issues/7) → [#8](https://github.com/kaiqiangh/tradex/issues/8) → [#9](https://github.com/kaiqiangh/tradex/issues/9) 严格串行。当前 #6 已在 `dev@c36296ba0d121e54703555430542bb573146b2c4` 完成并通过公共协议、真实 HTTPS 边界、Keychain、浏览器、原生窗口与串行双轴审查；详见 [Alpaca evidence](s02-alpaca-evidence.md)。#7 也已在 `dev@5f487ec10c48eea6616dac91472abe38a8297b19` 完成并验收，见 [Trading 212 evidence](s02-trading212-evidence.md)。当前 #8 实现与验收进行中，原生系统授权 gate 尚未完成，见 [Binance evidence](s02-binance-evidence.md)；S02 未完成。起点 `dev@62c6ec0ea50d5ed67c8f784256b7737e8667b8e7`。沿用 S01 已确认的公共测试边界和逐票实现、验证、串行双轴审查约定。
+状态：Spec [#5](https://github.com/kaiqiangh/tradex/issues/5) 已发布；实现票 [#6](https://github.com/kaiqiangh/tradex/issues/6) → [#7](https://github.com/kaiqiangh/tradex/issues/7) → [#8](https://github.com/kaiqiangh/tradex/issues/8) → [#9](https://github.com/kaiqiangh/tradex/issues/9) 严格串行。当前 #6 已在 `dev@c36296ba0d121e54703555430542bb573146b2c4` 完成并通过公共协议、真实 HTTPS 边界、Keychain、浏览器、原生窗口与串行双轴审查；详见 [Alpaca evidence](s02-alpaca-evidence.md)。#7 也已在 `dev@5f487ec10c48eea6616dac91472abe38a8297b19` 完成并验收，见 [Trading 212 evidence](s02-trading212-evidence.md)。#8 已在 `dev@feea542bf07be13b4f4cd98eea1e81a243c7b230` 完成并验收，见 [Binance evidence](s02-binance-evidence.md)。下一张票为 #9；S02 未完成。起点 `dev@62c6ec0ea50d5ed67c8f784256b7737e8667b8e7`。沿用 S01 已确认的公共测试边界和逐票实现、验证、串行双轴审查约定。
 
 ## Problem Statement
 
