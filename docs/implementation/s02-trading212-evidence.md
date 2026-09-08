@@ -1,6 +1,6 @@
 # S02 / Trading 212 verification record
 
-Status: **Checks and serial review passed; awaiting implementation commit and task #7 resolution.** Parent [#5](https://github.com/kaiqiangh/tradex/issues/5), task [#7](https://github.com/kaiqiangh/tradex/issues/7), map [#1](https://github.com/kaiqiangh/tradex/issues/1). Implementation baseline: `907c510bced8a39e788fbdc52769e6a335dbc049` on `dev`. S02 and the full application remain incomplete.
+Status: **Task #7 accepted; S02 remains in progress.** Parent [#5](https://github.com/kaiqiangh/tradex/issues/5), task [#7](https://github.com/kaiqiangh/tradex/issues/7), map [#1](https://github.com/kaiqiangh/tradex/issues/1). Implementation baseline: `907c510bced8a39e788fbdc52769e6a335dbc049` on `dev`. Implemented and reviewed at `5f487ec10c48eea6616dac91472abe38a8297b19`. The recorded checks ran against the identical committed code. S02 and the full application remain incomplete.
 
 ## Implemented contract
 
@@ -26,4 +26,4 @@ The official [summary](https://docs.trading212.com/api/accounts/getaccountsummar
 
 ## Delivery boundary
 
-Only #7 may close after its exact implementation SHA is recorded. Binance (#8), Bitget (#9), the S02 parent and S03–S35 remain incomplete. No order placement/cancellation, live trading, full stream/reconciliation or credentialed broker-success acceptance is claimed by these controlled tests. No `dev → main` PR has been created or merged.
+Delivered code: `5f487ec10c48eea6616dac91472abe38a8297b19`. Only #7 is complete. Binance (#8), Bitget (#9), the S02 parent and S03–S35 remain incomplete. No order placement/cancellation, live trading, full stream/reconciliation or credentialed broker-success acceptance is claimed by these controlled tests. No `dev → main` PR has been created or merged.
