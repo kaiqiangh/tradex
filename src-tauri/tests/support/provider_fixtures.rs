@@ -59,6 +59,48 @@ impl ProviderHttp for Http {
         path: &str,
         headers: reqwest::header::HeaderMap,
     ) -> Result<Vec<u8>> {
+        if matches!(
+            endpoint,
+            tradex::provider_io::ProviderEndpoint::BinanceTestnet
+                | tradex::provider_io::ProviderEndpoint::BinanceLive
+        ) {
+            self.calls
+                .borrow_mut()
+                .push(format!("{}{path}", endpoint.base_url()));
+            if path == "/api/v3/time" {
+                assert!(headers.is_empty());
+                return Ok(br#"{"serverTime":1788849600000}"#.to_vec());
+            }
+            assert_eq!(headers["X-MBX-APIKEY"], KEY);
+            assert!(headers["X-MBX-APIKEY"].is_sensitive());
+            assert_eq!(headers.len(), 1);
+            let (route, query) = path.split_once('?').unwrap();
+            let (params, sig) = query.split_once("&signature=").unwrap();
+            use hmac::Mac;
+            let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(SECRET.as_bytes()).unwrap();
+            mac.update(params.as_bytes());
+            mac.verify_slice(&hex::decode(sig).unwrap()).unwrap();
+            let timestamp = params
+                .strip_prefix("timestamp=")
+                .unwrap()
+                .strip_suffix("&recvWindow=5000")
+                .unwrap()
+                .parse::<u64>()
+                .unwrap();
+            assert!((1788849600000..1788849660000).contains(&timestamp));
+            if self.fail.get() {
+                return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+            }
+            return Ok(serde_json::to_vec(&match route {
+                "/api/v3/account"=>json!({"uid":9007199254740993u64,"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"测试币","free":"0.1","locked":"0.2"}]}),
+                "/api/v3/openOrders"=>json!([{"symbol":"BTCUSDT","orderId":9007199254740995u64,"side":"BUY","status":"NEW","price":"100.2","origQty":"0.1","executedQty":"0","origQuoteOrderQty":"0"},{"symbol":"测试币USDT","orderId":9007199254740995u64,"side":"SELL","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","executedQty":"0.1","origQuoteOrderQty":"0"}]),
+                "/sapi/v1/account/apiRestrictions"=>{
+                    assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
+                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":true,"enableWithdrawals":false,"enableInternalTransfer":false,"enableMargin":false,"enableFutures":false,"permitsUniversalTransfer":false,"enableVanillaOptions":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":false})
+                },
+                _=>panic!("Unexpected Binance operation"),
+            }).unwrap());
+        }
         if endpoint != tradex::provider_io::ProviderEndpoint::AlpacaPaper {
             assert_eq!(
                 headers["Authorization"],

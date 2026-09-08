@@ -8,8 +8,10 @@ import time
 
 mode, directory = sys.argv[1], Path(sys.argv[2])
 host = sys.argv[3]
-assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com"}
+assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com", "api.binance.com", "testnet.binance.vision"}
 path = "/v2/account" if host == "paper-api.alpaca.markets" else "/api/v0/equity/account/summary"
+if host in {"api.binance.com", "testnet.binance.vision"}:
+    path = "/api/v3/time"
 key, cert = directory / "key.pem", directory / "cert.pem"
 subprocess.run([
     "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
@@ -52,6 +54,10 @@ with socket.socket() as listener:
                     time.sleep(20)
                 elif mode == "large":
                     connection.sendall(b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n" + b"x" * (2 * 1024 * 1024 + 1))
+                elif mode in {"clock", "signature", "banned"}:
+                    status = b"418 Banned" if mode == "banned" else b"400 Bad Request"
+                    body = b'{"code":-1021,"msg":"untrusted diagnostic"}' if mode == "clock" else b'{"code":-1022,"msg":"untrusted diagnostic"}'
+                    connection.sendall(b"HTTP/1.1 " + status + b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
                 else:
                     status = {"redirect": b"302 Found", "auth": b"401 Unauthorized", "rate": b"429 Too Many Requests", "ok": b"200 OK"}[mode]
                     location = b"Location: https://paper-api.alpaca.markets/v2/account\r\n" if mode == "redirect" else b""

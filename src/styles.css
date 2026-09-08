@@ -136,7 +136,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .provider-config, .account-detail { padding: 20px; min-width: 0; }
 .provider-config form { max-width: 680px; }
 .account-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
-.account-row { display: grid; gap: 6px; text-align: left; white-space: normal; padding: 14px; }
+.account-row { min-width: 0; overflow-wrap: anywhere; display: grid; gap: 6px; text-align: left; white-space: normal; padding: 14px; }
 .account-row[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; }
 .account-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .account-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }

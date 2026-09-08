@@ -62,6 +62,19 @@ fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_au
         ("ok", None, ProviderEndpoint::AlpacaPaper),
         ("ok", None, ProviderEndpoint::Trading212Demo),
         ("ok", None, ProviderEndpoint::Trading212Live),
+        ("ok", None, ProviderEndpoint::BinanceTestnet),
+        ("ok", None, ProviderEndpoint::BinanceLive),
+        ("clock", Some("CLOCK_SKEW"), ProviderEndpoint::BinanceLive),
+        (
+            "signature",
+            Some("PROVIDER_AUTH_FAILED"),
+            ProviderEndpoint::BinanceLive,
+        ),
+        (
+            "banned",
+            Some("PROVIDER_RATE_LIMITED"),
+            ProviderEndpoint::BinanceLive,
+        ),
         (
             "redirect",
             Some("PROVIDER_UNAVAILABLE"),
@@ -100,6 +113,8 @@ fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_au
             endpoint,
             if endpoint == ProviderEndpoint::AlpacaPaper {
                 "/v2/account"
+            } else if endpoint.is_binance() {
+                "/api/v3/time"
             } else {
                 "/api/v0/equity/account/summary"
             },

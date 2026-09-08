@@ -47,11 +47,12 @@ pub fn catalog() -> ProviderCatalog {
             ("bitget", "Bitget Spot Demo", "DEMO"),
             ("bitget", "Bitget Spot Live", "LIVE"),
         ].into_iter().map(|(id, label, environment)| {
-            let available = matches!(id, "alpaca" | "trading212");
+            let available = matches!(id, "alpaca" | "trading212" | "binance");
             ProviderDefinition {
                 provider_id: id.into(), display_name: label.into(), environment: environment.into(), available,
                 help_text: if id == "local-paper" { "Built-in; no external credentials. Simulation is not configured yet." }
                     else if id == "trading212" { "Use the API key and secret for this exact Demo or Live account. Invest/Stocks ISA only; the API does not expose the subtype. Account values use the primary currency; prices retain instrument currency. Scope and IP restrictions cannot be fully inspected. Connection testing only reads data and never arms Live execution." }
+                    else if id == "binance" { "Use a separate HMAC API key and secret for this exact Spot Testnet or Live account. Native asset balances are not USD valuations. Live key scope is inspected separately; Testnet scope remains unverified. Withdrawals, transfers and unsupported margin/derivative permissions block confirmation. Testing only reads data; Live stays disarmed." }
                     else if available { "Use separate Alpaca Paper credentials. TradeX reads account, positions and open orders. Key scope cannot be fully inspected. No withdrawals, transfers, custody, margin borrowing or leverage management are required or implemented." }
                     else { "This provider connection is not available in this build." }.into(),
                 fields: if available { [("apiKey", "Paper API key ID"), ("secret", "Paper API secret")].into_iter().map(|(id,label)| ProviderField {

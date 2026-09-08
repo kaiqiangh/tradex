@@ -350,6 +350,11 @@ impl TradeXError {
                 "retry_provider",
                 "Retry connection",
             ),
+            "CLOCK_SKEW" => (
+                "Provider signing time could not be validated. Saved observations were preserved.",
+                "retry_provider",
+                "Check connectivity and retry server-time synchronization",
+            ),
             "PROVIDER_RESPONSE_INVALID" => (
                 "The provider response could not be validated. Saved observations were preserved.",
                 "retry_provider",
@@ -409,7 +414,10 @@ impl TradeXError {
                 "PERMISSION_ERROR"
             } else if matches!(
                 code,
-                "IPC_AGGREGATE_NOT_FOUND" | "STATE_VERSION_CONFLICT" | "IPC_REPLAY_UNAVAILABLE"
+                "IPC_AGGREGATE_NOT_FOUND"
+                    | "STATE_VERSION_CONFLICT"
+                    | "IPC_REPLAY_UNAVAILABLE"
+                    | "CLOCK_SKEW"
             ) {
                 "STATE_STALE"
             } else {

@@ -10,6 +10,8 @@ use serde_json::Value;
 use std::{io::Read, time::Duration};
 use zeroize::Zeroizing;
 
+#[path = "binance.rs"]
+mod binance;
 #[path = "trading212.rs"]
 mod trading212;
 
@@ -81,6 +83,8 @@ pub enum ProviderEndpoint {
     AlpacaPaper,
     Trading212Demo,
     Trading212Live,
+    BinanceTestnet,
+    BinanceLive,
 }
 impl ProviderEndpoint {
     pub fn base_url(self) -> &'static str {
@@ -88,11 +92,17 @@ impl ProviderEndpoint {
             Self::AlpacaPaper => "https://paper-api.alpaca.markets",
             Self::Trading212Demo => "https://demo.trading212.com",
             Self::Trading212Live => "https://live.trading212.com",
+            Self::BinanceTestnet => "https://testnet.binance.vision",
+            Self::BinanceLive => "https://api.binance.com",
         }
+    }
+    fn is_binance(self) -> bool {
+        matches!(self, Self::BinanceTestnet | Self::BinanceLive)
     }
     fn allows(self, path: &str) -> bool {
         match self {
             Self::AlpacaPaper => allowed_path(path),
+            Self::BinanceTestnet | Self::BinanceLive => binance::allows(self, path),
             _ => matches!(
                 path,
                 "/api/v0/equity/account/summary"
@@ -146,10 +156,12 @@ impl ProviderHttp for BrokerHttp {
             .headers(headers)
             .send()
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        match response.status().as_u16() {
+        let status = response.status().as_u16();
+        match status {
             200 => (),
+            400 if endpoint.is_binance() => (),
             401 | 403 => return Err(TradeXError::new("PROVIDER_AUTH_FAILED")),
-            429 => return Err(TradeXError::new("PROVIDER_RATE_LIMITED")),
+            418 | 429 => return Err(TradeXError::new("PROVIDER_RATE_LIMITED")),
             _ => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
         }
         if response.content_length().is_some_and(|n| n > MAX_RESPONSE) {
@@ -162,6 +174,17 @@ impl ProviderHttp for BrokerHttp {
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
         if bytes.len() as u64 > MAX_RESPONSE {
             return Err(invalid());
+        }
+        if status != 200 {
+            let code = serde_json::from_slice::<Value>(&bytes)
+                .ok()
+                .and_then(|v| v["code"].as_i64());
+            return Err(TradeXError::new(match code {
+                Some(-1021) => "CLOCK_SKEW",
+                Some(-1022 | -2014 | -2015) => "PROVIDER_AUTH_FAILED",
+                Some(-1003 | -1015) => "PROVIDER_RATE_LIMITED",
+                _ => "PROVIDER_RESPONSE_INVALID",
+            }));
         }
         Ok(bytes)
     }
@@ -230,6 +253,8 @@ impl ProviderJob {
                 ("alpaca", "PAPER") => ProviderEndpoint::AlpacaPaper,
                 ("trading212", "DEMO") => ProviderEndpoint::Trading212Demo,
                 ("trading212", "LIVE") => ProviderEndpoint::Trading212Live,
+                ("binance", "TESTNET") => ProviderEndpoint::BinanceTestnet,
+                ("binance", "LIVE") => ProviderEndpoint::BinanceLive,
                 _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
             };
             if self.kind == JobKind::Connect {
@@ -242,6 +267,15 @@ impl ProviderJob {
             let secret = vault.get(&reference)?;
             credential = "CONFIGURED";
             let mut values = secret.values()?;
+            if endpoint.is_binance() {
+                return binance::read(
+                    endpoint,
+                    &values,
+                    http,
+                    &current,
+                    self.account.data.as_ref(),
+                );
+            }
             let mut auth = HeaderMap::new();
             if endpoint == ProviderEndpoint::AlpacaPaper {
                 for (name, value) in [
@@ -408,6 +442,7 @@ fn contains_secret(value: &Value, secrets: &[String]) -> bool {
     let contains = |text: &str| secrets.iter().any(|secret| text.contains(secret));
     match value {
         Value::String(text) => contains(text),
+        Value::Number(number) => contains(&number.to_string()),
         Value::Array(values) => values.iter().any(|value| contains_secret(value, secrets)),
         Value::Object(fields) => fields
             .iter()
