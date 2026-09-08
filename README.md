@@ -2,7 +2,7 @@
 
 Local desktop trading workspace, implemented serially against the [RevC product documents](docs/README.md). The complete [requirement inventory and delivery map](docs/implementation/README.md) covers 35 work items. Development stays on `dev`; the final `dev` → `main` PR is reserved for human review.
 
-The current implementation includes the S01 workspace shell and the Alpaca Paper slice of S02: native credential entry, macOS Keychain storage, read-only provider connection testing, explicit permission review, persisted account details and resumable domain events. The other provider connections, model execution, research and trading remain pending. Empty pages and disabled controls do not count as implemented workflows.
+The current implementation includes the S01 workspace shell and the Alpaca Paper and Trading 212 Demo/Live slices of S02: native credential entry, macOS Keychain storage, read-only provider connection testing, explicit permission review, persisted account details and resumable domain events. Binance and Bitget connections, model execution, research and trading remain pending. Empty pages and disabled controls do not count as implemented workflows.
 
 ## Run on macOS
 
@@ -16,6 +16,8 @@ npm run desktop
 Select an absolute workspace directory, or use the default `~/.tradex/workspaces/default`. The workspace database contains non-secret metadata and credential references. Broker credentials are entered only in native secure fields and stored in macOS Keychain. Reopening an existing folder preserves its identity, name and base currency. A second writer, incompatible database or failed write produces an explicit error.
 
 In Accounts, select Alpaca Paper and enter a connection label. The secure window accepts the Paper API key ID and secret; Command-Return tests the connection and Escape cancels. Review the observed account data and explicitly acknowledge the UNVERIFIED permission scope before confirming. A connection does not enable trading. Refresh reads account data; Disconnect removes local credential access without cancelling broker orders.
+
+Trading 212 uses its API key and secret for the selected Demo or Live environment. Account values use primary currency; position prices retain their instrument currency. The exact Invest/ISA subtype and complete key scope are unavailable from the API. Allow five seconds between account refreshes; provider quota errors require a later manual retry. Live connections remain DISARMED with execution blocked.
 
 Build a local app with embedded frontend assets:
 
@@ -39,4 +41,6 @@ For browser verification, `npm run dev:browser` serves the frontend on `127.0.0.
 
 Then import `tests/provider-ui.mjs` and call `checkProviderUI(tab, browser)` to verify account review, restore, refresh, narrow-window Settings and disconnect. Run the real OS storage boundary separately with `cargo test --test providers native_keychain_roundtrip_drives_the_real_connection_lifecycle -- --include-ignored`; this creates and deletes disposable synthetic Keychain credentials.
 
-See [S01 evidence](docs/implementation/s01-evidence.md) and [S02 Alpaca evidence](docs/implementation/s02-alpaca-evidence.md) for acceptance scope and remaining work.
+Run the same UI check with a third argument of `trading212/DEMO`, then `trading212/LIVE`, to verify those variants. Their separate real Keychain check is `cargo test --test trading212 native_keychain_keeps_demo_and_live_items_separate -- --include-ignored`.
+
+See [S01 evidence](docs/implementation/s01-evidence.md) and [S02 Alpaca evidence](docs/implementation/s02-alpaca-evidence.md) and [S02 Trading 212 evidence](docs/implementation/s02-trading212-evidence.md) for acceptance scope and remaining work.

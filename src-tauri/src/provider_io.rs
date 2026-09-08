@@ -10,6 +10,9 @@ use serde_json::Value;
 use std::{io::Read, time::Duration};
 use zeroize::Zeroizing;
 
+#[path = "trading212.rs"]
+mod trading212;
+
 const MAX_RESPONSE: u64 = 2 * 1024 * 1024;
 const SERVICE: &str = "com.tradex.broker.credentials";
 
@@ -73,14 +76,40 @@ impl CredentialVault for NativeVault {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProviderEndpoint {
+    AlpacaPaper,
+    Trading212Demo,
+    Trading212Live,
+}
+impl ProviderEndpoint {
+    pub fn base_url(self) -> &'static str {
+        match self {
+            Self::AlpacaPaper => "https://paper-api.alpaca.markets",
+            Self::Trading212Demo => "https://demo.trading212.com",
+            Self::Trading212Live => "https://live.trading212.com",
+        }
+    }
+    fn allows(self, path: &str) -> bool {
+        match self {
+            Self::AlpacaPaper => allowed_path(path),
+            _ => matches!(
+                path,
+                "/api/v0/equity/account/summary"
+                    | "/api/v0/equity/positions"
+                    | "/api/v0/equity/orders"
+            ),
+        }
+    }
+}
 pub trait ProviderHttp {
-    fn get(&self, path: &str, headers: HeaderMap) -> Result<Vec<u8>>;
+    fn get(&self, endpoint: ProviderEndpoint, path: &str, headers: HeaderMap) -> Result<Vec<u8>>;
 }
 
 #[derive(Default)]
-pub struct AlpacaHttp(std::cell::OnceCell<Result<Client>>);
+pub struct BrokerHttp(std::cell::OnceCell<Result<Client>>);
 
-impl AlpacaHttp {
+impl BrokerHttp {
     fn client_builder() -> reqwest::blocking::ClientBuilder {
         Client::builder()
             .https_only(true)
@@ -106,14 +135,14 @@ impl AlpacaHttp {
 #[path = "../tests/support/provider_http.rs"]
 mod http_tests;
 
-impl ProviderHttp for AlpacaHttp {
-    fn get(&self, path: &str, headers: HeaderMap) -> Result<Vec<u8>> {
-        if !allowed_path(path) {
+impl ProviderHttp for BrokerHttp {
+    fn get(&self, endpoint: ProviderEndpoint, path: &str, headers: HeaderMap) -> Result<Vec<u8>> {
+        if !endpoint.allows(path) {
             return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
         }
         let response = self
             .client()?
-            .get(format!("https://paper-api.alpaca.markets{path}"))
+            .get(format!("{}{path}", endpoint.base_url()))
             .headers(headers)
             .send()
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
@@ -194,6 +223,15 @@ impl ProviderJob {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
             }
             let definition = definition(&self.account.provider_id, &self.account.environment)?;
+            let endpoint = match (
+                self.account.provider_id.as_str(),
+                self.account.environment.as_str(),
+            ) {
+                ("alpaca", "PAPER") => ProviderEndpoint::AlpacaPaper,
+                ("trading212", "DEMO") => ProviderEndpoint::Trading212Demo,
+                ("trading212", "LIVE") => ProviderEndpoint::Trading212Live,
+                _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
             if self.kind == JobKind::Connect {
                 let secret = capture(&definition)?;
                 if !current() {
@@ -203,12 +241,9 @@ impl ProviderJob {
             }
             let secret = vault.get(&reference)?;
             credential = "CONFIGURED";
-            let values = secret.values()?;
-            let query = |path: &str| -> Result<Value> {
-                if !current() {
-                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-                }
-                let mut headers = HeaderMap::new();
+            let mut values = secret.values()?;
+            let mut auth = HeaderMap::new();
+            if endpoint == ProviderEndpoint::AlpacaPaper {
                 for (name, value) in [
                     ("APCA-API-KEY-ID", &values[0]),
                     ("APCA-API-SECRET-KEY", &values[1]),
@@ -216,9 +251,27 @@ impl ProviderJob {
                     let mut header = HeaderValue::from_str(value)
                         .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
                     header.set_sensitive(true);
-                    headers.insert(name, header);
+                    auth.insert(name, header);
                 }
-                let bytes = http.get(path, headers)?;
+            } else {
+                use base64::Engine;
+                if values[0].contains(':') {
+                    return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+                }
+                let combined = Zeroizing::new(format!("{}:{}", values[0], values[1]));
+                let encoded = base64::engine::general_purpose::STANDARD.encode(combined.as_bytes());
+                let header_text = Zeroizing::new(format!("Basic {encoded}"));
+                let mut header = HeaderValue::from_str(&header_text)
+                    .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+                header.set_sensitive(true);
+                auth.insert("Authorization", header);
+                values.push(encoded); // Encoded credentials must not be reflected into observations either.
+            }
+            let query = |path: &str| -> Result<Value> {
+                if !current() {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let bytes = http.get(endpoint, path, auth.clone())?;
                 if bytes.len() as u64 > MAX_RESPONSE {
                     return Err(invalid());
                 }
@@ -228,49 +281,67 @@ impl ProviderJob {
                 }
                 Ok(value)
             };
-            let account = query("/v2/account")?;
-            let remote_id = id(&account, "id")?;
-            if self
-                .account
-                .data
-                .as_ref()
-                .is_some_and(|old| old.remote_account_id != remote_id)
-            {
-                return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
-            }
-            let positions = query("/v2/positions")?;
-            let mut orders = Vec::new();
-            let mut cursor = None;
-            let mut seen = std::collections::HashSet::new();
-            loop {
-                let path = format!(
-                    "/v2/orders?status=open&limit=500&direction=asc&nested=false{}",
-                    cursor
-                        .as_ref()
-                        .map(|id| format!("&after_order_id={id}"))
-                        .unwrap_or_default()
-                );
-                let value = query(&path)?;
-                let page = value.as_array().ok_or_else(invalid)?;
-                if page.len() > 500 {
-                    return Err(invalid());
+            let observation = if endpoint == ProviderEndpoint::AlpacaPaper {
+                let account = query("/v2/account")?;
+                let remote_id = id(&account, "id")?;
+                if self
+                    .account
+                    .data
+                    .as_ref()
+                    .is_some_and(|old| old.remote_account_id != remote_id)
+                {
+                    return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
                 }
-                for order in page {
-                    let order_id = id(order, "id")?;
-                    if !seen.insert(order_id.clone()) {
+                let positions = query("/v2/positions")?;
+                let mut orders = Vec::new();
+                let mut cursor = None;
+                let mut seen = std::collections::HashSet::new();
+                loop {
+                    let path = format!(
+                        "/v2/orders?status=open&limit=500&direction=asc&nested=false{}",
+                        cursor
+                            .as_ref()
+                            .map(|id| format!("&after_order_id={id}"))
+                            .unwrap_or_default()
+                    );
+                    let value = query(&path)?;
+                    let page = value.as_array().ok_or_else(invalid)?;
+                    if page.len() > 500 {
+                        return Err(invalid());
+                    }
+                    for order in page {
+                        let order_id = id(order, "id")?;
+                        if !seen.insert(order_id.clone()) {
+                            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                        }
+                        cursor = Some(order_id);
+                        orders.push(order.clone());
+                    }
+                    if page.len() < 500 {
+                        break;
+                    }
+                    if orders.len() >= 10_000 {
                         return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
                     }
-                    cursor = Some(order_id);
-                    orders.push(order.clone());
                 }
-                if page.len() < 500 {
-                    break;
+                alpaca(account, positions, Value::Array(orders))?
+            } else {
+                let account = query("/api/v0/equity/account/summary")?;
+                let remote_id = trading212::account_id(&account)?;
+                if self
+                    .account
+                    .data
+                    .as_ref()
+                    .is_some_and(|old| old.remote_account_id != remote_id)
+                {
+                    return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
                 }
-                if orders.len() >= 10_000 {
-                    return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
-                }
-            }
-            let observation = alpaca(account, positions, Value::Array(orders))?;
+                trading212::observe(
+                    account,
+                    query("/api/v0/equity/positions")?,
+                    query("/api/v0/equity/orders")?,
+                )?
+            };
             if !current() {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
             }
@@ -461,6 +532,8 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
                 quantity: decimal(&p["qty"])?,
                 market_value: optional_decimal(p, "market_value")?,
                 average_entry_price: optional_decimal(p, "avg_entry_price")?,
+                instrument_currency: Some(currency.clone()),
+                market_value_currency: Some(currency.clone()),
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -504,7 +577,9 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
                 side,
                 quantity,
                 notional,
-                filled_quantity: decimal(&o["filled_qty"])?,
+                filled_quantity: Some(decimal(&o["filled_qty"])?),
+                filled_value: None,
+                currency: Some(currency.clone()),
                 status,
                 limit_price: optional_decimal(o, "limit_price")?,
             })
@@ -527,6 +602,8 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
                 asset: currency,
                 available: decimal(&account["cash"])?,
                 total: optional_decimal(&account, "equity")?,
+                reserved: None,
+                in_pies: None,
             }],
             positions,
             open_orders: orders,

@@ -47,15 +47,16 @@ pub fn catalog() -> ProviderCatalog {
             ("bitget", "Bitget Spot Demo", "DEMO"),
             ("bitget", "Bitget Spot Live", "LIVE"),
         ].into_iter().map(|(id, label, environment)| {
-            let available = id == "alpaca";
+            let available = matches!(id, "alpaca" | "trading212");
             ProviderDefinition {
                 provider_id: id.into(), display_name: label.into(), environment: environment.into(), available,
                 help_text: if id == "local-paper" { "Built-in; no external credentials. Simulation is not configured yet." }
+                    else if id == "trading212" { "Use the API key and secret for this exact Demo or Live account. Invest/Stocks ISA only; the API does not expose the subtype. Account values use the primary currency; prices retain instrument currency. Scope and IP restrictions cannot be fully inspected. Connection testing only reads data and never arms Live execution." }
                     else if available { "Use separate Alpaca Paper credentials. TradeX reads account, positions and open orders. Key scope cannot be fully inspected. No withdrawals, transfers, custody, margin borrowing or leverage management are required or implemented." }
                     else { "This provider connection is not available in this build." }.into(),
                 fields: if available { [("apiKey", "Paper API key ID"), ("secret", "Paper API secret")].into_iter().map(|(id,label)| ProviderField {
-                    id:id.into(), label:label.into(), input_type:"password".into(), required:true, secret:true, max_length:512,
-                    help_text:"Enter the value from your Alpaca Paper account in the native secure window.".into(), environment:environment.into(),
+                    id:id.into(), label:if id == "apiKey" && environment != "PAPER" { "API key".into() } else if environment != "PAPER" { "API secret".into() } else { label.into() }, input_type:"password".into(), required:true, secret:true, max_length:512,
+                    help_text:format!("Enter the value for this {environment} account in the native secure window. Never reuse another environment’s credentials."), environment:environment.into(),
                 }).collect() } else { vec![] },
                 required_permissions: vec!["account.read".into(),"positions.read".into(),"orders.read".into()],
                 optional_permissions: vec![],
@@ -180,6 +181,8 @@ pub struct Balance {
     pub asset: String,
     pub available: String,
     pub total: Option<String>,
+    pub reserved: Option<String>,
+    pub in_pies: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -189,6 +192,8 @@ pub struct Position {
     pub quantity: String,
     pub market_value: Option<String>,
     pub average_entry_price: Option<String>,
+    pub instrument_currency: Option<String>,
+    pub market_value_currency: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -199,7 +204,9 @@ pub struct OpenOrder {
     pub side: String,
     pub quantity: Option<String>,
     pub notional: Option<String>,
-    pub filled_quantity: String,
+    pub filled_quantity: Option<String>,
+    pub filled_value: Option<String>,
+    pub currency: Option<String>,
     pub status: String,
     pub limit_price: Option<String>,
 }

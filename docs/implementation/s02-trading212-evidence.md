@@ -1,0 +1,29 @@
+# S02 / Trading 212 verification record
+
+Status: **Checks and serial review passed; awaiting implementation commit and task #7 resolution.** Parent [#5](https://github.com/kaiqiangh/tradex/issues/5), task [#7](https://github.com/kaiqiangh/tradex/issues/7), map [#1](https://github.com/kaiqiangh/tradex/issues/1). Implementation baseline: `907c510bced8a39e788fbdc52769e6a335dbc049` on `dev`. S02 and the full application remain incomplete.
+
+## Implemented contract
+
+Fixed Demo/Live HTTPS destinations, native two-field credential capture, sensitive HTTP Basic headers, separate Keychain identities, the existing persisted review/confirm/refresh/disconnect lifecycle, exact JSON-number and large integer ID preservation, and currency-specific account details. Account subtype and key/IP introspection remain explicitly unavailable. Live never gains arming or execution authority from a successful read.
+
+The official [summary](https://docs.trading212.com/api/accounts/getaccountsummary.md), [positions](https://docs.trading212.com/api/positions/getpositions.md), [pending orders](https://docs.trading212.com/api/orders/orders.md) and [OpenAPI](https://docs.trading212.com/_bundle/api.yaml) were read on 2026-09-07. Positions and pending orders are full arrays; unexpected page envelopes fail. Historical cursor pagination is a different endpoint family. Provider account quotas remain authoritative; there is no automatic request retry or key/IP rotation.
+
+## Executed checks — 2026-09-07–08
+
+- `npm run check`: Rust/JSON Schema/TypeScript agreement, production build, two projection checks, five workspace checks, seven Alpaca/shared checks, two Trading 212 public lifecycle/fault checks, one real HTTPS transport check and requirement-inventory validation passed. The two native Keychain cases are deliberately ignored in the default suite; the Trading 212 case was run separately.
+- `cargo test --test trading212 -- --include-ignored` passed all three cases, including actual macOS Keychain write/read/delete for independent Demo/Live references. Later strengthening of raw/Basic sentinel scanning passed the public Trading 212 test file. Native positive authentication uses HTTP fixtures, not a real broker success claim.
+- `cargo fmt --all --check`, full-target/full-feature Clippy with warnings denied, and `git diff --check` passed. `npx tauri build --features desktop --debug --bundles app` passed and the resulting embedded application restored the existing workspace and older Alpaca projections.
+- CUA ran the same real Rust stdio/SQLite/event UI bridge serially for Alpaca regression, Trading 212 Demo, then Trading 212 Live. All three passed at desktop/768/390: explicit UNVERIFIED acknowledgement, confirmation, exact values/IDs and separate monetary currencies, reload, refresh, account health and disconnect. Live remained DISARMED and execution BLOCKED. The browser transport clearly declares its provider fixtures. Local record: `.artifacts/s02-trading212/browser-results.json`.
+- Actual Demo AppKit fields were secure and environment-labeled, with key-ID initial focus and Tab access to the secret. Empty Command-Return retained validation and saved no credential. Two disposable invalid values submitted to the real Demo HTTPS endpoint returned authentication INVALID, credential MISSING, no observation or successful-sync timestamp, and disabled refresh. Only that failed attempt's reference was checked; Keychain lookup returned 44 (not found).
+- A separate empty Live cancellation test showed the Live-specific secure field help and initial focus, accepted Tab to the secret and Escape to cancel, then returned focus to Connect account securely. Its own record became DISCONNECTED/MISSING/DISARMED with no data/sync timestamp; its Keychain lookup returned 44. Existing configured connections were preserved. Local image: `.artifacts/s02-trading212/native-live-dialog.png` (viewed).
+- Raw and Basic-encoded synthetic sentinels were absent from the native workspace/SQLite/WAL/backup files, captured accessibility text and 667,303 bytes of retained log output for the tested native process. Local record: `.artifacts/s02-trading212/native-results.json`; viewed failure image: `native-demo-failed.png`. No real user key, credentialed account details or private screenshots are included in this repository evidence.
+
+## Serial code review
+
+**Standards: PASS, zero actionable findings.** Reviewed the baseline diff and new provider/test files against repository ownership, secret boundaries and the code-review smell baseline. The existing HTTP/Keychain/control-plane flow is reused; only the provider parser is separate. The existing base64 dependency and serde_json precision feature serve the actual authentication/number contracts. Format/type/lint checks were kept separate from manual review.
+
+**Spec: PASS, zero remaining task-#7 findings.** Compared against #7, parent #5, PRD provider/account rules, UI A2/A3/E1/E2 and bilingual Backend §41.3. Tests prove immutable environment routing, exact Basic bytes, large IDs/exponents, independent reference cleanup, stale/error preservation and rejection of wrong identity, missing monetary currency, excessive exponents, unexpected pages, raw/encoded credential reflection and malformed/value-order responses. The shared late-result, restart, atomic persistence and permission-version guards remain covered by the passing Alpaca regression. Native behavior was separately demonstrated after the browser checks.
+
+## Delivery boundary
+
+Only #7 may close after its exact implementation SHA is recorded. Binance (#8), Bitget (#9), the S02 parent and S03–S35 remain incomplete. No order placement/cancellation, live trading, full stream/reconciliation or credentialed broker-success acceptance is claimed by these controlled tests. No `dev → main` PR has been created or merged.

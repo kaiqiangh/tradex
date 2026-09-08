@@ -53,7 +53,32 @@ impl Default for Http {
     }
 }
 impl ProviderHttp for Http {
-    fn get(&self, path: &str, headers: reqwest::header::HeaderMap) -> Result<Vec<u8>> {
+    fn get(
+        &self,
+        endpoint: tradex::provider_io::ProviderEndpoint,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+    ) -> Result<Vec<u8>> {
+        if endpoint != tradex::provider_io::ProviderEndpoint::AlpacaPaper {
+            assert_eq!(
+                headers["Authorization"],
+                "Basic UzAyLUZBS0UtS0VZLTU5NDc5MTQ1MzpTMDItRkFLRS1TRUNSRVQtNzA0NTU2OTIx"
+            );
+            assert!(headers["Authorization"].is_sensitive());
+            assert!(!headers.contains_key("APCA-API-KEY-ID"));
+            self.calls
+                .borrow_mut()
+                .push(format!("{}{path}", endpoint.base_url()));
+            if self.fail.get() {
+                return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+            }
+            return Ok(match path {
+                "/api/v0/equity/account/summary" => br#"{"id":9007199254740993,"currency":"GBP","cash":{"availableToTrade":1000.1234567890123456789,"reservedForOrders":20.50,"inPies":3.2},"totalValue":1300.25}"#.to_vec(),
+                "/api/v0/equity/positions" => br#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#.to_vec(),
+                "/api/v0/equity/orders" => br#"[{"id":9007199254740995,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23}]"#.to_vec(),
+                _ => panic!("Unexpected Trading 212 operation"),
+            });
+        }
         assert_eq!(headers["APCA-API-KEY-ID"], KEY);
         assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
         assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());

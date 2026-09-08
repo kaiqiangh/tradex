@@ -7,10 +7,13 @@ import sys
 import time
 
 mode, directory = sys.argv[1], Path(sys.argv[2])
+host = sys.argv[3]
+assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com"}
+path = "/v2/account" if host == "paper-api.alpaca.markets" else "/api/v0/equity/account/summary"
 key, cert = directory / "key.pem", directory / "cert.pem"
 subprocess.run([
     "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
-    "-subj", "/CN=paper-api.alpaca.markets", "-addext", "subjectAltName=DNS:paper-api.alpaca.markets",
+    "-subj", f"/CN={host}", "-addext", f"subjectAltName=DNS:{host}",
     "-addext", "extendedKeyUsage=serverAuth",
     "-keyout", str(key), "-out", str(cert),
 ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -37,11 +40,11 @@ with socket.socket() as listener:
         raw, _ = listener.accept()
         raw.settimeout(20)
         try:
-            assert headers(raw).split(b"\r\n", 1)[0] == b"CONNECT paper-api.alpaca.markets:443 HTTP/1.1"
+            assert headers(raw).split(b"\r\n", 1)[0] == f"CONNECT {host}:443 HTTP/1.1".encode()
             raw.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             with context.wrap_socket(raw, server_side=True) as connection:
                 request = headers(connection)
-                assert request.split(b"\r\n", 1)[0] == b"GET /v2/account HTTP/1.1"
+                assert request.split(b"\r\n", 1)[0] == f"GET {path} HTTP/1.1".encode()
                 assert b"apca-api-key-id: synthetic-network-test" in request.lower()
                 count += 1
                 (directory / "requests").write_text(str(count))

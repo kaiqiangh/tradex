@@ -6,7 +6,7 @@ use tauri::{Manager, ipc::Channel};
 use tradex::{
     ControlPlane, native_credentials,
     protocol::{DomainEvent, TradeXError},
-    provider_io::{AlpacaHttp, NativeVault},
+    provider_io::{BrokerHttp, NativeVault},
 };
 
 struct Service(Arc<Mutex<ControlPlane>>);
@@ -50,7 +50,7 @@ async fn control(
         let outcome = prepared.run(
             &NativeVault,
             |schema| native_credentials::capture(window.app_handle(), schema),
-            &AlpacaHttp::default(),
+            &BrokerHttp::default(),
             || {
                 engine
                     .lock()

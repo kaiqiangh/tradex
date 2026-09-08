@@ -174,6 +174,8 @@ export interface AccountData {
 export interface Balance {
   asset: string;
   available: string;
+  inPies?: string | null;
+  reserved?: string | null;
   total?: string | null;
 }
 /**
@@ -182,7 +184,9 @@ export interface Balance {
  */
 export interface OpenOrder {
   brokerOrderId: string;
-  filledQuantity: string;
+  currency?: string | null;
+  filledQuantity?: string | null;
+  filledValue?: string | null;
   limitPrice?: string | null;
   notional?: string | null;
   quantity?: string | null;
@@ -196,7 +200,9 @@ export interface OpenOrder {
  */
 export interface Position {
   averageEntryPrice?: string | null;
+  instrumentCurrency?: string | null;
   marketValue?: string | null;
+  marketValueCurrency?: string | null;
   quantity: string;
   symbol: string;
 }

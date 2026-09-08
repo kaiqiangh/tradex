@@ -314,6 +314,18 @@
         "available": {
           "type": "string"
         },
+        "inPies": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reserved": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "total": {
           "type": [
             "string",
@@ -532,8 +544,23 @@
         "brokerOrderId": {
           "type": "string"
         },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "filledQuantity": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filledValue": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "limitPrice": {
           "type": [
@@ -568,7 +595,6 @@
         "brokerOrderId",
         "symbol",
         "side",
-        "filledQuantity",
         "status"
       ]
     },
@@ -644,7 +670,19 @@
             "null"
           ]
         },
+        "instrumentCurrency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "marketValue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "marketValueCurrency": {
           "type": [
             "string",
             "null"

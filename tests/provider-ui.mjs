@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 
-export async function checkProviderUI(tab, browser) {
+export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') {
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
   const observed = [];
@@ -11,7 +11,7 @@ export async function checkProviderUI(tab, browser) {
     await viewport.set({ width: 1280, height: 900 });
     await tab.getAXState({ emit: false });
     const previousPath = await ui.locator('.context .path').innerText();
-    const label = `Alpaca QA ${Date.now()}`;
+    const label = `${selection} QA ${Date.now()}`;
     await ui.getByRole('button', { name: 'Workspace', exact: true }).click();
     await tab.getAXState({ emit: false });
     await ui.getByLabel('Workspace name', { exact: true }).fill('S02 isolated account review');
@@ -21,7 +21,7 @@ export async function checkProviderUI(tab, browser) {
     await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
     await tab.getAXState({ emit: false });
     assert.equal(await ui.locator('input[type="password"]').count(), 0, 'Secrets must never have renderer inputs');
-    await ui.getByRole('combobox', { name: 'Provider / environment', exact: true }).selectOption('alpaca/PAPER');
+    await ui.getByRole('combobox', { name: 'Provider / environment', exact: true }).selectOption(selection);
     await ui.getByLabel('Connection label', { exact: true }).fill(label);
     await ui.getByRole('button', { name: 'Connect account securely', exact: true }).click();
     await ui.getByRole('heading', { name: 'Permission review', exact: true }).waitFor({ state: 'visible' });
@@ -29,8 +29,21 @@ export async function checkProviderUI(tab, browser) {
     const detail = ui.getByRole('region', { name: label, exact: true });
     assert.match(await detail.innerText(), /REVIEW_REQUIRED/);
     assert.match(await detail.innerText(), /UNVERIFIED/);
-    assert.match(await detail.innerText(), /1000\.25/);
-    assert.match(await detail.innerText(), /10\.5 USD/);
+    const text = await detail.innerText();
+    if (selection === 'alpaca/PAPER') {
+      assert.match(text, /1000\.25/);
+      assert.match(text, /10\.5 USD/);
+    } else {
+      assert.match(text, /1000\.1234567890123456789/);
+      assert.match(text, /9007199254740993/);
+      assert.match(text, /0\.00000012/);
+      assert.match(text, /150\.25 USD/);
+      assert.match(text, /200\.34 GBP/);
+      assert.match(text, /1\.23 GBP/);
+      assert.match(text, /subtype unavailable/);
+      assert.match(text, /20\.5/);
+      if (selection.endsWith('/LIVE')) assert.match(text, /DISARMED/);
+    }
     assert.equal(await ui.getByRole('button', { name: 'Confirm connection', exact: true }).isEnabled(), false);
     await ui.getByRole('checkbox', { name: 'I understand that permission scope is unverified and have checked the key’s permissions at the provider.' }).press('Space');
     await tab.getAXState({ emit: false });

@@ -11,7 +11,7 @@ struct HttpsFixture {
     proxy: String,
 }
 impl HttpsFixture {
-    fn new(mode: &str) -> Self {
+    fn new(mode: &str, endpoint: ProviderEndpoint) -> Self {
         let directory = tempfile::tempdir().unwrap();
         let mut child = Command::new("python3")
             .arg(concat!(
@@ -20,6 +20,7 @@ impl HttpsFixture {
             ))
             .arg(mode)
             .arg(directory.path())
+            .arg(endpoint.base_url().strip_prefix("https://").unwrap())
             .stdout(Stdio::piped())
             .spawn()
             .expect("Python 3 and OpenSSL are required for the local HTTPS boundary check");
@@ -37,15 +38,15 @@ impl HttpsFixture {
             proxy: format!("http://127.0.0.1:{port}"),
         }
     }
-    fn http(&self) -> AlpacaHttp {
+    fn http(&self) -> BrokerHttp {
         let cert = std::fs::read(self.directory.path().join("cert.pem")).unwrap();
         // Only this test client trusts the ephemeral certificate and tunnels to the loopback fixture.
-        let client = AlpacaHttp::client_builder()
+        let client = BrokerHttp::client_builder()
             .add_root_certificate(reqwest::Certificate::from_pem(&cert).unwrap())
             .proxy(reqwest::Proxy::https(&self.proxy).unwrap())
             .build()
             .unwrap();
-        AlpacaHttp(std::cell::OnceCell::from(Ok(client)))
+        BrokerHttp(std::cell::OnceCell::from(Ok(client)))
     }
 }
 impl Drop for HttpsFixture {
@@ -57,15 +58,37 @@ impl Drop for HttpsFixture {
 
 #[test]
 fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_auth_and_quota() {
-    for (mode, error) in [
-        ("ok", None),
-        ("redirect", Some("PROVIDER_UNAVAILABLE")),
-        ("auth", Some("PROVIDER_AUTH_FAILED")),
-        ("rate", Some("PROVIDER_RATE_LIMITED")),
-        ("large", Some("PROVIDER_RESPONSE_INVALID")),
-        ("timeout", Some("PROVIDER_UNAVAILABLE")),
+    for (mode, error, endpoint) in [
+        ("ok", None, ProviderEndpoint::AlpacaPaper),
+        ("ok", None, ProviderEndpoint::Trading212Demo),
+        ("ok", None, ProviderEndpoint::Trading212Live),
+        (
+            "redirect",
+            Some("PROVIDER_UNAVAILABLE"),
+            ProviderEndpoint::AlpacaPaper,
+        ),
+        (
+            "auth",
+            Some("PROVIDER_AUTH_FAILED"),
+            ProviderEndpoint::AlpacaPaper,
+        ),
+        (
+            "rate",
+            Some("PROVIDER_RATE_LIMITED"),
+            ProviderEndpoint::AlpacaPaper,
+        ),
+        (
+            "large",
+            Some("PROVIDER_RESPONSE_INVALID"),
+            ProviderEndpoint::AlpacaPaper,
+        ),
+        (
+            "timeout",
+            Some("PROVIDER_UNAVAILABLE"),
+            ProviderEndpoint::AlpacaPaper,
+        ),
     ] {
-        let fixture = HttpsFixture::new(mode);
+        let fixture = HttpsFixture::new(mode, endpoint);
         let http = fixture.http();
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -73,7 +96,15 @@ fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_au
             HeaderValue::from_static("synthetic-network-test"),
         );
         let start = Instant::now();
-        let result = http.get("/v2/account", headers);
+        let result = http.get(
+            endpoint,
+            if endpoint == ProviderEndpoint::AlpacaPaper {
+                "/v2/account"
+            } else {
+                "/api/v0/equity/account/summary"
+            },
+            headers,
+        );
         let elapsed = start.elapsed();
         match error {
             Some(expected) => assert_eq!(result.unwrap_err().code, expected, "{mode}"),

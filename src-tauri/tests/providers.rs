@@ -293,7 +293,12 @@ struct Override {
 
 struct Fault(&'static str);
 impl ProviderHttp for Fault {
-    fn get(&self, _: &str, _: reqwest::header::HeaderMap) -> Result<Vec<u8>> {
+    fn get(
+        &self,
+        _: tradex::provider_io::ProviderEndpoint,
+        _: &str,
+        _: reqwest::header::HeaderMap,
+    ) -> Result<Vec<u8>> {
         Err(tradex::protocol::TradeXError::new(self.0))
     }
 }
@@ -357,8 +362,14 @@ fn failed_initial_tests_remove_their_credential_and_keep_failed_cleanup_blocked_
     }
 }
 impl ProviderHttp for Override {
-    fn get(&self, path: &str, headers: reqwest::header::HeaderMap) -> Result<Vec<u8>> {
+    fn get(
+        &self,
+        endpoint: tradex::provider_io::ProviderEndpoint,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+    ) -> Result<Vec<u8>> {
         let normal = self.base.get(
+            endpoint,
             if path.contains("&after_order_id=") {
                 "/v2/orders?status=open&limit=500&direction=asc&nested=false"
             } else {
@@ -480,9 +491,14 @@ struct Pages {
     calls: std::cell::Cell<usize>,
 }
 impl ProviderHttp for Pages {
-    fn get(&self, path: &str, headers: reqwest::header::HeaderMap) -> Result<Vec<u8>> {
+    fn get(
+        &self,
+        endpoint: tradex::provider_io::ProviderEndpoint,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+    ) -> Result<Vec<u8>> {
         if !path.starts_with("/v2/orders?") {
-            return self.base.get(path, headers);
+            return self.base.get(endpoint, path, headers);
         }
         self.calls.set(self.calls.get() + 1);
         let start = if path.contains("&after_order_id=") {
@@ -523,9 +539,10 @@ fn order_id_pagination_is_complete_and_repeated_pages_fail_closed() {
             );
         }
     }
-    let http = tradex::provider_io::AlpacaHttp::default();
+    let http = tradex::provider_io::BrokerHttp::default();
     assert_eq!(
         http.get(
+            tradex::provider_io::ProviderEndpoint::AlpacaPaper,
             "https://example.invalid/",
             reqwest::header::HeaderMap::new()
         )
