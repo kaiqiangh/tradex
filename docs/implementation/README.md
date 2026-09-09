@@ -2,11 +2,12 @@
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
-**这是完整应用的实施计划；当前 S01 已完成；S02 的 Alpaca Paper #6、Trading 212 #7、Binance Spot #8 与 Bitget #9 已完成；S02 整体验收待完成；S02–S35 尚未完成。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
+**这是完整应用的实施计划；S01、S02 已完成；S03–S35 尚未完成。S02 四张提供方票及整体验收已通过，下一项从 S03 的 to-spec 开始。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
 
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
+- [S02 整体验收](s02-integration-evidence.md)：同一 dev SHA 上七个环境组合、四项原生 Keychain 检查和 11 条独占需求证据。
 - [S02 Alpaca 验证进展](s02-alpaca-evidence.md)：精确实现 SHA、自动/原生验收、已修复问题与剩余提供方范围。
 - [S02 Trading 212 验收](s02-trading212-evidence.md)：Demo/Live 隔离、精确数值、原生 Keychain/取消/失败路径及串行审查。
 - [S02 Binance Spot 验收](s02-binance-evidence.md)：签名与服务端时间、密钥权限阻断、原币精度、Testnet/Live 原生输入及清理。

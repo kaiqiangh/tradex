@@ -2,7 +2,7 @@
 
 Local desktop trading workspace, implemented serially against the [RevC product documents](docs/README.md). The complete [requirement inventory and delivery map](docs/implementation/README.md) covers 35 work items. Development stays on `dev`; the final `dev` → `main` PR is reserved for human review.
 
-The current implementation includes the S01 workspace shell and the Alpaca Paper, Trading 212 Demo/Live, Binance Spot Testnet/Live and Bitget Classic Spot Demo/Live connection slices of S02: native credential entry, macOS Keychain storage, read-only provider connection testing, explicit permission review, persisted account details and resumable domain events. S02 integration acceptance, model execution, research and trading remain pending. Empty pages and disabled controls do not count as implemented workflows.
+The current implementation includes the S01 workspace shell and the Alpaca Paper, Trading 212 Demo/Live, Binance Spot Testnet/Live and Bitget Classic Spot Demo/Live connection slices of S02: native credential entry, macOS Keychain storage, read-only provider connection testing, explicit permission review, persisted account details and resumable domain events. S02 integration acceptance is complete; model execution, full onboarding, research and trading remain pending. Empty pages and disabled controls do not count as implemented workflows.
 
 ## Run on macOS
 
