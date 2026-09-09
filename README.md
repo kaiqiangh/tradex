@@ -2,7 +2,7 @@
 
 Local desktop trading workspace, implemented serially against the [RevC product documents](docs/README.md). The complete [requirement inventory and delivery map](docs/implementation/README.md) covers 35 work items. Development stays on `dev`; the final `dev` → `main` PR is reserved for human review.
 
-The current implementation includes the S01 workspace shell and the Alpaca Paper, Trading 212 Demo/Live and Binance Spot Testnet/Live slices of S02: native credential entry, macOS Keychain storage, read-only provider connection testing, explicit permission review, persisted account details and resumable domain events. Bitget connections, model execution, research and trading remain pending. Empty pages and disabled controls do not count as implemented workflows.
+The current implementation includes the S01 workspace shell and the Alpaca Paper, Trading 212 Demo/Live, Binance Spot Testnet/Live and Bitget Classic Spot Demo/Live connection slices of S02: native credential entry, macOS Keychain storage, read-only provider connection testing, explicit permission review, persisted account details and resumable domain events. S02 integration acceptance, model execution, research and trading remain pending. Empty pages and disabled controls do not count as implemented workflows.
 
 ## Run on macOS
 
@@ -21,6 +21,8 @@ Trading 212 uses its API key and secret for the selected Demo or Live environmen
 
 Binance Spot uses environment-specific HMAC credentials. Testnet key scope stays UNVERIFIED; Live separately inspects key permissions and IP restrictions. Forbidden transfer/withdrawal and unsupported margin/derivative permissions block confirmation. Balances remain native-asset free/locked/total amounts; USDT is not treated as USD. Signing time and provider quota errors preserve previous observations and require a later retry.
 
+Bitget Classic Spot uses three native secure fields: API key, secret and passphrase. Demo keys are separate and every Demo private read carries its environment header; unsupported account endpoints remain unavailable with no Live fallback. Permission/IP changes require review again. Balances distinguish frozen, locked and restricted availability; current orders include ordinary, TPSL and plan observations without enabling execution.
+
 Build a local app with embedded frontend assets:
 
 ```sh
@@ -28,6 +30,7 @@ npx tauri build --features desktop --debug --bundles app
 ```
 
 The result is `target/debug/bundle/macos/TradeX.app`. This development package is not the signed/notarized release required by S34.
+
 
 ## Verify
 
@@ -47,4 +50,4 @@ Run the same UI check with a third argument of `trading212/DEMO`, then `trading2
 
 Run the UI check with `binance/TESTNET`, then `binance/LIVE`, for Spot variants. The separate OS test is `cargo test --test binance native_keychain_stores_and_removes_spot_credentials -- --include-ignored`.
 
-See [S01 evidence](docs/implementation/s01-evidence.md) and [S02 Alpaca evidence](docs/implementation/s02-alpaca-evidence.md) and [S02 Trading 212 evidence](docs/implementation/s02-trading212-evidence.md) and [S02 Binance evidence](docs/implementation/s02-binance-evidence.md) for acceptance scope and remaining work.
+See [S01 evidence](docs/implementation/s01-evidence.md) and [S02 Alpaca evidence](docs/implementation/s02-alpaca-evidence.md) and [S02 Trading 212 evidence](docs/implementation/s02-trading212-evidence.md) and [S02 Binance evidence](docs/implementation/s02-binance-evidence.md) and [S02 Bitget evidence](docs/implementation/s02-bitget-evidence.md) for acceptance scope and remaining work.
