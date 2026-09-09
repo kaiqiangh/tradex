@@ -71,3 +71,24 @@ S04 Codex Thread/Turn/tool execution, S21 complete deterministic risk enforcemen
 Authority: PRD §16, §21, §26.3, §27 and AC-038/055–057; UI A1–A6 and §14.8–14.9; Frontend §15.3; Backend §10 and §41–42. FR-068–071/073 and AC-055/057 are S03-owned; FR-044, AC-038/056, SEC-007/008 and UX-009 remain cross-stage until their other owners pass.
 
 Official compatibility evidence: [pinned release](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v7.2.155), [pinned configuration](https://github.com/router-for-me/CLIProxyAPI/blob/v7.2.155/config.example.yaml). Darwin aarch64 archive SHA-256: `f90c503ce41a798c85b6f61dfe5fe8b812c1b889634f0c80d04ee376424fe305`; Darwin amd64: `198794a2fafb9fb8083476ac18232647c57d443422aa3f008d19ed7e75ca4604`. These are release metadata, not proof of runtime compatibility.
+
+## Gateway compatibility observations — 2026-09-09
+
+The downloaded aarch64 archive matches the official digest above. Its executable SHA-256 is `29d978064c49874a54126b161266b6b8a42b971a7d1ffcf742920761333d40d0`; `--help` reports version `7.2.155`, commit `7fac6b15`, build time `2026-09-08T17:38:53Z`. The executable supports `-config`, `-local-model` and `-codex-login`. No authenticated provider was configured in this check.
+
+An isolated real process using a private directory, empty environment except dedicated HOME/TMPDIR and system PATH, explicit loopback/secret configuration and `-local-model` produced:
+
+- an owned listener at `127.0.0.1:8317`, confirmed against the child PID;
+- HTTP 401 without downstream authorization;
+- HTTP 200 with authorization and an empty model array; this is **not** a usable model route;
+- HTTP 404 for the disabled management configuration endpoint;
+- configuration mode 0600 and exit code 0 after termination;
+- only the captured process log remaining after caller cleanup, with no generated downstream secret reflected in it.
+
+Local diagnostic evidence: `.artifacts/s03-planning/runtime-probe/results.json` and `process.log`. This does not verify application integration, restart supervision, successful OAuth/inference, complete secret containment or ticket acceptance.
+
+Pinned source inspection changes the launch requirements: startup reads `.env` from its current working directory, so use a private working directory as well as cleared inherited environment. `commercial-mode: true` omits request-logging middleware, while disabling ordinary request logging alone can still permit error files. Disable `quota-exceeded.switch-project` and `switch-preview-model` explicitly as well as retry rounds. Use `-local-model` to prevent automatic remote catalog updates; discovered authorization remains required despite an embedded catalog. References: [entrypoint](https://github.com/router-for-me/CLIProxyAPI/blob/v7.2.155/cmd/server/main.go), [server middleware](https://github.com/router-for-me/CLIProxyAPI/blob/v7.2.155/internal/api/server.go), and the pinned configuration above.
+
+### Pending product clarification for the later connection ticket
+
+The [current DeepSeek quick start](https://api-docs.deepseek.com/) lists `deepseek-v4-flash` / `deepseek-v4-pro`, whereas the [official indexed deprecation notice](https://api-docs.deepseek.com/guides/function_calling/) names 2026-07-24 as the deprecation date for `deepseek-chat` / `deepseek-reasoner` and describes their former mapping to Flash non-thinking/thinking modes. This conflicts with RevC's exact model names. A user clarification is pending on updating both language editions to the current Flash model's two modes. No model substitution or normative edit is authorized by this observation alone; the gateway lifecycle ticket can proceed independently.
