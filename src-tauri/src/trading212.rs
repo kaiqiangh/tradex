@@ -163,6 +163,8 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
                     None
                 };
             Ok(OpenOrder {
+                kind: None,
+                trigger_price: None,
                 broker_order_id,
                 symbol,
                 side: side.to_ascii_lowercase(),
@@ -188,7 +190,7 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
         remote_account_id: account_id(&account)?,
         account_type: "Invest / Stocks ISA — subtype unavailable".into(),
         currency: Some(account_currency.clone()),
-        balances: vec![Balance { asset: account_currency, available: number(&account["cash"]["availableToTrade"])?, total: optional(&account,"totalValue")?, reserved: optional(&account["cash"],"reservedForOrders")?, in_pies: optional(&account["cash"],"inPies")? }],
+        balances: vec![Balance { locked: None, restricted_available: None, asset: account_currency, available: number(&account["cash"]["availableToTrade"])?, total: optional(&account,"totalValue")?, reserved: optional(&account["cash"],"reservedForOrders")?, in_pies: optional(&account["cash"],"inPies")? }],
         positions, open_orders: orders, capabilities: permissions.detected.clone(),
         limitations: vec![
             "Invest/Stocks ISA API only; the provider does not expose the exact account subtype or full key/IP scope. CFD and other account types are unsupported.".into(),

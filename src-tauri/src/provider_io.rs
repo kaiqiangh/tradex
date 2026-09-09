@@ -12,6 +12,8 @@ use zeroize::Zeroizing;
 
 #[path = "binance.rs"]
 mod binance;
+#[path = "bitget.rs"]
+mod bitget;
 #[path = "trading212.rs"]
 mod trading212;
 
@@ -24,7 +26,7 @@ pub struct Credentials(Zeroizing<Vec<u8>>);
 impl Credentials {
     pub fn new(values: Vec<String>) -> Result<Self> {
         let values = Zeroizing::new(values);
-        if values.len() != 2
+        if !matches!(values.len(), 2 | 3)
             || values
                 .iter()
                 .any(|v| v.is_empty() || v.len() > 512 || !v.bytes().all(|b| b.is_ascii_graphic()))
@@ -85,6 +87,8 @@ pub enum ProviderEndpoint {
     Trading212Live,
     BinanceTestnet,
     BinanceLive,
+    BitgetDemo,
+    BitgetLive,
 }
 impl ProviderEndpoint {
     pub fn base_url(self) -> &'static str {
@@ -94,14 +98,19 @@ impl ProviderEndpoint {
             Self::Trading212Live => "https://live.trading212.com",
             Self::BinanceTestnet => "https://testnet.binance.vision",
             Self::BinanceLive => "https://api.binance.com",
+            Self::BitgetDemo | Self::BitgetLive => "https://api.bitget.com",
         }
     }
     fn is_binance(self) -> bool {
         matches!(self, Self::BinanceTestnet | Self::BinanceLive)
     }
+    fn is_bitget(self) -> bool {
+        matches!(self, Self::BitgetDemo | Self::BitgetLive)
+    }
     fn allows(self, path: &str) -> bool {
         match self {
             Self::AlpacaPaper => allowed_path(path),
+            Self::BitgetDemo | Self::BitgetLive => bitget::allows(path),
             Self::BinanceTestnet | Self::BinanceLive => binance::allows(self, path),
             _ => matches!(
                 path,
@@ -159,7 +168,7 @@ impl ProviderHttp for BrokerHttp {
         let status = response.status().as_u16();
         match status {
             200 => (),
-            400 if endpoint.is_binance() => (),
+            400 if endpoint.is_binance() || endpoint.is_bitget() => (),
             401 | 403 => return Err(TradeXError::new("PROVIDER_AUTH_FAILED")),
             418 | 429 => return Err(TradeXError::new("PROVIDER_RATE_LIMITED")),
             _ => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
@@ -174,6 +183,10 @@ impl ProviderHttp for BrokerHttp {
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
         if bytes.len() as u64 > MAX_RESPONSE {
             return Err(invalid());
+        }
+        if status != 200 && endpoint.is_bitget() {
+            let value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+            return Err(bitget::business(value).err().unwrap_or_else(invalid));
         }
         if status != 200 {
             let code = serde_json::from_slice::<Value>(&bytes)
@@ -255,10 +268,15 @@ impl ProviderJob {
                 ("trading212", "LIVE") => ProviderEndpoint::Trading212Live,
                 ("binance", "TESTNET") => ProviderEndpoint::BinanceTestnet,
                 ("binance", "LIVE") => ProviderEndpoint::BinanceLive,
+                ("bitget", "DEMO") => ProviderEndpoint::BitgetDemo,
+                ("bitget", "LIVE") => ProviderEndpoint::BitgetLive,
                 _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
             };
             if self.kind == JobKind::Connect {
                 let secret = capture(&definition)?;
+                if secret.values()?.len() != definition.fields.len() {
+                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+                }
                 if !current() {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
@@ -267,6 +285,18 @@ impl ProviderJob {
             let secret = vault.get(&reference)?;
             credential = "CONFIGURED";
             let mut values = secret.values()?;
+            if values.len() != definition.fields.len() {
+                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+            }
+            if endpoint.is_bitget() {
+                return bitget::read(
+                    endpoint,
+                    &values,
+                    http,
+                    &current,
+                    self.account.data.as_ref(),
+                );
+            }
             if endpoint.is_binance() {
                 return binance::read(
                     endpoint,
@@ -607,6 +637,8 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
                 return Err(invalid());
             }
             Ok(OpenOrder {
+                kind: None,
+                trigger_price: None,
                 broker_order_id,
                 symbol: symbol(o)?,
                 side,
@@ -634,6 +666,8 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
             account_type: "ALPACA_PAPER".into(),
             currency: Some(currency.clone()),
             balances: vec![Balance {
+                locked: None,
+                restricted_available: None,
                 asset: currency,
                 available: decimal(&account["cash"])?,
                 total: optional_decimal(&account, "equity")?,
@@ -647,4 +681,57 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
         },
         permissions,
     })
+}
+
+fn valid_time(n: u64) -> bool {
+    (946684800000..4102444800000).contains(&n)
+}
+
+fn identifier(v: &Value, field: &str) -> Result<String> {
+    let s = v[field].as_str().ok_or_else(invalid)?;
+    if s.is_empty() || s.len() > 128 || !s.chars().all(|c| c.is_alphanumeric() || "._-".contains(c))
+    {
+        return Err(invalid());
+    }
+    Ok(s.into())
+}
+fn positive(v: &Value) -> Result<String> {
+    let s = decimal(v)?;
+    if s.starts_with('-') {
+        return Err(invalid());
+    }
+    Ok(s)
+}
+// Exact bounded decimal addition; no binary float or fixed-width monetary integer.
+fn total(a: &str, b: &str) -> Result<String> {
+    let parts = |s: &str| {
+        let (w, f) = s.split_once('.').unwrap_or((s, ""));
+        (w.to_owned(), f.to_owned())
+    };
+    let (aw, af) = parts(a);
+    let (bw, bf) = parts(b);
+    let scale = af.len().max(bf.len());
+    let digits =
+        |w: String, f: String| format!("{w}{f}{}", "0".repeat(scale - f.len())).into_bytes();
+    let a = digits(aw, af);
+    let b = digits(bw, bf);
+    let mut result = Vec::new();
+    let mut carry = 0u8;
+    for i in 0..a.len().max(b.len()) {
+        let x = a.iter().rev().nth(i).map_or(0, |c| c - b'0');
+        let y = b.iter().rev().nth(i).map_or(0, |c| c - b'0');
+        let sum = x + y + carry;
+        result.push(b'0' + sum % 10);
+        carry = sum / 10;
+    }
+    if carry > 0 {
+        result.push(b'0' + carry);
+    }
+    result.reverse();
+    if scale > 0 {
+        result.insert(result.len() - scale, b'.');
+    }
+    decimal(&Value::String(
+        String::from_utf8(result).map_err(|_| invalid())?,
+    ))
 }

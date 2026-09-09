@@ -320,7 +320,19 @@
             "null"
           ]
         },
+        "locked": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "reserved": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "restrictedAvailable": {
           "type": [
             "string",
             "null"
@@ -562,6 +574,18 @@
             "null"
           ]
         },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "NORMAL",
+            "TPSL",
+            "PLAN",
+            null
+          ]
+        },
         "limitPrice": {
           "type": [
             "string",
@@ -588,6 +612,12 @@
         },
         "symbol": {
           "type": "string"
+        },
+        "triggerPrice": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "additionalProperties": false,
@@ -630,6 +660,15 @@
         },
         "forbidden": {
           "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ipAllowList": {
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "type": "string"
           }

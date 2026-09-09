@@ -28,12 +28,22 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await tab.getAXState({ emit: false });
     const detail = ui.getByRole('region', { name: label, exact: true });
     assert.match(await detail.innerText(), /REVIEW_REQUIRED/);
-    const verified = selection === 'binance/LIVE';
+    const verified = selection === 'binance/LIVE' || selection.startsWith('bitget/');
     assert.match(await detail.innerText(), verified ? /VERIFIED/ : /UNVERIFIED/);
     const text = await detail.innerText();
     if (selection === 'alpaca/PAPER') {
       assert.match(text, /1000\.25/);
       assert.match(text, /10\.5 USD/);
+    } else if (selection.startsWith('bitget/')) {
+      assert.match(text, /1000000000000000002/);
+      assert.match(text, /Restricted available/);
+      assert.match(text, /127\.0\.0\.1/);
+      assert.match(text, /TPSL/);
+      assert.match(text, /PLAN/);
+      assert.match(text, /plan:200/);
+      assert.match(text, /0\.1234567890123456789/);
+      assert.match(text, /Filled quote value/);
+      if (selection.endsWith('/LIVE')) assert.match(text, /DISARMED/);
     } else if (selection.startsWith('binance/')) {
       assert.match(text, /100000000000000000000\.0000000000000000001/);
       assert.match(text, /USDT/);

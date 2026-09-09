@@ -316,7 +316,7 @@ impl TradeXError {
                 "Open existing connection",
             ),
             "PROVIDER_UNSUPPORTED" => (
-                "This provider/environment is not supported in this build.",
+                "This provider/environment does not support the requested operation.",
                 "choose_provider",
                 "Choose a supported provider",
             ),

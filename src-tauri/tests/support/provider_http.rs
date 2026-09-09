@@ -64,6 +64,28 @@ fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_au
         ("ok", None, ProviderEndpoint::Trading212Live),
         ("ok", None, ProviderEndpoint::BinanceTestnet),
         ("ok", None, ProviderEndpoint::BinanceLive),
+        ("ok", None, ProviderEndpoint::BitgetDemo),
+        ("ok", None, ProviderEndpoint::BitgetLive),
+        (
+            "bitget-clock",
+            Some("CLOCK_SKEW"),
+            ProviderEndpoint::BitgetLive,
+        ),
+        (
+            "bitget-passphrase",
+            Some("PROVIDER_AUTH_FAILED"),
+            ProviderEndpoint::BitgetLive,
+        ),
+        (
+            "bitget-demo",
+            Some("PROVIDER_UNSUPPORTED"),
+            ProviderEndpoint::BitgetDemo,
+        ),
+        (
+            "bitget-false-success",
+            Some("PROVIDER_RESPONSE_INVALID"),
+            ProviderEndpoint::BitgetLive,
+        ),
         ("clock", Some("CLOCK_SKEW"), ProviderEndpoint::BinanceLive),
         (
             "signature",
@@ -113,6 +135,8 @@ fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_au
             endpoint,
             if endpoint == ProviderEndpoint::AlpacaPaper {
                 "/v2/account"
+            } else if endpoint.is_bitget() {
+                "/api/v2/public/time"
             } else if endpoint.is_binance() {
                 "/api/v3/time"
             } else {

@@ -175,7 +175,9 @@ export interface Balance {
   asset: string;
   available: string;
   inPies?: string | null;
+  locked?: string | null;
   reserved?: string | null;
+  restrictedAvailable?: string | null;
   total?: string | null;
 }
 /**
@@ -187,12 +189,14 @@ export interface OpenOrder {
   currency?: string | null;
   filledQuantity?: string | null;
   filledValue?: string | null;
+  kind?: "NORMAL" | "TPSL" | "PLAN" | null;
   limitPrice?: string | null;
   notional?: string | null;
   quantity?: string | null;
   side: string;
   status: string;
   symbol: string;
+  triggerPrice?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -228,6 +232,7 @@ export interface PermissionReview {
   acknowledged: boolean;
   detected: string[];
   forbidden: string[];
+  ipAllowList?: string[] | null;
   ipAllowListStatus: string;
   scope: "VERIFIED" | "UNVERIFIED";
   unsupported: string[];

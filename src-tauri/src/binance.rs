@@ -6,9 +6,6 @@ use std::{collections::HashSet, time::Instant};
 fn time_error() -> TradeXError {
     TradeXError::new("CLOCK_SKEW")
 }
-fn valid_time(n: u64) -> bool {
-    (946684800000..4102444800000).contains(&n)
-}
 
 pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     if path == "/api/v3/time" {
@@ -119,54 +116,6 @@ fn numeric_id(v: &Value, field: &str) -> Result<String> {
         .filter(|n| *n > 0 && *n <= i64::MAX as u64)
         .map(|n| n.to_string())
         .ok_or_else(invalid)
-}
-fn identifier(v: &Value, field: &str) -> Result<String> {
-    let s = v[field].as_str().ok_or_else(invalid)?;
-    if s.is_empty() || s.len() > 128 || !s.chars().all(|c| c.is_alphanumeric() || "._-".contains(c))
-    {
-        return Err(invalid());
-    }
-    Ok(s.into())
-}
-fn positive(v: &Value) -> Result<String> {
-    let s = decimal(v)?;
-    if s.starts_with('-') {
-        return Err(invalid());
-    }
-    Ok(s)
-}
-// Exact bounded decimal addition; no binary float or fixed-width monetary integer.
-fn total(a: &str, b: &str) -> Result<String> {
-    let parts = |s: &str| {
-        let (w, f) = s.split_once('.').unwrap_or((s, ""));
-        (w.to_owned(), f.to_owned())
-    };
-    let (aw, af) = parts(a);
-    let (bw, bf) = parts(b);
-    let scale = af.len().max(bf.len());
-    let digits =
-        |w: String, f: String| format!("{w}{f}{}", "0".repeat(scale - f.len())).into_bytes();
-    let a = digits(aw, af);
-    let b = digits(bw, bf);
-    let mut result = Vec::new();
-    let mut carry = 0u8;
-    for i in 0..a.len().max(b.len()) {
-        let x = a.iter().rev().nth(i).map_or(0, |c| c - b'0');
-        let y = b.iter().rev().nth(i).map_or(0, |c| c - b'0');
-        let sum = x + y + carry;
-        result.push(b'0' + sum % 10);
-        carry = sum / 10;
-    }
-    if carry > 0 {
-        result.push(b'0' + carry);
-    }
-    result.reverse();
-    if scale > 0 {
-        result.insert(result.len() - scale, b'.');
-    }
-    decimal(&Value::String(
-        String::from_utf8(result).map_err(|_| invalid())?,
-    ))
 }
 const FLAGS: &[(&str, &str)] = &[
     ("enableReading", "read"),
@@ -299,6 +248,8 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
                 });
             }
             Ok(Balance {
+                locked: None,
+                restricted_available: None,
                 asset,
                 available: free,
                 total: Some(sum),
@@ -334,6 +285,8 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
                 return Err(invalid());
             }
             Ok(OpenOrder {
+                kind: None,
+                trigger_price: None,
                 broker_order_id,
                 symbol,
                 side,

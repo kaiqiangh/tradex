@@ -8,10 +8,12 @@ import time
 
 mode, directory = sys.argv[1], Path(sys.argv[2])
 host = sys.argv[3]
-assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com", "api.binance.com", "testnet.binance.vision"}
+assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com", "api.binance.com", "testnet.binance.vision", "api.bitget.com"}
 path = "/v2/account" if host == "paper-api.alpaca.markets" else "/api/v0/equity/account/summary"
 if host in {"api.binance.com", "testnet.binance.vision"}:
     path = "/api/v3/time"
+if host == "api.bitget.com":
+    path = "/api/v2/public/time"
 key, cert = directory / "key.pem", directory / "cert.pem"
 subprocess.run([
     "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
@@ -54,6 +56,10 @@ with socket.socket() as listener:
                     time.sleep(20)
                 elif mode == "large":
                     connection.sendall(b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n" + b"x" * (2 * 1024 * 1024 + 1))
+                elif mode.startswith("bitget-"):
+                    code = {"bitget-clock": "40008", "bitget-passphrase": "40012", "bitget-demo": "40081", "bitget-false-success": "00000"}[mode]
+                    body = ('{"code":"' + code + '","msg":"untrusted diagnostic"}').encode()
+                    connection.sendall(b"HTTP/1.1 400 Bad Request\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
                 elif mode in {"clock", "signature", "banned"}:
                     status = b"418 Banned" if mode == "banned" else b"400 Bad Request"
                     body = b'{"code":-1021,"msg":"untrusted diagnostic"}' if mode == "clock" else b'{"code":-1022,"msg":"untrusted diagnostic"}'

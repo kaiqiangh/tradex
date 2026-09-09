@@ -1,3 +1,5 @@
+#[path = "bitget_fixtures.rs"]
+pub mod bitget;
 use serde_json::json;
 use std::{
     cell::{Cell, RefCell},
@@ -24,7 +26,11 @@ impl CredentialVault for Vault {
         if !self.present.borrow().contains(reference) {
             return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
         }
-        credentials()
+        if reference.split('/').nth(1) == Some("bitget") {
+            bitget::credentials()
+        } else {
+            credentials()
+        }
     }
     fn remove(&self, reference: &str) -> Result<()> {
         if self.fail_remove.get() {
@@ -59,6 +65,13 @@ impl ProviderHttp for Http {
         path: &str,
         headers: reqwest::header::HeaderMap,
     ) -> Result<Vec<u8>> {
+        if matches!(
+            endpoint,
+            tradex::provider_io::ProviderEndpoint::BitgetDemo
+                | tradex::provider_io::ProviderEndpoint::BitgetLive
+        ) {
+            return bitget::Http(RefCell::new(vec![])).get(endpoint, path, headers);
+        }
         if matches!(
             endpoint,
             tradex::provider_io::ProviderEndpoint::BinanceTestnet

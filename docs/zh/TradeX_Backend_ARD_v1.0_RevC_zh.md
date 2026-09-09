@@ -1827,6 +1827,16 @@ AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerI
 Binance Spot 的余额 `available` / `reserved` 分别为原币 free / locked，`total` 为精确相加；非零余额形成未估值的现货持有量。订单身份包含 symbol 与 orderId，因为订单 ID 按交易对限定；缺失报价币种保持 unavailable。Testnet 密钥权限保持 UNVERIFIED，Live 使用独立密钥权限接口，账户 `canWithdraw` 不代表密钥提款权限。签名时间无效、采样过慢或服务端拒绝时间戳返回 `STATE_STALE / CLOCK_SKEW`；本次观察不更新。
 
 
+Bitget Classic Spot 原生凭据 schema 精确包含三个敏感字段：API key、secret、passphrase。Demo 与 Live 是不可变的独立连接，共用固定 Bitget REST 主机；每个 Demo 私有请求携带 `paptrading: 1`，Live 请求省略该头。Demo 账户读取不受支持时明确返回 `PROVIDER_UNSUPPORTED`；禁止回退到 Live 或制造空账户成功观测。
+
+Bitget 余额的 `reserved` 表示冻结资产。Balance 新增可选十进制字符串字段 `locked` 和 `restrictedAvailable`；其他提供方及旧持久化记录可保持不可用。分别保留可用、冻结、锁仓和受限可用资产。若展示由 available + frozen + locked 计算的资产总量/持仓数量，必须在账户限制中明确组成依据；提供方未说明受限可用是否重叠，因此不得另行相加。这不是组合权益或 FX 估值。缺失字段保持不可用，不替换为零。
+
+OpenOrder 新增可选 `kind`（NORMAL / TPSL / PLAN）与十进制字符串 `triggerPrice`。Bitget 分别读取普通单、止盈止损当前单及待触发计划委托，按各接口分页契约完整读取后才发布账户快照。计划委托身份与普通订单身份分开。基础币数量、计价币名义金额、基础币已成交数量和计价币已成交金额保持区分。市价买单 size 为计价币金额，限价单和市价卖单 size 为基础币数量；计划单的 planType amount/total 决定数量/金额。币种或成交观测不可用时保持 null。这些只读观测不授权创建或执行触发订单。旧记录缺少这些新增可选字段时仍须可读。
+
+PermissionReview 新增可选 `ipAllowList: string[] | null`：提供方返回合法白名单时，保留规范化、排序、去重后的 IP 地址；空数组表示明确未限制，null 表示不可用。该字段参与权限范围比较，即使状态仍为 RESTRICTED，地址变化也必须使先前确认失效。
+
+Bitget authorities 与 IP 内省独立于 REST 读取成功决定凭据权限范围。未知权限码保持可见且为 UNVERIFIED；划转、提现、账户管理及不支持的非现货写权限，即使已确认未知权限也必须阻止连接确认。权限范围变化使先前确认失效。所有 Live 连接继续保持 DISARMED，执行为 BLOCKED。
+
 ---
 
 ## 42. Backend-to-Frontend Event Surface

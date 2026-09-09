@@ -47,16 +47,17 @@ pub fn catalog() -> ProviderCatalog {
             ("bitget", "Bitget Spot Demo", "DEMO"),
             ("bitget", "Bitget Spot Live", "LIVE"),
         ].into_iter().map(|(id, label, environment)| {
-            let available = matches!(id, "alpaca" | "trading212" | "binance");
+            let available = matches!(id, "alpaca" | "trading212" | "binance" | "bitget");
             ProviderDefinition {
                 provider_id: id.into(), display_name: label.into(), environment: environment.into(), available,
                 help_text: if id == "local-paper" { "Built-in; no external credentials. Simulation is not configured yet." }
                     else if id == "trading212" { "Use the API key and secret for this exact Demo or Live account. Invest/Stocks ISA only; the API does not expose the subtype. Account values use the primary currency; prices retain instrument currency. Scope and IP restrictions cannot be fully inspected. Connection testing only reads data and never arms Live execution." }
+                    else if id == "bitget" { "Classic Spot HMAC credentials require API key, secret and passphrase. Demo requires its own key; unsupported Demo account reads remain unavailable, with no Live fallback. Testing reads data only; Live stays disarmed." }
                     else if id == "binance" { "Use a separate HMAC API key and secret for this exact Spot Testnet or Live account. Native asset balances are not USD valuations. Live key scope is inspected separately; Testnet scope remains unverified. Withdrawals, transfers and unsupported margin/derivative permissions block confirmation. Testing only reads data; Live stays disarmed." }
                     else if available { "Use separate Alpaca Paper credentials. TradeX reads account, positions and open orders. Key scope cannot be fully inspected. No withdrawals, transfers, custody, margin borrowing or leverage management are required or implemented." }
                     else { "This provider connection is not available in this build." }.into(),
-                fields: if available { [("apiKey", "Paper API key ID"), ("secret", "Paper API secret")].into_iter().map(|(id,label)| ProviderField {
-                    id:id.into(), label:if id == "apiKey" && environment != "PAPER" { "API key".into() } else if environment != "PAPER" { "API secret".into() } else { label.into() }, input_type:"password".into(), required:true, secret:true, max_length:512,
+                fields: if available { [("apiKey", "Paper API key ID"), ("secret", "Paper API secret"), ("passphrase", "Passphrase")].into_iter().filter(|(field,_)| *field != "passphrase" || id == "bitget").map(|(id,label)| ProviderField {
+                    id:id.into(), label:if id == "passphrase" { "Passphrase".into() } else if id == "apiKey" && environment != "PAPER" { "API key".into() } else if environment != "PAPER" { "API secret".into() } else { label.into() }, input_type:"password".into(), required:true, secret:true, max_length:512,
                     help_text:format!("Enter the value for this {environment} account in the native secure window. Never reuse another environment’s credentials."), environment:environment.into(),
                 }).collect() } else { vec![] },
                 required_permissions: vec!["account.read".into(),"positions.read".into(),"orders.read".into()],
@@ -148,6 +149,7 @@ pub struct PermissionReview {
     pub unsupported: Vec<String>,
     pub acknowledged: bool,
     pub ip_allow_list_status: String,
+    pub ip_allow_list: Option<Vec<String>>,
 }
 
 impl Default for PermissionReview {
@@ -159,6 +161,7 @@ impl Default for PermissionReview {
             unsupported: vec![],
             acknowledged: false,
             ip_allow_list_status: "UNKNOWN".into(),
+            ip_allow_list: None,
         }
     }
 }
@@ -184,6 +187,8 @@ pub struct Balance {
     pub total: Option<String>,
     pub reserved: Option<String>,
     pub in_pies: Option<String>,
+    pub locked: Option<String>,
+    pub restricted_available: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -210,6 +215,9 @@ pub struct OpenOrder {
     pub currency: Option<String>,
     pub status: String,
     pub limit_price: Option<String>,
+    #[schemars(extend("enum" = ["NORMAL", "TPSL", "PLAN", null]))]
+    pub kind: Option<String>,
+    pub trigger_price: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

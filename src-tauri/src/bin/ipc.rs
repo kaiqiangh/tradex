@@ -51,7 +51,13 @@ fn main() -> io::Result<()> {
                 Ok(Some(job)) => {
                     let outcome = job.run(
                         &vault,
-                        |_| fixtures::credentials(),
+                        |definition| {
+                            if definition.provider_id == "bitget" {
+                                fixtures::bitget::credentials()
+                            } else {
+                                fixtures::credentials()
+                            }
+                        },
                         &http,
                         || control.provider_job_current(&job),
                     );

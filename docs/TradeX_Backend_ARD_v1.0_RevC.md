@@ -1827,6 +1827,16 @@ Errors use PRD §51 categories with stable codes: `PROVIDER_UNSUPPORTED`, `PROVI
 For Binance Spot, balance `available` / `reserved` mean native-asset free / locked; `total` is their exact sum. Nonzero totals form unpriced Spot holdings. Order identity includes symbol and orderId because IDs are symbol-scoped; missing quote currency remains unavailable. Testnet key scope stays UNVERIFIED; Live uses separate key introspection, never account `canWithdraw` as withdrawal authority. Invalid signing time, slow time sampling or provider timestamp rejection returns `STATE_STALE / CLOCK_SKEW` without updating the observation.
 
 
+For Bitget Classic Spot, the native credential schema has exactly three sensitive fields: API key, secret and passphrase. Demo and Live are immutable connections sharing the fixed Bitget REST host; every Demo private request carries `paptrading: 1`, and Live requests omit it. Unsupported Demo account reads fail explicitly with `PROVIDER_UNSUPPORTED`; no Live fallback or fabricated empty successful observation is allowed.
+
+Bitget balance `reserved` means frozen assets. Add optional decimal-string `locked` and `restrictedAvailable` fields to Balance; other providers and older persisted records may leave them unavailable. Preserve available, frozen, locked and restricted availability independently. A displayed asset total/holding quantity computed from available + frozen + locked must identify that component basis in account limitations; restricted availability is not added because the provider does not document whether it overlaps. This is not portfolio equity or an FX valuation. Missing fields remain unavailable, not zero.
+
+Add optional `kind` (NORMAL / TPSL / PLAN) and decimal-string `triggerPrice` fields to OpenOrder. Bitget reads ordinary and TPSL current orders separately and also reads outstanding plan orders, following each endpoint's documented pagination to completion before publishing the account snapshot. Keep plan identity separate from ordinary-order identity. Base quantity, quote notional, filled base quantity and filled quote value remain distinct. Market-buy size is quote notional; limit and market-sell size are base quantity; planType amount/total determines plan quantity/notional. Unavailable currency or fill observations remain null. These read-only observations do not authorize creating or executing trigger orders. Missing additive fields on older records remain readable.
+
+PermissionReview adds optional `ipAllowList: string[] | null`: canonical, sorted unique IP addresses when the provider exposes a valid list; an empty array means explicitly unrestricted and null means unavailable. It participates in scope equality so changing addresses while remaining RESTRICTED still invalidates confirmation.
+
+Bitget authorities and IP introspection determine credential scope independently from successful REST reads. Unknown authorities remain visible and UNVERIFIED; transfer, withdrawal, account-management and unsupported non-Spot write authorities block confirmation even after acknowledgement. Scope changes invalidate prior acknowledgement. Every Live connection remains DISARMED with execution BLOCKED.
+
 ---
 
 ## 42. Backend-to-Frontend Event Surface
