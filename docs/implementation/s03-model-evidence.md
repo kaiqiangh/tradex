@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机和本地检查已完成；macOS secure entry、ChatGPT OAuth 和 DeepSeek 上游推理仍未取得验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
 
-实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
+实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
 
 ## 已实现的边界
 
@@ -14,6 +14,7 @@
 - 验证失败不会伪装为已配置成功：已配置模型保持 `UNVERIFIED`、清除当前可用 route 并保留可审计的失败类别；ChatGPT `/v1/models` 的 401 映射为 `OAUTH_EXPIRED`。网关自动重启前从原生 Keychain 重新装载 DeepSeek key，公共 headless 命令先执行 payload/allowlist 校验；quota 元数据有界且在模型卡片中展示。
 - 显式 Restart 与 workspace 切换会在清理旧进程后只保留当前 workspace 对应的 DeepSeek key；正常 STOP 不会留下重复 reload 标记，STOPPING 状态也阻断 key 替换。
 - DeepSeek 原生录入取消路径通过 `MemoryModelVault` 安全边界测试：取消 attempt 追加为 `CANCELLED`，状态保持 `NOT_CONFIGURED`，不写入任何 key。
+- 网关目录解析、空/伪造响应、响应大小边界、非 2xx 分类和固定推理 payload（含显式 `thinking.type`）均有纯函数测试；网络/真实上游仍按外部门槛单独验证。
 
 ## 验收矩阵
 
@@ -23,7 +24,7 @@
 | 固定版本网关真实生命周期 | macOS ignored test `pinned_gateway_lifecycle_uses_public_commands_without_model_readiness` 以 `.artifacts/s03-planning/upstream/cli-proxy-api` 运行通过：端口冲突、启动/探测、停止清理、stale config、4 次崩溃退避及最终失败 | PASS（直接进程） |
 | 凭据安全边界和原生 Keychain API | `src-tauri/src/model_credentials.rs` 的 `ModelVault`；renderer 没有 password input；取消录入测试 `cancelled_deepseek_entry_does_not_write_keychain_double` 通过；macOS ignored test `native_model_keychain_roundtrip_is_workspace_scoped` 以 disposable synthetic key 运行通过（`cargo test --test model native_model_keychain_roundtrip_is_workspace_scoped -- --ignored --nocapture`） | PASS（取消不写入 + 直接 Keychain round-trip）；secure entry UI 仍未验证 |
 | 精确 provider/model/mode allowlist | Rust allowlist tests 覆盖 ChatGPT `gpt-5.6*` 和 DeepSeek `deepseek-v4-flash` 两个显式模式，拒绝别名/未知模式 | PASS（本地） |
-| 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests | PASS（代码/本地分支）；未做 credentialed upstream run |
+| 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、纯函数目录/响应解析、固定 payload、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests | PASS（代码/本地分支）；未做 credentialed upstream run |
 | 浏览器交互与窄屏 | 最终代码 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` 上重跑 `npm run dev:browser` 隔离工作区：Settings 显示两张模型卡；网关停止时 Login/Verify disabled；Configure DeepSeek synthetic fixture 后显示 `Configured · verification required`；未发现 renderer 密码输入。390/768 视口检查 `scrollWidth 375/753`，临时 SQLite/WAL/SHM 未发现 `integration-test-key`、`api.deepseek.com` 或 key 值 | PASS（浏览器 fixture） |
 | 真实 OAuth、上游 DeepSeek API 与桌面 secure dialog | 需要用户账户/凭据和解锁的 macOS 原生窗口；本轮 `cua.getState()` 返回 `The Mac is locked and automatic unlock could not unlock it` | BLOCKED_EXTERNAL |
 
@@ -42,7 +43,7 @@ npm run test:unit
 npm run check
 ```
 
-`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 5 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 6 个通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
+`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 5 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 8 个通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
 
 ## 秘密与外部门槛
 
