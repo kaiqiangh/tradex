@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机和本地检查已完成；macOS secure entry、ChatGPT OAuth 和 DeepSeek 上游推理仍未取得验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
 
-实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
+实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`；配额边界测试 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
 
 ## 已实现的边界
 
@@ -14,7 +14,7 @@
 - 验证失败不会伪装为已配置成功：已配置模型保持 `UNVERIFIED`、清除当前可用 route 并保留可审计的失败类别；ChatGPT `/v1/models` 的 401 映射为 `OAUTH_EXPIRED`。网关自动重启前从原生 Keychain 重新装载 DeepSeek key，公共 headless 命令先执行 payload/allowlist 校验；quota 元数据有界且在模型卡片中展示。
 - 显式 Restart 与 workspace 切换会在清理旧进程后只保留当前 workspace 对应的 DeepSeek key；正常 STOP 不会留下重复 reload 标记，STOPPING 状态也阻断 key 替换。
 - DeepSeek 原生录入取消路径通过 `MemoryModelVault` 安全边界测试：取消 attempt 追加为 `CANCELLED`，状态保持 `NOT_CONFIGURED`，不写入任何 key。
-- 网关目录解析、空/伪造响应、响应大小边界、非 2xx 分类和固定推理 payload（含显式 `thinking.type`）均有纯函数测试；网络/真实上游仍按外部门槛单独验证。
+- 网关目录解析、空/伪造响应、响应大小边界、非 2xx 分类、配额 header 上限和固定推理 payload（含显式 `thinking.type`）均有纯函数测试；网络/真实上游仍按外部门槛单独验证。
 
 ## 验收矩阵
 
@@ -43,7 +43,7 @@ npm run test:unit
 npm run check
 ```
 
-`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 5 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 8 个通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
+`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 5 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 9 个通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
 
 ## 秘密与外部门槛
 

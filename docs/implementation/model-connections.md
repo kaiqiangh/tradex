@@ -24,5 +24,5 @@
 
 ## 验证边界
 
-- 当前 Rust tests 覆盖 schema、workspace scope、allowlist、attempt replay、失败类别、旧 stateVersion，以及目录/响应解析、状态码分类和固定推理 payload；ignored macOS tests 已分别验证 disposable native Keychain item 与固定网关生命周期，并在结束时清理。真实 network transport、OAuth 取消与上游推理仍需后续受控 loopback doubles 或独立 credentialed run 补证。
+- 当前 Rust tests 覆盖 schema、workspace scope、allowlist、attempt replay、失败类别、旧 stateVersion，以及目录/响应解析、状态码分类、配额 header bounds 和固定推理 payload；ignored macOS tests 已分别验证 disposable native Keychain item 与固定网关生命周期，并在结束时清理。真实 network transport、OAuth 取消与上游推理仍需后续受控 loopback doubles 或独立 credentialed run 补证。
 - Browser fixture 已检查 Login/Configure/Verify 的门控、错误保留、窄屏和秘密不进入 renderer；不使用用户 broker/API/OAuth 凭据。Tauri secure dialog 的 Save/Cancel 焦点交互、真实 ChatGPT OAuth 与 DeepSeek 上游成功推理仍需用户授权和独立运行证据，不能用 fixture 标记 Ready。
