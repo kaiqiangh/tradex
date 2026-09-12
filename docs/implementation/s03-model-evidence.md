@@ -22,7 +22,7 @@
 | 凭据安全边界和原生 Keychain API | `src-tauri/src/model_credentials.rs` 的 `ModelVault`；renderer 没有 password input；MemoryModelVault 只在集成 fixture 使用 | IMPLEMENTED_UNVERIFIED；真实 Keychain ignored test 未运行 |
 | 精确 provider/model/mode allowlist | Rust allowlist tests 覆盖 ChatGPT `gpt-5.6*` 和 DeepSeek `deepseek-v4-flash` 两个显式模式，拒绝别名/未知模式 | PASS（本地） |
 | 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests | PASS（代码/本地分支）；未做 credentialed upstream run |
-| 浏览器交互与窄屏 | `npm run dev:browser` 隔离工作区 `S03 Browser Models`：Settings 显示两张模型卡；网关停止时 Login/Verify disabled；Configure DeepSeek synthetic fixture 后显示 `Configured · verification required`；未发现 renderer 密码输入。既有 390/768 视口检查 `scrollWidth 375/753` | PASS（浏览器 fixture） |
+| 浏览器交互与窄屏 | 最终代码 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` 上重跑 `npm run dev:browser` 隔离工作区：Settings 显示两张模型卡；网关停止时 Login/Verify disabled；Configure DeepSeek synthetic fixture 后显示 `Configured · verification required`；未发现 renderer 密码输入。390/768 视口检查 `scrollWidth 375/753`，临时 SQLite/WAL/SHM 未发现 `integration-test-key`、`api.deepseek.com` 或 key 值 | PASS（浏览器 fixture） |
 | 真实 OAuth、上游 DeepSeek API 与桌面 secure dialog | 需要用户账户/凭据和解锁的 macOS 原生窗口；本轮 `cua.getState()` 返回 `The Mac is locked and automatic unlock could not unlock it` | BLOCKED_EXTERNAL |
 
 ## 可重跑检查
