@@ -12,6 +12,7 @@
 - [S02 Trading 212 验收](s02-trading212-evidence.md)：Demo/Live 隔离、精确数值、原生 Keychain/取消/失败路径及串行审查。
 - [S02 Binance Spot 验收](s02-binance-evidence.md)：签名与服务端时间、密钥权限阻断、原币精度、Testnet/Live 原生输入及清理。
 - [S02 Bitget 验收](s02-bitget-evidence.md)：三字段凭据、Classic 签名、权限/IP 变化、Demo 限制和三类订单分页。
+- [S03 网关生命周期验收](s03-gateway-evidence.md)：#11 固定 CLIProxyAPI 生命周期、真实进程探测/冲突/退避/清理、公共 Settings 页面和串行 Standards/Spec 审查；#12–#14 仍未完成。
 - [S02 提供方连接 Spec 与拆票](provider-connections.md)：四个提供方垂直切片、权限差异、原生凭据边界及官方资料。
 - [首个工作项 Spec 和实现票](first-slice.md)：可审阅的测试边界与第一个垂直切片。
 
