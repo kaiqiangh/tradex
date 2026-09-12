@@ -18,6 +18,11 @@ fn main() -> io::Result<()> {
         std::process::exit(2);
     };
     let mut control = ControlPlane::new(PathBuf::from(path));
+    #[cfg(all(feature = "integration-test", target_os = "macos"))]
+    let runtime_path =
+        std::env::temp_dir().join(format!("tradex-model-ui-{}", uuid::Uuid::new_v4()));
+    #[cfg(all(feature = "integration-test", target_os = "macos"))]
+    let mut gateway = tradex::gateway_process::GatewayHost::new(runtime_path.clone());
     let output = Arc::new(Mutex::new(io::stdout()));
     let event_output = output.clone();
     let sink: EventSink = Arc::new(move |event| {
@@ -68,15 +73,35 @@ fn main() -> io::Result<()> {
                     reply
                 }
                 Ok(None) | Err(_) => {
-                    control.dispatch_with_events(request, "stdio", Some(sink.clone()))
+                    control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()))
                 }
             };
             #[cfg(not(feature = "integration-test"))]
-            let result = control.dispatch_with_events(request, "stdio", Some(sink.clone()));
+            let result = control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()));
+            #[cfg(all(feature = "integration-test", target_os = "macos"))]
+            let result = if request.get("command").and_then(Value::as_str) == Some("model.gateway")
+            {
+                match control.prepare_gateway(&request) {
+                    Ok(Some(job)) => {
+                        let outcome = gateway.run(&job, || control.gateway_job_current(&job));
+                        control.complete_gateway(&job, outcome)
+                    }
+                    Ok(None) => result,
+                    Err(error) => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
+                    }
+                }
+            } else {
+                result
+            };
             write_frame(&output, &json!({"kind":"result", "result":result}))?;
             frame.clear();
             oversized = false;
         }
+    }
+    #[cfg(all(feature = "integration-test", target_os = "macos"))]
+    if gateway.stop() {
+        let _ = std::fs::remove_dir_all(runtime_path);
     }
     Ok(())
 }

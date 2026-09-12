@@ -1841,12 +1841,52 @@ Bitget authorities and IP introspection determine credential scope independently
 
 ---
 
+### 41.4 Managed model gateway payloads (S03 lifecycle)
+
+All version-1 input objects reject undeclared fields and nulls. Workspace identity must match the active workspace; mutation requires its current gateway state version. No payload accepts secrets, paths, executable arguments, ports, remote URLs or process IDs. The host supplies the private runtime directory outside workspace storage.
+
+| Command | Payload | Success data |
+|---|---|---|
+| model.get_gateway | `{workspaceId: string}` | `GatewayState` |
+| model.gateway | `{workspaceId: string, expectedStateVersion: string, action: "LAUNCH" \| "PROBE" \| "RESTART" \| "STOP"}` | `GatewayState` and opaque `stateVersion` |
+
+~~~ts
+interface GatewayState {
+  workspaceId: string;
+  stateVersion: string;
+  pinnedVersion: "7.2.155";
+  endpoint: "http://127.0.0.1:8317";
+  status: "STOPPED" | "INSTALLING" | "STARTING" | "RUNNING" |
+          "PORT_CONFLICT" | "UNAUTHORIZED" | "BACKOFF" | "FAILED" | "STOPPING";
+  desiredRunning: boolean;
+  installed: boolean;
+  modelAvailable: boolean;
+  discoveredModelCount: number;
+  lastProbeAt: string | null;
+  nextRetryAt: string | null;
+  restartAttempts: number;
+  errorCode: string | null;
+  updatedAt: string;
+}
+~~~
+
+The `model-gateway` aggregate uses `workspaceId` as its aggregate ID; snapshot/subscribe/replay follow §41.2 with `GatewayState` projections. A newly opened process session restores non-secret configuration but marks process/probe observations unverified: STOPPED, no usable model, zero discovered models and no current probe timestamp. A new runtime session never trusts a persisted PID or port listener. Times are UTC RFC 3339; counts are bounded non-negative integers. Installation means the pinned executable digest was verified, not merely that a file exists.
+
+LAUNCH may install the pinned artifact, then starts and probes the owned process. STOP cancels backoff and stops only owned children; RESTART stops them before a fresh launch; PROBE only checks the owned process and never attaches to an occupied endpoint. Transitional states are committed and emitted before slow I/O. I/O runs outside the Control Plane mutex. Workspace replacement invalidates old operations; late results cannot update the new workspace. The supervisor checks process ownership before sending the downstream secret, bounds requests and output, forbids redirects/proxies, and redacts raw process/network diagnostics.
+
+A successful `/v1/models` probe means RUNNING, not modelAvailable. The lifecycle slice leaves modelAvailable false until an exact authorized route passes the later inference verification. Port conflict, unauthorized, stopped, failed startup/probe and exhausted restart budget use category MODEL_UNAVAILABLE with specific sanitized GATEWAY_* reason codes. Automatic crash recovery waits 1, 2, then 4 seconds, stops after three failed restarts, and exposes the next retry time. Explicit STOP or workspace replacement cancels pending retries. Successful stable operation may reset the budget only after 60 seconds. Ordinary model/provider failures never change financial state.
+
+Each committed transition appends `model.gateway.changed` under §42 with the complete `GatewayState` payload and strictly increasing aggregate sequence, atomically with its projection. Unchanged polling does not emit another event. Domain replay validates event type and aggregate/payload identity exactly as for workspace/accounts.
+
+---
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
 
 ```text
 runtime.health.changed
+model.gateway.changed
 model.provider_attempt.changed
 thread.updated
 turn.started

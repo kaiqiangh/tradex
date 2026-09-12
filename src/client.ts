@@ -1,8 +1,10 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
+import type { GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
+  'model.get_gateway': WorkspaceQuery;
+  'model.gateway': GatewayMutation;
   'provider.list_definitions': EmptyPayload;
   'provider.get_schema': ProviderSelection;
   'provider.connect': Connect;
@@ -18,6 +20,8 @@ interface Inputs {
   'domain.subscribe': Subscribe;
 }
 interface Outputs {
+  'model.get_gateway': GatewayState;
+  'model.gateway': GatewayState;
   'provider.list_definitions': ProviderCatalog;
   'provider.get_schema': ProviderDefinition;
   'provider.connect': AccountConnection;
@@ -33,6 +37,8 @@ interface Outputs {
   'domain.subscribe': SubscriptionAck;
 }
 const definitions = {
+  'model.get_gateway': ['WorkspaceQuery', 'GatewayState'],
+  'model.gateway': ['GatewayMutation', 'GatewayState'],
   'provider.list_definitions': ['EmptyPayload', 'ProviderCatalog'],
   'provider.get_schema': ['ProviderSelection', 'ProviderDefinition'],
   'provider.connect': ['Connect', 'AccountConnection'],

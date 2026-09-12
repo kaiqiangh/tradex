@@ -4,12 +4,31 @@
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
  */
-export type DomainProjection = Workspace | AccountConnection;
+export type DomainProjection = GatewayState | Workspace | AccountConnection;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "GatewayStatus".
+ */
+export type GatewayStatus =
+  | "STOPPED"
+  | "INSTALLING"
+  | "STARTING"
+  | "RUNNING"
+  | "PORT_CONFLICT"
+  | "UNAUTHORIZED"
+  | "BACKOFF"
+  | "FAILED"
+  | "STOPPING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ConnectionState".
  */
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "GatewayAction".
+ */
+export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Connect".
@@ -43,6 +62,7 @@ export type ReplyData =
   | Snapshot
   | RuntimeStatus
   | SubscriptionAck
+  | GatewayState
   | ProviderCatalog
   | ProviderDefinition
   | Accounts
@@ -59,6 +79,7 @@ export interface IpcSchema {
   command: CommandEnvelope;
   empty: EmptyPayload;
   event: DomainEvent;
+  gatewayMutation: GatewayMutation;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
   result: ResultEnvelope;
@@ -113,13 +134,33 @@ export interface EmptyPayload {}
  */
 export interface DomainEvent {
   aggregateId: string;
-  aggregateType: "workspace" | "account";
+  aggregateType: "workspace" | "account" | "model-gateway";
   eventId: string;
-  eventType: "workspace.opened" | "account.health.changed";
+  eventType: "workspace.opened" | "account.health.changed" | "model.gateway.changed";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
   sequence: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "GatewayState".
+ */
+export interface GatewayState {
+  desiredRunning: boolean;
+  discoveredModelCount: number;
+  endpoint: "http://127.0.0.1:8317";
+  errorCode?: string | null;
+  installed: boolean;
+  lastProbeAt?: string | null;
+  modelAvailable: boolean;
+  nextRetryAt?: string | null;
+  pinnedVersion: "7.2.155";
+  restartAttempts: number;
+  stateVersion: string;
+  status: GatewayStatus;
+  updatedAt: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -239,6 +280,15 @@ export interface PermissionReview {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "GatewayMutation".
+ */
+export interface GatewayMutation {
+  action: GatewayAction;
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ProviderSelection".
  */
 export interface ProviderSelection {
@@ -262,7 +312,7 @@ export interface SuccessEnvelope {
  */
 export interface Snapshot {
   aggregateId: string;
-  aggregateType: "workspace" | "account";
+  aggregateType: "workspace" | "account" | "model-gateway";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -291,7 +341,7 @@ export interface RuntimeComponent {
 export interface SubscriptionAck {
   afterSequence: number;
   aggregateId: string;
-  aggregateType: "workspace" | "account";
+  aggregateType: "workspace" | "account" | "model-gateway";
   lastSequence: number;
   replayedCount: number;
 }

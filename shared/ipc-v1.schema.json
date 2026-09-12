@@ -22,6 +22,9 @@
     "event": {
       "$ref": "#/$defs/DomainEvent"
     },
+    "gatewayMutation": {
+      "$ref": "#/$defs/GatewayMutation"
+    },
     "providerConnect": {
       "$ref": "#/$defs/Connect"
     },
@@ -42,6 +45,7 @@
     }
   },
   "required": [
+    "gatewayMutation",
     "command",
     "result",
     "event",
@@ -461,7 +465,8 @@
           "type": "string",
           "enum": [
             "workspace",
-            "account"
+            "account",
+            "model-gateway"
           ]
         },
         "eventId": {
@@ -472,7 +477,8 @@
           "type": "string",
           "enum": [
             "workspace.opened",
-            "account.health.changed"
+            "account.health.changed",
+            "model.gateway.changed"
           ]
         },
         "occurredAt": {
@@ -508,6 +514,9 @@
     },
     "DomainProjection": {
       "anyOf": [
+        {
+          "$ref": "#/$defs/GatewayState"
+        },
         {
           "$ref": "#/$defs/Workspace"
         },
@@ -548,6 +557,135 @@
         "schemaVersion",
         "ok",
         "error"
+      ]
+    },
+    "GatewayAction": {
+      "type": "string",
+      "enum": [
+        "LAUNCH",
+        "PROBE",
+        "RESTART",
+        "STOP"
+      ]
+    },
+    "GatewayMutation": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/GatewayAction"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "action"
+      ]
+    },
+    "GatewayState": {
+      "type": "object",
+      "properties": {
+        "desiredRunning": {
+          "type": "boolean"
+        },
+        "discoveredModelCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 1000,
+          "minimum": 0
+        },
+        "endpoint": {
+          "type": "string",
+          "const": "http://127.0.0.1:8317"
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "installed": {
+          "type": "boolean"
+        },
+        "lastProbeAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "modelAvailable": {
+          "type": "boolean"
+        },
+        "nextRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pinnedVersion": {
+          "type": "string",
+          "const": "7.2.155"
+        },
+        "restartAttempts": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 3,
+          "minimum": 0
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/GatewayStatus"
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "pinnedVersion",
+        "endpoint",
+        "status",
+        "desiredRunning",
+        "installed",
+        "modelAvailable",
+        "discoveredModelCount",
+        "restartAttempts",
+        "updatedAt"
+      ]
+    },
+    "GatewayStatus": {
+      "type": "string",
+      "enum": [
+        "STOPPED",
+        "INSTALLING",
+        "STARTING",
+        "RUNNING",
+        "PORT_CONFLICT",
+        "UNAUTHORIZED",
+        "BACKOFF",
+        "FAILED",
+        "STOPPING"
       ]
     },
     "OpenOrder": {
@@ -901,6 +1039,9 @@
           "$ref": "#/$defs/SubscriptionAck"
         },
         {
+          "$ref": "#/$defs/GatewayState"
+        },
+        {
           "$ref": "#/$defs/ProviderCatalog"
         },
         {
@@ -982,7 +1123,8 @@
           "type": "string",
           "enum": [
             "workspace",
-            "account"
+            "account",
+            "model-gateway"
           ]
         },
         "lastSequence": {
@@ -1047,7 +1189,8 @@
           "type": "string",
           "enum": [
             "workspace",
-            "account"
+            "account",
+            "model-gateway"
           ]
         },
         "lastSequence": {
@@ -1162,7 +1305,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 2,
+          "maximum": 3,
           "minimum": 1
         },
         "workspaceId": {

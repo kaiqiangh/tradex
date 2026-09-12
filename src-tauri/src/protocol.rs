@@ -1,3 +1,4 @@
+use crate::gateway::{GatewayMutation, GatewayState};
 use crate::providers::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -91,7 +92,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -127,6 +128,7 @@ pub enum ReplyData {
     Snapshot(Snapshot),
     Runtime(RuntimeStatus),
     Subscription(SubscriptionAck),
+    Gateway(GatewayState),
     ProviderCatalog(ProviderCatalog),
     ProviderDefinition(ProviderDefinition),
     Accounts(Accounts),
@@ -157,6 +159,7 @@ pub enum ResultEnvelope {
 #[derive(JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IpcSchema {
+    pub gateway_mutation: GatewayMutation,
     pub command: CommandEnvelope,
     pub result: ResultEnvelope,
     pub event: DomainEvent,
@@ -181,13 +184,14 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 2))]
+    #[schemars(range(min = 1, max = 3))]
     pub storage_schema_version: u32,
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum DomainProjection {
+    Gateway(GatewayState),
     Workspace(Workspace),
     Account(Box<AccountConnection>),
 }
@@ -195,12 +199,14 @@ pub enum DomainProjection {
 impl DomainProjection {
     pub fn id(&self) -> &str {
         match self {
+            Self::Gateway(g) => &g.workspace_id,
             Self::Workspace(w) => &w.workspace_id,
             Self::Account(a) => &a.connection_id,
         }
     }
     pub fn kind(&self) -> &str {
         match self {
+            Self::Gateway(_) => "model-gateway",
             Self::Workspace(_) => "workspace",
             Self::Account(_) => "account",
         }
@@ -212,12 +218,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -229,7 +235,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -395,6 +401,11 @@ impl TradeXError {
                 "disconnect_provider",
                 "Retry Disconnect",
             ),
+            code if code.starts_with("GATEWAY_") => (
+                "The model gateway needs attention. Check its status before retrying.",
+                "check_gateway",
+                "Check model gateway",
+            ),
             _ => (
                 "The control plane could not complete this operation.",
                 "reload_snapshot",
@@ -402,7 +413,9 @@ impl TradeXError {
             ),
         };
         Self {
-            category: if code == "PROVIDER_AUTH_FAILED" || code.starts_with("CREDENTIAL_") {
+            category: if code.starts_with("GATEWAY_") {
+                "MODEL_UNAVAILABLE"
+            } else if code == "PROVIDER_AUTH_FAILED" || code.starts_with("CREDENTIAL_") {
                 "AUTH_ERROR"
             } else if code == "PROVIDER_RATE_LIMITED" {
                 "RATE_LIMITED"

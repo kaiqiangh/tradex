@@ -154,3 +154,6 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .account-detail h3 { margin: 22px 0 12px; }
 .settings-section:has(.accounts-panel) { padding: 20px; }
 @media (max-width: 600px) { .provider-config, .account-detail { padding: 14px; } .account-actions { width: 100%; } }
+
+.model-settings { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; overflow-wrap: anywhere; }
+.model-actions { display: flex; flex-wrap: wrap; gap: 8px; }

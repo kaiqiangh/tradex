@@ -15,6 +15,10 @@ declare const validators: {
   DomainProjection: (value: unknown) => boolean;
   EmptyPayload: (value: unknown) => boolean;
   FailureEnvelope: (value: unknown) => boolean;
+  GatewayAction: (value: unknown) => boolean;
+  GatewayMutation: (value: unknown) => boolean;
+  GatewayState: (value: unknown) => boolean;
+  GatewayStatus: (value: unknown) => boolean;
   OpenOrder: (value: unknown) => boolean;
   OpenWorkspace: (value: unknown) => boolean;
   PermissionReview: (value: unknown) => boolean;

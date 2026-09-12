@@ -1,3 +1,6 @@
+pub mod gateway;
+#[cfg(target_os = "macos")]
+pub mod gateway_process;
 #[cfg(all(feature = "desktop", target_os = "macos"))]
 pub mod native_credentials;
 pub mod protocol;
@@ -106,6 +109,7 @@ impl ControlPlane {
                 } else {
                     let mut store = Store::open(path, &input)?;
                     store.mark_accounts_stale()?;
+                    store.save_gateway(gateway::GatewayState::stopped(store.workspace_id()?))?;
                     let event = store.record_open()?;
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.store = Some(store);
@@ -113,6 +117,13 @@ impl ControlPlane {
                     self.session = uuid::Uuid::new_v4().to_string();
                     Ok((json!(event.payload), Some(version)))
                 }
+            }
+            "model.get_gateway" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let state = self.store.as_ref().unwrap().gateway()?;
+                let version = state.state_version.clone();
+                Ok((json!(state), Some(version)))
             }
             "runtime.status" => {
                 let _: EmptyPayload = payload(request.payload)?;
@@ -130,8 +141,16 @@ impl ControlPlane {
                         },
                         RuntimeComponent {
                             id: "cliproxyapi".into(),
-                            status: "NOT_CONFIGURED".into(),
-                            message: "No model route is configured.".into(),
+                            status: self
+                                .store
+                                .as_ref()
+                                .and_then(|s| s.gateway().ok())
+                                .and_then(|g| serde_json::to_value(g.status).ok())
+                                .and_then(|v| v.as_str().map(str::to_owned))
+                                .unwrap_or_else(|| "NOT_CONFIGURED".into()),
+                            message:
+                                "Gateway health is separate from verified model-route availability."
+                                    .into(),
                         },
                         RuntimeComponent {
                             id: "order-gateway".into(),
@@ -284,6 +303,114 @@ impl ControlPlane {
             _ => Err(TradeXError::new("IPC_COMMAND_UNKNOWN")),
         }
     }
+    pub fn prepare_gateway(&mut self, value: &Value) -> Result<Option<gateway::GatewayJob>> {
+        if value.get("command").and_then(Value::as_str) != Some("model.gateway") {
+            return Ok(None);
+        }
+        if value.get("schemaVersion").and_then(Value::as_u64) != Some(1) {
+            return Err(TradeXError::new("IPC_SCHEMA_UNSUPPORTED"));
+        }
+        let request: CommandEnvelope = payload(value.clone())?;
+        if request.request_id.is_empty() || request.request_id.len() > 128 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let input: gateway::GatewayMutation = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let mut state = self.store.as_ref().unwrap().gateway()?;
+        if state.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if matches!(
+            state.status,
+            gateway::GatewayStatus::Installing
+                | gateway::GatewayStatus::Starting
+                | gateway::GatewayStatus::Stopping
+        ) && input.action != gateway::GatewayAction::Stop
+        {
+            return Err(TradeXError::new("GATEWAY_BUSY"));
+        }
+        if state.status == gateway::GatewayStatus::Backoff
+            && input.action == gateway::GatewayAction::Probe
+        {
+            return Err(TradeXError::new("GATEWAY_BUSY"));
+        }
+        state.status = if input.action == gateway::GatewayAction::Stop {
+            gateway::GatewayStatus::Stopping
+        } else if input.action == gateway::GatewayAction::Launch && !state.installed {
+            gateway::GatewayStatus::Installing
+        } else {
+            gateway::GatewayStatus::Starting
+        };
+        if input.action != gateway::GatewayAction::Probe {
+            state.desired_running = input.action != gateway::GatewayAction::Stop;
+        }
+        state.model_available = false;
+        if input.action != gateway::GatewayAction::Probe {
+            state.restart_attempts = 0;
+        }
+        state.next_retry_at = None;
+        state.error_code = None;
+        let event = self.store.as_mut().unwrap().save_gateway(state)?;
+        self.publish(&event);
+        let DomainProjection::Gateway(state) = event.payload else {
+            unreachable!()
+        };
+        Ok(Some(gateway::GatewayJob {
+            request_id: request.request_id,
+            session: self.session.clone(),
+            action: input.action,
+            state,
+        }))
+    }
+
+    pub fn gateway_monitor_job(&self) -> Option<gateway::GatewayJob> {
+        let state = self.store.as_ref()?.gateway().ok()?;
+        Some(gateway::GatewayJob {
+            request_id: "gateway-supervisor".into(),
+            session: self.session.clone(),
+            action: gateway::GatewayAction::Probe,
+            state,
+        })
+    }
+
+    pub fn gateway_job_current(&self, job: &gateway::GatewayJob) -> bool {
+        self.session == job.session
+            && self.store.as_ref().is_some_and(|store| {
+                store
+                    .gateway()
+                    .is_ok_and(|state| state.state_version == job.state.state_version)
+            })
+    }
+
+    pub fn complete_gateway(
+        &mut self,
+        job: &gateway::GatewayJob,
+        state: gateway::GatewayState,
+    ) -> Value {
+        let result =
+            if self.gateway_job_current(job) && state.workspace_id == job.state.workspace_id {
+                self.store.as_mut().unwrap().save_gateway(state)
+            } else {
+                Err(TradeXError::new("STATE_VERSION_CONFLICT"))
+            };
+        match result {
+            Ok(event) => {
+                let DomainProjection::Gateway(ref state) = event.payload else {
+                    unreachable!()
+                };
+                let reply = json!({"requestId":job.request_id,"schemaVersion":1,"ok":true,"stateVersion":state.state_version,"data":state});
+                self.publish(&event);
+                reply
+            }
+            Err(error) => {
+                json!({"requestId":job.request_id,"schemaVersion":1,"ok":false,"error":error})
+            }
+        }
+    }
+
     fn publish(&mut self, event: &protocol::DomainEvent) {
         self.subscribers.retain(|(_, kind, id), sink| {
             kind != &event.aggregate_type || id != &event.aggregate_id || sink(event.clone())

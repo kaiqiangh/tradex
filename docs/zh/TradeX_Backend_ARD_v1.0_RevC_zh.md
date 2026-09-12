@@ -1841,12 +1841,52 @@ Bitget authorities 与 IP 内省独立于 REST 读取成功决定凭据权限范
 
 ---
 
+### 41.4 受管模型网关载荷（S03 生命周期）
+
+所有版本 1 输入对象拒绝未声明字段和 null。工作区身份必须匹配当前工作区；变更必须携带当前网关状态版本。载荷不得接收秘密、路径、可执行参数、端口、远程 URL 或进程 ID。宿主提供工作区存储之外的私有运行目录。
+
+| Command | Payload | Success data |
+|---|---|---|
+| model.get_gateway | `{workspaceId: string}` | `GatewayState` |
+| model.gateway | `{workspaceId: string, expectedStateVersion: string, action: "LAUNCH" \| "PROBE" \| "RESTART" \| "STOP"}` | `GatewayState` and opaque `stateVersion` |
+
+~~~ts
+interface GatewayState {
+  workspaceId: string;
+  stateVersion: string;
+  pinnedVersion: "7.2.155";
+  endpoint: "http://127.0.0.1:8317";
+  status: "STOPPED" | "INSTALLING" | "STARTING" | "RUNNING" |
+          "PORT_CONFLICT" | "UNAUTHORIZED" | "BACKOFF" | "FAILED" | "STOPPING";
+  desiredRunning: boolean;
+  installed: boolean;
+  modelAvailable: boolean;
+  discoveredModelCount: number;
+  lastProbeAt: string | null;
+  nextRetryAt: string | null;
+  restartAttempts: number;
+  errorCode: string | null;
+  updatedAt: string;
+}
+~~~
+
+`model-gateway` 聚合以 `workspaceId` 为 aggregate ID；snapshot/subscribe/replay 沿用 §41.2，投影为 `GatewayState`。新进程会话恢复非秘密配置，但将进程/探测观察视为未验证：STOPPED、无可用模型、发现模型数为零、无当前探测时间。新会话绝不信任持久化 PID 或端口监听者。时间为 UTC RFC 3339，计数为有界非负整数。installed 表示固定可执行文件摘要验证通过，不是文件存在。
+
+LAUNCH 可先安装固定发布物，再启动并探测自己拥有的进程。STOP 取消退避并只停止自己的子进程；RESTART 先停止再启动；PROBE 仅检查自己的进程，不附着到已有端点。慢 I/O 前提交并发送过渡状态；I/O 不持有 Control Plane mutex。切换工作区使旧操作失效，迟到结果不能更新新工作区。发送下游秘密前验证进程所有权；限制请求和输出、禁止重定向/代理，并隐藏原始进程/网络诊断。
+
+`/v1/models` 探测成功只表示 RUNNING，不表示 modelAvailable。生命周期票保持 modelAvailable=false，直到后续精确授权路由通过推理验证。端口冲突、未授权、停止、启动/探测失败及重启预算耗尽采用 MODEL_UNAVAILABLE 类别及具体脱敏 GATEWAY_* 原因码。崩溃自动恢复依次等待 1、2、4 秒，三次重启失败后停止，并展示下一重试时间。显式 STOP 或切换工作区取消待执行重试；持续稳定运行 60 秒后才可重置预算。普通模型/提供方故障不改变金融状态。
+
+每次已提交状态变更在 §42 的 `model.gateway.changed` 事件中携带完整 `GatewayState`，聚合序号严格递增，事件与投影原子提交。无变化的轮询不重复发事件。Domain replay 与工作区/账户一样严格校验事件类型及聚合/载荷身份。
+
+---
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
 
 ```text
 runtime.health.changed
+model.gateway.changed
 model.provider_attempt.changed
 thread.updated
 turn.started

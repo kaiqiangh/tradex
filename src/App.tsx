@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { browserIntegration, desktop, explainError, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
+import { Models } from './Models.tsx';
 import { useWorkspace } from './useWorkspace.ts';
 import type { OpenWorkspace, Workspace } from '../shared/ipc-types.ts';
 
@@ -125,9 +126,10 @@ export default function App() {
                 <button key={tab} aria-pressed={settingsTab === tab} onClick={() => setSettingsTab(tab)}>{tab}</button>)}</div>
               <section className="card settings-section"><h2>{settingsTab}</h2>
                 {workspace && (settingsTab === 'Providers & Models' || settingsTab === 'Account Health') && <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} healthOnly={settingsTab === 'Account Health'} />}
+                {workspace && settingsTab === 'Providers & Models' && <Models key={`models:${workspace.workspaceId}`} workspaceId={workspace.workspaceId} />}
                 {settingsTab === 'Providers & Models' || settingsTab === 'About' ? <>
                   <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : 'No model provider is configured. Agent turns and onboarding Ready remain unavailable.'}</p>
-                  <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : 'Not configured'}</span></li>)}</ul>
+                  <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : component.status.replaceAll('_', ' ')}</span></li>)}</ul>
                   <button onClick={() => { void state.runtime.refetch(); }} disabled={state.runtime.isFetching}>Refresh runtime status</button>
                 </> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => setSetup(true)}>Open another workspace</button></> :
                   <p className="muted">{settingsTab === 'Risk & Limits' ? 'Risk policy configuration is not available in this build. Live execution remains unavailable.' : settingsTab === 'Account Health' ? 'Connection, authentication, stream, reconciliation and execution are separate checks.' : 'The workspace currently uses the RevC light theme.'}</p>}
