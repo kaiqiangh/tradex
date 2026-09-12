@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机和本地检查已完成；真实 macOS Keychain/secure entry、ChatGPT OAuth 和 DeepSeek 上游推理仍未取得验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
 
-实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8`（`dev`）。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
+实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 最终边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd`（`dev`）。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
 
 ## 已实现的边界
 
@@ -11,6 +11,7 @@
 - DeepSeek 只允许精确 `deepseek-v4-flash`，普通/推理模式必须分别携带显式 `thinking.type=disabled|enabled`。key 只经原生安全输入进入 macOS Keychain service `com.tradex.model.credentials`，受信 Rust 在网关启动时注入私有 0600 临时配置。
 - Verify 先通过拥有 key 的 loopback `/v1/models` 确认精确路由，再以固定 harmless prompt、`max_tokens=16`、`temperature=0`、非流式请求做有界测试推理；空目录、错误路由、认证失败、超限、网络/响应错误都保持不可用并记录规范错误类别。
 - Configure DeepSeek 在网关运行时禁用，避免已运行子进程继续使用旧 key；界面明确要求停止、配置后重新启动。模型 Ready 还要求网关处于 `RUNNING` 且存在当前 route 的成功验证时间。
+- 验证失败不会伪装为已配置成功：已配置模型保持 `UNVERIFIED`、清除当前可用 route 并保留可审计的失败类别；ChatGPT `/v1/models` 的 401 映射为 `OAUTH_EXPIRED`。网关自动重启前从原生 Keychain 重新装载 DeepSeek key，公共 headless 命令先执行 payload/allowlist 校验；quota 元数据有界且在模型卡片中展示。
 
 ## 验收矩阵
 
@@ -25,7 +26,7 @@
 
 ## 可重跑检查
 
-以下检查在最终 `dev@612ef61b4eb6f5327943dfdd4349e23e6f1598c8` 通过：
+以下检查在最终代码 `dev@fdf9fdc465619eab3cfbfddfca83f84c46077cbd` 通过：
 
 ```text
 git diff --check
@@ -38,7 +39,7 @@ npm run test:unit
 npm run check
 ```
 
-`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 3 个通过、1 个明确 ignored（原生 Keychain）；其它 native broker/gateway 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
+`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 4 个通过、1 个明确 ignored（原生 Keychain）；lib 内模型状态/失败边界测试为 6 个通过。其它 native broker/gateway 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
 
 ## 秘密与外部门槛
 
@@ -50,4 +51,3 @@ npm run check
 
 - **Standards：PASS。** 已按仓库 `AGENTS.md` 和 `docs/agents/*` 检查；格式、Clippy、schema、typecheck、build、unit、workspace 和 traceability 均通过。
 - **Spec：PASS（已实现范围）。** Backend §41–42、公共模型事件、精确 Flash 模式、秘密边界、错误分类和 UI 状态与 RevC/用户批准契约一致；外部 credentialed acceptance 仍明确为未验证。
-
