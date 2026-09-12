@@ -93,10 +93,9 @@ fn digest(path: &Path) -> Result<String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
-fn quota_metadata(response: &reqwest::blocking::Response) -> Option<ModelQuota> {
+fn quota_metadata(headers: &reqwest::header::HeaderMap) -> Option<ModelQuota> {
     let header = |name: &str| {
-        response
-            .headers()
+        headers
             .get(name)
             .and_then(|value| value.to_str().ok())
             .filter(|value| {
@@ -469,7 +468,7 @@ impl GatewayHost {
             .body(request_body)
             .send()
             .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
-        self.last_quota = quota_metadata(&response);
+        self.last_quota = quota_metadata(response.headers());
         classify_inference_status(response.status().as_u16(), model_id)?;
         let mut bytes = Zeroizing::new(Vec::new());
         response
@@ -871,5 +870,23 @@ mod tests {
             classify_inference_status(503, "gpt-5.6-sol"),
             Err("MODEL_TEST_INFERENCE_FAILED")
         );
+    }
+
+    #[test]
+    fn quota_metadata_is_bounded_and_unknown_stays_unavailable() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("x-ratelimit-remaining", "42".parse().unwrap());
+        headers.insert("retry-after", "60".parse().unwrap());
+        headers.insert("x-ratelimit-reset", "2026-09-12T21:00:00Z".parse().unwrap());
+        let quota = quota_metadata(&headers).unwrap();
+        assert_eq!(quota.remaining, Some(42));
+        assert_eq!(quota.window.as_deref(), Some("retry-after:60s"));
+        assert_eq!(quota.reset_at.as_deref(), Some("2026-09-12T21:00:00Z"));
+
+        let mut bounded = reqwest::header::HeaderMap::new();
+        bounded.insert("x-ratelimit-remaining", "1000000001".parse().unwrap());
+        bounded.insert("retry-after", "86401".parse().unwrap());
+        assert!(quota_metadata(&bounded).is_none());
+        assert!(quota_metadata(&reqwest::header::HeaderMap::new()).is_none());
     }
 }
