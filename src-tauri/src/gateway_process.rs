@@ -37,6 +37,7 @@ pub struct GatewayHost {
     config: Option<PathBuf>,
     key: Zeroizing<String>,
     deepseek_key: Zeroizing<String>,
+    deepseek_key_workspace: Option<String>,
     deepseek_key_reload_pending: bool,
     last_quota: Option<ModelQuota>,
     owner_session: Option<String>,
@@ -129,6 +130,7 @@ impl GatewayHost {
             config: None,
             key: Zeroizing::new(String::new()),
             deepseek_key: Zeroizing::new(String::new()),
+            deepseek_key_workspace: None,
             deepseek_key_reload_pending: false,
             last_quota: None,
             owner_session: None,
@@ -140,8 +142,9 @@ impl GatewayHost {
         }
     }
 
-    pub fn set_deepseek_key(&mut self, key: Option<&str>) {
+    pub fn set_deepseek_key(&mut self, workspace_id: &str, key: Option<&str>) {
         self.deepseek_key = Zeroizing::new(key.unwrap_or_default().to_owned());
+        self.deepseek_key_workspace = key.map(|_| workspace_id.to_owned());
         self.deepseek_key_reload_pending = false;
     }
 
@@ -307,6 +310,7 @@ impl GatewayHost {
         self.key = Zeroizing::new(String::new());
         self.deepseek_key_reload_pending = !self.deepseek_key.is_empty();
         self.deepseek_key = Zeroizing::new(String::new());
+        self.deepseek_key_workspace = None;
         self.last_quota = None;
         self.workspace = None;
         if cleaned {
@@ -547,6 +551,7 @@ impl GatewayHost {
         let mut state = job.state.clone();
         if !state.desired_running {
             self.stop();
+            self.deepseek_key_reload_pending = false;
             self.retry_pending = false;
             self.retry_at = None;
             return None;
@@ -664,11 +669,22 @@ impl GatewayHost {
                 state.discovered_model_count = 0;
                 return Ok(());
             }
-            if (job.action == GatewayAction::Restart
-                || self.workspace.as_deref() != Some(&state.workspace_id))
-                && !self.stop()
-            {
-                return Err("GATEWAY_CLEANUP_FAILED");
+            let restart_or_switch = job.action == GatewayAction::Restart
+                || self.workspace.as_deref() != Some(&state.workspace_id);
+            let retained_deepseek_key = restart_or_switch
+                .then(|| {
+                    (self.deepseek_key_workspace.as_deref() == Some(state.workspace_id.as_str())
+                        && !self.deepseek_key.is_empty())
+                    .then(|| self.deepseek_key.clone())
+                })
+                .flatten();
+            if restart_or_switch {
+                if !self.stop() {
+                    return Err("GATEWAY_CLEANUP_FAILED");
+                }
+                if let Some(key) = retained_deepseek_key.as_ref() {
+                    self.set_deepseek_key(&state.workspace_id, Some(key.as_str()));
+                }
             }
             if job.action == GatewayAction::Probe && self.child.is_none() {
                 return Err("GATEWAY_STOPPED");

@@ -170,6 +170,35 @@ fn deepseek_replacement_requires_a_stopped_gateway() {
         Ok(_) => panic!("running gateway must block DeepSeek replacement"),
     };
     assert_eq!(error.code, "MODEL_GATEWAY_RUNNING");
+
+    let gateway = command(
+        &mut control,
+        "model.get_gateway",
+        json!({"workspaceId":workspace_id}),
+    );
+    let stop_request = json!({
+        "requestId":"gateway-stop",
+        "schemaVersion":1,
+        "command":"model.gateway",
+        "payload":{"workspaceId":workspace_id,"expectedStateVersion":gateway["data"]["stateVersion"],"action":"STOP"}
+    });
+    let _stop_job = control.prepare_gateway(&stop_request).unwrap().unwrap();
+    let model = command(
+        &mut control,
+        "model.get",
+        json!({"workspaceId":workspace_id}),
+    );
+    let stopping_rejected = json!({
+        "requestId":"replace-while-stopping",
+        "schemaVersion":1,
+        "command":"model.configure_deepseek",
+        "payload":{"workspaceId":workspace_id,"expectedStateVersion":model["data"]["stateVersion"]}
+    });
+    let error = match control.prepare_model(&stopping_rejected) {
+        Err(error) => error,
+        Ok(_) => panic!("stopping gateway must block DeepSeek replacement"),
+    };
+    assert_eq!(error.code, "MODEL_GATEWAY_RUNNING");
 }
 
 #[test]

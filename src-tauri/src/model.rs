@@ -301,7 +301,7 @@ pub fn run_job(
                     return Err(crate::protocol::TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
                 vault.put_deepseek(&job.state.workspace_id, &key)?;
-                host.set_deepseek_key(Some(key.as_str()));
+                host.set_deepseek_key(&job.state.workspace_id, Some(key.as_str()));
                 configured = Some(true);
                 outcome = ModelAttemptOutcome::Configured;
                 Ok(())
@@ -339,7 +339,7 @@ pub fn run_job(
             } => {
                 if *provider == ModelProvider::Deepseek {
                     let key = vault.get_deepseek(&job.state.workspace_id)?;
-                    host.set_deepseek_key(Some(key.as_str()));
+                    host.set_deepseek_key(&job.state.workspace_id, Some(key.as_str()));
                 }
                 let discovered = host
                     .discover_models()

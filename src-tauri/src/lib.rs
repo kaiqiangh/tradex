@@ -532,10 +532,11 @@ impl ControlPlane {
         if previous.state_version != expected {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        if matches!(&action, model::ModelAction::ConfigureDeepseek)
-            && self.store.as_ref().unwrap().gateway()?.desired_running
-        {
-            return Err(TradeXError::new("MODEL_GATEWAY_RUNNING"));
+        if matches!(&action, model::ModelAction::ConfigureDeepseek) {
+            let gateway = self.store.as_ref().unwrap().gateway()?;
+            if gateway.desired_running || gateway.status == gateway::GatewayStatus::Stopping {
+                return Err(TradeXError::new("MODEL_GATEWAY_RUNNING"));
+            }
         }
         if previous.provider(&provider).status == model::ModelHealth::Verifying {
             return Err(TradeXError::new("MODEL_BUSY"));

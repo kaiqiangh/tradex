@@ -103,7 +103,7 @@ export function Models({ workspaceId }: { workspaceId: string }) {
         <article className="model-provider-card">
           <div className="model-provider-heading"><div><h4>CLIProxyAPI → DeepSeek</h4><p>Official API · key stored only in macOS Keychain</p></div><span className="badge">{modelHealth[modelState.deepseek.status]}</span></div>
           {providerError(modelState.deepseek) && <p className="model-error" role="alert">{providerError(modelState.deepseek)}</p>}
-          <div className="model-provider-actions"><button disabled={modelBusy || state.desiredRunning} onClick={() => { void modelAct('model.configure_deepseek', null); }}>{modelState.deepseek.configured ? 'Replace DeepSeek key' : 'Configure DeepSeek key'}</button></div>
+          <div className="model-provider-actions"><button disabled={modelBusy || state.desiredRunning || state.status === 'STOPPING'} onClick={() => { void modelAct('model.configure_deepseek', null); }}>{modelState.deepseek.configured ? 'Replace DeepSeek key' : 'Configure DeepSeek key'}</button></div>
           <p className="form-hint">The native secure dialog writes directly to Keychain. The key never enters the webview, SQLite, events or logs. Stop the gateway before changing the key, then launch it again to render the new key into its private config.</p>
           <div className="model-routes">{(['disabled', 'enabled'] as const).map(mode => {
             const route = modelState.deepseek.routes.find(item => item.modelId === 'deepseek-v4-flash' && item.thinkingType === mode);

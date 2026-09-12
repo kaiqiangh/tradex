@@ -90,9 +90,9 @@ async fn control(
                 Err(_) => return failed(&request, "GATEWAY_PROCESS_FAILED"),
             };
             if let Ok(key) = NativeModelVault.get_deepseek(job.workspace_id()) {
-                host.set_deepseek_key(Some(key.as_str()));
+                host.set_deepseek_key(job.workspace_id(), Some(key.as_str()));
             } else {
-                host.set_deepseek_key(None);
+                host.set_deepseek_key(job.workspace_id(), None);
             }
             let outcome = host.run(&job, || {
                 engine
@@ -172,9 +172,9 @@ fn main() {
                         if let Some(job) = job {
                             if host.needs_deepseek_key_reload() {
                                 if let Ok(key) = NativeModelVault.get_deepseek(job.workspace_id()) {
-                                    host.set_deepseek_key(Some(key.as_str()));
+                                    host.set_deepseek_key(job.workspace_id(), Some(key.as_str()));
                                 } else {
-                                    host.set_deepseek_key(None);
+                                    host.set_deepseek_key(job.workspace_id(), None);
                                 }
                             }
                             let outcome = host.monitor(&job, || {
