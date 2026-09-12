@@ -47,6 +47,8 @@ npm run check
 
 `npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 5 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 9 个通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
 
+`cargo test --features desktop --workspace --all-targets` 也通过：desktop lib 9 个、model 集成 5 个（1 个 native Keychain ignored）、gateway 1 个（生命周期 ignored）及其余 workspace 目标均无失败。
+
 ## 秘密与外部门槛
 
 浏览器 fixture 的临时 SQLite/outbox/model_state 扫描没有 `integration-test-key`、`api.deepseek.com` 或 `key` 值；模型测试断言序列化 payload 不含这些值。真实 key 没有写入仓库、普通工作区文件或日志。
