@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机和本地检查已完成；真实 macOS Keychain/secure entry、ChatGPT OAuth 和 DeepSeek 上游推理仍未取得验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
 
-实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 最终边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd`（`dev`）。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
+实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053`（`dev`）。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
 
 ## 已实现的边界
 
@@ -12,6 +12,7 @@
 - Verify 先通过拥有 key 的 loopback `/v1/models` 确认精确路由，再以固定 harmless prompt、`max_tokens=16`、`temperature=0`、非流式请求做有界测试推理；空目录、错误路由、认证失败、超限、网络/响应错误都保持不可用并记录规范错误类别。
 - Configure DeepSeek 在网关运行时禁用，避免已运行子进程继续使用旧 key；界面明确要求停止、配置后重新启动。模型 Ready 还要求网关处于 `RUNNING` 且存在当前 route 的成功验证时间。
 - 验证失败不会伪装为已配置成功：已配置模型保持 `UNVERIFIED`、清除当前可用 route 并保留可审计的失败类别；ChatGPT `/v1/models` 的 401 映射为 `OAUTH_EXPIRED`。网关自动重启前从原生 Keychain 重新装载 DeepSeek key，公共 headless 命令先执行 payload/allowlist 校验；quota 元数据有界且在模型卡片中展示。
+- 显式 Restart 与 workspace 切换会在清理旧进程后只保留当前 workspace 对应的 DeepSeek key；正常 STOP 不会留下重复 reload 标记，STOPPING 状态也阻断 key 替换。
 
 ## 验收矩阵
 
@@ -26,7 +27,7 @@
 
 ## 可重跑检查
 
-以下检查在最终代码 `dev@fdf9fdc465619eab3cfbfddfca83f84c46077cbd` 通过：
+以下检查在最终代码 `dev@753f273d4315ff68bdfa95c6f7cc784ec0da8053` 通过：
 
 ```text
 git diff --check
