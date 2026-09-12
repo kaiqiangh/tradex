@@ -488,7 +488,9 @@ TradeX、Codex、research tool、strategy code 禁止直接连接外部 LLM endp
 V1.0：
 
 - ChatGPT subscription OAuth → GPT-5.6 series；
-- DeepSeek official API → `deepseek-chat` / `deepseek-reasoner`。
+- DeepSeek official API → `deepseek-v4-flash`，显式使用 `thinking.type: disabled` 或 `thinking.type: enabled`。
+
+选择的普通/推理模式与真实模型 ID 一起进入不可变路由/尝试快照和审计。必须通过 CLIProxyAPI 显式发送模式，不依赖上游默认值，也不将任一模式伪装为已弃用模型名。本次用户批准的模型名称澄清不增加提供方，不放宽单一出口或金融安全规则。
 
 Cross-provider automatic fallback 默认 OFF。
 

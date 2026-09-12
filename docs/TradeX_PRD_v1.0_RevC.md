@@ -986,7 +986,7 @@ TradeX uses **Codex App Server / Codex Harness** as the primary agent runtime (p
 Model inference is restricted to exactly two sources, routed through one local OpenAI-compatible endpoint:
 
 1. **CLIProxyAPI** (local gateway, pinned version): ChatGPT subscription OAuth (`--codex-login`) → GPT-5.6 series;
-2. **DeepSeek official API**: `deepseek-chat` / `deepseek-reasoner`, configured as a CLIProxyAPI upstream with the key injected from the OS keychain.
+2. **DeepSeek official API**: `deepseek-v4-flash` with explicit non-thinking (`thinking.type: disabled`) or thinking (`thinking.type: enabled`) mode, configured as a CLIProxyAPI upstream with the key injected from the OS keychain.
 
 No other model provider is permitted in v1.0. All model traffic terminates at `127.0.0.1:8317`; direct external LLM connections from TradeX, Codex, strategy code, or research tools are prohibited (SEC-007).
 
@@ -996,7 +996,7 @@ TradeX Desktop (React/Tauri)
       ▼
 Codex App Server ─── model_provider ───► CLIProxyAPI (127.0.0.1:8317)
       │                                  ├─ ChatGPT OAuth → GPT-5.6
-      │                                  └─ DeepSeek official API → deepseek-*
+      │                                  └─ DeepSeek official API → deepseek-v4-flash
       │
       └──────── TradeX Control Plane
                  Risk / Approval / Reservations / Order Gateway / Reconciliation

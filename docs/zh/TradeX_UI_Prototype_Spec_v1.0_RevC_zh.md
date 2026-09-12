@@ -203,8 +203,8 @@ CLIProxyAPI → ChatGPT
   gpt-5.6-luna
 
 CLIProxyAPI → DeepSeek official API
-  deepseek-chat
-  deepseek-reasoner
+  deepseek-v4-flash · 普通模式
+  deepseek-v4-flash · 推理模式
 ```
 
 每行显示 provider health/availability;composer 同时显示下一 turn 的 provider path。

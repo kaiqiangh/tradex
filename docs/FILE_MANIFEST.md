@@ -1,10 +1,10 @@
 # TradeX v1.0 RevC — File Manifest / 文件清单
 
-**Generated / 生成日期:** 2026-09-08
+**Generated / 生成日期:** 2026-09-12
 
-Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01 workspace and S02 provider IPC contract additions, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
+Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions and user-approved S03 DeepSeek model clarification, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
 
-以下路径相对仓库根目录。哈希描述 S01 工作区及 S02 提供方 IPC 契约增补后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
+以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补及用户批准的 S03 DeepSeek 模型澄清后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
 
 This manifest excludes its own hash to avoid self-reference. Existing docs/agents workflow guides are outside this product-document manifest. The root README.md describes the application build; docs/implementation tracks delivery separately from this product-document manifest.
 
@@ -15,14 +15,14 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | `AGENTS.md` | Agent entry point / Agent 文档入口 | 30 | `c3242039e90c7f6c684b0de2fd3de2ad16132839293b508facb06ecbd14be9dc` |
 | `docs/README.md` | English documentation index | 38 | `ecb85c7ad668288ace3bfd2a43380dd604de59a2b8e9b40f020ea21c226f5beb` |
 | `docs/zh/README.md` | 中文文档目录 | 35 | `e7112e883a4925c6c963009ae413c47240bd17b418d956dd6a42265237a8a140` |
-| `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3652 | `a3ec8e8e10114fec8f35de383e2f4f4d4d35f16405f24157c4f9c8c8a9fda138` |
-| `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3642 | `f87d68d61d76f8a27a15ce0409f9945008c2c235e2fb7303efbe83e8c9fb58c3` |
-| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1150 | `a7f0185af3113c278cdff9a702f94f8fe61a14a6dcb3a8a16d3ec2dc62692772` |
-| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 859 | `64b02b2350873248dfbbd598f414338529937d2466155033fbd3fb921f39b629` |
+| `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3652 | `a83e9529c546bb7694cdf21a7f747d4236465aa52b8c71a80d2262afb2aea1cb` |
+| `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3642 | `16b0d45084a47324d3fe27aeaba32f94e80e2a8e89d664fda65b0004965913df` |
+| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1150 | `15afc343c0074dec4b41d1110b27f9d545d77fe43ecd25811e08e3835d575dee` |
+| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 859 | `4a78a3a5911bf2665cee55c40a70761d921598328d3751038e98a7cd83ac3e3f` |
 | `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 951 | `d0e7a620e96240d93933f90898c71fb293c04bf24c0e2ce6f94c6a47ed78b6d8` |
 | `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 949 | `2f08e3c5c711e7dc6071406bcf9da6382b038d2aef3fda3e84b7263d51652617` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2108 | `a0e517adc1720448fbeeb76e41547732d188a1c46a7fc313f05b3368f054dea1` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2106 | `e3aa7e95b916cc5407a5ea43b0c1c89da79b2afb72019bfc2055f29414d80ddd` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2110 | `7a334cbccf94813a0df06f38f3f8a9dc1930da0b3d19f2ccfd8d60434cfca218` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2108 | `e1b261a5cf9d0a7c50bbd6f785c57644f825fce99f14da7130b08f0736deb45a` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 212 | `04a5c1a163f97467c3c1d736f97ea76982183bbb9a62605d1662858fc2df649e` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 212 | `025990daf57f354f831a06eb41c8df8b0cac45c519c1a0782025a7beeab4a2f4` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 177 | `42ad6359f057aa2a4fae91864de37b8b4b1de97aab87d385242a69611a4ecc1b` |

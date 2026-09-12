@@ -488,7 +488,9 @@ Backend responsibilities:
 V1.0 providers:
 
 - ChatGPT subscription OAuth → GPT-5.6 series;
-- DeepSeek official API → `deepseek-chat` / `deepseek-reasoner`.
+- DeepSeek official API → `deepseek-v4-flash`, explicitly using `thinking.type: disabled` or `thinking.type: enabled`.
+
+The selected thinking mode is part of the immutable route/attempt snapshot and audit alongside the real model ID. Always send the explicit mode through CLIProxyAPI; do not rely on the upstream default or disguise either mode as a retired model name. This user-approved model-name clarification does not add a provider or relax the single-egress or financial guards.
 
 Cross-provider automatic fallback is OFF by default.
 

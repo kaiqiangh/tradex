@@ -216,8 +216,8 @@ CLIProxyAPI → ChatGPT
   gpt-5.6-luna
 
 CLIProxyAPI → DeepSeek official API
-  deepseek-chat
-  deepseek-reasoner
+  deepseek-v4-flash · Non-thinking
+  deepseek-v4-flash · Thinking
 ```
 
 Each row shows provider health and availability. The composer also shows the provider path for the next turn.

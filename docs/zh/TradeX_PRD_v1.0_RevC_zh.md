@@ -991,7 +991,7 @@ TradeX 使用 **Codex App Server / Codex Harness** 作为主要智能体运行�
 模型推理严格限制为两个来源,统一经由单一本地 OpenAI-compatible 端点:
 
 1. **CLIProxyAPI**(本地网关,固定版本):ChatGPT 订阅 OAuth(`--codex-login`)→ GPT-5.6 系列;
-2. **DeepSeek 官方 API**:`deepseek-chat` / `deepseek-reasoner`,作为 CLIProxyAPI 上游,密钥由 OS keychain 注入。
+2. **DeepSeek 官方 API**:`deepseek-v4-flash`，显式选择普通模式（`thinking.type: disabled`）或推理模式（`thinking.type: enabled`）,作为 CLIProxyAPI 上游,密钥由 OS keychain 注入。
 
 v1.0 不允许其他模型 provider。所有模型流量终止于 `127.0.0.1:8317`;TradeX、Codex、策略代码或研究工具都不得直接连接外部 LLM 端点(SEC-007)。
 
@@ -1001,7 +1001,7 @@ TradeX Desktop (React/Tauri)
       ▼
 Codex App Server ─── model_provider ───► CLIProxyAPI (127.0.0.1:8317)
       │                                  ├─ ChatGPT OAuth → GPT-5.6
-      │                                  └─ DeepSeek official API → deepseek-*
+      │                                  └─ DeepSeek official API → deepseek-v4-flash
       │
       └──────── TradeX Control Plane
                  Risk / Approval / Reservations / Order Gateway / Reconciliation
