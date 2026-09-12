@@ -203,6 +203,53 @@ fn deepseek_replacement_requires_a_stopped_gateway() {
 
 #[test]
 #[cfg(target_os = "macos")]
+fn cancelled_deepseek_entry_does_not_write_keychain_double() {
+    use tradex::gateway_process::GatewayHost;
+    use tradex::model_credentials::{MemoryModelVault, ModelVault};
+    use tradex::protocol::TradeXError;
+
+    let directory = tempfile::tempdir().unwrap();
+    let runtime = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let opened = command(&mut control, "workspace.open", json!({}));
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+    let current = command(
+        &mut control,
+        "model.get",
+        json!({"workspaceId":workspace_id}),
+    );
+    let request = json!({
+        "requestId":"cancel-configure",
+        "schemaVersion":1,
+        "command":"model.configure_deepseek",
+        "payload":{"workspaceId":workspace_id,"expectedStateVersion":current["data"]["stateVersion"]}
+    });
+    let job = control.prepare_model(&request).unwrap().unwrap();
+    let vault = MemoryModelVault::default();
+    let mut host = GatewayHost::new(runtime.path().into());
+    let outcome = tradex::model::run_job(
+        &job,
+        &mut host,
+        &vault,
+        || Err(TradeXError::new("MODEL_ENTRY_CANCELLED")),
+        || control.model_job_current(&job),
+    );
+    assert!(vault.get_deepseek(&workspace_id).is_err());
+    let reply = control.complete_model(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["deepseek"]["status"], "NOT_CONFIGURED");
+    assert_eq!(
+        reply["data"]["attempts"]
+            .as_array()
+            .unwrap()
+            .last()
+            .unwrap()["outcome"],
+        "CANCELLED"
+    );
+}
+
+#[test]
+#[cfg(target_os = "macos")]
 #[ignore = "Explicit native Keychain integration with a disposable synthetic model key"]
 fn native_model_keychain_roundtrip_is_workspace_scoped() {
     use tradex::model_credentials::{ModelKey, ModelVault, NativeModelVault};
