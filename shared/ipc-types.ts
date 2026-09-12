@@ -2,9 +2,14 @@
 
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ChatgptLoginAction".
+ */
+export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
  */
-export type DomainProjection = GatewayState | Workspace | AccountConnection;
+export type DomainProjection = GatewayState | ModelState | Workspace | AccountConnection;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayStatus".
@@ -19,6 +24,26 @@ export type GatewayStatus =
   | "BACKOFF"
   | "FAILED"
   | "STOPPING";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelAttemptOutcome".
+ */
+export type ModelAttemptOutcome = "VERIFIED" | "CONFIGURED" | "CANCELLED" | "FAILED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelProvider".
+ */
+export type ModelProvider = "CHATGPT" | "DEEPSEEK";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThinkingType".
+ */
+export type ThinkingType = "disabled" | "enabled";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelHealth".
+ */
+export type ModelHealth = "NOT_CONFIGURED" | "UNVERIFIED" | "VERIFYING" | "READY" | "FAILED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ConnectionState".
@@ -63,6 +88,7 @@ export type ReplyData =
   | RuntimeStatus
   | SubscriptionAck
   | GatewayState
+  | ModelState
   | ProviderCatalog
   | ProviderDefinition
   | Accounts
@@ -76,14 +102,18 @@ export interface IpcSchema {
   accountMutation: AccountMutation;
   accountQuery: AccountQuery;
   aggregate: Aggregate;
+  chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
+  configureDeepseek: ConfigureDeepseek;
   empty: EmptyPayload;
   event: DomainEvent;
   gatewayMutation: GatewayMutation;
+  modelQuery: ModelQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
   result: ResultEnvelope;
   subscribe: Subscribe;
+  verifyRoute: VerifyRoute;
   workspaceOpen: OpenWorkspace;
   workspaceQuery: WorkspaceQuery;
   [k: string]: unknown;
@@ -115,6 +145,15 @@ export interface Aggregate {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ChatgptLogin".
+ */
+export interface ChatgptLogin {
+  action: ChatgptLoginAction;
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CommandEnvelope".
  */
 export interface CommandEnvelope {
@@ -122,6 +161,14 @@ export interface CommandEnvelope {
   payload: unknown;
   requestId: string;
   schemaVersion: 1;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ConfigureDeepseek".
+ */
+export interface ConfigureDeepseek {
+  expectedStateVersion: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -134,9 +181,14 @@ export interface EmptyPayload {}
  */
 export interface DomainEvent {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model";
   eventId: string;
-  eventType: "workspace.opened" | "account.health.changed" | "model.gateway.changed";
+  eventType:
+    | "workspace.opened"
+    | "account.health.changed"
+    | "model.gateway.changed"
+    | "model.provider.changed"
+    | "model.provider_attempt.changed";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -161,6 +213,71 @@ export interface GatewayState {
   status: GatewayStatus;
   updatedAt: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelState".
+ */
+export interface ModelState {
+  /**
+   * @maxItems 100
+   */
+  attempts: ModelAttempt[];
+  chatgpt: ModelProviderState;
+  currentRoute?: ModelRoute | null;
+  deepseek: ModelProviderState;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelAttempt".
+ */
+export interface ModelAttempt {
+  attemptId: string;
+  endedAt: string;
+  errorCategory?: string | null;
+  modelId?: string | null;
+  outcome: ModelAttemptOutcome;
+  provider: ModelProvider;
+  quota?: ModelQuota | null;
+  startedAt: string;
+  thinkingType?: ThinkingType | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelQuota".
+ */
+export interface ModelQuota {
+  remaining?: number | null;
+  resetAt?: string | null;
+  window?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelProviderState".
+ */
+export interface ModelProviderState {
+  configured: boolean;
+  errorCode?: string | null;
+  lastVerifiedAt?: string | null;
+  provider: ModelProvider;
+  /**
+   * @maxItems 100
+   */
+  routes: ModelRoute[];
+  status: ModelHealth;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelRoute".
+ */
+export interface ModelRoute {
+  modelId: string;
+  provider: ModelProvider;
+  thinkingType?: ThinkingType | null;
+  verifiedAt?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -289,6 +406,13 @@ export interface GatewayMutation {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelQuery".
+ */
+export interface ModelQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ProviderSelection".
  */
 export interface ProviderSelection {
@@ -312,7 +436,7 @@ export interface SuccessEnvelope {
  */
 export interface Snapshot {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -341,7 +465,7 @@ export interface RuntimeComponent {
 export interface SubscriptionAck {
   afterSequence: number;
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model";
   lastSequence: number;
   replayedCount: number;
 }
@@ -426,6 +550,17 @@ export interface Subscribe {
   afterSequence: number;
   aggregateId: string;
   aggregateType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "VerifyRoute".
+ */
+export interface VerifyRoute {
+  expectedStateVersion: string;
+  modelId: string;
+  provider: ModelProvider;
+  thinkingType?: ThinkingType | null;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

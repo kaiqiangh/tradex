@@ -8,7 +8,7 @@
 
 ## Solution
 
-在入门 Model 步骤和 Settings 共用模型配置界面，由 Rust 管理固定版本 CLIProxyAPI。用户可启动网关、完成 ChatGPT OAuth，或通过原生安全输入配置 DeepSeek，然后验证模型、选择默认路由，并显式决定是否允许自动回退。五步入门保留 Workspace → Providers → Model → Risk Defaults → Ready 的顺序、返回编辑和重开恢复；Ready 摘要仅使用当前验证证据，所有 Live 账户仍为 DISARMED。
+在入门 Model 步骤和 Settings 共用模型配置界面，由 Rust 管理固定版本 CLIProxyAPI。用户可启动网关并完成 ChatGPT OAuth，或在网关停止时通过原生安全输入配置 DeepSeek，随后验证模型、选择默认路由，并显式决定是否允许自动回退。五步入门保留 Workspace → Providers → Model → Risk Defaults → Ready 的顺序、返回编辑和重开恢复；Ready 摘要仅使用当前验证证据，所有 Live 账户仍为 DISARMED。
 
 ## User Stories
 

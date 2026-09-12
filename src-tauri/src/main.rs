@@ -9,6 +9,8 @@ use tauri::{Manager, ipc::Channel};
 use tradex::{
     ControlPlane,
     gateway_process::GatewayHost,
+    model,
+    model_credentials::{ModelVault, NativeModelVault},
     native_credentials,
     protocol::{DomainEvent, TradeXError},
     provider_io::{BrokerHttp, NativeVault},
@@ -43,6 +45,38 @@ async fn control(
     let gateway = service.1.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
+        let model_job = match engine.lock() {
+            Ok(mut engine) => match engine.prepare_model(&request) {
+                Ok(job) => job,
+                Err(error) => return failed(&request, &error.code),
+            },
+            Err(_) => return failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
+        };
+        if let Some(job) = model_job {
+            let mut host = match gateway.lock() {
+                Ok(host) => host,
+                Err(_) => return failed(&request, "GATEWAY_PROCESS_FAILED"),
+            };
+            let outcome = model::run_job(
+                &job,
+                &mut host,
+                &NativeModelVault,
+                || tradex::model_credentials::capture(window.app_handle()),
+                || {
+                    engine
+                        .lock()
+                        .is_ok_and(|engine| engine.model_job_current(&job))
+                },
+            );
+            let reply = match engine.lock() {
+                Ok(mut engine) => engine.complete_model(&job, outcome),
+                Err(_) => failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
+            };
+            if reply["ok"] != true {
+                host.stop();
+            }
+            return reply;
+        }
         let gateway_job = match engine.lock() {
             Ok(mut engine) => match engine.prepare_gateway(&request) {
                 Ok(job) => job,
@@ -55,6 +89,11 @@ async fn control(
                 Ok(host) => host,
                 Err(_) => return failed(&request, "GATEWAY_PROCESS_FAILED"),
             };
+            if let Ok(key) = NativeModelVault.get_deepseek(job.workspace_id()) {
+                host.set_deepseek_key(Some(key.as_str()));
+            } else {
+                host.set_deepseek_key(None);
+            }
             let outcome = host.run(&job, || {
                 engine
                     .lock()

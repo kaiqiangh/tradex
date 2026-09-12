@@ -1,4 +1,5 @@
 use crate::gateway::{GatewayMutation, GatewayState};
+use crate::model::{ChatgptLogin, ConfigureDeepseek, ModelQuery, ModelState, VerifyRoute};
 use crate::providers::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -92,7 +93,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -129,6 +130,7 @@ pub enum ReplyData {
     Runtime(RuntimeStatus),
     Subscription(SubscriptionAck),
     Gateway(GatewayState),
+    Model(ModelState),
     ProviderCatalog(ProviderCatalog),
     ProviderDefinition(ProviderDefinition),
     Accounts(Accounts),
@@ -160,6 +162,10 @@ pub enum ResultEnvelope {
 #[serde(rename_all = "camelCase")]
 pub struct IpcSchema {
     pub gateway_mutation: GatewayMutation,
+    pub model_query: ModelQuery,
+    pub chatgpt_login: ChatgptLogin,
+    pub configure_deepseek: ConfigureDeepseek,
+    pub verify_route: VerifyRoute,
     pub command: CommandEnvelope,
     pub result: ResultEnvelope,
     pub event: DomainEvent,
@@ -184,7 +190,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 3))]
+    #[schemars(range(min = 1, max = 4))]
     pub storage_schema_version: u32,
 }
 
@@ -192,6 +198,7 @@ pub struct Workspace {
 #[serde(untagged)]
 pub enum DomainProjection {
     Gateway(GatewayState),
+    Model(ModelState),
     Workspace(Workspace),
     Account(Box<AccountConnection>),
 }
@@ -200,6 +207,7 @@ impl DomainProjection {
     pub fn id(&self) -> &str {
         match self {
             Self::Gateway(g) => &g.workspace_id,
+            Self::Model(m) => &m.workspace_id,
             Self::Workspace(w) => &w.workspace_id,
             Self::Account(a) => &a.connection_id,
         }
@@ -207,6 +215,7 @@ impl DomainProjection {
     pub fn kind(&self) -> &str {
         match self {
             Self::Gateway(_) => "model-gateway",
+            Self::Model(_) => "model",
             Self::Workspace(_) => "workspace",
             Self::Account(_) => "account",
         }
@@ -218,12 +227,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -235,7 +244,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -406,6 +415,86 @@ impl TradeXError {
                 "check_gateway",
                 "Check model gateway",
             ),
+            "MODEL_NATIVE_ENTRY_REQUIRED" => (
+                "Open the desktop app to configure this model securely.",
+                "open_desktop",
+                "Open TradeX",
+            ),
+            "MODEL_ENTRY_BUSY" => (
+                "Finish or cancel the open model credential window before starting another one.",
+                "finish_entry",
+                "Return to credential entry",
+            ),
+            "MODEL_ENTRY_CANCELLED" => (
+                "Model credential entry was cancelled. The previous configuration was preserved.",
+                "configure_model",
+                "Configure again",
+            ),
+            "MODEL_KEY_INVALID" => (
+                "Enter a valid printable DeepSeek API key, or cancel without saving.",
+                "configure_model",
+                "Configure again",
+            ),
+            "MODEL_KEYCHAIN_STORE_FAILED" => (
+                "The DeepSeek key could not be saved to OS Keychain. No file fallback was used.",
+                "configure_model",
+                "Retry secure entry",
+            ),
+            "MODEL_KEYCHAIN_MISSING" => (
+                "The DeepSeek OS Keychain key is unavailable. Configure it again.",
+                "configure_model",
+                "Configure DeepSeek",
+            ),
+            "MODEL_KEYCHAIN_DELETE_FAILED" => (
+                "The DeepSeek key could not be removed from OS Keychain. Retry the cleanup.",
+                "configure_model",
+                "Retry cleanup",
+            ),
+            "MODEL_PLATFORM_UNSUPPORTED" => (
+                "Secure model credentials are unavailable on this platform.",
+                "open_desktop",
+                "Open TradeX",
+            ),
+            "MODEL_ROUTE_INVALID" => (
+                "That provider/model route is not allowed by the current contract.",
+                "choose_model",
+                "Choose a supported model",
+            ),
+            "MODEL_UNAVAILABLE" => (
+                "The selected model route is unavailable. Retry its probe or choose another verified route.",
+                "retry_model",
+                "Retry model",
+            ),
+            "MODEL_OAUTH_EXPIRED" => (
+                "ChatGPT authorization expired or was rejected. Re-login before verifying the route.",
+                "login_chatgpt",
+                "Re-login ChatGPT",
+            ),
+            "MODEL_QUOTA_EXCEEDED" => (
+                "The model provider reported a quota limit. Wait for its known cooldown before retrying.",
+                "retry_model",
+                "Retry after cooldown",
+            ),
+            "MODEL_LOGIN_FAILED" => (
+                "ChatGPT authorization did not complete. Retry login; no token was imported into TradeX.",
+                "login_chatgpt",
+                "Login ChatGPT",
+            ),
+            "MODEL_LOGIN_TIMEOUT" => (
+                "ChatGPT authorization timed out. Retry login in the browser.",
+                "login_chatgpt",
+                "Login ChatGPT",
+            ),
+            "MODEL_TEST_INFERENCE_FAILED" => (
+                "The selected route did not complete the bounded setup inference.",
+                "retry_model",
+                "Retry model",
+            ),
+            "MODEL_NATIVE_REQUIRED" => (
+                "This model action is available only in the desktop app.",
+                "open_desktop",
+                "Open TradeX",
+            ),
             _ => (
                 "The control plane could not complete this operation.",
                 "reload_snapshot",
@@ -413,9 +502,23 @@ impl TradeXError {
             ),
         };
         Self {
-            category: if code.starts_with("GATEWAY_") {
+            category: if code.starts_with("GATEWAY_")
+                || matches!(
+                    code,
+                    "MODEL_UNAVAILABLE" | "MODEL_TEST_INFERENCE_FAILED" | "MODEL_KEYCHAIN_MISSING"
+                ) {
                 "MODEL_UNAVAILABLE"
-            } else if code == "PROVIDER_AUTH_FAILED" || code.starts_with("CREDENTIAL_") {
+            } else if matches!(
+                code,
+                "MODEL_OAUTH_EXPIRED" | "MODEL_LOGIN_FAILED" | "MODEL_LOGIN_TIMEOUT"
+            ) {
+                "OAUTH_EXPIRED"
+            } else if code == "MODEL_QUOTA_EXCEEDED" {
+                "QUOTA_EXCEEDED"
+            } else if code.starts_with("MODEL_")
+                || code == "PROVIDER_AUTH_FAILED"
+                || code.starts_with("CREDENTIAL_")
+            {
                 "AUTH_ERROR"
             } else if code == "PROVIDER_RATE_LIMITED" {
                 "RATE_LIMITED"
@@ -439,7 +542,17 @@ impl TradeXError {
             .into(),
             code: code.into(),
             message: message.into(),
-            retryable: matches!(code, "WORKSPACE_BUSY" | "WORKSPACE_OPEN_FAILED"),
+            retryable: matches!(
+                code,
+                "WORKSPACE_BUSY"
+                    | "WORKSPACE_OPEN_FAILED"
+                    | "MODEL_UNAVAILABLE"
+                    | "MODEL_OAUTH_EXPIRED"
+                    | "MODEL_QUOTA_EXCEEDED"
+                    | "MODEL_LOGIN_FAILED"
+                    | "MODEL_LOGIN_TIMEOUT"
+                    | "MODEL_TEST_INFERENCE_FAILED"
+            ),
             blocking: true,
             remediation_actions: vec![Remediation {
                 id: action.into(),

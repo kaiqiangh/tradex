@@ -8,7 +8,10 @@ declare const validators: {
   Accounts: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
+  ChatgptLogin: (value: unknown) => boolean;
+  ChatgptLoginAction: (value: unknown) => boolean;
   CommandEnvelope: (value: unknown) => boolean;
+  ConfigureDeepseek: (value: unknown) => boolean;
   Connect: (value: unknown) => boolean;
   ConnectionState: (value: unknown) => boolean;
   DomainEvent: (value: unknown) => boolean;
@@ -19,6 +22,15 @@ declare const validators: {
   GatewayMutation: (value: unknown) => boolean;
   GatewayState: (value: unknown) => boolean;
   GatewayStatus: (value: unknown) => boolean;
+  ModelAttempt: (value: unknown) => boolean;
+  ModelAttemptOutcome: (value: unknown) => boolean;
+  ModelHealth: (value: unknown) => boolean;
+  ModelProvider: (value: unknown) => boolean;
+  ModelProviderState: (value: unknown) => boolean;
+  ModelQuery: (value: unknown) => boolean;
+  ModelQuota: (value: unknown) => boolean;
+  ModelRoute: (value: unknown) => boolean;
+  ModelState: (value: unknown) => boolean;
   OpenOrder: (value: unknown) => boolean;
   OpenWorkspace: (value: unknown) => boolean;
   PermissionReview: (value: unknown) => boolean;
@@ -36,7 +48,9 @@ declare const validators: {
   Subscribe: (value: unknown) => boolean;
   SubscriptionAck: (value: unknown) => boolean;
   SuccessEnvelope: (value: unknown) => boolean;
+  ThinkingType: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;
+  VerifyRoute: (value: unknown) => boolean;
   Workspace: (value: unknown) => boolean;
   WorkspaceQuery: (value: unknown) => boolean;
 };

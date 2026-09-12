@@ -1786,7 +1786,7 @@ The following version-1 payloads define the first desktop vertical slice. All ob
 
 | Command | Payload | Success data |
 |---|---|---|
-| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`; omitted means the application default workspace directory; a supplied path must be an absolute directory path | Workspace projection: `{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 1}` and opaque `stateVersion` in the result envelope |
+| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`; omitted means the application default workspace directory; a supplied path must be an absolute directory path | Workspace projection: `{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 4}` and opaque `stateVersion` in the result envelope |
 | runtime.status | `{}` | `{components: [{id, status, message}], modelAvailable: boolean, liveExecutionAvailable: boolean}`; initial Codex/CLIProxyAPI status is `NOT_CONFIGURED`, never inferred healthy |
 | domain.snapshot | `{aggregateType: "workspace", aggregateId: string}` | `{aggregateType, aggregateId, projection: Workspace, lastSequence}` |
 | domain.subscribe | `{aggregateType: "workspace", aggregateId: string, afterSequence: number}` | `{aggregateType, aggregateId, afterSequence, lastSequence, replayedCount}` after all retained events through the acknowledged cursor have been delivered; subsequent events use the same transport channel |
@@ -1877,6 +1877,23 @@ LAUNCH may install the pinned artifact, then starts and probes the owned process
 A successful `/v1/models` probe means RUNNING, not modelAvailable. The lifecycle slice leaves modelAvailable false until an exact authorized route passes the later inference verification. Port conflict, unauthorized, stopped, failed startup/probe and exhausted restart budget use category MODEL_UNAVAILABLE with specific sanitized GATEWAY_* reason codes. Automatic crash recovery waits 1, 2, then 4 seconds, stops after three failed restarts, and exposes the next retry time. Explicit STOP or workspace replacement cancels pending retries. Successful stable operation may reset the budget only after 60 seconds. Ordinary model/provider failures never change financial state.
 
 Each committed transition appends `model.gateway.changed` under §42 with the complete `GatewayState` payload and strictly increasing aggregate sequence, atomically with its projection. Unchanged polling does not emit another event. Domain replay validates event type and aggregate/payload identity exactly as for workspace/accounts.
+
+### 41.5 Model provider connection payloads (S03 connection)
+
+The `model` aggregate uses `workspaceId` as its aggregate ID and contains only non-secret provider health, allowlisted route metadata and bounded setup-attempt provenance. It never contains OAuth tokens, DeepSeek keys, Keychain bytes, sidecar paths, broker references, raw response bodies or prompt content. A fresh process marks persisted provider configuration UNVERIFIED until a new route verification succeeds.
+
+| Command | Payload | Success data |
+|---|---|---|
+| model.get | `{workspaceId: string}` | `ModelState` |
+| model.login_chatgpt | `{workspaceId: string, expectedStateVersion: string, action: "LOGIN" \| "RELOGIN"}` | `ModelState` and opaque `stateVersion` |
+| model.configure_deepseek | `{workspaceId: string, expectedStateVersion: string}` | `ModelState` and opaque `stateVersion` |
+| model.verify_route | `{workspaceId: string, expectedStateVersion: string, provider: "CHATGPT" \| "DEEPSEEK", modelId: string, thinkingType: "disabled" \| "enabled" \| null}` | `ModelState` and opaque `stateVersion` |
+
+`model.login_chatgpt` starts the pinned sidecar `-codex-login` flow in its dedicated auth directory and observes only bounded exit/status; TradeX never reads or parses OAuth files. `model.configure_deepseek` accepts the key only through the trusted native secure-entry path, stores it in a model-only OS Keychain service and renders it into a private 0600 sidecar config when the gateway is (re)started. Cancellation and failed writes preserve the prior key and state.
+
+`model.verify_route` first authenticates the owned loopback gateway's `/v1/models` response, then sends a bounded fixed harmless prompt to the exact returned route. Only GPT-5.6 series IDs or `deepseek-v4-flash` with explicit `thinking.type: disabled|enabled` are eligible. A catalog hit without successful inference remains UNVERIFIED. Setup attempts are append-only and carry the real provider/model/mode, times, outcome, canonical error (`MODEL_UNAVAILABLE`, `OAUTH_EXPIRED`, `QUOTA_EXCEEDED`) and only known quota windows/cooldowns; raw bodies and prompts are discarded.
+
+`model.provider.changed` carries the complete sanitized `ModelState`; `model.provider_attempt.changed` carries the same state after an appended attempt. Both use contiguous `model` aggregate sequences and strict aggregate/payload identity during replay. These mutations never change account capability, risk, arming or approval state. A verified route is required before `modelAvailable` or onboarding Ready can become true; default selection and cross-provider fallback consent remain in the subsequent S03 tickets.
 
 ---
 

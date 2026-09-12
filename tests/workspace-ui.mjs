@@ -41,7 +41,17 @@ export async function checkWorkspaceUI(tab, browser) {
     await tab.getAXState({ emit: false });
     assert.equal(await ui.getByText('Local workspace control is available.', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('No model provider is configured. Agent turns and onboarding Ready remain unavailable.', { exact: true }).isVisible(), true);
-    observed.push('The Rust control plane is available; unconfigured model routes do not allow onboarding Ready.');
+    assert.equal(await ui.getByRole('heading', { name: 'CLIProxyAPI → ChatGPT', exact: true }).isVisible(), true);
+    assert.equal(await ui.getByRole('heading', { name: 'CLIProxyAPI → DeepSeek', exact: true }).isVisible(), true);
+    assert.equal(await ui.locator('input[type="password"]').count(), 0, 'Model keys must never have renderer inputs');
+    assert.equal(await ui.getByRole('button', { name: 'Login ChatGPT', exact: true }).isEnabled(), false, 'OAuth requires the running owned gateway');
+    assert.equal(await ui.getByRole('button', { name: 'Verify route', exact: true }).count(), 2);
+    assert.equal(await ui.getByRole('button', { name: 'Verify route', exact: true }).nth(0).isEnabled(), false);
+    await ui.getByRole('button', { name: 'Configure DeepSeek key', exact: true }).click();
+    await tab.getAXState({ emit: false });
+    assert.equal(await ui.getByText('Configured · verification required', { exact: true }).isVisible(), true);
+    assert.equal(await ui.getByText(/Current verified route:/).count(), 0);
+    observed.push('Settings exposes both model sources, keeps keys out of renderer inputs, requires the owned gateway for verification, and records secure DeepSeek configuration as unverified until inference succeeds.');
 
     const destinations = ['+ New Thread', 'Threads', 'Markets', 'Watchlists', 'Accounts', 'Strategies', 'Artifacts', 'Settings'];
     for (const width of [768, 390]) {

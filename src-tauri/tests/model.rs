@@ -1,0 +1,131 @@
+use serde_json::{Value, json};
+use std::sync::{Arc, Mutex};
+use tradex::ControlPlane;
+
+fn command(control: &mut ControlPlane, name: &str, payload: Value) -> Value {
+    control.dispatch(json!({
+        "requestId": "model-test", "schemaVersion": 1,
+        "command": name, "payload": payload
+    }))
+}
+
+#[test]
+fn model_state_is_workspace_scoped_and_replayed_as_sanitized_metadata() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let opened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+    let state = command(
+        &mut control,
+        "model.get",
+        json!({"workspaceId": workspace_id}),
+    );
+    assert_eq!(state["ok"], true, "{state}");
+    assert_eq!(state["data"]["chatgpt"]["status"], "NOT_CONFIGURED");
+    assert_eq!(state["data"]["deepseek"]["status"], "NOT_CONFIGURED");
+    assert_eq!(state["data"]["attempts"].as_array().unwrap().len(), 0);
+    let snapshot = command(
+        &mut control,
+        "domain.snapshot",
+        json!({"aggregateType":"model", "aggregateId":workspace_id}),
+    );
+    assert_eq!(snapshot["data"]["projection"], state["data"]);
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let target = events.clone();
+    let ack = control.dispatch_with_events(
+        json!({"requestId":"model-subscribe", "schemaVersion":1, "command":"domain.subscribe",
+            "payload":{"aggregateType":"model","aggregateId":workspace_id,"afterSequence":0}}),
+        "model-test",
+        Some(Arc::new(move |event| {
+            target.lock().unwrap().push(event);
+            true
+        })),
+    );
+    assert_eq!(ack["ok"], true, "{ack}");
+    assert_eq!(ack["data"]["replayedCount"], 1);
+    let event = &events.lock().unwrap()[0];
+    assert_eq!(event.event_type, "model.provider.changed");
+    let encoded = serde_json::to_string(event).unwrap();
+    assert!(!encoded.contains("integration-test-key"));
+    assert!(!encoded.contains("api.deepseek.com"));
+    let foreign = command(&mut control, "model.get", json!({"workspaceId":"foreign"}));
+    assert_eq!(foreign["error"]["code"], "IPC_AGGREGATE_NOT_FOUND");
+    let invalid = command(
+        &mut control,
+        "model.get",
+        json!({"workspaceId": workspace_id, "key":"secret"}),
+    );
+    assert_eq!(invalid["error"]["code"], "IPC_PAYLOAD_INVALID");
+}
+
+#[test]
+fn model_mutations_require_native_boundary_and_exact_routes() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let opened = command(&mut control, "workspace.open", json!({}));
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+    let state = command(
+        &mut control,
+        "model.get",
+        json!({"workspaceId":workspace_id}),
+    );
+    let version = state["data"]["stateVersion"].as_str().unwrap();
+    let native = command(
+        &mut control,
+        "model.configure_deepseek",
+        json!({"workspaceId":workspace_id,"expectedStateVersion":version}),
+    );
+    assert_eq!(native["error"]["code"], "MODEL_NATIVE_REQUIRED");
+    let native_login = command(
+        &mut control,
+        "model.login_chatgpt",
+        json!({"workspaceId":workspace_id,"expectedStateVersion":version,"action":"LOGIN"}),
+    );
+    assert_eq!(native_login["error"]["code"], "MODEL_NATIVE_REQUIRED");
+    let invalid = control.prepare_model(&json!({
+        "requestId":"route", "schemaVersion":1, "command":"model.verify_route",
+        "payload":{"workspaceId":workspace_id,"expectedStateVersion":version,"provider":"DEEPSEEK","modelId":"deepseek-chat","thinkingType":"disabled"}
+    }));
+    assert_eq!(invalid.err().unwrap().code, "MODEL_ROUTE_INVALID");
+    let stale = control.prepare_model(&json!({
+        "requestId":"route", "schemaVersion":1, "command":"model.verify_route",
+        "payload":{"workspaceId":workspace_id,"expectedStateVersion":"stale","provider":"DEEPSEEK","modelId":"deepseek-v4-flash","thinkingType":"disabled"}
+    }));
+    assert_eq!(stale.err().unwrap().code, "STATE_VERSION_CONFLICT");
+}
+
+#[test]
+fn model_failures_keep_canonical_attempt_categories() {
+    assert_eq!(
+        tradex::protocol::TradeXError::new("MODEL_TEST_INFERENCE_FAILED").category,
+        "MODEL_UNAVAILABLE"
+    );
+    assert_eq!(
+        tradex::protocol::TradeXError::new("MODEL_LOGIN_TIMEOUT").category,
+        "OAUTH_EXPIRED"
+    );
+    assert_eq!(
+        tradex::protocol::TradeXError::new("MODEL_QUOTA_EXCEEDED").category,
+        "QUOTA_EXCEEDED"
+    );
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+#[ignore = "Explicit native Keychain integration with a disposable synthetic model key"]
+fn native_model_keychain_roundtrip_is_workspace_scoped() {
+    use tradex::model_credentials::{ModelKey, ModelVault, NativeModelVault};
+
+    let workspace = format!("model-test-{}", uuid::Uuid::new_v4());
+    let other = format!("model-test-{}", uuid::Uuid::new_v4());
+    let key = ModelKey::new("integration-test-model-key".into()).unwrap();
+    NativeModelVault.put_deepseek(&workspace, &key).unwrap();
+    assert_eq!(
+        NativeModelVault.get_deepseek(&workspace).unwrap().as_str(),
+        key.as_str()
+    );
+    assert!(NativeModelVault.get_deepseek(&other).is_err());
+    NativeModelVault.remove_deepseek(&workspace).unwrap();
+    assert!(NativeModelVault.get_deepseek(&workspace).is_err());
+}

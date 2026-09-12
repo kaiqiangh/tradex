@@ -5,7 +5,7 @@ import { request, subscribe } from './client.ts';
 import { applyEvent } from './projection.ts';
 import type { Projection } from './projection.ts';
 
-export function useDomainProjection<T extends DomainProjection>(kind: 'workspace' | 'account' | 'model-gateway', id: string | undefined, read: (value: unknown) => Projection<T>) {
+export function useDomainProjection<T extends DomainProjection>(kind: 'workspace' | 'account' | 'model-gateway' | 'model', id: string | undefined, read: (value: unknown) => Projection<T>) {
   const queryClient = useQueryClient();
   const [projection, setProjection] = useState<Projection<T> | null>(null);
   const [streamError, setStreamError] = useState<unknown>(null);

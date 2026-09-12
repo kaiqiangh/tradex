@@ -1,5 +1,6 @@
 //! Owned CLIProxyAPI process. No renderer-supplied paths, arguments or credentials.
 use crate::gateway::{GatewayAction, GatewayJob, GatewayState, GatewayStatus};
+use crate::model::ModelQuota;
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
@@ -35,6 +36,8 @@ pub struct GatewayHost {
     workspace: Option<String>,
     config: Option<PathBuf>,
     key: Zeroizing<String>,
+    deepseek_key: Zeroizing<String>,
+    last_quota: Option<ModelQuota>,
     owner_session: Option<String>,
     next_probe: Instant,
     stable_since: Option<Instant>,
@@ -88,6 +91,31 @@ fn digest(path: &Path) -> Result<String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
+fn quota_metadata(response: &reqwest::blocking::Response) -> Option<ModelQuota> {
+    let header = |name: &str| {
+        response
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| {
+                !value.is_empty() && value.len() <= 64 && !value.chars().any(char::is_control)
+            })
+    };
+    let remaining = header("x-ratelimit-remaining").and_then(|value| value.parse::<u64>().ok());
+    let retry_after = header("retry-after")
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|seconds| *seconds <= 86_400);
+    let reset_at = header("x-ratelimit-reset").map(str::to_owned);
+    if remaining.is_none() && retry_after.is_none() && reset_at.is_none() {
+        return None;
+    }
+    Some(ModelQuota {
+        window: retry_after.map(|seconds| format!("retry-after:{seconds}s")),
+        reset_at,
+        remaining,
+    })
+}
+
 impl GatewayHost {
     pub fn new(root: PathBuf) -> Self {
         Self {
@@ -97,6 +125,8 @@ impl GatewayHost {
             workspace: None,
             config: None,
             key: Zeroizing::new(String::new()),
+            deepseek_key: Zeroizing::new(String::new()),
+            last_quota: None,
             owner_session: None,
             next_probe: Instant::now(),
             stable_since: None,
@@ -104,6 +134,10 @@ impl GatewayHost {
             restart_attempts: 0,
             retry_pending: false,
         }
+    }
+
+    pub fn set_deepseek_key(&mut self, key: Option<&str>) {
+        self.deepseek_key = Zeroizing::new(key.unwrap_or_default().to_owned());
     }
 
     fn install(&mut self) -> Result<PathBuf> {
@@ -262,6 +296,8 @@ impl GatewayHost {
             true
         };
         self.key = Zeroizing::new(String::new());
+        self.deepseek_key = Zeroizing::new(String::new());
+        self.last_quota = None;
         self.workspace = None;
         if cleaned {
             self.runtime_lock = None;
@@ -293,7 +329,7 @@ impl GatewayHost {
                 .any(|line| line == "n127.0.0.1:8317"))
     }
 
-    fn probe(&mut self) -> Result<u32> {
+    pub fn discover_models(&mut self) -> Result<Vec<String>> {
         if !self.owned_listener()? {
             return Err("GATEWAY_PROCESS_FAILED");
         }
@@ -330,14 +366,146 @@ impl GatewayHost {
             .and_then(|v| v.as_array())
             .filter(|v| v.len() <= 1000)
             .ok_or("GATEWAY_PROBE_FAILED")?;
-        if models.iter().any(|m| {
-            m.get("id").and_then(|v| v.as_str()).is_none_or(|id| {
-                id.is_empty() || id.len() > 128 || id.chars().any(char::is_control)
+        models
+            .iter()
+            .map(|model| {
+                let id = model
+                    .get("id")
+                    .and_then(|value| value.as_str())
+                    .ok_or("GATEWAY_PROBE_FAILED")?;
+                if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
+                    return Err("GATEWAY_PROBE_FAILED");
+                }
+                Ok(id.to_owned())
             })
-        }) {
-            return Err("GATEWAY_PROBE_FAILED");
+            .collect()
+    }
+
+    fn probe(&mut self) -> Result<u32> {
+        Ok(self.discover_models()?.len() as u32)
+    }
+
+    pub fn test_inference(&mut self, model_id: &str, thinking_type: Option<&str>) -> Result<()> {
+        if !self.owned_listener()? {
+            return Err("GATEWAY_PROCESS_FAILED");
         }
-        Ok(models.len() as u32)
+        if model_id.is_empty() || model_id.len() > 128 || model_id.chars().any(char::is_control) {
+            return Err("MODEL_ROUTE_INVALID");
+        }
+        let mut body = serde_json::json!({
+            "model": model_id,
+            "messages": [{"role":"user","content":"Reply with exactly: OK"}],
+            "max_tokens": 16,
+            "temperature": 0,
+            "stream": false
+        });
+        if let Some(mode) = thinking_type {
+            body["thinking"] = serde_json::json!({"type": mode});
+        }
+        let client = reqwest::blocking::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_secs(1))
+            .timeout(Duration::from_secs(5))
+            .build()
+            .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
+        let request_body = serde_json::to_vec(&body).map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
+        let response = client
+            .post("http://127.0.0.1:8317/v1/chat/completions")
+            .bearer_auth(self.key.as_str())
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(request_body)
+            .send()
+            .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
+        self.last_quota = quota_metadata(&response);
+        let status = response.status().as_u16();
+        if status == 401 {
+            return Err(if model_id == "deepseek-v4-flash" {
+                "MODEL_UNAVAILABLE"
+            } else {
+                "MODEL_OAUTH_EXPIRED"
+            });
+        }
+        if status == 429 {
+            return Err("MODEL_QUOTA_EXCEEDED");
+        }
+        if status == 404 {
+            return Err("MODEL_UNAVAILABLE");
+        }
+        if !response.status().is_success() {
+            return Err("MODEL_TEST_INFERENCE_FAILED");
+        }
+        let mut bytes = Zeroizing::new(Vec::new());
+        response
+            .take(1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
+        if bytes.len() > 1024 * 1024 {
+            return Err("MODEL_TEST_INFERENCE_FAILED");
+        }
+        let value: serde_json::Value =
+            serde_json::from_slice(&bytes).map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
+        if value
+            .get("choices")
+            .and_then(|choices| choices.as_array())
+            .is_none_or(|choices| choices.is_empty())
+        {
+            return Err("MODEL_TEST_INFERENCE_FAILED");
+        }
+        Ok(())
+    }
+
+    pub fn take_last_quota(&mut self) -> Option<ModelQuota> {
+        self.last_quota.take()
+    }
+
+    pub fn login_chatgpt(&mut self, current: impl Fn() -> bool) -> Result<()> {
+        if !current() {
+            return Err("STATE_VERSION_CONFLICT");
+        }
+        let binary = self.root.join("cli-proxy-api-7.2.155");
+        if digest(&binary)? != EXECUTABLE_SHA {
+            return Err("GATEWAY_BINARY_INVALID");
+        }
+        let config = self.config.clone().ok_or("GATEWAY_STOPPED")?;
+        if self.child.is_none() {
+            return Err("GATEWAY_STOPPED");
+        }
+        let runtime = config.parent().ok_or("GATEWAY_STORAGE_FAILED")?;
+        let config_arg = config.to_string_lossy().into_owned();
+        let mut login = Command::new(binary)
+            .args(["-config", config_arg.as_str(), "-codex-login"])
+            .current_dir(runtime)
+            .env_clear()
+            .env("HOME", runtime.join("home"))
+            .env("TMPDIR", runtime)
+            .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|_| "MODEL_LOGIN_FAILED")?;
+        let deadline = Instant::now() + Duration::from_secs(120);
+        loop {
+            if !current() {
+                let _ = login.kill();
+                let _ = login.wait();
+                return Err("STATE_VERSION_CONFLICT");
+            }
+            if let Some(status) = login.try_wait().map_err(|_| "MODEL_LOGIN_FAILED")? {
+                return if status.success() {
+                    Ok(())
+                } else {
+                    Err("MODEL_LOGIN_FAILED")
+                };
+            }
+            if Instant::now() >= deadline {
+                let _ = login.kill();
+                let _ = login.wait();
+                return Err("MODEL_LOGIN_TIMEOUT");
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 
     pub fn run(&mut self, job: &GatewayJob, current: impl Fn() -> bool) -> GatewayState {
@@ -522,11 +690,20 @@ impl GatewayHost {
                     uuid::Uuid::new_v4().simple(),
                     uuid::Uuid::new_v4().simple()
                 ));
-                let settings = serde_json::json!({"host":"127.0.0.1","port":8317,"auth-dir":runtime.join("auth"),"api-keys":[self.key.as_str()],
+                let mut settings = serde_json::json!({"host":"127.0.0.1","port":8317,"auth-dir":runtime.join("auth"),"api-keys":[self.key.as_str()],
                     "remote-management":{"allow-remote":false,"secret-key":"","disable-control-panel":true,"disable-auto-update-panel":true},
                     "commercial-mode":true,"logging-to-file":false,"debug":false,"request-log":false,"usage-statistics-enabled":false,
                     "plugins":{"enabled":false},"request-retry":0,"max-retry-credentials":1,"max-retry-interval":0,
                     "quota-exceeded":{"switch-project":false,"switch-preview-model":false},"pprof":{"enable":false}});
+                if !self.deepseek_key.is_empty() {
+                    settings["openai-compatibility"] = serde_json::json!([{
+                        "name":"deepseek",
+                        "base-url":"https://api.deepseek.com/v1",
+                        "request-retry":0,
+                        "api-key-entries":[{"api-key":self.deepseek_key.as_str(),"proxy-url":"direct"}],
+                        "models":[{"name":"deepseek-v4-flash","alias":"deepseek-v4-flash"}]
+                    }]);
+                }
                 let encoded = Zeroizing::new(
                     serde_json::to_vec(&settings).map_err(|_| "GATEWAY_STORAGE_FAILED")?,
                 );

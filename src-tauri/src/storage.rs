@@ -4,11 +4,12 @@ use std::{
     time::Duration,
 };
 
-use rusqlite::{Connection, TransactionBehavior, params};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
 use crate::gateway::GatewayState;
+use crate::model::ModelState;
 use crate::protocol::{
     DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result, Snapshot,
     SubscriptionAck, TradeXError, Workspace,
@@ -16,7 +17,7 @@ use crate::protocol::{
 use crate::providers::{AccountConnection, ConnectionState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-const SCHEMA_VERSION: u32 = 3;
+const SCHEMA_VERSION: u32 = 4;
 
 pub struct Store {
     connection: Connection,
@@ -142,7 +143,12 @@ impl Store {
                     UNIQUE(provider_id,environment,remote_identity));
                 PRAGMA user_version=2;").map_err(storage_error)?;
             }
-            tx.execute_batch("CREATE TABLE model_gateway (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sequence INTEGER NOT NULL CHECK(sequence>0), projection TEXT NOT NULL); PRAGMA user_version=3;").map_err(storage_error)?;
+            if version < 3 {
+                tx.execute_batch("CREATE TABLE model_gateway (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sequence INTEGER NOT NULL CHECK(sequence>0), projection TEXT NOT NULL); PRAGMA user_version=3;").map_err(storage_error)?;
+            }
+            if version < 4 {
+                tx.execute_batch("CREATE TABLE model_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sequence INTEGER NOT NULL CHECK(sequence>0), projection TEXT NOT NULL); PRAGMA user_version=4;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -268,13 +274,16 @@ impl Store {
                 || event.schema_version != 1
                 || event.aggregate_id != snapshot.aggregate_id
                 || event.aggregate_type != kind
-                || event.event_type
-                    != match kind {
-                        "workspace" => "workspace.opened",
-                        "account" => "account.health.changed",
-                        "model-gateway" => "model.gateway.changed",
-                        _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
-                    }
+                || match kind {
+                    "workspace" => event.event_type != "workspace.opened",
+                    "account" => event.event_type != "account.health.changed",
+                    "model-gateway" => event.event_type != "model.gateway.changed",
+                    "model" => !matches!(
+                        event.event_type.as_str(),
+                        "model.provider.changed" | "model.provider_attempt.changed"
+                    ),
+                    _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+                }
                 || event.payload.id() != snapshot.aggregate_id
                 || event.payload.kind() != kind
             {
@@ -356,6 +365,23 @@ impl Store {
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
+        if kind == "model" && self.workspace_id()? == id {
+            let model = self.model()?;
+            let sequence: i64 = self
+                .connection
+                .query_row(
+                    "SELECT sequence FROM model_state WHERE singleton=1",
+                    [],
+                    |r| r.get(0),
+                )
+                .map_err(storage_error)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::Model(model),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
         if kind != "account" {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
@@ -386,6 +412,91 @@ impl Store {
             )
             .map_err(storage_error)?;
         serde_json::from_str(&data).map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+    }
+
+    pub fn model(&self) -> Result<ModelState> {
+        let data: String = self
+            .connection
+            .query_row(
+                "SELECT projection FROM model_state WHERE singleton=1",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        serde_json::from_str(&data).map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+    }
+
+    pub fn model_or_new(&self) -> Result<ModelState> {
+        let data: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT projection FROM model_state WHERE singleton=1",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        match data {
+            Some(data) => serde_json::from_str(&data)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+            None => Ok(ModelState::new(self.workspace_id()?)),
+        }
+    }
+
+    pub fn save_model(&mut self, mut model: ModelState, event_type: &str) -> Result<DomainEvent> {
+        if model.workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if !matches!(
+            event_type,
+            "model.provider.changed" | "model.provider_attempt.changed"
+        ) {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let previous: i64 = tx
+            .query_row(
+                "SELECT COALESCE((SELECT sequence FROM model_state WHERE singleton=1),0)",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        if previous < 0 || previous >= MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let sequence = previous + 1;
+        model.state_version = format!("model:{}:{}", model.workspace_id, sequence);
+        model.updated_at = timestamp()?;
+        tx.execute(
+            "INSERT INTO model_state VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET sequence=excluded.sequence,projection=excluded.projection",
+            params![sequence, serde_json::to_string(&model).map_err(storage_error)?],
+        )
+        .map_err(storage_error)?;
+        let event = DomainEvent {
+            event_id: Uuid::new_v4().to_string(),
+            event_type: event_type.into(),
+            schema_version: 1,
+            occurred_at: model.updated_at.clone(),
+            aggregate_type: "model".into(),
+            aggregate_id: model.workspace_id.clone(),
+            sequence: sequence as u64,
+            payload: DomainProjection::Model(model),
+        };
+        tx.execute(
+            "INSERT INTO outbox VALUES('model',?1,?2,?3,?4)",
+            params![
+                event.aggregate_id,
+                sequence,
+                event.event_id,
+                serde_json::to_string(&event).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(event)
     }
 
     pub fn save_gateway(&mut self, mut gateway: GatewayState) -> Result<DomainEvent> {

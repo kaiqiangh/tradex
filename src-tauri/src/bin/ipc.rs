@@ -23,6 +23,8 @@ fn main() -> io::Result<()> {
         std::env::temp_dir().join(format!("tradex-model-ui-{}", uuid::Uuid::new_v4()));
     #[cfg(all(feature = "integration-test", target_os = "macos"))]
     let mut gateway = tradex::gateway_process::GatewayHost::new(runtime_path.clone());
+    #[cfg(all(feature = "integration-test", target_os = "macos"))]
+    let model_vault = tradex::model_credentials::MemoryModelVault::default();
     let output = Arc::new(Mutex::new(io::stdout()));
     let event_output = output.clone();
     let sink: EventSink = Arc::new(move |event| {
@@ -79,9 +81,8 @@ fn main() -> io::Result<()> {
             #[cfg(not(feature = "integration-test"))]
             let result = control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()));
             #[cfg(all(feature = "integration-test", target_os = "macos"))]
-            let result = if request.get("command").and_then(Value::as_str) == Some("model.gateway")
-            {
-                match control.prepare_gateway(&request) {
+            let result = match request.get("command").and_then(Value::as_str) {
+                Some("model.gateway") => match control.prepare_gateway(&request) {
                     Ok(Some(job)) => {
                         let outcome = gateway.run(&job, || control.gateway_job_current(&job));
                         control.complete_gateway(&job, outcome)
@@ -90,9 +91,34 @@ fn main() -> io::Result<()> {
                     Err(error) => {
                         json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
                     }
+                },
+                Some("model.configure_deepseek") | Some("model.verify_route") => {
+                    match control.prepare_model(&request) {
+                        Ok(Some(job)) => {
+                            let outcome = tradex::model::run_job(
+                                &job,
+                                &mut gateway,
+                                &model_vault,
+                                || {
+                                    tradex::model_credentials::ModelKey::new(
+                                        "integration-test-key".into(),
+                                    )
+                                },
+                                || control.model_job_current(&job),
+                            );
+                            control.complete_model(&job, outcome)
+                        }
+                        Ok(None) => result,
+                        Err(error) => {
+                            json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
+                        }
+                    }
                 }
-            } else {
-                result
+                Some("model.login_chatgpt") => json!({
+                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                    "error":tradex::protocol::TradeXError::new("MODEL_NATIVE_REQUIRED")
+                }),
+                _ => result,
             };
             write_frame(&output, &json!({"kind":"result", "result":result}))?;
             frame.clear();

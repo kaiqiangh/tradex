@@ -27,6 +27,12 @@ pub struct GatewayJob {
     pub(crate) state: GatewayState,
 }
 
+impl GatewayJob {
+    pub fn workspace_id(&self) -> &str {
+        &self.state.workspace_id
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GatewayStatus {

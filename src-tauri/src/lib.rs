@@ -1,6 +1,9 @@
 pub mod gateway;
 #[cfg(target_os = "macos")]
 pub mod gateway_process;
+pub mod model;
+#[cfg(target_os = "macos")]
+pub mod model_credentials;
 #[cfg(all(feature = "desktop", target_os = "macos"))]
 pub mod native_credentials;
 pub mod protocol;
@@ -110,6 +113,9 @@ impl ControlPlane {
                     let mut store = Store::open(path, &input)?;
                     store.mark_accounts_stale()?;
                     store.save_gateway(gateway::GatewayState::stopped(store.workspace_id()?))?;
+                    let mut model = store.model_or_new()?;
+                    model.reset_for_session();
+                    store.save_model(model, "model.provider.changed")?;
                     let event = store.record_open()?;
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.store = Some(store);
@@ -125,8 +131,35 @@ impl ControlPlane {
                 let version = state.state_version.clone();
                 Ok((json!(state), Some(version)))
             }
+            "model.get" => {
+                let input: model::ModelQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let state = self.store.as_ref().unwrap().model()?;
+                let version = state.state_version.clone();
+                Ok((json!(state), Some(version)))
+            }
+            "model.login_chatgpt" | "model.configure_deepseek" | "model.verify_route" => {
+                Err(TradeXError::new("MODEL_NATIVE_REQUIRED"))
+            }
             "runtime.status" => {
                 let _: EmptyPayload = payload(request.payload)?;
+                let gateway_running = self
+                    .store
+                    .as_ref()
+                    .and_then(|store| store.gateway().ok())
+                    .is_some_and(|gateway| gateway.status == gateway::GatewayStatus::Running);
+                let model_available = gateway_running
+                    && self
+                        .store
+                        .as_ref()
+                        .and_then(|store| store.model().ok())
+                        .is_some_and(|model| {
+                            model.current_route.as_ref().is_some_and(|route| {
+                                route.verified_at.is_some()
+                                    && model.provider(&route.provider).status
+                                        == model::ModelHealth::Ready
+                            })
+                        });
                 let runtime = RuntimeStatus {
                     components: vec![
                         RuntimeComponent {
@@ -158,7 +191,7 @@ impl ControlPlane {
                             message: "Live execution is unavailable.".into(),
                         },
                     ],
-                    model_available: false,
+                    model_available,
                     live_execution_available: false,
                 };
                 Ok((json!(runtime), None))
@@ -409,6 +442,210 @@ impl ControlPlane {
                 json!({"requestId":job.request_id,"schemaVersion":1,"ok":false,"error":error})
             }
         }
+    }
+
+    pub fn prepare_model(&mut self, value: &Value) -> Result<Option<model::ModelJob>> {
+        let command = value.get("command").and_then(Value::as_str);
+        let (request, action, provider) = match command {
+            Some("model.login_chatgpt") => {
+                let request: CommandEnvelope = payload(value.clone())?;
+                let input: model::ChatgptLogin = payload(request.payload.clone())?;
+                (
+                    request,
+                    model::ModelAction::LoginChatgpt(input.action),
+                    model::ModelProvider::Chatgpt,
+                )
+            }
+            Some("model.configure_deepseek") => {
+                let request: CommandEnvelope = payload(value.clone())?;
+                let _input: model::ConfigureDeepseek = payload(request.payload.clone())?;
+                (
+                    request,
+                    model::ModelAction::ConfigureDeepseek,
+                    model::ModelProvider::Deepseek,
+                )
+            }
+            Some("model.verify_route") => {
+                let request: CommandEnvelope = payload(value.clone())?;
+                let input: model::VerifyRoute = payload(request.payload.clone())?;
+                if !model::allowed_route(
+                    &input.provider,
+                    &input.model_id,
+                    input.thinking_type.as_ref(),
+                ) {
+                    return Err(TradeXError::new("MODEL_ROUTE_INVALID"));
+                }
+                let provider = input.provider.clone();
+                (
+                    request,
+                    model::ModelAction::VerifyRoute {
+                        provider: input.provider,
+                        model_id: input.model_id,
+                        thinking_type: input.thinking_type,
+                    },
+                    provider,
+                )
+            }
+            _ => return Ok(None),
+        };
+        if request.schema_version != 1 {
+            return Err(TradeXError::new("IPC_SCHEMA_UNSUPPORTED"));
+        }
+        if request.request_id.is_empty() || request.request_id.len() > 128 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let (workspace_id, expected) = match &action {
+            model::ModelAction::LoginChatgpt(_) => {
+                let input: model::ChatgptLogin = payload(request.payload.clone())?;
+                (input.workspace_id, input.expected_state_version)
+            }
+            model::ModelAction::ConfigureDeepseek => {
+                let input: model::ConfigureDeepseek = payload(request.payload.clone())?;
+                (input.workspace_id, input.expected_state_version)
+            }
+            model::ModelAction::VerifyRoute { .. } => {
+                let input: model::VerifyRoute = payload(request.payload.clone())?;
+                (input.workspace_id, input.expected_state_version)
+            }
+        };
+        self.require_workspace(&workspace_id)?;
+        if expected.is_empty() || expected.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let previous = self.store.as_ref().unwrap().model()?;
+        if previous.state_version != expected {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if previous.provider(&provider).status == model::ModelHealth::Verifying {
+            return Err(TradeXError::new("MODEL_BUSY"));
+        }
+        if matches!(&action, model::ModelAction::VerifyRoute { .. })
+            && !previous.provider(&provider).configured
+        {
+            return Err(match provider {
+                model::ModelProvider::Chatgpt => TradeXError::new("MODEL_OAUTH_EXPIRED"),
+                model::ModelProvider::Deepseek => TradeXError::new("MODEL_KEYCHAIN_MISSING"),
+            });
+        }
+        let mut state = previous.clone();
+        state.provider_mut(&provider).status = model::ModelHealth::Verifying;
+        state.provider_mut(&provider).error_code = None;
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(state.clone(), "model.provider.changed")?;
+        self.publish(&event);
+        let DomainProjection::Model(state) = event.payload else {
+            unreachable!()
+        };
+        Ok(Some(model::ModelJob {
+            request_id: request.request_id,
+            session: self.session.clone(),
+            action,
+            previous,
+            state,
+        }))
+    }
+
+    pub fn model_job_current(&self, job: &model::ModelJob) -> bool {
+        job.session == self.session
+            && self.store.as_ref().is_some_and(|store| {
+                store
+                    .model()
+                    .is_ok_and(|state| state.state_version == job.state.state_version)
+            })
+    }
+
+    pub fn complete_model(&mut self, job: &model::ModelJob, outcome: model::ModelOutcome) -> Value {
+        if !self.model_job_current(job) {
+            return json!({"requestId":job.request_id,"schemaVersion":1,"ok":false,"error":TradeXError::new("STATE_VERSION_CONFLICT")});
+        }
+        let provider = match &job.action {
+            model::ModelAction::LoginChatgpt(_) => model::ModelProvider::Chatgpt,
+            model::ModelAction::ConfigureDeepseek => model::ModelProvider::Deepseek,
+            model::ModelAction::VerifyRoute { provider, .. } => provider.clone(),
+        };
+        let mut state = if let Some(error) = &outcome.error {
+            let mut restored = job.previous.clone();
+            let provider_state = restored.provider_mut(&provider);
+            if error.code == "MODEL_ENTRY_CANCELLED" {
+                provider_state.error_code = None;
+            } else {
+                provider_state.status = if provider_state.configured {
+                    model::ModelHealth::Failed
+                } else {
+                    model::ModelHealth::NotConfigured
+                };
+                provider_state.error_code = Some(error.code.clone());
+            }
+            restored
+        } else {
+            let mut completed = job.state.clone();
+            if !matches!(&job.action, model::ModelAction::VerifyRoute { .. })
+                && completed
+                    .current_route
+                    .as_ref()
+                    .is_some_and(|route| route.provider == provider)
+            {
+                completed.current_route = None;
+            }
+            let provider_state = completed.provider_mut(&provider);
+            provider_state.configured = outcome.configured.unwrap_or(provider_state.configured);
+            provider_state.error_code = None;
+            match &job.action {
+                model::ModelAction::VerifyRoute {
+                    model_id,
+                    thinking_type,
+                    ..
+                } => {
+                    let verified_at = Some(outcome.attempt.ended_at.clone());
+                    let route = model::ModelRoute {
+                        provider: provider.clone(),
+                        model_id: model_id.clone(),
+                        thinking_type: thinking_type.clone(),
+                        verified_at,
+                    };
+                    if let Some(existing) = provider_state.routes.iter_mut().find(|existing| {
+                        existing.model_id == route.model_id
+                            && existing.thinking_type == route.thinking_type
+                    }) {
+                        *existing = route.clone();
+                    } else {
+                        provider_state.routes.push(route.clone());
+                    }
+                    provider_state.status = model::ModelHealth::Ready;
+                    provider_state.last_verified_at = route.verified_at.clone();
+                    completed.current_route = Some(route);
+                }
+                _ => {
+                    provider_state.routes = outcome.routes;
+                    provider_state.status = if provider_state.configured {
+                        model::ModelHealth::Unverified
+                    } else {
+                        model::ModelHealth::NotConfigured
+                    };
+                    provider_state.last_verified_at = None;
+                }
+            }
+            completed
+        };
+        state.append_attempt(outcome.attempt);
+        let result = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(state, "model.provider_attempt.changed")
+            .map(|event| {
+                self.publish(&event);
+                let DomainProjection::Model(state) = event.payload else {
+                    unreachable!()
+                };
+                json!({"requestId":job.request_id,"schemaVersion":1,"ok":true,"stateVersion":state.state_version,"data":state})
+            });
+        result.unwrap_or_else(
+            |error| json!({"requestId":job.request_id,"schemaVersion":1,"ok":false,"error":error}),
+        )
     }
 
     fn publish(&mut self, event: &protocol::DomainEvent) {

@@ -1786,7 +1786,7 @@ interface TradeXError {
 
 | 命令 | Payload | 成功 data |
 |---|---|---|
-| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`；省略时使用应用默认工作区目录；提供的 path 必须为绝对目录路径 | Workspace 投影：`{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 1}`，result envelope 附不透明 `stateVersion` |
+| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`；省略时使用应用默认工作区目录；提供的 path 必须为绝对目录路径 | Workspace 投影：`{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 4}`，result envelope 附不透明 `stateVersion` |
 | runtime.status | `{}` | `{components: [{id, status, message}], modelAvailable: boolean, liveExecutionAvailable: boolean}`；初始 Codex/CLIProxyAPI 为 `NOT_CONFIGURED`，不得推断健康 |
 | domain.snapshot | `{aggregateType: "workspace", aggregateId: string}` | `{aggregateType, aggregateId, projection: Workspace, lastSequence}` |
 | domain.subscribe | `{aggregateType: "workspace", aggregateId: string, afterSequence: number}` | 在交付完确认游标之前全部保留事件后返回 `{aggregateType, aggregateId, afterSequence, lastSequence, replayedCount}`；后续事件沿用同一传输通道 |
@@ -1877,6 +1877,23 @@ LAUNCH 可先安装固定发布物，再启动并探测自己拥有的进程。S
 `/v1/models` 探测成功只表示 RUNNING，不表示 modelAvailable。生命周期票保持 modelAvailable=false，直到后续精确授权路由通过推理验证。端口冲突、未授权、停止、启动/探测失败及重启预算耗尽采用 MODEL_UNAVAILABLE 类别及具体脱敏 GATEWAY_* 原因码。崩溃自动恢复依次等待 1、2、4 秒，三次重启失败后停止，并展示下一重试时间。显式 STOP 或切换工作区取消待执行重试；持续稳定运行 60 秒后才可重置预算。普通模型/提供方故障不改变金融状态。
 
 每次已提交状态变更在 §42 的 `model.gateway.changed` 事件中携带完整 `GatewayState`，聚合序号严格递增，事件与投影原子提交。无变化的轮询不重复发事件。Domain replay 与工作区/账户一样严格校验事件类型及聚合/载荷身份。
+
+### 41.5 模型提供方连接 payload（S03 连接）
+
+`model` 聚合以 `workspaceId` 为 aggregate ID，只包含非秘密的提供方健康、允许路由元数据和有界 setup-attempt 溯源。绝不包含 OAuth token、DeepSeek key、Keychain 字节、sidecar 路径、broker reference、原始响应 body 或 prompt 内容。新进程会话会把已保存的提供方配置标为 UNVERIFIED，直到新的路由验证成功。
+
+| 命令 | Payload | 成功数据 |
+|---|---|---|
+| model.get | `{workspaceId: string}` | `ModelState` |
+| model.login_chatgpt | `{workspaceId: string, expectedStateVersion: string, action: "LOGIN" \| "RELOGIN"}` | `ModelState` 和不透明 `stateVersion` |
+| model.configure_deepseek | `{workspaceId: string, expectedStateVersion: string}` | `ModelState` 和不透明 `stateVersion` |
+| model.verify_route | `{workspaceId: string, expectedStateVersion: string, provider: "CHATGPT" \| "DEEPSEEK", modelId: string, thinkingType: "disabled" \| "enabled" \| null}` | `ModelState` 和不透明 `stateVersion` |
+
+`model.login_chatgpt` 在专用 auth directory 中启动固定 sidecar 的 `-codex-login` 流程，只观察有界退出/状态；TradeX 不读取或解析 OAuth 文件。`model.configure_deepseek` 只接受可信原生安全输入，将 key 存入仅供模型使用的 OS Keychain service，并在网关（重新）启动时将其渲染至私有 0600 sidecar config。取消或写入失败会保留旧 key 和状态。
+
+`model.verify_route` 先认证自有 loopback 网关的 `/v1/models` 响应，再使用固定、无害且有界的 prompt 对同一精确 provider/model 路由进行测试推理。只有 GPT-5.6 系列 ID，或带显式 `thinking.type: disabled|enabled` 的 `deepseek-v4-flash` 才允许。目录命中而推理不成功仍为 UNVERIFIED。Setup attempt 只追加，保存真实 provider/model/mode、时间、结果、规范错误（`MODEL_UNAVAILABLE`、`OAUTH_EXPIRED`、`QUOTA_EXCEEDED`）和服务端明确给出的 quota window/cooldown；丢弃原始 body 和 prompt。
+
+`model.provider.changed` 携带完整脱敏 `ModelState`；`model.provider_attempt.changed` 携带追加 attempt 后的同一状态。两者使用连续的 `model` 聚合序列，并在 replay 时严格校验聚合/载荷身份。这些变更绝不修改账户 capability、risk、arming 或 approval。只有验证通过的路由才能令 `modelAvailable` 或 onboarding Ready 为 true；默认选择和跨提供方 fallback consent 留给后续 S03 票。
 
 ---
 
