@@ -30,13 +30,15 @@
 
 ## 可重跑检查
 
-以下检查在最终生产实现 `dev@753f273d4315ff68bdfa95c6f7cc784ec0da8053` 及取消安全边界测试 `dev@a94038545b7ffc3096fd58289324ac14fcf2f0da` 上通过：
+以下检查在最终生产实现 `dev@753f273d4315ff68bdfa95c6f7cc784ec0da8053` 及后续边界测试提交（取消 `a94038545b7ffc3096fd58289324ac14fcf2f0da`、响应 `57aca77d942e58ddb8756056ef174b6204248956`、配额 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`）上通过：
 
 ```text
 git diff --check
 cargo fmt --all -- --check
 cargo test --workspace --all-targets
 cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo check --features desktop --bin tradex
+cargo clippy --features desktop --bin tradex -- -D warnings
 npm run schema:check
 npm run typecheck
 npm run test:unit
