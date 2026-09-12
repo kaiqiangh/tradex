@@ -29,7 +29,7 @@
 
 ## 可重跑检查
 
-以下检查在最终代码 `dev@753f273d4315ff68bdfa95c6f7cc784ec0da8053` 通过：
+以下检查在最终生产实现 `dev@753f273d4315ff68bdfa95c6f7cc784ec0da8053` 及取消安全边界测试 `dev@a94038545b7ffc3096fd58289324ac14fcf2f0da` 上通过：
 
 ```text
 git diff --check
