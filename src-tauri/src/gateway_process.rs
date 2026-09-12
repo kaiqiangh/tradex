@@ -120,6 +120,79 @@ fn quota_metadata(response: &reqwest::blocking::Response) -> Option<ModelQuota> 
     })
 }
 
+fn parse_model_catalog(body: &[u8]) -> Result<Vec<String>> {
+    if body.len() > 1024 * 1024 {
+        return Err("GATEWAY_PROBE_FAILED");
+    }
+    let data: serde_json::Value =
+        serde_json::from_slice(body).map_err(|_| "GATEWAY_PROBE_FAILED")?;
+    let models = data
+        .get("data")
+        .and_then(|value| value.as_array())
+        .filter(|models| models.len() <= 1000)
+        .ok_or("GATEWAY_PROBE_FAILED")?;
+    models
+        .iter()
+        .map(|model| {
+            let id = model
+                .get("id")
+                .and_then(|value| value.as_str())
+                .ok_or("GATEWAY_PROBE_FAILED")?;
+            if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
+                return Err("GATEWAY_PROBE_FAILED");
+            }
+            Ok(id.to_owned())
+        })
+        .collect()
+}
+
+fn inference_payload(model_id: &str, thinking_type: Option<&str>) -> Result<Vec<u8>> {
+    if model_id.is_empty() || model_id.len() > 128 || model_id.chars().any(char::is_control) {
+        return Err("MODEL_ROUTE_INVALID");
+    }
+    let mut body = serde_json::json!({
+        "model": model_id,
+        "messages": [{"role":"user","content":"Reply with exactly: OK"}],
+        "max_tokens": 16,
+        "temperature": 0,
+        "stream": false
+    });
+    if let Some(mode) = thinking_type {
+        body["thinking"] = serde_json::json!({"type": mode});
+    }
+    serde_json::to_vec(&body).map_err(|_| "MODEL_TEST_INFERENCE_FAILED")
+}
+
+fn classify_inference_status(status: u16, model_id: &str) -> Result<()> {
+    match status {
+        401 => Err(if model_id == "deepseek-v4-flash" {
+            "MODEL_UNAVAILABLE"
+        } else {
+            "MODEL_OAUTH_EXPIRED"
+        }),
+        429 => Err("MODEL_QUOTA_EXCEEDED"),
+        404 => Err("MODEL_UNAVAILABLE"),
+        200..=299 => Ok(()),
+        _ => Err("MODEL_TEST_INFERENCE_FAILED"),
+    }
+}
+
+fn parse_inference_response(body: &[u8]) -> Result<()> {
+    if body.len() > 1024 * 1024 {
+        return Err("MODEL_TEST_INFERENCE_FAILED");
+    }
+    let value: serde_json::Value =
+        serde_json::from_slice(body).map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
+    if value
+        .get("choices")
+        .and_then(|choices| choices.as_array())
+        .is_none_or(|choices| choices.is_empty())
+    {
+        return Err("MODEL_TEST_INFERENCE_FAILED");
+    }
+    Ok(())
+}
+
 impl GatewayHost {
     pub fn new(root: PathBuf) -> Self {
         Self {
@@ -370,29 +443,7 @@ impl GatewayHost {
             .take(1024 * 1024 + 1)
             .read_to_end(&mut body)
             .map_err(|_| "GATEWAY_PROBE_FAILED")?;
-        if body.len() > 1024 * 1024 {
-            return Err("GATEWAY_PROBE_FAILED");
-        }
-        let data: serde_json::Value =
-            serde_json::from_slice(&body).map_err(|_| "GATEWAY_PROBE_FAILED")?;
-        let models = data
-            .get("data")
-            .and_then(|v| v.as_array())
-            .filter(|v| v.len() <= 1000)
-            .ok_or("GATEWAY_PROBE_FAILED")?;
-        models
-            .iter()
-            .map(|model| {
-                let id = model
-                    .get("id")
-                    .and_then(|value| value.as_str())
-                    .ok_or("GATEWAY_PROBE_FAILED")?;
-                if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
-                    return Err("GATEWAY_PROBE_FAILED");
-                }
-                Ok(id.to_owned())
-            })
-            .collect()
+        parse_model_catalog(&body)
     }
 
     fn probe(&mut self) -> Result<u32> {
@@ -403,19 +454,7 @@ impl GatewayHost {
         if !self.owned_listener()? {
             return Err("GATEWAY_PROCESS_FAILED");
         }
-        if model_id.is_empty() || model_id.len() > 128 || model_id.chars().any(char::is_control) {
-            return Err("MODEL_ROUTE_INVALID");
-        }
-        let mut body = serde_json::json!({
-            "model": model_id,
-            "messages": [{"role":"user","content":"Reply with exactly: OK"}],
-            "max_tokens": 16,
-            "temperature": 0,
-            "stream": false
-        });
-        if let Some(mode) = thinking_type {
-            body["thinking"] = serde_json::json!({"type": mode});
-        }
+        let request_body = inference_payload(model_id, thinking_type)?;
         let client = reqwest::blocking::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -423,7 +462,6 @@ impl GatewayHost {
             .timeout(Duration::from_secs(5))
             .build()
             .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
-        let request_body = serde_json::to_vec(&body).map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
         let response = client
             .post("http://127.0.0.1:8317/v1/chat/completions")
             .bearer_auth(self.key.as_str())
@@ -432,41 +470,13 @@ impl GatewayHost {
             .send()
             .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
         self.last_quota = quota_metadata(&response);
-        let status = response.status().as_u16();
-        if status == 401 {
-            return Err(if model_id == "deepseek-v4-flash" {
-                "MODEL_UNAVAILABLE"
-            } else {
-                "MODEL_OAUTH_EXPIRED"
-            });
-        }
-        if status == 429 {
-            return Err("MODEL_QUOTA_EXCEEDED");
-        }
-        if status == 404 {
-            return Err("MODEL_UNAVAILABLE");
-        }
-        if !response.status().is_success() {
-            return Err("MODEL_TEST_INFERENCE_FAILED");
-        }
+        classify_inference_status(response.status().as_u16(), model_id)?;
         let mut bytes = Zeroizing::new(Vec::new());
         response
             .take(1024 * 1024 + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
-        if bytes.len() > 1024 * 1024 {
-            return Err("MODEL_TEST_INFERENCE_FAILED");
-        }
-        let value: serde_json::Value =
-            serde_json::from_slice(&bytes).map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
-        if value
-            .get("choices")
-            .and_then(|choices| choices.as_array())
-            .is_none_or(|choices| choices.is_empty())
-        {
-            return Err("MODEL_TEST_INFERENCE_FAILED");
-        }
-        Ok(())
+        parse_inference_response(&bytes)
     }
 
     pub fn take_last_quota(&mut self) -> Option<ModelQuota> {
@@ -812,5 +822,54 @@ impl GatewayHost {
 impl Drop for GatewayHost {
     fn drop(&mut self) {
         self.stop();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn model_catalog_and_inference_responses_fail_closed() {
+        assert_eq!(
+            parse_model_catalog(br#"{"data":[]}"#).unwrap(),
+            Vec::<String>::new()
+        );
+        assert!(parse_model_catalog(br#"{}"#).is_err());
+        assert!(parse_model_catalog(br#"{"data":[{"id":"bad\nroute"}]}"#).is_err());
+        assert!(parse_inference_response(br#"{"choices":[]}"#).is_err());
+        assert!(parse_inference_response(br#"not-json"#).is_err());
+        assert!(parse_inference_response(br#"{"choices":[{}]}"#).is_ok());
+    }
+
+    #[test]
+    fn inference_request_and_status_keep_provider_contract_explicit() {
+        let body: serde_json::Value = serde_json::from_slice(
+            &inference_payload("deepseek-v4-flash", Some("enabled")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["model"], "deepseek-v4-flash");
+        assert_eq!(body["thinking"]["type"], "enabled");
+        assert_eq!(body["max_tokens"], 16);
+        assert_eq!(body["temperature"], 0);
+        assert_eq!(body["stream"], false);
+        assert!(inference_payload("bad\nmodel", None).is_err());
+        assert_eq!(
+            classify_inference_status(401, "gpt-5.6-sol"),
+            Err("MODEL_OAUTH_EXPIRED")
+        );
+        assert_eq!(
+            classify_inference_status(401, "deepseek-v4-flash"),
+            Err("MODEL_UNAVAILABLE")
+        );
+        assert_eq!(
+            classify_inference_status(429, "gpt-5.6-sol"),
+            Err("MODEL_QUOTA_EXCEEDED")
+        );
+        assert_eq!(classify_inference_status(200, "gpt-5.6-sol"), Ok(()));
+        assert_eq!(
+            classify_inference_status(503, "gpt-5.6-sol"),
+            Err("MODEL_TEST_INFERENCE_FAILED")
+        );
     }
 }
