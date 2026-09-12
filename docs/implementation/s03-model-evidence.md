@@ -19,6 +19,7 @@
 | 验收点 | 当前证据 | 结论 |
 | --- | --- | --- |
 | 公共 IPC、SQLite 重开、事件重放和 workspace 隔离 | `src-tauri/src/{model.rs,lib.rs,protocol.rs,storage.rs}`、`src-tauri/tests/model.rs`、`src/projection.ts`、`shared/ipc-*`；模型 provider/attempt 事件只接受 `Model` aggregate | PASS（本地） |
+| 固定版本网关真实生命周期 | macOS ignored test `pinned_gateway_lifecycle_uses_public_commands_without_model_readiness` 以 `.artifacts/s03-planning/upstream/cli-proxy-api` 运行通过：端口冲突、启动/探测、停止清理、stale config、4 次崩溃退避及最终失败 | PASS（直接进程） |
 | 凭据安全边界和原生 Keychain API | `src-tauri/src/model_credentials.rs` 的 `ModelVault`；renderer 没有 password input；MemoryModelVault 只在集成 fixture 使用；macOS ignored test `native_model_keychain_roundtrip_is_workspace_scoped` 以 disposable synthetic key 运行通过（`cargo test --test model native_model_keychain_roundtrip_is_workspace_scoped -- --ignored --nocapture`） | PASS（直接 Keychain round-trip）；secure entry UI 仍未验证 |
 | 精确 provider/model/mode allowlist | Rust allowlist tests 覆盖 ChatGPT `gpt-5.6*` 和 DeepSeek `deepseek-v4-flash` 两个显式模式，拒绝别名/未知模式 | PASS（本地） |
 | 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests | PASS（代码/本地分支）；未做 credentialed upstream run |
@@ -40,7 +41,7 @@ npm run test:unit
 npm run check
 ```
 
-`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 4 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；lib 内模型状态/失败边界测试为 6 个通过。其它 native broker/gateway 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
+`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 4 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 6 个通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
 
 ## 秘密与外部门槛
 
