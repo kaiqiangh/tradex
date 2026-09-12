@@ -19,7 +19,7 @@
 | 固定发布物与身份校验 | `src-tauri/src/gateway_process.rs` 固定架构摘要、HTTPS release URL、归档/可执行文件摘要和 0700/0600 权限检查；失败时 `installed=false`，不会显示已验证。 |
 | 端口冲突、认证和秘密边界 | 真实 pinned binary ignored test 验证已有 `127.0.0.1:8317` 只报告冲突且不附着、不终止、不生成秘密；独立 probe 验证无 key 为 401、有 key 才能访问。 |
 | 运行/停止/重启/崩溃恢复/清理 | `cargo test --test gateway pinned_gateway_lifecycle_uses_public_commands_without_model_readiness -- --ignored --test-threads=1` 通过；测试覆盖空路由、停止清理、崩溃和 1/2/4 秒退避，最终三次失败进入 `FAILED`。 |
-| 公共 UI、空路由和窄屏 | 当前提交启动 `npm run dev:browser` 后，在隔离临时工作区通过真实 Settings 页面确认 `Installing → Running`、`Pinned binary verified`、`Discovered models: 0`、停止后的“Launch the gateway before probing it.”；既有 390/768 视口检查分别为 `scrollWidth 375/753`，无横向溢出。未输入任何 broker/model 凭据。 |
+| 公共 UI、空路由和窄屏 | 当前提交启动 `npm run dev:browser` 后，在隔离临时工作区通过真实 Settings 页面确认 `Installing → Running`、`Pinned binary verified`、`Discovered models: 0`、停止后的“Launch the gateway before probing it.”；既有 390/768 视口检查分别为 `scrollWidth 375/753`，无横向溢出。随后在 `npm run desktop` 的真实 Tauri 窗口再次确认 `Starting / probing → Running → Stopped`、固定版本、二进制校验和空路由阻断。未输入任何 broker/model 凭据。 |
 | Ready 与后续模型能力边界 | 运行中的真实空 `data` 数组只显示 `No verified model route`；没有 OAuth、DeepSeek key、测试推理、Codex Turn 或交易路径，因此不会伪造 Ready。 |
 
 ## 可重跑检查
