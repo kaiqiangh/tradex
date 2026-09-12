@@ -21,6 +21,7 @@ const reasons: Record<string, string> = {
   GATEWAY_PROBE_FAILED: 'The gateway health probe failed. Try Probe again or Restart.',
   MODEL_NATIVE_REQUIRED: 'Open the desktop app to configure this model securely.',
   MODEL_NATIVE_ENTRY_REQUIRED: 'Open the desktop app to configure this model securely.',
+  MODEL_GATEWAY_RUNNING: 'Stop the model gateway before replacing the DeepSeek key, then launch it again.',
   MODEL_KEYCHAIN_MISSING: 'The DeepSeek OS Keychain key is unavailable. Configure it again.',
   MODEL_UNAVAILABLE: 'The selected model route is unavailable. Retry its probe or choose another route.',
   MODEL_OAUTH_EXPIRED: 'ChatGPT authorization expired or was rejected. Re-login before verifying the route.',
@@ -102,7 +103,7 @@ export function Models({ workspaceId }: { workspaceId: string }) {
         <article className="model-provider-card">
           <div className="model-provider-heading"><div><h4>CLIProxyAPI → DeepSeek</h4><p>Official API · key stored only in macOS Keychain</p></div><span className="badge">{modelHealth[modelState.deepseek.status]}</span></div>
           {providerError(modelState.deepseek) && <p className="model-error" role="alert">{providerError(modelState.deepseek)}</p>}
-          <div className="model-provider-actions"><button disabled={modelBusy || gatewayRunning} onClick={() => { void modelAct('model.configure_deepseek', null); }}>{modelState.deepseek.configured ? 'Replace DeepSeek key' : 'Configure DeepSeek key'}</button></div>
+          <div className="model-provider-actions"><button disabled={modelBusy || state.desiredRunning} onClick={() => { void modelAct('model.configure_deepseek', null); }}>{modelState.deepseek.configured ? 'Replace DeepSeek key' : 'Configure DeepSeek key'}</button></div>
           <p className="form-hint">The native secure dialog writes directly to Keychain. The key never enters the webview, SQLite, events or logs. Stop the gateway before changing the key, then launch it again to render the new key into its private config.</p>
           <div className="model-routes">{(['disabled', 'enabled'] as const).map(mode => {
             const route = modelState.deepseek.routes.find(item => item.modelId === 'deepseek-v4-flash' && item.thinkingType === mode);
@@ -114,7 +115,7 @@ export function Models({ workspaceId }: { workspaceId: string }) {
         </article>
       </div> : <p role="status">Loading model provider state…</p>}
       {modelState?.currentRoute ? <p className="model-route-current" role="status">Current verified route: <strong>{routeLabel(modelState.currentRoute)}</strong> via {modelState.currentRoute.provider === 'CHATGPT' ? 'ChatGPT subscription' : 'DeepSeek official API'}</p> : <p>No verified model route. Agent turns and onboarding Ready remain unavailable.</p>}
-      {modelState && modelState.attempts.length > 0 && <details className="model-attempts"><summary>Setup attempts ({modelState.attempts.length})</summary><ul>{[...modelState.attempts].reverse().slice(0, 5).map(attempt => <li key={attempt.attemptId}><strong>{attempt.provider}</strong>{attempt.modelId ? ` · ${attempt.modelId}` : ''}{attempt.thinkingType ? ` · ${attempt.thinkingType}` : ''} · {attempt.outcome}{attempt.errorCategory ? ` · ${attempt.errorCategory}` : ''}<small>{attempt.endedAt}</small></li>)}</ul></details>}
+      {modelState && modelState.attempts.length > 0 && <details className="model-attempts"><summary>Setup attempts ({modelState.attempts.length})</summary><ul>{[...modelState.attempts].reverse().slice(0, 5).map(attempt => <li key={attempt.attemptId}><strong>{attempt.provider}</strong>{attempt.modelId ? ` · ${attempt.modelId}` : ''}{attempt.thinkingType ? ` · ${attempt.thinkingType}` : ''} · {attempt.outcome}{attempt.errorCategory ? ` · ${attempt.errorCategory}` : ''}<small>{attempt.endedAt}</small>{attempt.quota && <small>{[attempt.quota.remaining != null ? `Quota remaining ${attempt.quota.remaining}` : '', attempt.quota.window ?? '', attempt.quota.resetAt ? `Reset ${attempt.quota.resetAt}` : ''].filter(Boolean).join(' · ')}</small>}</li>)}</ul></details>}
       {modelBusy && <p role="status">Updating model provider…</p>}
     </> : <p role="status">Loading model gateway…</p>}
     <button onClick={() => { void gateway.reload(); void model.reload(); }}>Reload model state</button>

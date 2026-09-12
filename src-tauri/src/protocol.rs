@@ -430,6 +430,11 @@ impl TradeXError {
                 "configure_model",
                 "Configure again",
             ),
+            "MODEL_GATEWAY_RUNNING" => (
+                "Stop the model gateway before replacing the DeepSeek key, then launch it again.",
+                "stop_gateway",
+                "Stop gateway",
+            ),
             "MODEL_KEY_INVALID" => (
                 "Enter a valid printable DeepSeek API key, or cancel without saving.",
                 "configure_model",
@@ -505,7 +510,10 @@ impl TradeXError {
             category: if code.starts_with("GATEWAY_")
                 || matches!(
                     code,
-                    "MODEL_UNAVAILABLE" | "MODEL_TEST_INFERENCE_FAILED" | "MODEL_KEYCHAIN_MISSING"
+                    "MODEL_UNAVAILABLE"
+                        | "MODEL_TEST_INFERENCE_FAILED"
+                        | "MODEL_KEYCHAIN_MISSING"
+                        | "MODEL_GATEWAY_RUNNING"
                 ) {
                 "MODEL_UNAVAILABLE"
             } else if matches!(

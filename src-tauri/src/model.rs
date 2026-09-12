@@ -8,15 +8,6 @@ pub enum ModelProvider {
     Deepseek,
 }
 
-impl ModelProvider {
-    pub fn key(&self) -> &'static str {
-        match self {
-            Self::Chatgpt => "CHATGPT",
-            Self::Deepseek => "DEEPSEEK",
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ModelHealth {
@@ -169,21 +160,20 @@ pub struct ModelJob {
     pub(crate) state: ModelState,
 }
 
-impl ModelJob {
-    pub fn action(&self) -> &ModelAction {
-        &self.action
-    }
-
-    pub fn workspace_id(&self) -> &str {
-        &self.state.workspace_id
-    }
-}
-
 pub struct ModelOutcome {
     pub(crate) attempt: ModelAttempt,
     pub(crate) routes: Vec<ModelRoute>,
     pub(crate) configured: Option<bool>,
     pub(crate) error: Option<crate::protocol::TradeXError>,
+}
+
+#[cfg(target_os = "macos")]
+fn discovery_error(provider: &ModelProvider, code: &'static str) -> crate::protocol::TradeXError {
+    if *provider == ModelProvider::Chatgpt && code == "GATEWAY_UNAUTHORIZED" {
+        crate::protocol::TradeXError::new("MODEL_OAUTH_EXPIRED")
+    } else {
+        crate::protocol::TradeXError::new(code)
+    }
 }
 
 pub fn allowed_route(
@@ -321,7 +311,7 @@ pub fn run_job(
                     .map_err(crate::protocol::TradeXError::new)?;
                 let discovered = host
                     .discover_models()
-                    .map_err(crate::protocol::TradeXError::new)?;
+                    .map_err(|code| discovery_error(&ModelProvider::Chatgpt, code))?;
                 routes = discovered
                     .into_iter()
                     .filter(|id| allowed_route(&ModelProvider::Chatgpt, id, None))
@@ -353,7 +343,7 @@ pub fn run_job(
                 }
                 let discovered = host
                     .discover_models()
-                    .map_err(crate::protocol::TradeXError::new)?;
+                    .map_err(|code| discovery_error(provider, code))?;
                 if !discovered.iter().any(|id| id == model_id)
                     || !allowed_route(provider, model_id, thinking_type.as_ref())
                 {

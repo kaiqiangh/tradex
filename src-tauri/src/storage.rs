@@ -423,7 +423,12 @@ impl Store {
                 |r| r.get(0),
             )
             .map_err(storage_error)?;
-        serde_json::from_str(&data).map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+        let model: ModelState = serde_json::from_str(&data)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if model.workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(model)
     }
 
     pub fn model_or_new(&self) -> Result<ModelState> {
@@ -437,8 +442,14 @@ impl Store {
             .optional()
             .map_err(storage_error)?;
         match data {
-            Some(data) => serde_json::from_str(&data)
-                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+            Some(data) => {
+                let model: ModelState = serde_json::from_str(&data)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if model.workspace_id != self.workspace_id()? {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                Ok(model)
+            }
             None => Ok(ModelState::new(self.workspace_id()?)),
         }
     }

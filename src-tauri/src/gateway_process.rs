@@ -37,6 +37,7 @@ pub struct GatewayHost {
     config: Option<PathBuf>,
     key: Zeroizing<String>,
     deepseek_key: Zeroizing<String>,
+    deepseek_key_reload_pending: bool,
     last_quota: Option<ModelQuota>,
     owner_session: Option<String>,
     next_probe: Instant,
@@ -101,7 +102,9 @@ fn quota_metadata(response: &reqwest::blocking::Response) -> Option<ModelQuota> 
                 !value.is_empty() && value.len() <= 64 && !value.chars().any(char::is_control)
             })
     };
-    let remaining = header("x-ratelimit-remaining").and_then(|value| value.parse::<u64>().ok());
+    let remaining = header("x-ratelimit-remaining")
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|remaining| *remaining <= 1_000_000_000);
     let retry_after = header("retry-after")
         .and_then(|value| value.parse::<u64>().ok())
         .filter(|seconds| *seconds <= 86_400);
@@ -126,6 +129,7 @@ impl GatewayHost {
             config: None,
             key: Zeroizing::new(String::new()),
             deepseek_key: Zeroizing::new(String::new()),
+            deepseek_key_reload_pending: false,
             last_quota: None,
             owner_session: None,
             next_probe: Instant::now(),
@@ -138,6 +142,11 @@ impl GatewayHost {
 
     pub fn set_deepseek_key(&mut self, key: Option<&str>) {
         self.deepseek_key = Zeroizing::new(key.unwrap_or_default().to_owned());
+        self.deepseek_key_reload_pending = false;
+    }
+
+    pub fn needs_deepseek_key_reload(&self) -> bool {
+        self.deepseek_key_reload_pending
     }
 
     fn install(&mut self) -> Result<PathBuf> {
@@ -296,6 +305,7 @@ impl GatewayHost {
             true
         };
         self.key = Zeroizing::new(String::new());
+        self.deepseek_key_reload_pending = !self.deepseek_key.is_empty();
         self.deepseek_key = Zeroizing::new(String::new());
         self.last_quota = None;
         self.workspace = None;

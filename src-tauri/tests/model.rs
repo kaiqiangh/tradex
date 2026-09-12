@@ -83,6 +83,12 @@ fn model_mutations_require_native_boundary_and_exact_routes() {
         json!({"workspaceId":workspace_id,"expectedStateVersion":version,"action":"LOGIN"}),
     );
     assert_eq!(native_login["error"]["code"], "MODEL_NATIVE_REQUIRED");
+    let invalid_payload = command(
+        &mut control,
+        "model.configure_deepseek",
+        json!({"workspaceId":workspace_id,"expectedStateVersion":version,"key":"secret"}),
+    );
+    assert_eq!(invalid_payload["error"]["code"], "IPC_PAYLOAD_INVALID");
     let invalid = control.prepare_model(&json!({
         "requestId":"route", "schemaVersion":1, "command":"model.verify_route",
         "payload":{"workspaceId":workspace_id,"expectedStateVersion":version,"provider":"DEEPSEEK","modelId":"deepseek-chat","thinkingType":"disabled"}
@@ -109,6 +115,61 @@ fn model_failures_keep_canonical_attempt_categories() {
         tradex::protocol::TradeXError::new("MODEL_QUOTA_EXCEEDED").category,
         "QUOTA_EXCEEDED"
     );
+    assert_eq!(
+        tradex::protocol::TradeXError::new("MODEL_GATEWAY_RUNNING").category,
+        "MODEL_UNAVAILABLE"
+    );
+}
+
+#[test]
+fn deepseek_replacement_requires_a_stopped_gateway() {
+    use tradex::gateway::{GatewayState, GatewayStatus};
+
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let opened = command(&mut control, "workspace.open", json!({}));
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+    let gateway = command(
+        &mut control,
+        "model.get_gateway",
+        json!({"workspaceId":workspace_id}),
+    );
+    let request = json!({
+        "requestId":"gateway-start",
+        "schemaVersion":1,
+        "command":"model.gateway",
+        "payload":{"workspaceId":workspace_id,"expectedStateVersion":gateway["data"]["stateVersion"],"action":"LAUNCH"}
+    });
+    let job = control.prepare_gateway(&request).unwrap().unwrap();
+    let mut running: GatewayState = serde_json::from_value(
+        command(
+            &mut control,
+            "model.get_gateway",
+            json!({"workspaceId":workspace_id}),
+        )["data"]
+            .clone(),
+    )
+    .unwrap();
+    running.status = GatewayStatus::Running;
+    running.desired_running = true;
+    assert_eq!(control.complete_gateway(&job, running)["ok"], true);
+
+    let model = command(
+        &mut control,
+        "model.get",
+        json!({"workspaceId":workspace_id}),
+    );
+    let rejected = json!({
+        "requestId":"replace",
+        "schemaVersion":1,
+        "command":"model.configure_deepseek",
+        "payload":{"workspaceId":workspace_id,"expectedStateVersion":model["data"]["stateVersion"]}
+    });
+    let error = match control.prepare_model(&rejected) {
+        Err(error) => error,
+        Ok(_) => panic!("running gateway must block DeepSeek replacement"),
+    };
+    assert_eq!(error.code, "MODEL_GATEWAY_RUNNING");
 }
 
 #[test]

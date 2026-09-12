@@ -138,7 +138,23 @@ impl ControlPlane {
                 let version = state.state_version.clone();
                 Ok((json!(state), Some(version)))
             }
-            "model.login_chatgpt" | "model.configure_deepseek" | "model.verify_route" => {
+            "model.login_chatgpt" => {
+                let _: model::ChatgptLogin = payload(request.payload)?;
+                Err(TradeXError::new("MODEL_NATIVE_REQUIRED"))
+            }
+            "model.configure_deepseek" => {
+                let _: model::ConfigureDeepseek = payload(request.payload)?;
+                Err(TradeXError::new("MODEL_NATIVE_REQUIRED"))
+            }
+            "model.verify_route" => {
+                let input: model::VerifyRoute = payload(request.payload)?;
+                if !model::allowed_route(
+                    &input.provider,
+                    &input.model_id,
+                    input.thinking_type.as_ref(),
+                ) {
+                    return Err(TradeXError::new("MODEL_ROUTE_INVALID"));
+                }
                 Err(TradeXError::new("MODEL_NATIVE_REQUIRED"))
             }
             "runtime.status" => {
@@ -516,6 +532,11 @@ impl ControlPlane {
         if previous.state_version != expected {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
+        if matches!(&action, model::ModelAction::ConfigureDeepseek)
+            && self.store.as_ref().unwrap().gateway()?.desired_running
+        {
+            return Err(TradeXError::new("MODEL_GATEWAY_RUNNING"));
+        }
         if previous.provider(&provider).status == model::ModelHealth::Verifying {
             return Err(TradeXError::new("MODEL_BUSY"));
         }
@@ -526,6 +547,18 @@ impl ControlPlane {
                 model::ModelProvider::Chatgpt => TradeXError::new("MODEL_OAUTH_EXPIRED"),
                 model::ModelProvider::Deepseek => TradeXError::new("MODEL_KEYCHAIN_MISSING"),
             });
+        }
+        if let model::ModelAction::VerifyRoute {
+            provider: model::ModelProvider::Chatgpt,
+            model_id,
+            thinking_type,
+        } = &action
+            && !previous.chatgpt.routes.iter().any(|route| {
+                route.model_id == *model_id
+                    && route.thinking_type.as_ref() == thinking_type.as_ref()
+            })
+        {
+            return Err(TradeXError::new("MODEL_UNAVAILABLE"));
         }
         let mut state = previous.clone();
         state.provider_mut(&provider).status = model::ModelHealth::Verifying;
@@ -568,9 +601,23 @@ impl ControlPlane {
         };
         let mut state = if let Some(error) = &outcome.error {
             let mut restored = job.previous.clone();
+            let current_route_matches_provider = restored
+                .current_route
+                .as_ref()
+                .is_some_and(|route| route.provider == provider);
             let provider_state = restored.provider_mut(&provider);
             if error.code == "MODEL_ENTRY_CANCELLED" {
                 provider_state.error_code = None;
+            } else if matches!(&job.action, model::ModelAction::VerifyRoute { .. }) {
+                provider_state.status = if provider_state.configured {
+                    model::ModelHealth::Unverified
+                } else {
+                    model::ModelHealth::NotConfigured
+                };
+                provider_state.error_code = Some(error.code.clone());
+                if current_route_matches_provider {
+                    restored.current_route = None;
+                }
             } else {
                 provider_state.status = if provider_state.configured {
                     model::ModelHealth::Failed
@@ -612,6 +659,9 @@ impl ControlPlane {
                     }) {
                         *existing = route.clone();
                     } else {
+                        if provider_state.routes.len() >= 100 {
+                            provider_state.routes.truncate(99);
+                        }
                         provider_state.routes.push(route.clone());
                     }
                     provider_state.status = model::ModelHealth::Ready;
@@ -947,5 +997,85 @@ fn validate_aggregate(kind: &str, id: &str) -> Result<()> {
         Err(TradeXError::new("IPC_PAYLOAD_INVALID"))
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod model_tests {
+    use super::*;
+
+    #[test]
+    fn failed_route_verification_stays_unverified_and_clears_current_route() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(json!({
+            "requestId":"open",
+            "schemaVersion":1,
+            "command":"workspace.open",
+            "payload":{}
+        }));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let mut model = control.store.as_ref().unwrap().model().unwrap();
+        let route = model::ModelRoute {
+            provider: model::ModelProvider::Deepseek,
+            model_id: "deepseek-v4-flash".into(),
+            thinking_type: Some(model::ThinkingType::Disabled),
+            verified_at: Some("2026-09-12T00:00:00Z".into()),
+        };
+        model.deepseek.configured = true;
+        model.deepseek.status = model::ModelHealth::Ready;
+        model.deepseek.routes = vec![route.clone()];
+        model.deepseek.last_verified_at = route.verified_at.clone();
+        model.current_route = Some(route);
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(model, "model.provider.changed")
+            .unwrap();
+        let current = control.dispatch(json!({
+            "requestId":"get",
+            "schemaVersion":1,
+            "command":"model.get",
+            "payload":{"workspaceId":workspace_id}
+        }));
+        let request = json!({
+            "requestId":"verify",
+            "schemaVersion":1,
+            "command":"model.verify_route",
+            "payload":{"workspaceId":workspace_id,"expectedStateVersion":current["data"]["stateVersion"],"provider":"DEEPSEEK","modelId":"deepseek-v4-flash","thinkingType":"disabled"}
+        });
+        let job = control.prepare_model(&request).unwrap().unwrap();
+        let outcome = model::ModelOutcome {
+            attempt: model::ModelAttempt {
+                attempt_id: "attempt-1".into(),
+                provider: model::ModelProvider::Deepseek,
+                model_id: Some("deepseek-v4-flash".into()),
+                thinking_type: Some(model::ThinkingType::Disabled),
+                started_at: "2026-09-12T00:00:00Z".into(),
+                ended_at: "2026-09-12T00:00:01Z".into(),
+                outcome: model::ModelAttemptOutcome::Failed,
+                error_category: Some("MODEL_UNAVAILABLE".into()),
+                quota: None,
+            },
+            routes: vec![],
+            configured: None,
+            error: Some(TradeXError::new("MODEL_TEST_INFERENCE_FAILED")),
+        };
+        let reply = control.complete_model(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        assert_eq!(reply["data"]["deepseek"]["status"], "UNVERIFIED");
+        assert_eq!(reply["data"]["currentRoute"], Value::Null);
+        assert_eq!(
+            reply["data"]["deepseek"]["routes"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            reply["data"]["deepseek"]["errorCode"],
+            "MODEL_TEST_INFERENCE_FAILED"
+        );
     }
 }

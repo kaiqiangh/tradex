@@ -170,6 +170,13 @@ fn main() {
                             .ok()
                             .and_then(|engine| engine.gateway_monitor_job());
                         if let Some(job) = job {
+                            if host.needs_deepseek_key_reload() {
+                                if let Ok(key) = NativeModelVault.get_deepseek(job.workspace_id()) {
+                                    host.set_deepseek_key(Some(key.as_str()));
+                                } else {
+                                    host.set_deepseek_key(None);
+                                }
+                            }
                             let outcome = host.monitor(&job, || {
                                 engine
                                     .lock()
