@@ -24,5 +24,5 @@
 
 ## 验证边界
 
-- Rust tests 使用受控 loopback HTTP/Keychain doubles 覆盖 schema、workspace scope、空/伪造目录、401/429/network、attempt replay、取消和旧 stateVersion；ignored macOS test 使用 disposable native Keychain item，结束时删除。
+- 当前 Rust tests 覆盖 schema、workspace scope、allowlist、attempt replay、失败类别和旧 stateVersion；ignored macOS tests 已分别验证 disposable native Keychain item 与固定网关生命周期，并在结束时清理。空/伪造目录、401/429/network、真实 OAuth 取消与测试推理仍只有代码分支/fixture 证据，需后续受控 loopback doubles 或独立 credentialed run 补证。
 - Browser/Tauri UI tests 覆盖 Login/Configure/Verify/Retry/Cancel、错误保留、窄屏和焦点；不使用用户 broker/API/OAuth 凭据。真实 ChatGPT OAuth 与 DeepSeek 上游成功推理需要用户授权和独立运行证据，不能用 fixture 标记 Ready。
