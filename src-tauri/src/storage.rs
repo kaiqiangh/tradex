@@ -331,9 +331,10 @@ impl Store {
             let (connection_id, encoded) = row.map_err(storage_error)?;
             let account: AccountConnection =
                 serde_json::from_str(&encoded).map_err(storage_error)?;
-            if account.connection_id != connection_id || account.workspace_id != workspace_id {
+            if account.connection_id != connection_id {
                 return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
             }
+            account.validate_persisted(&workspace_id)?;
             Ok(account)
         })
         .collect()
@@ -349,9 +350,10 @@ impl Store {
             )
             .map_err(|_| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
         let account: AccountConnection = serde_json::from_str(&encoded).map_err(storage_error)?;
-        if account.connection_id != id || account.workspace_id != self.workspace_id()? {
+        if account.connection_id != id {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
+        account.validate_persisted(&self.workspace_id()?)?;
         Ok(account)
     }
 

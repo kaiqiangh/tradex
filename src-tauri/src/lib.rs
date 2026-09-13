@@ -1542,6 +1542,48 @@ mod risk_tests {
         database
             .execute("DELETE FROM accounts WHERE connection_id=?1", [&foreign_id])
             .unwrap();
+        let mut malformed = AccountConnection::new(
+            workspace_id.clone(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "malformed".into(),
+        )
+        .unwrap();
+        malformed.provider_id = "unknown".into();
+        malformed.environment = "MYSTERY".into();
+        malformed.health.arming = "UNKNOWN".into();
+        let malformed_id = malformed.connection_id.clone();
+        let malformed_provider = malformed.provider_id.clone();
+        let malformed_environment = malformed.environment.clone();
+        let malformed_credential = malformed.credential_ref();
+        let malformed_json = serde_json::to_string(&malformed).unwrap();
+        database
+            .execute(
+                "INSERT INTO accounts VALUES (?1,?2,?3,NULL,1,?4,?5)",
+                rusqlite::params![
+                    malformed_id,
+                    malformed_provider,
+                    malformed_environment,
+                    malformed_credential,
+                    malformed_json
+                ],
+            )
+            .unwrap();
+        let malformed_accounts = command(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(
+            malformed_accounts["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
+        database
+            .execute(
+                "DELETE FROM accounts WHERE connection_id=?1",
+                [&malformed_id],
+            )
+            .unwrap();
         drop(database);
         let saved = command(
             &mut control,

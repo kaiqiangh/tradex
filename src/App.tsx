@@ -167,6 +167,8 @@ export default function App() {
   const modelProjection = useDomainProjection('model', workspace?.workspaceId, fromModelSnapshot);
   const risk = riskProjection.data;
   const model = modelProjection.data;
+  const projectionError = riskProjection.error ?? modelProjection.error;
+  const reloadProjections = () => { void riskProjection.reload(); void modelProjection.reload(); };
   const navigate = (destination: Page) => {
     setPage(destination); setSetup(false); setWorkspacePicker(false);
     document.querySelectorAll('details[open]').forEach(details => details.removeAttribute('open'));
@@ -195,6 +197,7 @@ export default function App() {
       <main id="main" tabIndex={-1}>
         {browserIntegration && <div className="integration-notice">Browser verification · isolated temporary workspace · provider responses are test fixtures</div>}
         {state.error != null && <div className="error-banner" role="alert"><div><strong>Workspace needs attention</strong><p>{explainError(state.error)}</p></div><button onClick={state.recover}>Retry connection</button></div>}
+        {projectionError != null && <div className="error-banner" role="alert"><div><strong>Workspace state needs attention</strong><p>{explainError(projectionError)}</p></div><button onClick={reloadProjections}>Reload workspace state</button></div>}
         {state.opening.isPending && !workspace ? <p role="status">Opening local workspace…</p> :
           (workspacePicker || (!workspace && page === 'New Thread')) ? <WorkspaceSetup busy={state.opening.isPending} submit={submit} /> :
           (workspace && onboardingVisible) ? <Onboarding workspace={workspace} risk={risk} model={model} onCompleted={() => { setSetup(false); setPage('New Thread'); }} /> :
