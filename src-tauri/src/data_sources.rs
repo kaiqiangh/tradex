@@ -1,0 +1,265 @@
+use std::time::Duration;
+
+use reqwest::blocking::Client;
+use reqwest::redirect::Policy;
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+
+use crate::protocol::{
+    DataSourceEntry, DataSourceProbeKind, DataSourceStatus, Result, TradeXError,
+};
+
+const SOURCE_REVIEWED_AT: &str = "2026-09-13";
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+const USER_AGENT: &str = "TradeX-local-research/0.1 (local workspace)";
+
+pub fn entries() -> Vec<DataSourceEntry> {
+    vec![
+        DataSourceEntry {
+            source_id: "OD-001".into(),
+            provider: "Alpaca Market Data API".into(),
+            capabilities: vec!["US equity realtime market data".into()],
+            coverage: "US stocks and ETFs; Basic plan is IEX realtime and SIP delayed; full venue coverage depends on entitlement.".into(),
+            latency: "Realtime or delayed according to the selected Alpaca plan; no default entitlement.".into(),
+            entitlement: "Alpaca market-data API key and plan entitlement; broker account connection is not sufficient.".into(),
+            retention: "Plan and local retention terms must be reviewed before caching or export.".into(),
+            redistribution: "No redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED — review the current Alpaca agreement for the intended use.".into(),
+            jurisdictions: "US equities; market and customer jurisdiction restrictions apply.".into(),
+            official_url: "https://docs.alpaca.markets/us/v1.1/docs/about-market-data-api".into(),
+            terms_url: "https://alpaca.markets/legal".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::CredentialedMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Market-data entitlement is not configured or verified in TradeX.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-002".into(),
+            provider: "Alpaca Market Data API".into(),
+            capabilities: vec!["US equity historical data".into()],
+            coverage: "Historical bars, quotes and trades subject to plan history, adjustment and rate limits.".into(),
+            latency: "Historical endpoint; latest window and history depth depend on entitlement.".into(),
+            entitlement: "Alpaca market-data API key and historical-data plan entitlement.".into(),
+            retention: "Persisted OHLCV must retain source, provider timestamp and plan/terms metadata.".into(),
+            redistribution: "No redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED — review the current Alpaca agreement for the intended use.".into(),
+            jurisdictions: "US equities; source coverage is not a global exchange archive.".into(),
+            official_url: "https://docs.alpaca.markets/us/v1.1/docs/about-market-data-api".into(),
+            terms_url: "https://alpaca.markets/legal".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::CredentialedMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Historical-data entitlement and usable range are not configured or verified.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-003".into(),
+            provider: "SEC EDGAR data.sec.gov".into(),
+            capabilities: vec!["Fundamentals and XBRL facts".into()],
+            coverage: "SEC submissions and XBRL Company Facts/Frames for supported forms and filers.".into(),
+            latency: "SEC publication and processing time; not a realtime market feed.".into(),
+            entitlement: "Public API; every automated request needs an identifying User-Agent.".into(),
+            retention: "Keep source URL, form/period and fetched timestamp with stored facts.".into(),
+            redistribution: "Public access does not grant TradeX redistribution or commercial rights.".into(),
+            commercial_use: "UNVERIFIED — follow SEC policy and review intended redistribution.".into(),
+            jurisdictions: "US SEC filings; non-US issuers/forms may have different coverage.".into(),
+            official_url: "https://www.sec.gov/search-filings/edgar-application-programming-interfaces".into(),
+            terms_url: "https://www.sec.gov/about/developer-resources".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::PublicMetadata,
+            status: DataSourceStatus::Unverified,
+            configured: true,
+            verified_at: None,
+            availability_reason: "Public endpoint has not been probed in this workspace.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-004".into(),
+            provider: "SEC EDGAR filings; general news provider unresolved".into(),
+            capabilities: vec!["Filings".into(), "News (unresolved)".into()],
+            coverage: "SEC filings are source-specific; no licensed general-news feed has been selected.".into(),
+            latency: "Filing publication and processing timing follows SEC feeds; general news is unavailable.".into(),
+            entitlement: "SEC public endpoint with User-Agent; licensed news entitlement still required.".into(),
+            retention: "Filings retain accession/source metadata; no news content is cached.".into(),
+            redistribution: "No general-news redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED for filings; BLOCKED_EXTERNAL for news.".into(),
+            jurisdictions: "SEC filing coverage only; news jurisdiction remains unselected.".into(),
+            official_url: "https://www.sec.gov/search-filings/edgar-application-programming-interfaces".into(),
+            terms_url: "https://www.sec.gov/about/developer-resources".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::PublicMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Filings can be probed, but a licensed general-news provider is not selected; the combined OD gate remains blocked.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-005".into(),
+            provider: "Alpaca Market Calendar and Corporate Actions".into(),
+            capabilities: vec!["US equity sessions and corporate actions".into()],
+            coverage: "Supported MIC calendars, early closes, splits, dividends and symbol/name actions; halts and full cross-market adjustment require S08.".into(),
+            latency: "Provider calendar and action update timing; stale data blocks equity Live.".into(),
+            entitlement: "Alpaca API key and applicable market-data/account entitlement.".into(),
+            retention: "Persist event type, effective date, source and provider timestamp.".into(),
+            redistribution: "No redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED — review the current Alpaca agreement.".into(),
+            jurisdictions: "Supported US market identifiers only until S08 adds cross-market sources.".into(),
+            official_url: "https://docs.alpaca.markets/us/reference/calendar-2".into(),
+            terms_url: "https://alpaca.markets/legal".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::CredentialedMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Calendar and corporate-action credentials/coverage are not configured or freshly verified.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-006".into(),
+            provider: "ECB Data Portal EXR / SDMX".into(),
+            capabilities: vec!["Daily informational FX reference rates".into()],
+            coverage: "Daily reference rates for 30 currencies quoted against EUR on working days.".into(),
+            latency: "Published around 16:00 CET on working days; not transaction-grade intraday FX.".into(),
+            entitlement: "Public SDMX REST endpoint; source disclosure travels with every value.".into(),
+            retention: "Keep dataflow/series key, observation date, source URL and fetched timestamp.".into(),
+            redistribution: "Use remains subject to ECB portal terms; information-only disclosure is mandatory.".into(),
+            commercial_use: "UNVERIFIED — reference-rate information is not a transaction quote.".into(),
+            jurisdictions: "EUR-denominated reference series; stablecoin parity is outside source coverage.".into(),
+            official_url: "https://data.ecb.europa.eu/key-figures/ecb-interest-rates-and-exchange-rates/exchange-rates".into(),
+            terms_url: "https://data.ecb.europa.eu/help/getting-data-web-services-sdmx-0".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::PublicMetadata,
+            status: DataSourceStatus::Unverified,
+            configured: true,
+            verified_at: None,
+            availability_reason: "Public EXR endpoint has not been probed in this workspace.".into(),
+        },
+    ]
+}
+
+pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceEntry> {
+    if source.source_id != source_id {
+        return Err(TradeXError::new("DATA_SOURCE_UNKNOWN"));
+    }
+    if source.probe_kind == DataSourceProbeKind::CredentialedMetadata {
+        source.checked_at = Some(SOURCE_REVIEWED_AT.into());
+        source.observed_at = Some(now()?);
+        source.status = DataSourceStatus::BlockedExternal;
+        source.availability_reason = "A user-managed provider entitlement is required; TradeX did not read or infer credentials.".into();
+        return Ok(source);
+    }
+    let url = match source_id {
+        "OD-003" | "OD-004" => "https://data.sec.gov/submissions/CIK0000320193.json",
+        "OD-006" => {
+            "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?format=csvdata&lastNObservations=1"
+        }
+        _ => return Err(TradeXError::new("DATA_SOURCE_UNKNOWN")),
+    };
+    let observed_at = now()?;
+    source.observed_at = Some(observed_at);
+    source.checked_at = Some(SOURCE_REVIEWED_AT.into());
+    let client = Client::builder()
+        .https_only(true)
+        .redirect(Policy::none())
+        .timeout(REQUEST_TIMEOUT)
+        .build()
+        .map_err(|_| TradeXError::new("DATA_SOURCE_PROBE_FAILED"))?;
+    let response = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, USER_AGENT)
+        .header(reqwest::header::ACCEPT, "application/json, text/csv")
+        .send();
+    match response {
+        Ok(response) if response.status().is_success() => {
+            if source_id == "OD-004" {
+                source.status = DataSourceStatus::BlockedExternal;
+                source.availability_reason =
+                    "SEC filings endpoint responded; a licensed general-news provider is still not selected."
+                        .into();
+            } else {
+                source.status = DataSourceStatus::Available;
+                source.verified_at = source.observed_at.clone();
+                source.availability_reason =
+                    "Public endpoint responded; coverage, freshness and use restrictions still apply."
+                        .into();
+            }
+        }
+        Ok(response) => {
+            source.status = DataSourceStatus::Unavailable;
+            source.availability_reason = format!(
+                "Public endpoint returned HTTP {}; retry later. No response body was retained.",
+                response.status().as_u16()
+            );
+        }
+        Err(error) => {
+            source.status = DataSourceStatus::Unavailable;
+            source.availability_reason = format!(
+                "Public endpoint probe failed ({}). No response body was retained.",
+                classify_probe_error(&error)
+            );
+        }
+    }
+    Ok(source)
+}
+
+fn classify_probe_error(error: &reqwest::Error) -> &'static str {
+    if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connection unavailable"
+    } else {
+        "request error"
+    }
+}
+
+fn now() -> Result<String> {
+    OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .map_err(|_| TradeXError::new("DATA_SOURCE_PROBE_FAILED"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn policy_covers_each_open_decision_without_secrets() {
+        let sources = entries();
+        assert_eq!(sources.len(), 6);
+        assert_eq!(
+            sources
+                .iter()
+                .map(|source| source.source_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["OD-001", "OD-002", "OD-003", "OD-004", "OD-005", "OD-006"]
+        );
+        let encoded = serde_json::to_string(&sources).unwrap();
+        assert!(!encoded.contains("secret"));
+        assert!(!encoded.contains("api_key"));
+        assert!(!encoded.contains("apikey"));
+    }
+
+    #[test]
+    fn credentialed_probe_stays_blocked_without_reading_credentials() {
+        let source = entries()
+            .into_iter()
+            .find(|item| item.source_id == "OD-001")
+            .unwrap();
+        let result = probe("OD-001", source).unwrap();
+        assert_eq!(result.status, DataSourceStatus::BlockedExternal);
+        assert!(result.observed_at.is_some());
+        assert!(!result.availability_reason.contains("key"));
+    }
+}

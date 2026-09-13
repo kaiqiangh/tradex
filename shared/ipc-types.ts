@@ -151,6 +151,7 @@ export type ReplyData =
   | PermissionReview
   | CapabilityDecision
   | ContextCatalog
+  | DataSourceCatalog
   | ResearchToolResult;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -162,6 +163,16 @@ export type ToolId =
   | "historical_simulation"
   | "paper_demo_testnet_execution"
   | "live_order_proposal";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceProbeKind".
+ */
+export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceStatus".
+ */
+export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
@@ -181,6 +192,8 @@ export interface IpcSchema {
   completeOnboarding: CompleteOnboarding;
   configureDeepseek: ConfigureDeepseek;
   contextCatalog: WorkspaceQuery;
+  dataSourceProbe: DataSourceProbe;
+  dataSourceQuery: DataSourceQuery;
   empty: EmptyPayload;
   event: DomainEvent;
   gatewayMutation: GatewayMutation;
@@ -297,6 +310,22 @@ export interface ConfigureDeepseek {
  * via the `definition` "WorkspaceQuery".
  */
 export interface WorkspaceQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceProbe".
+ */
+export interface DataSourceProbe {
+  expectedStateVersion: string;
+  sourceId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceQuery".
+ */
+export interface DataSourceQuery {
   workspaceId: string;
 }
 /**
@@ -921,6 +950,82 @@ export interface ContextCatalogEntry {
   label: string;
   providerId?: string;
   readOnly: boolean;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceCatalog".
+ */
+export interface DataSourceCatalog {
+  /**
+   * @minItems 1
+   * @maxItems 8
+   */
+  sources:
+    | [DataSourceEntry]
+    | [DataSourceEntry, DataSourceEntry]
+    | [DataSourceEntry, DataSourceEntry, DataSourceEntry]
+    | [DataSourceEntry, DataSourceEntry, DataSourceEntry, DataSourceEntry]
+    | [DataSourceEntry, DataSourceEntry, DataSourceEntry, DataSourceEntry, DataSourceEntry]
+    | [DataSourceEntry, DataSourceEntry, DataSourceEntry, DataSourceEntry, DataSourceEntry, DataSourceEntry]
+    | [
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry
+      ]
+    | [
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry,
+        DataSourceEntry
+      ];
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceEntry".
+ */
+export interface DataSourceEntry {
+  availabilityReason: string;
+  /**
+   * @maxItems 8
+   */
+  capabilities:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  checkedAt?: string;
+  commercialUse: string;
+  configured: boolean;
+  coverage: string;
+  entitlement: string;
+  jurisdictions: string;
+  latency: string;
+  observedAt?: string;
+  officialUrl: string;
+  probeKind: DataSourceProbeKind;
+  provider: string;
+  redistribution: string;
+  retention: string;
+  reviewedAt: string;
+  sourceId: string;
+  status: DataSourceStatus;
+  termsUrl: string;
+  verifiedAt?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

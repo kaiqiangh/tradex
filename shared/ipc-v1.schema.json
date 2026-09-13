@@ -31,6 +31,12 @@
     "contextCatalog": {
       "$ref": "#/$defs/WorkspaceQuery"
     },
+    "dataSourceProbe": {
+      "$ref": "#/$defs/DataSourceProbe"
+    },
+    "dataSourceQuery": {
+      "$ref": "#/$defs/DataSourceQuery"
+    },
     "empty": {
       "$ref": "#/$defs/EmptyPayload"
     },
@@ -137,7 +143,9 @@
     "turnRetry",
     "researchRequest",
     "researchInvocation",
-    "researchResult"
+    "researchResult",
+    "dataSourceQuery",
+    "dataSourceProbe"
   ],
   "$defs": {
     "AccountConnection": {
@@ -794,6 +802,212 @@
         "label",
         "readOnly",
         "available"
+      ]
+    },
+    "DataSourceCatalog": {
+      "type": "object",
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSourceEntry"
+          },
+          "maxItems": 8,
+          "minItems": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "sources"
+      ]
+    },
+    "DataSourceEntry": {
+      "type": "object",
+      "properties": {
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8
+        },
+        "checkedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "commercialUse": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "coverage": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "entitlement": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "jurisdictions": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "latency": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "officialUrl": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "probeKind": {
+          "$ref": "#/$defs/DataSourceProbeKind"
+        },
+        "provider": {
+          "type": "string",
+          "maxLength": 160,
+          "minLength": 1
+        },
+        "redistribution": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "retention": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "reviewedAt": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 10
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "termsUrl": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "verifiedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "provider",
+        "capabilities",
+        "coverage",
+        "latency",
+        "entitlement",
+        "retention",
+        "redistribution",
+        "commercialUse",
+        "jurisdictions",
+        "officialUrl",
+        "termsUrl",
+        "reviewedAt",
+        "probeKind",
+        "status",
+        "configured",
+        "availabilityReason"
+      ]
+    },
+    "DataSourceProbe": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "expectedStateVersion"
+      ]
+    },
+    "DataSourceProbeKind": {
+      "type": "string",
+      "enum": [
+        "PUBLIC_METADATA",
+        "CREDENTIALED_METADATA"
+      ]
+    },
+    "DataSourceQuery": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "DataSourceStatus": {
+      "type": "string",
+      "enum": [
+        "AVAILABLE",
+        "UNAVAILABLE",
+        "BLOCKED_EXTERNAL",
+        "UNVERIFIED"
       ]
     },
     "DomainEvent": {
@@ -1798,6 +2012,9 @@
         },
         {
           "$ref": "#/$defs/ContextCatalog"
+        },
+        {
+          "$ref": "#/$defs/DataSourceCatalog"
         },
         {
           "$ref": "#/$defs/ResearchToolResult"

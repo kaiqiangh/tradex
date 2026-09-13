@@ -22,6 +22,12 @@ declare const validators: {
   ContextCatalog: (value: unknown) => boolean;
   ContextCatalogEmptyState: (value: unknown) => boolean;
   ContextCatalogEntry: (value: unknown) => boolean;
+  DataSourceCatalog: (value: unknown) => boolean;
+  DataSourceEntry: (value: unknown) => boolean;
+  DataSourceProbe: (value: unknown) => boolean;
+  DataSourceProbeKind: (value: unknown) => boolean;
+  DataSourceQuery: (value: unknown) => boolean;
+  DataSourceStatus: (value: unknown) => boolean;
   DomainEvent: (value: unknown) => boolean;
   DomainProjection: (value: unknown) => boolean;
   EmptyPayload: (value: unknown) => boolean;

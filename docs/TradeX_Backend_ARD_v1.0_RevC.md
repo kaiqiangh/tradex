@@ -1691,6 +1691,13 @@ account.disarm
 account.disable_all_live
 ```
 
+### Data-source policy
+
+```text
+data.source.catalog
+data.source.probe
+```
+
 ### Providers
 
 ```text
@@ -2009,6 +2016,34 @@ interface ResearchToolResult {
 ~~~
 
 `research.run` is read-only and returns an explicit unavailable payload until the owning market/account/history slices connect providers. Query text is bounded and hashed but never echoed into the result. `turn.start` may submit a `ResearchToolInvocation` only together with its result; the Control Plane reconstructs the full request from the Turn inputs, reruns the same registry function, and compares every result field before writing a `research_result` item or starting runtime. Missing, mismatched, or tampered pairs return `RESEARCH_RESULT_INVALID` without projection mutation. The persisted item keeps the non-secret source/context refs and marker; runtime receives only the sanitized marker. No broker credentials, model secrets, or direct external LLM endpoint cross this seam.
+
+### 41.9 Data-source catalog and probe payloads (S06)
+
+The data-source catalog is a read-only policy projection. It records the selected source, capability coverage, latency, entitlement, retention, redistribution/commercial/jurisdiction limits, official/terms URLs and source-review date for OD-001–006. It does not imply that a connected broker account has market-data entitlement. `data.source.probe` is bounded and read-only: a public HTTP response proves reachability only, while credentialed Alpaca sources remain `BLOCKED_EXTERNAL` until a user-managed entitlement is separately verified.
+
+| Command | Payload | Success data |
+|---|---|---|
+| data.source.catalog | `{workspaceId: string}` | `DataSourceCatalog` |
+| data.source.probe | `{workspaceId: string, sourceId: string, expectedStateVersion: string}` | `DataSourceCatalog` with the probed entry replaced |
+
+~~~ts
+type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
+interface DataSourceEntry {
+  sourceId: string; provider: string; capabilities: string[];
+  coverage: string; latency: string; entitlement: string;
+  retention: string; redistribution: string; commercialUse: string;
+  jurisdictions: string; officialUrl: string; termsUrl: string;
+  reviewedAt: string; checkedAt?: string; observedAt?: string;
+  probeKind: DataSourceProbeKind; status: DataSourceStatus;
+  configured: boolean; verifiedAt?: string; availabilityReason: string;
+}
+interface DataSourceCatalog { workspaceId: string; stateVersion: string; sources: DataSourceEntry[]; }
+interface DataSourceQuery { workspaceId: string; }
+interface DataSourceProbe { workspaceId: string; sourceId: string; expectedStateVersion: string; }
+~~~
+
+The initial policy maps Alpaca Market Data to OD-001/002, SEC EDGAR to fundamentals and filings in OD-003/004, Alpaca Calendar/Corporate Actions to OD-005, and ECB EXR/SDMX informational reference rates to OD-006. General news, complete cross-market events, execution-grade intraday FX and stablecoin parity remain `BLOCKED_EXTERNAL`. Public SEC/ECB probes retain the source URL, checked/observed timestamp and sanitized HTTP outcome but never response bodies or credentials. Unknown source IDs return `DATA_SOURCE_UNKNOWN`; stale workspace cursors return `STATE_STALE / STATE_VERSION_CONFLICT`; neither command writes SQLite state, changes account/model/risk/thread versions, or enables Live. A source status other than `AVAILABLE` must produce a sanitized unavailable typed-research result until the owning data slice resolves the gate.
 
 ## 42. Backend-to-Frontend Event Surface
 

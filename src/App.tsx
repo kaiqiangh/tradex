@@ -8,6 +8,7 @@ import { browserIntegration, desktop, explainError, request, transportAvailable 
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
 import { RiskDefaults, draftFromPolicy, type RiskDraft } from './RiskDefaults.tsx';
+import { DataSources } from './DataSources.tsx';
 import { fromModelSnapshot, fromRiskSnapshot, fromThreadSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -600,7 +601,7 @@ export default function App() {
                   <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : modelReady ? 'A verified model route is available; agent turns remain disabled until Codex App Server is configured.' : modelState.reason}</p>
                   <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : component.status.replaceAll('_', ' ')}</span></li>)}</ul>
                   <button onClick={() => { void state.runtime.refetch(); }} disabled={state.runtime.isFetching}>Refresh runtime status</button>
-                </> : settingsTab === 'Risk & Limits' && workspace ? <RiskSettings workspace={workspace} risk={risk} /> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => { setWorkspacePicker(true); setSetup(false); }}>Open another workspace</button></> :
+                </> : settingsTab === 'Risk & Limits' && workspace ? <RiskSettings workspace={workspace} risk={risk} /> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => { setWorkspacePicker(true); setSetup(false); }}>Open another workspace</button><DataSources workspaceId={workspace.workspaceId} /></> :
                   <p className="muted">{settingsTab === 'Account Health' ? 'Connection, authentication, stream, reconciliation and execution are separate checks.' : 'The workspace currently uses the RevC light theme.'}</p>}
               </section>
             </>}

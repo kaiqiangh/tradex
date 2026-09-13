@@ -1691,6 +1691,13 @@ account.disarm
 account.disable_all_live
 ```
 
+### Data-source policy
+
+```text
+data.source.catalog
+data.source.probe
+```
+
 ### Providers
 
 ```text
@@ -2009,6 +2016,34 @@ interface ResearchToolResult {
 ~~~
 
 `research.run` 是只读命令，在拥有 market/account/history 的 slice 接入 provider 前返回明确的 unavailable payload。query 文本有界并只参与 hash，不会回显到 result。`turn.start` 只能成对提交 `ResearchToolInvocation` 和 result；Control Plane 从 Turn 输入重建完整 request，再次运行同一 registry 并逐字段比较，确认后才写入 `research_result` item 或启动 runtime。缺失、错配或篡改 pair 返回 `RESEARCH_RESULT_INVALID`，且不修改 projection。持久化 item 保留非秘密 source/context refs 与 marker；runtime 只接收清洗后的 marker。broker credential、model secret 和 direct external LLM endpoint 不会跨越该边界。
+
+### 41.9 数据源目录与探测载荷（S06）
+
+数据源目录是只读的策略投影。它为 OD-001–006 记录所选来源、能力覆盖、时效、entitlement、保留、再分发/商业/辖区限制、官方/条款 URL 及来源审阅日期。它不表示已连接的券商账户拥有市场数据 entitlement。`data.source.probe` 是有界只读操作：公开 HTTP 响应只能证明可达性；Alpaca credentialed source 在用户管理的 entitlement 被单独验证前始终为 `BLOCKED_EXTERNAL`。
+
+| Command | Payload | Success data |
+|---|---|---|
+| data.source.catalog | `{workspaceId: string}` | `DataSourceCatalog` |
+| data.source.probe | `{workspaceId: string, sourceId: string, expectedStateVersion: string}` | `DataSourceCatalog`，以探测后的条目替换目标项 |
+
+~~~ts
+type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
+interface DataSourceEntry {
+  sourceId: string; provider: string; capabilities: string[];
+  coverage: string; latency: string; entitlement: string;
+  retention: string; redistribution: string; commercialUse: string;
+  jurisdictions: string; officialUrl: string; termsUrl: string;
+  reviewedAt: string; checkedAt?: string; observedAt?: string;
+  probeKind: DataSourceProbeKind; status: DataSourceStatus;
+  configured: boolean; verifiedAt?: string; availabilityReason: string;
+}
+interface DataSourceCatalog { workspaceId: string; stateVersion: string; sources: DataSourceEntry[]; }
+interface DataSourceQuery { workspaceId: string; }
+interface DataSourceProbe { workspaceId: string; sourceId: string; expectedStateVersion: string; }
+~~~
+
+初始策略将 Alpaca Market Data 映射到 OD-001/002，将 SEC EDGAR 映射到 OD-003/004 的基本面与 filings，将 Alpaca Calendar/Corporate Actions 映射到 OD-005，将 ECB EXR/SDMX 信息性参考汇率映射到 OD-006。通用新闻、完整跨市场事件、交易级盘中 FX 和稳定币 parity 保持 `BLOCKED_EXTERNAL`。公开 SEC/ECB 探测保留来源 URL、checked/observed 时间和脱敏 HTTP 结果，但绝不保留响应正文或凭据。未知 source ID 返回 `DATA_SOURCE_UNKNOWN`；过期 workspace 游标返回 `STATE_STALE / STATE_VERSION_CONFLICT`；两个命令都不写 SQLite、不改变 account/model/risk/thread 版本，也不启用 Live。source 状态不是 `AVAILABLE` 时，typed research 必须返回 sanitized unavailable，直到所属数据切片解除 gate。
 
 ## 42. Backend-to-Frontend Event Surface
 

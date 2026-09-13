@@ -1,5 +1,6 @@
 pub mod capability;
 pub mod codex_runtime;
+pub mod data_sources;
 pub mod gateway;
 #[cfg(target_os = "macos")]
 pub mod gateway_process;
@@ -17,10 +18,10 @@ mod storage;
 
 use capability::CapabilityQuery;
 use protocol::{
-    Aggregate, CommandEnvelope, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
-    OpenWorkspace, ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, Subscribe, Thread,
-    ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn,
-    TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    Aggregate, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload,
+    EventSink, MAX_SEQUENCE, OpenWorkspace, ResearchToolRequest, Result, RuntimeComponent,
+    RuntimeStatus, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
+    ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -562,6 +563,53 @@ impl ControlPlane {
             "context.catalog" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
                 Ok((json!(self.context_catalog(&input)?), None))
+            }
+            "data.source.catalog" => {
+                let input: DataSourceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let snapshot = self.store.as_mut().unwrap().snapshot()?;
+                let catalog = protocol::DataSourceCatalog {
+                    workspace_id: input.workspace_id,
+                    state_version: format!("{}:{}", snapshot.aggregate_id, snapshot.last_sequence),
+                    sources: data_sources::entries(),
+                };
+                Ok((
+                    json!(catalog),
+                    Some(format!(
+                        "{}:{}",
+                        snapshot.aggregate_id, snapshot.last_sequence
+                    )),
+                ))
+            }
+            "data.source.probe" => {
+                let input: DataSourceProbe = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let snapshot = self.store.as_mut().unwrap().snapshot()?;
+                let current_version =
+                    format!("{}:{}", snapshot.aggregate_id, snapshot.last_sequence);
+                if input.expected_state_version != current_version {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let entry = data_sources::entries()
+                    .into_iter()
+                    .find(|source| source.source_id == input.source_id)
+                    .ok_or_else(|| TradeXError::new("DATA_SOURCE_UNKNOWN"))?;
+                let probed = data_sources::probe(&input.source_id, entry)?;
+                let catalog = protocol::DataSourceCatalog {
+                    workspace_id: input.workspace_id,
+                    state_version: current_version.clone(),
+                    sources: data_sources::entries()
+                        .into_iter()
+                        .map(|source| {
+                            if source.source_id == input.source_id {
+                                probed.clone()
+                            } else {
+                                source
+                            }
+                        })
+                        .collect(),
+                };
+                Ok((json!(catalog), Some(current_version)))
             }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;

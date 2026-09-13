@@ -150,6 +150,7 @@ pub enum ReplyData {
     Permissions(PermissionReview),
     Capability(CapabilityDecision),
     ContextCatalog(ContextCatalog),
+    DataSourceCatalog(DataSourceCatalog),
     ResearchResult(ResearchToolResult),
 }
 
@@ -209,6 +210,8 @@ pub struct IpcSchema {
     pub research_request: ResearchToolRequest,
     pub research_invocation: ResearchToolInvocation,
     pub research_result: ResearchToolResult,
+    pub data_source_query: DataSourceQuery,
+    pub data_source_probe: DataSourceProbe,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -372,6 +375,96 @@ pub struct ResearchToolResult {
     #[schemars(length(max = 32))]
     pub context_refs: Vec<ThreadContextRef>,
     pub payload: ResearchToolPayload,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DataSourceStatus {
+    Available,
+    Unavailable,
+    BlockedExternal,
+    Unverified,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DataSourceProbeKind {
+    PublicMetadata,
+    CredentialedMetadata,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceEntry {
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 160))]
+    pub provider: String,
+    #[schemars(length(max = 8))]
+    pub capabilities: Vec<String>,
+    #[schemars(length(min = 1, max = 512))]
+    pub coverage: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub latency: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub entitlement: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub retention: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub redistribution: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub commercial_use: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub jurisdictions: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub official_url: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub terms_url: String,
+    #[schemars(length(min = 10, max = 32))]
+    pub reviewed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub checked_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub observed_at: Option<String>,
+    pub probe_kind: DataSourceProbeKind,
+    pub status: DataSourceStatus,
+    pub configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub verified_at: Option<String>,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceCatalog {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 8))]
+    pub sources: Vec<DataSourceEntry>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceProbe {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -728,6 +821,16 @@ impl TradeXError {
                 "retry_request",
                 "Review and retry",
             ),
+            "DATA_SOURCE_UNKNOWN" => (
+                "That data source is not in the current TradeX policy.",
+                "reload_snapshot",
+                "Reload data sources",
+            ),
+            "DATA_SOURCE_PROBE_FAILED" => (
+                "The data source probe could not be completed. No source data was changed.",
+                "retry_request",
+                "Retry probe",
+            ),
             "PROVIDER_ALREADY_CONNECTED" => (
                 "This account is already connected in this environment. Use the existing connection.",
                 "select_account",
@@ -1081,11 +1184,14 @@ impl TradeXError {
                 "POLICY_ERROR"
             } else if code == "PROVIDER_RATE_LIMITED" {
                 "RATE_LIMITED"
-            } else if code == "PROVIDER_UNAVAILABLE" {
+            } else if matches!(code, "PROVIDER_UNAVAILABLE" | "DATA_SOURCE_PROBE_FAILED") {
                 "NETWORK_ERROR"
             } else if matches!(
                 code,
-                "PROVIDER_UNSUPPORTED" | "UNSUPPORTED_CAPABILITY" | "RESEARCH_RESULT_INVALID"
+                "PROVIDER_UNSUPPORTED"
+                    | "UNSUPPORTED_CAPABILITY"
+                    | "RESEARCH_RESULT_INVALID"
+                    | "DATA_SOURCE_UNKNOWN"
             ) {
                 "UNSUPPORTED_CAPABILITY"
             } else if code == "PROVIDER_PERMISSION_BLOCKED" {
