@@ -9,6 +9,7 @@ pub mod native_credentials;
 pub mod protocol;
 pub mod provider_io;
 pub mod providers;
+pub mod risk;
 mod storage;
 
 use protocol::{
@@ -17,6 +18,7 @@ use protocol::{
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
+use risk::RiskPolicyState;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use std::{collections::HashMap, path::PathBuf};
@@ -116,6 +118,19 @@ impl ControlPlane {
                     let mut model = store.model_or_new()?;
                     model.reset_for_session();
                     store.save_model(model, "model.provider.changed")?;
+                    match store.risk_or_new()? {
+                        Some(mut risk) => {
+                            let previous = risk.clone();
+                            risk.reopen_after_model_reset();
+                            if risk != previous {
+                                store.save_risk(risk)?;
+                            }
+                        }
+                        None => {
+                            let workspace_id = store.workspace_id()?;
+                            store.save_risk(RiskPolicyState::new(workspace_id))?;
+                        }
+                    }
                     let event = store.record_open()?;
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.store = Some(store);
@@ -164,6 +179,24 @@ impl ControlPlane {
             "model.set_fallback_policy" => {
                 let input: model::SetFallbackPolicy = payload(request.payload)?;
                 self.set_fallback_policy(input)
+            }
+            "risk.get_policy" => {
+                let input: risk::RiskQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let state = self.store.as_ref().unwrap().risk()?;
+                Ok((json!(state), Some(state.state_version)))
+            }
+            "risk.save_policy" => {
+                let input: risk::SaveRiskPolicy = payload(request.payload)?;
+                self.save_risk_policy(input)
+            }
+            "onboarding.set_step" => {
+                let input: risk::SetOnboardingStep = payload(request.payload)?;
+                self.set_onboarding_step(input)
+            }
+            "onboarding.complete" => {
+                let input: risk::CompleteOnboarding = payload(request.payload)?;
+                self.complete_onboarding(input)
             }
             "runtime.status" => {
                 let _: EmptyPayload = payload(request.payload)?;
@@ -506,6 +539,104 @@ impl ControlPlane {
             .unwrap()
             .save_model(state, "model.provider.changed")?;
         let DomainProjection::Model(state) = &event.payload else {
+            unreachable!()
+        };
+        let version = state.state_version.clone();
+        self.publish(&event);
+        Ok((json!(state), Some(version)))
+    }
+
+    fn save_risk_policy(&mut self, input: risk::SaveRiskPolicy) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let previous = self.store.as_ref().unwrap().risk()?;
+        if previous.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let mut state = previous;
+        state.policy = input.policy;
+        state.validate_policy()?;
+        state.mark_editing();
+        state.policy_version = state
+            .policy_version
+            .checked_add(1)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        self.persist_risk(state)
+    }
+
+    fn set_onboarding_step(
+        &mut self,
+        input: risk::SetOnboardingStep,
+    ) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        if !(1..=5).contains(&input.step) {
+            return Err(TradeXError::new("ONBOARDING_STEP_INVALID"));
+        }
+        let previous = self.store.as_ref().unwrap().risk()?;
+        if previous.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if input.step > previous.onboarding_step.saturating_add(1)
+            && !(previous.onboarding_completed && input.step == 1)
+        {
+            return Err(TradeXError::new("ONBOARDING_STEP_INVALID"));
+        }
+        if input.step == 5 {
+            let model = self.store.as_ref().unwrap().model()?;
+            if !previous.ready_for_completion(&model) {
+                return Err(TradeXError::new("ONBOARDING_BLOCKED"));
+            }
+        }
+        let mut state = previous;
+        state.onboarding_step = input.step;
+        if input.step < 5 {
+            state.onboarding_completed = false;
+        }
+        self.persist_risk(state)
+    }
+
+    fn complete_onboarding(
+        &mut self,
+        input: risk::CompleteOnboarding,
+    ) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let previous = self.store.as_ref().unwrap().risk()?;
+        if previous.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if previous.onboarding_step != 5 {
+            return Err(TradeXError::new("ONBOARDING_STEP_INVALID"));
+        }
+        let model = self.store.as_ref().unwrap().model()?;
+        if !previous.ready_for_completion(&model) {
+            return Err(TradeXError::new("ONBOARDING_BLOCKED"));
+        }
+        if self
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()?
+            .iter()
+            .any(|account| account.environment == "LIVE" && account.health.arming != "DISARMED")
+        {
+            return Err(TradeXError::new("ONBOARDING_BLOCKED"));
+        }
+        let mut state = previous;
+        state.onboarding_completed = true;
+        self.persist_risk(state)
+    }
+
+    fn persist_risk(&mut self, state: RiskPolicyState) -> Result<(Value, Option<String>)> {
+        let event = self.store.as_mut().unwrap().save_risk(state)?;
+        let DomainProjection::Risk(state) = &event.payload else {
             unreachable!()
         };
         let version = state.state_version.clone();
@@ -1333,5 +1464,124 @@ mod model_tests {
             Ok(_) => panic!("known quota cooldown must block verification"),
         };
         assert_eq!(error.code, "MODEL_QUOTA_COOLDOWN");
+    }
+}
+
+#[cfg(test)]
+mod risk_tests {
+    use super::*;
+
+    fn command(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
+        control.dispatch(json!({
+            "requestId": command,
+            "schemaVersion": 1,
+            "command": command,
+            "payload": payload,
+        }))
+    }
+
+    #[test]
+    fn risk_policy_is_persisted_and_ready_is_gated_by_model_and_order() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = command(&mut control, "workspace.open", json!({}));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let risk = command(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(risk["data"]["policy"]["maxOrderNotional"], Value::Null);
+        assert_eq!(risk["data"]["policy"]["staleQuoteThresholdSeconds"], 3);
+        assert_eq!(risk["data"]["policy"]["marketOrdersEnabled"], false);
+        assert_eq!(risk["data"]["policy"]["liveInactivityTimeoutMinutes"], 20);
+        let invalid = command(
+            &mut control,
+            "risk.save_policy",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":"1e3","staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"liveInactivityTimeoutMinutes":20}}),
+        );
+        assert_eq!(invalid["error"]["code"], "RISK_POLICY_INVALID");
+        let saved = command(
+            &mut control,
+            "risk.save_policy",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":null,"maxSingleInstrumentExposurePercent":"10.25","maxDailyTradedNotional":null,"maxDailyRealizedLoss":null,"staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"liveInactivityTimeoutMinutes":20}}),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        assert_eq!(saved["data"]["configured"], true);
+        assert_eq!(saved["data"]["policyVersion"], 2);
+        let skipped = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":saved["data"]["stateVersion"],"step":3}),
+        );
+        assert_eq!(skipped["error"]["code"], "ONBOARDING_STEP_INVALID");
+        let step_two = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":saved["data"]["stateVersion"],"step":2}),
+        );
+        let step_three = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":step_two["data"]["stateVersion"],"step":3}),
+        );
+        let step_four = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":step_three["data"]["stateVersion"],"step":4}),
+        );
+        let blocked = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":step_four["data"]["stateVersion"],"step":5}),
+        );
+        assert_eq!(blocked["error"]["code"], "ONBOARDING_BLOCKED");
+        let route = model::ModelRoute {
+            provider: model::ModelProvider::Chatgpt,
+            model_id: "gpt-5.6-sol".into(),
+            thinking_type: None,
+            verified_at: Some("2026-09-13T00:00:00Z".into()),
+        };
+        let mut model = control.store.as_ref().unwrap().model().unwrap();
+        model.chatgpt.configured = true;
+        model.chatgpt.status = model::ModelHealth::Ready;
+        model.chatgpt.routes = vec![route.clone()];
+        model.default_route = Some(route.selection());
+        model.current_route = Some(route);
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(model, "model.provider.changed")
+            .unwrap();
+        let current_risk = command(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let ready = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":current_risk["data"]["stateVersion"],"step":5}),
+        );
+        assert_eq!(ready["ok"], true, "{ready}");
+        let completed = command(
+            &mut control,
+            "onboarding.complete",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":ready["data"]["stateVersion"]}),
+        );
+        assert_eq!(completed["data"]["onboardingCompleted"], true);
+        drop(control);
+        let mut reopened = ControlPlane::new(path);
+        let reopened_workspace = command(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(reopened_workspace["ok"], true);
+        let reopened_risk = command(
+            &mut reopened,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(reopened_risk["data"]["onboardingCompleted"], false);
+        assert_eq!(reopened_risk["data"]["onboardingStep"], 3);
     }
 }

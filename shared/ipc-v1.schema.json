@@ -19,6 +19,9 @@
     "command": {
       "$ref": "#/$defs/CommandEnvelope"
     },
+    "completeOnboarding": {
+      "$ref": "#/$defs/CompleteOnboarding"
+    },
     "configureDeepseek": {
       "$ref": "#/$defs/ConfigureDeepseek"
     },
@@ -43,11 +46,20 @@
     "result": {
       "$ref": "#/$defs/ResultEnvelope"
     },
+    "riskQuery": {
+      "$ref": "#/$defs/RiskQuery"
+    },
+    "saveRiskPolicy": {
+      "$ref": "#/$defs/SaveRiskPolicy"
+    },
     "setDefaultModel": {
       "$ref": "#/$defs/SetDefaultModel"
     },
     "setFallbackPolicy": {
       "$ref": "#/$defs/SetFallbackPolicy"
+    },
+    "setOnboardingStep": {
+      "$ref": "#/$defs/SetOnboardingStep"
     },
     "subscribe": {
       "$ref": "#/$defs/Subscribe"
@@ -70,6 +82,10 @@
     "verifyRoute",
     "setDefaultModel",
     "setFallbackPolicy",
+    "riskQuery",
+    "saveRiskPolicy",
+    "setOnboardingStep",
+    "completeOnboarding",
     "command",
     "result",
     "event",
@@ -437,6 +453,26 @@
         "payload"
       ]
     },
+    "CompleteOnboarding": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
+      ]
+    },
     "ConfigureDeepseek": {
       "type": "object",
       "properties": {
@@ -542,7 +578,8 @@
             "workspace",
             "account",
             "model-gateway",
-            "model"
+            "model",
+            "risk"
           ]
         },
         "eventId": {
@@ -556,7 +593,8 @@
             "account.health.changed",
             "model.gateway.changed",
             "model.provider.changed",
-            "model.provider_attempt.changed"
+            "model.provider_attempt.changed",
+            "risk.policy.changed"
           ]
         },
         "occurredAt": {
@@ -603,6 +641,9 @@
         },
         {
           "$ref": "#/$defs/AccountConnection"
+        },
+        {
+          "$ref": "#/$defs/RiskPolicyState"
         }
       ]
     },
@@ -767,6 +808,26 @@
         "BACKOFF",
         "FAILED",
         "STOPPING"
+      ]
+    },
+    "HardSafetyRule": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description"
       ]
     },
     "ModelAttempt": {
@@ -1448,6 +1509,9 @@
           "$ref": "#/$defs/ModelState"
         },
         {
+          "$ref": "#/$defs/RiskPolicyState"
+        },
+        {
           "$ref": "#/$defs/ProviderCatalog"
         },
         {
@@ -1472,6 +1536,132 @@
         {
           "$ref": "#/$defs/FailureEnvelope"
         }
+      ]
+    },
+    "RiskPolicy": {
+      "type": "object",
+      "properties": {
+        "liveInactivityTimeoutMinutes": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 20,
+          "maximum": 1440,
+          "minimum": 1
+        },
+        "marketOrdersEnabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "maxDailyRealizedLoss": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "maxLength": 32
+        },
+        "maxDailyTradedNotional": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "maxLength": 32
+        },
+        "maxOrderNotional": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "maxLength": 32
+        },
+        "maxSingleInstrumentExposurePercent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "maxLength": 32
+        },
+        "staleQuoteThresholdSeconds": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 3,
+          "maximum": 86400,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "RiskPolicyState": {
+      "type": "object",
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "hardRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HardSafetyRule"
+          }
+        },
+        "onboardingCompleted": {
+          "type": "boolean"
+        },
+        "onboardingStep": {
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 5,
+          "minimum": 1
+        },
+        "policy": {
+          "$ref": "#/$defs/RiskPolicy"
+        },
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "policyVersion",
+        "configured",
+        "onboardingStep",
+        "onboardingCompleted",
+        "policy",
+        "hardRules",
+        "updatedAt"
+      ]
+    },
+    "RiskQuery": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
       ]
     },
     "RuntimeComponent": {
@@ -1516,6 +1706,30 @@
         "components",
         "modelAvailable",
         "liveExecutionAvailable"
+      ]
+    },
+    "SaveRiskPolicy": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "policy": {
+          "$ref": "#/$defs/RiskPolicy"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "policy"
       ]
     },
     "SetDefaultModel": {
@@ -1582,6 +1796,33 @@
         "automaticFallback"
       ]
     },
+    "SetOnboardingStep": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "step": {
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 5,
+          "minimum": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "step"
+      ]
+    },
     "Snapshot": {
       "type": "object",
       "properties": {
@@ -1595,7 +1836,8 @@
             "workspace",
             "account",
             "model-gateway",
-            "model"
+            "model",
+            "risk"
           ]
         },
         "lastSequence": {
@@ -1662,7 +1904,8 @@
             "workspace",
             "account",
             "model-gateway",
-            "model"
+            "model",
+            "risk"
           ]
         },
         "lastSequence": {
@@ -1824,7 +2067,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 4,
+          "maximum": 5,
           "minimum": 1
         },
         "workspaceId": {

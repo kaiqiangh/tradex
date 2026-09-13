@@ -15,9 +15,10 @@ use crate::protocol::{
     SubscriptionAck, TradeXError, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
+use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-const SCHEMA_VERSION: u32 = 4;
+const SCHEMA_VERSION: u32 = 5;
 
 pub struct Store {
     connection: Connection,
@@ -148,6 +149,9 @@ impl Store {
             }
             if version < 4 {
                 tx.execute_batch("CREATE TABLE model_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sequence INTEGER NOT NULL CHECK(sequence>0), projection TEXT NOT NULL); PRAGMA user_version=4;").map_err(storage_error)?;
+            }
+            if version < 5 {
+                tx.execute_batch("CREATE TABLE risk_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sequence INTEGER NOT NULL CHECK(sequence>0), projection TEXT NOT NULL); PRAGMA user_version=5;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -282,6 +286,7 @@ impl Store {
                         event.event_type.as_str(),
                         "model.provider.changed" | "model.provider_attempt.changed"
                     ),
+                    "risk" => event.event_type != "risk.policy.changed",
                     _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
                 }
                 || event.payload.id() != snapshot.aggregate_id
@@ -382,6 +387,23 @@ impl Store {
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
+        if kind == "risk" && self.workspace_id()? == id {
+            let risk = self.risk()?;
+            let sequence: i64 = self
+                .connection
+                .query_row(
+                    "SELECT sequence FROM risk_state WHERE singleton=1",
+                    [],
+                    |r| r.get(0),
+                )
+                .map_err(storage_error)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::Risk(risk),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
         if kind != "account" {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
@@ -452,6 +474,96 @@ impl Store {
             }
             None => Ok(ModelState::new(self.workspace_id()?)),
         }
+    }
+
+    pub fn risk(&self) -> Result<RiskPolicyState> {
+        let data: String = self
+            .connection
+            .query_row(
+                "SELECT projection FROM risk_state WHERE singleton=1",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        let risk: RiskPolicyState = serde_json::from_str(&data)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if risk.workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(risk)
+    }
+
+    pub fn risk_or_new(&self) -> Result<Option<RiskPolicyState>> {
+        let data: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT projection FROM risk_state WHERE singleton=1",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        match data {
+            Some(data) => {
+                let risk: RiskPolicyState = serde_json::from_str(&data)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if risk.workspace_id != self.workspace_id()? {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                Ok(Some(risk))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub fn save_risk(&mut self, mut risk: RiskPolicyState) -> Result<DomainEvent> {
+        if risk.workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let previous: i64 = tx
+            .query_row(
+                "SELECT COALESCE((SELECT sequence FROM risk_state WHERE singleton=1),0)",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        if previous < 0 || previous >= MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let sequence = previous + 1;
+        risk.state_version = format!("risk:{}:{}", risk.workspace_id, sequence);
+        risk.updated_at = timestamp()?;
+        tx.execute(
+            "INSERT INTO risk_state VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET sequence=excluded.sequence,projection=excluded.projection",
+            params![sequence, serde_json::to_string(&risk).map_err(storage_error)?],
+        )
+        .map_err(storage_error)?;
+        let event = DomainEvent {
+            event_id: Uuid::new_v4().to_string(),
+            event_type: "risk.policy.changed".into(),
+            schema_version: 1,
+            occurred_at: risk.updated_at.clone(),
+            aggregate_type: "risk".into(),
+            aggregate_id: risk.workspace_id.clone(),
+            sequence: sequence as u64,
+            payload: DomainProjection::Risk(risk),
+        };
+        tx.execute(
+            "INSERT INTO outbox VALUES('risk',?1,?2,?3,?4)",
+            params![
+                event.aggregate_id,
+                sequence,
+                event.event_id,
+                serde_json::to_string(&event).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(event)
     }
 
     pub fn save_model(&mut self, mut model: ModelState, event_type: &str) -> Result<DomainEvent> {

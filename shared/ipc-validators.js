@@ -26,8 +26,8 @@ var require_ucs2length = /* @__PURE__ */ __commonJSMin(((exports) => {
 //#endregion
 //#region shared/ipc-validators-input.cjs
 var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
-	exports.AccountConnection = validate77;
-	var schema61 = {
+	exports.AccountConnection = validate82;
+	var schema62 = {
 		"type": "object",
 		"properties": {
 			"connectionId": {
@@ -68,7 +68,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"permissions"
 		]
 	};
-	var schema62 = {
+	var schema63 = {
 		"type": "string",
 		"enum": [
 			"CONNECTING",
@@ -78,7 +78,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"DISCONNECTED"
 		]
 	};
-	var schema68 = {
+	var schema69 = {
 		"type": "object",
 		"properties": {
 			"acknowledged": { "type": "boolean" },
@@ -114,9 +114,9 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"ipAllowListStatus"
 		]
 	};
-	var func27 = Object.prototype.hasOwnProperty;
+	var func31 = Object.prototype.hasOwnProperty;
 	var func1 = require_ucs2length().default;
-	var schema63 = {
+	var schema64 = {
 		"type": "object",
 		"properties": {
 			"accountType": { "type": "string" },
@@ -154,7 +154,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"limitations"
 		]
 	};
-	var schema64 = {
+	var schema65 = {
 		"type": "object",
 		"properties": {
 			"asset": { "type": "string" },
@@ -168,7 +168,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"additionalProperties": false,
 		"required": ["asset", "available"]
 	};
-	var schema65 = {
+	var schema66 = {
 		"type": "object",
 		"properties": {
 			"brokerOrderId": { "type": "string" },
@@ -200,7 +200,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"status"
 		]
 	};
-	var schema66 = {
+	var schema67 = {
 		"type": "object",
 		"properties": {
 			"averageEntryPrice": { "type": ["string", "null"] },
@@ -317,7 +317,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/balances/" + i0 + "/inPies",
 															schemaPath: "#/$defs/Balance/properties/inPies/type",
 															keyword: "type",
-															params: { type: schema64.properties.inPies.type },
+															params: { type: schema65.properties.inPies.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -332,7 +332,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/balances/" + i0 + "/locked",
 																schemaPath: "#/$defs/Balance/properties/locked/type",
 																keyword: "type",
-																params: { type: schema64.properties.locked.type },
+																params: { type: schema65.properties.locked.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -347,7 +347,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/balances/" + i0 + "/reserved",
 																	schemaPath: "#/$defs/Balance/properties/reserved/type",
 																	keyword: "type",
-																	params: { type: schema64.properties.reserved.type },
+																	params: { type: schema65.properties.reserved.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -362,7 +362,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/balances/" + i0 + "/restrictedAvailable",
 																		schemaPath: "#/$defs/Balance/properties/restrictedAvailable/type",
 																		keyword: "type",
-																		params: { type: schema64.properties.restrictedAvailable.type },
+																		params: { type: schema65.properties.restrictedAvailable.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -377,7 +377,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/balances/" + i0 + "/total",
 																			schemaPath: "#/$defs/Balance/properties/total/type",
 																			keyword: "type",
-																			params: { type: schema64.properties.total.type },
+																			params: { type: schema65.properties.total.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -449,7 +449,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/currency",
 										schemaPath: "#/properties/currency/type",
 										keyword: "type",
-										params: { type: schema63.properties.currency.type },
+										params: { type: schema64.properties.currency.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -502,7 +502,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else {
-														for (const key2 in data16) if (!func27.call(schema65.properties, key2)) {
+														for (const key2 in data16) if (!func31.call(schema66.properties, key2)) {
 															validate40.errors = [{
 																instancePath: instancePath + "/openOrders/" + i3,
 																schemaPath: "#/$defs/OpenOrder/additionalProperties",
@@ -533,7 +533,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/openOrders/" + i3 + "/currency",
 																		schemaPath: "#/$defs/OpenOrder/properties/currency/type",
 																		keyword: "type",
-																		params: { type: schema65.properties.currency.type },
+																		params: { type: schema66.properties.currency.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -548,7 +548,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/openOrders/" + i3 + "/filledQuantity",
 																			schemaPath: "#/$defs/OpenOrder/properties/filledQuantity/type",
 																			keyword: "type",
-																			params: { type: schema65.properties.filledQuantity.type },
+																			params: { type: schema66.properties.filledQuantity.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -563,7 +563,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/openOrders/" + i3 + "/filledValue",
 																				schemaPath: "#/$defs/OpenOrder/properties/filledValue/type",
 																				keyword: "type",
-																				params: { type: schema65.properties.filledValue.type },
+																				params: { type: schema66.properties.filledValue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -578,7 +578,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																					schemaPath: "#/$defs/OpenOrder/properties/kind/type",
 																					keyword: "type",
-																					params: { type: schema65.properties.kind.type },
+																					params: { type: schema66.properties.kind.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -588,7 +588,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																					schemaPath: "#/$defs/OpenOrder/properties/kind/enum",
 																					keyword: "enum",
-																					params: { allowedValues: schema65.properties.kind.enum },
+																					params: { allowedValues: schema66.properties.kind.enum },
 																					message: "must be equal to one of the allowed values"
 																				}];
 																				return false;
@@ -603,7 +603,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/openOrders/" + i3 + "/limitPrice",
 																						schemaPath: "#/$defs/OpenOrder/properties/limitPrice/type",
 																						keyword: "type",
-																						params: { type: schema65.properties.limitPrice.type },
+																						params: { type: schema66.properties.limitPrice.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -618,7 +618,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/openOrders/" + i3 + "/notional",
 																							schemaPath: "#/$defs/OpenOrder/properties/notional/type",
 																							keyword: "type",
-																							params: { type: schema65.properties.notional.type },
+																							params: { type: schema66.properties.notional.type },
 																							message: "must be string,null"
 																						}];
 																						return false;
@@ -633,7 +633,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/openOrders/" + i3 + "/quantity",
 																								schemaPath: "#/$defs/OpenOrder/properties/quantity/type",
 																								keyword: "type",
-																								params: { type: schema65.properties.quantity.type },
+																								params: { type: schema66.properties.quantity.type },
 																								message: "must be string,null"
 																							}];
 																							return false;
@@ -690,7 +690,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												instancePath: instancePath + "/openOrders/" + i3 + "/triggerPrice",
 																												schemaPath: "#/$defs/OpenOrder/properties/triggerPrice/type",
 																												keyword: "type",
-																												params: { type: schema65.properties.triggerPrice.type },
+																												params: { type: schema66.properties.triggerPrice.type },
 																												message: "must be string,null"
 																											}];
 																											return false;
@@ -768,7 +768,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/positions/" + i4 + "/averageEntryPrice",
 																		schemaPath: "#/$defs/Position/properties/averageEntryPrice/type",
 																		keyword: "type",
-																		params: { type: schema66.properties.averageEntryPrice.type },
+																		params: { type: schema67.properties.averageEntryPrice.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -783,7 +783,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/positions/" + i4 + "/instrumentCurrency",
 																			schemaPath: "#/$defs/Position/properties/instrumentCurrency/type",
 																			keyword: "type",
-																			params: { type: schema66.properties.instrumentCurrency.type },
+																			params: { type: schema67.properties.instrumentCurrency.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -798,7 +798,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/positions/" + i4 + "/marketValue",
 																				schemaPath: "#/$defs/Position/properties/marketValue/type",
 																				keyword: "type",
-																				params: { type: schema66.properties.marketValue.type },
+																				params: { type: schema67.properties.marketValue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -813,7 +813,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/positions/" + i4 + "/marketValueCurrency",
 																					schemaPath: "#/$defs/Position/properties/marketValueCurrency/type",
 																					keyword: "type",
-																					params: { type: schema66.properties.marketValueCurrency.type },
+																					params: { type: schema67.properties.marketValueCurrency.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -917,17 +917,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate77(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate82(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate77.evaluated;
+		const evaluated0 = validate82.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.connectionId === void 0 && (missing0 = "connectionId") || data.workspaceId === void 0 && (missing0 = "workspaceId") || data.providerId === void 0 && (missing0 = "providerId") || data.environment === void 0 && (missing0 = "environment") || data.label === void 0 && (missing0 = "label") || data.createdAt === void 0 && (missing0 = "createdAt") || data.updatedAt === void 0 && (missing0 = "updatedAt") || data.stateVersion === void 0 && (missing0 = "stateVersion") || data.connectionState === void 0 && (missing0 = "connectionState") || data.health === void 0 && (missing0 = "health") || data.permissions === void 0 && (missing0 = "permissions")) {
-					validate77.errors = [{
+					validate82.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -937,8 +937,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func27.call(schema61.properties, key0)) {
-						validate77.errors = [{
+					for (const key0 in data) if (!func31.call(schema62.properties, key0)) {
+						validate82.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -954,7 +954,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) < 1) {
-										validate77.errors = [{
+										validate82.errors = [{
 											instancePath: instancePath + "/connectionId",
 											schemaPath: "#/properties/connectionId/minLength",
 											keyword: "minLength",
@@ -964,7 +964,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate77.errors = [{
+									validate82.errors = [{
 										instancePath: instancePath + "/connectionId",
 										schemaPath: "#/properties/connectionId/type",
 										keyword: "type",
@@ -981,7 +981,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.connectionState;
 								const _errs4 = errors;
 								if (typeof data1 !== "string") {
-									validate77.errors = [{
+									validate82.errors = [{
 										instancePath: instancePath + "/connectionState",
 										schemaPath: "#/$defs/ConnectionState/type",
 										keyword: "type",
@@ -991,11 +991,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 								if (!(data1 === "CONNECTING" || data1 === "REVIEW_REQUIRED" || data1 === "CONNECTED" || data1 === "FAILED" || data1 === "DISCONNECTED")) {
-									validate77.errors = [{
+									validate82.errors = [{
 										instancePath: instancePath + "/connectionState",
 										schemaPath: "#/$defs/ConnectionState/enum",
 										keyword: "enum",
-										params: { allowedValues: schema62.enum },
+										params: { allowedValues: schema63.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -1006,7 +1006,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data.createdAt !== void 0) {
 									const _errs7 = errors;
 									if (typeof data.createdAt !== "string") {
-										validate77.errors = [{
+										validate82.errors = [{
 											instancePath: instancePath + "/createdAt",
 											schemaPath: "#/properties/createdAt/type",
 											keyword: "type",
@@ -1062,7 +1062,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (vErrors === null) vErrors = [err1];
 											else vErrors.push(err1);
 											errors++;
-											validate77.errors = vErrors;
+											validate82.errors = vErrors;
 											return false;
 										} else {
 											errors = _errs10;
@@ -1077,7 +1077,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (data.environment !== void 0) {
 											const _errs14 = errors;
 											if (typeof data.environment !== "string") {
-												validate77.errors = [{
+												validate82.errors = [{
 													instancePath: instancePath + "/environment",
 													schemaPath: "#/properties/environment/type",
 													keyword: "type",
@@ -1096,7 +1096,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
 														let missing1;
 														if (data5.connection === void 0 && (missing1 = "connection") || data5.authentication === void 0 && (missing1 = "authentication") || data5.credential === void 0 && (missing1 = "credential") || data5.privateStream === void 0 && (missing1 = "privateStream") || data5.reconciliation === void 0 && (missing1 = "reconciliation") || data5.executionEligibility === void 0 && (missing1 = "executionEligibility") || data5.arming === void 0 && (missing1 = "arming") || data5.reason === void 0 && (missing1 = "reason")) {
-															validate77.errors = [{
+															validate82.errors = [{
 																instancePath: instancePath + "/health",
 																schemaPath: "#/$defs/AccountHealth/required",
 																keyword: "required",
@@ -1107,7 +1107,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														} else {
 															const _errs19 = errors;
 															for (const key1 in data5) if (!(key1 === "arming" || key1 === "authentication" || key1 === "connection" || key1 === "credential" || key1 === "executionEligibility" || key1 === "privateStream" || key1 === "reason" || key1 === "reconciliation")) {
-																validate77.errors = [{
+																validate82.errors = [{
 																	instancePath: instancePath + "/health",
 																	schemaPath: "#/$defs/AccountHealth/additionalProperties",
 																	keyword: "additionalProperties",
@@ -1120,7 +1120,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																if (data5.arming !== void 0) {
 																	const _errs20 = errors;
 																	if (typeof data5.arming !== "string") {
-																		validate77.errors = [{
+																		validate82.errors = [{
 																			instancePath: instancePath + "/health/arming",
 																			schemaPath: "#/$defs/AccountHealth/properties/arming/type",
 																			keyword: "type",
@@ -1135,7 +1135,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (data5.authentication !== void 0) {
 																		const _errs22 = errors;
 																		if (typeof data5.authentication !== "string") {
-																			validate77.errors = [{
+																			validate82.errors = [{
 																				instancePath: instancePath + "/health/authentication",
 																				schemaPath: "#/$defs/AccountHealth/properties/authentication/type",
 																				keyword: "type",
@@ -1150,7 +1150,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		if (data5.connection !== void 0) {
 																			const _errs24 = errors;
 																			if (typeof data5.connection !== "string") {
-																				validate77.errors = [{
+																				validate82.errors = [{
 																					instancePath: instancePath + "/health/connection",
 																					schemaPath: "#/$defs/AccountHealth/properties/connection/type",
 																					keyword: "type",
@@ -1165,7 +1165,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			if (data5.credential !== void 0) {
 																				const _errs26 = errors;
 																				if (typeof data5.credential !== "string") {
-																					validate77.errors = [{
+																					validate82.errors = [{
 																						instancePath: instancePath + "/health/credential",
 																						schemaPath: "#/$defs/AccountHealth/properties/credential/type",
 																						keyword: "type",
@@ -1180,7 +1180,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				if (data5.executionEligibility !== void 0) {
 																					const _errs28 = errors;
 																					if (typeof data5.executionEligibility !== "string") {
-																						validate77.errors = [{
+																						validate82.errors = [{
 																							instancePath: instancePath + "/health/executionEligibility",
 																							schemaPath: "#/$defs/AccountHealth/properties/executionEligibility/type",
 																							keyword: "type",
@@ -1195,7 +1195,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					if (data5.privateStream !== void 0) {
 																						const _errs30 = errors;
 																						if (typeof data5.privateStream !== "string") {
-																							validate77.errors = [{
+																							validate82.errors = [{
 																								instancePath: instancePath + "/health/privateStream",
 																								schemaPath: "#/$defs/AccountHealth/properties/privateStream/type",
 																								keyword: "type",
@@ -1210,7 +1210,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						if (data5.reason !== void 0) {
 																							const _errs32 = errors;
 																							if (typeof data5.reason !== "string") {
-																								validate77.errors = [{
+																								validate82.errors = [{
 																									instancePath: instancePath + "/health/reason",
 																									schemaPath: "#/$defs/AccountHealth/properties/reason/type",
 																									keyword: "type",
@@ -1225,7 +1225,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							if (data5.reconciliation !== void 0) {
 																								const _errs34 = errors;
 																								if (typeof data5.reconciliation !== "string") {
-																									validate77.errors = [{
+																									validate82.errors = [{
 																										instancePath: instancePath + "/health/reconciliation",
 																										schemaPath: "#/$defs/AccountHealth/properties/reconciliation/type",
 																										keyword: "type",
@@ -1246,7 +1246,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															}
 														}
 													} else {
-														validate77.errors = [{
+														validate82.errors = [{
 															instancePath: instancePath + "/health",
 															schemaPath: "#/$defs/AccountHealth/type",
 															keyword: "type",
@@ -1262,7 +1262,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												if (data.label !== void 0) {
 													const _errs36 = errors;
 													if (typeof data.label !== "string") {
-														validate77.errors = [{
+														validate82.errors = [{
 															instancePath: instancePath + "/label",
 															schemaPath: "#/properties/label/type",
 															keyword: "type",
@@ -1278,11 +1278,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														let data15 = data.lastSuccessfulSync;
 														const _errs38 = errors;
 														if (typeof data15 !== "string" && data15 !== null) {
-															validate77.errors = [{
+															validate82.errors = [{
 																instancePath: instancePath + "/lastSuccessfulSync",
 																schemaPath: "#/properties/lastSuccessfulSync/type",
 																keyword: "type",
-																params: { type: schema61.properties.lastSuccessfulSync.type },
+																params: { type: schema62.properties.lastSuccessfulSync.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -1297,7 +1297,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
 																	let missing2;
 																	if (data16.scope === void 0 && (missing2 = "scope") || data16.detected === void 0 && (missing2 = "detected") || data16.forbidden === void 0 && (missing2 = "forbidden") || data16.unsupported === void 0 && (missing2 = "unsupported") || data16.acknowledged === void 0 && (missing2 = "acknowledged") || data16.ipAllowListStatus === void 0 && (missing2 = "ipAllowListStatus")) {
-																		validate77.errors = [{
+																		validate82.errors = [{
 																			instancePath: instancePath + "/permissions",
 																			schemaPath: "#/$defs/PermissionReview/required",
 																			keyword: "required",
@@ -1308,7 +1308,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	} else {
 																		const _errs43 = errors;
 																		for (const key2 in data16) if (!(key2 === "acknowledged" || key2 === "detected" || key2 === "forbidden" || key2 === "ipAllowList" || key2 === "ipAllowListStatus" || key2 === "scope" || key2 === "unsupported")) {
-																			validate77.errors = [{
+																			validate82.errors = [{
 																				instancePath: instancePath + "/permissions",
 																				schemaPath: "#/$defs/PermissionReview/additionalProperties",
 																				keyword: "additionalProperties",
@@ -1321,7 +1321,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			if (data16.acknowledged !== void 0) {
 																				const _errs44 = errors;
 																				if (typeof data16.acknowledged !== "boolean") {
-																					validate77.errors = [{
+																					validate82.errors = [{
 																						instancePath: instancePath + "/permissions/acknowledged",
 																						schemaPath: "#/$defs/PermissionReview/properties/acknowledged/type",
 																						keyword: "type",
@@ -1342,7 +1342,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							for (let i0 = 0; i0 < len0; i0++) {
 																								const _errs48 = errors;
 																								if (typeof data18[i0] !== "string") {
-																									validate77.errors = [{
+																									validate82.errors = [{
 																										instancePath: instancePath + "/permissions/detected/" + i0,
 																										schemaPath: "#/$defs/PermissionReview/properties/detected/items/type",
 																										keyword: "type",
@@ -1354,7 +1354,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								if (!(_errs48 === errors)) break;
 																							}
 																						} else {
-																							validate77.errors = [{
+																							validate82.errors = [{
 																								instancePath: instancePath + "/permissions/detected",
 																								schemaPath: "#/$defs/PermissionReview/properties/detected/type",
 																								keyword: "type",
@@ -1376,7 +1376,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								for (let i1 = 0; i1 < len1; i1++) {
 																									const _errs52 = errors;
 																									if (typeof data20[i1] !== "string") {
-																										validate77.errors = [{
+																										validate82.errors = [{
 																											instancePath: instancePath + "/permissions/forbidden/" + i1,
 																											schemaPath: "#/$defs/PermissionReview/properties/forbidden/items/type",
 																											keyword: "type",
@@ -1388,7 +1388,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									if (!(_errs52 === errors)) break;
 																								}
 																							} else {
-																								validate77.errors = [{
+																								validate82.errors = [{
 																									instancePath: instancePath + "/permissions/forbidden",
 																									schemaPath: "#/$defs/PermissionReview/properties/forbidden/type",
 																									keyword: "type",
@@ -1405,11 +1405,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							let data22 = data16.ipAllowList;
 																							const _errs54 = errors;
 																							if (!Array.isArray(data22) && data22 !== null) {
-																								validate77.errors = [{
+																								validate82.errors = [{
 																									instancePath: instancePath + "/permissions/ipAllowList",
 																									schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 																									keyword: "type",
-																									params: { type: schema68.properties.ipAllowList.type },
+																									params: { type: schema69.properties.ipAllowList.type },
 																									message: "must be array,null"
 																								}];
 																								return false;
@@ -1420,7 +1420,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									for (let i2 = 0; i2 < len2; i2++) {
 																										const _errs56 = errors;
 																										if (typeof data22[i2] !== "string") {
-																											validate77.errors = [{
+																											validate82.errors = [{
 																												instancePath: instancePath + "/permissions/ipAllowList/" + i2,
 																												schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/items/type",
 																												keyword: "type",
@@ -1439,7 +1439,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							if (data16.ipAllowListStatus !== void 0) {
 																								const _errs58 = errors;
 																								if (typeof data16.ipAllowListStatus !== "string") {
-																									validate77.errors = [{
+																									validate82.errors = [{
 																										instancePath: instancePath + "/permissions/ipAllowListStatus",
 																										schemaPath: "#/$defs/PermissionReview/properties/ipAllowListStatus/type",
 																										keyword: "type",
@@ -1455,7 +1455,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									let data25 = data16.scope;
 																									const _errs60 = errors;
 																									if (typeof data25 !== "string") {
-																										validate77.errors = [{
+																										validate82.errors = [{
 																											instancePath: instancePath + "/permissions/scope",
 																											schemaPath: "#/$defs/PermissionReview/properties/scope/type",
 																											keyword: "type",
@@ -1465,11 +1465,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										return false;
 																									}
 																									if (!(data25 === "VERIFIED" || data25 === "UNVERIFIED")) {
-																										validate77.errors = [{
+																										validate82.errors = [{
 																											instancePath: instancePath + "/permissions/scope",
 																											schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 																											keyword: "enum",
-																											params: { allowedValues: schema68.properties.scope.enum },
+																											params: { allowedValues: schema69.properties.scope.enum },
 																											message: "must be equal to one of the allowed values"
 																										}];
 																										return false;
@@ -1486,7 +1486,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												for (let i3 = 0; i3 < len3; i3++) {
 																													const _errs64 = errors;
 																													if (typeof data26[i3] !== "string") {
-																														validate77.errors = [{
+																														validate82.errors = [{
 																															instancePath: instancePath + "/permissions/unsupported/" + i3,
 																															schemaPath: "#/$defs/PermissionReview/properties/unsupported/items/type",
 																															keyword: "type",
@@ -1498,7 +1498,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													if (!(_errs64 === errors)) break;
 																												}
 																											} else {
-																												validate77.errors = [{
+																												validate82.errors = [{
 																													instancePath: instancePath + "/permissions/unsupported",
 																													schemaPath: "#/$defs/PermissionReview/properties/unsupported/type",
 																													keyword: "type",
@@ -1519,7 +1519,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		}
 																	}
 																} else {
-																	validate77.errors = [{
+																	validate82.errors = [{
 																		instancePath: instancePath + "/permissions",
 																		schemaPath: "#/$defs/PermissionReview/type",
 																		keyword: "type",
@@ -1535,7 +1535,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (data.providerId !== void 0) {
 																const _errs66 = errors;
 																if (typeof data.providerId !== "string") {
-																	validate77.errors = [{
+																	validate82.errors = [{
 																		instancePath: instancePath + "/providerId",
 																		schemaPath: "#/properties/providerId/type",
 																		keyword: "type",
@@ -1553,7 +1553,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (errors === _errs68) {
 																		if (typeof data29 === "string") {
 																			if (func1(data29) < 1) {
-																				validate77.errors = [{
+																				validate82.errors = [{
 																					instancePath: instancePath + "/stateVersion",
 																					schemaPath: "#/properties/stateVersion/minLength",
 																					keyword: "minLength",
@@ -1563,7 +1563,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				return false;
 																			}
 																		} else {
-																			validate77.errors = [{
+																			validate82.errors = [{
 																				instancePath: instancePath + "/stateVersion",
 																				schemaPath: "#/properties/stateVersion/type",
 																				keyword: "type",
@@ -1579,7 +1579,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (data.updatedAt !== void 0) {
 																		const _errs70 = errors;
 																		if (typeof data.updatedAt !== "string") {
-																			validate77.errors = [{
+																			validate82.errors = [{
 																				instancePath: instancePath + "/updatedAt",
 																				schemaPath: "#/properties/updatedAt/type",
 																				keyword: "type",
@@ -1597,7 +1597,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			if (errors === _errs72) {
 																				if (typeof data31 === "string") {
 																					if (func1(data31) < 1) {
-																						validate77.errors = [{
+																						validate82.errors = [{
 																							instancePath: instancePath + "/workspaceId",
 																							schemaPath: "#/properties/workspaceId/minLength",
 																							keyword: "minLength",
@@ -1607,7 +1607,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						return false;
 																					}
 																				} else {
-																					validate77.errors = [{
+																					validate82.errors = [{
 																						instancePath: instancePath + "/workspaceId",
 																						schemaPath: "#/properties/workspaceId/type",
 																						keyword: "type",
@@ -1634,7 +1634,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate77.errors = [{
+				validate82.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -1644,24 +1644,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate77.errors = vErrors;
+		validate82.errors = vErrors;
 		return errors === 0;
 	}
-	validate77.evaluated = {
+	validate82.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.AccountData = validate79;
-	function validate79(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.AccountData = validate84;
+	function validate84(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate79.evaluated;
+		const evaluated0 = validate84.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.remoteAccountId === void 0 && (missing0 = "remoteAccountId") || data.accountType === void 0 && (missing0 = "accountType") || data.balances === void 0 && (missing0 = "balances") || data.positions === void 0 && (missing0 = "positions") || data.openOrders === void 0 && (missing0 = "openOrders") || data.capabilities === void 0 && (missing0 = "capabilities") || data.limitations === void 0 && (missing0 = "limitations")) {
-				validate79.errors = [{
+				validate84.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -1671,7 +1671,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "accountType" || key0 === "balances" || key0 === "capabilities" || key0 === "currency" || key0 === "limitations" || key0 === "openOrders" || key0 === "positions" || key0 === "remoteAccountId")) {
-					validate79.errors = [{
+					validate84.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -1682,7 +1682,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.accountType !== void 0) {
 					if (typeof data.accountType !== "string") {
-						validate79.errors = [{
+						validate84.errors = [{
 							instancePath: instancePath + "/accountType",
 							schemaPath: "#/properties/accountType/type",
 							keyword: "type",
@@ -1703,7 +1703,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
 									let missing1;
 									if (data2.asset === void 0 && (missing1 = "asset") || data2.available === void 0 && (missing1 = "available")) {
-										validate79.errors = [{
+										validate84.errors = [{
 											instancePath: instancePath + "/balances/" + i0,
 											schemaPath: "#/$defs/Balance/required",
 											keyword: "required",
@@ -1713,7 +1713,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									} else {
 										for (const key1 in data2) if (!(key1 === "asset" || key1 === "available" || key1 === "inPies" || key1 === "locked" || key1 === "reserved" || key1 === "restrictedAvailable" || key1 === "total")) {
-											validate79.errors = [{
+											validate84.errors = [{
 												instancePath: instancePath + "/balances/" + i0,
 												schemaPath: "#/$defs/Balance/additionalProperties",
 												keyword: "additionalProperties",
@@ -1724,7 +1724,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 										if (data2.asset !== void 0) {
 											if (typeof data2.asset !== "string") {
-												validate79.errors = [{
+												validate84.errors = [{
 													instancePath: instancePath + "/balances/" + i0 + "/asset",
 													schemaPath: "#/$defs/Balance/properties/asset/type",
 													keyword: "type",
@@ -1738,7 +1738,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid3) {
 											if (data2.available !== void 0) {
 												if (typeof data2.available !== "string") {
-													validate79.errors = [{
+													validate84.errors = [{
 														instancePath: instancePath + "/balances/" + i0 + "/available",
 														schemaPath: "#/$defs/Balance/properties/available/type",
 														keyword: "type",
@@ -1753,11 +1753,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												if (data2.inPies !== void 0) {
 													let data5 = data2.inPies;
 													if (typeof data5 !== "string" && data5 !== null) {
-														validate79.errors = [{
+														validate84.errors = [{
 															instancePath: instancePath + "/balances/" + i0 + "/inPies",
 															schemaPath: "#/$defs/Balance/properties/inPies/type",
 															keyword: "type",
-															params: { type: schema64.properties.inPies.type },
+															params: { type: schema65.properties.inPies.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -1768,11 +1768,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (data2.locked !== void 0) {
 														let data6 = data2.locked;
 														if (typeof data6 !== "string" && data6 !== null) {
-															validate79.errors = [{
+															validate84.errors = [{
 																instancePath: instancePath + "/balances/" + i0 + "/locked",
 																schemaPath: "#/$defs/Balance/properties/locked/type",
 																keyword: "type",
-																params: { type: schema64.properties.locked.type },
+																params: { type: schema65.properties.locked.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -1783,11 +1783,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														if (data2.reserved !== void 0) {
 															let data7 = data2.reserved;
 															if (typeof data7 !== "string" && data7 !== null) {
-																validate79.errors = [{
+																validate84.errors = [{
 																	instancePath: instancePath + "/balances/" + i0 + "/reserved",
 																	schemaPath: "#/$defs/Balance/properties/reserved/type",
 																	keyword: "type",
-																	params: { type: schema64.properties.reserved.type },
+																	params: { type: schema65.properties.reserved.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -1798,11 +1798,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (data2.restrictedAvailable !== void 0) {
 																let data8 = data2.restrictedAvailable;
 																if (typeof data8 !== "string" && data8 !== null) {
-																	validate79.errors = [{
+																	validate84.errors = [{
 																		instancePath: instancePath + "/balances/" + i0 + "/restrictedAvailable",
 																		schemaPath: "#/$defs/Balance/properties/restrictedAvailable/type",
 																		keyword: "type",
-																		params: { type: schema64.properties.restrictedAvailable.type },
+																		params: { type: schema65.properties.restrictedAvailable.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -1813,11 +1813,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																if (data2.total !== void 0) {
 																	let data9 = data2.total;
 																	if (typeof data9 !== "string" && data9 !== null) {
-																		validate79.errors = [{
+																		validate84.errors = [{
 																			instancePath: instancePath + "/balances/" + i0 + "/total",
 																			schemaPath: "#/$defs/Balance/properties/total/type",
 																			keyword: "type",
-																			params: { type: schema64.properties.total.type },
+																			params: { type: schema65.properties.total.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -1832,7 +1832,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 									}
 								} else {
-									validate79.errors = [{
+									validate84.errors = [{
 										instancePath: instancePath + "/balances/" + i0,
 										schemaPath: "#/$defs/Balance/type",
 										keyword: "type",
@@ -1843,7 +1843,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}
 							}
 						} else {
-							validate79.errors = [{
+							validate84.errors = [{
 								instancePath: instancePath + "/balances",
 								schemaPath: "#/properties/balances/type",
 								keyword: "type",
@@ -1860,7 +1860,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (Array.isArray(data10)) {
 								const len1 = data10.length;
 								for (let i1 = 0; i1 < len1; i1++) if (typeof data10[i1] !== "string") {
-									validate79.errors = [{
+									validate84.errors = [{
 										instancePath: instancePath + "/capabilities/" + i1,
 										schemaPath: "#/properties/capabilities/items/type",
 										keyword: "type",
@@ -1870,7 +1870,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 							} else {
-								validate79.errors = [{
+								validate84.errors = [{
 									instancePath: instancePath + "/capabilities",
 									schemaPath: "#/properties/capabilities/type",
 									keyword: "type",
@@ -1885,11 +1885,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.currency !== void 0) {
 								let data12 = data.currency;
 								if (typeof data12 !== "string" && data12 !== null) {
-									validate79.errors = [{
+									validate84.errors = [{
 										instancePath: instancePath + "/currency",
 										schemaPath: "#/properties/currency/type",
 										keyword: "type",
-										params: { type: schema63.properties.currency.type },
+										params: { type: schema64.properties.currency.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -1902,7 +1902,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (Array.isArray(data13)) {
 										const len2 = data13.length;
 										for (let i2 = 0; i2 < len2; i2++) if (typeof data13[i2] !== "string") {
-											validate79.errors = [{
+											validate84.errors = [{
 												instancePath: instancePath + "/limitations/" + i2,
 												schemaPath: "#/properties/limitations/items/type",
 												keyword: "type",
@@ -1912,7 +1912,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 									} else {
-										validate79.errors = [{
+										validate84.errors = [{
 											instancePath: instancePath + "/limitations",
 											schemaPath: "#/properties/limitations/type",
 											keyword: "type",
@@ -1933,7 +1933,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
 													let missing2;
 													if (data16.brokerOrderId === void 0 && (missing2 = "brokerOrderId") || data16.symbol === void 0 && (missing2 = "symbol") || data16.side === void 0 && (missing2 = "side") || data16.status === void 0 && (missing2 = "status")) {
-														validate79.errors = [{
+														validate84.errors = [{
 															instancePath: instancePath + "/openOrders/" + i3,
 															schemaPath: "#/$defs/OpenOrder/required",
 															keyword: "required",
@@ -1942,8 +1942,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else {
-														for (const key2 in data16) if (!func27.call(schema65.properties, key2)) {
-															validate79.errors = [{
+														for (const key2 in data16) if (!func31.call(schema66.properties, key2)) {
+															validate84.errors = [{
 																instancePath: instancePath + "/openOrders/" + i3,
 																schemaPath: "#/$defs/OpenOrder/additionalProperties",
 																keyword: "additionalProperties",
@@ -1954,7 +1954,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}
 														if (data16.brokerOrderId !== void 0) {
 															if (typeof data16.brokerOrderId !== "string") {
-																validate79.errors = [{
+																validate84.errors = [{
 																	instancePath: instancePath + "/openOrders/" + i3 + "/brokerOrderId",
 																	schemaPath: "#/$defs/OpenOrder/properties/brokerOrderId/type",
 																	keyword: "type",
@@ -1969,11 +1969,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (data16.currency !== void 0) {
 																let data18 = data16.currency;
 																if (typeof data18 !== "string" && data18 !== null) {
-																	validate79.errors = [{
+																	validate84.errors = [{
 																		instancePath: instancePath + "/openOrders/" + i3 + "/currency",
 																		schemaPath: "#/$defs/OpenOrder/properties/currency/type",
 																		keyword: "type",
-																		params: { type: schema65.properties.currency.type },
+																		params: { type: schema66.properties.currency.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -1984,11 +1984,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																if (data16.filledQuantity !== void 0) {
 																	let data19 = data16.filledQuantity;
 																	if (typeof data19 !== "string" && data19 !== null) {
-																		validate79.errors = [{
+																		validate84.errors = [{
 																			instancePath: instancePath + "/openOrders/" + i3 + "/filledQuantity",
 																			schemaPath: "#/$defs/OpenOrder/properties/filledQuantity/type",
 																			keyword: "type",
-																			params: { type: schema65.properties.filledQuantity.type },
+																			params: { type: schema66.properties.filledQuantity.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -1999,11 +1999,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (data16.filledValue !== void 0) {
 																		let data20 = data16.filledValue;
 																		if (typeof data20 !== "string" && data20 !== null) {
-																			validate79.errors = [{
+																			validate84.errors = [{
 																				instancePath: instancePath + "/openOrders/" + i3 + "/filledValue",
 																				schemaPath: "#/$defs/OpenOrder/properties/filledValue/type",
 																				keyword: "type",
-																				params: { type: schema65.properties.filledValue.type },
+																				params: { type: schema66.properties.filledValue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -2014,21 +2014,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		if (data16.kind !== void 0) {
 																			let data21 = data16.kind;
 																			if (typeof data21 !== "string" && data21 !== null) {
-																				validate79.errors = [{
+																				validate84.errors = [{
 																					instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																					schemaPath: "#/$defs/OpenOrder/properties/kind/type",
 																					keyword: "type",
-																					params: { type: schema65.properties.kind.type },
+																					params: { type: schema66.properties.kind.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
 																			}
 																			if (!(data21 === "NORMAL" || data21 === "TPSL" || data21 === "PLAN" || data21 === null)) {
-																				validate79.errors = [{
+																				validate84.errors = [{
 																					instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																					schemaPath: "#/$defs/OpenOrder/properties/kind/enum",
 																					keyword: "enum",
-																					params: { allowedValues: schema65.properties.kind.enum },
+																					params: { allowedValues: schema66.properties.kind.enum },
 																					message: "must be equal to one of the allowed values"
 																				}];
 																				return false;
@@ -2039,11 +2039,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			if (data16.limitPrice !== void 0) {
 																				let data22 = data16.limitPrice;
 																				if (typeof data22 !== "string" && data22 !== null) {
-																					validate79.errors = [{
+																					validate84.errors = [{
 																						instancePath: instancePath + "/openOrders/" + i3 + "/limitPrice",
 																						schemaPath: "#/$defs/OpenOrder/properties/limitPrice/type",
 																						keyword: "type",
-																						params: { type: schema65.properties.limitPrice.type },
+																						params: { type: schema66.properties.limitPrice.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -2054,11 +2054,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				if (data16.notional !== void 0) {
 																					let data23 = data16.notional;
 																					if (typeof data23 !== "string" && data23 !== null) {
-																						validate79.errors = [{
+																						validate84.errors = [{
 																							instancePath: instancePath + "/openOrders/" + i3 + "/notional",
 																							schemaPath: "#/$defs/OpenOrder/properties/notional/type",
 																							keyword: "type",
-																							params: { type: schema65.properties.notional.type },
+																							params: { type: schema66.properties.notional.type },
 																							message: "must be string,null"
 																						}];
 																						return false;
@@ -2069,11 +2069,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					if (data16.quantity !== void 0) {
 																						let data24 = data16.quantity;
 																						if (typeof data24 !== "string" && data24 !== null) {
-																							validate79.errors = [{
+																							validate84.errors = [{
 																								instancePath: instancePath + "/openOrders/" + i3 + "/quantity",
 																								schemaPath: "#/$defs/OpenOrder/properties/quantity/type",
 																								keyword: "type",
-																								params: { type: schema65.properties.quantity.type },
+																								params: { type: schema66.properties.quantity.type },
 																								message: "must be string,null"
 																							}];
 																							return false;
@@ -2083,7 +2083,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					if (valid8) {
 																						if (data16.side !== void 0) {
 																							if (typeof data16.side !== "string") {
-																								validate79.errors = [{
+																								validate84.errors = [{
 																									instancePath: instancePath + "/openOrders/" + i3 + "/side",
 																									schemaPath: "#/$defs/OpenOrder/properties/side/type",
 																									keyword: "type",
@@ -2097,7 +2097,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						if (valid8) {
 																							if (data16.status !== void 0) {
 																								if (typeof data16.status !== "string") {
-																									validate79.errors = [{
+																									validate84.errors = [{
 																										instancePath: instancePath + "/openOrders/" + i3 + "/status",
 																										schemaPath: "#/$defs/OpenOrder/properties/status/type",
 																										keyword: "type",
@@ -2111,7 +2111,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							if (valid8) {
 																								if (data16.symbol !== void 0) {
 																									if (typeof data16.symbol !== "string") {
-																										validate79.errors = [{
+																										validate84.errors = [{
 																											instancePath: instancePath + "/openOrders/" + i3 + "/symbol",
 																											schemaPath: "#/$defs/OpenOrder/properties/symbol/type",
 																											keyword: "type",
@@ -2126,11 +2126,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									if (data16.triggerPrice !== void 0) {
 																										let data28 = data16.triggerPrice;
 																										if (typeof data28 !== "string" && data28 !== null) {
-																											validate79.errors = [{
+																											validate84.errors = [{
 																												instancePath: instancePath + "/openOrders/" + i3 + "/triggerPrice",
 																												schemaPath: "#/$defs/OpenOrder/properties/triggerPrice/type",
 																												keyword: "type",
-																												params: { type: schema65.properties.triggerPrice.type },
+																												params: { type: schema66.properties.triggerPrice.type },
 																												message: "must be string,null"
 																											}];
 																											return false;
@@ -2150,7 +2150,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}
 													}
 												} else {
-													validate79.errors = [{
+													validate84.errors = [{
 														instancePath: instancePath + "/openOrders/" + i3,
 														schemaPath: "#/$defs/OpenOrder/type",
 														keyword: "type",
@@ -2161,7 +2161,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 											}
 										} else {
-											validate79.errors = [{
+											validate84.errors = [{
 												instancePath: instancePath + "/openOrders",
 												schemaPath: "#/properties/openOrders/type",
 												keyword: "type",
@@ -2182,7 +2182,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (data30 && typeof data30 == "object" && !Array.isArray(data30)) {
 														let missing3;
 														if (data30.symbol === void 0 && (missing3 = "symbol") || data30.quantity === void 0 && (missing3 = "quantity")) {
-															validate79.errors = [{
+															validate84.errors = [{
 																instancePath: instancePath + "/positions/" + i4,
 																schemaPath: "#/$defs/Position/required",
 																keyword: "required",
@@ -2192,7 +2192,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															return false;
 														} else {
 															for (const key3 in data30) if (!(key3 === "averageEntryPrice" || key3 === "instrumentCurrency" || key3 === "marketValue" || key3 === "marketValueCurrency" || key3 === "quantity" || key3 === "symbol")) {
-																validate79.errors = [{
+																validate84.errors = [{
 																	instancePath: instancePath + "/positions/" + i4,
 																	schemaPath: "#/$defs/Position/additionalProperties",
 																	keyword: "additionalProperties",
@@ -2204,11 +2204,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (data30.averageEntryPrice !== void 0) {
 																let data31 = data30.averageEntryPrice;
 																if (typeof data31 !== "string" && data31 !== null) {
-																	validate79.errors = [{
+																	validate84.errors = [{
 																		instancePath: instancePath + "/positions/" + i4 + "/averageEntryPrice",
 																		schemaPath: "#/$defs/Position/properties/averageEntryPrice/type",
 																		keyword: "type",
-																		params: { type: schema66.properties.averageEntryPrice.type },
+																		params: { type: schema67.properties.averageEntryPrice.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -2219,11 +2219,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																if (data30.instrumentCurrency !== void 0) {
 																	let data32 = data30.instrumentCurrency;
 																	if (typeof data32 !== "string" && data32 !== null) {
-																		validate79.errors = [{
+																		validate84.errors = [{
 																			instancePath: instancePath + "/positions/" + i4 + "/instrumentCurrency",
 																			schemaPath: "#/$defs/Position/properties/instrumentCurrency/type",
 																			keyword: "type",
-																			params: { type: schema66.properties.instrumentCurrency.type },
+																			params: { type: schema67.properties.instrumentCurrency.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -2234,11 +2234,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (data30.marketValue !== void 0) {
 																		let data33 = data30.marketValue;
 																		if (typeof data33 !== "string" && data33 !== null) {
-																			validate79.errors = [{
+																			validate84.errors = [{
 																				instancePath: instancePath + "/positions/" + i4 + "/marketValue",
 																				schemaPath: "#/$defs/Position/properties/marketValue/type",
 																				keyword: "type",
-																				params: { type: schema66.properties.marketValue.type },
+																				params: { type: schema67.properties.marketValue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -2249,11 +2249,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		if (data30.marketValueCurrency !== void 0) {
 																			let data34 = data30.marketValueCurrency;
 																			if (typeof data34 !== "string" && data34 !== null) {
-																				validate79.errors = [{
+																				validate84.errors = [{
 																					instancePath: instancePath + "/positions/" + i4 + "/marketValueCurrency",
 																					schemaPath: "#/$defs/Position/properties/marketValueCurrency/type",
 																					keyword: "type",
-																					params: { type: schema66.properties.marketValueCurrency.type },
+																					params: { type: schema67.properties.marketValueCurrency.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -2263,7 +2263,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		if (valid11) {
 																			if (data30.quantity !== void 0) {
 																				if (typeof data30.quantity !== "string") {
-																					validate79.errors = [{
+																					validate84.errors = [{
 																						instancePath: instancePath + "/positions/" + i4 + "/quantity",
 																						schemaPath: "#/$defs/Position/properties/quantity/type",
 																						keyword: "type",
@@ -2277,7 +2277,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			if (valid11) {
 																				if (data30.symbol !== void 0) {
 																					if (typeof data30.symbol !== "string") {
-																						validate79.errors = [{
+																						validate84.errors = [{
 																							instancePath: instancePath + "/positions/" + i4 + "/symbol",
 																							schemaPath: "#/$defs/Position/properties/symbol/type",
 																							keyword: "type",
@@ -2295,7 +2295,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															}
 														}
 													} else {
-														validate79.errors = [{
+														validate84.errors = [{
 															instancePath: instancePath + "/positions/" + i4,
 															schemaPath: "#/$defs/Position/type",
 															keyword: "type",
@@ -2306,7 +2306,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													}
 												}
 											} else {
-												validate79.errors = [{
+												validate84.errors = [{
 													instancePath: instancePath + "/positions",
 													schemaPath: "#/properties/positions/type",
 													keyword: "type",
@@ -2320,7 +2320,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid0) {
 											if (data.remoteAccountId !== void 0) {
 												if (typeof data.remoteAccountId !== "string") {
-													validate79.errors = [{
+													validate84.errors = [{
 														instancePath: instancePath + "/remoteAccountId",
 														schemaPath: "#/properties/remoteAccountId/type",
 														keyword: "type",
@@ -2340,7 +2340,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate79.errors = [{
+			validate84.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -2349,24 +2349,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate79.errors = vErrors;
+		validate84.errors = vErrors;
 		return true;
 	}
-	validate79.evaluated = {
+	validate84.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.AccountHealth = validate80;
-	function validate80(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.AccountHealth = validate85;
+	function validate85(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate80.evaluated;
+		const evaluated0 = validate85.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.connection === void 0 && (missing0 = "connection") || data.authentication === void 0 && (missing0 = "authentication") || data.credential === void 0 && (missing0 = "credential") || data.privateStream === void 0 && (missing0 = "privateStream") || data.reconciliation === void 0 && (missing0 = "reconciliation") || data.executionEligibility === void 0 && (missing0 = "executionEligibility") || data.arming === void 0 && (missing0 = "arming") || data.reason === void 0 && (missing0 = "reason")) {
-				validate80.errors = [{
+				validate85.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -2376,7 +2376,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "arming" || key0 === "authentication" || key0 === "connection" || key0 === "credential" || key0 === "executionEligibility" || key0 === "privateStream" || key0 === "reason" || key0 === "reconciliation")) {
-					validate80.errors = [{
+					validate85.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -2387,7 +2387,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.arming !== void 0) {
 					if (typeof data.arming !== "string") {
-						validate80.errors = [{
+						validate85.errors = [{
 							instancePath: instancePath + "/arming",
 							schemaPath: "#/properties/arming/type",
 							keyword: "type",
@@ -2401,7 +2401,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.authentication !== void 0) {
 						if (typeof data.authentication !== "string") {
-							validate80.errors = [{
+							validate85.errors = [{
 								instancePath: instancePath + "/authentication",
 								schemaPath: "#/properties/authentication/type",
 								keyword: "type",
@@ -2415,7 +2415,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.connection !== void 0) {
 							if (typeof data.connection !== "string") {
-								validate80.errors = [{
+								validate85.errors = [{
 									instancePath: instancePath + "/connection",
 									schemaPath: "#/properties/connection/type",
 									keyword: "type",
@@ -2429,7 +2429,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (valid0) {
 							if (data.credential !== void 0) {
 								if (typeof data.credential !== "string") {
-									validate80.errors = [{
+									validate85.errors = [{
 										instancePath: instancePath + "/credential",
 										schemaPath: "#/properties/credential/type",
 										keyword: "type",
@@ -2443,7 +2443,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (valid0) {
 								if (data.executionEligibility !== void 0) {
 									if (typeof data.executionEligibility !== "string") {
-										validate80.errors = [{
+										validate85.errors = [{
 											instancePath: instancePath + "/executionEligibility",
 											schemaPath: "#/properties/executionEligibility/type",
 											keyword: "type",
@@ -2457,7 +2457,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (valid0) {
 									if (data.privateStream !== void 0) {
 										if (typeof data.privateStream !== "string") {
-											validate80.errors = [{
+											validate85.errors = [{
 												instancePath: instancePath + "/privateStream",
 												schemaPath: "#/properties/privateStream/type",
 												keyword: "type",
@@ -2471,7 +2471,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (valid0) {
 										if (data.reason !== void 0) {
 											if (typeof data.reason !== "string") {
-												validate80.errors = [{
+												validate85.errors = [{
 													instancePath: instancePath + "/reason",
 													schemaPath: "#/properties/reason/type",
 													keyword: "type",
@@ -2485,7 +2485,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid0) {
 											if (data.reconciliation !== void 0) {
 												if (typeof data.reconciliation !== "string") {
-													validate80.errors = [{
+													validate85.errors = [{
 														instancePath: instancePath + "/reconciliation",
 														schemaPath: "#/properties/reconciliation/type",
 														keyword: "type",
@@ -2505,7 +2505,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate80.errors = [{
+			validate85.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -2514,24 +2514,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate80.errors = vErrors;
+		validate85.errors = vErrors;
 		return true;
 	}
-	validate80.evaluated = {
+	validate85.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.AccountMutation = validate81;
-	function validate81(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.AccountMutation = validate86;
+	function validate86(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate81.evaluated;
+		const evaluated0 = validate86.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.connectionId === void 0 && (missing0 = "connectionId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion")) {
-				validate81.errors = [{
+				validate86.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -2541,7 +2541,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "connectionId" || key0 === "expectedStateVersion" || key0 === "workspaceId")) {
-					validate81.errors = [{
+					validate86.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -2554,7 +2554,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data0 = data.connectionId;
 					if (typeof data0 === "string") {
 						if (func1(data0) > 128) {
-							validate81.errors = [{
+							validate86.errors = [{
 								instancePath: instancePath + "/connectionId",
 								schemaPath: "#/properties/connectionId/maxLength",
 								keyword: "maxLength",
@@ -2563,7 +2563,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (func1(data0) < 1) {
-							validate81.errors = [{
+							validate86.errors = [{
 								instancePath: instancePath + "/connectionId",
 								schemaPath: "#/properties/connectionId/minLength",
 								keyword: "minLength",
@@ -2573,7 +2573,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate81.errors = [{
+						validate86.errors = [{
 							instancePath: instancePath + "/connectionId",
 							schemaPath: "#/properties/connectionId/type",
 							keyword: "type",
@@ -2589,7 +2589,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						let data1 = data.expectedStateVersion;
 						if (typeof data1 === "string") {
 							if (func1(data1) > 256) {
-								validate81.errors = [{
+								validate86.errors = [{
 									instancePath: instancePath + "/expectedStateVersion",
 									schemaPath: "#/properties/expectedStateVersion/maxLength",
 									keyword: "maxLength",
@@ -2598,7 +2598,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (func1(data1) < 1) {
-								validate81.errors = [{
+								validate86.errors = [{
 									instancePath: instancePath + "/expectedStateVersion",
 									schemaPath: "#/properties/expectedStateVersion/minLength",
 									keyword: "minLength",
@@ -2608,7 +2608,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate81.errors = [{
+							validate86.errors = [{
 								instancePath: instancePath + "/expectedStateVersion",
 								schemaPath: "#/properties/expectedStateVersion/type",
 								keyword: "type",
@@ -2624,7 +2624,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							let data2 = data.workspaceId;
 							if (typeof data2 === "string") {
 								if (func1(data2) > 128) {
-									validate81.errors = [{
+									validate86.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/maxLength",
 										keyword: "maxLength",
@@ -2633,7 +2633,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								} else if (func1(data2) < 1) {
-									validate81.errors = [{
+									validate86.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/minLength",
 										keyword: "minLength",
@@ -2643,7 +2643,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 							} else {
-								validate81.errors = [{
+								validate86.errors = [{
 									instancePath: instancePath + "/workspaceId",
 									schemaPath: "#/properties/workspaceId/type",
 									keyword: "type",
@@ -2658,7 +2658,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate81.errors = [{
+			validate86.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -2667,24 +2667,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate81.errors = vErrors;
+		validate86.errors = vErrors;
 		return true;
 	}
-	validate81.evaluated = {
+	validate86.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.AccountQuery = validate82;
-	function validate82(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.AccountQuery = validate87;
+	function validate87(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate82.evaluated;
+		const evaluated0 = validate87.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.connectionId === void 0 && (missing0 = "connectionId")) {
-				validate82.errors = [{
+				validate87.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -2694,7 +2694,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "connectionId" || key0 === "workspaceId")) {
-					validate82.errors = [{
+					validate87.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -2707,7 +2707,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data0 = data.connectionId;
 					if (typeof data0 === "string") {
 						if (func1(data0) > 128) {
-							validate82.errors = [{
+							validate87.errors = [{
 								instancePath: instancePath + "/connectionId",
 								schemaPath: "#/properties/connectionId/maxLength",
 								keyword: "maxLength",
@@ -2716,7 +2716,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (func1(data0) < 1) {
-							validate82.errors = [{
+							validate87.errors = [{
 								instancePath: instancePath + "/connectionId",
 								schemaPath: "#/properties/connectionId/minLength",
 								keyword: "minLength",
@@ -2726,7 +2726,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate82.errors = [{
+						validate87.errors = [{
 							instancePath: instancePath + "/connectionId",
 							schemaPath: "#/properties/connectionId/type",
 							keyword: "type",
@@ -2742,7 +2742,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						let data1 = data.workspaceId;
 						if (typeof data1 === "string") {
 							if (func1(data1) > 128) {
-								validate82.errors = [{
+								validate87.errors = [{
 									instancePath: instancePath + "/workspaceId",
 									schemaPath: "#/properties/workspaceId/maxLength",
 									keyword: "maxLength",
@@ -2751,7 +2751,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (func1(data1) < 1) {
-								validate82.errors = [{
+								validate87.errors = [{
 									instancePath: instancePath + "/workspaceId",
 									schemaPath: "#/properties/workspaceId/minLength",
 									keyword: "minLength",
@@ -2761,7 +2761,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate82.errors = [{
+							validate87.errors = [{
 								instancePath: instancePath + "/workspaceId",
 								schemaPath: "#/properties/workspaceId/type",
 								keyword: "type",
@@ -2775,7 +2775,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate82.errors = [{
+			validate87.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -2784,15 +2784,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate82.errors = vErrors;
+		validate87.errors = vErrors;
 		return true;
 	}
-	validate82.evaluated = {
+	validate87.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Accounts = validate83;
+	exports.Accounts = validate88;
 	function validate39(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
@@ -2813,7 +2813,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func27.call(schema61.properties, key0)) {
+					for (const key0 in data) if (!func31.call(schema62.properties, key0)) {
 						validate39.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -2871,7 +2871,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/connectionState",
 										schemaPath: "#/$defs/ConnectionState/enum",
 										keyword: "enum",
-										params: { allowedValues: schema62.enum },
+										params: { allowedValues: schema63.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -3158,7 +3158,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/lastSuccessfulSync",
 																schemaPath: "#/properties/lastSuccessfulSync/type",
 																keyword: "type",
-																params: { type: schema61.properties.lastSuccessfulSync.type },
+																params: { type: schema62.properties.lastSuccessfulSync.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -3285,7 +3285,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									instancePath: instancePath + "/permissions/ipAllowList",
 																									schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 																									keyword: "type",
-																									params: { type: schema68.properties.ipAllowList.type },
+																									params: { type: schema69.properties.ipAllowList.type },
 																									message: "must be array,null"
 																								}];
 																								return false;
@@ -3345,7 +3345,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											instancePath: instancePath + "/permissions/scope",
 																											schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 																											keyword: "enum",
-																											params: { allowedValues: schema68.properties.scope.enum },
+																											params: { allowedValues: schema69.properties.scope.enum },
 																											message: "must be equal to one of the allowed values"
 																										}];
 																										return false;
@@ -3528,17 +3528,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate83(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate88(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate83.evaluated;
+		const evaluated0 = validate88.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.accounts === void 0 && (missing0 = "accounts")) {
-					validate83.errors = [{
+					validate88.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -3549,7 +3549,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "accounts")) {
-						validate83.errors = [{
+						validate88.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -3579,7 +3579,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (!(_errs4 === errors)) break;
 									}
 								} else {
-									validate83.errors = [{
+									validate88.errors = [{
 										instancePath: instancePath + "/accounts",
 										schemaPath: "#/properties/accounts/type",
 										keyword: "type",
@@ -3593,7 +3593,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate83.errors = [{
+				validate88.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -3603,24 +3603,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate83.errors = vErrors;
+		validate88.errors = vErrors;
 		return errors === 0;
 	}
-	validate83.evaluated = {
+	validate88.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Aggregate = validate85;
-	function validate85(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.Aggregate = validate90;
+	function validate90(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate85.evaluated;
+		const evaluated0 = validate90.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.aggregateType === void 0 && (missing0 = "aggregateType") || data.aggregateId === void 0 && (missing0 = "aggregateId")) {
-				validate85.errors = [{
+				validate90.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -3630,7 +3630,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "aggregateId" || key0 === "aggregateType")) {
-					validate85.errors = [{
+					validate90.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -3643,7 +3643,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data0 = data.aggregateId;
 					if (typeof data0 === "string") {
 						if (func1(data0) > 128) {
-							validate85.errors = [{
+							validate90.errors = [{
 								instancePath: instancePath + "/aggregateId",
 								schemaPath: "#/properties/aggregateId/maxLength",
 								keyword: "maxLength",
@@ -3652,7 +3652,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (func1(data0) < 1) {
-							validate85.errors = [{
+							validate90.errors = [{
 								instancePath: instancePath + "/aggregateId",
 								schemaPath: "#/properties/aggregateId/minLength",
 								keyword: "minLength",
@@ -3662,7 +3662,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate85.errors = [{
+						validate90.errors = [{
 							instancePath: instancePath + "/aggregateId",
 							schemaPath: "#/properties/aggregateId/type",
 							keyword: "type",
@@ -3678,7 +3678,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						let data1 = data.aggregateType;
 						if (typeof data1 === "string") {
 							if (func1(data1) > 64) {
-								validate85.errors = [{
+								validate90.errors = [{
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/maxLength",
 									keyword: "maxLength",
@@ -3687,7 +3687,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (func1(data1) < 1) {
-								validate85.errors = [{
+								validate90.errors = [{
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/minLength",
 									keyword: "minLength",
@@ -3697,598 +3697,9 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate85.errors = [{
+							validate90.errors = [{
 								instancePath: instancePath + "/aggregateType",
 								schemaPath: "#/properties/aggregateType/type",
-								keyword: "type",
-								params: { type: "string" },
-								message: "must be string"
-							}];
-							return false;
-						}
-						var valid0 = true;
-					} else var valid0 = true;
-				}
-			}
-		} else {
-			validate85.errors = [{
-				instancePath,
-				schemaPath: "#/type",
-				keyword: "type",
-				params: { type: "object" },
-				message: "must be object"
-			}];
-			return false;
-		}
-		validate85.errors = vErrors;
-		return true;
-	}
-	validate85.evaluated = {
-		"props": true,
-		"dynamicProps": false,
-		"dynamicItems": false
-	};
-	exports.Balance = validate86;
-	function validate86(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-		let vErrors = null;
-		const evaluated0 = validate86.evaluated;
-		if (evaluated0.dynamicProps) evaluated0.props = void 0;
-		if (evaluated0.dynamicItems) evaluated0.items = void 0;
-		if (data && typeof data == "object" && !Array.isArray(data)) {
-			let missing0;
-			if (data.asset === void 0 && (missing0 = "asset") || data.available === void 0 && (missing0 = "available")) {
-				validate86.errors = [{
-					instancePath,
-					schemaPath: "#/required",
-					keyword: "required",
-					params: { missingProperty: missing0 },
-					message: "must have required property '" + missing0 + "'"
-				}];
-				return false;
-			} else {
-				for (const key0 in data) if (!(key0 === "asset" || key0 === "available" || key0 === "inPies" || key0 === "locked" || key0 === "reserved" || key0 === "restrictedAvailable" || key0 === "total")) {
-					validate86.errors = [{
-						instancePath,
-						schemaPath: "#/additionalProperties",
-						keyword: "additionalProperties",
-						params: { additionalProperty: key0 },
-						message: "must NOT have additional properties"
-					}];
-					return false;
-				}
-				if (data.asset !== void 0) {
-					if (typeof data.asset !== "string") {
-						validate86.errors = [{
-							instancePath: instancePath + "/asset",
-							schemaPath: "#/properties/asset/type",
-							keyword: "type",
-							params: { type: "string" },
-							message: "must be string"
-						}];
-						return false;
-					}
-					var valid0 = true;
-				} else var valid0 = true;
-				if (valid0) {
-					if (data.available !== void 0) {
-						if (typeof data.available !== "string") {
-							validate86.errors = [{
-								instancePath: instancePath + "/available",
-								schemaPath: "#/properties/available/type",
-								keyword: "type",
-								params: { type: "string" },
-								message: "must be string"
-							}];
-							return false;
-						}
-						var valid0 = true;
-					} else var valid0 = true;
-					if (valid0) {
-						if (data.inPies !== void 0) {
-							let data2 = data.inPies;
-							if (typeof data2 !== "string" && data2 !== null) {
-								validate86.errors = [{
-									instancePath: instancePath + "/inPies",
-									schemaPath: "#/properties/inPies/type",
-									keyword: "type",
-									params: { type: schema64.properties.inPies.type },
-									message: "must be string,null"
-								}];
-								return false;
-							}
-							var valid0 = true;
-						} else var valid0 = true;
-						if (valid0) {
-							if (data.locked !== void 0) {
-								let data3 = data.locked;
-								if (typeof data3 !== "string" && data3 !== null) {
-									validate86.errors = [{
-										instancePath: instancePath + "/locked",
-										schemaPath: "#/properties/locked/type",
-										keyword: "type",
-										params: { type: schema64.properties.locked.type },
-										message: "must be string,null"
-									}];
-									return false;
-								}
-								var valid0 = true;
-							} else var valid0 = true;
-							if (valid0) {
-								if (data.reserved !== void 0) {
-									let data4 = data.reserved;
-									if (typeof data4 !== "string" && data4 !== null) {
-										validate86.errors = [{
-											instancePath: instancePath + "/reserved",
-											schemaPath: "#/properties/reserved/type",
-											keyword: "type",
-											params: { type: schema64.properties.reserved.type },
-											message: "must be string,null"
-										}];
-										return false;
-									}
-									var valid0 = true;
-								} else var valid0 = true;
-								if (valid0) {
-									if (data.restrictedAvailable !== void 0) {
-										let data5 = data.restrictedAvailable;
-										if (typeof data5 !== "string" && data5 !== null) {
-											validate86.errors = [{
-												instancePath: instancePath + "/restrictedAvailable",
-												schemaPath: "#/properties/restrictedAvailable/type",
-												keyword: "type",
-												params: { type: schema64.properties.restrictedAvailable.type },
-												message: "must be string,null"
-											}];
-											return false;
-										}
-										var valid0 = true;
-									} else var valid0 = true;
-									if (valid0) {
-										if (data.total !== void 0) {
-											let data6 = data.total;
-											if (typeof data6 !== "string" && data6 !== null) {
-												validate86.errors = [{
-													instancePath: instancePath + "/total",
-													schemaPath: "#/properties/total/type",
-													keyword: "type",
-													params: { type: schema64.properties.total.type },
-													message: "must be string,null"
-												}];
-												return false;
-											}
-											var valid0 = true;
-										} else var valid0 = true;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		} else {
-			validate86.errors = [{
-				instancePath,
-				schemaPath: "#/type",
-				keyword: "type",
-				params: { type: "object" },
-				message: "must be object"
-			}];
-			return false;
-		}
-		validate86.errors = vErrors;
-		return true;
-	}
-	validate86.evaluated = {
-		"props": true,
-		"dynamicProps": false,
-		"dynamicItems": false
-	};
-	exports.ChatgptLogin = validate87;
-	var schema36 = {
-		"type": "string",
-		"enum": ["LOGIN", "RELOGIN"]
-	};
-	function validate87(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-		let vErrors = null;
-		const evaluated0 = validate87.evaluated;
-		if (evaluated0.dynamicProps) evaluated0.props = void 0;
-		if (evaluated0.dynamicItems) evaluated0.items = void 0;
-		if (data && typeof data == "object" && !Array.isArray(data)) {
-			let missing0;
-			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.action === void 0 && (missing0 = "action")) {
-				validate87.errors = [{
-					instancePath,
-					schemaPath: "#/required",
-					keyword: "required",
-					params: { missingProperty: missing0 },
-					message: "must have required property '" + missing0 + "'"
-				}];
-				return false;
-			} else {
-				for (const key0 in data) if (!(key0 === "action" || key0 === "expectedStateVersion" || key0 === "workspaceId")) {
-					validate87.errors = [{
-						instancePath,
-						schemaPath: "#/additionalProperties",
-						keyword: "additionalProperties",
-						params: { additionalProperty: key0 },
-						message: "must NOT have additional properties"
-					}];
-					return false;
-				}
-				if (data.action !== void 0) {
-					let data0 = data.action;
-					if (typeof data0 !== "string") {
-						validate87.errors = [{
-							instancePath: instancePath + "/action",
-							schemaPath: "#/$defs/ChatgptLoginAction/type",
-							keyword: "type",
-							params: { type: "string" },
-							message: "must be string"
-						}];
-						return false;
-					}
-					if (!(data0 === "LOGIN" || data0 === "RELOGIN")) {
-						validate87.errors = [{
-							instancePath: instancePath + "/action",
-							schemaPath: "#/$defs/ChatgptLoginAction/enum",
-							keyword: "enum",
-							params: { allowedValues: schema36.enum },
-							message: "must be equal to one of the allowed values"
-						}];
-						return false;
-					}
-					var valid0 = true;
-				} else var valid0 = true;
-				if (valid0) {
-					if (data.expectedStateVersion !== void 0) {
-						let data1 = data.expectedStateVersion;
-						if (typeof data1 === "string") {
-							if (func1(data1) > 256) {
-								validate87.errors = [{
-									instancePath: instancePath + "/expectedStateVersion",
-									schemaPath: "#/properties/expectedStateVersion/maxLength",
-									keyword: "maxLength",
-									params: { limit: 256 },
-									message: "must NOT have more than 256 characters"
-								}];
-								return false;
-							} else if (func1(data1) < 1) {
-								validate87.errors = [{
-									instancePath: instancePath + "/expectedStateVersion",
-									schemaPath: "#/properties/expectedStateVersion/minLength",
-									keyword: "minLength",
-									params: { limit: 1 },
-									message: "must NOT have fewer than 1 characters"
-								}];
-								return false;
-							}
-						} else {
-							validate87.errors = [{
-								instancePath: instancePath + "/expectedStateVersion",
-								schemaPath: "#/properties/expectedStateVersion/type",
-								keyword: "type",
-								params: { type: "string" },
-								message: "must be string"
-							}];
-							return false;
-						}
-						var valid0 = true;
-					} else var valid0 = true;
-					if (valid0) {
-						if (data.workspaceId !== void 0) {
-							let data2 = data.workspaceId;
-							if (typeof data2 === "string") {
-								if (func1(data2) > 128) {
-									validate87.errors = [{
-										instancePath: instancePath + "/workspaceId",
-										schemaPath: "#/properties/workspaceId/maxLength",
-										keyword: "maxLength",
-										params: { limit: 128 },
-										message: "must NOT have more than 128 characters"
-									}];
-									return false;
-								} else if (func1(data2) < 1) {
-									validate87.errors = [{
-										instancePath: instancePath + "/workspaceId",
-										schemaPath: "#/properties/workspaceId/minLength",
-										keyword: "minLength",
-										params: { limit: 1 },
-										message: "must NOT have fewer than 1 characters"
-									}];
-									return false;
-								}
-							} else {
-								validate87.errors = [{
-									instancePath: instancePath + "/workspaceId",
-									schemaPath: "#/properties/workspaceId/type",
-									keyword: "type",
-									params: { type: "string" },
-									message: "must be string"
-								}];
-								return false;
-							}
-							var valid0 = true;
-						} else var valid0 = true;
-					}
-				}
-			}
-		} else {
-			validate87.errors = [{
-				instancePath,
-				schemaPath: "#/type",
-				keyword: "type",
-				params: { type: "object" },
-				message: "must be object"
-			}];
-			return false;
-		}
-		validate87.errors = vErrors;
-		return true;
-	}
-	validate87.evaluated = {
-		"props": true,
-		"dynamicProps": false,
-		"dynamicItems": false
-	};
-	exports.ChatgptLoginAction = validate88;
-	function validate88(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-		let vErrors = null;
-		const evaluated0 = validate88.evaluated;
-		if (evaluated0.dynamicProps) evaluated0.props = void 0;
-		if (evaluated0.dynamicItems) evaluated0.items = void 0;
-		if (typeof data !== "string") {
-			validate88.errors = [{
-				instancePath,
-				schemaPath: "#/type",
-				keyword: "type",
-				params: { type: "string" },
-				message: "must be string"
-			}];
-			return false;
-		}
-		if (!(data === "LOGIN" || data === "RELOGIN")) {
-			validate88.errors = [{
-				instancePath,
-				schemaPath: "#/enum",
-				keyword: "enum",
-				params: { allowedValues: schema36.enum },
-				message: "must be equal to one of the allowed values"
-			}];
-			return false;
-		}
-		validate88.errors = vErrors;
-		return true;
-	}
-	validate88.evaluated = {
-		"dynamicProps": false,
-		"dynamicItems": false
-	};
-	exports.CommandEnvelope = validate89;
-	function validate89(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-		let vErrors = null;
-		const evaluated0 = validate89.evaluated;
-		if (evaluated0.dynamicProps) evaluated0.props = void 0;
-		if (evaluated0.dynamicItems) evaluated0.items = void 0;
-		if (data && typeof data == "object" && !Array.isArray(data)) {
-			let missing0;
-			if (data.requestId === void 0 && (missing0 = "requestId") || data.schemaVersion === void 0 && (missing0 = "schemaVersion") || data.command === void 0 && (missing0 = "command") || data.payload === void 0 && (missing0 = "payload")) {
-				validate89.errors = [{
-					instancePath,
-					schemaPath: "#/required",
-					keyword: "required",
-					params: { missingProperty: missing0 },
-					message: "must have required property '" + missing0 + "'"
-				}];
-				return false;
-			} else {
-				for (const key0 in data) if (!(key0 === "command" || key0 === "payload" || key0 === "requestId" || key0 === "schemaVersion")) {
-					validate89.errors = [{
-						instancePath,
-						schemaPath: "#/additionalProperties",
-						keyword: "additionalProperties",
-						params: { additionalProperty: key0 },
-						message: "must NOT have additional properties"
-					}];
-					return false;
-				}
-				if (data.command !== void 0) {
-					if (typeof data.command !== "string") {
-						validate89.errors = [{
-							instancePath: instancePath + "/command",
-							schemaPath: "#/properties/command/type",
-							keyword: "type",
-							params: { type: "string" },
-							message: "must be string"
-						}];
-						return false;
-					}
-					var valid0 = true;
-				} else var valid0 = true;
-				if (valid0) {
-					if (data.requestId !== void 0) {
-						let data1 = data.requestId;
-						if (typeof data1 === "string") {
-							if (func1(data1) > 128) {
-								validate89.errors = [{
-									instancePath: instancePath + "/requestId",
-									schemaPath: "#/properties/requestId/maxLength",
-									keyword: "maxLength",
-									params: { limit: 128 },
-									message: "must NOT have more than 128 characters"
-								}];
-								return false;
-							} else if (func1(data1) < 1) {
-								validate89.errors = [{
-									instancePath: instancePath + "/requestId",
-									schemaPath: "#/properties/requestId/minLength",
-									keyword: "minLength",
-									params: { limit: 1 },
-									message: "must NOT have fewer than 1 characters"
-								}];
-								return false;
-							}
-						} else {
-							validate89.errors = [{
-								instancePath: instancePath + "/requestId",
-								schemaPath: "#/properties/requestId/type",
-								keyword: "type",
-								params: { type: "string" },
-								message: "must be string"
-							}];
-							return false;
-						}
-						var valid0 = true;
-					} else var valid0 = true;
-					if (valid0) {
-						if (data.schemaVersion !== void 0) {
-							let data2 = data.schemaVersion;
-							if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-								validate89.errors = [{
-									instancePath: instancePath + "/schemaVersion",
-									schemaPath: "#/properties/schemaVersion/type",
-									keyword: "type",
-									params: { type: "integer" },
-									message: "must be integer"
-								}];
-								return false;
-							}
-							if (1 !== data2) {
-								validate89.errors = [{
-									instancePath: instancePath + "/schemaVersion",
-									schemaPath: "#/properties/schemaVersion/const",
-									keyword: "const",
-									params: { allowedValue: 1 },
-									message: "must be equal to constant"
-								}];
-								return false;
-							}
-							if (typeof data2 == "number") {
-								if (data2 < 0 || isNaN(data2)) {
-									validate89.errors = [{
-										instancePath: instancePath + "/schemaVersion",
-										schemaPath: "#/properties/schemaVersion/minimum",
-										keyword: "minimum",
-										params: {
-											comparison: ">=",
-											limit: 0
-										},
-										message: "must be >= 0"
-									}];
-									return false;
-								}
-							}
-							var valid0 = true;
-						} else var valid0 = true;
-					}
-				}
-			}
-		} else {
-			validate89.errors = [{
-				instancePath,
-				schemaPath: "#/type",
-				keyword: "type",
-				params: { type: "object" },
-				message: "must be object"
-			}];
-			return false;
-		}
-		validate89.errors = vErrors;
-		return true;
-	}
-	validate89.evaluated = {
-		"props": true,
-		"dynamicProps": false,
-		"dynamicItems": false
-	};
-	exports.ConfigureDeepseek = validate90;
-	function validate90(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-		let vErrors = null;
-		const evaluated0 = validate90.evaluated;
-		if (evaluated0.dynamicProps) evaluated0.props = void 0;
-		if (evaluated0.dynamicItems) evaluated0.items = void 0;
-		if (data && typeof data == "object" && !Array.isArray(data)) {
-			let missing0;
-			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion")) {
-				validate90.errors = [{
-					instancePath,
-					schemaPath: "#/required",
-					keyword: "required",
-					params: { missingProperty: missing0 },
-					message: "must have required property '" + missing0 + "'"
-				}];
-				return false;
-			} else {
-				for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "workspaceId")) {
-					validate90.errors = [{
-						instancePath,
-						schemaPath: "#/additionalProperties",
-						keyword: "additionalProperties",
-						params: { additionalProperty: key0 },
-						message: "must NOT have additional properties"
-					}];
-					return false;
-				}
-				if (data.expectedStateVersion !== void 0) {
-					let data0 = data.expectedStateVersion;
-					if (typeof data0 === "string") {
-						if (func1(data0) > 256) {
-							validate90.errors = [{
-								instancePath: instancePath + "/expectedStateVersion",
-								schemaPath: "#/properties/expectedStateVersion/maxLength",
-								keyword: "maxLength",
-								params: { limit: 256 },
-								message: "must NOT have more than 256 characters"
-							}];
-							return false;
-						} else if (func1(data0) < 1) {
-							validate90.errors = [{
-								instancePath: instancePath + "/expectedStateVersion",
-								schemaPath: "#/properties/expectedStateVersion/minLength",
-								keyword: "minLength",
-								params: { limit: 1 },
-								message: "must NOT have fewer than 1 characters"
-							}];
-							return false;
-						}
-					} else {
-						validate90.errors = [{
-							instancePath: instancePath + "/expectedStateVersion",
-							schemaPath: "#/properties/expectedStateVersion/type",
-							keyword: "type",
-							params: { type: "string" },
-							message: "must be string"
-						}];
-						return false;
-					}
-					var valid0 = true;
-				} else var valid0 = true;
-				if (valid0) {
-					if (data.workspaceId !== void 0) {
-						let data1 = data.workspaceId;
-						if (typeof data1 === "string") {
-							if (func1(data1) > 128) {
-								validate90.errors = [{
-									instancePath: instancePath + "/workspaceId",
-									schemaPath: "#/properties/workspaceId/maxLength",
-									keyword: "maxLength",
-									params: { limit: 128 },
-									message: "must NOT have more than 128 characters"
-								}];
-								return false;
-							} else if (func1(data1) < 1) {
-								validate90.errors = [{
-									instancePath: instancePath + "/workspaceId",
-									schemaPath: "#/properties/workspaceId/minLength",
-									keyword: "minLength",
-									params: { limit: 1 },
-									message: "must NOT have fewer than 1 characters"
-								}];
-								return false;
-							}
-						} else {
-							validate90.errors = [{
-								instancePath: instancePath + "/workspaceId",
-								schemaPath: "#/properties/workspaceId/type",
 								keyword: "type",
 								params: { type: "string" },
 								message: "must be string"
@@ -4317,11 +3728,717 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Connect = validate91;
+	exports.Balance = validate91;
 	function validate91(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		let errors = 0;
 		const evaluated0 = validate91.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.asset === void 0 && (missing0 = "asset") || data.available === void 0 && (missing0 = "available")) {
+				validate91.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "asset" || key0 === "available" || key0 === "inPies" || key0 === "locked" || key0 === "reserved" || key0 === "restrictedAvailable" || key0 === "total")) {
+					validate91.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.asset !== void 0) {
+					if (typeof data.asset !== "string") {
+						validate91.errors = [{
+							instancePath: instancePath + "/asset",
+							schemaPath: "#/properties/asset/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.available !== void 0) {
+						if (typeof data.available !== "string") {
+							validate91.errors = [{
+								instancePath: instancePath + "/available",
+								schemaPath: "#/properties/available/type",
+								keyword: "type",
+								params: { type: "string" },
+								message: "must be string"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.inPies !== void 0) {
+							let data2 = data.inPies;
+							if (typeof data2 !== "string" && data2 !== null) {
+								validate91.errors = [{
+									instancePath: instancePath + "/inPies",
+									schemaPath: "#/properties/inPies/type",
+									keyword: "type",
+									params: { type: schema65.properties.inPies.type },
+									message: "must be string,null"
+								}];
+								return false;
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+						if (valid0) {
+							if (data.locked !== void 0) {
+								let data3 = data.locked;
+								if (typeof data3 !== "string" && data3 !== null) {
+									validate91.errors = [{
+										instancePath: instancePath + "/locked",
+										schemaPath: "#/properties/locked/type",
+										keyword: "type",
+										params: { type: schema65.properties.locked.type },
+										message: "must be string,null"
+									}];
+									return false;
+								}
+								var valid0 = true;
+							} else var valid0 = true;
+							if (valid0) {
+								if (data.reserved !== void 0) {
+									let data4 = data.reserved;
+									if (typeof data4 !== "string" && data4 !== null) {
+										validate91.errors = [{
+											instancePath: instancePath + "/reserved",
+											schemaPath: "#/properties/reserved/type",
+											keyword: "type",
+											params: { type: schema65.properties.reserved.type },
+											message: "must be string,null"
+										}];
+										return false;
+									}
+									var valid0 = true;
+								} else var valid0 = true;
+								if (valid0) {
+									if (data.restrictedAvailable !== void 0) {
+										let data5 = data.restrictedAvailable;
+										if (typeof data5 !== "string" && data5 !== null) {
+											validate91.errors = [{
+												instancePath: instancePath + "/restrictedAvailable",
+												schemaPath: "#/properties/restrictedAvailable/type",
+												keyword: "type",
+												params: { type: schema65.properties.restrictedAvailable.type },
+												message: "must be string,null"
+											}];
+											return false;
+										}
+										var valid0 = true;
+									} else var valid0 = true;
+									if (valid0) {
+										if (data.total !== void 0) {
+											let data6 = data.total;
+											if (typeof data6 !== "string" && data6 !== null) {
+												validate91.errors = [{
+													instancePath: instancePath + "/total",
+													schemaPath: "#/properties/total/type",
+													keyword: "type",
+													params: { type: schema65.properties.total.type },
+													message: "must be string,null"
+												}];
+												return false;
+											}
+											var valid0 = true;
+										} else var valid0 = true;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			validate91.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate91.errors = vErrors;
+		return true;
+	}
+	validate91.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.ChatgptLogin = validate92;
+	var schema36 = {
+		"type": "string",
+		"enum": ["LOGIN", "RELOGIN"]
+	};
+	function validate92(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate92.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.action === void 0 && (missing0 = "action")) {
+				validate92.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "action" || key0 === "expectedStateVersion" || key0 === "workspaceId")) {
+					validate92.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.action !== void 0) {
+					let data0 = data.action;
+					if (typeof data0 !== "string") {
+						validate92.errors = [{
+							instancePath: instancePath + "/action",
+							schemaPath: "#/$defs/ChatgptLoginAction/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					if (!(data0 === "LOGIN" || data0 === "RELOGIN")) {
+						validate92.errors = [{
+							instancePath: instancePath + "/action",
+							schemaPath: "#/$defs/ChatgptLoginAction/enum",
+							keyword: "enum",
+							params: { allowedValues: schema36.enum },
+							message: "must be equal to one of the allowed values"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.expectedStateVersion !== void 0) {
+						let data1 = data.expectedStateVersion;
+						if (typeof data1 === "string") {
+							if (func1(data1) > 256) {
+								validate92.errors = [{
+									instancePath: instancePath + "/expectedStateVersion",
+									schemaPath: "#/properties/expectedStateVersion/maxLength",
+									keyword: "maxLength",
+									params: { limit: 256 },
+									message: "must NOT have more than 256 characters"
+								}];
+								return false;
+							} else if (func1(data1) < 1) {
+								validate92.errors = [{
+									instancePath: instancePath + "/expectedStateVersion",
+									schemaPath: "#/properties/expectedStateVersion/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
+							validate92.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/type",
+								keyword: "type",
+								params: { type: "string" },
+								message: "must be string"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.workspaceId !== void 0) {
+							let data2 = data.workspaceId;
+							if (typeof data2 === "string") {
+								if (func1(data2) > 128) {
+									validate92.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/maxLength",
+										keyword: "maxLength",
+										params: { limit: 128 },
+										message: "must NOT have more than 128 characters"
+									}];
+									return false;
+								} else if (func1(data2) < 1) {
+									validate92.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/minLength",
+										keyword: "minLength",
+										params: { limit: 1 },
+										message: "must NOT have fewer than 1 characters"
+									}];
+									return false;
+								}
+							} else {
+								validate92.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/type",
+									keyword: "type",
+									params: { type: "string" },
+									message: "must be string"
+								}];
+								return false;
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+					}
+				}
+			}
+		} else {
+			validate92.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate92.errors = vErrors;
+		return true;
+	}
+	validate92.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.ChatgptLoginAction = validate93;
+	function validate93(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate93.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (typeof data !== "string") {
+			validate93.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "string" },
+				message: "must be string"
+			}];
+			return false;
+		}
+		if (!(data === "LOGIN" || data === "RELOGIN")) {
+			validate93.errors = [{
+				instancePath,
+				schemaPath: "#/enum",
+				keyword: "enum",
+				params: { allowedValues: schema36.enum },
+				message: "must be equal to one of the allowed values"
+			}];
+			return false;
+		}
+		validate93.errors = vErrors;
+		return true;
+	}
+	validate93.evaluated = {
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.CommandEnvelope = validate94;
+	function validate94(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate94.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.requestId === void 0 && (missing0 = "requestId") || data.schemaVersion === void 0 && (missing0 = "schemaVersion") || data.command === void 0 && (missing0 = "command") || data.payload === void 0 && (missing0 = "payload")) {
+				validate94.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "command" || key0 === "payload" || key0 === "requestId" || key0 === "schemaVersion")) {
+					validate94.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.command !== void 0) {
+					if (typeof data.command !== "string") {
+						validate94.errors = [{
+							instancePath: instancePath + "/command",
+							schemaPath: "#/properties/command/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.requestId !== void 0) {
+						let data1 = data.requestId;
+						if (typeof data1 === "string") {
+							if (func1(data1) > 128) {
+								validate94.errors = [{
+									instancePath: instancePath + "/requestId",
+									schemaPath: "#/properties/requestId/maxLength",
+									keyword: "maxLength",
+									params: { limit: 128 },
+									message: "must NOT have more than 128 characters"
+								}];
+								return false;
+							} else if (func1(data1) < 1) {
+								validate94.errors = [{
+									instancePath: instancePath + "/requestId",
+									schemaPath: "#/properties/requestId/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
+							validate94.errors = [{
+								instancePath: instancePath + "/requestId",
+								schemaPath: "#/properties/requestId/type",
+								keyword: "type",
+								params: { type: "string" },
+								message: "must be string"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.schemaVersion !== void 0) {
+							let data2 = data.schemaVersion;
+							if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
+								validate94.errors = [{
+									instancePath: instancePath + "/schemaVersion",
+									schemaPath: "#/properties/schemaVersion/type",
+									keyword: "type",
+									params: { type: "integer" },
+									message: "must be integer"
+								}];
+								return false;
+							}
+							if (1 !== data2) {
+								validate94.errors = [{
+									instancePath: instancePath + "/schemaVersion",
+									schemaPath: "#/properties/schemaVersion/const",
+									keyword: "const",
+									params: { allowedValue: 1 },
+									message: "must be equal to constant"
+								}];
+								return false;
+							}
+							if (typeof data2 == "number") {
+								if (data2 < 0 || isNaN(data2)) {
+									validate94.errors = [{
+										instancePath: instancePath + "/schemaVersion",
+										schemaPath: "#/properties/schemaVersion/minimum",
+										keyword: "minimum",
+										params: {
+											comparison: ">=",
+											limit: 0
+										},
+										message: "must be >= 0"
+									}];
+									return false;
+								}
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+					}
+				}
+			}
+		} else {
+			validate94.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate94.errors = vErrors;
+		return true;
+	}
+	validate94.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.CompleteOnboarding = validate95;
+	function validate95(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate95.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion")) {
+				validate95.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "workspaceId")) {
+					validate95.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.expectedStateVersion !== void 0) {
+					let data0 = data.expectedStateVersion;
+					if (typeof data0 === "string") {
+						if (func1(data0) > 256) {
+							validate95.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/maxLength",
+								keyword: "maxLength",
+								params: { limit: 256 },
+								message: "must NOT have more than 256 characters"
+							}];
+							return false;
+						} else if (func1(data0) < 1) {
+							validate95.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
+						validate95.errors = [{
+							instancePath: instancePath + "/expectedStateVersion",
+							schemaPath: "#/properties/expectedStateVersion/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.workspaceId !== void 0) {
+						let data1 = data.workspaceId;
+						if (typeof data1 === "string") {
+							if (func1(data1) > 128) {
+								validate95.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/maxLength",
+									keyword: "maxLength",
+									params: { limit: 128 },
+									message: "must NOT have more than 128 characters"
+								}];
+								return false;
+							} else if (func1(data1) < 1) {
+								validate95.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
+							validate95.errors = [{
+								instancePath: instancePath + "/workspaceId",
+								schemaPath: "#/properties/workspaceId/type",
+								keyword: "type",
+								params: { type: "string" },
+								message: "must be string"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+				}
+			}
+		} else {
+			validate95.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate95.errors = vErrors;
+		return true;
+	}
+	validate95.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.ConfigureDeepseek = validate96;
+	function validate96(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate96.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion")) {
+				validate96.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "workspaceId")) {
+					validate96.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.expectedStateVersion !== void 0) {
+					let data0 = data.expectedStateVersion;
+					if (typeof data0 === "string") {
+						if (func1(data0) > 256) {
+							validate96.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/maxLength",
+								keyword: "maxLength",
+								params: { limit: 256 },
+								message: "must NOT have more than 256 characters"
+							}];
+							return false;
+						} else if (func1(data0) < 1) {
+							validate96.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
+						validate96.errors = [{
+							instancePath: instancePath + "/expectedStateVersion",
+							schemaPath: "#/properties/expectedStateVersion/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.workspaceId !== void 0) {
+						let data1 = data.workspaceId;
+						if (typeof data1 === "string") {
+							if (func1(data1) > 128) {
+								validate96.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/maxLength",
+									keyword: "maxLength",
+									params: { limit: 128 },
+									message: "must NOT have more than 128 characters"
+								}];
+								return false;
+							} else if (func1(data1) < 1) {
+								validate96.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
+							validate96.errors = [{
+								instancePath: instancePath + "/workspaceId",
+								schemaPath: "#/properties/workspaceId/type",
+								keyword: "type",
+								params: { type: "string" },
+								message: "must be string"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+				}
+			}
+		} else {
+			validate96.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate96.errors = vErrors;
+		return true;
+	}
+	validate96.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.Connect = validate97;
+	function validate97(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		let errors = 0;
+		const evaluated0 = validate97.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		const _errs0 = errors;
@@ -4647,7 +4764,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (vErrors === null) vErrors = [err18];
 			else vErrors.push(err18);
 			errors++;
-			validate91.errors = vErrors;
+			validate97.errors = vErrors;
 			return false;
 		} else {
 			errors = _errs0;
@@ -4656,22 +4773,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				else vErrors = null;
 			}
 		}
-		validate91.errors = vErrors;
+		validate97.errors = vErrors;
 		evaluated0.props = props0;
 		return errors === 0;
 	}
-	validate91.evaluated = {
+	validate97.evaluated = {
 		"dynamicProps": true,
 		"dynamicItems": false
 	};
-	exports.ConnectionState = validate92;
-	function validate92(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ConnectionState = validate98;
+	function validate98(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate92.evaluated;
+		const evaluated0 = validate98.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate92.errors = [{
+			validate98.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -4681,24 +4798,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "CONNECTING" || data === "REVIEW_REQUIRED" || data === "CONNECTED" || data === "FAILED" || data === "DISCONNECTED")) {
-			validate92.errors = [{
+			validate98.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema62.enum },
+				params: { allowedValues: schema63.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate92.errors = vErrors;
+		validate98.errors = vErrors;
 		return true;
 	}
-	validate92.evaluated = {
+	validate98.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.DomainEvent = validate93;
-	var schema40 = {
+	exports.DomainEvent = validate99;
+	var schema41 = {
 		"type": "object",
 		"properties": {
 			"aggregateId": {
@@ -4711,7 +4828,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					"workspace",
 					"account",
 					"model-gateway",
-					"model"
+					"model",
+					"risk"
 				]
 			},
 			"eventId": {
@@ -4725,7 +4843,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					"account.health.changed",
 					"model.gateway.changed",
 					"model.provider.changed",
-					"model.provider_attempt.changed"
+					"model.provider_attempt.changed",
+					"risk.policy.changed"
 				]
 			},
 			"occurredAt": { "type": "string" },
@@ -4755,7 +4874,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"payload"
 		]
 	};
-	var schema42 = {
+	var schema43 = {
 		"type": "object",
 		"properties": {
 			"desiredRunning": { "type": "boolean" },
@@ -4812,7 +4931,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"updatedAt"
 		]
 	};
-	var schema43 = {
+	var schema44 = {
 		"type": "string",
 		"enum": [
 			"STOPPED",
@@ -4843,7 +4962,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func27.call(schema42.properties, key0)) {
+				for (const key0 in data) if (!func31.call(schema43.properties, key0)) {
 					validate25.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -4941,7 +5060,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema42.properties.errorCode.type },
+										params: { type: schema43.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -4970,7 +5089,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/lastProbeAt",
 												schemaPath: "#/properties/lastProbeAt/type",
 												keyword: "type",
-												params: { type: schema42.properties.lastProbeAt.type },
+												params: { type: schema43.properties.lastProbeAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -4999,7 +5118,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/nextRetryAt",
 														schemaPath: "#/properties/nextRetryAt/type",
 														keyword: "type",
-														params: { type: schema42.properties.nextRetryAt.type },
+														params: { type: schema43.properties.nextRetryAt.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -5126,7 +5245,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/status",
 																		schemaPath: "#/$defs/GatewayStatus/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema43.enum },
+																		params: { allowedValues: schema44.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -5214,7 +5333,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema44 = {
+	var schema45 = {
 		"type": "object",
 		"properties": {
 			"attempts": {
@@ -5261,7 +5380,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"updatedAt"
 		]
 	};
-	var schema45 = {
+	var schema46 = {
 		"type": "object",
 		"properties": {
 			"attemptId": {
@@ -5291,11 +5410,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"outcome"
 		]
 	};
-	var schema46 = {
+	var schema47 = {
 		"type": "string",
 		"enum": ["SETUP", "THREAD"]
 	};
-	var schema47 = {
+	var schema48 = {
 		"type": "string",
 		"enum": [
 			"VERIFIED",
@@ -5304,11 +5423,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FAILED"
 		]
 	};
-	var schema48 = {
+	var schema49 = {
 		"type": "string",
 		"enum": ["CHATGPT", "DEEPSEEK"]
 	};
-	var schema49 = {
+	var schema50 = {
 		"type": "object",
 		"properties": {
 			"remaining": {
@@ -5328,7 +5447,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		},
 		"additionalProperties": false
 	};
-	var schema50 = {
+	var schema51 = {
 		"type": "string",
 		"enum": ["disabled", "enabled"]
 	};
@@ -5352,7 +5471,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func27.call(schema45.properties, key0)) {
+					for (const key0 in data) if (!func31.call(schema46.properties, key0)) {
 						validate28.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -5424,7 +5543,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/errorCategory",
 											schemaPath: "#/properties/errorCategory/type",
 											keyword: "type",
-											params: { type: schema45.properties.errorCategory.type },
+											params: { type: schema46.properties.errorCategory.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -5450,7 +5569,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/kind",
 												schemaPath: "#/$defs/ModelAttemptKind/enum",
 												keyword: "enum",
-												params: { allowedValues: schema46.enum },
+												params: { allowedValues: schema47.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -5466,7 +5585,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/modelId",
 													schemaPath: "#/properties/modelId/type",
 													keyword: "type",
-													params: { type: schema45.properties.modelId.type },
+													params: { type: schema46.properties.modelId.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -5492,7 +5611,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/outcome",
 														schemaPath: "#/$defs/ModelAttemptOutcome/enum",
 														keyword: "enum",
-														params: { allowedValues: schema47.enum },
+														params: { allowedValues: schema48.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -5518,7 +5637,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/provider",
 															schemaPath: "#/$defs/ModelProvider/enum",
 															keyword: "enum",
-															params: { allowedValues: schema48.enum },
+															params: { allowedValues: schema49.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -5557,7 +5676,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/quota/remaining",
 																				schemaPath: "#/$defs/ModelQuota/properties/remaining/type",
 																				keyword: "type",
-																				params: { type: schema49.properties.remaining.type },
+																				params: { type: schema50.properties.remaining.type },
 																				message: "must be integer,null"
 																			};
 																			if (vErrors === null) vErrors = [err1];
@@ -5608,7 +5727,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/quota/resetAt",
 																					schemaPath: "#/$defs/ModelQuota/properties/resetAt/type",
 																					keyword: "type",
-																					params: { type: schema49.properties.resetAt.type },
+																					params: { type: schema50.properties.resetAt.type },
 																					message: "must be string,null"
 																				};
 																				if (vErrors === null) vErrors = [err4];
@@ -5626,7 +5745,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/quota/retryAfterSeconds",
 																						schemaPath: "#/$defs/ModelQuota/properties/retryAfterSeconds/type",
 																						keyword: "type",
-																						params: { type: schema49.properties.retryAfterSeconds.type },
+																						params: { type: schema50.properties.retryAfterSeconds.type },
 																						message: "must be integer,null"
 																					};
 																					if (vErrors === null) vErrors = [err5];
@@ -5677,7 +5796,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/quota/window",
 																							schemaPath: "#/$defs/ModelQuota/properties/window/type",
 																							keyword: "type",
-																							params: { type: schema49.properties.window.type },
+																							params: { type: schema50.properties.window.type },
 																							message: "must be string,null"
 																						};
 																						if (vErrors === null) vErrors = [err8];
@@ -5781,7 +5900,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/thinkingType",
 																		schemaPath: "#/$defs/ThinkingType/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema50.enum },
+																		params: { allowedValues: schema51.enum },
 																		message: "must be equal to one of the allowed values"
 																	};
 																	if (vErrors === null) vErrors = [err13];
@@ -5857,7 +5976,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema51 = {
+	var schema52 = {
 		"type": "object",
 		"properties": {
 			"configured": { "type": "boolean" },
@@ -5879,7 +5998,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"routes"
 		]
 	};
-	var schema56 = {
+	var schema57 = {
 		"type": "string",
 		"enum": [
 			"NOT_CONFIGURED",
@@ -5889,7 +6008,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FAILED"
 		]
 	};
-	var schema53 = {
+	var schema54 = {
 		"type": "object",
 		"properties": {
 			"modelId": {
@@ -5991,7 +6110,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema48.enum },
+										params: { allowedValues: schema49.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -6022,7 +6141,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema50.enum },
+											params: { allowedValues: schema51.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -6077,7 +6196,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/verifiedAt",
 												schemaPath: "#/properties/verifiedAt/type",
 												keyword: "type",
-												params: { type: schema53.properties.verifiedAt.type },
+												params: { type: schema54.properties.verifiedAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -6162,7 +6281,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema51.properties.errorCode.type },
+										params: { type: schema52.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -6178,7 +6297,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/lastVerifiedAt",
 											schemaPath: "#/properties/lastVerifiedAt/type",
 											keyword: "type",
-											params: { type: schema51.properties.lastVerifiedAt.type },
+											params: { type: schema52.properties.lastVerifiedAt.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -6204,7 +6323,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/provider",
 												schemaPath: "#/$defs/ModelProvider/enum",
 												keyword: "enum",
-												params: { allowedValues: schema48.enum },
+												params: { allowedValues: schema49.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -6275,7 +6394,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/ModelHealth/enum",
 														keyword: "enum",
-														params: { allowedValues: schema56.enum },
+														params: { allowedValues: schema57.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -6395,7 +6514,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema48.enum },
+										params: { allowedValues: schema49.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -6426,7 +6545,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema50.enum },
+											params: { allowedValues: schema51.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -6515,7 +6634,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func27.call(schema44.properties, key0)) {
+					for (const key0 in data) if (!func31.call(schema45.properties, key0)) {
 						validate27.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -6881,6 +7000,693 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
+	var schema70 = {
+		"type": "object",
+		"properties": {
+			"configured": { "type": "boolean" },
+			"hardRules": {
+				"type": "array",
+				"items": { "$ref": "#/$defs/HardSafetyRule" }
+			},
+			"onboardingCompleted": { "type": "boolean" },
+			"onboardingStep": {
+				"type": "integer",
+				"format": "uint8",
+				"maximum": 5,
+				"minimum": 1
+			},
+			"policy": { "$ref": "#/$defs/RiskPolicy" },
+			"policyVersion": {
+				"type": "integer",
+				"format": "uint64",
+				"minimum": 1
+			},
+			"stateVersion": {
+				"type": "string",
+				"maxLength": 256,
+				"minLength": 1
+			},
+			"updatedAt": { "type": "string" },
+			"workspaceId": {
+				"type": "string",
+				"maxLength": 128,
+				"minLength": 1
+			}
+		},
+		"additionalProperties": false,
+		"required": [
+			"workspaceId",
+			"stateVersion",
+			"policyVersion",
+			"configured",
+			"onboardingStep",
+			"onboardingCompleted",
+			"policy",
+			"hardRules",
+			"updatedAt"
+		]
+	};
+	var schema72 = {
+		"type": "object",
+		"properties": {
+			"liveInactivityTimeoutMinutes": {
+				"type": "integer",
+				"format": "uint64",
+				"default": 20,
+				"maximum": 1440,
+				"minimum": 1
+			},
+			"marketOrdersEnabled": {
+				"type": "boolean",
+				"default": false
+			},
+			"maxDailyRealizedLoss": {
+				"type": ["string", "null"],
+				"default": null,
+				"maxLength": 32
+			},
+			"maxDailyTradedNotional": {
+				"type": ["string", "null"],
+				"default": null,
+				"maxLength": 32
+			},
+			"maxOrderNotional": {
+				"type": ["string", "null"],
+				"default": null,
+				"maxLength": 32
+			},
+			"maxSingleInstrumentExposurePercent": {
+				"type": ["string", "null"],
+				"default": null,
+				"maxLength": 32
+			},
+			"staleQuoteThresholdSeconds": {
+				"type": "integer",
+				"format": "uint64",
+				"default": 3,
+				"maximum": 86400,
+				"minimum": 1
+			}
+		},
+		"additionalProperties": false
+	};
+	function validate43(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate43.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.stateVersion === void 0 && (missing0 = "stateVersion") || data.policyVersion === void 0 && (missing0 = "policyVersion") || data.configured === void 0 && (missing0 = "configured") || data.onboardingStep === void 0 && (missing0 = "onboardingStep") || data.onboardingCompleted === void 0 && (missing0 = "onboardingCompleted") || data.policy === void 0 && (missing0 = "policy") || data.hardRules === void 0 && (missing0 = "hardRules") || data.updatedAt === void 0 && (missing0 = "updatedAt")) {
+				validate43.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!func31.call(schema70.properties, key0)) {
+					validate43.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.configured !== void 0) {
+					if (typeof data.configured !== "boolean") {
+						validate43.errors = [{
+							instancePath: instancePath + "/configured",
+							schemaPath: "#/properties/configured/type",
+							keyword: "type",
+							params: { type: "boolean" },
+							message: "must be boolean"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.hardRules !== void 0) {
+						let data1 = data.hardRules;
+						if (Array.isArray(data1)) {
+							const len0 = data1.length;
+							for (let i0 = 0; i0 < len0; i0++) {
+								let data2 = data1[i0];
+								if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
+									let missing1;
+									if (data2.id === void 0 && (missing1 = "id") || data2.description === void 0 && (missing1 = "description")) {
+										validate43.errors = [{
+											instancePath: instancePath + "/hardRules/" + i0,
+											schemaPath: "#/$defs/HardSafetyRule/required",
+											keyword: "required",
+											params: { missingProperty: missing1 },
+											message: "must have required property '" + missing1 + "'"
+										}];
+										return false;
+									} else {
+										for (const key1 in data2) if (!(key1 === "description" || key1 === "id")) {
+											validate43.errors = [{
+												instancePath: instancePath + "/hardRules/" + i0,
+												schemaPath: "#/$defs/HardSafetyRule/additionalProperties",
+												keyword: "additionalProperties",
+												params: { additionalProperty: key1 },
+												message: "must NOT have additional properties"
+											}];
+											return false;
+										}
+										if (data2.description !== void 0) {
+											let data3 = data2.description;
+											if (typeof data3 === "string") {
+												if (func1(data3) > 256) {
+													validate43.errors = [{
+														instancePath: instancePath + "/hardRules/" + i0 + "/description",
+														schemaPath: "#/$defs/HardSafetyRule/properties/description/maxLength",
+														keyword: "maxLength",
+														params: { limit: 256 },
+														message: "must NOT have more than 256 characters"
+													}];
+													return false;
+												} else if (func1(data3) < 1) {
+													validate43.errors = [{
+														instancePath: instancePath + "/hardRules/" + i0 + "/description",
+														schemaPath: "#/$defs/HardSafetyRule/properties/description/minLength",
+														keyword: "minLength",
+														params: { limit: 1 },
+														message: "must NOT have fewer than 1 characters"
+													}];
+													return false;
+												}
+											} else {
+												validate43.errors = [{
+													instancePath: instancePath + "/hardRules/" + i0 + "/description",
+													schemaPath: "#/$defs/HardSafetyRule/properties/description/type",
+													keyword: "type",
+													params: { type: "string" },
+													message: "must be string"
+												}];
+												return false;
+											}
+											var valid3 = true;
+										} else var valid3 = true;
+										if (valid3) {
+											if (data2.id !== void 0) {
+												let data4 = data2.id;
+												if (typeof data4 === "string") {
+													if (func1(data4) > 64) {
+														validate43.errors = [{
+															instancePath: instancePath + "/hardRules/" + i0 + "/id",
+															schemaPath: "#/$defs/HardSafetyRule/properties/id/maxLength",
+															keyword: "maxLength",
+															params: { limit: 64 },
+															message: "must NOT have more than 64 characters"
+														}];
+														return false;
+													} else if (func1(data4) < 1) {
+														validate43.errors = [{
+															instancePath: instancePath + "/hardRules/" + i0 + "/id",
+															schemaPath: "#/$defs/HardSafetyRule/properties/id/minLength",
+															keyword: "minLength",
+															params: { limit: 1 },
+															message: "must NOT have fewer than 1 characters"
+														}];
+														return false;
+													}
+												} else {
+													validate43.errors = [{
+														instancePath: instancePath + "/hardRules/" + i0 + "/id",
+														schemaPath: "#/$defs/HardSafetyRule/properties/id/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
+												var valid3 = true;
+											} else var valid3 = true;
+										}
+									}
+								} else {
+									validate43.errors = [{
+										instancePath: instancePath + "/hardRules/" + i0,
+										schemaPath: "#/$defs/HardSafetyRule/type",
+										keyword: "type",
+										params: { type: "object" },
+										message: "must be object"
+									}];
+									return false;
+								}
+							}
+						} else {
+							validate43.errors = [{
+								instancePath: instancePath + "/hardRules",
+								schemaPath: "#/properties/hardRules/type",
+								keyword: "type",
+								params: { type: "array" },
+								message: "must be array"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.onboardingCompleted !== void 0) {
+							if (typeof data.onboardingCompleted !== "boolean") {
+								validate43.errors = [{
+									instancePath: instancePath + "/onboardingCompleted",
+									schemaPath: "#/properties/onboardingCompleted/type",
+									keyword: "type",
+									params: { type: "boolean" },
+									message: "must be boolean"
+								}];
+								return false;
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+						if (valid0) {
+							if (data.onboardingStep !== void 0) {
+								let data6 = data.onboardingStep;
+								if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
+									validate43.errors = [{
+										instancePath: instancePath + "/onboardingStep",
+										schemaPath: "#/properties/onboardingStep/type",
+										keyword: "type",
+										params: { type: "integer" },
+										message: "must be integer"
+									}];
+									return false;
+								}
+								if (typeof data6 == "number") {
+									if (data6 > 5 || isNaN(data6)) {
+										validate43.errors = [{
+											instancePath: instancePath + "/onboardingStep",
+											schemaPath: "#/properties/onboardingStep/maximum",
+											keyword: "maximum",
+											params: {
+												comparison: "<=",
+												limit: 5
+											},
+											message: "must be <= 5"
+										}];
+										return false;
+									} else if (data6 < 1 || isNaN(data6)) {
+										validate43.errors = [{
+											instancePath: instancePath + "/onboardingStep",
+											schemaPath: "#/properties/onboardingStep/minimum",
+											keyword: "minimum",
+											params: {
+												comparison: ">=",
+												limit: 1
+											},
+											message: "must be >= 1"
+										}];
+										return false;
+									}
+								}
+								var valid0 = true;
+							} else var valid0 = true;
+							if (valid0) {
+								if (data.policy !== void 0) {
+									let data7 = data.policy;
+									if (data7 && typeof data7 == "object" && !Array.isArray(data7)) {
+										for (const key2 in data7) if (!(key2 === "liveInactivityTimeoutMinutes" || key2 === "marketOrdersEnabled" || key2 === "maxDailyRealizedLoss" || key2 === "maxDailyTradedNotional" || key2 === "maxOrderNotional" || key2 === "maxSingleInstrumentExposurePercent" || key2 === "staleQuoteThresholdSeconds")) {
+											validate43.errors = [{
+												instancePath: instancePath + "/policy",
+												schemaPath: "#/$defs/RiskPolicy/additionalProperties",
+												keyword: "additionalProperties",
+												params: { additionalProperty: key2 },
+												message: "must NOT have additional properties"
+											}];
+											return false;
+										}
+										if (data7.liveInactivityTimeoutMinutes !== void 0) {
+											let data8 = data7.liveInactivityTimeoutMinutes;
+											if (!(typeof data8 == "number" && !(data8 % 1) && !isNaN(data8))) {
+												validate43.errors = [{
+													instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+													schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/type",
+													keyword: "type",
+													params: { type: "integer" },
+													message: "must be integer"
+												}];
+												return false;
+											}
+											if (typeof data8 == "number") {
+												if (data8 > 1440 || isNaN(data8)) {
+													validate43.errors = [{
+														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/maximum",
+														keyword: "maximum",
+														params: {
+															comparison: "<=",
+															limit: 1440
+														},
+														message: "must be <= 1440"
+													}];
+													return false;
+												} else if (data8 < 1 || isNaN(data8)) {
+													validate43.errors = [{
+														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/minimum",
+														keyword: "minimum",
+														params: {
+															comparison: ">=",
+															limit: 1
+														},
+														message: "must be >= 1"
+													}];
+													return false;
+												}
+											}
+											var valid5 = true;
+										} else var valid5 = true;
+										if (valid5) {
+											if (data7.marketOrdersEnabled !== void 0) {
+												if (typeof data7.marketOrdersEnabled !== "boolean") {
+													validate43.errors = [{
+														instancePath: instancePath + "/policy/marketOrdersEnabled",
+														schemaPath: "#/$defs/RiskPolicy/properties/marketOrdersEnabled/type",
+														keyword: "type",
+														params: { type: "boolean" },
+														message: "must be boolean"
+													}];
+													return false;
+												}
+												var valid5 = true;
+											} else var valid5 = true;
+											if (valid5) {
+												if (data7.maxDailyRealizedLoss !== void 0) {
+													let data10 = data7.maxDailyRealizedLoss;
+													if (typeof data10 !== "string" && data10 !== null) {
+														validate43.errors = [{
+															instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+															schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
+															keyword: "type",
+															params: { type: schema72.properties.maxDailyRealizedLoss.type },
+															message: "must be string,null"
+														}];
+														return false;
+													}
+													if (typeof data10 === "string") {
+														if (func1(data10) > 32) {
+															validate43.errors = [{
+																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/maxLength",
+																keyword: "maxLength",
+																params: { limit: 32 },
+																message: "must NOT have more than 32 characters"
+															}];
+															return false;
+														}
+													}
+													var valid5 = true;
+												} else var valid5 = true;
+												if (valid5) {
+													if (data7.maxDailyTradedNotional !== void 0) {
+														let data11 = data7.maxDailyTradedNotional;
+														if (typeof data11 !== "string" && data11 !== null) {
+															validate43.errors = [{
+																instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
+																keyword: "type",
+																params: { type: schema72.properties.maxDailyTradedNotional.type },
+																message: "must be string,null"
+															}];
+															return false;
+														}
+														if (typeof data11 === "string") {
+															if (func1(data11) > 32) {
+																validate43.errors = [{
+																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/maxLength",
+																	keyword: "maxLength",
+																	params: { limit: 32 },
+																	message: "must NOT have more than 32 characters"
+																}];
+																return false;
+															}
+														}
+														var valid5 = true;
+													} else var valid5 = true;
+													if (valid5) {
+														if (data7.maxOrderNotional !== void 0) {
+															let data12 = data7.maxOrderNotional;
+															if (typeof data12 !== "string" && data12 !== null) {
+																validate43.errors = [{
+																	instancePath: instancePath + "/policy/maxOrderNotional",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
+																	keyword: "type",
+																	params: { type: schema72.properties.maxOrderNotional.type },
+																	message: "must be string,null"
+																}];
+																return false;
+															}
+															if (typeof data12 === "string") {
+																if (func1(data12) > 32) {
+																	validate43.errors = [{
+																		instancePath: instancePath + "/policy/maxOrderNotional",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/maxLength",
+																		keyword: "maxLength",
+																		params: { limit: 32 },
+																		message: "must NOT have more than 32 characters"
+																	}];
+																	return false;
+																}
+															}
+															var valid5 = true;
+														} else var valid5 = true;
+														if (valid5) {
+															if (data7.maxSingleInstrumentExposurePercent !== void 0) {
+																let data13 = data7.maxSingleInstrumentExposurePercent;
+																if (typeof data13 !== "string" && data13 !== null) {
+																	validate43.errors = [{
+																		instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
+																		keyword: "type",
+																		params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+																		message: "must be string,null"
+																	}];
+																	return false;
+																}
+																if (typeof data13 === "string") {
+																	if (func1(data13) > 32) {
+																		validate43.errors = [{
+																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/maxLength",
+																			keyword: "maxLength",
+																			params: { limit: 32 },
+																			message: "must NOT have more than 32 characters"
+																		}];
+																		return false;
+																	}
+																}
+																var valid5 = true;
+															} else var valid5 = true;
+															if (valid5) {
+																if (data7.staleQuoteThresholdSeconds !== void 0) {
+																	let data14 = data7.staleQuoteThresholdSeconds;
+																	if (!(typeof data14 == "number" && !(data14 % 1) && !isNaN(data14))) {
+																		validate43.errors = [{
+																			instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																			schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/type",
+																			keyword: "type",
+																			params: { type: "integer" },
+																			message: "must be integer"
+																		}];
+																		return false;
+																	}
+																	if (typeof data14 == "number") {
+																		if (data14 > 86400 || isNaN(data14)) {
+																			validate43.errors = [{
+																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/maximum",
+																				keyword: "maximum",
+																				params: {
+																					comparison: "<=",
+																					limit: 86400
+																				},
+																				message: "must be <= 86400"
+																			}];
+																			return false;
+																		} else if (data14 < 1 || isNaN(data14)) {
+																			validate43.errors = [{
+																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/minimum",
+																				keyword: "minimum",
+																				params: {
+																					comparison: ">=",
+																					limit: 1
+																				},
+																				message: "must be >= 1"
+																			}];
+																			return false;
+																		}
+																	}
+																	var valid5 = true;
+																} else var valid5 = true;
+															}
+														}
+													}
+												}
+											}
+										}
+									} else {
+										validate43.errors = [{
+											instancePath: instancePath + "/policy",
+											schemaPath: "#/$defs/RiskPolicy/type",
+											keyword: "type",
+											params: { type: "object" },
+											message: "must be object"
+										}];
+										return false;
+									}
+									var valid0 = true;
+								} else var valid0 = true;
+								if (valid0) {
+									if (data.policyVersion !== void 0) {
+										let data15 = data.policyVersion;
+										if (!(typeof data15 == "number" && !(data15 % 1) && !isNaN(data15))) {
+											validate43.errors = [{
+												instancePath: instancePath + "/policyVersion",
+												schemaPath: "#/properties/policyVersion/type",
+												keyword: "type",
+												params: { type: "integer" },
+												message: "must be integer"
+											}];
+											return false;
+										}
+										if (typeof data15 == "number") {
+											if (data15 < 1 || isNaN(data15)) {
+												validate43.errors = [{
+													instancePath: instancePath + "/policyVersion",
+													schemaPath: "#/properties/policyVersion/minimum",
+													keyword: "minimum",
+													params: {
+														comparison: ">=",
+														limit: 1
+													},
+													message: "must be >= 1"
+												}];
+												return false;
+											}
+										}
+										var valid0 = true;
+									} else var valid0 = true;
+									if (valid0) {
+										if (data.stateVersion !== void 0) {
+											let data16 = data.stateVersion;
+											if (typeof data16 === "string") {
+												if (func1(data16) > 256) {
+													validate43.errors = [{
+														instancePath: instancePath + "/stateVersion",
+														schemaPath: "#/properties/stateVersion/maxLength",
+														keyword: "maxLength",
+														params: { limit: 256 },
+														message: "must NOT have more than 256 characters"
+													}];
+													return false;
+												} else if (func1(data16) < 1) {
+													validate43.errors = [{
+														instancePath: instancePath + "/stateVersion",
+														schemaPath: "#/properties/stateVersion/minLength",
+														keyword: "minLength",
+														params: { limit: 1 },
+														message: "must NOT have fewer than 1 characters"
+													}];
+													return false;
+												}
+											} else {
+												validate43.errors = [{
+													instancePath: instancePath + "/stateVersion",
+													schemaPath: "#/properties/stateVersion/type",
+													keyword: "type",
+													params: { type: "string" },
+													message: "must be string"
+												}];
+												return false;
+											}
+											var valid0 = true;
+										} else var valid0 = true;
+										if (valid0) {
+											if (data.updatedAt !== void 0) {
+												if (typeof data.updatedAt !== "string") {
+													validate43.errors = [{
+														instancePath: instancePath + "/updatedAt",
+														schemaPath: "#/properties/updatedAt/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
+												var valid0 = true;
+											} else var valid0 = true;
+											if (valid0) {
+												if (data.workspaceId !== void 0) {
+													let data18 = data.workspaceId;
+													if (typeof data18 === "string") {
+														if (func1(data18) > 128) {
+															validate43.errors = [{
+																instancePath: instancePath + "/workspaceId",
+																schemaPath: "#/properties/workspaceId/maxLength",
+																keyword: "maxLength",
+																params: { limit: 128 },
+																message: "must NOT have more than 128 characters"
+															}];
+															return false;
+														} else if (func1(data18) < 1) {
+															validate43.errors = [{
+																instancePath: instancePath + "/workspaceId",
+																schemaPath: "#/properties/workspaceId/minLength",
+																keyword: "minLength",
+																params: { limit: 1 },
+																message: "must NOT have fewer than 1 characters"
+															}];
+															return false;
+														}
+													} else {
+														validate43.errors = [{
+															instancePath: instancePath + "/workspaceId",
+															schemaPath: "#/properties/workspaceId/type",
+															keyword: "type",
+															params: { type: "string" },
+															message: "must be string"
+														}];
+														return false;
+													}
+													var valid0 = true;
+												} else var valid0 = true;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			validate43.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate43.errors = vErrors;
+		return true;
+	}
+	validate43.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
 	function validate24(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
@@ -7052,16 +7858,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 												if (errors === _errs17) {
 													if (typeof data5 == "number") {
-														if (data5 > 4 || isNaN(data5)) {
+														if (data5 > 5 || isNaN(data5)) {
 															const err8 = {
 																instancePath: instancePath + "/storageSchemaVersion",
 																schemaPath: "#/$defs/Workspace/properties/storageSchemaVersion/maximum",
 																keyword: "maximum",
 																params: {
 																	comparison: "<=",
-																	limit: 4
+																	limit: 5
 																},
-																message: "must be <= 4"
+																message: "must be <= 5"
 															};
 															if (vErrors === null) vErrors = [err8];
 															else vErrors.push(err8);
@@ -7160,6 +7966,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		if (_valid0) {
 			if (props0 !== true) props0 = true;
 		}
+		const _errs22 = errors;
+		if (!validate43(data, {
+			instancePath,
+			parentData,
+			parentDataProperty,
+			rootData,
+			dynamicAnchors
+		})) {
+			vErrors = vErrors === null ? validate43.errors : vErrors.concat(validate43.errors);
+			errors = vErrors.length;
+		}
+		var _valid0 = _errs22 === errors;
+		valid0 = valid0 || _valid0;
+		if (_valid0) {
+			if (props0 !== true) props0 = true;
+		}
 		if (!valid0) {
 			const err13 = {
 				instancePath,
@@ -7188,17 +8010,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": true,
 		"dynamicItems": false
 	};
-	function validate93(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate99(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate93.evaluated;
+		const evaluated0 = validate99.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.eventId === void 0 && (missing0 = "eventId") || data.eventType === void 0 && (missing0 = "eventType") || data.schemaVersion === void 0 && (missing0 = "schemaVersion") || data.occurredAt === void 0 && (missing0 = "occurredAt") || data.aggregateType === void 0 && (missing0 = "aggregateType") || data.aggregateId === void 0 && (missing0 = "aggregateId") || data.sequence === void 0 && (missing0 = "sequence") || data.payload === void 0 && (missing0 = "payload")) {
-					validate93.errors = [{
+					validate99.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -7209,7 +8031,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "aggregateId" || key0 === "aggregateType" || key0 === "eventId" || key0 === "eventType" || key0 === "occurredAt" || key0 === "payload" || key0 === "schemaVersion" || key0 === "sequence")) {
-						validate93.errors = [{
+						validate99.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -7225,7 +8047,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) < 1) {
-										validate93.errors = [{
+										validate99.errors = [{
 											instancePath: instancePath + "/aggregateId",
 											schemaPath: "#/properties/aggregateId/minLength",
 											keyword: "minLength",
@@ -7235,7 +8057,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate93.errors = [{
+									validate99.errors = [{
 										instancePath: instancePath + "/aggregateId",
 										schemaPath: "#/properties/aggregateId/type",
 										keyword: "type",
@@ -7252,7 +8074,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.aggregateType;
 								const _errs4 = errors;
 								if (typeof data1 !== "string") {
-									validate93.errors = [{
+									validate99.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/type",
 										keyword: "type",
@@ -7261,12 +8083,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								}
-								if (!(data1 === "workspace" || data1 === "account" || data1 === "model-gateway" || data1 === "model")) {
-									validate93.errors = [{
+								if (!(data1 === "workspace" || data1 === "account" || data1 === "model-gateway" || data1 === "model" || data1 === "risk")) {
+									validate99.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/enum",
 										keyword: "enum",
-										params: { allowedValues: schema40.properties.aggregateType.enum },
+										params: { allowedValues: schema41.properties.aggregateType.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -7280,7 +8102,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (errors === _errs6) {
 										if (typeof data2 === "string") {
 											if (func1(data2) < 1) {
-												validate93.errors = [{
+												validate99.errors = [{
 													instancePath: instancePath + "/eventId",
 													schemaPath: "#/properties/eventId/minLength",
 													keyword: "minLength",
@@ -7290,7 +8112,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											}
 										} else {
-											validate93.errors = [{
+											validate99.errors = [{
 												instancePath: instancePath + "/eventId",
 												schemaPath: "#/properties/eventId/type",
 												keyword: "type",
@@ -7307,7 +8129,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.eventType;
 										const _errs8 = errors;
 										if (typeof data3 !== "string") {
-											validate93.errors = [{
+											validate99.errors = [{
 												instancePath: instancePath + "/eventType",
 												schemaPath: "#/properties/eventType/type",
 												keyword: "type",
@@ -7316,12 +8138,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}];
 											return false;
 										}
-										if (!(data3 === "workspace.opened" || data3 === "account.health.changed" || data3 === "model.gateway.changed" || data3 === "model.provider.changed" || data3 === "model.provider_attempt.changed")) {
-											validate93.errors = [{
+										if (!(data3 === "workspace.opened" || data3 === "account.health.changed" || data3 === "model.gateway.changed" || data3 === "model.provider.changed" || data3 === "model.provider_attempt.changed" || data3 === "risk.policy.changed")) {
+											validate99.errors = [{
 												instancePath: instancePath + "/eventType",
 												schemaPath: "#/properties/eventType/enum",
 												keyword: "enum",
-												params: { allowedValues: schema40.properties.eventType.enum },
+												params: { allowedValues: schema41.properties.eventType.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -7332,7 +8154,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (data.occurredAt !== void 0) {
 											const _errs10 = errors;
 											if (typeof data.occurredAt !== "string") {
-												validate93.errors = [{
+												validate99.errors = [{
 													instancePath: instancePath + "/occurredAt",
 													schemaPath: "#/properties/occurredAt/type",
 													keyword: "type",
@@ -7363,7 +8185,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													let data6 = data.schemaVersion;
 													const _errs13 = errors;
 													if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
-														validate93.errors = [{
+														validate99.errors = [{
 															instancePath: instancePath + "/schemaVersion",
 															schemaPath: "#/properties/schemaVersion/type",
 															keyword: "type",
@@ -7373,7 +8195,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 													if (1 !== data6) {
-														validate93.errors = [{
+														validate99.errors = [{
 															instancePath: instancePath + "/schemaVersion",
 															schemaPath: "#/properties/schemaVersion/const",
 															keyword: "const",
@@ -7385,7 +8207,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (errors === _errs13) {
 														if (typeof data6 == "number") {
 															if (data6 < 0 || isNaN(data6)) {
-																validate93.errors = [{
+																validate99.errors = [{
 																	instancePath: instancePath + "/schemaVersion",
 																	schemaPath: "#/properties/schemaVersion/minimum",
 																	keyword: "minimum",
@@ -7406,7 +8228,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														let data7 = data.sequence;
 														const _errs15 = errors;
 														if (!(typeof data7 == "number" && !(data7 % 1) && !isNaN(data7))) {
-															validate93.errors = [{
+															validate99.errors = [{
 																instancePath: instancePath + "/sequence",
 																schemaPath: "#/properties/sequence/type",
 																keyword: "type",
@@ -7418,7 +8240,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														if (errors === _errs15) {
 															if (typeof data7 == "number") {
 																if (data7 > 9007199254740991 || isNaN(data7)) {
-																	validate93.errors = [{
+																	validate99.errors = [{
 																		instancePath: instancePath + "/sequence",
 																		schemaPath: "#/properties/sequence/maximum",
 																		keyword: "maximum",
@@ -7430,7 +8252,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																} else if (data7 < 1 || isNaN(data7)) {
-																	validate93.errors = [{
+																	validate99.errors = [{
 																		instancePath: instancePath + "/sequence",
 																		schemaPath: "#/properties/sequence/minimum",
 																		keyword: "minimum",
@@ -7456,7 +8278,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate93.errors = [{
+				validate99.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -7466,19 +8288,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate93.errors = vErrors;
+		validate99.errors = vErrors;
 		return errors === 0;
 	}
-	validate93.evaluated = {
+	validate99.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.DomainProjection = validate95;
-	function validate95(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.DomainProjection = validate101;
+	function validate101(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate95.evaluated;
+		const evaluated0 = validate101.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		const _errs0 = errors;
@@ -7646,16 +8468,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 												if (errors === _errs17) {
 													if (typeof data5 == "number") {
-														if (data5 > 4 || isNaN(data5)) {
+														if (data5 > 5 || isNaN(data5)) {
 															const err8 = {
 																instancePath: instancePath + "/storageSchemaVersion",
 																schemaPath: "#/$defs/Workspace/properties/storageSchemaVersion/maximum",
 																keyword: "maximum",
 																params: {
 																	comparison: "<=",
-																	limit: 4
+																	limit: 5
 																},
-																message: "must be <= 4"
+																message: "must be <= 5"
 															};
 															if (vErrors === null) vErrors = [err8];
 															else vErrors.push(err8);
@@ -7754,6 +8576,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		if (_valid0) {
 			if (props0 !== true) props0 = true;
 		}
+		const _errs22 = errors;
+		if (!validate43(data, {
+			instancePath,
+			parentData,
+			parentDataProperty,
+			rootData,
+			dynamicAnchors
+		})) {
+			vErrors = vErrors === null ? validate43.errors : vErrors.concat(validate43.errors);
+			errors = vErrors.length;
+		}
+		var _valid0 = _errs22 === errors;
+		valid0 = valid0 || _valid0;
+		if (_valid0) {
+			if (props0 !== true) props0 = true;
+		}
 		if (!valid0) {
 			const err13 = {
 				instancePath,
@@ -7765,7 +8603,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (vErrors === null) vErrors = [err13];
 			else vErrors.push(err13);
 			errors++;
-			validate95.errors = vErrors;
+			validate101.errors = vErrors;
 			return false;
 		} else {
 			errors = _errs0;
@@ -7774,22 +8612,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				else vErrors = null;
 			}
 		}
-		validate95.errors = vErrors;
+		validate101.errors = vErrors;
 		evaluated0.props = props0;
 		return errors === 0;
 	}
-	validate95.evaluated = {
+	validate101.evaluated = {
 		"dynamicProps": true,
 		"dynamicItems": false
 	};
-	exports.EmptyPayload = validate99;
-	function validate99(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.EmptyPayload = validate106;
+	function validate106(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate99.evaluated;
+		const evaluated0 = validate106.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) for (const key0 in data) {
-			validate99.errors = [{
+			validate106.errors = [{
 				instancePath,
 				schemaPath: "#/additionalProperties",
 				keyword: "additionalProperties",
@@ -7799,7 +8637,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		else {
-			validate99.errors = [{
+			validate106.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -7808,24 +8646,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate99.errors = vErrors;
+		validate106.errors = vErrors;
 		return true;
 	}
-	validate99.evaluated = {
+	validate106.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.FailureEnvelope = validate100;
-	function validate69(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.FailureEnvelope = validate107;
+	function validate72(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate69.evaluated;
+		const evaluated0 = validate72.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.category === void 0 && (missing0 = "category") || data.code === void 0 && (missing0 = "code") || data.message === void 0 && (missing0 = "message") || data.retryable === void 0 && (missing0 = "retryable") || data.blocking === void 0 && (missing0 = "blocking") || data.remediationActions === void 0 && (missing0 = "remediationActions")) {
-				validate69.errors = [{
+				validate72.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -7835,7 +8673,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "blocking" || key0 === "category" || key0 === "code" || key0 === "message" || key0 === "remediationActions" || key0 === "retryable")) {
-					validate69.errors = [{
+					validate72.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -7846,7 +8684,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.blocking !== void 0) {
 					if (typeof data.blocking !== "boolean") {
-						validate69.errors = [{
+						validate72.errors = [{
 							instancePath: instancePath + "/blocking",
 							schemaPath: "#/properties/blocking/type",
 							keyword: "type",
@@ -7860,7 +8698,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.category !== void 0) {
 						if (typeof data.category !== "string") {
-							validate69.errors = [{
+							validate72.errors = [{
 								instancePath: instancePath + "/category",
 								schemaPath: "#/properties/category/type",
 								keyword: "type",
@@ -7874,7 +8712,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.code !== void 0) {
 							if (typeof data.code !== "string") {
-								validate69.errors = [{
+								validate72.errors = [{
 									instancePath: instancePath + "/code",
 									schemaPath: "#/properties/code/type",
 									keyword: "type",
@@ -7888,7 +8726,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (valid0) {
 							if (data.message !== void 0) {
 								if (typeof data.message !== "string") {
-									validate69.errors = [{
+									validate72.errors = [{
 										instancePath: instancePath + "/message",
 										schemaPath: "#/properties/message/type",
 										keyword: "type",
@@ -7909,7 +8747,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
 												let missing1;
 												if (data5.id === void 0 && (missing1 = "id") || data5.label === void 0 && (missing1 = "label")) {
-													validate69.errors = [{
+													validate72.errors = [{
 														instancePath: instancePath + "/remediationActions/" + i0,
 														schemaPath: "#/$defs/Remediation/required",
 														keyword: "required",
@@ -7919,7 +8757,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												} else {
 													for (const key1 in data5) if (!(key1 === "id" || key1 === "label")) {
-														validate69.errors = [{
+														validate72.errors = [{
 															instancePath: instancePath + "/remediationActions/" + i0,
 															schemaPath: "#/$defs/Remediation/additionalProperties",
 															keyword: "additionalProperties",
@@ -7932,7 +8770,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														let data6 = data5.id;
 														if (typeof data6 === "string") {
 															if (func1(data6) < 1) {
-																validate69.errors = [{
+																validate72.errors = [{
 																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
 																	schemaPath: "#/$defs/Remediation/properties/id/minLength",
 																	keyword: "minLength",
@@ -7942,7 +8780,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																return false;
 															}
 														} else {
-															validate69.errors = [{
+															validate72.errors = [{
 																instancePath: instancePath + "/remediationActions/" + i0 + "/id",
 																schemaPath: "#/$defs/Remediation/properties/id/type",
 																keyword: "type",
@@ -7956,7 +8794,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (valid3) {
 														if (data5.label !== void 0) {
 															if (typeof data5.label !== "string") {
-																validate69.errors = [{
+																validate72.errors = [{
 																	instancePath: instancePath + "/remediationActions/" + i0 + "/label",
 																	schemaPath: "#/$defs/Remediation/properties/label/type",
 																	keyword: "type",
@@ -7970,7 +8808,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													}
 												}
 											} else {
-												validate69.errors = [{
+												validate72.errors = [{
 													instancePath: instancePath + "/remediationActions/" + i0,
 													schemaPath: "#/$defs/Remediation/type",
 													keyword: "type",
@@ -7981,7 +8819,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}
 										}
 									} else {
-										validate69.errors = [{
+										validate72.errors = [{
 											instancePath: instancePath + "/remediationActions",
 											schemaPath: "#/properties/remediationActions/type",
 											keyword: "type",
@@ -7995,7 +8833,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (valid0) {
 									if (data.retryable !== void 0) {
 										if (typeof data.retryable !== "boolean") {
-											validate69.errors = [{
+											validate72.errors = [{
 												instancePath: instancePath + "/retryable",
 												schemaPath: "#/properties/retryable/type",
 												keyword: "type",
@@ -8013,7 +8851,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate69.errors = [{
+			validate72.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -8022,25 +8860,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate69.errors = vErrors;
+		validate72.errors = vErrors;
 		return true;
 	}
-	validate69.evaluated = {
+	validate72.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate100(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate107(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate100.evaluated;
+		const evaluated0 = validate107.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.requestId === void 0 && (missing0 = "requestId") || data.schemaVersion === void 0 && (missing0 = "schemaVersion") || data.ok === void 0 && (missing0 = "ok") || data.error === void 0 && (missing0 = "error")) {
-					validate100.errors = [{
+					validate107.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -8051,7 +8889,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "error" || key0 === "ok" || key0 === "requestId" || key0 === "schemaVersion")) {
-						validate100.errors = [{
+						validate107.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -8063,14 +8901,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (_errs1 === errors) {
 						if (data.error !== void 0) {
 							const _errs2 = errors;
-							if (!validate69(data.error, {
+							if (!validate72(data.error, {
 								instancePath: instancePath + "/error",
 								parentData: data,
 								parentDataProperty: "error",
 								rootData,
 								dynamicAnchors
 							})) {
-								vErrors = vErrors === null ? validate69.errors : vErrors.concat(validate69.errors);
+								vErrors = vErrors === null ? validate72.errors : vErrors.concat(validate72.errors);
 								errors = vErrors.length;
 							}
 							var valid0 = _errs2 === errors;
@@ -8080,7 +8918,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.ok;
 								const _errs3 = errors;
 								if (typeof data1 !== "boolean") {
-									validate100.errors = [{
+									validate107.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/type",
 										keyword: "type",
@@ -8090,7 +8928,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 								if (false !== data1) {
-									validate100.errors = [{
+									validate107.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/const",
 										keyword: "const",
@@ -8108,7 +8946,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (errors === _errs5) {
 										if (typeof data2 === "string") {
 											if (func1(data2) > 128) {
-												validate100.errors = [{
+												validate107.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/maxLength",
 													keyword: "maxLength",
@@ -8117,7 +8955,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											} else if (func1(data2) < 1) {
-												validate100.errors = [{
+												validate107.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/minLength",
 													keyword: "minLength",
@@ -8127,7 +8965,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											}
 										} else {
-											validate100.errors = [{
+											validate107.errors = [{
 												instancePath: instancePath + "/requestId",
 												schemaPath: "#/properties/requestId/type",
 												keyword: "type",
@@ -8144,7 +8982,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.schemaVersion;
 										const _errs7 = errors;
 										if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-											validate100.errors = [{
+											validate107.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/type",
 												keyword: "type",
@@ -8154,7 +8992,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (1 !== data3) {
-											validate100.errors = [{
+											validate107.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/const",
 												keyword: "const",
@@ -8166,7 +9004,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (errors === _errs7) {
 											if (typeof data3 == "number") {
 												if (data3 < 0 || isNaN(data3)) {
-													validate100.errors = [{
+													validate107.errors = [{
 														instancePath: instancePath + "/schemaVersion",
 														schemaPath: "#/properties/schemaVersion/minimum",
 														keyword: "minimum",
@@ -8188,7 +9026,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate100.errors = [{
+				validate107.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -8198,16 +9036,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate100.errors = vErrors;
+		validate107.errors = vErrors;
 		return errors === 0;
 	}
-	validate100.evaluated = {
+	validate107.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.GatewayAction = validate102;
-	var schema70 = {
+	exports.GatewayAction = validate109;
+	var schema74 = {
 		"type": "string",
 		"enum": [
 			"LAUNCH",
@@ -8216,13 +9054,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"STOP"
 		]
 	};
-	function validate102(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate109(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate102.evaluated;
+		const evaluated0 = validate109.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate102.errors = [{
+			validate109.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -8232,32 +9070,32 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "LAUNCH" || data === "PROBE" || data === "RESTART" || data === "STOP")) {
-			validate102.errors = [{
+			validate109.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema70.enum },
+				params: { allowedValues: schema74.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate102.errors = vErrors;
+		validate109.errors = vErrors;
 		return true;
 	}
-	validate102.evaluated = {
+	validate109.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.GatewayMutation = validate103;
-	function validate103(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.GatewayMutation = validate110;
+	function validate110(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate103.evaluated;
+		const evaluated0 = validate110.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.action === void 0 && (missing0 = "action")) {
-				validate103.errors = [{
+				validate110.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -8267,7 +9105,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "action" || key0 === "expectedStateVersion" || key0 === "workspaceId")) {
-					validate103.errors = [{
+					validate110.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -8279,7 +9117,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (data.action !== void 0) {
 					let data0 = data.action;
 					if (typeof data0 !== "string") {
-						validate103.errors = [{
+						validate110.errors = [{
 							instancePath: instancePath + "/action",
 							schemaPath: "#/$defs/GatewayAction/type",
 							keyword: "type",
@@ -8289,11 +9127,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						return false;
 					}
 					if (!(data0 === "LAUNCH" || data0 === "PROBE" || data0 === "RESTART" || data0 === "STOP")) {
-						validate103.errors = [{
+						validate110.errors = [{
 							instancePath: instancePath + "/action",
 							schemaPath: "#/$defs/GatewayAction/enum",
 							keyword: "enum",
-							params: { allowedValues: schema70.enum },
+							params: { allowedValues: schema74.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -8305,7 +9143,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						let data1 = data.expectedStateVersion;
 						if (typeof data1 === "string") {
 							if (func1(data1) > 256) {
-								validate103.errors = [{
+								validate110.errors = [{
 									instancePath: instancePath + "/expectedStateVersion",
 									schemaPath: "#/properties/expectedStateVersion/maxLength",
 									keyword: "maxLength",
@@ -8314,7 +9152,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (func1(data1) < 1) {
-								validate103.errors = [{
+								validate110.errors = [{
 									instancePath: instancePath + "/expectedStateVersion",
 									schemaPath: "#/properties/expectedStateVersion/minLength",
 									keyword: "minLength",
@@ -8324,7 +9162,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate103.errors = [{
+							validate110.errors = [{
 								instancePath: instancePath + "/expectedStateVersion",
 								schemaPath: "#/properties/expectedStateVersion/type",
 								keyword: "type",
@@ -8340,7 +9178,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							let data2 = data.workspaceId;
 							if (typeof data2 === "string") {
 								if (func1(data2) > 128) {
-									validate103.errors = [{
+									validate110.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/maxLength",
 										keyword: "maxLength",
@@ -8349,7 +9187,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								} else if (func1(data2) < 1) {
-									validate103.errors = [{
+									validate110.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/minLength",
 										keyword: "minLength",
@@ -8359,7 +9197,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 							} else {
-								validate103.errors = [{
+								validate110.errors = [{
 									instancePath: instancePath + "/workspaceId",
 									schemaPath: "#/properties/workspaceId/type",
 									keyword: "type",
@@ -8374,7 +9212,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate103.errors = [{
+			validate110.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -8383,24 +9221,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate103.errors = vErrors;
+		validate110.errors = vErrors;
 		return true;
 	}
-	validate103.evaluated = {
+	validate110.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.GatewayState = validate104;
-	function validate104(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.GatewayState = validate111;
+	function validate111(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate104.evaluated;
+		const evaluated0 = validate111.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.stateVersion === void 0 && (missing0 = "stateVersion") || data.pinnedVersion === void 0 && (missing0 = "pinnedVersion") || data.endpoint === void 0 && (missing0 = "endpoint") || data.status === void 0 && (missing0 = "status") || data.desiredRunning === void 0 && (missing0 = "desiredRunning") || data.installed === void 0 && (missing0 = "installed") || data.modelAvailable === void 0 && (missing0 = "modelAvailable") || data.discoveredModelCount === void 0 && (missing0 = "discoveredModelCount") || data.restartAttempts === void 0 && (missing0 = "restartAttempts") || data.updatedAt === void 0 && (missing0 = "updatedAt")) {
-				validate104.errors = [{
+				validate111.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -8409,8 +9247,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func27.call(schema42.properties, key0)) {
-					validate104.errors = [{
+				for (const key0 in data) if (!func31.call(schema43.properties, key0)) {
+					validate111.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -8421,7 +9259,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.desiredRunning !== void 0) {
 					if (typeof data.desiredRunning !== "boolean") {
-						validate104.errors = [{
+						validate111.errors = [{
 							instancePath: instancePath + "/desiredRunning",
 							schemaPath: "#/properties/desiredRunning/type",
 							keyword: "type",
@@ -8436,7 +9274,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (data.discoveredModelCount !== void 0) {
 						let data1 = data.discoveredModelCount;
 						if (!(typeof data1 == "number" && !(data1 % 1) && !isNaN(data1))) {
-							validate104.errors = [{
+							validate111.errors = [{
 								instancePath: instancePath + "/discoveredModelCount",
 								schemaPath: "#/properties/discoveredModelCount/type",
 								keyword: "type",
@@ -8447,7 +9285,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						}
 						if (typeof data1 == "number") {
 							if (data1 > 1e3 || isNaN(data1)) {
-								validate104.errors = [{
+								validate111.errors = [{
 									instancePath: instancePath + "/discoveredModelCount",
 									schemaPath: "#/properties/discoveredModelCount/maximum",
 									keyword: "maximum",
@@ -8459,7 +9297,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (data1 < 0 || isNaN(data1)) {
-								validate104.errors = [{
+								validate111.errors = [{
 									instancePath: instancePath + "/discoveredModelCount",
 									schemaPath: "#/properties/discoveredModelCount/minimum",
 									keyword: "minimum",
@@ -8478,7 +9316,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.endpoint !== void 0) {
 							let data2 = data.endpoint;
 							if (typeof data2 !== "string") {
-								validate104.errors = [{
+								validate111.errors = [{
 									instancePath: instancePath + "/endpoint",
 									schemaPath: "#/properties/endpoint/type",
 									keyword: "type",
@@ -8488,7 +9326,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 							if ("http://127.0.0.1:8317" !== data2) {
-								validate104.errors = [{
+								validate111.errors = [{
 									instancePath: instancePath + "/endpoint",
 									schemaPath: "#/properties/endpoint/const",
 									keyword: "const",
@@ -8503,11 +9341,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.errorCode !== void 0) {
 								let data3 = data.errorCode;
 								if (typeof data3 !== "string" && data3 !== null) {
-									validate104.errors = [{
+									validate111.errors = [{
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema42.properties.errorCode.type },
+										params: { type: schema43.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -8517,7 +9355,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (valid0) {
 								if (data.installed !== void 0) {
 									if (typeof data.installed !== "boolean") {
-										validate104.errors = [{
+										validate111.errors = [{
 											instancePath: instancePath + "/installed",
 											schemaPath: "#/properties/installed/type",
 											keyword: "type",
@@ -8532,11 +9370,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (data.lastProbeAt !== void 0) {
 										let data5 = data.lastProbeAt;
 										if (typeof data5 !== "string" && data5 !== null) {
-											validate104.errors = [{
+											validate111.errors = [{
 												instancePath: instancePath + "/lastProbeAt",
 												schemaPath: "#/properties/lastProbeAt/type",
 												keyword: "type",
-												params: { type: schema42.properties.lastProbeAt.type },
+												params: { type: schema43.properties.lastProbeAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -8546,7 +9384,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (valid0) {
 										if (data.modelAvailable !== void 0) {
 											if (typeof data.modelAvailable !== "boolean") {
-												validate104.errors = [{
+												validate111.errors = [{
 													instancePath: instancePath + "/modelAvailable",
 													schemaPath: "#/properties/modelAvailable/type",
 													keyword: "type",
@@ -8561,11 +9399,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (data.nextRetryAt !== void 0) {
 												let data7 = data.nextRetryAt;
 												if (typeof data7 !== "string" && data7 !== null) {
-													validate104.errors = [{
+													validate111.errors = [{
 														instancePath: instancePath + "/nextRetryAt",
 														schemaPath: "#/properties/nextRetryAt/type",
 														keyword: "type",
-														params: { type: schema42.properties.nextRetryAt.type },
+														params: { type: schema43.properties.nextRetryAt.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -8576,7 +9414,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												if (data.pinnedVersion !== void 0) {
 													let data8 = data.pinnedVersion;
 													if (typeof data8 !== "string") {
-														validate104.errors = [{
+														validate111.errors = [{
 															instancePath: instancePath + "/pinnedVersion",
 															schemaPath: "#/properties/pinnedVersion/type",
 															keyword: "type",
@@ -8586,7 +9424,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 													if ("7.2.155" !== data8) {
-														validate104.errors = [{
+														validate111.errors = [{
 															instancePath: instancePath + "/pinnedVersion",
 															schemaPath: "#/properties/pinnedVersion/const",
 															keyword: "const",
@@ -8601,7 +9439,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (data.restartAttempts !== void 0) {
 														let data9 = data.restartAttempts;
 														if (!(typeof data9 == "number" && !(data9 % 1) && !isNaN(data9))) {
-															validate104.errors = [{
+															validate111.errors = [{
 																instancePath: instancePath + "/restartAttempts",
 																schemaPath: "#/properties/restartAttempts/type",
 																keyword: "type",
@@ -8612,7 +9450,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}
 														if (typeof data9 == "number") {
 															if (data9 > 3 || isNaN(data9)) {
-																validate104.errors = [{
+																validate111.errors = [{
 																	instancePath: instancePath + "/restartAttempts",
 																	schemaPath: "#/properties/restartAttempts/maximum",
 																	keyword: "maximum",
@@ -8624,7 +9462,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																}];
 																return false;
 															} else if (data9 < 0 || isNaN(data9)) {
-																validate104.errors = [{
+																validate111.errors = [{
 																	instancePath: instancePath + "/restartAttempts",
 																	schemaPath: "#/properties/restartAttempts/minimum",
 																	keyword: "minimum",
@@ -8644,7 +9482,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															let data10 = data.stateVersion;
 															if (typeof data10 === "string") {
 																if (func1(data10) > 256) {
-																	validate104.errors = [{
+																	validate111.errors = [{
 																		instancePath: instancePath + "/stateVersion",
 																		schemaPath: "#/properties/stateVersion/maxLength",
 																		keyword: "maxLength",
@@ -8653,7 +9491,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																} else if (func1(data10) < 1) {
-																	validate104.errors = [{
+																	validate111.errors = [{
 																		instancePath: instancePath + "/stateVersion",
 																		schemaPath: "#/properties/stateVersion/minLength",
 																		keyword: "minLength",
@@ -8663,7 +9501,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	return false;
 																}
 															} else {
-																validate104.errors = [{
+																validate111.errors = [{
 																	instancePath: instancePath + "/stateVersion",
 																	schemaPath: "#/properties/stateVersion/type",
 																	keyword: "type",
@@ -8678,7 +9516,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (data.status !== void 0) {
 																let data11 = data.status;
 																if (typeof data11 !== "string") {
-																	validate104.errors = [{
+																	validate111.errors = [{
 																		instancePath: instancePath + "/status",
 																		schemaPath: "#/$defs/GatewayStatus/type",
 																		keyword: "type",
@@ -8688,11 +9526,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	return false;
 																}
 																if (!(data11 === "STOPPED" || data11 === "INSTALLING" || data11 === "STARTING" || data11 === "RUNNING" || data11 === "PORT_CONFLICT" || data11 === "UNAUTHORIZED" || data11 === "BACKOFF" || data11 === "FAILED" || data11 === "STOPPING")) {
-																	validate104.errors = [{
+																	validate111.errors = [{
 																		instancePath: instancePath + "/status",
 																		schemaPath: "#/$defs/GatewayStatus/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema43.enum },
+																		params: { allowedValues: schema44.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -8702,7 +9540,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (valid0) {
 																if (data.updatedAt !== void 0) {
 																	if (typeof data.updatedAt !== "string") {
-																		validate104.errors = [{
+																		validate111.errors = [{
 																			instancePath: instancePath + "/updatedAt",
 																			schemaPath: "#/properties/updatedAt/type",
 																			keyword: "type",
@@ -8718,7 +9556,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		let data13 = data.workspaceId;
 																		if (typeof data13 === "string") {
 																			if (func1(data13) > 128) {
-																				validate104.errors = [{
+																				validate111.errors = [{
 																					instancePath: instancePath + "/workspaceId",
 																					schemaPath: "#/properties/workspaceId/maxLength",
 																					keyword: "maxLength",
@@ -8727,7 +9565,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				}];
 																				return false;
 																			} else if (func1(data13) < 1) {
-																				validate104.errors = [{
+																				validate111.errors = [{
 																					instancePath: instancePath + "/workspaceId",
 																					schemaPath: "#/properties/workspaceId/minLength",
 																					keyword: "minLength",
@@ -8737,7 +9575,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				return false;
 																			}
 																		} else {
-																			validate104.errors = [{
+																			validate111.errors = [{
 																				instancePath: instancePath + "/workspaceId",
 																				schemaPath: "#/properties/workspaceId/type",
 																				keyword: "type",
@@ -8763,7 +9601,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate104.errors = [{
+			validate111.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -8772,22 +9610,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate104.errors = vErrors;
+		validate111.errors = vErrors;
 		return true;
 	}
-	validate104.evaluated = {
+	validate111.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.GatewayStatus = validate105;
-	function validate105(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.GatewayStatus = validate112;
+	function validate112(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate105.evaluated;
+		const evaluated0 = validate112.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate105.errors = [{
+			validate112.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -8797,34 +9635,151 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "STOPPED" || data === "INSTALLING" || data === "STARTING" || data === "RUNNING" || data === "PORT_CONFLICT" || data === "UNAUTHORIZED" || data === "BACKOFF" || data === "FAILED" || data === "STOPPING")) {
-			validate105.errors = [{
+			validate112.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema43.enum },
+				params: { allowedValues: schema44.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate105.errors = vErrors;
+		validate112.errors = vErrors;
 		return true;
 	}
-	validate105.evaluated = {
+	validate112.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelAttempt = validate106;
-	function validate106(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.HardSafetyRule = validate113;
+	function validate113(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate113.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.id === void 0 && (missing0 = "id") || data.description === void 0 && (missing0 = "description")) {
+				validate113.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "description" || key0 === "id")) {
+					validate113.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.description !== void 0) {
+					let data0 = data.description;
+					if (typeof data0 === "string") {
+						if (func1(data0) > 256) {
+							validate113.errors = [{
+								instancePath: instancePath + "/description",
+								schemaPath: "#/properties/description/maxLength",
+								keyword: "maxLength",
+								params: { limit: 256 },
+								message: "must NOT have more than 256 characters"
+							}];
+							return false;
+						} else if (func1(data0) < 1) {
+							validate113.errors = [{
+								instancePath: instancePath + "/description",
+								schemaPath: "#/properties/description/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
+						validate113.errors = [{
+							instancePath: instancePath + "/description",
+							schemaPath: "#/properties/description/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.id !== void 0) {
+						let data1 = data.id;
+						if (typeof data1 === "string") {
+							if (func1(data1) > 64) {
+								validate113.errors = [{
+									instancePath: instancePath + "/id",
+									schemaPath: "#/properties/id/maxLength",
+									keyword: "maxLength",
+									params: { limit: 64 },
+									message: "must NOT have more than 64 characters"
+								}];
+								return false;
+							} else if (func1(data1) < 1) {
+								validate113.errors = [{
+									instancePath: instancePath + "/id",
+									schemaPath: "#/properties/id/minLength",
+									keyword: "minLength",
+									params: { limit: 1 },
+									message: "must NOT have fewer than 1 characters"
+								}];
+								return false;
+							}
+						} else {
+							validate113.errors = [{
+								instancePath: instancePath + "/id",
+								schemaPath: "#/properties/id/type",
+								keyword: "type",
+								params: { type: "string" },
+								message: "must be string"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+				}
+			}
+		} else {
+			validate113.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate113.errors = vErrors;
+		return true;
+	}
+	validate113.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.ModelAttempt = validate114;
+	function validate114(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate106.evaluated;
+		const evaluated0 = validate114.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.attemptId === void 0 && (missing0 = "attemptId") || data.provider === void 0 && (missing0 = "provider") || data.startedAt === void 0 && (missing0 = "startedAt") || data.endedAt === void 0 && (missing0 = "endedAt") || data.outcome === void 0 && (missing0 = "outcome")) {
-					validate106.errors = [{
+					validate114.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -8834,8 +9789,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func27.call(schema45.properties, key0)) {
-						validate106.errors = [{
+					for (const key0 in data) if (!func31.call(schema46.properties, key0)) {
+						validate114.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -8851,7 +9806,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) > 128) {
-										validate106.errors = [{
+										validate114.errors = [{
 											instancePath: instancePath + "/attemptId",
 											schemaPath: "#/properties/attemptId/maxLength",
 											keyword: "maxLength",
@@ -8860,7 +9815,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									} else if (func1(data0) < 1) {
-										validate106.errors = [{
+										validate114.errors = [{
 											instancePath: instancePath + "/attemptId",
 											schemaPath: "#/properties/attemptId/minLength",
 											keyword: "minLength",
@@ -8870,7 +9825,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate106.errors = [{
+									validate114.errors = [{
 										instancePath: instancePath + "/attemptId",
 										schemaPath: "#/properties/attemptId/type",
 										keyword: "type",
@@ -8886,7 +9841,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.endedAt !== void 0) {
 								const _errs4 = errors;
 								if (typeof data.endedAt !== "string") {
-									validate106.errors = [{
+									validate114.errors = [{
 										instancePath: instancePath + "/endedAt",
 										schemaPath: "#/properties/endedAt/type",
 										keyword: "type",
@@ -8902,11 +9857,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									let data2 = data.errorCategory;
 									const _errs6 = errors;
 									if (typeof data2 !== "string" && data2 !== null) {
-										validate106.errors = [{
+										validate114.errors = [{
 											instancePath: instancePath + "/errorCategory",
 											schemaPath: "#/properties/errorCategory/type",
 											keyword: "type",
-											params: { type: schema45.properties.errorCategory.type },
+											params: { type: schema46.properties.errorCategory.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -8918,7 +9873,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.kind;
 										const _errs8 = errors;
 										if (typeof data3 !== "string") {
-											validate106.errors = [{
+											validate114.errors = [{
 												instancePath: instancePath + "/kind",
 												schemaPath: "#/$defs/ModelAttemptKind/type",
 												keyword: "type",
@@ -8928,11 +9883,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (!(data3 === "SETUP" || data3 === "THREAD")) {
-											validate106.errors = [{
+											validate114.errors = [{
 												instancePath: instancePath + "/kind",
 												schemaPath: "#/$defs/ModelAttemptKind/enum",
 												keyword: "enum",
-												params: { allowedValues: schema46.enum },
+												params: { allowedValues: schema47.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -8944,11 +9899,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											let data4 = data.modelId;
 											const _errs11 = errors;
 											if (typeof data4 !== "string" && data4 !== null) {
-												validate106.errors = [{
+												validate114.errors = [{
 													instancePath: instancePath + "/modelId",
 													schemaPath: "#/properties/modelId/type",
 													keyword: "type",
-													params: { type: schema45.properties.modelId.type },
+													params: { type: schema46.properties.modelId.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -8960,7 +9915,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												let data5 = data.outcome;
 												const _errs13 = errors;
 												if (typeof data5 !== "string") {
-													validate106.errors = [{
+													validate114.errors = [{
 														instancePath: instancePath + "/outcome",
 														schemaPath: "#/$defs/ModelAttemptOutcome/type",
 														keyword: "type",
@@ -8970,11 +9925,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												}
 												if (!(data5 === "VERIFIED" || data5 === "CONFIGURED" || data5 === "CANCELLED" || data5 === "FAILED")) {
-													validate106.errors = [{
+													validate114.errors = [{
 														instancePath: instancePath + "/outcome",
 														schemaPath: "#/$defs/ModelAttemptOutcome/enum",
 														keyword: "enum",
-														params: { allowedValues: schema47.enum },
+														params: { allowedValues: schema48.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -8986,7 +9941,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													let data6 = data.provider;
 													const _errs16 = errors;
 													if (typeof data6 !== "string") {
-														validate106.errors = [{
+														validate114.errors = [{
 															instancePath: instancePath + "/provider",
 															schemaPath: "#/$defs/ModelProvider/type",
 															keyword: "type",
@@ -8996,11 +9951,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 													if (!(data6 === "CHATGPT" || data6 === "DEEPSEEK")) {
-														validate106.errors = [{
+														validate114.errors = [{
 															instancePath: instancePath + "/provider",
 															schemaPath: "#/$defs/ModelProvider/enum",
 															keyword: "enum",
-															params: { allowedValues: schema48.enum },
+															params: { allowedValues: schema49.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -9039,7 +9994,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/quota/remaining",
 																				schemaPath: "#/$defs/ModelQuota/properties/remaining/type",
 																				keyword: "type",
-																				params: { type: schema49.properties.remaining.type },
+																				params: { type: schema50.properties.remaining.type },
 																				message: "must be integer,null"
 																			};
 																			if (vErrors === null) vErrors = [err1];
@@ -9090,7 +10045,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/quota/resetAt",
 																					schemaPath: "#/$defs/ModelQuota/properties/resetAt/type",
 																					keyword: "type",
-																					params: { type: schema49.properties.resetAt.type },
+																					params: { type: schema50.properties.resetAt.type },
 																					message: "must be string,null"
 																				};
 																				if (vErrors === null) vErrors = [err4];
@@ -9108,7 +10063,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/quota/retryAfterSeconds",
 																						schemaPath: "#/$defs/ModelQuota/properties/retryAfterSeconds/type",
 																						keyword: "type",
-																						params: { type: schema49.properties.retryAfterSeconds.type },
+																						params: { type: schema50.properties.retryAfterSeconds.type },
 																						message: "must be integer,null"
 																					};
 																					if (vErrors === null) vErrors = [err5];
@@ -9159,7 +10114,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/quota/window",
 																							schemaPath: "#/$defs/ModelQuota/properties/window/type",
 																							keyword: "type",
-																							params: { type: schema49.properties.window.type },
+																							params: { type: schema50.properties.window.type },
 																							message: "must be string,null"
 																						};
 																						if (vErrors === null) vErrors = [err8];
@@ -9213,7 +10168,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (vErrors === null) vErrors = [err11];
 															else vErrors.push(err11);
 															errors++;
-															validate106.errors = vErrors;
+															validate114.errors = vErrors;
 															return false;
 														} else {
 															errors = _errs20;
@@ -9228,7 +10183,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														if (data.startedAt !== void 0) {
 															const _errs35 = errors;
 															if (typeof data.startedAt !== "string") {
-																validate106.errors = [{
+																validate114.errors = [{
 																	instancePath: instancePath + "/startedAt",
 																	schemaPath: "#/properties/startedAt/type",
 																	keyword: "type",
@@ -9263,7 +10218,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/thinkingType",
 																		schemaPath: "#/$defs/ThinkingType/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema50.enum },
+																		params: { allowedValues: schema51.enum },
 																		message: "must be equal to one of the allowed values"
 																	};
 																	if (vErrors === null) vErrors = [err13];
@@ -9298,7 +10253,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (vErrors === null) vErrors = [err15];
 																	else vErrors.push(err15);
 																	errors++;
-																	validate106.errors = vErrors;
+																	validate114.errors = vErrors;
 																	return false;
 																} else {
 																	errors = _errs38;
@@ -9321,7 +10276,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate106.errors = [{
+				validate114.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -9331,22 +10286,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate106.errors = vErrors;
+		validate114.errors = vErrors;
 		return errors === 0;
 	}
-	validate106.evaluated = {
+	validate114.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelAttemptKind = validate107;
-	function validate107(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelAttemptKind = validate115;
+	function validate115(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate107.evaluated;
+		const evaluated0 = validate115.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate107.errors = [{
+			validate115.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -9356,30 +10311,30 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "SETUP" || data === "THREAD")) {
-			validate107.errors = [{
+			validate115.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema46.enum },
+				params: { allowedValues: schema47.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate107.errors = vErrors;
+		validate115.errors = vErrors;
 		return true;
 	}
-	validate107.evaluated = {
+	validate115.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelAttemptOutcome = validate108;
-	function validate108(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelAttemptOutcome = validate116;
+	function validate116(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate108.evaluated;
+		const evaluated0 = validate116.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate108.errors = [{
+			validate116.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -9389,30 +10344,30 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "VERIFIED" || data === "CONFIGURED" || data === "CANCELLED" || data === "FAILED")) {
-			validate108.errors = [{
+			validate116.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema47.enum },
+				params: { allowedValues: schema48.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate108.errors = vErrors;
+		validate116.errors = vErrors;
 		return true;
 	}
-	validate108.evaluated = {
+	validate116.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelHealth = validate109;
-	function validate109(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelHealth = validate117;
+	function validate117(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate109.evaluated;
+		const evaluated0 = validate117.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate109.errors = [{
+			validate117.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -9422,30 +10377,30 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "NOT_CONFIGURED" || data === "UNVERIFIED" || data === "VERIFYING" || data === "READY" || data === "FAILED")) {
-			validate109.errors = [{
+			validate117.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema56.enum },
+				params: { allowedValues: schema57.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate109.errors = vErrors;
+		validate117.errors = vErrors;
 		return true;
 	}
-	validate109.evaluated = {
+	validate117.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelProvider = validate110;
-	function validate110(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelProvider = validate118;
+	function validate118(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate110.evaluated;
+		const evaluated0 = validate118.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate110.errors = [{
+			validate118.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -9455,34 +10410,34 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "CHATGPT" || data === "DEEPSEEK")) {
-			validate110.errors = [{
+			validate118.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema48.enum },
+				params: { allowedValues: schema49.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate110.errors = vErrors;
+		validate118.errors = vErrors;
 		return true;
 	}
-	validate110.evaluated = {
+	validate118.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelProviderState = validate111;
-	function validate111(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelProviderState = validate119;
+	function validate119(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate111.evaluated;
+		const evaluated0 = validate119.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.provider === void 0 && (missing0 = "provider") || data.configured === void 0 && (missing0 = "configured") || data.status === void 0 && (missing0 = "status") || data.routes === void 0 && (missing0 = "routes")) {
-					validate111.errors = [{
+					validate119.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -9493,7 +10448,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "configured" || key0 === "errorCode" || key0 === "lastVerifiedAt" || key0 === "provider" || key0 === "routes" || key0 === "status")) {
-						validate111.errors = [{
+						validate119.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -9506,7 +10461,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.configured !== void 0) {
 							const _errs2 = errors;
 							if (typeof data.configured !== "boolean") {
-								validate111.errors = [{
+								validate119.errors = [{
 									instancePath: instancePath + "/configured",
 									schemaPath: "#/properties/configured/type",
 									keyword: "type",
@@ -9522,11 +10477,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.errorCode;
 								const _errs4 = errors;
 								if (typeof data1 !== "string" && data1 !== null) {
-									validate111.errors = [{
+									validate119.errors = [{
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema51.properties.errorCode.type },
+										params: { type: schema52.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -9538,11 +10493,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									let data2 = data.lastVerifiedAt;
 									const _errs6 = errors;
 									if (typeof data2 !== "string" && data2 !== null) {
-										validate111.errors = [{
+										validate119.errors = [{
 											instancePath: instancePath + "/lastVerifiedAt",
 											schemaPath: "#/properties/lastVerifiedAt/type",
 											keyword: "type",
-											params: { type: schema51.properties.lastVerifiedAt.type },
+											params: { type: schema52.properties.lastVerifiedAt.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -9554,7 +10509,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.provider;
 										const _errs8 = errors;
 										if (typeof data3 !== "string") {
-											validate111.errors = [{
+											validate119.errors = [{
 												instancePath: instancePath + "/provider",
 												schemaPath: "#/$defs/ModelProvider/type",
 												keyword: "type",
@@ -9564,11 +10519,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (!(data3 === "CHATGPT" || data3 === "DEEPSEEK")) {
-											validate111.errors = [{
+											validate119.errors = [{
 												instancePath: instancePath + "/provider",
 												schemaPath: "#/$defs/ModelProvider/enum",
 												keyword: "enum",
-												params: { allowedValues: schema48.enum },
+												params: { allowedValues: schema49.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -9582,7 +10537,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (errors === _errs11) {
 												if (Array.isArray(data4)) {
 													if (data4.length > 100) {
-														validate111.errors = [{
+														validate119.errors = [{
 															instancePath: instancePath + "/routes",
 															schemaPath: "#/properties/routes/maxItems",
 															keyword: "maxItems",
@@ -9608,7 +10563,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}
 													}
 												} else {
-													validate111.errors = [{
+													validate119.errors = [{
 														instancePath: instancePath + "/routes",
 														schemaPath: "#/properties/routes/type",
 														keyword: "type",
@@ -9625,7 +10580,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												let data6 = data.status;
 												const _errs14 = errors;
 												if (typeof data6 !== "string") {
-													validate111.errors = [{
+													validate119.errors = [{
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/ModelHealth/type",
 														keyword: "type",
@@ -9635,11 +10590,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												}
 												if (!(data6 === "NOT_CONFIGURED" || data6 === "UNVERIFIED" || data6 === "VERIFYING" || data6 === "READY" || data6 === "FAILED")) {
-													validate111.errors = [{
+													validate119.errors = [{
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/ModelHealth/enum",
 														keyword: "enum",
-														params: { allowedValues: schema56.enum },
+														params: { allowedValues: schema57.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -9654,7 +10609,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate111.errors = [{
+				validate119.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -9664,24 +10619,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate111.errors = vErrors;
+		validate119.errors = vErrors;
 		return errors === 0;
 	}
-	validate111.evaluated = {
+	validate119.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelQuery = validate113;
-	function validate113(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelQuery = validate121;
+	function validate121(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate113.evaluated;
+		const evaluated0 = validate121.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId")) {
-				validate113.errors = [{
+				validate121.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -9691,7 +10646,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "workspaceId")) {
-					validate113.errors = [{
+					validate121.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -9704,7 +10659,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data0 = data.workspaceId;
 					if (typeof data0 === "string") {
 						if (func1(data0) > 128) {
-							validate113.errors = [{
+							validate121.errors = [{
 								instancePath: instancePath + "/workspaceId",
 								schemaPath: "#/properties/workspaceId/maxLength",
 								keyword: "maxLength",
@@ -9713,7 +10668,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (func1(data0) < 1) {
-							validate113.errors = [{
+							validate121.errors = [{
 								instancePath: instancePath + "/workspaceId",
 								schemaPath: "#/properties/workspaceId/minLength",
 								keyword: "minLength",
@@ -9723,7 +10678,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate113.errors = [{
+						validate121.errors = [{
 							instancePath: instancePath + "/workspaceId",
 							schemaPath: "#/properties/workspaceId/type",
 							keyword: "type",
@@ -9735,7 +10690,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate113.errors = [{
+			validate121.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -9744,23 +10699,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate113.errors = vErrors;
+		validate121.errors = vErrors;
 		return true;
 	}
-	validate113.evaluated = {
+	validate121.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelQuota = validate114;
-	function validate114(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelQuota = validate122;
+	function validate122(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate114.evaluated;
+		const evaluated0 = validate122.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			for (const key0 in data) if (!(key0 === "remaining" || key0 === "resetAt" || key0 === "retryAfterSeconds" || key0 === "window")) {
-				validate114.errors = [{
+				validate122.errors = [{
 					instancePath,
 					schemaPath: "#/additionalProperties",
 					keyword: "additionalProperties",
@@ -9772,18 +10727,18 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (data.remaining !== void 0) {
 				let data0 = data.remaining;
 				if (!(typeof data0 == "number" && !(data0 % 1) && !isNaN(data0)) && data0 !== null) {
-					validate114.errors = [{
+					validate122.errors = [{
 						instancePath: instancePath + "/remaining",
 						schemaPath: "#/properties/remaining/type",
 						keyword: "type",
-						params: { type: schema49.properties.remaining.type },
+						params: { type: schema50.properties.remaining.type },
 						message: "must be integer,null"
 					}];
 					return false;
 				}
 				if (typeof data0 == "number") {
 					if (data0 > 1e9 || isNaN(data0)) {
-						validate114.errors = [{
+						validate122.errors = [{
 							instancePath: instancePath + "/remaining",
 							schemaPath: "#/properties/remaining/maximum",
 							keyword: "maximum",
@@ -9795,7 +10750,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						}];
 						return false;
 					} else if (data0 < 0 || isNaN(data0)) {
-						validate114.errors = [{
+						validate122.errors = [{
 							instancePath: instancePath + "/remaining",
 							schemaPath: "#/properties/remaining/minimum",
 							keyword: "minimum",
@@ -9814,11 +10769,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (data.resetAt !== void 0) {
 					let data1 = data.resetAt;
 					if (typeof data1 !== "string" && data1 !== null) {
-						validate114.errors = [{
+						validate122.errors = [{
 							instancePath: instancePath + "/resetAt",
 							schemaPath: "#/properties/resetAt/type",
 							keyword: "type",
-							params: { type: schema49.properties.resetAt.type },
+							params: { type: schema50.properties.resetAt.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -9829,18 +10784,18 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (data.retryAfterSeconds !== void 0) {
 						let data2 = data.retryAfterSeconds;
 						if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2)) && data2 !== null) {
-							validate114.errors = [{
+							validate122.errors = [{
 								instancePath: instancePath + "/retryAfterSeconds",
 								schemaPath: "#/properties/retryAfterSeconds/type",
 								keyword: "type",
-								params: { type: schema49.properties.retryAfterSeconds.type },
+								params: { type: schema50.properties.retryAfterSeconds.type },
 								message: "must be integer,null"
 							}];
 							return false;
 						}
 						if (typeof data2 == "number") {
 							if (data2 > 86400 || isNaN(data2)) {
-								validate114.errors = [{
+								validate122.errors = [{
 									instancePath: instancePath + "/retryAfterSeconds",
 									schemaPath: "#/properties/retryAfterSeconds/maximum",
 									keyword: "maximum",
@@ -9852,7 +10807,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (data2 < 0 || isNaN(data2)) {
-								validate114.errors = [{
+								validate122.errors = [{
 									instancePath: instancePath + "/retryAfterSeconds",
 									schemaPath: "#/properties/retryAfterSeconds/minimum",
 									keyword: "minimum",
@@ -9871,11 +10826,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.window !== void 0) {
 							let data3 = data.window;
 							if (typeof data3 !== "string" && data3 !== null) {
-								validate114.errors = [{
+								validate122.errors = [{
 									instancePath: instancePath + "/window",
 									schemaPath: "#/properties/window/type",
 									keyword: "type",
-									params: { type: schema49.properties.window.type },
+									params: { type: schema50.properties.window.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -9886,7 +10841,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate114.errors = [{
+			validate122.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -9895,26 +10850,26 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate114.errors = vErrors;
+		validate122.errors = vErrors;
 		return true;
 	}
-	validate114.evaluated = {
+	validate122.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelRoute = validate115;
-	function validate115(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelRoute = validate123;
+	function validate123(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate115.evaluated;
+		const evaluated0 = validate123.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.provider === void 0 && (missing0 = "provider") || data.modelId === void 0 && (missing0 = "modelId")) {
-					validate115.errors = [{
+					validate123.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -9925,7 +10880,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "modelId" || key0 === "provider" || key0 === "thinkingType" || key0 === "verifiedAt")) {
-						validate115.errors = [{
+						validate123.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -9941,7 +10896,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) > 128) {
-										validate115.errors = [{
+										validate123.errors = [{
 											instancePath: instancePath + "/modelId",
 											schemaPath: "#/properties/modelId/maxLength",
 											keyword: "maxLength",
@@ -9950,7 +10905,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									} else if (func1(data0) < 1) {
-										validate115.errors = [{
+										validate123.errors = [{
 											instancePath: instancePath + "/modelId",
 											schemaPath: "#/properties/modelId/minLength",
 											keyword: "minLength",
@@ -9960,7 +10915,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate115.errors = [{
+									validate123.errors = [{
 										instancePath: instancePath + "/modelId",
 										schemaPath: "#/properties/modelId/type",
 										keyword: "type",
@@ -9977,7 +10932,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.provider;
 								const _errs4 = errors;
 								if (typeof data1 !== "string") {
-									validate115.errors = [{
+									validate123.errors = [{
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/type",
 										keyword: "type",
@@ -9987,11 +10942,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 								if (!(data1 === "CHATGPT" || data1 === "DEEPSEEK")) {
-									validate115.errors = [{
+									validate123.errors = [{
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema48.enum },
+										params: { allowedValues: schema49.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -10022,7 +10977,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema50.enum },
+											params: { allowedValues: schema51.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -10057,7 +11012,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (vErrors === null) vErrors = [err3];
 										else vErrors.push(err3);
 										errors++;
-										validate115.errors = vErrors;
+										validate123.errors = vErrors;
 										return false;
 									} else {
 										errors = _errs8;
@@ -10073,11 +11028,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.verifiedAt;
 										const _errs14 = errors;
 										if (typeof data3 !== "string" && data3 !== null) {
-											validate115.errors = [{
+											validate123.errors = [{
 												instancePath: instancePath + "/verifiedAt",
 												schemaPath: "#/properties/verifiedAt/type",
 												keyword: "type",
-												params: { type: schema53.properties.verifiedAt.type },
+												params: { type: schema54.properties.verifiedAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -10090,7 +11045,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate115.errors = [{
+				validate123.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -10100,26 +11055,26 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate115.errors = vErrors;
+		validate123.errors = vErrors;
 		return errors === 0;
 	}
-	validate115.evaluated = {
+	validate123.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelSelection = validate116;
-	function validate116(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelSelection = validate124;
+	function validate124(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate116.evaluated;
+		const evaluated0 = validate124.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.provider === void 0 && (missing0 = "provider") || data.modelId === void 0 && (missing0 = "modelId")) {
-					validate116.errors = [{
+					validate124.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -10130,7 +11085,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "modelId" || key0 === "provider" || key0 === "thinkingType")) {
-						validate116.errors = [{
+						validate124.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -10146,7 +11101,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) > 128) {
-										validate116.errors = [{
+										validate124.errors = [{
 											instancePath: instancePath + "/modelId",
 											schemaPath: "#/properties/modelId/maxLength",
 											keyword: "maxLength",
@@ -10155,7 +11110,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									} else if (func1(data0) < 1) {
-										validate116.errors = [{
+										validate124.errors = [{
 											instancePath: instancePath + "/modelId",
 											schemaPath: "#/properties/modelId/minLength",
 											keyword: "minLength",
@@ -10165,7 +11120,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate116.errors = [{
+									validate124.errors = [{
 										instancePath: instancePath + "/modelId",
 										schemaPath: "#/properties/modelId/type",
 										keyword: "type",
@@ -10182,7 +11137,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.provider;
 								const _errs4 = errors;
 								if (typeof data1 !== "string") {
-									validate116.errors = [{
+									validate124.errors = [{
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/type",
 										keyword: "type",
@@ -10192,11 +11147,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 								if (!(data1 === "CHATGPT" || data1 === "DEEPSEEK")) {
-									validate116.errors = [{
+									validate124.errors = [{
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema48.enum },
+										params: { allowedValues: schema49.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -10227,7 +11182,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema50.enum },
+											params: { allowedValues: schema51.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -10262,7 +11217,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (vErrors === null) vErrors = [err3];
 										else vErrors.push(err3);
 										errors++;
-										validate116.errors = vErrors;
+										validate124.errors = vErrors;
 										return false;
 									} else {
 										errors = _errs8;
@@ -10278,7 +11233,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate116.errors = [{
+				validate124.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -10288,26 +11243,26 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate116.errors = vErrors;
+		validate124.errors = vErrors;
 		return errors === 0;
 	}
-	validate116.evaluated = {
+	validate124.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ModelState = validate117;
-	function validate117(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ModelState = validate125;
+	function validate125(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate117.evaluated;
+		const evaluated0 = validate125.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.stateVersion === void 0 && (missing0 = "stateVersion") || data.chatgpt === void 0 && (missing0 = "chatgpt") || data.deepseek === void 0 && (missing0 = "deepseek") || data.attempts === void 0 && (missing0 = "attempts") || data.updatedAt === void 0 && (missing0 = "updatedAt")) {
-					validate117.errors = [{
+					validate125.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -10317,8 +11272,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func27.call(schema44.properties, key0)) {
-						validate117.errors = [{
+					for (const key0 in data) if (!func31.call(schema45.properties, key0)) {
+						validate125.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -10334,7 +11289,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (Array.isArray(data0)) {
 									if (data0.length > 100) {
-										validate117.errors = [{
+										validate125.errors = [{
 											instancePath: instancePath + "/attempts",
 											schemaPath: "#/properties/attempts/maxItems",
 											keyword: "maxItems",
@@ -10360,7 +11315,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 									}
 								} else {
-									validate117.errors = [{
+									validate125.errors = [{
 										instancePath: instancePath + "/attempts",
 										schemaPath: "#/properties/attempts/type",
 										keyword: "type",
@@ -10376,7 +11331,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.automaticFallback !== void 0) {
 								const _errs5 = errors;
 								if (typeof data.automaticFallback !== "boolean") {
-									validate117.errors = [{
+									validate125.errors = [{
 										instancePath: instancePath + "/automaticFallback",
 										schemaPath: "#/properties/automaticFallback/type",
 										keyword: "type",
@@ -10447,7 +11402,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (vErrors === null) vErrors = [err1];
 											else vErrors.push(err1);
 											errors++;
-											validate117.errors = vErrors;
+											validate125.errors = vErrors;
 											return false;
 										} else {
 											errors = _errs9;
@@ -10518,7 +11473,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (vErrors === null) vErrors = [err3];
 													else vErrors.push(err3);
 													errors++;
-													validate117.errors = vErrors;
+													validate125.errors = vErrors;
 													return false;
 												} else {
 													errors = _errs15;
@@ -10534,7 +11489,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													let data7 = data.fallbackPolicyVersion;
 													const _errs19 = errors;
 													if (!(typeof data7 == "number" && !(data7 % 1) && !isNaN(data7))) {
-														validate117.errors = [{
+														validate125.errors = [{
 															instancePath: instancePath + "/fallbackPolicyVersion",
 															schemaPath: "#/properties/fallbackPolicyVersion/type",
 															keyword: "type",
@@ -10546,7 +11501,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (errors === _errs19) {
 														if (typeof data7 == "number") {
 															if (data7 < 1 || isNaN(data7)) {
-																validate117.errors = [{
+																validate125.errors = [{
 																	instancePath: instancePath + "/fallbackPolicyVersion",
 																	schemaPath: "#/properties/fallbackPolicyVersion/minimum",
 																	keyword: "minimum",
@@ -10569,7 +11524,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														if (errors === _errs21) {
 															if (typeof data8 === "string") {
 																if (func1(data8) > 256) {
-																	validate117.errors = [{
+																	validate125.errors = [{
 																		instancePath: instancePath + "/stateVersion",
 																		schemaPath: "#/properties/stateVersion/maxLength",
 																		keyword: "maxLength",
@@ -10578,7 +11533,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																} else if (func1(data8) < 1) {
-																	validate117.errors = [{
+																	validate125.errors = [{
 																		instancePath: instancePath + "/stateVersion",
 																		schemaPath: "#/properties/stateVersion/minLength",
 																		keyword: "minLength",
@@ -10588,7 +11543,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	return false;
 																}
 															} else {
-																validate117.errors = [{
+																validate125.errors = [{
 																	instancePath: instancePath + "/stateVersion",
 																	schemaPath: "#/properties/stateVersion/type",
 																	keyword: "type",
@@ -10604,7 +11559,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														if (data.updatedAt !== void 0) {
 															const _errs23 = errors;
 															if (typeof data.updatedAt !== "string") {
-																validate117.errors = [{
+																validate125.errors = [{
 																	instancePath: instancePath + "/updatedAt",
 																	schemaPath: "#/properties/updatedAt/type",
 																	keyword: "type",
@@ -10622,7 +11577,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																if (errors === _errs25) {
 																	if (typeof data10 === "string") {
 																		if (func1(data10) > 128) {
-																			validate117.errors = [{
+																			validate125.errors = [{
 																				instancePath: instancePath + "/workspaceId",
 																				schemaPath: "#/properties/workspaceId/maxLength",
 																				keyword: "maxLength",
@@ -10631,7 +11586,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			}];
 																			return false;
 																		} else if (func1(data10) < 1) {
-																			validate117.errors = [{
+																			validate125.errors = [{
 																				instancePath: instancePath + "/workspaceId",
 																				schemaPath: "#/properties/workspaceId/minLength",
 																				keyword: "minLength",
@@ -10641,7 +11596,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			return false;
 																		}
 																	} else {
-																		validate117.errors = [{
+																		validate125.errors = [{
 																			instancePath: instancePath + "/workspaceId",
 																			schemaPath: "#/properties/workspaceId/type",
 																			keyword: "type",
@@ -10665,7 +11620,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate117.errors = [{
+				validate125.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -10675,24 +11630,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate117.errors = vErrors;
+		validate125.errors = vErrors;
 		return errors === 0;
 	}
-	validate117.evaluated = {
+	validate125.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.OpenOrder = validate123;
-	function validate123(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.OpenOrder = validate131;
+	function validate131(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate123.evaluated;
+		const evaluated0 = validate131.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.brokerOrderId === void 0 && (missing0 = "brokerOrderId") || data.symbol === void 0 && (missing0 = "symbol") || data.side === void 0 && (missing0 = "side") || data.status === void 0 && (missing0 = "status")) {
-				validate123.errors = [{
+				validate131.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -10701,8 +11656,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func27.call(schema65.properties, key0)) {
-					validate123.errors = [{
+				for (const key0 in data) if (!func31.call(schema66.properties, key0)) {
+					validate131.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -10713,7 +11668,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.brokerOrderId !== void 0) {
 					if (typeof data.brokerOrderId !== "string") {
-						validate123.errors = [{
+						validate131.errors = [{
 							instancePath: instancePath + "/brokerOrderId",
 							schemaPath: "#/properties/brokerOrderId/type",
 							keyword: "type",
@@ -10728,11 +11683,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (data.currency !== void 0) {
 						let data1 = data.currency;
 						if (typeof data1 !== "string" && data1 !== null) {
-							validate123.errors = [{
+							validate131.errors = [{
 								instancePath: instancePath + "/currency",
 								schemaPath: "#/properties/currency/type",
 								keyword: "type",
-								params: { type: schema65.properties.currency.type },
+								params: { type: schema66.properties.currency.type },
 								message: "must be string,null"
 							}];
 							return false;
@@ -10743,11 +11698,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.filledQuantity !== void 0) {
 							let data2 = data.filledQuantity;
 							if (typeof data2 !== "string" && data2 !== null) {
-								validate123.errors = [{
+								validate131.errors = [{
 									instancePath: instancePath + "/filledQuantity",
 									schemaPath: "#/properties/filledQuantity/type",
 									keyword: "type",
-									params: { type: schema65.properties.filledQuantity.type },
+									params: { type: schema66.properties.filledQuantity.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -10758,11 +11713,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.filledValue !== void 0) {
 								let data3 = data.filledValue;
 								if (typeof data3 !== "string" && data3 !== null) {
-									validate123.errors = [{
+									validate131.errors = [{
 										instancePath: instancePath + "/filledValue",
 										schemaPath: "#/properties/filledValue/type",
 										keyword: "type",
-										params: { type: schema65.properties.filledValue.type },
+										params: { type: schema66.properties.filledValue.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -10773,21 +11728,21 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data.kind !== void 0) {
 									let data4 = data.kind;
 									if (typeof data4 !== "string" && data4 !== null) {
-										validate123.errors = [{
+										validate131.errors = [{
 											instancePath: instancePath + "/kind",
 											schemaPath: "#/properties/kind/type",
 											keyword: "type",
-											params: { type: schema65.properties.kind.type },
+											params: { type: schema66.properties.kind.type },
 											message: "must be string,null"
 										}];
 										return false;
 									}
 									if (!(data4 === "NORMAL" || data4 === "TPSL" || data4 === "PLAN" || data4 === null)) {
-										validate123.errors = [{
+										validate131.errors = [{
 											instancePath: instancePath + "/kind",
 											schemaPath: "#/properties/kind/enum",
 											keyword: "enum",
-											params: { allowedValues: schema65.properties.kind.enum },
+											params: { allowedValues: schema66.properties.kind.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -10798,11 +11753,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (data.limitPrice !== void 0) {
 										let data5 = data.limitPrice;
 										if (typeof data5 !== "string" && data5 !== null) {
-											validate123.errors = [{
+											validate131.errors = [{
 												instancePath: instancePath + "/limitPrice",
 												schemaPath: "#/properties/limitPrice/type",
 												keyword: "type",
-												params: { type: schema65.properties.limitPrice.type },
+												params: { type: schema66.properties.limitPrice.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -10813,11 +11768,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (data.notional !== void 0) {
 											let data6 = data.notional;
 											if (typeof data6 !== "string" && data6 !== null) {
-												validate123.errors = [{
+												validate131.errors = [{
 													instancePath: instancePath + "/notional",
 													schemaPath: "#/properties/notional/type",
 													keyword: "type",
-													params: { type: schema65.properties.notional.type },
+													params: { type: schema66.properties.notional.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -10828,11 +11783,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (data.quantity !== void 0) {
 												let data7 = data.quantity;
 												if (typeof data7 !== "string" && data7 !== null) {
-													validate123.errors = [{
+													validate131.errors = [{
 														instancePath: instancePath + "/quantity",
 														schemaPath: "#/properties/quantity/type",
 														keyword: "type",
-														params: { type: schema65.properties.quantity.type },
+														params: { type: schema66.properties.quantity.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -10842,7 +11797,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (valid0) {
 												if (data.side !== void 0) {
 													if (typeof data.side !== "string") {
-														validate123.errors = [{
+														validate131.errors = [{
 															instancePath: instancePath + "/side",
 															schemaPath: "#/properties/side/type",
 															keyword: "type",
@@ -10856,7 +11811,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												if (valid0) {
 													if (data.status !== void 0) {
 														if (typeof data.status !== "string") {
-															validate123.errors = [{
+															validate131.errors = [{
 																instancePath: instancePath + "/status",
 																schemaPath: "#/properties/status/type",
 																keyword: "type",
@@ -10870,7 +11825,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (valid0) {
 														if (data.symbol !== void 0) {
 															if (typeof data.symbol !== "string") {
-																validate123.errors = [{
+																validate131.errors = [{
 																	instancePath: instancePath + "/symbol",
 																	schemaPath: "#/properties/symbol/type",
 																	keyword: "type",
@@ -10885,11 +11840,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (data.triggerPrice !== void 0) {
 																let data11 = data.triggerPrice;
 																if (typeof data11 !== "string" && data11 !== null) {
-																	validate123.errors = [{
+																	validate131.errors = [{
 																		instancePath: instancePath + "/triggerPrice",
 																		schemaPath: "#/properties/triggerPrice/type",
 																		keyword: "type",
-																		params: { type: schema65.properties.triggerPrice.type },
+																		params: { type: schema66.properties.triggerPrice.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -10909,7 +11864,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate123.errors = [{
+			validate131.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -10918,24 +11873,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate123.errors = vErrors;
+		validate131.errors = vErrors;
 		return true;
 	}
-	validate123.evaluated = {
+	validate131.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.OpenWorkspace = validate124;
+	exports.OpenWorkspace = validate132;
 	var pattern4 = /* @__PURE__ */ new RegExp("^[A-Z]{3}$", "u");
-	function validate124(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate132(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate124.evaluated;
+		const evaluated0 = validate132.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			for (const key0 in data) if (!(key0 === "baseCurrency" || key0 === "name" || key0 === "path")) {
-				validate124.errors = [{
+				validate132.errors = [{
 					instancePath,
 					schemaPath: "#/additionalProperties",
 					keyword: "additionalProperties",
@@ -10948,7 +11903,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				let data0 = data.baseCurrency;
 				if (typeof data0 === "string") {
 					if (!pattern4.test(data0)) {
-						validate124.errors = [{
+						validate132.errors = [{
 							instancePath: instancePath + "/baseCurrency",
 							schemaPath: "#/properties/baseCurrency/pattern",
 							keyword: "pattern",
@@ -10958,7 +11913,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						return false;
 					}
 				} else {
-					validate124.errors = [{
+					validate132.errors = [{
 						instancePath: instancePath + "/baseCurrency",
 						schemaPath: "#/properties/baseCurrency/type",
 						keyword: "type",
@@ -10974,7 +11929,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data1 = data.name;
 					if (typeof data1 === "string") {
 						if (func1(data1) > 120) {
-							validate124.errors = [{
+							validate132.errors = [{
 								instancePath: instancePath + "/name",
 								schemaPath: "#/properties/name/maxLength",
 								keyword: "maxLength",
@@ -10983,7 +11938,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (func1(data1) < 1) {
-							validate124.errors = [{
+							validate132.errors = [{
 								instancePath: instancePath + "/name",
 								schemaPath: "#/properties/name/minLength",
 								keyword: "minLength",
@@ -10993,7 +11948,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate124.errors = [{
+						validate132.errors = [{
 							instancePath: instancePath + "/name",
 							schemaPath: "#/properties/name/type",
 							keyword: "type",
@@ -11007,7 +11962,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.path !== void 0) {
 						if (typeof data.path !== "string") {
-							validate124.errors = [{
+							validate132.errors = [{
 								instancePath: instancePath + "/path",
 								schemaPath: "#/properties/path/type",
 								keyword: "type",
@@ -11021,7 +11976,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate124.errors = [{
+			validate132.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -11030,24 +11985,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate124.errors = vErrors;
+		validate132.errors = vErrors;
 		return true;
 	}
-	validate124.evaluated = {
+	validate132.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.PermissionReview = validate125;
-	function validate125(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.PermissionReview = validate133;
+	function validate133(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate125.evaluated;
+		const evaluated0 = validate133.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.scope === void 0 && (missing0 = "scope") || data.detected === void 0 && (missing0 = "detected") || data.forbidden === void 0 && (missing0 = "forbidden") || data.unsupported === void 0 && (missing0 = "unsupported") || data.acknowledged === void 0 && (missing0 = "acknowledged") || data.ipAllowListStatus === void 0 && (missing0 = "ipAllowListStatus")) {
-				validate125.errors = [{
+				validate133.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -11057,7 +12012,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "acknowledged" || key0 === "detected" || key0 === "forbidden" || key0 === "ipAllowList" || key0 === "ipAllowListStatus" || key0 === "scope" || key0 === "unsupported")) {
-					validate125.errors = [{
+					validate133.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -11068,7 +12023,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.acknowledged !== void 0) {
 					if (typeof data.acknowledged !== "boolean") {
-						validate125.errors = [{
+						validate133.errors = [{
 							instancePath: instancePath + "/acknowledged",
 							schemaPath: "#/properties/acknowledged/type",
 							keyword: "type",
@@ -11085,7 +12040,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (Array.isArray(data1)) {
 							const len0 = data1.length;
 							for (let i0 = 0; i0 < len0; i0++) if (typeof data1[i0] !== "string") {
-								validate125.errors = [{
+								validate133.errors = [{
 									instancePath: instancePath + "/detected/" + i0,
 									schemaPath: "#/properties/detected/items/type",
 									keyword: "type",
@@ -11095,7 +12050,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate125.errors = [{
+							validate133.errors = [{
 								instancePath: instancePath + "/detected",
 								schemaPath: "#/properties/detected/type",
 								keyword: "type",
@@ -11112,7 +12067,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (Array.isArray(data3)) {
 								const len1 = data3.length;
 								for (let i1 = 0; i1 < len1; i1++) if (typeof data3[i1] !== "string") {
-									validate125.errors = [{
+									validate133.errors = [{
 										instancePath: instancePath + "/forbidden/" + i1,
 										schemaPath: "#/properties/forbidden/items/type",
 										keyword: "type",
@@ -11122,7 +12077,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 							} else {
-								validate125.errors = [{
+								validate133.errors = [{
 									instancePath: instancePath + "/forbidden",
 									schemaPath: "#/properties/forbidden/type",
 									keyword: "type",
@@ -11137,11 +12092,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.ipAllowList !== void 0) {
 								let data5 = data.ipAllowList;
 								if (!Array.isArray(data5) && data5 !== null) {
-									validate125.errors = [{
+									validate133.errors = [{
 										instancePath: instancePath + "/ipAllowList",
 										schemaPath: "#/properties/ipAllowList/type",
 										keyword: "type",
-										params: { type: schema68.properties.ipAllowList.type },
+										params: { type: schema69.properties.ipAllowList.type },
 										message: "must be array,null"
 									}];
 									return false;
@@ -11149,7 +12104,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (Array.isArray(data5)) {
 									const len2 = data5.length;
 									for (let i2 = 0; i2 < len2; i2++) if (typeof data5[i2] !== "string") {
-										validate125.errors = [{
+										validate133.errors = [{
 											instancePath: instancePath + "/ipAllowList/" + i2,
 											schemaPath: "#/properties/ipAllowList/items/type",
 											keyword: "type",
@@ -11164,7 +12119,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (valid0) {
 								if (data.ipAllowListStatus !== void 0) {
 									if (typeof data.ipAllowListStatus !== "string") {
-										validate125.errors = [{
+										validate133.errors = [{
 											instancePath: instancePath + "/ipAllowListStatus",
 											schemaPath: "#/properties/ipAllowListStatus/type",
 											keyword: "type",
@@ -11179,7 +12134,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (data.scope !== void 0) {
 										let data8 = data.scope;
 										if (typeof data8 !== "string") {
-											validate125.errors = [{
+											validate133.errors = [{
 												instancePath: instancePath + "/scope",
 												schemaPath: "#/properties/scope/type",
 												keyword: "type",
@@ -11189,11 +12144,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (!(data8 === "VERIFIED" || data8 === "UNVERIFIED")) {
-											validate125.errors = [{
+											validate133.errors = [{
 												instancePath: instancePath + "/scope",
 												schemaPath: "#/properties/scope/enum",
 												keyword: "enum",
-												params: { allowedValues: schema68.properties.scope.enum },
+												params: { allowedValues: schema69.properties.scope.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -11206,7 +12161,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (Array.isArray(data9)) {
 												const len3 = data9.length;
 												for (let i3 = 0; i3 < len3; i3++) if (typeof data9[i3] !== "string") {
-													validate125.errors = [{
+													validate133.errors = [{
 														instancePath: instancePath + "/unsupported/" + i3,
 														schemaPath: "#/properties/unsupported/items/type",
 														keyword: "type",
@@ -11216,7 +12171,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												}
 											} else {
-												validate125.errors = [{
+												validate133.errors = [{
 													instancePath: instancePath + "/unsupported",
 													schemaPath: "#/properties/unsupported/type",
 													keyword: "type",
@@ -11235,7 +12190,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate125.errors = [{
+			validate133.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -11244,24 +12199,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate125.errors = vErrors;
+		validate133.errors = vErrors;
 		return true;
 	}
-	validate125.evaluated = {
+	validate133.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Position = validate126;
-	function validate126(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.Position = validate134;
+	function validate134(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate126.evaluated;
+		const evaluated0 = validate134.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.symbol === void 0 && (missing0 = "symbol") || data.quantity === void 0 && (missing0 = "quantity")) {
-				validate126.errors = [{
+				validate134.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -11271,7 +12226,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "averageEntryPrice" || key0 === "instrumentCurrency" || key0 === "marketValue" || key0 === "marketValueCurrency" || key0 === "quantity" || key0 === "symbol")) {
-					validate126.errors = [{
+					validate134.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -11283,11 +12238,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (data.averageEntryPrice !== void 0) {
 					let data0 = data.averageEntryPrice;
 					if (typeof data0 !== "string" && data0 !== null) {
-						validate126.errors = [{
+						validate134.errors = [{
 							instancePath: instancePath + "/averageEntryPrice",
 							schemaPath: "#/properties/averageEntryPrice/type",
 							keyword: "type",
-							params: { type: schema66.properties.averageEntryPrice.type },
+							params: { type: schema67.properties.averageEntryPrice.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -11298,11 +12253,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (data.instrumentCurrency !== void 0) {
 						let data1 = data.instrumentCurrency;
 						if (typeof data1 !== "string" && data1 !== null) {
-							validate126.errors = [{
+							validate134.errors = [{
 								instancePath: instancePath + "/instrumentCurrency",
 								schemaPath: "#/properties/instrumentCurrency/type",
 								keyword: "type",
-								params: { type: schema66.properties.instrumentCurrency.type },
+								params: { type: schema67.properties.instrumentCurrency.type },
 								message: "must be string,null"
 							}];
 							return false;
@@ -11313,11 +12268,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.marketValue !== void 0) {
 							let data2 = data.marketValue;
 							if (typeof data2 !== "string" && data2 !== null) {
-								validate126.errors = [{
+								validate134.errors = [{
 									instancePath: instancePath + "/marketValue",
 									schemaPath: "#/properties/marketValue/type",
 									keyword: "type",
-									params: { type: schema66.properties.marketValue.type },
+									params: { type: schema67.properties.marketValue.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -11328,11 +12283,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.marketValueCurrency !== void 0) {
 								let data3 = data.marketValueCurrency;
 								if (typeof data3 !== "string" && data3 !== null) {
-									validate126.errors = [{
+									validate134.errors = [{
 										instancePath: instancePath + "/marketValueCurrency",
 										schemaPath: "#/properties/marketValueCurrency/type",
 										keyword: "type",
-										params: { type: schema66.properties.marketValueCurrency.type },
+										params: { type: schema67.properties.marketValueCurrency.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -11342,7 +12297,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (valid0) {
 								if (data.quantity !== void 0) {
 									if (typeof data.quantity !== "string") {
-										validate126.errors = [{
+										validate134.errors = [{
 											instancePath: instancePath + "/quantity",
 											schemaPath: "#/properties/quantity/type",
 											keyword: "type",
@@ -11356,7 +12311,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (valid0) {
 									if (data.symbol !== void 0) {
 										if (typeof data.symbol !== "string") {
-											validate126.errors = [{
+											validate134.errors = [{
 												instancePath: instancePath + "/symbol",
 												schemaPath: "#/properties/symbol/type",
 												keyword: "type",
@@ -11374,7 +12329,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate126.errors = [{
+			validate134.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -11383,16 +12338,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate126.errors = vErrors;
+		validate134.errors = vErrors;
 		return true;
 	}
-	validate126.evaluated = {
+	validate134.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ProviderCatalog = validate127;
-	var schema83 = {
+	exports.ProviderCatalog = validate135;
+	var schema87 = {
 		"type": "object",
 		"properties": {
 			"available": { "type": "boolean" },
@@ -11430,15 +12385,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"forbiddenPermissions"
 		]
 	};
-	function validate58(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate61(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate58.evaluated;
+		const evaluated0 = validate61.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.providerId === void 0 && (missing0 = "providerId") || data.displayName === void 0 && (missing0 = "displayName") || data.environment === void 0 && (missing0 = "environment") || data.available === void 0 && (missing0 = "available") || data.helpText === void 0 && (missing0 = "helpText") || data.fields === void 0 && (missing0 = "fields") || data.requiredPermissions === void 0 && (missing0 = "requiredPermissions") || data.optionalPermissions === void 0 && (missing0 = "optionalPermissions") || data.forbiddenPermissions === void 0 && (missing0 = "forbiddenPermissions")) {
-				validate58.errors = [{
+				validate61.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -11447,8 +12402,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func27.call(schema83.properties, key0)) {
-					validate58.errors = [{
+				for (const key0 in data) if (!func31.call(schema87.properties, key0)) {
+					validate61.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -11459,7 +12414,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.available !== void 0) {
 					if (typeof data.available !== "boolean") {
-						validate58.errors = [{
+						validate61.errors = [{
 							instancePath: instancePath + "/available",
 							schemaPath: "#/properties/available/type",
 							keyword: "type",
@@ -11473,7 +12428,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.displayName !== void 0) {
 						if (typeof data.displayName !== "string") {
-							validate58.errors = [{
+							validate61.errors = [{
 								instancePath: instancePath + "/displayName",
 								schemaPath: "#/properties/displayName/type",
 								keyword: "type",
@@ -11487,7 +12442,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.environment !== void 0) {
 							if (typeof data.environment !== "string") {
-								validate58.errors = [{
+								validate61.errors = [{
 									instancePath: instancePath + "/environment",
 									schemaPath: "#/properties/environment/type",
 									keyword: "type",
@@ -11508,7 +12463,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (data4 && typeof data4 == "object" && !Array.isArray(data4)) {
 											let missing1;
 											if (data4.id === void 0 && (missing1 = "id") || data4.label === void 0 && (missing1 = "label") || data4.inputType === void 0 && (missing1 = "inputType") || data4.required === void 0 && (missing1 = "required") || data4.secret === void 0 && (missing1 = "secret") || data4.maxLength === void 0 && (missing1 = "maxLength") || data4.helpText === void 0 && (missing1 = "helpText") || data4.environment === void 0 && (missing1 = "environment")) {
-												validate58.errors = [{
+												validate61.errors = [{
 													instancePath: instancePath + "/fields/" + i0,
 													schemaPath: "#/$defs/ProviderField/required",
 													keyword: "required",
@@ -11518,7 +12473,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											} else {
 												for (const key1 in data4) if (!(key1 === "environment" || key1 === "helpText" || key1 === "id" || key1 === "inputType" || key1 === "label" || key1 === "maxLength" || key1 === "required" || key1 === "secret")) {
-													validate58.errors = [{
+													validate61.errors = [{
 														instancePath: instancePath + "/fields/" + i0,
 														schemaPath: "#/$defs/ProviderField/additionalProperties",
 														keyword: "additionalProperties",
@@ -11529,7 +12484,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 												if (data4.environment !== void 0) {
 													if (typeof data4.environment !== "string") {
-														validate58.errors = [{
+														validate61.errors = [{
 															instancePath: instancePath + "/fields/" + i0 + "/environment",
 															schemaPath: "#/$defs/ProviderField/properties/environment/type",
 															keyword: "type",
@@ -11543,7 +12498,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												if (valid3) {
 													if (data4.helpText !== void 0) {
 														if (typeof data4.helpText !== "string") {
-															validate58.errors = [{
+															validate61.errors = [{
 																instancePath: instancePath + "/fields/" + i0 + "/helpText",
 																schemaPath: "#/$defs/ProviderField/properties/helpText/type",
 																keyword: "type",
@@ -11557,7 +12512,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (valid3) {
 														if (data4.id !== void 0) {
 															if (typeof data4.id !== "string") {
-																validate58.errors = [{
+																validate61.errors = [{
 																	instancePath: instancePath + "/fields/" + i0 + "/id",
 																	schemaPath: "#/$defs/ProviderField/properties/id/type",
 																	keyword: "type",
@@ -11571,7 +12526,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														if (valid3) {
 															if (data4.inputType !== void 0) {
 																if (typeof data4.inputType !== "string") {
-																	validate58.errors = [{
+																	validate61.errors = [{
 																		instancePath: instancePath + "/fields/" + i0 + "/inputType",
 																		schemaPath: "#/$defs/ProviderField/properties/inputType/type",
 																		keyword: "type",
@@ -11585,7 +12540,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (valid3) {
 																if (data4.label !== void 0) {
 																	if (typeof data4.label !== "string") {
-																		validate58.errors = [{
+																		validate61.errors = [{
 																			instancePath: instancePath + "/fields/" + i0 + "/label",
 																			schemaPath: "#/$defs/ProviderField/properties/label/type",
 																			keyword: "type",
@@ -11600,7 +12555,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (data4.maxLength !== void 0) {
 																		let data10 = data4.maxLength;
 																		if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10))) {
-																			validate58.errors = [{
+																			validate61.errors = [{
 																				instancePath: instancePath + "/fields/" + i0 + "/maxLength",
 																				schemaPath: "#/$defs/ProviderField/properties/maxLength/type",
 																				keyword: "type",
@@ -11611,7 +12566,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		}
 																		if (typeof data10 == "number") {
 																			if (data10 < 0 || isNaN(data10)) {
-																				validate58.errors = [{
+																				validate61.errors = [{
 																					instancePath: instancePath + "/fields/" + i0 + "/maxLength",
 																					schemaPath: "#/$defs/ProviderField/properties/maxLength/minimum",
 																					keyword: "minimum",
@@ -11629,7 +12584,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (valid3) {
 																		if (data4.required !== void 0) {
 																			if (typeof data4.required !== "boolean") {
-																				validate58.errors = [{
+																				validate61.errors = [{
 																					instancePath: instancePath + "/fields/" + i0 + "/required",
 																					schemaPath: "#/$defs/ProviderField/properties/required/type",
 																					keyword: "type",
@@ -11643,7 +12598,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		if (valid3) {
 																			if (data4.secret !== void 0) {
 																				if (typeof data4.secret !== "boolean") {
-																					validate58.errors = [{
+																					validate61.errors = [{
 																						instancePath: instancePath + "/fields/" + i0 + "/secret",
 																						schemaPath: "#/$defs/ProviderField/properties/secret/type",
 																						keyword: "type",
@@ -11663,7 +12618,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 											}
 										} else {
-											validate58.errors = [{
+											validate61.errors = [{
 												instancePath: instancePath + "/fields/" + i0,
 												schemaPath: "#/$defs/ProviderField/type",
 												keyword: "type",
@@ -11674,7 +12629,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 									}
 								} else {
-									validate58.errors = [{
+									validate61.errors = [{
 										instancePath: instancePath + "/fields",
 										schemaPath: "#/properties/fields/type",
 										keyword: "type",
@@ -11691,7 +12646,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (Array.isArray(data13)) {
 										const len1 = data13.length;
 										for (let i1 = 0; i1 < len1; i1++) if (typeof data13[i1] !== "string") {
-											validate58.errors = [{
+											validate61.errors = [{
 												instancePath: instancePath + "/forbiddenPermissions/" + i1,
 												schemaPath: "#/properties/forbiddenPermissions/items/type",
 												keyword: "type",
@@ -11701,7 +12656,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 									} else {
-										validate58.errors = [{
+										validate61.errors = [{
 											instancePath: instancePath + "/forbiddenPermissions",
 											schemaPath: "#/properties/forbiddenPermissions/type",
 											keyword: "type",
@@ -11715,7 +12670,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (valid0) {
 									if (data.helpText !== void 0) {
 										if (typeof data.helpText !== "string") {
-											validate58.errors = [{
+											validate61.errors = [{
 												instancePath: instancePath + "/helpText",
 												schemaPath: "#/properties/helpText/type",
 												keyword: "type",
@@ -11732,7 +12687,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (Array.isArray(data16)) {
 												const len2 = data16.length;
 												for (let i2 = 0; i2 < len2; i2++) if (typeof data16[i2] !== "string") {
-													validate58.errors = [{
+													validate61.errors = [{
 														instancePath: instancePath + "/optionalPermissions/" + i2,
 														schemaPath: "#/properties/optionalPermissions/items/type",
 														keyword: "type",
@@ -11742,7 +12697,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												}
 											} else {
-												validate58.errors = [{
+												validate61.errors = [{
 													instancePath: instancePath + "/optionalPermissions",
 													schemaPath: "#/properties/optionalPermissions/type",
 													keyword: "type",
@@ -11756,7 +12711,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid0) {
 											if (data.providerId !== void 0) {
 												if (typeof data.providerId !== "string") {
-													validate58.errors = [{
+													validate61.errors = [{
 														instancePath: instancePath + "/providerId",
 														schemaPath: "#/properties/providerId/type",
 														keyword: "type",
@@ -11773,7 +12728,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (Array.isArray(data19)) {
 														const len3 = data19.length;
 														for (let i3 = 0; i3 < len3; i3++) if (typeof data19[i3] !== "string") {
-															validate58.errors = [{
+															validate61.errors = [{
 																instancePath: instancePath + "/requiredPermissions/" + i3,
 																schemaPath: "#/properties/requiredPermissions/items/type",
 																keyword: "type",
@@ -11783,7 +12738,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															return false;
 														}
 													} else {
-														validate58.errors = [{
+														validate61.errors = [{
 															instancePath: instancePath + "/requiredPermissions",
 															schemaPath: "#/properties/requiredPermissions/type",
 															keyword: "type",
@@ -11804,7 +12759,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate58.errors = [{
+			validate61.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -11813,25 +12768,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate58.errors = vErrors;
+		validate61.errors = vErrors;
 		return true;
 	}
-	validate58.evaluated = {
+	validate61.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate127(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate135(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate127.evaluated;
+		const evaluated0 = validate135.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.providers === void 0 && (missing0 = "providers")) {
-					validate127.errors = [{
+					validate135.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -11842,7 +12797,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "providers")) {
-						validate127.errors = [{
+						validate135.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -11859,20 +12814,20 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									const len0 = data0.length;
 									for (let i0 = 0; i0 < len0; i0++) {
 										const _errs4 = errors;
-										if (!validate58(data0[i0], {
+										if (!validate61(data0[i0], {
 											instancePath: instancePath + "/providers/" + i0,
 											parentData: data0,
 											parentDataProperty: i0,
 											rootData,
 											dynamicAnchors
 										})) {
-											vErrors = vErrors === null ? validate58.errors : vErrors.concat(validate58.errors);
+											vErrors = vErrors === null ? validate61.errors : vErrors.concat(validate61.errors);
 											errors = vErrors.length;
 										}
 										if (!(_errs4 === errors)) break;
 									}
 								} else {
-									validate127.errors = [{
+									validate135.errors = [{
 										instancePath: instancePath + "/providers",
 										schemaPath: "#/properties/providers/type",
 										keyword: "type",
@@ -11886,7 +12841,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate127.errors = [{
+				validate135.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -11896,24 +12851,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate127.errors = vErrors;
+		validate135.errors = vErrors;
 		return errors === 0;
 	}
-	validate127.evaluated = {
+	validate135.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ProviderDefinition = validate129;
-	function validate129(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ProviderDefinition = validate137;
+	function validate137(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate129.evaluated;
+		const evaluated0 = validate137.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.providerId === void 0 && (missing0 = "providerId") || data.displayName === void 0 && (missing0 = "displayName") || data.environment === void 0 && (missing0 = "environment") || data.available === void 0 && (missing0 = "available") || data.helpText === void 0 && (missing0 = "helpText") || data.fields === void 0 && (missing0 = "fields") || data.requiredPermissions === void 0 && (missing0 = "requiredPermissions") || data.optionalPermissions === void 0 && (missing0 = "optionalPermissions") || data.forbiddenPermissions === void 0 && (missing0 = "forbiddenPermissions")) {
-				validate129.errors = [{
+				validate137.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -11922,8 +12877,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func27.call(schema83.properties, key0)) {
-					validate129.errors = [{
+				for (const key0 in data) if (!func31.call(schema87.properties, key0)) {
+					validate137.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -11934,7 +12889,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.available !== void 0) {
 					if (typeof data.available !== "boolean") {
-						validate129.errors = [{
+						validate137.errors = [{
 							instancePath: instancePath + "/available",
 							schemaPath: "#/properties/available/type",
 							keyword: "type",
@@ -11948,7 +12903,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.displayName !== void 0) {
 						if (typeof data.displayName !== "string") {
-							validate129.errors = [{
+							validate137.errors = [{
 								instancePath: instancePath + "/displayName",
 								schemaPath: "#/properties/displayName/type",
 								keyword: "type",
@@ -11962,7 +12917,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.environment !== void 0) {
 							if (typeof data.environment !== "string") {
-								validate129.errors = [{
+								validate137.errors = [{
 									instancePath: instancePath + "/environment",
 									schemaPath: "#/properties/environment/type",
 									keyword: "type",
@@ -11983,7 +12938,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (data4 && typeof data4 == "object" && !Array.isArray(data4)) {
 											let missing1;
 											if (data4.id === void 0 && (missing1 = "id") || data4.label === void 0 && (missing1 = "label") || data4.inputType === void 0 && (missing1 = "inputType") || data4.required === void 0 && (missing1 = "required") || data4.secret === void 0 && (missing1 = "secret") || data4.maxLength === void 0 && (missing1 = "maxLength") || data4.helpText === void 0 && (missing1 = "helpText") || data4.environment === void 0 && (missing1 = "environment")) {
-												validate129.errors = [{
+												validate137.errors = [{
 													instancePath: instancePath + "/fields/" + i0,
 													schemaPath: "#/$defs/ProviderField/required",
 													keyword: "required",
@@ -11993,7 +12948,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											} else {
 												for (const key1 in data4) if (!(key1 === "environment" || key1 === "helpText" || key1 === "id" || key1 === "inputType" || key1 === "label" || key1 === "maxLength" || key1 === "required" || key1 === "secret")) {
-													validate129.errors = [{
+													validate137.errors = [{
 														instancePath: instancePath + "/fields/" + i0,
 														schemaPath: "#/$defs/ProviderField/additionalProperties",
 														keyword: "additionalProperties",
@@ -12004,7 +12959,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 												if (data4.environment !== void 0) {
 													if (typeof data4.environment !== "string") {
-														validate129.errors = [{
+														validate137.errors = [{
 															instancePath: instancePath + "/fields/" + i0 + "/environment",
 															schemaPath: "#/$defs/ProviderField/properties/environment/type",
 															keyword: "type",
@@ -12018,7 +12973,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												if (valid3) {
 													if (data4.helpText !== void 0) {
 														if (typeof data4.helpText !== "string") {
-															validate129.errors = [{
+															validate137.errors = [{
 																instancePath: instancePath + "/fields/" + i0 + "/helpText",
 																schemaPath: "#/$defs/ProviderField/properties/helpText/type",
 																keyword: "type",
@@ -12032,7 +12987,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (valid3) {
 														if (data4.id !== void 0) {
 															if (typeof data4.id !== "string") {
-																validate129.errors = [{
+																validate137.errors = [{
 																	instancePath: instancePath + "/fields/" + i0 + "/id",
 																	schemaPath: "#/$defs/ProviderField/properties/id/type",
 																	keyword: "type",
@@ -12046,7 +13001,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														if (valid3) {
 															if (data4.inputType !== void 0) {
 																if (typeof data4.inputType !== "string") {
-																	validate129.errors = [{
+																	validate137.errors = [{
 																		instancePath: instancePath + "/fields/" + i0 + "/inputType",
 																		schemaPath: "#/$defs/ProviderField/properties/inputType/type",
 																		keyword: "type",
@@ -12060,7 +13015,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															if (valid3) {
 																if (data4.label !== void 0) {
 																	if (typeof data4.label !== "string") {
-																		validate129.errors = [{
+																		validate137.errors = [{
 																			instancePath: instancePath + "/fields/" + i0 + "/label",
 																			schemaPath: "#/$defs/ProviderField/properties/label/type",
 																			keyword: "type",
@@ -12075,7 +13030,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (data4.maxLength !== void 0) {
 																		let data10 = data4.maxLength;
 																		if (!(typeof data10 == "number" && !(data10 % 1) && !isNaN(data10))) {
-																			validate129.errors = [{
+																			validate137.errors = [{
 																				instancePath: instancePath + "/fields/" + i0 + "/maxLength",
 																				schemaPath: "#/$defs/ProviderField/properties/maxLength/type",
 																				keyword: "type",
@@ -12086,7 +13041,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		}
 																		if (typeof data10 == "number") {
 																			if (data10 < 0 || isNaN(data10)) {
-																				validate129.errors = [{
+																				validate137.errors = [{
 																					instancePath: instancePath + "/fields/" + i0 + "/maxLength",
 																					schemaPath: "#/$defs/ProviderField/properties/maxLength/minimum",
 																					keyword: "minimum",
@@ -12104,7 +13059,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	if (valid3) {
 																		if (data4.required !== void 0) {
 																			if (typeof data4.required !== "boolean") {
-																				validate129.errors = [{
+																				validate137.errors = [{
 																					instancePath: instancePath + "/fields/" + i0 + "/required",
 																					schemaPath: "#/$defs/ProviderField/properties/required/type",
 																					keyword: "type",
@@ -12118,7 +13073,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		if (valid3) {
 																			if (data4.secret !== void 0) {
 																				if (typeof data4.secret !== "boolean") {
-																					validate129.errors = [{
+																					validate137.errors = [{
 																						instancePath: instancePath + "/fields/" + i0 + "/secret",
 																						schemaPath: "#/$defs/ProviderField/properties/secret/type",
 																						keyword: "type",
@@ -12138,7 +13093,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 											}
 										} else {
-											validate129.errors = [{
+											validate137.errors = [{
 												instancePath: instancePath + "/fields/" + i0,
 												schemaPath: "#/$defs/ProviderField/type",
 												keyword: "type",
@@ -12149,7 +13104,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 									}
 								} else {
-									validate129.errors = [{
+									validate137.errors = [{
 										instancePath: instancePath + "/fields",
 										schemaPath: "#/properties/fields/type",
 										keyword: "type",
@@ -12166,7 +13121,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (Array.isArray(data13)) {
 										const len1 = data13.length;
 										for (let i1 = 0; i1 < len1; i1++) if (typeof data13[i1] !== "string") {
-											validate129.errors = [{
+											validate137.errors = [{
 												instancePath: instancePath + "/forbiddenPermissions/" + i1,
 												schemaPath: "#/properties/forbiddenPermissions/items/type",
 												keyword: "type",
@@ -12176,7 +13131,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 									} else {
-										validate129.errors = [{
+										validate137.errors = [{
 											instancePath: instancePath + "/forbiddenPermissions",
 											schemaPath: "#/properties/forbiddenPermissions/type",
 											keyword: "type",
@@ -12190,7 +13145,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (valid0) {
 									if (data.helpText !== void 0) {
 										if (typeof data.helpText !== "string") {
-											validate129.errors = [{
+											validate137.errors = [{
 												instancePath: instancePath + "/helpText",
 												schemaPath: "#/properties/helpText/type",
 												keyword: "type",
@@ -12207,7 +13162,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (Array.isArray(data16)) {
 												const len2 = data16.length;
 												for (let i2 = 0; i2 < len2; i2++) if (typeof data16[i2] !== "string") {
-													validate129.errors = [{
+													validate137.errors = [{
 														instancePath: instancePath + "/optionalPermissions/" + i2,
 														schemaPath: "#/properties/optionalPermissions/items/type",
 														keyword: "type",
@@ -12217,7 +13172,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												}
 											} else {
-												validate129.errors = [{
+												validate137.errors = [{
 													instancePath: instancePath + "/optionalPermissions",
 													schemaPath: "#/properties/optionalPermissions/type",
 													keyword: "type",
@@ -12231,7 +13186,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid0) {
 											if (data.providerId !== void 0) {
 												if (typeof data.providerId !== "string") {
-													validate129.errors = [{
+													validate137.errors = [{
 														instancePath: instancePath + "/providerId",
 														schemaPath: "#/properties/providerId/type",
 														keyword: "type",
@@ -12248,7 +13203,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (Array.isArray(data19)) {
 														const len3 = data19.length;
 														for (let i3 = 0; i3 < len3; i3++) if (typeof data19[i3] !== "string") {
-															validate129.errors = [{
+															validate137.errors = [{
 																instancePath: instancePath + "/requiredPermissions/" + i3,
 																schemaPath: "#/properties/requiredPermissions/items/type",
 																keyword: "type",
@@ -12258,7 +13213,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															return false;
 														}
 													} else {
-														validate129.errors = [{
+														validate137.errors = [{
 															instancePath: instancePath + "/requiredPermissions",
 															schemaPath: "#/properties/requiredPermissions/type",
 															keyword: "type",
@@ -12279,7 +13234,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate129.errors = [{
+			validate137.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -12288,24 +13243,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate129.errors = vErrors;
+		validate137.errors = vErrors;
 		return true;
 	}
-	validate129.evaluated = {
+	validate137.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ProviderField = validate130;
-	function validate130(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ProviderField = validate138;
+	function validate138(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate130.evaluated;
+		const evaluated0 = validate138.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.id === void 0 && (missing0 = "id") || data.label === void 0 && (missing0 = "label") || data.inputType === void 0 && (missing0 = "inputType") || data.required === void 0 && (missing0 = "required") || data.secret === void 0 && (missing0 = "secret") || data.maxLength === void 0 && (missing0 = "maxLength") || data.helpText === void 0 && (missing0 = "helpText") || data.environment === void 0 && (missing0 = "environment")) {
-				validate130.errors = [{
+				validate138.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -12315,7 +13270,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "environment" || key0 === "helpText" || key0 === "id" || key0 === "inputType" || key0 === "label" || key0 === "maxLength" || key0 === "required" || key0 === "secret")) {
-					validate130.errors = [{
+					validate138.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -12326,7 +13281,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.environment !== void 0) {
 					if (typeof data.environment !== "string") {
-						validate130.errors = [{
+						validate138.errors = [{
 							instancePath: instancePath + "/environment",
 							schemaPath: "#/properties/environment/type",
 							keyword: "type",
@@ -12340,7 +13295,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.helpText !== void 0) {
 						if (typeof data.helpText !== "string") {
-							validate130.errors = [{
+							validate138.errors = [{
 								instancePath: instancePath + "/helpText",
 								schemaPath: "#/properties/helpText/type",
 								keyword: "type",
@@ -12354,7 +13309,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.id !== void 0) {
 							if (typeof data.id !== "string") {
-								validate130.errors = [{
+								validate138.errors = [{
 									instancePath: instancePath + "/id",
 									schemaPath: "#/properties/id/type",
 									keyword: "type",
@@ -12368,7 +13323,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (valid0) {
 							if (data.inputType !== void 0) {
 								if (typeof data.inputType !== "string") {
-									validate130.errors = [{
+									validate138.errors = [{
 										instancePath: instancePath + "/inputType",
 										schemaPath: "#/properties/inputType/type",
 										keyword: "type",
@@ -12382,7 +13337,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (valid0) {
 								if (data.label !== void 0) {
 									if (typeof data.label !== "string") {
-										validate130.errors = [{
+										validate138.errors = [{
 											instancePath: instancePath + "/label",
 											schemaPath: "#/properties/label/type",
 											keyword: "type",
@@ -12397,7 +13352,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (data.maxLength !== void 0) {
 										let data5 = data.maxLength;
 										if (!(typeof data5 == "number" && !(data5 % 1) && !isNaN(data5))) {
-											validate130.errors = [{
+											validate138.errors = [{
 												instancePath: instancePath + "/maxLength",
 												schemaPath: "#/properties/maxLength/type",
 												keyword: "type",
@@ -12408,7 +13363,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 										if (typeof data5 == "number") {
 											if (data5 < 0 || isNaN(data5)) {
-												validate130.errors = [{
+												validate138.errors = [{
 													instancePath: instancePath + "/maxLength",
 													schemaPath: "#/properties/maxLength/minimum",
 													keyword: "minimum",
@@ -12426,7 +13381,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (valid0) {
 										if (data.required !== void 0) {
 											if (typeof data.required !== "boolean") {
-												validate130.errors = [{
+												validate138.errors = [{
 													instancePath: instancePath + "/required",
 													schemaPath: "#/properties/required/type",
 													keyword: "type",
@@ -12440,7 +13395,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid0) {
 											if (data.secret !== void 0) {
 												if (typeof data.secret !== "boolean") {
-													validate130.errors = [{
+													validate138.errors = [{
 														instancePath: instancePath + "/secret",
 														schemaPath: "#/properties/secret/type",
 														keyword: "type",
@@ -12460,7 +13415,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate130.errors = [{
+			validate138.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -12469,24 +13424,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate130.errors = vErrors;
+		validate138.errors = vErrors;
 		return true;
 	}
-	validate130.evaluated = {
+	validate138.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ProviderSelection = validate131;
-	function validate131(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ProviderSelection = validate139;
+	function validate139(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate131.evaluated;
+		const evaluated0 = validate139.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.providerId === void 0 && (missing0 = "providerId") || data.environment === void 0 && (missing0 = "environment")) {
-				validate131.errors = [{
+				validate139.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -12496,7 +13451,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "environment" || key0 === "providerId")) {
-					validate131.errors = [{
+					validate139.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -12507,7 +13462,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.environment !== void 0) {
 					if (typeof data.environment !== "string") {
-						validate131.errors = [{
+						validate139.errors = [{
 							instancePath: instancePath + "/environment",
 							schemaPath: "#/properties/environment/type",
 							keyword: "type",
@@ -12521,7 +13476,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.providerId !== void 0) {
 						if (typeof data.providerId !== "string") {
-							validate131.errors = [{
+							validate139.errors = [{
 								instancePath: instancePath + "/providerId",
 								schemaPath: "#/properties/providerId/type",
 								keyword: "type",
@@ -12535,7 +13490,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate131.errors = [{
+			validate139.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -12544,24 +13499,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate131.errors = vErrors;
+		validate139.errors = vErrors;
 		return true;
 	}
-	validate131.evaluated = {
+	validate139.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Remediation = validate132;
-	function validate132(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.Remediation = validate140;
+	function validate140(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate132.evaluated;
+		const evaluated0 = validate140.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.id === void 0 && (missing0 = "id") || data.label === void 0 && (missing0 = "label")) {
-				validate132.errors = [{
+				validate140.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -12571,7 +13526,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "id" || key0 === "label")) {
-					validate132.errors = [{
+					validate140.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -12584,7 +13539,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data0 = data.id;
 					if (typeof data0 === "string") {
 						if (func1(data0) < 1) {
-							validate132.errors = [{
+							validate140.errors = [{
 								instancePath: instancePath + "/id",
 								schemaPath: "#/properties/id/minLength",
 								keyword: "minLength",
@@ -12594,7 +13549,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate132.errors = [{
+						validate140.errors = [{
 							instancePath: instancePath + "/id",
 							schemaPath: "#/properties/id/type",
 							keyword: "type",
@@ -12608,7 +13563,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.label !== void 0) {
 						if (typeof data.label !== "string") {
-							validate132.errors = [{
+							validate140.errors = [{
 								instancePath: instancePath + "/label",
 								schemaPath: "#/properties/label/type",
 								keyword: "type",
@@ -12622,7 +13577,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate132.errors = [{
+			validate140.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -12631,16 +13586,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate132.errors = vErrors;
+		validate140.errors = vErrors;
 		return true;
 	}
-	validate132.evaluated = {
+	validate140.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ReplyData = validate133;
-	var schema81 = {
+	exports.ReplyData = validate141;
+	var schema85 = {
 		"type": "object",
 		"properties": {
 			"afterSequence": {
@@ -12659,7 +13614,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					"workspace",
 					"account",
 					"model-gateway",
-					"model"
+					"model",
+					"risk"
 				]
 			},
 			"lastSequence": {
@@ -12684,7 +13640,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"replayedCount"
 		]
 	};
-	var schema78 = {
+	var schema82 = {
 		"type": "object",
 		"properties": {
 			"aggregateId": {
@@ -12697,7 +13653,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					"workspace",
 					"account",
 					"model-gateway",
-					"model"
+					"model",
+					"risk"
 				]
 			},
 			"lastSequence": {
@@ -12716,17 +13673,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"lastSequence"
 		]
 	};
-	function validate50(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate52(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate50.evaluated;
+		const evaluated0 = validate52.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.aggregateType === void 0 && (missing0 = "aggregateType") || data.aggregateId === void 0 && (missing0 = "aggregateId") || data.projection === void 0 && (missing0 = "projection") || data.lastSequence === void 0 && (missing0 = "lastSequence")) {
-					validate50.errors = [{
+					validate52.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -12737,7 +13694,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "aggregateId" || key0 === "aggregateType" || key0 === "lastSequence" || key0 === "projection")) {
-						validate50.errors = [{
+						validate52.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -12753,7 +13710,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) < 1) {
-										validate50.errors = [{
+										validate52.errors = [{
 											instancePath: instancePath + "/aggregateId",
 											schemaPath: "#/properties/aggregateId/minLength",
 											keyword: "minLength",
@@ -12763,7 +13720,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate50.errors = [{
+									validate52.errors = [{
 										instancePath: instancePath + "/aggregateId",
 										schemaPath: "#/properties/aggregateId/type",
 										keyword: "type",
@@ -12780,7 +13737,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.aggregateType;
 								const _errs4 = errors;
 								if (typeof data1 !== "string") {
-									validate50.errors = [{
+									validate52.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/type",
 										keyword: "type",
@@ -12789,12 +13746,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								}
-								if (!(data1 === "workspace" || data1 === "account" || data1 === "model-gateway" || data1 === "model")) {
-									validate50.errors = [{
+								if (!(data1 === "workspace" || data1 === "account" || data1 === "model-gateway" || data1 === "model" || data1 === "risk")) {
+									validate52.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/enum",
 										keyword: "enum",
-										params: { allowedValues: schema78.properties.aggregateType.enum },
+										params: { allowedValues: schema82.properties.aggregateType.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -12806,7 +13763,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									let data2 = data.lastSequence;
 									const _errs6 = errors;
 									if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-										validate50.errors = [{
+										validate52.errors = [{
 											instancePath: instancePath + "/lastSequence",
 											schemaPath: "#/properties/lastSequence/type",
 											keyword: "type",
@@ -12818,7 +13775,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (errors === _errs6) {
 										if (typeof data2 == "number") {
 											if (data2 > 9007199254740991 || isNaN(data2)) {
-												validate50.errors = [{
+												validate52.errors = [{
 													instancePath: instancePath + "/lastSequence",
 													schemaPath: "#/properties/lastSequence/maximum",
 													keyword: "maximum",
@@ -12830,7 +13787,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											} else if (data2 < 0 || isNaN(data2)) {
-												validate50.errors = [{
+												validate52.errors = [{
 													instancePath: instancePath + "/lastSequence",
 													schemaPath: "#/properties/lastSequence/minimum",
 													keyword: "minimum",
@@ -12867,7 +13824,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate50.errors = [{
+				validate52.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -12877,23 +13834,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate50.errors = vErrors;
+		validate52.errors = vErrors;
 		return errors === 0;
 	}
-	validate50.evaluated = {
+	validate52.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate53(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate55(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate53.evaluated;
+		const evaluated0 = validate55.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.components === void 0 && (missing0 = "components") || data.modelAvailable === void 0 && (missing0 = "modelAvailable") || data.liveExecutionAvailable === void 0 && (missing0 = "liveExecutionAvailable")) {
-				validate53.errors = [{
+				validate55.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -12903,7 +13860,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "components" || key0 === "liveExecutionAvailable" || key0 === "modelAvailable")) {
-					validate53.errors = [{
+					validate55.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -12921,7 +13878,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
 								let missing1;
 								if (data1.id === void 0 && (missing1 = "id") || data1.status === void 0 && (missing1 = "status") || data1.message === void 0 && (missing1 = "message")) {
-									validate53.errors = [{
+									validate55.errors = [{
 										instancePath: instancePath + "/components/" + i0,
 										schemaPath: "#/$defs/RuntimeComponent/required",
 										keyword: "required",
@@ -12931,7 +13888,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								} else {
 									for (const key1 in data1) if (!(key1 === "id" || key1 === "message" || key1 === "status")) {
-										validate53.errors = [{
+										validate55.errors = [{
 											instancePath: instancePath + "/components/" + i0,
 											schemaPath: "#/$defs/RuntimeComponent/additionalProperties",
 											keyword: "additionalProperties",
@@ -12944,7 +13901,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data2 = data1.id;
 										if (typeof data2 === "string") {
 											if (func1(data2) < 1) {
-												validate53.errors = [{
+												validate55.errors = [{
 													instancePath: instancePath + "/components/" + i0 + "/id",
 													schemaPath: "#/$defs/RuntimeComponent/properties/id/minLength",
 													keyword: "minLength",
@@ -12954,7 +13911,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											}
 										} else {
-											validate53.errors = [{
+											validate55.errors = [{
 												instancePath: instancePath + "/components/" + i0 + "/id",
 												schemaPath: "#/$defs/RuntimeComponent/properties/id/type",
 												keyword: "type",
@@ -12968,7 +13925,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (valid3) {
 										if (data1.message !== void 0) {
 											if (typeof data1.message !== "string") {
-												validate53.errors = [{
+												validate55.errors = [{
 													instancePath: instancePath + "/components/" + i0 + "/message",
 													schemaPath: "#/$defs/RuntimeComponent/properties/message/type",
 													keyword: "type",
@@ -12982,7 +13939,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid3) {
 											if (data1.status !== void 0) {
 												if (typeof data1.status !== "string") {
-													validate53.errors = [{
+													validate55.errors = [{
 														instancePath: instancePath + "/components/" + i0 + "/status",
 														schemaPath: "#/$defs/RuntimeComponent/properties/status/type",
 														keyword: "type",
@@ -12997,7 +13954,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}
 								}
 							} else {
-								validate53.errors = [{
+								validate55.errors = [{
 									instancePath: instancePath + "/components/" + i0,
 									schemaPath: "#/$defs/RuntimeComponent/type",
 									keyword: "type",
@@ -13008,7 +13965,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}
 						}
 					} else {
-						validate53.errors = [{
+						validate55.errors = [{
 							instancePath: instancePath + "/components",
 							schemaPath: "#/properties/components/type",
 							keyword: "type",
@@ -13022,7 +13979,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.liveExecutionAvailable !== void 0) {
 						if (typeof data.liveExecutionAvailable !== "boolean") {
-							validate53.errors = [{
+							validate55.errors = [{
 								instancePath: instancePath + "/liveExecutionAvailable",
 								schemaPath: "#/properties/liveExecutionAvailable/type",
 								keyword: "type",
@@ -13036,7 +13993,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.modelAvailable !== void 0) {
 							if (typeof data.modelAvailable !== "boolean") {
-								validate53.errors = [{
+								validate55.errors = [{
 									instancePath: instancePath + "/modelAvailable",
 									schemaPath: "#/properties/modelAvailable/type",
 									keyword: "type",
@@ -13051,7 +14008,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate53.errors = [{
+			validate55.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -13060,25 +14017,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate53.errors = vErrors;
+		validate55.errors = vErrors;
 		return true;
 	}
-	validate53.evaluated = {
+	validate55.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate57(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate60(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate57.evaluated;
+		const evaluated0 = validate60.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.providers === void 0 && (missing0 = "providers")) {
-					validate57.errors = [{
+					validate60.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -13089,7 +14046,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "providers")) {
-						validate57.errors = [{
+						validate60.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -13106,20 +14063,20 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									const len0 = data0.length;
 									for (let i0 = 0; i0 < len0; i0++) {
 										const _errs4 = errors;
-										if (!validate58(data0[i0], {
+										if (!validate61(data0[i0], {
 											instancePath: instancePath + "/providers/" + i0,
 											parentData: data0,
 											parentDataProperty: i0,
 											rootData,
 											dynamicAnchors
 										})) {
-											vErrors = vErrors === null ? validate58.errors : vErrors.concat(validate58.errors);
+											vErrors = vErrors === null ? validate61.errors : vErrors.concat(validate61.errors);
 											errors = vErrors.length;
 										}
 										if (!(_errs4 === errors)) break;
 									}
 								} else {
-									validate57.errors = [{
+									validate60.errors = [{
 										instancePath: instancePath + "/providers",
 										schemaPath: "#/properties/providers/type",
 										keyword: "type",
@@ -13133,7 +14090,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate57.errors = [{
+				validate60.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -13143,25 +14100,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate57.errors = vErrors;
+		validate60.errors = vErrors;
 		return errors === 0;
 	}
-	validate57.evaluated = {
+	validate60.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate62(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate65(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate62.evaluated;
+		const evaluated0 = validate65.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.accounts === void 0 && (missing0 = "accounts")) {
-					validate62.errors = [{
+					validate65.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -13172,7 +14129,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "accounts")) {
-						validate62.errors = [{
+						validate65.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -13202,7 +14159,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (!(_errs4 === errors)) break;
 									}
 								} else {
-									validate62.errors = [{
+									validate65.errors = [{
 										instancePath: instancePath + "/accounts",
 										schemaPath: "#/properties/accounts/type",
 										keyword: "type",
@@ -13216,7 +14173,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate62.errors = [{
+				validate65.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -13226,18 +14183,18 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate62.errors = vErrors;
+		validate65.errors = vErrors;
 		return errors === 0;
 	}
-	validate62.evaluated = {
+	validate65.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate133(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate141(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate133.evaluated;
+		const evaluated0 = validate141.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		const _errs0 = errors;
@@ -13375,16 +14332,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 												if (errors === _errs15) {
 													if (typeof data5 == "number") {
-														if (data5 > 4 || isNaN(data5)) {
+														if (data5 > 5 || isNaN(data5)) {
 															const err8 = {
 																instancePath: instancePath + "/storageSchemaVersion",
 																schemaPath: "#/$defs/Workspace/properties/storageSchemaVersion/maximum",
 																keyword: "maximum",
 																params: {
 																	comparison: "<=",
-																	limit: 4
+																	limit: 5
 																},
-																message: "must be <= 4"
+																message: "must be <= 5"
 															};
 															if (vErrors === null) vErrors = [err8];
 															else vErrors.push(err8);
@@ -13466,14 +14423,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		valid0 = valid0 || _valid0;
 		if (_valid0) var props0 = true;
 		const _errs19 = errors;
-		if (!validate50(data, {
+		if (!validate52(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate50.errors : vErrors.concat(validate50.errors);
+			vErrors = vErrors === null ? validate52.errors : vErrors.concat(validate52.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs19 === errors;
@@ -13482,14 +14439,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs20 = errors;
-		if (!validate53(data, {
+		if (!validate55(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate53.errors : vErrors.concat(validate53.errors);
+			vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs20 === errors;
@@ -13627,12 +14584,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										else vErrors.push(err20);
 										errors++;
 									}
-									if (!(data9 === "workspace" || data9 === "account" || data9 === "model-gateway" || data9 === "model")) {
+									if (!(data9 === "workspace" || data9 === "account" || data9 === "model-gateway" || data9 === "model" || data9 === "risk")) {
 										const err21 = {
 											instancePath: instancePath + "/aggregateType",
 											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema81.properties.aggregateType.enum },
+											params: { allowedValues: schema85.properties.aggregateType.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err21];
@@ -13800,14 +14757,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs37 = errors;
-		if (!validate57(data, {
+		if (!validate43(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate57.errors : vErrors.concat(validate57.errors);
+			vErrors = vErrors === null ? validate43.errors : vErrors.concat(validate43.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs37 === errors;
@@ -13816,14 +14773,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs38 = errors;
-		if (!validate58(data, {
+		if (!validate60(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate58.errors : vErrors.concat(validate58.errors);
+			vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs38 === errors;
@@ -13832,14 +14789,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs39 = errors;
-		if (!validate62(data, {
+		if (!validate61(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate62.errors : vErrors.concat(validate62.errors);
+			vErrors = vErrors === null ? validate61.errors : vErrors.concat(validate61.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs39 === errors;
@@ -13848,6 +14805,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs40 = errors;
+		if (!validate65(data, {
+			instancePath,
+			parentData,
+			parentDataProperty,
+			rootData,
+			dynamicAnchors
+		})) {
+			vErrors = vErrors === null ? validate65.errors : vErrors.concat(validate65.errors);
+			errors = vErrors.length;
+		}
+		var _valid0 = _errs40 === errors;
+		valid0 = valid0 || _valid0;
+		if (_valid0) {
+			if (props0 !== true) props0 = true;
+		}
+		const _errs41 = errors;
 		if (!validate39(data, {
 			instancePath,
 			parentData,
@@ -13858,12 +14831,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			vErrors = vErrors === null ? validate39.errors : vErrors.concat(validate39.errors);
 			errors = vErrors.length;
 		}
-		var _valid0 = _errs40 === errors;
+		var _valid0 = _errs41 === errors;
 		valid0 = valid0 || _valid0;
 		if (_valid0) {
 			if (props0 !== true) props0 = true;
 		}
-		const _errs41 = errors;
+		const _errs42 = errors;
 		if (errors === errors) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing2;
@@ -13879,7 +14852,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					else vErrors.push(err29);
 					errors++;
 				} else {
-					const _errs44 = errors;
+					const _errs45 = errors;
 					for (const key2 in data) if (!(key2 === "acknowledged" || key2 === "detected" || key2 === "forbidden" || key2 === "ipAllowList" || key2 === "ipAllowListStatus" || key2 === "scope" || key2 === "unsupported")) {
 						const err30 = {
 							instancePath,
@@ -13893,9 +14866,9 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						errors++;
 						break;
 					}
-					if (_errs44 === errors) {
+					if (_errs45 === errors) {
 						if (data.acknowledged !== void 0) {
-							const _errs45 = errors;
+							const _errs46 = errors;
 							if (typeof data.acknowledged !== "boolean") {
 								const err31 = {
 									instancePath: instancePath + "/acknowledged",
@@ -13908,17 +14881,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								else vErrors.push(err31);
 								errors++;
 							}
-							var valid6 = _errs45 === errors;
+							var valid6 = _errs46 === errors;
 						} else var valid6 = true;
 						if (valid6) {
 							if (data.detected !== void 0) {
 								let data13 = data.detected;
-								const _errs47 = errors;
-								if (errors === _errs47) {
+								const _errs48 = errors;
+								if (errors === _errs48) {
 									if (Array.isArray(data13)) {
 										const len0 = data13.length;
 										for (let i0 = 0; i0 < len0; i0++) {
-											const _errs49 = errors;
+											const _errs50 = errors;
 											if (typeof data13[i0] !== "string") {
 												const err32 = {
 													instancePath: instancePath + "/detected/" + i0,
@@ -13931,7 +14904,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												else vErrors.push(err32);
 												errors++;
 											}
-											if (!(_errs49 === errors)) break;
+											if (!(_errs50 === errors)) break;
 										}
 									} else {
 										const err33 = {
@@ -13946,17 +14919,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										errors++;
 									}
 								}
-								var valid6 = _errs47 === errors;
+								var valid6 = _errs48 === errors;
 							} else var valid6 = true;
 							if (valid6) {
 								if (data.forbidden !== void 0) {
 									let data15 = data.forbidden;
-									const _errs51 = errors;
-									if (errors === _errs51) {
+									const _errs52 = errors;
+									if (errors === _errs52) {
 										if (Array.isArray(data15)) {
 											const len1 = data15.length;
 											for (let i1 = 0; i1 < len1; i1++) {
-												const _errs53 = errors;
+												const _errs54 = errors;
 												if (typeof data15[i1] !== "string") {
 													const err34 = {
 														instancePath: instancePath + "/forbidden/" + i1,
@@ -13969,7 +14942,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													else vErrors.push(err34);
 													errors++;
 												}
-												if (!(_errs53 === errors)) break;
+												if (!(_errs54 === errors)) break;
 											}
 										} else {
 											const err35 = {
@@ -13984,29 +14957,29 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											errors++;
 										}
 									}
-									var valid6 = _errs51 === errors;
+									var valid6 = _errs52 === errors;
 								} else var valid6 = true;
 								if (valid6) {
 									if (data.ipAllowList !== void 0) {
 										let data17 = data.ipAllowList;
-										const _errs55 = errors;
+										const _errs56 = errors;
 										if (!Array.isArray(data17) && data17 !== null) {
 											const err36 = {
 												instancePath: instancePath + "/ipAllowList",
 												schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 												keyword: "type",
-												params: { type: schema68.properties.ipAllowList.type },
+												params: { type: schema69.properties.ipAllowList.type },
 												message: "must be array,null"
 											};
 											if (vErrors === null) vErrors = [err36];
 											else vErrors.push(err36);
 											errors++;
 										}
-										if (errors === _errs55) {
+										if (errors === _errs56) {
 											if (Array.isArray(data17)) {
 												const len2 = data17.length;
 												for (let i2 = 0; i2 < len2; i2++) {
-													const _errs57 = errors;
+													const _errs58 = errors;
 													if (typeof data17[i2] !== "string") {
 														const err37 = {
 															instancePath: instancePath + "/ipAllowList/" + i2,
@@ -14019,15 +14992,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														else vErrors.push(err37);
 														errors++;
 													}
-													if (!(_errs57 === errors)) break;
+													if (!(_errs58 === errors)) break;
 												}
 											}
 										}
-										var valid6 = _errs55 === errors;
+										var valid6 = _errs56 === errors;
 									} else var valid6 = true;
 									if (valid6) {
 										if (data.ipAllowListStatus !== void 0) {
-											const _errs59 = errors;
+											const _errs60 = errors;
 											if (typeof data.ipAllowListStatus !== "string") {
 												const err38 = {
 													instancePath: instancePath + "/ipAllowListStatus",
@@ -14040,12 +15013,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												else vErrors.push(err38);
 												errors++;
 											}
-											var valid6 = _errs59 === errors;
+											var valid6 = _errs60 === errors;
 										} else var valid6 = true;
 										if (valid6) {
 											if (data.scope !== void 0) {
 												let data20 = data.scope;
-												const _errs61 = errors;
+												const _errs62 = errors;
 												if (typeof data20 !== "string") {
 													const err39 = {
 														instancePath: instancePath + "/scope",
@@ -14063,24 +15036,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/scope",
 														schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 														keyword: "enum",
-														params: { allowedValues: schema68.properties.scope.enum },
+														params: { allowedValues: schema69.properties.scope.enum },
 														message: "must be equal to one of the allowed values"
 													};
 													if (vErrors === null) vErrors = [err40];
 													else vErrors.push(err40);
 													errors++;
 												}
-												var valid6 = _errs61 === errors;
+												var valid6 = _errs62 === errors;
 											} else var valid6 = true;
 											if (valid6) {
 												if (data.unsupported !== void 0) {
 													let data21 = data.unsupported;
-													const _errs63 = errors;
-													if (errors === _errs63) {
+													const _errs64 = errors;
+													if (errors === _errs64) {
 														if (Array.isArray(data21)) {
 															const len3 = data21.length;
 															for (let i3 = 0; i3 < len3; i3++) {
-																const _errs65 = errors;
+																const _errs66 = errors;
 																if (typeof data21[i3] !== "string") {
 																	const err41 = {
 																		instancePath: instancePath + "/unsupported/" + i3,
@@ -14093,7 +15066,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	else vErrors.push(err41);
 																	errors++;
 																}
-																if (!(_errs65 === errors)) break;
+																if (!(_errs66 === errors)) break;
 															}
 														} else {
 															const err42 = {
@@ -14108,7 +15081,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															errors++;
 														}
 													}
-													var valid6 = _errs63 === errors;
+													var valid6 = _errs64 === errors;
 												} else var valid6 = true;
 											}
 										}
@@ -14131,7 +15104,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				errors++;
 			}
 		}
-		var _valid0 = _errs41 === errors;
+		var _valid0 = _errs42 === errors;
 		valid0 = valid0 || _valid0;
 		if (_valid0) {
 			if (props0 !== true) props0 = true;
@@ -14147,7 +15120,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (vErrors === null) vErrors = [err44];
 			else vErrors.push(err44);
 			errors++;
-			validate133.errors = vErrors;
+			validate141.errors = vErrors;
 			return false;
 		} else {
 			errors = _errs0;
@@ -14156,19 +15129,19 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				else vErrors = null;
 			}
 		}
-		validate133.errors = vErrors;
+		validate141.errors = vErrors;
 		evaluated0.props = props0;
 		return errors === 0;
 	}
-	validate133.evaluated = {
+	validate141.evaluated = {
 		"dynamicProps": true,
 		"dynamicItems": false
 	};
-	exports.ResultEnvelope = validate142;
-	function validate49(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ResultEnvelope = validate151;
+	function validate51(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate49.evaluated;
+		const evaluated0 = validate51.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		const _errs0 = errors;
@@ -14306,16 +15279,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 												if (errors === _errs15) {
 													if (typeof data5 == "number") {
-														if (data5 > 4 || isNaN(data5)) {
+														if (data5 > 5 || isNaN(data5)) {
 															const err8 = {
 																instancePath: instancePath + "/storageSchemaVersion",
 																schemaPath: "#/$defs/Workspace/properties/storageSchemaVersion/maximum",
 																keyword: "maximum",
 																params: {
 																	comparison: "<=",
-																	limit: 4
+																	limit: 5
 																},
-																message: "must be <= 4"
+																message: "must be <= 5"
 															};
 															if (vErrors === null) vErrors = [err8];
 															else vErrors.push(err8);
@@ -14397,14 +15370,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		valid0 = valid0 || _valid0;
 		if (_valid0) var props0 = true;
 		const _errs19 = errors;
-		if (!validate50(data, {
+		if (!validate52(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate50.errors : vErrors.concat(validate50.errors);
+			vErrors = vErrors === null ? validate52.errors : vErrors.concat(validate52.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs19 === errors;
@@ -14413,14 +15386,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs20 = errors;
-		if (!validate53(data, {
+		if (!validate55(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate53.errors : vErrors.concat(validate53.errors);
+			vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs20 === errors;
@@ -14558,12 +15531,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										else vErrors.push(err20);
 										errors++;
 									}
-									if (!(data9 === "workspace" || data9 === "account" || data9 === "model-gateway" || data9 === "model")) {
+									if (!(data9 === "workspace" || data9 === "account" || data9 === "model-gateway" || data9 === "model" || data9 === "risk")) {
 										const err21 = {
 											instancePath: instancePath + "/aggregateType",
 											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema81.properties.aggregateType.enum },
+											params: { allowedValues: schema85.properties.aggregateType.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err21];
@@ -14731,14 +15704,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs37 = errors;
-		if (!validate57(data, {
+		if (!validate43(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate57.errors : vErrors.concat(validate57.errors);
+			vErrors = vErrors === null ? validate43.errors : vErrors.concat(validate43.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs37 === errors;
@@ -14747,14 +15720,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs38 = errors;
-		if (!validate58(data, {
+		if (!validate60(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate58.errors : vErrors.concat(validate58.errors);
+			vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs38 === errors;
@@ -14763,14 +15736,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs39 = errors;
-		if (!validate62(data, {
+		if (!validate61(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate62.errors : vErrors.concat(validate62.errors);
+			vErrors = vErrors === null ? validate61.errors : vErrors.concat(validate61.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs39 === errors;
@@ -14779,6 +15752,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (props0 !== true) props0 = true;
 		}
 		const _errs40 = errors;
+		if (!validate65(data, {
+			instancePath,
+			parentData,
+			parentDataProperty,
+			rootData,
+			dynamicAnchors
+		})) {
+			vErrors = vErrors === null ? validate65.errors : vErrors.concat(validate65.errors);
+			errors = vErrors.length;
+		}
+		var _valid0 = _errs40 === errors;
+		valid0 = valid0 || _valid0;
+		if (_valid0) {
+			if (props0 !== true) props0 = true;
+		}
+		const _errs41 = errors;
 		if (!validate39(data, {
 			instancePath,
 			parentData,
@@ -14789,12 +15778,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			vErrors = vErrors === null ? validate39.errors : vErrors.concat(validate39.errors);
 			errors = vErrors.length;
 		}
-		var _valid0 = _errs40 === errors;
+		var _valid0 = _errs41 === errors;
 		valid0 = valid0 || _valid0;
 		if (_valid0) {
 			if (props0 !== true) props0 = true;
 		}
-		const _errs41 = errors;
+		const _errs42 = errors;
 		if (errors === errors) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing2;
@@ -14810,7 +15799,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					else vErrors.push(err29);
 					errors++;
 				} else {
-					const _errs44 = errors;
+					const _errs45 = errors;
 					for (const key2 in data) if (!(key2 === "acknowledged" || key2 === "detected" || key2 === "forbidden" || key2 === "ipAllowList" || key2 === "ipAllowListStatus" || key2 === "scope" || key2 === "unsupported")) {
 						const err30 = {
 							instancePath,
@@ -14824,9 +15813,9 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						errors++;
 						break;
 					}
-					if (_errs44 === errors) {
+					if (_errs45 === errors) {
 						if (data.acknowledged !== void 0) {
-							const _errs45 = errors;
+							const _errs46 = errors;
 							if (typeof data.acknowledged !== "boolean") {
 								const err31 = {
 									instancePath: instancePath + "/acknowledged",
@@ -14839,17 +15828,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								else vErrors.push(err31);
 								errors++;
 							}
-							var valid6 = _errs45 === errors;
+							var valid6 = _errs46 === errors;
 						} else var valid6 = true;
 						if (valid6) {
 							if (data.detected !== void 0) {
 								let data13 = data.detected;
-								const _errs47 = errors;
-								if (errors === _errs47) {
+								const _errs48 = errors;
+								if (errors === _errs48) {
 									if (Array.isArray(data13)) {
 										const len0 = data13.length;
 										for (let i0 = 0; i0 < len0; i0++) {
-											const _errs49 = errors;
+											const _errs50 = errors;
 											if (typeof data13[i0] !== "string") {
 												const err32 = {
 													instancePath: instancePath + "/detected/" + i0,
@@ -14862,7 +15851,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												else vErrors.push(err32);
 												errors++;
 											}
-											if (!(_errs49 === errors)) break;
+											if (!(_errs50 === errors)) break;
 										}
 									} else {
 										const err33 = {
@@ -14877,17 +15866,17 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										errors++;
 									}
 								}
-								var valid6 = _errs47 === errors;
+								var valid6 = _errs48 === errors;
 							} else var valid6 = true;
 							if (valid6) {
 								if (data.forbidden !== void 0) {
 									let data15 = data.forbidden;
-									const _errs51 = errors;
-									if (errors === _errs51) {
+									const _errs52 = errors;
+									if (errors === _errs52) {
 										if (Array.isArray(data15)) {
 											const len1 = data15.length;
 											for (let i1 = 0; i1 < len1; i1++) {
-												const _errs53 = errors;
+												const _errs54 = errors;
 												if (typeof data15[i1] !== "string") {
 													const err34 = {
 														instancePath: instancePath + "/forbidden/" + i1,
@@ -14900,7 +15889,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													else vErrors.push(err34);
 													errors++;
 												}
-												if (!(_errs53 === errors)) break;
+												if (!(_errs54 === errors)) break;
 											}
 										} else {
 											const err35 = {
@@ -14915,29 +15904,29 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											errors++;
 										}
 									}
-									var valid6 = _errs51 === errors;
+									var valid6 = _errs52 === errors;
 								} else var valid6 = true;
 								if (valid6) {
 									if (data.ipAllowList !== void 0) {
 										let data17 = data.ipAllowList;
-										const _errs55 = errors;
+										const _errs56 = errors;
 										if (!Array.isArray(data17) && data17 !== null) {
 											const err36 = {
 												instancePath: instancePath + "/ipAllowList",
 												schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 												keyword: "type",
-												params: { type: schema68.properties.ipAllowList.type },
+												params: { type: schema69.properties.ipAllowList.type },
 												message: "must be array,null"
 											};
 											if (vErrors === null) vErrors = [err36];
 											else vErrors.push(err36);
 											errors++;
 										}
-										if (errors === _errs55) {
+										if (errors === _errs56) {
 											if (Array.isArray(data17)) {
 												const len2 = data17.length;
 												for (let i2 = 0; i2 < len2; i2++) {
-													const _errs57 = errors;
+													const _errs58 = errors;
 													if (typeof data17[i2] !== "string") {
 														const err37 = {
 															instancePath: instancePath + "/ipAllowList/" + i2,
@@ -14950,15 +15939,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														else vErrors.push(err37);
 														errors++;
 													}
-													if (!(_errs57 === errors)) break;
+													if (!(_errs58 === errors)) break;
 												}
 											}
 										}
-										var valid6 = _errs55 === errors;
+										var valid6 = _errs56 === errors;
 									} else var valid6 = true;
 									if (valid6) {
 										if (data.ipAllowListStatus !== void 0) {
-											const _errs59 = errors;
+											const _errs60 = errors;
 											if (typeof data.ipAllowListStatus !== "string") {
 												const err38 = {
 													instancePath: instancePath + "/ipAllowListStatus",
@@ -14971,12 +15960,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												else vErrors.push(err38);
 												errors++;
 											}
-											var valid6 = _errs59 === errors;
+											var valid6 = _errs60 === errors;
 										} else var valid6 = true;
 										if (valid6) {
 											if (data.scope !== void 0) {
 												let data20 = data.scope;
-												const _errs61 = errors;
+												const _errs62 = errors;
 												if (typeof data20 !== "string") {
 													const err39 = {
 														instancePath: instancePath + "/scope",
@@ -14994,24 +15983,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/scope",
 														schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 														keyword: "enum",
-														params: { allowedValues: schema68.properties.scope.enum },
+														params: { allowedValues: schema69.properties.scope.enum },
 														message: "must be equal to one of the allowed values"
 													};
 													if (vErrors === null) vErrors = [err40];
 													else vErrors.push(err40);
 													errors++;
 												}
-												var valid6 = _errs61 === errors;
+												var valid6 = _errs62 === errors;
 											} else var valid6 = true;
 											if (valid6) {
 												if (data.unsupported !== void 0) {
 													let data21 = data.unsupported;
-													const _errs63 = errors;
-													if (errors === _errs63) {
+													const _errs64 = errors;
+													if (errors === _errs64) {
 														if (Array.isArray(data21)) {
 															const len3 = data21.length;
 															for (let i3 = 0; i3 < len3; i3++) {
-																const _errs65 = errors;
+																const _errs66 = errors;
 																if (typeof data21[i3] !== "string") {
 																	const err41 = {
 																		instancePath: instancePath + "/unsupported/" + i3,
@@ -15024,7 +16013,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	else vErrors.push(err41);
 																	errors++;
 																}
-																if (!(_errs65 === errors)) break;
+																if (!(_errs66 === errors)) break;
 															}
 														} else {
 															const err42 = {
@@ -15039,7 +16028,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															errors++;
 														}
 													}
-													var valid6 = _errs63 === errors;
+													var valid6 = _errs64 === errors;
 												} else var valid6 = true;
 											}
 										}
@@ -15062,7 +16051,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				errors++;
 			}
 		}
-		var _valid0 = _errs41 === errors;
+		var _valid0 = _errs42 === errors;
 		valid0 = valid0 || _valid0;
 		if (_valid0) {
 			if (props0 !== true) props0 = true;
@@ -15078,7 +16067,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (vErrors === null) vErrors = [err44];
 			else vErrors.push(err44);
 			errors++;
-			validate49.errors = vErrors;
+			validate51.errors = vErrors;
 			return false;
 		} else {
 			errors = _errs0;
@@ -15087,25 +16076,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				else vErrors = null;
 			}
 		}
-		validate49.errors = vErrors;
+		validate51.errors = vErrors;
 		evaluated0.props = props0;
 		return errors === 0;
 	}
-	validate49.evaluated = {
+	validate51.evaluated = {
 		"dynamicProps": true,
 		"dynamicItems": false
 	};
-	function validate48(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate50(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate48.evaluated;
+		const evaluated0 = validate50.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.requestId === void 0 && (missing0 = "requestId") || data.schemaVersion === void 0 && (missing0 = "schemaVersion") || data.ok === void 0 && (missing0 = "ok") || data.data === void 0 && (missing0 = "data")) {
-					validate48.errors = [{
+					validate50.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -15116,7 +16105,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "data" || key0 === "ok" || key0 === "requestId" || key0 === "schemaVersion" || key0 === "stateVersion")) {
-						validate48.errors = [{
+						validate50.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -15128,14 +16117,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (_errs1 === errors) {
 						if (data.data !== void 0) {
 							const _errs2 = errors;
-							if (!validate49(data.data, {
+							if (!validate51(data.data, {
 								instancePath: instancePath + "/data",
 								parentData: data,
 								parentDataProperty: "data",
 								rootData,
 								dynamicAnchors
 							})) {
-								vErrors = vErrors === null ? validate49.errors : vErrors.concat(validate49.errors);
+								vErrors = vErrors === null ? validate51.errors : vErrors.concat(validate51.errors);
 								errors = vErrors.length;
 							}
 							var valid0 = _errs2 === errors;
@@ -15145,7 +16134,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.ok;
 								const _errs3 = errors;
 								if (typeof data1 !== "boolean") {
-									validate48.errors = [{
+									validate50.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/type",
 										keyword: "type",
@@ -15155,7 +16144,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 								if (true !== data1) {
-									validate48.errors = [{
+									validate50.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/const",
 										keyword: "const",
@@ -15173,7 +16162,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (errors === _errs5) {
 										if (typeof data2 === "string") {
 											if (func1(data2) > 128) {
-												validate48.errors = [{
+												validate50.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/maxLength",
 													keyword: "maxLength",
@@ -15182,7 +16171,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											} else if (func1(data2) < 1) {
-												validate48.errors = [{
+												validate50.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/minLength",
 													keyword: "minLength",
@@ -15192,7 +16181,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											}
 										} else {
-											validate48.errors = [{
+											validate50.errors = [{
 												instancePath: instancePath + "/requestId",
 												schemaPath: "#/properties/requestId/type",
 												keyword: "type",
@@ -15209,7 +16198,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.schemaVersion;
 										const _errs7 = errors;
 										if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-											validate48.errors = [{
+											validate50.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/type",
 												keyword: "type",
@@ -15219,7 +16208,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (1 !== data3) {
-											validate48.errors = [{
+											validate50.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/const",
 												keyword: "const",
@@ -15231,7 +16220,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (errors === _errs7) {
 											if (typeof data3 == "number") {
 												if (data3 < 0 || isNaN(data3)) {
-													validate48.errors = [{
+													validate50.errors = [{
 														instancePath: instancePath + "/schemaVersion",
 														schemaPath: "#/properties/schemaVersion/minimum",
 														keyword: "minimum",
@@ -15254,7 +16243,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (errors === _errs9) {
 												if (typeof data4 === "string") {
 													if (func1(data4) < 1) {
-														validate48.errors = [{
+														validate50.errors = [{
 															instancePath: instancePath + "/stateVersion",
 															schemaPath: "#/properties/stateVersion/minLength",
 															keyword: "minLength",
@@ -15264,7 +16253,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 												} else {
-													validate48.errors = [{
+													validate50.errors = [{
 														instancePath: instancePath + "/stateVersion",
 														schemaPath: "#/properties/stateVersion/type",
 														keyword: "type",
@@ -15283,7 +16272,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate48.errors = [{
+				validate50.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -15293,25 +16282,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate48.errors = vErrors;
+		validate50.errors = vErrors;
 		return errors === 0;
 	}
-	validate48.evaluated = {
+	validate50.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate68(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate71(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate68.evaluated;
+		const evaluated0 = validate71.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.requestId === void 0 && (missing0 = "requestId") || data.schemaVersion === void 0 && (missing0 = "schemaVersion") || data.ok === void 0 && (missing0 = "ok") || data.error === void 0 && (missing0 = "error")) {
-					validate68.errors = [{
+					validate71.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -15322,7 +16311,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "error" || key0 === "ok" || key0 === "requestId" || key0 === "schemaVersion")) {
-						validate68.errors = [{
+						validate71.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -15334,14 +16323,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (_errs1 === errors) {
 						if (data.error !== void 0) {
 							const _errs2 = errors;
-							if (!validate69(data.error, {
+							if (!validate72(data.error, {
 								instancePath: instancePath + "/error",
 								parentData: data,
 								parentDataProperty: "error",
 								rootData,
 								dynamicAnchors
 							})) {
-								vErrors = vErrors === null ? validate69.errors : vErrors.concat(validate69.errors);
+								vErrors = vErrors === null ? validate72.errors : vErrors.concat(validate72.errors);
 								errors = vErrors.length;
 							}
 							var valid0 = _errs2 === errors;
@@ -15351,7 +16340,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.ok;
 								const _errs3 = errors;
 								if (typeof data1 !== "boolean") {
-									validate68.errors = [{
+									validate71.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/type",
 										keyword: "type",
@@ -15361,7 +16350,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 								if (false !== data1) {
-									validate68.errors = [{
+									validate71.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/const",
 										keyword: "const",
@@ -15379,7 +16368,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (errors === _errs5) {
 										if (typeof data2 === "string") {
 											if (func1(data2) > 128) {
-												validate68.errors = [{
+												validate71.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/maxLength",
 													keyword: "maxLength",
@@ -15388,7 +16377,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											} else if (func1(data2) < 1) {
-												validate68.errors = [{
+												validate71.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/minLength",
 													keyword: "minLength",
@@ -15398,7 +16387,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											}
 										} else {
-											validate68.errors = [{
+											validate71.errors = [{
 												instancePath: instancePath + "/requestId",
 												schemaPath: "#/properties/requestId/type",
 												keyword: "type",
@@ -15415,7 +16404,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.schemaVersion;
 										const _errs7 = errors;
 										if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-											validate68.errors = [{
+											validate71.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/type",
 												keyword: "type",
@@ -15425,7 +16414,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (1 !== data3) {
-											validate68.errors = [{
+											validate71.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/const",
 												keyword: "const",
@@ -15437,7 +16426,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (errors === _errs7) {
 											if (typeof data3 == "number") {
 												if (data3 < 0 || isNaN(data3)) {
-													validate68.errors = [{
+													validate71.errors = [{
 														instancePath: instancePath + "/schemaVersion",
 														schemaPath: "#/properties/schemaVersion/minimum",
 														keyword: "minimum",
@@ -15459,7 +16448,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate68.errors = [{
+				validate71.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -15469,45 +16458,45 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate68.errors = vErrors;
+		validate71.errors = vErrors;
 		return errors === 0;
 	}
-	validate68.evaluated = {
+	validate71.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	function validate142(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	function validate151(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate142.evaluated;
+		const evaluated0 = validate151.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		const _errs0 = errors;
 		let valid0 = false;
 		const _errs1 = errors;
-		if (!validate48(data, {
+		if (!validate50(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate48.errors : vErrors.concat(validate48.errors);
+			vErrors = vErrors === null ? validate50.errors : vErrors.concat(validate50.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs1 === errors;
 		valid0 = valid0 || _valid0;
 		if (_valid0) var props0 = true;
 		const _errs2 = errors;
-		if (!validate68(data, {
+		if (!validate71(data, {
 			instancePath,
 			parentData,
 			parentDataProperty,
 			rootData,
 			dynamicAnchors
 		})) {
-			vErrors = vErrors === null ? validate68.errors : vErrors.concat(validate68.errors);
+			vErrors = vErrors === null ? validate71.errors : vErrors.concat(validate71.errors);
 			errors = vErrors.length;
 		}
 		var _valid0 = _errs2 === errors;
@@ -15526,7 +16515,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			if (vErrors === null) vErrors = [err0];
 			else vErrors.push(err0);
 			errors++;
-			validate142.errors = vErrors;
+			validate151.errors = vErrors;
 			return false;
 		} else {
 			errors = _errs0;
@@ -15535,24 +16524,948 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				else vErrors = null;
 			}
 		}
-		validate142.errors = vErrors;
+		validate151.errors = vErrors;
 		evaluated0.props = props0;
 		return errors === 0;
 	}
-	validate142.evaluated = {
+	validate151.evaluated = {
 		"dynamicProps": true,
 		"dynamicItems": false
 	};
-	exports.RuntimeComponent = validate145;
-	function validate145(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.RiskPolicy = validate154;
+	function validate154(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate145.evaluated;
+		const evaluated0 = validate154.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			for (const key0 in data) if (!(key0 === "liveInactivityTimeoutMinutes" || key0 === "marketOrdersEnabled" || key0 === "maxDailyRealizedLoss" || key0 === "maxDailyTradedNotional" || key0 === "maxOrderNotional" || key0 === "maxSingleInstrumentExposurePercent" || key0 === "staleQuoteThresholdSeconds")) {
+				validate154.errors = [{
+					instancePath,
+					schemaPath: "#/additionalProperties",
+					keyword: "additionalProperties",
+					params: { additionalProperty: key0 },
+					message: "must NOT have additional properties"
+				}];
+				return false;
+			}
+			if (data.liveInactivityTimeoutMinutes !== void 0) {
+				let data0 = data.liveInactivityTimeoutMinutes;
+				if (!(typeof data0 == "number" && !(data0 % 1) && !isNaN(data0))) {
+					validate154.errors = [{
+						instancePath: instancePath + "/liveInactivityTimeoutMinutes",
+						schemaPath: "#/properties/liveInactivityTimeoutMinutes/type",
+						keyword: "type",
+						params: { type: "integer" },
+						message: "must be integer"
+					}];
+					return false;
+				}
+				if (typeof data0 == "number") {
+					if (data0 > 1440 || isNaN(data0)) {
+						validate154.errors = [{
+							instancePath: instancePath + "/liveInactivityTimeoutMinutes",
+							schemaPath: "#/properties/liveInactivityTimeoutMinutes/maximum",
+							keyword: "maximum",
+							params: {
+								comparison: "<=",
+								limit: 1440
+							},
+							message: "must be <= 1440"
+						}];
+						return false;
+					} else if (data0 < 1 || isNaN(data0)) {
+						validate154.errors = [{
+							instancePath: instancePath + "/liveInactivityTimeoutMinutes",
+							schemaPath: "#/properties/liveInactivityTimeoutMinutes/minimum",
+							keyword: "minimum",
+							params: {
+								comparison: ">=",
+								limit: 1
+							},
+							message: "must be >= 1"
+						}];
+						return false;
+					}
+				}
+				var valid0 = true;
+			} else var valid0 = true;
+			if (valid0) {
+				if (data.marketOrdersEnabled !== void 0) {
+					if (typeof data.marketOrdersEnabled !== "boolean") {
+						validate154.errors = [{
+							instancePath: instancePath + "/marketOrdersEnabled",
+							schemaPath: "#/properties/marketOrdersEnabled/type",
+							keyword: "type",
+							params: { type: "boolean" },
+							message: "must be boolean"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.maxDailyRealizedLoss !== void 0) {
+						let data2 = data.maxDailyRealizedLoss;
+						if (typeof data2 !== "string" && data2 !== null) {
+							validate154.errors = [{
+								instancePath: instancePath + "/maxDailyRealizedLoss",
+								schemaPath: "#/properties/maxDailyRealizedLoss/type",
+								keyword: "type",
+								params: { type: schema72.properties.maxDailyRealizedLoss.type },
+								message: "must be string,null"
+							}];
+							return false;
+						}
+						if (typeof data2 === "string") {
+							if (func1(data2) > 32) {
+								validate154.errors = [{
+									instancePath: instancePath + "/maxDailyRealizedLoss",
+									schemaPath: "#/properties/maxDailyRealizedLoss/maxLength",
+									keyword: "maxLength",
+									params: { limit: 32 },
+									message: "must NOT have more than 32 characters"
+								}];
+								return false;
+							}
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.maxDailyTradedNotional !== void 0) {
+							let data3 = data.maxDailyTradedNotional;
+							if (typeof data3 !== "string" && data3 !== null) {
+								validate154.errors = [{
+									instancePath: instancePath + "/maxDailyTradedNotional",
+									schemaPath: "#/properties/maxDailyTradedNotional/type",
+									keyword: "type",
+									params: { type: schema72.properties.maxDailyTradedNotional.type },
+									message: "must be string,null"
+								}];
+								return false;
+							}
+							if (typeof data3 === "string") {
+								if (func1(data3) > 32) {
+									validate154.errors = [{
+										instancePath: instancePath + "/maxDailyTradedNotional",
+										schemaPath: "#/properties/maxDailyTradedNotional/maxLength",
+										keyword: "maxLength",
+										params: { limit: 32 },
+										message: "must NOT have more than 32 characters"
+									}];
+									return false;
+								}
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+						if (valid0) {
+							if (data.maxOrderNotional !== void 0) {
+								let data4 = data.maxOrderNotional;
+								if (typeof data4 !== "string" && data4 !== null) {
+									validate154.errors = [{
+										instancePath: instancePath + "/maxOrderNotional",
+										schemaPath: "#/properties/maxOrderNotional/type",
+										keyword: "type",
+										params: { type: schema72.properties.maxOrderNotional.type },
+										message: "must be string,null"
+									}];
+									return false;
+								}
+								if (typeof data4 === "string") {
+									if (func1(data4) > 32) {
+										validate154.errors = [{
+											instancePath: instancePath + "/maxOrderNotional",
+											schemaPath: "#/properties/maxOrderNotional/maxLength",
+											keyword: "maxLength",
+											params: { limit: 32 },
+											message: "must NOT have more than 32 characters"
+										}];
+										return false;
+									}
+								}
+								var valid0 = true;
+							} else var valid0 = true;
+							if (valid0) {
+								if (data.maxSingleInstrumentExposurePercent !== void 0) {
+									let data5 = data.maxSingleInstrumentExposurePercent;
+									if (typeof data5 !== "string" && data5 !== null) {
+										validate154.errors = [{
+											instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
+											schemaPath: "#/properties/maxSingleInstrumentExposurePercent/type",
+											keyword: "type",
+											params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+											message: "must be string,null"
+										}];
+										return false;
+									}
+									if (typeof data5 === "string") {
+										if (func1(data5) > 32) {
+											validate154.errors = [{
+												instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
+												schemaPath: "#/properties/maxSingleInstrumentExposurePercent/maxLength",
+												keyword: "maxLength",
+												params: { limit: 32 },
+												message: "must NOT have more than 32 characters"
+											}];
+											return false;
+										}
+									}
+									var valid0 = true;
+								} else var valid0 = true;
+								if (valid0) {
+									if (data.staleQuoteThresholdSeconds !== void 0) {
+										let data6 = data.staleQuoteThresholdSeconds;
+										if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
+											validate154.errors = [{
+												instancePath: instancePath + "/staleQuoteThresholdSeconds",
+												schemaPath: "#/properties/staleQuoteThresholdSeconds/type",
+												keyword: "type",
+												params: { type: "integer" },
+												message: "must be integer"
+											}];
+											return false;
+										}
+										if (typeof data6 == "number") {
+											if (data6 > 86400 || isNaN(data6)) {
+												validate154.errors = [{
+													instancePath: instancePath + "/staleQuoteThresholdSeconds",
+													schemaPath: "#/properties/staleQuoteThresholdSeconds/maximum",
+													keyword: "maximum",
+													params: {
+														comparison: "<=",
+														limit: 86400
+													},
+													message: "must be <= 86400"
+												}];
+												return false;
+											} else if (data6 < 1 || isNaN(data6)) {
+												validate154.errors = [{
+													instancePath: instancePath + "/staleQuoteThresholdSeconds",
+													schemaPath: "#/properties/staleQuoteThresholdSeconds/minimum",
+													keyword: "minimum",
+													params: {
+														comparison: ">=",
+														limit: 1
+													},
+													message: "must be >= 1"
+												}];
+												return false;
+											}
+										}
+										var valid0 = true;
+									} else var valid0 = true;
+								}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			validate154.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate154.errors = vErrors;
+		return true;
+	}
+	validate154.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.RiskPolicyState = validate155;
+	function validate155(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate155.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.stateVersion === void 0 && (missing0 = "stateVersion") || data.policyVersion === void 0 && (missing0 = "policyVersion") || data.configured === void 0 && (missing0 = "configured") || data.onboardingStep === void 0 && (missing0 = "onboardingStep") || data.onboardingCompleted === void 0 && (missing0 = "onboardingCompleted") || data.policy === void 0 && (missing0 = "policy") || data.hardRules === void 0 && (missing0 = "hardRules") || data.updatedAt === void 0 && (missing0 = "updatedAt")) {
+				validate155.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!func31.call(schema70.properties, key0)) {
+					validate155.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.configured !== void 0) {
+					if (typeof data.configured !== "boolean") {
+						validate155.errors = [{
+							instancePath: instancePath + "/configured",
+							schemaPath: "#/properties/configured/type",
+							keyword: "type",
+							params: { type: "boolean" },
+							message: "must be boolean"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.hardRules !== void 0) {
+						let data1 = data.hardRules;
+						if (Array.isArray(data1)) {
+							const len0 = data1.length;
+							for (let i0 = 0; i0 < len0; i0++) {
+								let data2 = data1[i0];
+								if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
+									let missing1;
+									if (data2.id === void 0 && (missing1 = "id") || data2.description === void 0 && (missing1 = "description")) {
+										validate155.errors = [{
+											instancePath: instancePath + "/hardRules/" + i0,
+											schemaPath: "#/$defs/HardSafetyRule/required",
+											keyword: "required",
+											params: { missingProperty: missing1 },
+											message: "must have required property '" + missing1 + "'"
+										}];
+										return false;
+									} else {
+										for (const key1 in data2) if (!(key1 === "description" || key1 === "id")) {
+											validate155.errors = [{
+												instancePath: instancePath + "/hardRules/" + i0,
+												schemaPath: "#/$defs/HardSafetyRule/additionalProperties",
+												keyword: "additionalProperties",
+												params: { additionalProperty: key1 },
+												message: "must NOT have additional properties"
+											}];
+											return false;
+										}
+										if (data2.description !== void 0) {
+											let data3 = data2.description;
+											if (typeof data3 === "string") {
+												if (func1(data3) > 256) {
+													validate155.errors = [{
+														instancePath: instancePath + "/hardRules/" + i0 + "/description",
+														schemaPath: "#/$defs/HardSafetyRule/properties/description/maxLength",
+														keyword: "maxLength",
+														params: { limit: 256 },
+														message: "must NOT have more than 256 characters"
+													}];
+													return false;
+												} else if (func1(data3) < 1) {
+													validate155.errors = [{
+														instancePath: instancePath + "/hardRules/" + i0 + "/description",
+														schemaPath: "#/$defs/HardSafetyRule/properties/description/minLength",
+														keyword: "minLength",
+														params: { limit: 1 },
+														message: "must NOT have fewer than 1 characters"
+													}];
+													return false;
+												}
+											} else {
+												validate155.errors = [{
+													instancePath: instancePath + "/hardRules/" + i0 + "/description",
+													schemaPath: "#/$defs/HardSafetyRule/properties/description/type",
+													keyword: "type",
+													params: { type: "string" },
+													message: "must be string"
+												}];
+												return false;
+											}
+											var valid3 = true;
+										} else var valid3 = true;
+										if (valid3) {
+											if (data2.id !== void 0) {
+												let data4 = data2.id;
+												if (typeof data4 === "string") {
+													if (func1(data4) > 64) {
+														validate155.errors = [{
+															instancePath: instancePath + "/hardRules/" + i0 + "/id",
+															schemaPath: "#/$defs/HardSafetyRule/properties/id/maxLength",
+															keyword: "maxLength",
+															params: { limit: 64 },
+															message: "must NOT have more than 64 characters"
+														}];
+														return false;
+													} else if (func1(data4) < 1) {
+														validate155.errors = [{
+															instancePath: instancePath + "/hardRules/" + i0 + "/id",
+															schemaPath: "#/$defs/HardSafetyRule/properties/id/minLength",
+															keyword: "minLength",
+															params: { limit: 1 },
+															message: "must NOT have fewer than 1 characters"
+														}];
+														return false;
+													}
+												} else {
+													validate155.errors = [{
+														instancePath: instancePath + "/hardRules/" + i0 + "/id",
+														schemaPath: "#/$defs/HardSafetyRule/properties/id/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
+												var valid3 = true;
+											} else var valid3 = true;
+										}
+									}
+								} else {
+									validate155.errors = [{
+										instancePath: instancePath + "/hardRules/" + i0,
+										schemaPath: "#/$defs/HardSafetyRule/type",
+										keyword: "type",
+										params: { type: "object" },
+										message: "must be object"
+									}];
+									return false;
+								}
+							}
+						} else {
+							validate155.errors = [{
+								instancePath: instancePath + "/hardRules",
+								schemaPath: "#/properties/hardRules/type",
+								keyword: "type",
+								params: { type: "array" },
+								message: "must be array"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.onboardingCompleted !== void 0) {
+							if (typeof data.onboardingCompleted !== "boolean") {
+								validate155.errors = [{
+									instancePath: instancePath + "/onboardingCompleted",
+									schemaPath: "#/properties/onboardingCompleted/type",
+									keyword: "type",
+									params: { type: "boolean" },
+									message: "must be boolean"
+								}];
+								return false;
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+						if (valid0) {
+							if (data.onboardingStep !== void 0) {
+								let data6 = data.onboardingStep;
+								if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
+									validate155.errors = [{
+										instancePath: instancePath + "/onboardingStep",
+										schemaPath: "#/properties/onboardingStep/type",
+										keyword: "type",
+										params: { type: "integer" },
+										message: "must be integer"
+									}];
+									return false;
+								}
+								if (typeof data6 == "number") {
+									if (data6 > 5 || isNaN(data6)) {
+										validate155.errors = [{
+											instancePath: instancePath + "/onboardingStep",
+											schemaPath: "#/properties/onboardingStep/maximum",
+											keyword: "maximum",
+											params: {
+												comparison: "<=",
+												limit: 5
+											},
+											message: "must be <= 5"
+										}];
+										return false;
+									} else if (data6 < 1 || isNaN(data6)) {
+										validate155.errors = [{
+											instancePath: instancePath + "/onboardingStep",
+											schemaPath: "#/properties/onboardingStep/minimum",
+											keyword: "minimum",
+											params: {
+												comparison: ">=",
+												limit: 1
+											},
+											message: "must be >= 1"
+										}];
+										return false;
+									}
+								}
+								var valid0 = true;
+							} else var valid0 = true;
+							if (valid0) {
+								if (data.policy !== void 0) {
+									let data7 = data.policy;
+									if (data7 && typeof data7 == "object" && !Array.isArray(data7)) {
+										for (const key2 in data7) if (!(key2 === "liveInactivityTimeoutMinutes" || key2 === "marketOrdersEnabled" || key2 === "maxDailyRealizedLoss" || key2 === "maxDailyTradedNotional" || key2 === "maxOrderNotional" || key2 === "maxSingleInstrumentExposurePercent" || key2 === "staleQuoteThresholdSeconds")) {
+											validate155.errors = [{
+												instancePath: instancePath + "/policy",
+												schemaPath: "#/$defs/RiskPolicy/additionalProperties",
+												keyword: "additionalProperties",
+												params: { additionalProperty: key2 },
+												message: "must NOT have additional properties"
+											}];
+											return false;
+										}
+										if (data7.liveInactivityTimeoutMinutes !== void 0) {
+											let data8 = data7.liveInactivityTimeoutMinutes;
+											if (!(typeof data8 == "number" && !(data8 % 1) && !isNaN(data8))) {
+												validate155.errors = [{
+													instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+													schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/type",
+													keyword: "type",
+													params: { type: "integer" },
+													message: "must be integer"
+												}];
+												return false;
+											}
+											if (typeof data8 == "number") {
+												if (data8 > 1440 || isNaN(data8)) {
+													validate155.errors = [{
+														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/maximum",
+														keyword: "maximum",
+														params: {
+															comparison: "<=",
+															limit: 1440
+														},
+														message: "must be <= 1440"
+													}];
+													return false;
+												} else if (data8 < 1 || isNaN(data8)) {
+													validate155.errors = [{
+														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/minimum",
+														keyword: "minimum",
+														params: {
+															comparison: ">=",
+															limit: 1
+														},
+														message: "must be >= 1"
+													}];
+													return false;
+												}
+											}
+											var valid5 = true;
+										} else var valid5 = true;
+										if (valid5) {
+											if (data7.marketOrdersEnabled !== void 0) {
+												if (typeof data7.marketOrdersEnabled !== "boolean") {
+													validate155.errors = [{
+														instancePath: instancePath + "/policy/marketOrdersEnabled",
+														schemaPath: "#/$defs/RiskPolicy/properties/marketOrdersEnabled/type",
+														keyword: "type",
+														params: { type: "boolean" },
+														message: "must be boolean"
+													}];
+													return false;
+												}
+												var valid5 = true;
+											} else var valid5 = true;
+											if (valid5) {
+												if (data7.maxDailyRealizedLoss !== void 0) {
+													let data10 = data7.maxDailyRealizedLoss;
+													if (typeof data10 !== "string" && data10 !== null) {
+														validate155.errors = [{
+															instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+															schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
+															keyword: "type",
+															params: { type: schema72.properties.maxDailyRealizedLoss.type },
+															message: "must be string,null"
+														}];
+														return false;
+													}
+													if (typeof data10 === "string") {
+														if (func1(data10) > 32) {
+															validate155.errors = [{
+																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/maxLength",
+																keyword: "maxLength",
+																params: { limit: 32 },
+																message: "must NOT have more than 32 characters"
+															}];
+															return false;
+														}
+													}
+													var valid5 = true;
+												} else var valid5 = true;
+												if (valid5) {
+													if (data7.maxDailyTradedNotional !== void 0) {
+														let data11 = data7.maxDailyTradedNotional;
+														if (typeof data11 !== "string" && data11 !== null) {
+															validate155.errors = [{
+																instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
+																keyword: "type",
+																params: { type: schema72.properties.maxDailyTradedNotional.type },
+																message: "must be string,null"
+															}];
+															return false;
+														}
+														if (typeof data11 === "string") {
+															if (func1(data11) > 32) {
+																validate155.errors = [{
+																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/maxLength",
+																	keyword: "maxLength",
+																	params: { limit: 32 },
+																	message: "must NOT have more than 32 characters"
+																}];
+																return false;
+															}
+														}
+														var valid5 = true;
+													} else var valid5 = true;
+													if (valid5) {
+														if (data7.maxOrderNotional !== void 0) {
+															let data12 = data7.maxOrderNotional;
+															if (typeof data12 !== "string" && data12 !== null) {
+																validate155.errors = [{
+																	instancePath: instancePath + "/policy/maxOrderNotional",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
+																	keyword: "type",
+																	params: { type: schema72.properties.maxOrderNotional.type },
+																	message: "must be string,null"
+																}];
+																return false;
+															}
+															if (typeof data12 === "string") {
+																if (func1(data12) > 32) {
+																	validate155.errors = [{
+																		instancePath: instancePath + "/policy/maxOrderNotional",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/maxLength",
+																		keyword: "maxLength",
+																		params: { limit: 32 },
+																		message: "must NOT have more than 32 characters"
+																	}];
+																	return false;
+																}
+															}
+															var valid5 = true;
+														} else var valid5 = true;
+														if (valid5) {
+															if (data7.maxSingleInstrumentExposurePercent !== void 0) {
+																let data13 = data7.maxSingleInstrumentExposurePercent;
+																if (typeof data13 !== "string" && data13 !== null) {
+																	validate155.errors = [{
+																		instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
+																		keyword: "type",
+																		params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+																		message: "must be string,null"
+																	}];
+																	return false;
+																}
+																if (typeof data13 === "string") {
+																	if (func1(data13) > 32) {
+																		validate155.errors = [{
+																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/maxLength",
+																			keyword: "maxLength",
+																			params: { limit: 32 },
+																			message: "must NOT have more than 32 characters"
+																		}];
+																		return false;
+																	}
+																}
+																var valid5 = true;
+															} else var valid5 = true;
+															if (valid5) {
+																if (data7.staleQuoteThresholdSeconds !== void 0) {
+																	let data14 = data7.staleQuoteThresholdSeconds;
+																	if (!(typeof data14 == "number" && !(data14 % 1) && !isNaN(data14))) {
+																		validate155.errors = [{
+																			instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																			schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/type",
+																			keyword: "type",
+																			params: { type: "integer" },
+																			message: "must be integer"
+																		}];
+																		return false;
+																	}
+																	if (typeof data14 == "number") {
+																		if (data14 > 86400 || isNaN(data14)) {
+																			validate155.errors = [{
+																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/maximum",
+																				keyword: "maximum",
+																				params: {
+																					comparison: "<=",
+																					limit: 86400
+																				},
+																				message: "must be <= 86400"
+																			}];
+																			return false;
+																		} else if (data14 < 1 || isNaN(data14)) {
+																			validate155.errors = [{
+																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/minimum",
+																				keyword: "minimum",
+																				params: {
+																					comparison: ">=",
+																					limit: 1
+																				},
+																				message: "must be >= 1"
+																			}];
+																			return false;
+																		}
+																	}
+																	var valid5 = true;
+																} else var valid5 = true;
+															}
+														}
+													}
+												}
+											}
+										}
+									} else {
+										validate155.errors = [{
+											instancePath: instancePath + "/policy",
+											schemaPath: "#/$defs/RiskPolicy/type",
+											keyword: "type",
+											params: { type: "object" },
+											message: "must be object"
+										}];
+										return false;
+									}
+									var valid0 = true;
+								} else var valid0 = true;
+								if (valid0) {
+									if (data.policyVersion !== void 0) {
+										let data15 = data.policyVersion;
+										if (!(typeof data15 == "number" && !(data15 % 1) && !isNaN(data15))) {
+											validate155.errors = [{
+												instancePath: instancePath + "/policyVersion",
+												schemaPath: "#/properties/policyVersion/type",
+												keyword: "type",
+												params: { type: "integer" },
+												message: "must be integer"
+											}];
+											return false;
+										}
+										if (typeof data15 == "number") {
+											if (data15 < 1 || isNaN(data15)) {
+												validate155.errors = [{
+													instancePath: instancePath + "/policyVersion",
+													schemaPath: "#/properties/policyVersion/minimum",
+													keyword: "minimum",
+													params: {
+														comparison: ">=",
+														limit: 1
+													},
+													message: "must be >= 1"
+												}];
+												return false;
+											}
+										}
+										var valid0 = true;
+									} else var valid0 = true;
+									if (valid0) {
+										if (data.stateVersion !== void 0) {
+											let data16 = data.stateVersion;
+											if (typeof data16 === "string") {
+												if (func1(data16) > 256) {
+													validate155.errors = [{
+														instancePath: instancePath + "/stateVersion",
+														schemaPath: "#/properties/stateVersion/maxLength",
+														keyword: "maxLength",
+														params: { limit: 256 },
+														message: "must NOT have more than 256 characters"
+													}];
+													return false;
+												} else if (func1(data16) < 1) {
+													validate155.errors = [{
+														instancePath: instancePath + "/stateVersion",
+														schemaPath: "#/properties/stateVersion/minLength",
+														keyword: "minLength",
+														params: { limit: 1 },
+														message: "must NOT have fewer than 1 characters"
+													}];
+													return false;
+												}
+											} else {
+												validate155.errors = [{
+													instancePath: instancePath + "/stateVersion",
+													schemaPath: "#/properties/stateVersion/type",
+													keyword: "type",
+													params: { type: "string" },
+													message: "must be string"
+												}];
+												return false;
+											}
+											var valid0 = true;
+										} else var valid0 = true;
+										if (valid0) {
+											if (data.updatedAt !== void 0) {
+												if (typeof data.updatedAt !== "string") {
+													validate155.errors = [{
+														instancePath: instancePath + "/updatedAt",
+														schemaPath: "#/properties/updatedAt/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
+												var valid0 = true;
+											} else var valid0 = true;
+											if (valid0) {
+												if (data.workspaceId !== void 0) {
+													let data18 = data.workspaceId;
+													if (typeof data18 === "string") {
+														if (func1(data18) > 128) {
+															validate155.errors = [{
+																instancePath: instancePath + "/workspaceId",
+																schemaPath: "#/properties/workspaceId/maxLength",
+																keyword: "maxLength",
+																params: { limit: 128 },
+																message: "must NOT have more than 128 characters"
+															}];
+															return false;
+														} else if (func1(data18) < 1) {
+															validate155.errors = [{
+																instancePath: instancePath + "/workspaceId",
+																schemaPath: "#/properties/workspaceId/minLength",
+																keyword: "minLength",
+																params: { limit: 1 },
+																message: "must NOT have fewer than 1 characters"
+															}];
+															return false;
+														}
+													} else {
+														validate155.errors = [{
+															instancePath: instancePath + "/workspaceId",
+															schemaPath: "#/properties/workspaceId/type",
+															keyword: "type",
+															params: { type: "string" },
+															message: "must be string"
+														}];
+														return false;
+													}
+													var valid0 = true;
+												} else var valid0 = true;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			validate155.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate155.errors = vErrors;
+		return true;
+	}
+	validate155.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.RiskQuery = validate156;
+	function validate156(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate156.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId")) {
+				validate156.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "workspaceId")) {
+					validate156.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.workspaceId !== void 0) {
+					let data0 = data.workspaceId;
+					if (typeof data0 === "string") {
+						if (func1(data0) > 128) {
+							validate156.errors = [{
+								instancePath: instancePath + "/workspaceId",
+								schemaPath: "#/properties/workspaceId/maxLength",
+								keyword: "maxLength",
+								params: { limit: 128 },
+								message: "must NOT have more than 128 characters"
+							}];
+							return false;
+						} else if (func1(data0) < 1) {
+							validate156.errors = [{
+								instancePath: instancePath + "/workspaceId",
+								schemaPath: "#/properties/workspaceId/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
+						validate156.errors = [{
+							instancePath: instancePath + "/workspaceId",
+							schemaPath: "#/properties/workspaceId/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+				}
+			}
+		} else {
+			validate156.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate156.errors = vErrors;
+		return true;
+	}
+	validate156.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.RuntimeComponent = validate157;
+	function validate157(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate157.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.id === void 0 && (missing0 = "id") || data.status === void 0 && (missing0 = "status") || data.message === void 0 && (missing0 = "message")) {
-				validate145.errors = [{
+				validate157.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -15562,7 +17475,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "id" || key0 === "message" || key0 === "status")) {
-					validate145.errors = [{
+					validate157.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -15575,7 +17488,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data0 = data.id;
 					if (typeof data0 === "string") {
 						if (func1(data0) < 1) {
-							validate145.errors = [{
+							validate157.errors = [{
 								instancePath: instancePath + "/id",
 								schemaPath: "#/properties/id/minLength",
 								keyword: "minLength",
@@ -15585,7 +17498,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate145.errors = [{
+						validate157.errors = [{
 							instancePath: instancePath + "/id",
 							schemaPath: "#/properties/id/type",
 							keyword: "type",
@@ -15599,7 +17512,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.message !== void 0) {
 						if (typeof data.message !== "string") {
-							validate145.errors = [{
+							validate157.errors = [{
 								instancePath: instancePath + "/message",
 								schemaPath: "#/properties/message/type",
 								keyword: "type",
@@ -15613,7 +17526,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.status !== void 0) {
 							if (typeof data.status !== "string") {
-								validate145.errors = [{
+								validate157.errors = [{
 									instancePath: instancePath + "/status",
 									schemaPath: "#/properties/status/type",
 									keyword: "type",
@@ -15628,7 +17541,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate145.errors = [{
+			validate157.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -15637,24 +17550,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate145.errors = vErrors;
+		validate157.errors = vErrors;
 		return true;
 	}
-	validate145.evaluated = {
+	validate157.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.RuntimeStatus = validate146;
-	function validate146(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.RuntimeStatus = validate158;
+	function validate158(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate146.evaluated;
+		const evaluated0 = validate158.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.components === void 0 && (missing0 = "components") || data.modelAvailable === void 0 && (missing0 = "modelAvailable") || data.liveExecutionAvailable === void 0 && (missing0 = "liveExecutionAvailable")) {
-				validate146.errors = [{
+				validate158.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -15664,7 +17577,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "components" || key0 === "liveExecutionAvailable" || key0 === "modelAvailable")) {
-					validate146.errors = [{
+					validate158.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -15682,7 +17595,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
 								let missing1;
 								if (data1.id === void 0 && (missing1 = "id") || data1.status === void 0 && (missing1 = "status") || data1.message === void 0 && (missing1 = "message")) {
-									validate146.errors = [{
+									validate158.errors = [{
 										instancePath: instancePath + "/components/" + i0,
 										schemaPath: "#/$defs/RuntimeComponent/required",
 										keyword: "required",
@@ -15692,7 +17605,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								} else {
 									for (const key1 in data1) if (!(key1 === "id" || key1 === "message" || key1 === "status")) {
-										validate146.errors = [{
+										validate158.errors = [{
 											instancePath: instancePath + "/components/" + i0,
 											schemaPath: "#/$defs/RuntimeComponent/additionalProperties",
 											keyword: "additionalProperties",
@@ -15705,7 +17618,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data2 = data1.id;
 										if (typeof data2 === "string") {
 											if (func1(data2) < 1) {
-												validate146.errors = [{
+												validate158.errors = [{
 													instancePath: instancePath + "/components/" + i0 + "/id",
 													schemaPath: "#/$defs/RuntimeComponent/properties/id/minLength",
 													keyword: "minLength",
@@ -15715,7 +17628,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											}
 										} else {
-											validate146.errors = [{
+											validate158.errors = [{
 												instancePath: instancePath + "/components/" + i0 + "/id",
 												schemaPath: "#/$defs/RuntimeComponent/properties/id/type",
 												keyword: "type",
@@ -15729,7 +17642,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (valid3) {
 										if (data1.message !== void 0) {
 											if (typeof data1.message !== "string") {
-												validate146.errors = [{
+												validate158.errors = [{
 													instancePath: instancePath + "/components/" + i0 + "/message",
 													schemaPath: "#/$defs/RuntimeComponent/properties/message/type",
 													keyword: "type",
@@ -15743,7 +17656,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (valid3) {
 											if (data1.status !== void 0) {
 												if (typeof data1.status !== "string") {
-													validate146.errors = [{
+													validate158.errors = [{
 														instancePath: instancePath + "/components/" + i0 + "/status",
 														schemaPath: "#/$defs/RuntimeComponent/properties/status/type",
 														keyword: "type",
@@ -15758,7 +17671,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}
 								}
 							} else {
-								validate146.errors = [{
+								validate158.errors = [{
 									instancePath: instancePath + "/components/" + i0,
 									schemaPath: "#/$defs/RuntimeComponent/type",
 									keyword: "type",
@@ -15769,7 +17682,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}
 						}
 					} else {
-						validate146.errors = [{
+						validate158.errors = [{
 							instancePath: instancePath + "/components",
 							schemaPath: "#/properties/components/type",
 							keyword: "type",
@@ -15783,7 +17696,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.liveExecutionAvailable !== void 0) {
 						if (typeof data.liveExecutionAvailable !== "boolean") {
-							validate146.errors = [{
+							validate158.errors = [{
 								instancePath: instancePath + "/liveExecutionAvailable",
 								schemaPath: "#/properties/liveExecutionAvailable/type",
 								keyword: "type",
@@ -15797,7 +17710,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.modelAvailable !== void 0) {
 							if (typeof data.modelAvailable !== "boolean") {
-								validate146.errors = [{
+								validate158.errors = [{
 									instancePath: instancePath + "/modelAvailable",
 									schemaPath: "#/properties/modelAvailable/type",
 									keyword: "type",
@@ -15812,7 +17725,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate146.errors = [{
+			validate158.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -15821,26 +17734,381 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate146.errors = vErrors;
+		validate158.errors = vErrors;
 		return true;
 	}
-	validate146.evaluated = {
+	validate158.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.SetDefaultModel = validate147;
-	function validate147(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.SaveRiskPolicy = validate159;
+	function validate159(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate159.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.policy === void 0 && (missing0 = "policy")) {
+				validate159.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "policy" || key0 === "workspaceId")) {
+					validate159.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.expectedStateVersion !== void 0) {
+					let data0 = data.expectedStateVersion;
+					if (typeof data0 === "string") {
+						if (func1(data0) > 256) {
+							validate159.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/maxLength",
+								keyword: "maxLength",
+								params: { limit: 256 },
+								message: "must NOT have more than 256 characters"
+							}];
+							return false;
+						} else if (func1(data0) < 1) {
+							validate159.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
+						validate159.errors = [{
+							instancePath: instancePath + "/expectedStateVersion",
+							schemaPath: "#/properties/expectedStateVersion/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.policy !== void 0) {
+						let data1 = data.policy;
+						if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
+							for (const key1 in data1) if (!(key1 === "liveInactivityTimeoutMinutes" || key1 === "marketOrdersEnabled" || key1 === "maxDailyRealizedLoss" || key1 === "maxDailyTradedNotional" || key1 === "maxOrderNotional" || key1 === "maxSingleInstrumentExposurePercent" || key1 === "staleQuoteThresholdSeconds")) {
+								validate159.errors = [{
+									instancePath: instancePath + "/policy",
+									schemaPath: "#/$defs/RiskPolicy/additionalProperties",
+									keyword: "additionalProperties",
+									params: { additionalProperty: key1 },
+									message: "must NOT have additional properties"
+								}];
+								return false;
+							}
+							if (data1.liveInactivityTimeoutMinutes !== void 0) {
+								let data2 = data1.liveInactivityTimeoutMinutes;
+								if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
+									validate159.errors = [{
+										instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+										schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/type",
+										keyword: "type",
+										params: { type: "integer" },
+										message: "must be integer"
+									}];
+									return false;
+								}
+								if (typeof data2 == "number") {
+									if (data2 > 1440 || isNaN(data2)) {
+										validate159.errors = [{
+											instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+											schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/maximum",
+											keyword: "maximum",
+											params: {
+												comparison: "<=",
+												limit: 1440
+											},
+											message: "must be <= 1440"
+										}];
+										return false;
+									} else if (data2 < 1 || isNaN(data2)) {
+										validate159.errors = [{
+											instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+											schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/minimum",
+											keyword: "minimum",
+											params: {
+												comparison: ">=",
+												limit: 1
+											},
+											message: "must be >= 1"
+										}];
+										return false;
+									}
+								}
+								var valid2 = true;
+							} else var valid2 = true;
+							if (valid2) {
+								if (data1.marketOrdersEnabled !== void 0) {
+									if (typeof data1.marketOrdersEnabled !== "boolean") {
+										validate159.errors = [{
+											instancePath: instancePath + "/policy/marketOrdersEnabled",
+											schemaPath: "#/$defs/RiskPolicy/properties/marketOrdersEnabled/type",
+											keyword: "type",
+											params: { type: "boolean" },
+											message: "must be boolean"
+										}];
+										return false;
+									}
+									var valid2 = true;
+								} else var valid2 = true;
+								if (valid2) {
+									if (data1.maxDailyRealizedLoss !== void 0) {
+										let data4 = data1.maxDailyRealizedLoss;
+										if (typeof data4 !== "string" && data4 !== null) {
+											validate159.errors = [{
+												instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+												schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
+												keyword: "type",
+												params: { type: schema72.properties.maxDailyRealizedLoss.type },
+												message: "must be string,null"
+											}];
+											return false;
+										}
+										if (typeof data4 === "string") {
+											if (func1(data4) > 32) {
+												validate159.errors = [{
+													instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+													schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/maxLength",
+													keyword: "maxLength",
+													params: { limit: 32 },
+													message: "must NOT have more than 32 characters"
+												}];
+												return false;
+											}
+										}
+										var valid2 = true;
+									} else var valid2 = true;
+									if (valid2) {
+										if (data1.maxDailyTradedNotional !== void 0) {
+											let data5 = data1.maxDailyTradedNotional;
+											if (typeof data5 !== "string" && data5 !== null) {
+												validate159.errors = [{
+													instancePath: instancePath + "/policy/maxDailyTradedNotional",
+													schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
+													keyword: "type",
+													params: { type: schema72.properties.maxDailyTradedNotional.type },
+													message: "must be string,null"
+												}];
+												return false;
+											}
+											if (typeof data5 === "string") {
+												if (func1(data5) > 32) {
+													validate159.errors = [{
+														instancePath: instancePath + "/policy/maxDailyTradedNotional",
+														schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/maxLength",
+														keyword: "maxLength",
+														params: { limit: 32 },
+														message: "must NOT have more than 32 characters"
+													}];
+													return false;
+												}
+											}
+											var valid2 = true;
+										} else var valid2 = true;
+										if (valid2) {
+											if (data1.maxOrderNotional !== void 0) {
+												let data6 = data1.maxOrderNotional;
+												if (typeof data6 !== "string" && data6 !== null) {
+													validate159.errors = [{
+														instancePath: instancePath + "/policy/maxOrderNotional",
+														schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
+														keyword: "type",
+														params: { type: schema72.properties.maxOrderNotional.type },
+														message: "must be string,null"
+													}];
+													return false;
+												}
+												if (typeof data6 === "string") {
+													if (func1(data6) > 32) {
+														validate159.errors = [{
+															instancePath: instancePath + "/policy/maxOrderNotional",
+															schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/maxLength",
+															keyword: "maxLength",
+															params: { limit: 32 },
+															message: "must NOT have more than 32 characters"
+														}];
+														return false;
+													}
+												}
+												var valid2 = true;
+											} else var valid2 = true;
+											if (valid2) {
+												if (data1.maxSingleInstrumentExposurePercent !== void 0) {
+													let data7 = data1.maxSingleInstrumentExposurePercent;
+													if (typeof data7 !== "string" && data7 !== null) {
+														validate159.errors = [{
+															instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+															schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
+															keyword: "type",
+															params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+															message: "must be string,null"
+														}];
+														return false;
+													}
+													if (typeof data7 === "string") {
+														if (func1(data7) > 32) {
+															validate159.errors = [{
+																instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/maxLength",
+																keyword: "maxLength",
+																params: { limit: 32 },
+																message: "must NOT have more than 32 characters"
+															}];
+															return false;
+														}
+													}
+													var valid2 = true;
+												} else var valid2 = true;
+												if (valid2) {
+													if (data1.staleQuoteThresholdSeconds !== void 0) {
+														let data8 = data1.staleQuoteThresholdSeconds;
+														if (!(typeof data8 == "number" && !(data8 % 1) && !isNaN(data8))) {
+															validate159.errors = [{
+																instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/type",
+																keyword: "type",
+																params: { type: "integer" },
+																message: "must be integer"
+															}];
+															return false;
+														}
+														if (typeof data8 == "number") {
+															if (data8 > 86400 || isNaN(data8)) {
+																validate159.errors = [{
+																	instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																	schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/maximum",
+																	keyword: "maximum",
+																	params: {
+																		comparison: "<=",
+																		limit: 86400
+																	},
+																	message: "must be <= 86400"
+																}];
+																return false;
+															} else if (data8 < 1 || isNaN(data8)) {
+																validate159.errors = [{
+																	instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																	schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/minimum",
+																	keyword: "minimum",
+																	params: {
+																		comparison: ">=",
+																		limit: 1
+																	},
+																	message: "must be >= 1"
+																}];
+																return false;
+															}
+														}
+														var valid2 = true;
+													} else var valid2 = true;
+												}
+											}
+										}
+									}
+								}
+							}
+						} else {
+							validate159.errors = [{
+								instancePath: instancePath + "/policy",
+								schemaPath: "#/$defs/RiskPolicy/type",
+								keyword: "type",
+								params: { type: "object" },
+								message: "must be object"
+							}];
+							return false;
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.workspaceId !== void 0) {
+							let data9 = data.workspaceId;
+							if (typeof data9 === "string") {
+								if (func1(data9) > 128) {
+									validate159.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/maxLength",
+										keyword: "maxLength",
+										params: { limit: 128 },
+										message: "must NOT have more than 128 characters"
+									}];
+									return false;
+								} else if (func1(data9) < 1) {
+									validate159.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/minLength",
+										keyword: "minLength",
+										params: { limit: 1 },
+										message: "must NOT have fewer than 1 characters"
+									}];
+									return false;
+								}
+							} else {
+								validate159.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/type",
+									keyword: "type",
+									params: { type: "string" },
+									message: "must be string"
+								}];
+								return false;
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+					}
+				}
+			}
+		} else {
+			validate159.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate159.errors = vErrors;
+		return true;
+	}
+	validate159.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.SetDefaultModel = validate160;
+	function validate160(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate147.evaluated;
+		const evaluated0 = validate160.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.provider === void 0 && (missing0 = "provider") || data.modelId === void 0 && (missing0 = "modelId")) {
-					validate147.errors = [{
+					validate160.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -15851,7 +18119,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "modelId" || key0 === "provider" || key0 === "thinkingType" || key0 === "workspaceId")) {
-						validate147.errors = [{
+						validate160.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -15867,7 +18135,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) > 256) {
-										validate147.errors = [{
+										validate160.errors = [{
 											instancePath: instancePath + "/expectedStateVersion",
 											schemaPath: "#/properties/expectedStateVersion/maxLength",
 											keyword: "maxLength",
@@ -15876,7 +18144,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									} else if (func1(data0) < 1) {
-										validate147.errors = [{
+										validate160.errors = [{
 											instancePath: instancePath + "/expectedStateVersion",
 											schemaPath: "#/properties/expectedStateVersion/minLength",
 											keyword: "minLength",
@@ -15886,7 +18154,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate147.errors = [{
+									validate160.errors = [{
 										instancePath: instancePath + "/expectedStateVersion",
 										schemaPath: "#/properties/expectedStateVersion/type",
 										keyword: "type",
@@ -15905,7 +18173,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (errors === _errs4) {
 									if (typeof data1 === "string") {
 										if (func1(data1) > 128) {
-											validate147.errors = [{
+											validate160.errors = [{
 												instancePath: instancePath + "/modelId",
 												schemaPath: "#/properties/modelId/maxLength",
 												keyword: "maxLength",
@@ -15914,7 +18182,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}];
 											return false;
 										} else if (func1(data1) < 1) {
-											validate147.errors = [{
+											validate160.errors = [{
 												instancePath: instancePath + "/modelId",
 												schemaPath: "#/properties/modelId/minLength",
 												keyword: "minLength",
@@ -15924,7 +18192,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 									} else {
-										validate147.errors = [{
+										validate160.errors = [{
 											instancePath: instancePath + "/modelId",
 											schemaPath: "#/properties/modelId/type",
 											keyword: "type",
@@ -15941,7 +18209,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									let data2 = data.provider;
 									const _errs6 = errors;
 									if (typeof data2 !== "string") {
-										validate147.errors = [{
+										validate160.errors = [{
 											instancePath: instancePath + "/provider",
 											schemaPath: "#/$defs/ModelProvider/type",
 											keyword: "type",
@@ -15951,11 +18219,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 									if (!(data2 === "CHATGPT" || data2 === "DEEPSEEK")) {
-										validate147.errors = [{
+										validate160.errors = [{
 											instancePath: instancePath + "/provider",
 											schemaPath: "#/$defs/ModelProvider/enum",
 											keyword: "enum",
-											params: { allowedValues: schema48.enum },
+											params: { allowedValues: schema49.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -15986,7 +18254,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/thinkingType",
 												schemaPath: "#/$defs/ThinkingType/enum",
 												keyword: "enum",
-												params: { allowedValues: schema50.enum },
+												params: { allowedValues: schema51.enum },
 												message: "must be equal to one of the allowed values"
 											};
 											if (vErrors === null) vErrors = [err1];
@@ -16021,7 +18289,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (vErrors === null) vErrors = [err3];
 											else vErrors.push(err3);
 											errors++;
-											validate147.errors = vErrors;
+											validate160.errors = vErrors;
 											return false;
 										} else {
 											errors = _errs10;
@@ -16039,7 +18307,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (errors === _errs16) {
 												if (typeof data4 === "string") {
 													if (func1(data4) > 128) {
-														validate147.errors = [{
+														validate160.errors = [{
 															instancePath: instancePath + "/workspaceId",
 															schemaPath: "#/properties/workspaceId/maxLength",
 															keyword: "maxLength",
@@ -16048,7 +18316,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else if (func1(data4) < 1) {
-														validate147.errors = [{
+														validate160.errors = [{
 															instancePath: instancePath + "/workspaceId",
 															schemaPath: "#/properties/workspaceId/minLength",
 															keyword: "minLength",
@@ -16058,7 +18326,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 												} else {
-													validate147.errors = [{
+													validate160.errors = [{
 														instancePath: instancePath + "/workspaceId",
 														schemaPath: "#/properties/workspaceId/type",
 														keyword: "type",
@@ -16077,7 +18345,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate147.errors = [{
+				validate160.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -16087,24 +18355,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate147.errors = vErrors;
+		validate160.errors = vErrors;
 		return errors === 0;
 	}
-	validate147.evaluated = {
+	validate160.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.SetFallbackPolicy = validate148;
-	function validate148(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.SetFallbackPolicy = validate161;
+	function validate161(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate148.evaluated;
+		const evaluated0 = validate161.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.automaticFallback === void 0 && (missing0 = "automaticFallback")) {
-				validate148.errors = [{
+				validate161.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -16114,7 +18382,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "automaticFallback" || key0 === "expectedStateVersion" || key0 === "workspaceId")) {
-					validate148.errors = [{
+					validate161.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -16125,7 +18393,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.automaticFallback !== void 0) {
 					if (typeof data.automaticFallback !== "boolean") {
-						validate148.errors = [{
+						validate161.errors = [{
 							instancePath: instancePath + "/automaticFallback",
 							schemaPath: "#/properties/automaticFallback/type",
 							keyword: "type",
@@ -16141,7 +18409,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						let data1 = data.expectedStateVersion;
 						if (typeof data1 === "string") {
 							if (func1(data1) > 256) {
-								validate148.errors = [{
+								validate161.errors = [{
 									instancePath: instancePath + "/expectedStateVersion",
 									schemaPath: "#/properties/expectedStateVersion/maxLength",
 									keyword: "maxLength",
@@ -16150,7 +18418,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (func1(data1) < 1) {
-								validate148.errors = [{
+								validate161.errors = [{
 									instancePath: instancePath + "/expectedStateVersion",
 									schemaPath: "#/properties/expectedStateVersion/minLength",
 									keyword: "minLength",
@@ -16160,7 +18428,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate148.errors = [{
+							validate161.errors = [{
 								instancePath: instancePath + "/expectedStateVersion",
 								schemaPath: "#/properties/expectedStateVersion/type",
 								keyword: "type",
@@ -16176,7 +18444,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							let data2 = data.workspaceId;
 							if (typeof data2 === "string") {
 								if (func1(data2) > 128) {
-									validate148.errors = [{
+									validate161.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/maxLength",
 										keyword: "maxLength",
@@ -16185,7 +18453,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								} else if (func1(data2) < 1) {
-									validate148.errors = [{
+									validate161.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/minLength",
 										keyword: "minLength",
@@ -16195,7 +18463,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 							} else {
-								validate148.errors = [{
+								validate161.errors = [{
 									instancePath: instancePath + "/workspaceId",
 									schemaPath: "#/properties/workspaceId/type",
 									keyword: "type",
@@ -16210,7 +18478,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate148.errors = [{
+			validate161.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -16219,26 +18487,186 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate148.errors = vErrors;
+		validate161.errors = vErrors;
 		return true;
 	}
-	validate148.evaluated = {
+	validate161.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Snapshot = validate149;
-	function validate149(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.SetOnboardingStep = validate162;
+	function validate162(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+		let vErrors = null;
+		const evaluated0 = validate162.evaluated;
+		if (evaluated0.dynamicProps) evaluated0.props = void 0;
+		if (evaluated0.dynamicItems) evaluated0.items = void 0;
+		if (data && typeof data == "object" && !Array.isArray(data)) {
+			let missing0;
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.step === void 0 && (missing0 = "step")) {
+				validate162.errors = [{
+					instancePath,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
+				}];
+				return false;
+			} else {
+				for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "step" || key0 === "workspaceId")) {
+					validate162.errors = [{
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
+					}];
+					return false;
+				}
+				if (data.expectedStateVersion !== void 0) {
+					let data0 = data.expectedStateVersion;
+					if (typeof data0 === "string") {
+						if (func1(data0) > 256) {
+							validate162.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/maxLength",
+								keyword: "maxLength",
+								params: { limit: 256 },
+								message: "must NOT have more than 256 characters"
+							}];
+							return false;
+						} else if (func1(data0) < 1) {
+							validate162.errors = [{
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/minLength",
+								keyword: "minLength",
+								params: { limit: 1 },
+								message: "must NOT have fewer than 1 characters"
+							}];
+							return false;
+						}
+					} else {
+						validate162.errors = [{
+							instancePath: instancePath + "/expectedStateVersion",
+							schemaPath: "#/properties/expectedStateVersion/type",
+							keyword: "type",
+							params: { type: "string" },
+							message: "must be string"
+						}];
+						return false;
+					}
+					var valid0 = true;
+				} else var valid0 = true;
+				if (valid0) {
+					if (data.step !== void 0) {
+						let data1 = data.step;
+						if (!(typeof data1 == "number" && !(data1 % 1) && !isNaN(data1))) {
+							validate162.errors = [{
+								instancePath: instancePath + "/step",
+								schemaPath: "#/properties/step/type",
+								keyword: "type",
+								params: { type: "integer" },
+								message: "must be integer"
+							}];
+							return false;
+						}
+						if (typeof data1 == "number") {
+							if (data1 > 5 || isNaN(data1)) {
+								validate162.errors = [{
+									instancePath: instancePath + "/step",
+									schemaPath: "#/properties/step/maximum",
+									keyword: "maximum",
+									params: {
+										comparison: "<=",
+										limit: 5
+									},
+									message: "must be <= 5"
+								}];
+								return false;
+							} else if (data1 < 1 || isNaN(data1)) {
+								validate162.errors = [{
+									instancePath: instancePath + "/step",
+									schemaPath: "#/properties/step/minimum",
+									keyword: "minimum",
+									params: {
+										comparison: ">=",
+										limit: 1
+									},
+									message: "must be >= 1"
+								}];
+								return false;
+							}
+						}
+						var valid0 = true;
+					} else var valid0 = true;
+					if (valid0) {
+						if (data.workspaceId !== void 0) {
+							let data2 = data.workspaceId;
+							if (typeof data2 === "string") {
+								if (func1(data2) > 128) {
+									validate162.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/maxLength",
+										keyword: "maxLength",
+										params: { limit: 128 },
+										message: "must NOT have more than 128 characters"
+									}];
+									return false;
+								} else if (func1(data2) < 1) {
+									validate162.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/minLength",
+										keyword: "minLength",
+										params: { limit: 1 },
+										message: "must NOT have fewer than 1 characters"
+									}];
+									return false;
+								}
+							} else {
+								validate162.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/type",
+									keyword: "type",
+									params: { type: "string" },
+									message: "must be string"
+								}];
+								return false;
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+					}
+				}
+			}
+		} else {
+			validate162.errors = [{
+				instancePath,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}];
+			return false;
+		}
+		validate162.errors = vErrors;
+		return true;
+	}
+	validate162.evaluated = {
+		"props": true,
+		"dynamicProps": false,
+		"dynamicItems": false
+	};
+	exports.Snapshot = validate163;
+	function validate163(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate149.evaluated;
+		const evaluated0 = validate163.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.aggregateType === void 0 && (missing0 = "aggregateType") || data.aggregateId === void 0 && (missing0 = "aggregateId") || data.projection === void 0 && (missing0 = "projection") || data.lastSequence === void 0 && (missing0 = "lastSequence")) {
-					validate149.errors = [{
+					validate163.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -16249,7 +18677,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "aggregateId" || key0 === "aggregateType" || key0 === "lastSequence" || key0 === "projection")) {
-						validate149.errors = [{
+						validate163.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -16265,7 +18693,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) < 1) {
-										validate149.errors = [{
+										validate163.errors = [{
 											instancePath: instancePath + "/aggregateId",
 											schemaPath: "#/properties/aggregateId/minLength",
 											keyword: "minLength",
@@ -16275,7 +18703,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate149.errors = [{
+									validate163.errors = [{
 										instancePath: instancePath + "/aggregateId",
 										schemaPath: "#/properties/aggregateId/type",
 										keyword: "type",
@@ -16292,7 +18720,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.aggregateType;
 								const _errs4 = errors;
 								if (typeof data1 !== "string") {
-									validate149.errors = [{
+									validate163.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/type",
 										keyword: "type",
@@ -16301,12 +18729,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								}
-								if (!(data1 === "workspace" || data1 === "account" || data1 === "model-gateway" || data1 === "model")) {
-									validate149.errors = [{
+								if (!(data1 === "workspace" || data1 === "account" || data1 === "model-gateway" || data1 === "model" || data1 === "risk")) {
+									validate163.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/enum",
 										keyword: "enum",
-										params: { allowedValues: schema78.properties.aggregateType.enum },
+										params: { allowedValues: schema82.properties.aggregateType.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -16318,7 +18746,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									let data2 = data.lastSequence;
 									const _errs6 = errors;
 									if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-										validate149.errors = [{
+										validate163.errors = [{
 											instancePath: instancePath + "/lastSequence",
 											schemaPath: "#/properties/lastSequence/type",
 											keyword: "type",
@@ -16330,7 +18758,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (errors === _errs6) {
 										if (typeof data2 == "number") {
 											if (data2 > 9007199254740991 || isNaN(data2)) {
-												validate149.errors = [{
+												validate163.errors = [{
 													instancePath: instancePath + "/lastSequence",
 													schemaPath: "#/properties/lastSequence/maximum",
 													keyword: "maximum",
@@ -16342,7 +18770,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											} else if (data2 < 0 || isNaN(data2)) {
-												validate149.errors = [{
+												validate163.errors = [{
 													instancePath: instancePath + "/lastSequence",
 													schemaPath: "#/properties/lastSequence/minimum",
 													keyword: "minimum",
@@ -16379,7 +18807,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate149.errors = [{
+				validate163.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -16389,24 +18817,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate149.errors = vErrors;
+		validate163.errors = vErrors;
 		return errors === 0;
 	}
-	validate149.evaluated = {
+	validate163.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Subscribe = validate151;
-	function validate151(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.Subscribe = validate165;
+	function validate165(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate151.evaluated;
+		const evaluated0 = validate165.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.aggregateType === void 0 && (missing0 = "aggregateType") || data.aggregateId === void 0 && (missing0 = "aggregateId") || data.afterSequence === void 0 && (missing0 = "afterSequence")) {
-				validate151.errors = [{
+				validate165.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -16416,7 +18844,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "afterSequence" || key0 === "aggregateId" || key0 === "aggregateType")) {
-					validate151.errors = [{
+					validate165.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -16428,7 +18856,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (data.afterSequence !== void 0) {
 					let data0 = data.afterSequence;
 					if (!(typeof data0 == "number" && !(data0 % 1) && !isNaN(data0))) {
-						validate151.errors = [{
+						validate165.errors = [{
 							instancePath: instancePath + "/afterSequence",
 							schemaPath: "#/properties/afterSequence/type",
 							keyword: "type",
@@ -16439,7 +18867,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 					if (typeof data0 == "number") {
 						if (data0 > 9007199254740991 || isNaN(data0)) {
-							validate151.errors = [{
+							validate165.errors = [{
 								instancePath: instancePath + "/afterSequence",
 								schemaPath: "#/properties/afterSequence/maximum",
 								keyword: "maximum",
@@ -16451,7 +18879,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (data0 < 0 || isNaN(data0)) {
-							validate151.errors = [{
+							validate165.errors = [{
 								instancePath: instancePath + "/afterSequence",
 								schemaPath: "#/properties/afterSequence/minimum",
 								keyword: "minimum",
@@ -16471,7 +18899,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						let data1 = data.aggregateId;
 						if (typeof data1 === "string") {
 							if (func1(data1) > 128) {
-								validate151.errors = [{
+								validate165.errors = [{
 									instancePath: instancePath + "/aggregateId",
 									schemaPath: "#/properties/aggregateId/maxLength",
 									keyword: "maxLength",
@@ -16480,7 +18908,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else if (func1(data1) < 1) {
-								validate151.errors = [{
+								validate165.errors = [{
 									instancePath: instancePath + "/aggregateId",
 									schemaPath: "#/properties/aggregateId/minLength",
 									keyword: "minLength",
@@ -16490,7 +18918,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate151.errors = [{
+							validate165.errors = [{
 								instancePath: instancePath + "/aggregateId",
 								schemaPath: "#/properties/aggregateId/type",
 								keyword: "type",
@@ -16506,7 +18934,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							let data2 = data.aggregateType;
 							if (typeof data2 === "string") {
 								if (func1(data2) > 64) {
-									validate151.errors = [{
+									validate165.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/maxLength",
 										keyword: "maxLength",
@@ -16515,7 +18943,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								} else if (func1(data2) < 1) {
-									validate151.errors = [{
+									validate165.errors = [{
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/minLength",
 										keyword: "minLength",
@@ -16525,7 +18953,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 							} else {
-								validate151.errors = [{
+								validate165.errors = [{
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/type",
 									keyword: "type",
@@ -16540,7 +18968,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate151.errors = [{
+			validate165.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -16549,24 +18977,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate151.errors = vErrors;
+		validate165.errors = vErrors;
 		return true;
 	}
-	validate151.evaluated = {
+	validate165.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.SubscriptionAck = validate152;
-	function validate152(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.SubscriptionAck = validate166;
+	function validate166(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate152.evaluated;
+		const evaluated0 = validate166.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.aggregateType === void 0 && (missing0 = "aggregateType") || data.aggregateId === void 0 && (missing0 = "aggregateId") || data.afterSequence === void 0 && (missing0 = "afterSequence") || data.lastSequence === void 0 && (missing0 = "lastSequence") || data.replayedCount === void 0 && (missing0 = "replayedCount")) {
-				validate152.errors = [{
+				validate166.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -16576,7 +19004,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "afterSequence" || key0 === "aggregateId" || key0 === "aggregateType" || key0 === "lastSequence" || key0 === "replayedCount")) {
-					validate152.errors = [{
+					validate166.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -16588,7 +19016,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (data.afterSequence !== void 0) {
 					let data0 = data.afterSequence;
 					if (!(typeof data0 == "number" && !(data0 % 1) && !isNaN(data0))) {
-						validate152.errors = [{
+						validate166.errors = [{
 							instancePath: instancePath + "/afterSequence",
 							schemaPath: "#/properties/afterSequence/type",
 							keyword: "type",
@@ -16599,7 +19027,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 					if (typeof data0 == "number") {
 						if (data0 > 9007199254740991 || isNaN(data0)) {
-							validate152.errors = [{
+							validate166.errors = [{
 								instancePath: instancePath + "/afterSequence",
 								schemaPath: "#/properties/afterSequence/maximum",
 								keyword: "maximum",
@@ -16611,7 +19039,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (data0 < 0 || isNaN(data0)) {
-							validate152.errors = [{
+							validate166.errors = [{
 								instancePath: instancePath + "/afterSequence",
 								schemaPath: "#/properties/afterSequence/minimum",
 								keyword: "minimum",
@@ -16631,7 +19059,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						let data1 = data.aggregateId;
 						if (typeof data1 === "string") {
 							if (func1(data1) < 1) {
-								validate152.errors = [{
+								validate166.errors = [{
 									instancePath: instancePath + "/aggregateId",
 									schemaPath: "#/properties/aggregateId/minLength",
 									keyword: "minLength",
@@ -16641,7 +19069,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							}
 						} else {
-							validate152.errors = [{
+							validate166.errors = [{
 								instancePath: instancePath + "/aggregateId",
 								schemaPath: "#/properties/aggregateId/type",
 								keyword: "type",
@@ -16656,7 +19084,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.aggregateType !== void 0) {
 							let data2 = data.aggregateType;
 							if (typeof data2 !== "string") {
-								validate152.errors = [{
+								validate166.errors = [{
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/type",
 									keyword: "type",
@@ -16665,12 +19093,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							}
-							if (!(data2 === "workspace" || data2 === "account" || data2 === "model-gateway" || data2 === "model")) {
-								validate152.errors = [{
+							if (!(data2 === "workspace" || data2 === "account" || data2 === "model-gateway" || data2 === "model" || data2 === "risk")) {
+								validate166.errors = [{
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/enum",
 									keyword: "enum",
-									params: { allowedValues: schema81.properties.aggregateType.enum },
+									params: { allowedValues: schema85.properties.aggregateType.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -16681,7 +19109,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.lastSequence !== void 0) {
 								let data3 = data.lastSequence;
 								if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-									validate152.errors = [{
+									validate166.errors = [{
 										instancePath: instancePath + "/lastSequence",
 										schemaPath: "#/properties/lastSequence/type",
 										keyword: "type",
@@ -16692,7 +19120,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}
 								if (typeof data3 == "number") {
 									if (data3 > 9007199254740991 || isNaN(data3)) {
-										validate152.errors = [{
+										validate166.errors = [{
 											instancePath: instancePath + "/lastSequence",
 											schemaPath: "#/properties/lastSequence/maximum",
 											keyword: "maximum",
@@ -16704,7 +19132,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									} else if (data3 < 0 || isNaN(data3)) {
-										validate152.errors = [{
+										validate166.errors = [{
 											instancePath: instancePath + "/lastSequence",
 											schemaPath: "#/properties/lastSequence/minimum",
 											keyword: "minimum",
@@ -16723,7 +19151,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data.replayedCount !== void 0) {
 									let data4 = data.replayedCount;
 									if (!(typeof data4 == "number" && !(data4 % 1) && !isNaN(data4))) {
-										validate152.errors = [{
+										validate166.errors = [{
 											instancePath: instancePath + "/replayedCount",
 											schemaPath: "#/properties/replayedCount/type",
 											keyword: "type",
@@ -16734,7 +19162,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}
 									if (typeof data4 == "number") {
 										if (data4 > 9007199254740991 || isNaN(data4)) {
-											validate152.errors = [{
+											validate166.errors = [{
 												instancePath: instancePath + "/replayedCount",
 												schemaPath: "#/properties/replayedCount/maximum",
 												keyword: "maximum",
@@ -16746,7 +19174,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}];
 											return false;
 										} else if (data4 < 0 || isNaN(data4)) {
-											validate152.errors = [{
+											validate166.errors = [{
 												instancePath: instancePath + "/replayedCount",
 												schemaPath: "#/properties/replayedCount/minimum",
 												keyword: "minimum",
@@ -16767,7 +19195,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate152.errors = [{
+			validate166.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -16776,26 +19204,26 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate152.errors = vErrors;
+		validate166.errors = vErrors;
 		return true;
 	}
-	validate152.evaluated = {
+	validate166.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.SuccessEnvelope = validate153;
-	function validate153(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.SuccessEnvelope = validate167;
+	function validate167(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate153.evaluated;
+		const evaluated0 = validate167.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.requestId === void 0 && (missing0 = "requestId") || data.schemaVersion === void 0 && (missing0 = "schemaVersion") || data.ok === void 0 && (missing0 = "ok") || data.data === void 0 && (missing0 = "data")) {
-					validate153.errors = [{
+					validate167.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -16806,7 +19234,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "data" || key0 === "ok" || key0 === "requestId" || key0 === "schemaVersion" || key0 === "stateVersion")) {
-						validate153.errors = [{
+						validate167.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -16818,14 +19246,14 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (_errs1 === errors) {
 						if (data.data !== void 0) {
 							const _errs2 = errors;
-							if (!validate49(data.data, {
+							if (!validate51(data.data, {
 								instancePath: instancePath + "/data",
 								parentData: data,
 								parentDataProperty: "data",
 								rootData,
 								dynamicAnchors
 							})) {
-								vErrors = vErrors === null ? validate49.errors : vErrors.concat(validate49.errors);
+								vErrors = vErrors === null ? validate51.errors : vErrors.concat(validate51.errors);
 								errors = vErrors.length;
 							}
 							var valid0 = _errs2 === errors;
@@ -16835,7 +19263,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								let data1 = data.ok;
 								const _errs3 = errors;
 								if (typeof data1 !== "boolean") {
-									validate153.errors = [{
+									validate167.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/type",
 										keyword: "type",
@@ -16845,7 +19273,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									return false;
 								}
 								if (true !== data1) {
-									validate153.errors = [{
+									validate167.errors = [{
 										instancePath: instancePath + "/ok",
 										schemaPath: "#/properties/ok/const",
 										keyword: "const",
@@ -16863,7 +19291,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (errors === _errs5) {
 										if (typeof data2 === "string") {
 											if (func1(data2) > 128) {
-												validate153.errors = [{
+												validate167.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/maxLength",
 													keyword: "maxLength",
@@ -16872,7 +19300,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											} else if (func1(data2) < 1) {
-												validate153.errors = [{
+												validate167.errors = [{
 													instancePath: instancePath + "/requestId",
 													schemaPath: "#/properties/requestId/minLength",
 													keyword: "minLength",
@@ -16882,7 +19310,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											}
 										} else {
-											validate153.errors = [{
+											validate167.errors = [{
 												instancePath: instancePath + "/requestId",
 												schemaPath: "#/properties/requestId/type",
 												keyword: "type",
@@ -16899,7 +19327,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										let data3 = data.schemaVersion;
 										const _errs7 = errors;
 										if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-											validate153.errors = [{
+											validate167.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/type",
 												keyword: "type",
@@ -16909,7 +19337,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (1 !== data3) {
-											validate153.errors = [{
+											validate167.errors = [{
 												instancePath: instancePath + "/schemaVersion",
 												schemaPath: "#/properties/schemaVersion/const",
 												keyword: "const",
@@ -16921,7 +19349,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										if (errors === _errs7) {
 											if (typeof data3 == "number") {
 												if (data3 < 0 || isNaN(data3)) {
-													validate153.errors = [{
+													validate167.errors = [{
 														instancePath: instancePath + "/schemaVersion",
 														schemaPath: "#/properties/schemaVersion/minimum",
 														keyword: "minimum",
@@ -16944,7 +19372,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (errors === _errs9) {
 												if (typeof data4 === "string") {
 													if (func1(data4) < 1) {
-														validate153.errors = [{
+														validate167.errors = [{
 															instancePath: instancePath + "/stateVersion",
 															schemaPath: "#/properties/stateVersion/minLength",
 															keyword: "minLength",
@@ -16954,7 +19382,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 												} else {
-													validate153.errors = [{
+													validate167.errors = [{
 														instancePath: instancePath + "/stateVersion",
 														schemaPath: "#/properties/stateVersion/type",
 														keyword: "type",
@@ -16973,7 +19401,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate153.errors = [{
+				validate167.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -16983,22 +19411,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate153.errors = vErrors;
+		validate167.errors = vErrors;
 		return errors === 0;
 	}
-	validate153.evaluated = {
+	validate167.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.ThinkingType = validate155;
-	function validate155(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.ThinkingType = validate169;
+	function validate169(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate155.evaluated;
+		const evaluated0 = validate169.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (typeof data !== "string") {
-			validate155.errors = [{
+			validate169.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -17008,32 +19436,32 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return false;
 		}
 		if (!(data === "disabled" || data === "enabled")) {
-			validate155.errors = [{
+			validate169.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema50.enum },
+				params: { allowedValues: schema51.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
 		}
-		validate155.errors = vErrors;
+		validate169.errors = vErrors;
 		return true;
 	}
-	validate155.evaluated = {
+	validate169.evaluated = {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.TradeXError = validate156;
-	function validate156(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.TradeXError = validate170;
+	function validate170(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate156.evaluated;
+		const evaluated0 = validate170.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.category === void 0 && (missing0 = "category") || data.code === void 0 && (missing0 = "code") || data.message === void 0 && (missing0 = "message") || data.retryable === void 0 && (missing0 = "retryable") || data.blocking === void 0 && (missing0 = "blocking") || data.remediationActions === void 0 && (missing0 = "remediationActions")) {
-				validate156.errors = [{
+				validate170.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -17043,7 +19471,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "blocking" || key0 === "category" || key0 === "code" || key0 === "message" || key0 === "remediationActions" || key0 === "retryable")) {
-					validate156.errors = [{
+					validate170.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -17054,7 +19482,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.blocking !== void 0) {
 					if (typeof data.blocking !== "boolean") {
-						validate156.errors = [{
+						validate170.errors = [{
 							instancePath: instancePath + "/blocking",
 							schemaPath: "#/properties/blocking/type",
 							keyword: "type",
@@ -17068,7 +19496,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.category !== void 0) {
 						if (typeof data.category !== "string") {
-							validate156.errors = [{
+							validate170.errors = [{
 								instancePath: instancePath + "/category",
 								schemaPath: "#/properties/category/type",
 								keyword: "type",
@@ -17082,7 +19510,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.code !== void 0) {
 							if (typeof data.code !== "string") {
-								validate156.errors = [{
+								validate170.errors = [{
 									instancePath: instancePath + "/code",
 									schemaPath: "#/properties/code/type",
 									keyword: "type",
@@ -17096,7 +19524,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (valid0) {
 							if (data.message !== void 0) {
 								if (typeof data.message !== "string") {
-									validate156.errors = [{
+									validate170.errors = [{
 										instancePath: instancePath + "/message",
 										schemaPath: "#/properties/message/type",
 										keyword: "type",
@@ -17117,7 +19545,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
 												let missing1;
 												if (data5.id === void 0 && (missing1 = "id") || data5.label === void 0 && (missing1 = "label")) {
-													validate156.errors = [{
+													validate170.errors = [{
 														instancePath: instancePath + "/remediationActions/" + i0,
 														schemaPath: "#/$defs/Remediation/required",
 														keyword: "required",
@@ -17127,7 +19555,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												} else {
 													for (const key1 in data5) if (!(key1 === "id" || key1 === "label")) {
-														validate156.errors = [{
+														validate170.errors = [{
 															instancePath: instancePath + "/remediationActions/" + i0,
 															schemaPath: "#/$defs/Remediation/additionalProperties",
 															keyword: "additionalProperties",
@@ -17140,7 +19568,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														let data6 = data5.id;
 														if (typeof data6 === "string") {
 															if (func1(data6) < 1) {
-																validate156.errors = [{
+																validate170.errors = [{
 																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
 																	schemaPath: "#/$defs/Remediation/properties/id/minLength",
 																	keyword: "minLength",
@@ -17150,7 +19578,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																return false;
 															}
 														} else {
-															validate156.errors = [{
+															validate170.errors = [{
 																instancePath: instancePath + "/remediationActions/" + i0 + "/id",
 																schemaPath: "#/$defs/Remediation/properties/id/type",
 																keyword: "type",
@@ -17164,7 +19592,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (valid3) {
 														if (data5.label !== void 0) {
 															if (typeof data5.label !== "string") {
-																validate156.errors = [{
+																validate170.errors = [{
 																	instancePath: instancePath + "/remediationActions/" + i0 + "/label",
 																	schemaPath: "#/$defs/Remediation/properties/label/type",
 																	keyword: "type",
@@ -17178,7 +19606,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													}
 												}
 											} else {
-												validate156.errors = [{
+												validate170.errors = [{
 													instancePath: instancePath + "/remediationActions/" + i0,
 													schemaPath: "#/$defs/Remediation/type",
 													keyword: "type",
@@ -17189,7 +19617,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}
 										}
 									} else {
-										validate156.errors = [{
+										validate170.errors = [{
 											instancePath: instancePath + "/remediationActions",
 											schemaPath: "#/properties/remediationActions/type",
 											keyword: "type",
@@ -17203,7 +19631,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (valid0) {
 									if (data.retryable !== void 0) {
 										if (typeof data.retryable !== "boolean") {
-											validate156.errors = [{
+											validate170.errors = [{
 												instancePath: instancePath + "/retryable",
 												schemaPath: "#/properties/retryable/type",
 												keyword: "type",
@@ -17221,7 +19649,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate156.errors = [{
+			validate170.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -17230,26 +19658,26 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate156.errors = vErrors;
+		validate170.errors = vErrors;
 		return true;
 	}
-	validate156.evaluated = {
+	validate170.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.VerifyRoute = validate157;
-	function validate157(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.VerifyRoute = validate171;
+	function validate171(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		let errors = 0;
-		const evaluated0 = validate157.evaluated;
+		const evaluated0 = validate171.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
 				if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion") || data.provider === void 0 && (missing0 = "provider") || data.modelId === void 0 && (missing0 = "modelId")) {
-					validate157.errors = [{
+					validate171.errors = [{
 						instancePath,
 						schemaPath: "#/required",
 						keyword: "required",
@@ -17260,7 +19688,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				} else {
 					const _errs1 = errors;
 					for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "modelId" || key0 === "provider" || key0 === "thinkingType" || key0 === "workspaceId")) {
-						validate157.errors = [{
+						validate171.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
 							keyword: "additionalProperties",
@@ -17276,7 +19704,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) > 256) {
-										validate157.errors = [{
+										validate171.errors = [{
 											instancePath: instancePath + "/expectedStateVersion",
 											schemaPath: "#/properties/expectedStateVersion/maxLength",
 											keyword: "maxLength",
@@ -17285,7 +19713,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									} else if (func1(data0) < 1) {
-										validate157.errors = [{
+										validate171.errors = [{
 											instancePath: instancePath + "/expectedStateVersion",
 											schemaPath: "#/properties/expectedStateVersion/minLength",
 											keyword: "minLength",
@@ -17295,7 +19723,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 								} else {
-									validate157.errors = [{
+									validate171.errors = [{
 										instancePath: instancePath + "/expectedStateVersion",
 										schemaPath: "#/properties/expectedStateVersion/type",
 										keyword: "type",
@@ -17314,7 +19742,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (errors === _errs4) {
 									if (typeof data1 === "string") {
 										if (func1(data1) > 128) {
-											validate157.errors = [{
+											validate171.errors = [{
 												instancePath: instancePath + "/modelId",
 												schemaPath: "#/properties/modelId/maxLength",
 												keyword: "maxLength",
@@ -17323,7 +19751,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}];
 											return false;
 										} else if (func1(data1) < 1) {
-											validate157.errors = [{
+											validate171.errors = [{
 												instancePath: instancePath + "/modelId",
 												schemaPath: "#/properties/modelId/minLength",
 												keyword: "minLength",
@@ -17333,7 +19761,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 									} else {
-										validate157.errors = [{
+										validate171.errors = [{
 											instancePath: instancePath + "/modelId",
 											schemaPath: "#/properties/modelId/type",
 											keyword: "type",
@@ -17350,7 +19778,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									let data2 = data.provider;
 									const _errs6 = errors;
 									if (typeof data2 !== "string") {
-										validate157.errors = [{
+										validate171.errors = [{
 											instancePath: instancePath + "/provider",
 											schemaPath: "#/$defs/ModelProvider/type",
 											keyword: "type",
@@ -17360,11 +19788,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 									if (!(data2 === "CHATGPT" || data2 === "DEEPSEEK")) {
-										validate157.errors = [{
+										validate171.errors = [{
 											instancePath: instancePath + "/provider",
 											schemaPath: "#/$defs/ModelProvider/enum",
 											keyword: "enum",
-											params: { allowedValues: schema48.enum },
+											params: { allowedValues: schema49.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -17395,7 +19823,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/thinkingType",
 												schemaPath: "#/$defs/ThinkingType/enum",
 												keyword: "enum",
-												params: { allowedValues: schema50.enum },
+												params: { allowedValues: schema51.enum },
 												message: "must be equal to one of the allowed values"
 											};
 											if (vErrors === null) vErrors = [err1];
@@ -17430,7 +19858,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (vErrors === null) vErrors = [err3];
 											else vErrors.push(err3);
 											errors++;
-											validate157.errors = vErrors;
+											validate171.errors = vErrors;
 											return false;
 										} else {
 											errors = _errs10;
@@ -17448,7 +19876,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (errors === _errs16) {
 												if (typeof data4 === "string") {
 													if (func1(data4) > 128) {
-														validate157.errors = [{
+														validate171.errors = [{
 															instancePath: instancePath + "/workspaceId",
 															schemaPath: "#/properties/workspaceId/maxLength",
 															keyword: "maxLength",
@@ -17457,7 +19885,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else if (func1(data4) < 1) {
-														validate157.errors = [{
+														validate171.errors = [{
 															instancePath: instancePath + "/workspaceId",
 															schemaPath: "#/properties/workspaceId/minLength",
 															keyword: "minLength",
@@ -17467,7 +19895,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													}
 												} else {
-													validate157.errors = [{
+													validate171.errors = [{
 														instancePath: instancePath + "/workspaceId",
 														schemaPath: "#/properties/workspaceId/type",
 														keyword: "type",
@@ -17486,7 +19914,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}
 				}
 			} else {
-				validate157.errors = [{
+				validate171.errors = [{
 					instancePath,
 					schemaPath: "#/type",
 					keyword: "type",
@@ -17496,24 +19924,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			}
 		}
-		validate157.errors = vErrors;
+		validate171.errors = vErrors;
 		return errors === 0;
 	}
-	validate157.evaluated = {
+	validate171.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.Workspace = validate158;
-	function validate158(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.Workspace = validate172;
+	function validate172(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate158.evaluated;
+		const evaluated0 = validate172.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.name === void 0 && (missing0 = "name") || data.baseCurrency === void 0 && (missing0 = "baseCurrency") || data.path === void 0 && (missing0 = "path") || data.createdAt === void 0 && (missing0 = "createdAt") || data.lastOpenedAt === void 0 && (missing0 = "lastOpenedAt") || data.storageSchemaVersion === void 0 && (missing0 = "storageSchemaVersion")) {
-				validate158.errors = [{
+				validate172.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -17523,7 +19951,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "baseCurrency" || key0 === "createdAt" || key0 === "lastOpenedAt" || key0 === "name" || key0 === "path" || key0 === "storageSchemaVersion" || key0 === "workspaceId")) {
-					validate158.errors = [{
+					validate172.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -17534,7 +19962,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				if (data.baseCurrency !== void 0) {
 					if (typeof data.baseCurrency !== "string") {
-						validate158.errors = [{
+						validate172.errors = [{
 							instancePath: instancePath + "/baseCurrency",
 							schemaPath: "#/properties/baseCurrency/type",
 							keyword: "type",
@@ -17548,7 +19976,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (valid0) {
 					if (data.createdAt !== void 0) {
 						if (typeof data.createdAt !== "string") {
-							validate158.errors = [{
+							validate172.errors = [{
 								instancePath: instancePath + "/createdAt",
 								schemaPath: "#/properties/createdAt/type",
 								keyword: "type",
@@ -17562,7 +19990,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					if (valid0) {
 						if (data.lastOpenedAt !== void 0) {
 							if (typeof data.lastOpenedAt !== "string") {
-								validate158.errors = [{
+								validate172.errors = [{
 									instancePath: instancePath + "/lastOpenedAt",
 									schemaPath: "#/properties/lastOpenedAt/type",
 									keyword: "type",
@@ -17576,7 +20004,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (valid0) {
 							if (data.name !== void 0) {
 								if (typeof data.name !== "string") {
-									validate158.errors = [{
+									validate172.errors = [{
 										instancePath: instancePath + "/name",
 										schemaPath: "#/properties/name/type",
 										keyword: "type",
@@ -17590,7 +20018,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (valid0) {
 								if (data.path !== void 0) {
 									if (typeof data.path !== "string") {
-										validate158.errors = [{
+										validate172.errors = [{
 											instancePath: instancePath + "/path",
 											schemaPath: "#/properties/path/type",
 											keyword: "type",
@@ -17605,7 +20033,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									if (data.storageSchemaVersion !== void 0) {
 										let data5 = data.storageSchemaVersion;
 										if (!(typeof data5 == "number" && !(data5 % 1) && !isNaN(data5))) {
-											validate158.errors = [{
+											validate172.errors = [{
 												instancePath: instancePath + "/storageSchemaVersion",
 												schemaPath: "#/properties/storageSchemaVersion/type",
 												keyword: "type",
@@ -17615,20 +20043,20 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										}
 										if (typeof data5 == "number") {
-											if (data5 > 4 || isNaN(data5)) {
-												validate158.errors = [{
+											if (data5 > 5 || isNaN(data5)) {
+												validate172.errors = [{
 													instancePath: instancePath + "/storageSchemaVersion",
 													schemaPath: "#/properties/storageSchemaVersion/maximum",
 													keyword: "maximum",
 													params: {
 														comparison: "<=",
-														limit: 4
+														limit: 5
 													},
-													message: "must be <= 4"
+													message: "must be <= 5"
 												}];
 												return false;
 											} else if (data5 < 1 || isNaN(data5)) {
-												validate158.errors = [{
+												validate172.errors = [{
 													instancePath: instancePath + "/storageSchemaVersion",
 													schemaPath: "#/properties/storageSchemaVersion/minimum",
 													keyword: "minimum",
@@ -17648,7 +20076,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											let data6 = data.workspaceId;
 											if (typeof data6 === "string") {
 												if (func1(data6) < 1) {
-													validate158.errors = [{
+													validate172.errors = [{
 														instancePath: instancePath + "/workspaceId",
 														schemaPath: "#/properties/workspaceId/minLength",
 														keyword: "minLength",
@@ -17658,7 +20086,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												}
 											} else {
-												validate158.errors = [{
+												validate172.errors = [{
 													instancePath: instancePath + "/workspaceId",
 													schemaPath: "#/properties/workspaceId/type",
 													keyword: "type",
@@ -17677,7 +20105,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate158.errors = [{
+			validate172.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -17686,24 +20114,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate158.errors = vErrors;
+		validate172.errors = vErrors;
 		return true;
 	}
-	validate158.evaluated = {
+	validate172.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	exports.WorkspaceQuery = validate159;
-	function validate159(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+	exports.WorkspaceQuery = validate173;
+	function validate173(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
-		const evaluated0 = validate159.evaluated;
+		const evaluated0 = validate173.evaluated;
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
 			if (data.workspaceId === void 0 && (missing0 = "workspaceId")) {
-				validate159.errors = [{
+				validate173.errors = [{
 					instancePath,
 					schemaPath: "#/required",
 					keyword: "required",
@@ -17713,7 +20141,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				return false;
 			} else {
 				for (const key0 in data) if (!(key0 === "workspaceId")) {
-					validate159.errors = [{
+					validate173.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
 						keyword: "additionalProperties",
@@ -17726,7 +20154,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					let data0 = data.workspaceId;
 					if (typeof data0 === "string") {
 						if (func1(data0) > 128) {
-							validate159.errors = [{
+							validate173.errors = [{
 								instancePath: instancePath + "/workspaceId",
 								schemaPath: "#/properties/workspaceId/maxLength",
 								keyword: "maxLength",
@@ -17735,7 +20163,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}];
 							return false;
 						} else if (func1(data0) < 1) {
-							validate159.errors = [{
+							validate173.errors = [{
 								instancePath: instancePath + "/workspaceId",
 								schemaPath: "#/properties/workspaceId/minLength",
 								keyword: "minLength",
@@ -17745,7 +20173,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							return false;
 						}
 					} else {
-						validate159.errors = [{
+						validate173.errors = [{
 							instancePath: instancePath + "/workspaceId",
 							schemaPath: "#/properties/workspaceId/type",
 							keyword: "type",
@@ -17757,7 +20185,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 			}
 		} else {
-			validate159.errors = [{
+			validate173.errors = [{
 				instancePath,
 				schemaPath: "#/type",
 				keyword: "type",
@@ -17766,10 +20194,10 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		validate159.errors = vErrors;
+		validate173.errors = vErrors;
 		return true;
 	}
-	validate159.evaluated = {
+	validate173.evaluated = {
 		"props": true,
 		"dynamicProps": false,
 		"dynamicItems": false

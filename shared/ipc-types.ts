@@ -9,7 +9,7 @@ export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
  */
-export type DomainProjection = GatewayState | ModelState | Workspace | AccountConnection;
+export type DomainProjection = GatewayState | ModelState | Workspace | AccountConnection | RiskPolicyState;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayStatus".
@@ -89,6 +89,7 @@ export type ReplyData =
   | SubscriptionAck
   | GatewayState
   | ModelState
+  | RiskPolicyState
   | ProviderCatalog
   | ProviderDefinition
   | Accounts
@@ -109,6 +110,7 @@ export interface IpcSchema {
   aggregate: Aggregate;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
+  completeOnboarding: CompleteOnboarding;
   configureDeepseek: ConfigureDeepseek;
   empty: EmptyPayload;
   event: DomainEvent;
@@ -117,8 +119,11 @@ export interface IpcSchema {
   providerConnect: Connect;
   providerSelection: ProviderSelection;
   result: ResultEnvelope;
+  riskQuery: RiskQuery;
+  saveRiskPolicy: SaveRiskPolicy;
   setDefaultModel: SetDefaultModel;
   setFallbackPolicy: SetFallbackPolicy;
+  setOnboardingStep: SetOnboardingStep;
   subscribe: Subscribe;
   verifyRoute: VerifyRoute;
   workspaceOpen: OpenWorkspace;
@@ -171,6 +176,14 @@ export interface CommandEnvelope {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompleteOnboarding".
+ */
+export interface CompleteOnboarding {
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ConfigureDeepseek".
  */
 export interface ConfigureDeepseek {
@@ -188,14 +201,15 @@ export interface EmptyPayload {}
  */
 export interface DomainEvent {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk";
   eventId: string;
   eventType:
     | "workspace.opened"
     | "account.health.changed"
     | "model.gateway.changed"
     | "model.provider.changed"
-    | "model.provider_attempt.changed";
+    | "model.provider_attempt.changed"
+    | "risk.policy.changed";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -418,6 +432,42 @@ export interface PermissionReview {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyState".
+ */
+export interface RiskPolicyState {
+  configured: boolean;
+  hardRules: HardSafetyRule[];
+  onboardingCompleted: boolean;
+  onboardingStep: number;
+  policy: RiskPolicy;
+  policyVersion: number;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HardSafetyRule".
+ */
+export interface HardSafetyRule {
+  description: string;
+  id: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicy".
+ */
+export interface RiskPolicy {
+  liveInactivityTimeoutMinutes?: number;
+  marketOrdersEnabled?: boolean;
+  maxDailyRealizedLoss?: string | null;
+  maxDailyTradedNotional?: string | null;
+  maxOrderNotional?: string | null;
+  maxSingleInstrumentExposurePercent?: string | null;
+  staleQuoteThresholdSeconds?: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayMutation".
  */
 export interface GatewayMutation {
@@ -457,7 +507,7 @@ export interface SuccessEnvelope {
  */
 export interface Snapshot {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -486,7 +536,7 @@ export interface RuntimeComponent {
 export interface SubscriptionAck {
   afterSequence: number;
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk";
   lastSequence: number;
   replayedCount: number;
 }
@@ -565,6 +615,22 @@ export interface Remediation {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskQuery".
+ */
+export interface RiskQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SaveRiskPolicy".
+ */
+export interface SaveRiskPolicy {
+  expectedStateVersion: string;
+  policy: RiskPolicy;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SetDefaultModel".
  */
 export interface SetDefaultModel {
@@ -581,6 +647,15 @@ export interface SetDefaultModel {
 export interface SetFallbackPolicy {
   automaticFallback: boolean;
   expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SetOnboardingStep".
+ */
+export interface SetOnboardingStep {
+  expectedStateVersion: string;
+  step: number;
   workspaceId: string;
 }
 /**

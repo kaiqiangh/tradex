@@ -4,6 +4,9 @@ use crate::model::{
     VerifyRoute,
 };
 use crate::providers::*;
+use crate::risk::{
+    CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -96,7 +99,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -134,6 +137,7 @@ pub enum ReplyData {
     Subscription(SubscriptionAck),
     Gateway(GatewayState),
     Model(ModelState),
+    Risk(RiskPolicyState),
     ProviderCatalog(ProviderCatalog),
     ProviderDefinition(ProviderDefinition),
     Accounts(Accounts),
@@ -171,6 +175,10 @@ pub struct IpcSchema {
     pub verify_route: VerifyRoute,
     pub set_default_model: SetDefaultModel,
     pub set_fallback_policy: SetFallbackPolicy,
+    pub risk_query: RiskQuery,
+    pub save_risk_policy: SaveRiskPolicy,
+    pub set_onboarding_step: SetOnboardingStep,
+    pub complete_onboarding: CompleteOnboarding,
     pub command: CommandEnvelope,
     pub result: ResultEnvelope,
     pub event: DomainEvent,
@@ -195,7 +203,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 4))]
+    #[schemars(range(min = 1, max = 5))]
     pub storage_schema_version: u32,
 }
 
@@ -206,6 +214,7 @@ pub enum DomainProjection {
     Model(ModelState),
     Workspace(Workspace),
     Account(Box<AccountConnection>),
+    Risk(RiskPolicyState),
 }
 
 impl DomainProjection {
@@ -215,6 +224,7 @@ impl DomainProjection {
             Self::Model(m) => &m.workspace_id,
             Self::Workspace(w) => &w.workspace_id,
             Self::Account(a) => &a.connection_id,
+            Self::Risk(r) => &r.workspace_id,
         }
     }
     pub fn kind(&self) -> &str {
@@ -223,6 +233,7 @@ impl DomainProjection {
             Self::Model(_) => "model",
             Self::Workspace(_) => "workspace",
             Self::Account(_) => "account",
+            Self::Risk(_) => "risk",
         }
     }
 }
@@ -232,12 +243,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -249,7 +260,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -520,6 +531,26 @@ impl TradeXError {
                 "open_desktop",
                 "Open TradeX",
             ),
+            "RISK_POLICY_INVALID" => (
+                "Enter valid risk defaults within the stated decimal and time bounds.",
+                "review_risk",
+                "Review risk defaults",
+            ),
+            "RISK_POLICY_NOT_CONFIGURED" => (
+                "Save the Risk Defaults step before continuing to Ready.",
+                "configure_risk",
+                "Configure risk defaults",
+            ),
+            "ONBOARDING_STEP_INVALID" => (
+                "Complete the setup steps in order before continuing.",
+                "review_onboarding",
+                "Review setup steps",
+            ),
+            "ONBOARDING_BLOCKED" => (
+                "Ready requires a verified default model route and saved risk defaults.",
+                "review_onboarding",
+                "Review setup",
+            ),
             _ => (
                 "The control plane could not complete this operation.",
                 "reload_snapshot",
@@ -550,6 +581,8 @@ impl TradeXError {
                 || code.starts_with("CREDENTIAL_")
             {
                 "AUTH_ERROR"
+            } else if code.starts_with("RISK_") || code.starts_with("ONBOARDING_") {
+                "POLICY_ERROR"
             } else if code == "PROVIDER_RATE_LIMITED" {
                 "RATE_LIMITED"
             } else if code == "PROVIDER_UNAVAILABLE" {

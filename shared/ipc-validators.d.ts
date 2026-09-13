@@ -11,6 +11,7 @@ declare const validators: {
   ChatgptLogin: (value: unknown) => boolean;
   ChatgptLoginAction: (value: unknown) => boolean;
   CommandEnvelope: (value: unknown) => boolean;
+  CompleteOnboarding: (value: unknown) => boolean;
   ConfigureDeepseek: (value: unknown) => boolean;
   Connect: (value: unknown) => boolean;
   ConnectionState: (value: unknown) => boolean;
@@ -22,6 +23,7 @@ declare const validators: {
   GatewayMutation: (value: unknown) => boolean;
   GatewayState: (value: unknown) => boolean;
   GatewayStatus: (value: unknown) => boolean;
+  HardSafetyRule: (value: unknown) => boolean;
   ModelAttempt: (value: unknown) => boolean;
   ModelAttemptKind: (value: unknown) => boolean;
   ModelAttemptOutcome: (value: unknown) => boolean;
@@ -44,10 +46,15 @@ declare const validators: {
   Remediation: (value: unknown) => boolean;
   ReplyData: (value: unknown) => boolean;
   ResultEnvelope: (value: unknown) => boolean;
+  RiskPolicy: (value: unknown) => boolean;
+  RiskPolicyState: (value: unknown) => boolean;
+  RiskQuery: (value: unknown) => boolean;
   RuntimeComponent: (value: unknown) => boolean;
   RuntimeStatus: (value: unknown) => boolean;
+  SaveRiskPolicy: (value: unknown) => boolean;
   SetDefaultModel: (value: unknown) => boolean;
   SetFallbackPolicy: (value: unknown) => boolean;
+  SetOnboardingStep: (value: unknown) => boolean;
   Snapshot: (value: unknown) => boolean;
   Subscribe: (value: unknown) => boolean;
   SubscriptionAck: (value: unknown) => boolean;
