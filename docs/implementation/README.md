@@ -2,7 +2,7 @@
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
-**这是完整应用的实施计划；S01、S02、S03 已完成，S04 的 #17 Thread 历史、#18 Turn 流式和 #19 取消/重试/安全恢复切片已完成；S05 的 #21 能力策略与可信模式上下文、#22 context catalog/picker 已完成验收，#23 typed research tool boundary 仍按 blocker 串行待办，S06–S35 尚未完成。** S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布并完成验收；#11 网关生命周期、#12 模型连接的真实 OAuth/上游推理、#13 默认路由与回退审计、#14 五步入门与风险默认值、#15 账户复用与隔离本地清理均已绑定实现、协议、桌面或 Rust-backed 浏览器证据。#17 的 Thread/history 证据见 [S04 Thread 历史验收](s04-thread-evidence.md)，#18 的 Turn 证据见 [S04 Turn 流式验收](s04-turn-evidence.md)，#19 的取消/重试/恢复证据见 [S04 #19 验收](s04-cancel-retry-evidence.md)，#21 的 capability 证据见 [S05 #21 能力策略验收](s05-capability-evidence.md)，#22 的 context catalog/picker 证据见 [S05 #22 上下文目录验收](s05-context-evidence.md)；下一项按串行顺序为 #23。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
+**这是完整应用的实施计划；S01、S02、S03 已完成，S04 的 #17 Thread 历史、#18 Turn 流式和 #19 取消/重试/安全恢复切片已完成；S05 的 #21 能力策略与可信模式上下文、#22 context catalog/picker、#23 typed research tool boundary 已完成验收，S06–S35 尚未完成。** S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布并完成验收；#11 网关生命周期、#12 模型连接的真实 OAuth/上游推理、#13 默认路由与回退审计、#14 五步入门与风险默认值、#15 账户复用与隔离本地清理均已绑定实现、协议、桌面或 Rust-backed 浏览器证据。#17 的 Thread/history 证据见 [S04 Thread 历史验收](s04-thread-evidence.md)，#18 的 Turn 证据见 [S04 Turn 流式验收](s04-turn-evidence.md)，#19 的取消/重试/恢复证据见 [S04 #19 验收](s04-cancel-retry-evidence.md)，#21 的 capability 证据见 [S05 #21 能力策略验收](s05-capability-evidence.md)，#22 的 context catalog/picker 证据见 [S05 #22 上下文目录验收](s05-context-evidence.md)，#23 的 typed research 证据见 [S05 #23 typed research 验收](s05-typed-research-evidence.md)；下一项按串行顺序为 S06。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
 
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
@@ -18,8 +18,9 @@
 - [S03 账户复用验收](s03-account-evidence.md)：#15 权威账户读取、已有连接复用、版本化刷新、隔离本地清理、键盘与 390/768 布局证据；真实桌面账户只读检查，未删除真实凭据。
 - [S04 Thread/Turn 运行时 Spec](thread-runtime.md)：#16 持久化 Thread、不可变 Turn 来源、Codex App Server 流式事件、取消/重试与安全恢复的规范和三张依赖有序实现票。
 - [S05 Agent 能力与上下文 Spec](s05-capability-context.md)：#20 分离 Agent Mode / Execution Context，定义可信 capability policy、canonical context refs 和受限 typed tools 的串行实现边界。
-- [S05 #21 能力策略验收](s05-capability-evidence.md)：固定 SHA `6d479024ac0a62592e71fbb9b49acc106215fb90` 上的 capability matrix、trusted `turn.start` 重算、schema/runtime 边界、Rust 与隔离浏览器证据；#22/#23 仍待完成。
-- [S05 #22 上下文目录验收](s05-context-evidence.md)：canonical `context.catalog`、非秘密账户 hash、可用性 gate、临时 Context/Account picker、显式空目录、空数组清空语义、焦点/inert/窄屏与 Rust-backed 浏览器证据；#23 typed research tool boundary 仍待完成。
+- [S05 #21 能力策略验收](s05-capability-evidence.md)：固定 SHA `6d479024ac0a62592e71fbb9b49acc106215fb90` 上的 capability matrix、trusted `turn.start` 重算、schema/runtime 边界、Rust 与隔离浏览器证据；#22/#23 在该历史快照之后完成。
+- [S05 #22 上下文目录验收](s05-context-evidence.md)：canonical `context.catalog`、非秘密账户 hash、可用性 gate、临时 Context/Account picker、显式空目录、空数组清空语义、焦点/inert/窄屏与 Rust-backed 浏览器证据。
+- [S05 #23 typed research 验收](s05-typed-research-evidence.md)：typed data-plane registry、sanitized unavailable result、tamper/no-mutation guard、source/context/marker timeline provenance、隔离 bridge 负例与 390/768/accessibility 证据。
 - [S04 Thread 历史切片验收](s04-thread-evidence.md)：#17 schema v6、Thread create/list/get、snapshot/replay/subscribe、历史恢复和 390/768 浏览器证据。
 - [S04 Turn 流式验收](s04-turn-evidence.md)：#18 不可变 Turn 来源、受限 Codex stdio 适配器和流式 typed timeline；#19 取消/重试/安全恢复的逐项证据见 [S04 #19 验收](s04-cancel-retry-evidence.md)。
 - [S02 提供方连接 Spec 与拆票](provider-connections.md)：四个提供方垂直切片、权限差异、原生凭据边界及官方资料。
