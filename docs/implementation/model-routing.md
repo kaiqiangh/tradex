@@ -1,6 +1,6 @@
 # S03 / #13 模型默认路由、回退与配额恢复 Spec
 
-状态：**IMPLEMENTED LOCALLY（保持 OPEN，#12 的 OAuth 401 过期 UI 门槛仍待验收）**。本票建立可供后续 Turn 使用的路由与 attempt 边界；#12 的真实 OAuth/上游 route 证据已记录在 `s03-model-evidence.md`，本票仍不实现 S04 的 Codex 流式生命周期。
+状态：**IMPLEMENTED LOCALLY（保持 OPEN，等待本票自身的路由/回退验收）**。#12 的模型连接验收已完成；本票建立可供后续 Turn 使用的路由与 attempt 边界，仍不实现 S04 的 Codex 流式生命周期。
 
 ## Problem Statement
 
@@ -56,7 +56,7 @@
 
 ## Out of Scope
 
-The native secure-dialog Save path and OAuth timeout UI are evidenced in isolated workspaces; OAuth 401 expiry UI remains outside this ticket. OAuth cancellation evidence is recorded in `s03-model-evidence.md`. Codex App Server streaming, full Turn persistence, automatic model invocation transport, and complete five-step onboarding also remain outside this ticket. Credentialed ChatGPT/DeepSeek route evidence is recorded in `s03-model-evidence.md`; #12 remains open until its remaining independent OAuth 401 expiry UI evidence is supplied.
+The native secure-dialog Save path, OAuth timeout UI, and the real sidecar OAuth-expiry path are evidenced in isolated or credentialed workspaces. OAuth cancellation evidence is recorded in `s03-model-evidence.md`. Codex App Server streaming, full Turn persistence, automatic model invocation transport, and complete five-step onboarding also remain outside this ticket. Credentialed ChatGPT/DeepSeek route evidence is recorded in `s03-model-evidence.md`; #12 is complete and this ticket remains open for its own routing acceptance.
 
 ## Further Notes
 

@@ -1,8 +1,8 @@
 # S03 / #12 模型连接验收证据
 
-状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机、原生网关和 credentialed 路由验证已完成；原生 secure entry 的取消与保存交互、OAuth 取消 UI 和 OAuth 超时 UI 已验证，OAuth 401 过期 UI 仍未取得独立验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
+状态：**VERIFIED**。模型连接的协议、受信边界、状态机、原生网关、credentialed 路由验证、secure entry 保存/取消、OAuth 取消/超时和 OAuth 失效 UI 均已取得独立证据；#12 已达到验收条件，可关闭本票并推进 #13。
 
-实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` + OAuth timeout 文案修复 `5f9a1fe`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`；配额边界测试 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
+实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` + OAuth timeout 文案修复 `5f9a1fe` + sidecar 包装 OAuth 失败分类修复 `8aa90e8`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`；配额边界测试 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
 
 ## 已实现的边界
 
@@ -15,7 +15,7 @@
 - 显式 Restart 与 workspace 切换会在清理旧进程后只保留当前 workspace 对应的 DeepSeek key；正常 STOP 不会留下重复 reload 标记，STOPPING 状态也阻断 key 替换。
 - DeepSeek 原生录入取消路径通过 `MemoryModelVault` 安全边界测试：取消 attempt 追加为 `CANCELLED`，状态保持 `NOT_CONFIGURED`，不写入任何 key。
 - 本轮原生桌面窗口打开 DeepSeek secure entry，确认焦点落在 secure text field；按 Escape 关闭对话框，未写入 key，返回 Model 页面且 attempt 计数增加。随后在隔离 workspace `224aacdb-06e0-43eb-ad02-92e7d44b1e0c` 使用一次性合成值按 Cmd-Return 保存：对话框关闭，状态显示 `Configured · verification required`，Provider attempts 从 1 增至 2；Reload model state 后状态保持不变。通过 `security find-generic-password` 确认 workspace-scoped Keychain item 存在，验收后删除并再次查询确认不存在。合成值未读取、输出或写入仓库。
-- 本轮原生桌面窗口打开 ChatGPT OAuth；在账号选择页关闭浏览器页后，Model 状态变为 `Configured · verification required`，没有伪装为 Ready；随后重新 Verify `gpt-5.6-luna` 成功，恢复 Ready。随后在隔离 workspace `b72c879a-ff0c-42c3-9af6-3058100df9c7` 连续两次未完成浏览器授权，第二次 attempt `9b4203ce-dbc8-4b67-8a27-4212d9dd4d56` 于 `2026-09-13T11:42:54.549551Z` 以 `OAUTH_EXPIRED` 结束；Model 页面明确显示 `ChatGPT authorization timed out. Retry login in the browser.`，状态保持 `NOT_CONFIGURED`，网关停止后 Login 按钮保持禁用。OAuth 401 过期 UI 仍待独立证据。
+- 本轮原生桌面窗口打开 ChatGPT OAuth；在账号选择页关闭浏览器页后，Model 状态变为 `Configured · verification required`，没有伪装为 Ready；随后重新 Verify `gpt-5.6-luna` 成功，恢复 Ready。随后在真实 sidecar 上使用一次性失效 OAuth 文件触发上游 `token_expired`：CLIProxyAPI 返回包装后的 `503 auth_unavailable`，`8aa90e8` 将其分类为 `MODEL_OAUTH_EXPIRED`；Verify attempt `cb7bea51-8cc8-4cea-bd32-c1e603bf7f40` 于 `2026-09-13T12:35:20.805397Z` 以 `OAUTH_EXPIRED` 结束，Model 页面明确显示 `ChatGPT authorization expired or was rejected. Re-login before verifying the route.`，状态保持 `UNVERIFIED`、当前 route 被清除。测试文件随后恢复，重新 OAuth 登录并验证真实 `gpt-5.6-luna`；未读取或输出原 token。
 - 网关目录解析、空/伪造响应、响应大小边界、非 2xx 分类、配额 header 上限和固定推理 payload（含显式 `thinking.type`）均有纯函数测试；网络/真实上游仍按外部门槛单独验证。
 
 ## 验收矩阵
@@ -26,9 +26,9 @@
 | 固定版本网关真实生命周期 | macOS ignored test `pinned_gateway_lifecycle_uses_public_commands_without_model_readiness` 以 `.artifacts/s03-planning/upstream/cli-proxy-api` 运行通过：端口冲突、启动/探测、停止清理、stale config、4 次崩溃退避及最终失败 | PASS（直接进程） |
 | 凭据安全边界和原生 Keychain API | `src-tauri/src/model_credentials.rs` 的 `ModelVault`；renderer 没有 password input；取消录入测试 `cancelled_deepseek_entry_does_not_write_keychain_double` 通过；macOS ignored test `native_model_keychain_roundtrip_is_workspace_scoped` 以 disposable synthetic key 运行通过；本轮桌面 secure entry 的 Escape 取消返回 Model 页面且未写入 key；隔离 workspace 的 Cmd-Return Save、Keychain metadata 回读和清理已完成 | PASS（取消不写入 + Save 写入/回读/清理 + 直接 Keychain round-trip + 原生 UI）；真实 upstream key 未受影响 |
 | 精确 provider/model/mode allowlist | Rust allowlist tests 覆盖 ChatGPT `gpt-5.6*` 和 DeepSeek `deepseek-v4-flash` 两个显式模式，拒绝别名/未知模式 | PASS（本地） |
-| 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、纯函数目录/响应解析、固定 payload、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests；本轮原生 ChatGPT/DeepSeek 两类路由均完成有界真实推理 | PASS（代码、本地分支和 credentialed upstream run） |
+| 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、纯函数目录/响应解析、固定 payload、401/404/429/包装 `auth_unavailable`/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests；本轮原生 ChatGPT/DeepSeek 两类路由均完成有界真实推理，失效 OAuth UI 显示 `MODEL_OAUTH_EXPIRED` | PASS（代码、本地分支、credentialed upstream run 和真实 sidecar 失效路径） |
 | 浏览器交互与窄屏 | 实现基线 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` 上重跑 `npm run dev:browser` 隔离工作区（随后以 `5f9a1fe` 验证超时文案）：Settings 显示两张模型卡；网关停止时 Login/Verify disabled；Configure DeepSeek synthetic fixture 后显示 `Configured · verification required`；未发现 renderer 密码输入。390/768 视口检查 `scrollWidth 375/753`，临时 SQLite/WAL/SHM 未发现 `integration-test-key`、`api.deepseek.com` 或 key 值 | PASS（浏览器 fixture） |
-| 真实 OAuth、上游 DeepSeek API 与桌面 secure dialog | `dev@fecfa37` 的原生 release wrapper 打开现有工作区 `/Users/kai/Desktop/my-repo/tradex/.tradex`（workspace `22acfa1d-b5da-420a-a754-f01ea0c43458`）；固定网关 `7.2.155` 在 `127.0.0.1:8317` 运行并发现 10 个模型。ChatGPT `gpt-5.6-luna` 在 `2026-09-13T10:26:40.883838Z` 完成重新登录后的有界验证；DeepSeek `deepseek-v4-flash` non-thinking（`thinking.type=disabled`）于 `2026-09-13T10:29:39.631364Z` 成功，thinking（`thinking.type=enabled`）于 `2026-09-13T10:29:47.288029Z` 成功；本轮 OAuth 账号选择页于 `2026-09-13T10:50:37.076Z` 关闭后状态变为 `Configured · verification required`，重新 Verify 于 `2026-09-13T10:51:23.471841Z` 成功，之后重新加载模型状态 ChatGPT 与 DeepSeek 均为 Ready。隔离 workspace `224aacdb-06e0-43eb-ad02-92e7d44b1e0c` 的 secure dialog Save 于 `2026-09-13T11:21:48Z` 完成并回读稳定；隔离 workspace `b72c879a-ff0c-42c3-9af6-3058100df9c7` 的 OAuth timeout attempt 于 `2026-09-13T11:42:54.549551Z` 明确显示超时文案并保持不可用；没有读取或输出任何 token/key。 | PASS（credentialed route + OAuth re-login/cancel + timeout UI + isolated secure Save）；OAuth 401 expiry UI remains unverified |
+| 真实 OAuth、上游 DeepSeek API 与桌面 secure dialog | `dev` 原生 debug bundle 打开现有工作区 `/Users/kai/Desktop/my-repo/tradex/.tradex`（workspace `22acfa1d-b5da-420a-a754-f01ea0c43458`）；固定网关 `7.2.155` 在 `127.0.0.1:8317` 运行并发现 10 个模型。真实 ChatGPT `gpt-5.6-luna` 于 `2026-09-13T12:36:33.479275Z` 验证成功；DeepSeek `deepseek-v4-flash` non-thinking（`thinking.type=disabled`）于 `2026-09-13T12:36:48.498908Z` 成功，thinking（`thinking.type=enabled`）于 `2026-09-13T12:36:58.621708Z` 成功；失效 OAuth 的真实 sidecar UI attempt 于 `2026-09-13T12:35:20.805397Z` 显示 `ChatGPT authorization expired or was rejected. Re-login before verifying the route.`，状态 `UNVERIFIED`；之后恢复原 OAuth 文件并重新登录、重跑三条真实 route，Reload 后 ChatGPT/DeepSeek 均为 Ready。此前隔离 workspace `224aacdb-06e0-43eb-ad02-92e7d44b1e0c` 的 secure dialog Save、`b72c879a-ff0c-42c3-9af6-3058100df9c7` 的 OAuth timeout 仍有效；测试只使用一次性合成失效文件，原凭据已恢复。 | PASS（credentialed route + OAuth re-login/cancel/timeout/expiry UI + isolated secure Save） |
 
 ## 可重跑检查
 
@@ -47,7 +47,7 @@ npm run test:unit
 npm run check
 ```
 
-`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 5 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 9 个通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
+`npm run check` 包含 schema、TypeScript、Vite build、前端 3 个单元测试、Rust workspace 和需求追踪；最终输出为 `Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.`。模型专用集成测试为 5 个通过，另以显式 `--ignored` 运行原生 Keychain round-trip 1 个通过；固定版本网关生命周期 ignored test 也以显式 `--ignored` 运行并通过 1 个。lib 内模型状态/失败边界测试为 9 个通过，新增包装 OAuth 分类测试随 `8aa90e8` 通过。其它 native broker 测试仍按测试定义 ignored。构建只有既有的 bundle size warning，没有失败。
 
 `cargo test --features desktop --workspace --all-targets` 也通过：desktop lib 9 个、model 集成 5 个（1 个 native Keychain ignored）、gateway 1 个（生命周期 ignored）及其余 workspace 目标均无失败。
 
@@ -55,9 +55,9 @@ npm run check
 
 浏览器 fixture 的临时 SQLite/outbox/model_state 扫描没有 `integration-test-key`、`api.deepseek.com` 或 `key` 值；模型测试断言序列化 payload 不含这些值。真实 key 没有写入仓库、普通工作区文件或日志。
 
-本轮真实 workspace 的 DeepSeek key 没有重新录入或替换；隔离 workspace 仅使用一次性合成值验证 Cmd-Return Save，并在 Keychain 回读后清理。原生 secure text field 焦点、Escape 取消和 Save 已验证。真实 ChatGPT OAuth 重新登录后的 `gpt-5.6-luna` 验证、OAuth 取消后的 fail-closed 状态恢复，以及真实 DeepSeek key 的两种模式有界推理已在原生窗口通过，并在 reload 后保持 Ready。要把本票提升为 VERIFIED，还需补跑 OAuth 401 过期的独立 UI 证据；超时 UI 已在隔离 workspace 验证。
+本轮真实 workspace 的 DeepSeek key 没有重新录入或替换；隔离 workspace 仅使用一次性合成值验证 Cmd-Return Save，并在 Keychain 回读后清理。原生 secure text field 焦点、Escape 取消和 Save 已验证。真实 ChatGPT OAuth 重新登录后的 `gpt-5.6-luna` 验证、OAuth 取消后的 fail-closed 状态恢复、真实 sidecar 失效 OAuth 的 `MODEL_OAUTH_EXPIRED` UI，以及真实 DeepSeek key 的两种模式有界推理已在原生窗口通过，并在 reload 后保持 Ready。OAuth timeout UI 也已在隔离 workspace 验证；本票外部验收门槛已全部完成。
 
 ## 串行代码审查
 
 - **Standards：PASS。** 已按仓库 `AGENTS.md` 和 `docs/agents/*` 检查；格式、Clippy、schema、typecheck、build、unit、workspace 和 traceability 均通过。
-- **Spec：PASS（已实现范围）。** Backend §41–42、公共模型事件、精确 Flash 模式、秘密边界、错误分类和 UI 状态与 RevC/用户批准契约一致；外部 credentialed acceptance 仍明确为未验证。
+- **Spec：PASS（已实现范围）。** Backend §41–42、公共模型事件、精确 Flash 模式、秘密边界、错误分类和 UI 状态与 RevC/用户批准契约一致；本票的 credentialed acceptance 已完成，S04 消费与后续全量回归仍按实施计划保留。

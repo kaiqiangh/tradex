@@ -25,4 +25,4 @@
 ## 验证边界
 
 - 当前 Rust tests 覆盖 schema、workspace scope、allowlist、attempt replay、失败类别、旧 stateVersion，以及目录/响应解析、状态码分类、配额 header bounds 和固定推理 payload；ignored macOS tests 已分别验证 disposable native Keychain item 与固定网关生命周期，并在结束时清理。原生窗口已验证 secure entry 的焦点与 Escape 取消；真实 ChatGPT OAuth 与 DeepSeek 两种模式的 credentialed 上游推理也已独立运行通过。
-- Browser fixture 已检查 Login/Configure/Verify 的门控、错误保留、窄屏和秘密不进入 renderer；不使用用户 broker/API/OAuth 凭据。原生 OAuth 取消已验证为 `Configured · verification required` 并经 Verify 恢复；隔离 workspace 的 Tauri secure dialog Cmd-Return/Save 已完成写入、回读和清理；OAuth 超时 UI 已在隔离 workspace 验证并保持不可用，OAuth 401 过期 UI 仍需独立运行证据，不能用 fixture 标记 Ready。
+- Browser fixture 已检查 Login/Configure/Verify 的门控、错误保留、窄屏和秘密不进入 renderer；不使用用户 broker/API/OAuth 凭据。原生 OAuth 取消已验证为 `Configured · verification required` 并经 Verify 恢复；隔离 workspace 的 Tauri secure dialog Cmd-Return/Save 已完成写入、回读和清理；OAuth 超时 UI 已在隔离 workspace 验证并保持不可用；真实 sidecar 上游 token 失效（包装为 `503 auth_unavailable`）已独立验证为 `MODEL_OAUTH_EXPIRED`，不能用 fixture 标记 Ready。
