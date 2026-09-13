@@ -167,6 +167,14 @@ export default function App() {
   const modelProjection = useDomainProjection('model', workspace?.workspaceId, fromModelSnapshot);
   const risk = riskProjection.data;
   const model = modelProjection.data;
+  const defaultModelRoute = verifiedDefaultRoute(model);
+  const modelReady = defaultModelRoute != null;
+  const codexStatus = state.runtime.data?.components.find(component => component.id === 'codex')?.status;
+  const agentUnavailableReason = !modelReady
+    ? 'Agent turns are unavailable until a model route is configured and verified.'
+    : codexStatus === 'NOT_CONFIGURED'
+      ? 'Codex App Server is not configured; Send remains disabled until its later runtime slice.'
+      : 'Codex thread runtime is not available in this build.';
   const projectionError = riskProjection.error ?? modelProjection.error;
   const reloadProjections = () => { void riskProjection.reload(); void modelProjection.reload(); };
   const navigate = (destination: Page) => {
@@ -176,7 +184,7 @@ export default function App() {
   const submit = async (options: OpenWorkspace) => {
     try { await state.opening.mutateAsync(options); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
   };
-  const onboardingVisible = !workspacePicker && (setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !verifiedDefaultRoute(model))));
+  const onboardingVisible = !workspacePicker && (setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !defaultModelRoute)));
   const title = workspacePicker || setup || (!workspace && page === 'New Thread') ? 'Workspace setup' : page;
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
@@ -185,7 +193,7 @@ export default function App() {
       <Navigation page={page} navigate={navigate} />
       <div className="sidebar-divider" />
       <div className="recent-heading">Recent threads</div><p className="sidebar-empty">No threads yet</p>
-      <div className="runtime-summary"><strong>Model not configured</strong><p>Choose a provider to begin.</p></div>
+      <div className="runtime-summary"><strong>{modelReady ? `Model ready · ${defaultModelRoute.provider}` : 'Model not configured'}</strong><p>{modelReady ? 'A verified route is available.' : 'Choose a provider to begin.'}</p></div>
     </aside>
     <div className="shell">
       <header className="topbar">
@@ -206,10 +214,10 @@ export default function App() {
               <div className="thread-welcome"><h1>What would you like to research?</h1><p>Ask a question, explore an opportunity, or review your portfolio.</p></div>
               <section className="composer" aria-label="Thread composer">
                 <div className="composer-context"><span className="badge">Agent mode: Ask</span><span className="badge">Execution: Read only</span><span className="muted">No account selected</span></div>
-                <textarea aria-label="Message" placeholder="Configure a model provider to start a thread" disabled />
-                <div className="composer-footer"><span>Model not configured</span><button className="primary" disabled>Send</button></div>
+                <textarea aria-label="Message" placeholder={modelReady ? 'Codex App Server is not configured' : 'Configure and verify a model route to start a thread'} disabled />
+                <div className="composer-footer"><span>{modelReady ? `Model route ready · ${defaultModelRoute.provider} · ${defaultModelRoute.modelId}` : 'Model not configured'}</span><button className="primary" disabled>Send</button></div>
               </section>
-              <div className="notice model-notice"><div><strong>Connect a model provider</strong><p>Agent turns are unavailable until a model route is configured and verified.</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
+              <div className="notice model-notice"><div><strong>{modelReady ? 'Agent turns unavailable' : 'Connect a model provider'}</strong><p>{agentUnavailableReason}</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
               <div className="empty-activity"><h2>Thread activity</h2><p>No agent turns have started in this workspace.</p></div>
             </>}
             {page === 'Settings' && <>
