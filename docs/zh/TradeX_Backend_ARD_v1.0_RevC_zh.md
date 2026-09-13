@@ -1902,11 +1902,20 @@ LAUNCH 可先安装固定发布物，再启动并探测自己拥有的进程。S
 | 命令 | Payload | 成功数据 |
 |---|---|---|
 | risk.get_policy | `{workspaceId: string}` | `RiskPolicyState` 及其不透明 `stateVersion` |
-| risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicy}` | 新 `RiskPolicyState`、递增的 `policyVersion` 以及 `risk.policy.changed` |
+| risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicyInput}` | 新 `RiskPolicyState`、递增的 `policyVersion` 以及 `risk.policy.changed` |
 | onboarding.set_step | `{workspaceId: string, expectedStateVersion: string, step: 1 \| 2 \| 3 \| 4 \| 5}` | 带请求进度步骤的新 `RiskPolicyState` |
 | onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | `onboardingCompleted: true` 的新 `RiskPolicyState` |
 
 ~~~ts
+interface RiskPolicyInput {
+  maxOrderNotional: string | null;
+  maxSingleInstrumentExposurePercent: string | null;
+  maxDailyTradedNotional: string | null;
+  maxDailyRealizedLoss: string | null;
+  staleQuoteThresholdSeconds: number;
+  marketOrdersEnabled: boolean;
+  liveInactivityTimeoutMinutes: number;
+}
 interface RiskPolicy {
   maxOrderNotional: string | null;
   maxSingleInstrumentExposurePercent: string | null;
@@ -1929,7 +1938,7 @@ interface RiskPolicyState {
 }
 ~~~
 
-金额和敞口使用十进制字符串，绝不使用 JSON number 或浮点。四个金额/敞口额度在用户选择前可保持 `null`；新策略默认报价过期阈值 3 秒、市价单 `false`、Live inactivity timeout 20 分钟。时间边界为 1–86,400 秒和 1–1,440 分钟；敞口最多 100%；空值、零值、科学计数法、格式错误或超长小数返回 `POLICY_ERROR / RISK_POLICY_INVALID`。`hardRules` 由后端拥有且只读：Live 默认 DISARMED、仍需单独 approval、过期数据阻断 Live、Agent 不能修改策略。本设置记录不实现完整 S21 risk engine。
+金额和敞口使用十进制字符串，绝不使用 JSON number 或浮点。每个 `RiskPolicyInput` 字段在 wire 上都必须存在；四个金额/敞口额度在用户选择前可显式设为 `null`。新策略默认报价过期阈值 3 秒、市价单 `false`、Live inactivity timeout 20 分钟。时间边界为 1–86,400 秒和 1–1,440 分钟；敞口最多 100%；空值、零值、科学计数法、格式错误或超长小数返回 `POLICY_ERROR / RISK_POLICY_INVALID`。`hardRules` 由后端拥有且只读：Live 默认 DISARMED、仍需单独 approval、过期数据阻断 Live、Agent 不能修改策略。本设置记录不实现完整 S21 risk engine。
 
 所有变更都要求当前 workspace 和精确的 `stateVersion`；陈旧游标返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态。进度只能前进或后退一步；越级返回 `POLICY_ERROR / ONBOARDING_STEP_INVALID`。步骤 5 和完成都要求已配置风险默认值及 §41.5 的当前已验证默认模型路由。完成还要检查每个 Live 账户为 `DISARMED`；任何入门命令都不会 arm 账户或启用 Send/Live execution。模型会话重置会使已完成设置失效并回到 Model（步骤 3）。`risk.policy.changed` 与 risk projection/outbox 在同一事务提交，`risk` snapshot/subscribe/replay 遵循 §41.2 的工作区规则和连续序列。新工作区在 storage schema version 5 迁移时初始化风险表；已识别的旧工作区迁移前先备份。
 

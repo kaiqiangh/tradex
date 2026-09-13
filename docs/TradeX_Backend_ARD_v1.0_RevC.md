@@ -1902,11 +1902,20 @@ The `risk` aggregate uses `workspaceId` as its aggregate ID and is the only auth
 | Command | Payload | Success data |
 |---|---|---|
 | risk.get_policy | `{workspaceId: string}` | `RiskPolicyState` and its opaque `stateVersion` |
-| risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicy}` | New `RiskPolicyState`, incremented `policyVersion`, and `risk.policy.changed` |
+| risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicyInput}` | New `RiskPolicyState`, incremented `policyVersion`, and `risk.policy.changed` |
 | onboarding.set_step | `{workspaceId: string, expectedStateVersion: string, step: 1 \| 2 \| 3 \| 4 \| 5}` | New `RiskPolicyState` with the requested progress step |
 | onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | New `RiskPolicyState` with `onboardingCompleted: true` |
 
 ~~~ts
+interface RiskPolicyInput {
+  maxOrderNotional: string | null;
+  maxSingleInstrumentExposurePercent: string | null;
+  maxDailyTradedNotional: string | null;
+  maxDailyRealizedLoss: string | null;
+  staleQuoteThresholdSeconds: number;
+  marketOrdersEnabled: boolean;
+  liveInactivityTimeoutMinutes: number;
+}
 interface RiskPolicy {
   maxOrderNotional: string | null;
   maxSingleInstrumentExposurePercent: string | null;
@@ -1929,7 +1938,7 @@ interface RiskPolicyState {
 }
 ~~~
 
-Money and exposure values are decimal strings, never JSON numbers or floats. The four monetary/exposure limits may remain `null` until the user chooses them; a new policy defaults stale quote to 3 seconds, market orders to `false`, and Live inactivity timeout to 20 minutes. Accepted time bounds are 1–86,400 seconds and 1–1,440 minutes; exposure is at most 100 percent; empty, zero, scientific-notation, malformed or overlong decimals fail as `POLICY_ERROR / RISK_POLICY_INVALID`. `hardRules` is backend-owned read-only data: Live is DISARMED by default, approval remains required, stale data blocks Live, and an Agent cannot modify policy. This setup record does not implement the full S21 risk engine.
+Money and exposure values are decimal strings, never JSON numbers or floats. Every `RiskPolicyInput` field is required on the wire; the four monetary/exposure limits may be explicitly `null` until the user chooses them. A new policy defaults stale quote to 3 seconds, market orders to `false`, and Live inactivity timeout to 20 minutes. Accepted time bounds are 1–86,400 seconds and 1–1,440 minutes; exposure is at most 100 percent; empty, zero, scientific-notation, malformed or overlong decimals fail as `POLICY_ERROR / RISK_POLICY_INVALID`. `hardRules` is backend-owned read-only data: Live is DISARMED by default, approval remains required, stale data blocks Live, and an Agent cannot modify policy. This setup record does not implement the full S21 risk engine.
 
 All mutations require the active workspace and exact current `stateVersion`; stale cursors return `STATE_STALE / STATE_VERSION_CONFLICT` without mutation. Progress can move only one step forward or back; a jump returns `POLICY_ERROR / ONBOARDING_STEP_INVALID`. Step 5 and completion require `configured` risk defaults and a current verified default model route from §41.5. Completion additionally checks every Live account is `DISARMED`; no onboarding command arms an account or enables Send/Live execution. A model-session reset invalidates a completed setup and reopens at Model (step 3). `risk.policy.changed` is committed atomically with the risk projection and outbox, and its `risk` snapshot/subscribe/replay follows §41.2 with contiguous per-workspace sequence. New workspaces initialize the risk table during storage schema version 5 migration; recognized older workspaces are backed up before migration.
 

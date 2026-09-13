@@ -1594,6 +1594,64 @@
       },
       "additionalProperties": false
     },
+    "RiskPolicyInput": {
+      "type": "object",
+      "properties": {
+        "liveInactivityTimeoutMinutes": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 1440,
+          "minimum": 1
+        },
+        "marketOrdersEnabled": {
+          "type": "boolean"
+        },
+        "maxDailyRealizedLoss": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxDailyTradedNotional": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxOrderNotional": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxSingleInstrumentExposurePercent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "staleQuoteThresholdSeconds": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 86400,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "maxOrderNotional",
+        "maxSingleInstrumentExposurePercent",
+        "maxDailyTradedNotional",
+        "maxDailyRealizedLoss",
+        "staleQuoteThresholdSeconds",
+        "marketOrdersEnabled",
+        "liveInactivityTimeoutMinutes"
+      ]
+    },
     "RiskPolicyState": {
       "type": "object",
       "properties": {
@@ -1717,7 +1775,7 @@
           "minLength": 1
         },
         "policy": {
-          "$ref": "#/$defs/RiskPolicy"
+          "$ref": "#/$defs/RiskPolicyInput"
         },
         "workspaceId": {
           "type": "string",

@@ -1,5 +1,6 @@
-use schemars::JsonSchema;
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 pub const DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS: u64 = 3;
 pub const DEFAULT_LIVE_INACTIVITY_TIMEOUT_MINUTES: u64 = 20;
@@ -48,6 +49,60 @@ impl Default for RiskPolicy {
             market_orders_enabled: false,
             live_inactivity_timeout_minutes: DEFAULT_LIVE_INACTIVITY_TIMEOUT_MINUTES,
         }
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskPolicyInput {
+    #[schemars(length(max = 32))]
+    pub max_order_notional: RequiredNullableDecimal,
+    #[schemars(length(max = 32))]
+    pub max_single_instrument_exposure_percent: RequiredNullableDecimal,
+    #[schemars(length(max = 32))]
+    pub max_daily_traded_notional: RequiredNullableDecimal,
+    #[schemars(length(max = 32))]
+    pub max_daily_realized_loss: RequiredNullableDecimal,
+    #[schemars(range(min = 1, max = 86_400_u64))]
+    pub stale_quote_threshold_seconds: u64,
+    pub market_orders_enabled: bool,
+    #[schemars(range(min = 1, max = 1_440_u64))]
+    pub live_inactivity_timeout_minutes: u64,
+}
+
+impl From<RiskPolicyInput> for RiskPolicy {
+    fn from(input: RiskPolicyInput) -> Self {
+        Self {
+            max_order_notional: input.max_order_notional.0,
+            max_single_instrument_exposure_percent: input.max_single_instrument_exposure_percent.0,
+            max_daily_traded_notional: input.max_daily_traded_notional.0,
+            max_daily_realized_loss: input.max_daily_realized_loss.0,
+            stale_quote_threshold_seconds: input.stale_quote_threshold_seconds,
+            market_orders_enabled: input.market_orders_enabled,
+            live_inactivity_timeout_minutes: input.live_inactivity_timeout_minutes,
+        }
+    }
+}
+
+pub struct RequiredNullableDecimal(pub Option<String>);
+
+impl<'de> Deserialize<'de> for RequiredNullableDecimal {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Option::<String>::deserialize(deserializer).map(Self)
+    }
+}
+
+impl JsonSchema for RequiredNullableDecimal {
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("RequiredNullableDecimal")
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        <Option<String>>::json_schema(generator)
     }
 }
 
@@ -177,7 +232,7 @@ pub struct SaveRiskPolicy {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 256))]
     pub expected_state_version: String,
-    pub policy: RiskPolicy,
+    pub policy: RiskPolicyInput,
 }
 
 #[derive(Deserialize, JsonSchema)]

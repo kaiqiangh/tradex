@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { RiskPolicy, RiskPolicyState } from '../shared/ipc-types.ts';
+import type { RiskPolicy, RiskPolicyInput, RiskPolicyState } from '../shared/ipc-types.ts';
 import { CommandError, explainError, request } from './client.ts';
 
 export type RiskDraft = {
@@ -24,7 +24,7 @@ export function draftFromPolicy(policy: RiskPolicy): RiskDraft {
   };
 }
 
-function toPolicy(draft: RiskDraft): RiskPolicy {
+function toPolicy(draft: RiskDraft): RiskPolicyInput {
   const stale = Number(draft.staleQuoteThresholdSeconds);
   const inactivity = Number(draft.liveInactivityTimeoutMinutes);
   if (!Number.isInteger(stale) || !Number.isInteger(inactivity)) throw new Error('Enter whole seconds and minutes.');

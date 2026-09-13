@@ -47,6 +47,7 @@ declare const validators: {
   ReplyData: (value: unknown) => boolean;
   ResultEnvelope: (value: unknown) => boolean;
   RiskPolicy: (value: unknown) => boolean;
+  RiskPolicyInput: (value: unknown) => boolean;
   RiskPolicyState: (value: unknown) => boolean;
   RiskQuery: (value: unknown) => boolean;
   RuntimeComponent: (value: unknown) => boolean;

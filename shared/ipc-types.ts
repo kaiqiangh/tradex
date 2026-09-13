@@ -626,8 +626,21 @@ export interface RiskQuery {
  */
 export interface SaveRiskPolicy {
   expectedStateVersion: string;
-  policy: RiskPolicy;
+  policy: RiskPolicyInput;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyInput".
+ */
+export interface RiskPolicyInput {
+  liveInactivityTimeoutMinutes: number;
+  marketOrdersEnabled: boolean;
+  maxDailyRealizedLoss: string | null;
+  maxDailyTradedNotional: string | null;
+  maxOrderNotional: string | null;
+  maxSingleInstrumentExposurePercent: string | null;
+  staleQuoteThresholdSeconds: number;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

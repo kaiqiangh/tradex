@@ -556,7 +556,7 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let mut state = previous;
-        state.policy = input.policy;
+        state.policy = input.policy.into();
         state.validate_policy()?;
         state.mark_editing();
         state.policy_version = state
@@ -581,9 +581,7 @@ impl ControlPlane {
         if previous.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        if input.step > previous.onboarding_step.saturating_add(1)
-            && !(previous.onboarding_completed && input.step == 1)
-        {
+        if input.step.abs_diff(previous.onboarding_step) > 1 {
             return Err(TradeXError::new("ONBOARDING_STEP_INVALID"));
         }
         if input.step == 5 {
@@ -1470,6 +1468,7 @@ mod model_tests {
 #[cfg(test)]
 mod risk_tests {
     use super::*;
+    use rusqlite::Connection;
 
     fn command(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
         control.dispatch(json!({
@@ -1499,9 +1498,51 @@ mod risk_tests {
         let invalid = command(
             &mut control,
             "risk.save_policy",
-            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":"1e3","staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"liveInactivityTimeoutMinutes":20}}),
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":"1e3","maxSingleInstrumentExposurePercent":null,"maxDailyTradedNotional":null,"maxDailyRealizedLoss":null,"staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"liveInactivityTimeoutMinutes":20}}),
         );
         assert_eq!(invalid["error"]["code"], "RISK_POLICY_INVALID");
+        let missing_field = command(
+            &mut control,
+            "risk.save_policy",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{}}),
+        );
+        assert_eq!(missing_field["error"]["code"], "IPC_PAYLOAD_INVALID");
+        let foreign = AccountConnection::new(
+            "foreign-workspace".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "foreign".into(),
+        )
+        .unwrap();
+        let foreign_id = foreign.connection_id.clone();
+        let foreign_credential = foreign.credential_ref();
+        let foreign_json = serde_json::to_string(&foreign).unwrap();
+        let database = Connection::open(path.join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "INSERT INTO accounts VALUES (?1,?2,?3,NULL,1,?4,?5)",
+                rusqlite::params![
+                    foreign_id,
+                    foreign.provider_id,
+                    foreign.environment,
+                    foreign_credential,
+                    foreign_json
+                ],
+            )
+            .unwrap();
+        let foreign_accounts = command(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(
+            foreign_accounts["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
+        database
+            .execute("DELETE FROM accounts WHERE connection_id=?1", [&foreign_id])
+            .unwrap();
+        drop(database);
         let saved = command(
             &mut control,
             "risk.save_policy",
@@ -1526,6 +1567,12 @@ mod risk_tests {
             "onboarding.set_step",
             json!({"workspaceId":workspace_id,"expectedStateVersion":step_two["data"]["stateVersion"],"step":3}),
         );
+        let back_jump = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":step_three["data"]["stateVersion"],"step":1}),
+        );
+        assert_eq!(back_jump["error"]["code"], "ONBOARDING_STEP_INVALID");
         let step_four = command(
             &mut control,
             "onboarding.set_step",

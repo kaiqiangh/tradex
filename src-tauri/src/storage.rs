@@ -317,15 +317,26 @@ impl Store {
     }
 
     pub fn accounts(&self) -> Result<Vec<AccountConnection>> {
+        let workspace_id = self.workspace_id()?;
         let mut query = self
             .connection
-            .prepare("SELECT projection FROM accounts ORDER BY rowid")
+            .prepare("SELECT connection_id, projection FROM accounts ORDER BY rowid")
             .map_err(storage_error)?;
         let rows = query
-            .query_map([], |row| row.get::<_, String>(0))
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
             .map_err(storage_error)?;
-        rows.map(|row| serde_json::from_str(&row.map_err(storage_error)?).map_err(storage_error))
-            .collect()
+        rows.map(|row| {
+            let (connection_id, encoded) = row.map_err(storage_error)?;
+            let account: AccountConnection =
+                serde_json::from_str(&encoded).map_err(storage_error)?;
+            if account.connection_id != connection_id || account.workspace_id != workspace_id {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            Ok(account)
+        })
+        .collect()
     }
 
     pub fn account(&self, id: &str) -> Result<AccountConnection> {
