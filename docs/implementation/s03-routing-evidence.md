@@ -1,6 +1,6 @@
 # S03 / #13 模型路由、回退与配额恢复证据
 
-状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。本票完成本地公共协议、持久化路由策略、回退规划、冷却门控和 Rust-backed UI 可验证范围；#12 的 credentialed OAuth/上游 route、secure-entry Save、OAuth 取消/超时/失效 UI 已在独立原生运行中通过；S04 的 Codex Thread/Turn 流式生命周期仍未开始。
+状态：**VERIFIED（#13 验收完成）**。本票的持久化默认路由、显式 fallback 同意、回退规划、provider-specific cooldown、attempt 审计和 Rust-backed UI 已通过；S04 的 Codex Thread/Turn 流式生命周期与真实 fallback transport 仍明确 deferred，由后续票消费本票契约。
 
 实现提交：`f2603f8`（包含 `83e91c9`、`dfc8e16`、`22cff46`）；规范提交：`7d398ad`；开发分支：`dev`。
 
@@ -11,6 +11,15 @@
 - `ModelRequestPlan` 为后续 Thread 提供不可变 provider/model/thinking 快照；初始 `thread_plan` 只包含 primary。fallback 默认关闭；只有明确 consent、传入的原始 ChatGPT snapshot 合法且已验证、DeepSeek `deepseek-v4-flash` 当前 `READY` 且已验证时，eligible `MODEL_UNAVAILABLE` / `OAUTH_EXPIRED` / `QUOTA_EXCEEDED` 才由 `fallback_plan` 返回一个单向 DeepSeek fallback。设置变更不会改写 in-flight primary，不会自动回切 ChatGPT，也不触碰账户 capability、risk、arming 或 approval。
 - `ModelAttemptKind` 区分 `SETUP` 与 `THREAD`；现有登录、配置和验证写入 `SETUP`。quota 的 `retryAfterSeconds` 限制为 0–86400；控制面在已知窗口结束前拒绝新的 route Verify，并返回 `MODEL_QUOTA_COOLDOWN`。未知或格式错误 quota 保持 unavailable。
 - Settings 显示默认 route、fallback privacy disclosure/version、provider-specific cooldown、attempt kind、错误类别和已知 quota；Verify/Use as default 按真实健康状态禁用，显式 Switch to DeepSeek 只改变下一次选择。
+
+## 本票实机与 Rust-backed UI 验收（2026-09-13）
+
+- 真实桌面工作区 `22acfa1d-b5da-420a-a754-f01ea0c43458` 使用固定 CLIProxyAPI `7.2.155`、`127.0.0.1:8317`；网关恢复后发现 10 个模型。ChatGPT `gpt-5.6-luna` 在 `2026-09-13T12:55:22.835426Z` 验证为 Ready；DeepSeek `deepseek-v4-flash` 的 `thinking.type=disabled` 和 `enabled` 真实验证分别在 `12:36:48.498908Z`、`12:36:58.621708Z` 完成。
+- 在同一真实窗口将已验证的 DeepSeek non-thinking route 设为默认，再点击 Reload model state，默认选择仍保持；随后恢复 ChatGPT `gpt-5.6-luna`。fallback 同意先关闭再开启，Reload 后仍为开启，页面显示 consent version `4`。这验证了默认选择与同意版本的持久化，以及设置变化不会改写已开始的快照。
+- 隔离 Rust-backed workspace `4e06c78e-b7d7-48db-8e8f-58c4c90dd98f` 仅使用 integration synthetic key。真实 `/__integration/command`、SQLite projection 和 UI 验证了 DeepSeek 配置后 `MODEL_UNAVAILABLE` 的失败保持：页面保留 `Configured · verification required`，attempt 列表记录 `SETUP · DEEPSEEK · deepseek-v4-flash · disabled · FAILED · MODEL_UNAVAILABLE`，没有伪造 Ready/default。
+- 在该隔离 workspace 注入可审计的合成 ChatGPT `MODEL_OAUTH_EXPIRED` 状态时，页面显示 `ChatGPT authorization expired or was rejected. Re-login before verifying the route.` 和 `Switch to DeepSeek`；点击后默认选择切换为已验证 DeepSeek。失败 attempt 保留，当前实现将切换交给既有 `model.set_default`，后续 S04 负责消费下一次 Thread plan。
+- 注入带 `retry-after:60s` 的 ChatGPT `QUOTA_EXCEEDED` attempt 时，Verify 显示 `Cooldown` 且页面显示 `Retry is blocked until the known provider cooldown expires.`；移除 cooldown 元数据后仍显示 quota 错误，但没有 Retry blocked 文案，也没有虚构 remaining/reset 时间。两种状态的 attempt 顺序、错误类别和已知 quota 均可展开查看。
+- 隔离 workspace、Vite 和 integration gateway 已停止并清理；临时 SQLite/WAL/SHM 扫描没有 synthetic key、DeepSeek endpoint 或 key 值。真实桌面最终恢复为网关 RUNNING、ChatGPT/DeepSeek Ready、默认 ChatGPT、fallback 开启。
 
 ## 自动化证据
 
@@ -44,9 +53,9 @@ git diff --check
 
 ## 未验证边界
 
-本票的 fixture 证据没有使用真实 ChatGPT/DeepSeek 账户、OAuth token、API key 或上游推理，且不能替代 #12 的外部验收；该段记录的是 credentialed route 运行之前的历史范围。当前实现提供后续 S04 可消费的 planner 与 attempt contract，但不声称已完成 Codex stream、真实 Thread attempt、跨 provider fallback 的上游成功或五步 Ready。#12 的 OAuth 取消、超时和真实 sidecar 失效 UI 已补证；随后按串行顺序补 S04 运行时消费与完整 UI 回归。
+历史 fixture 证据没有使用真实 ChatGPT/DeepSeek 账户、OAuth token、API key 或上游推理，不能替代 #12 的外部验收；#12 的 credentialed 证据已在 `s03-model-evidence.md` 单独通过。本票当前验收证明路由选择、fallback consent、失败分类、known/unknown quota UI 和 durable attempt 投影；不声称已完成 Codex stream、真实 Thread attempt、跨 provider fallback 的上游成功或五步 Ready。S04 负责运行时消费与完整 UI 回归。
 
 ## 串行代码审查
 
-- Standards：本地格式、Clippy、schema、类型、构建、workspace/desktop 测试、单元测试和 traceability 均通过。
-- Spec：与 PRD §16.3/§26.3、UI §14.8/J1、Backend §41–42 及 `model-routing.md` 一致；真实 credentialed acceptance 和 S04 流式证据明确保留为后续门槛。
+- Standards：本地格式、Clippy、schema、类型、构建、workspace/desktop 测试、单元测试、traceability，以及本轮真实 Rust-backed UI 检查均通过。
+- Spec：与 PRD §16.3/§26.3、UI §14.8/J1、Backend §41–42 及 `model-routing.md` 一致；#13 的路由/配额验收通过，真实 Thread/Turn 流式消费明确保留给 S04。
