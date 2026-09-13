@@ -357,12 +357,36 @@ impl ModelState {
     pub fn thread_plan(&self) -> std::result::Result<ModelRequestPlan, &'static str> {
         let selection = self.default_route.as_ref().ok_or("MODEL_DEFAULT_MISSING")?;
         let primary = self.verified_route(selection).ok_or("MODEL_UNAVAILABLE")?;
-        let fallback = (self.automatic_fallback && primary.provider == ModelProvider::Chatgpt)
-            .then(|| self.verified_deepseek_route())
-            .flatten();
         Ok(ModelRequestPlan {
             primary,
-            fallback,
+            fallback: None,
+            fallback_policy_version: self.fallback_policy_version,
+        })
+    }
+
+    pub fn fallback_plan(
+        &self,
+        primary: &ModelRoute,
+        error_category: &str,
+    ) -> Option<ModelRequestPlan> {
+        if !self.automatic_fallback
+            || primary.provider != ModelProvider::Chatgpt
+            || !allowed_route(
+                &primary.provider,
+                &primary.model_id,
+                primary.thinking_type.as_ref(),
+            )
+            || primary.verified_at.is_none()
+            || !matches!(
+                error_category,
+                "MODEL_UNAVAILABLE" | "OAUTH_EXPIRED" | "QUOTA_EXCEEDED"
+            )
+        {
+            return None;
+        }
+        Some(ModelRequestPlan {
+            primary: primary.clone(),
+            fallback: Some(self.verified_deepseek_route()?),
             fallback_policy_version: self.fallback_policy_version,
         })
     }
@@ -394,16 +418,8 @@ impl ModelState {
     }
 
     pub fn fallback_for(&self, primary: &ModelRoute, error_category: &str) -> Option<ModelRoute> {
-        if !self.automatic_fallback
-            || primary.provider != ModelProvider::Chatgpt
-            || !matches!(
-                error_category,
-                "MODEL_UNAVAILABLE" | "OAUTH_EXPIRED" | "QUOTA_EXCEEDED"
-            )
-        {
-            return None;
-        }
-        self.thread_plan().ok()?.fallback
+        self.fallback_plan(primary, error_category)
+            .and_then(|plan| plan.fallback)
     }
 
     pub fn retry_blocked(&self, provider: &ModelProvider, now: time::OffsetDateTime) -> bool {
@@ -670,18 +686,32 @@ mod tests {
         state.automatic_fallback = true;
         let plan = state.thread_plan().unwrap();
         assert_eq!(plan.primary, chatgpt);
-        assert_eq!(plan.fallback, Some(deepseek.clone()));
+        assert!(plan.fallback.is_none());
+        let fallback_plan = state
+            .fallback_plan(&plan.primary, "QUOTA_EXCEEDED")
+            .unwrap();
+        assert_eq!(fallback_plan.primary, plan.primary);
+        assert_eq!(fallback_plan.fallback, Some(deepseek.clone()));
         assert_eq!(
             state.fallback_for(&plan.primary, "QUOTA_EXCEEDED"),
-            Some(deepseek)
+            Some(deepseek.clone())
         );
         assert!(
             state
                 .fallback_for(&plan.primary, "MODEL_TEST_INFERENCE_FAILED")
                 .is_none()
         );
+        state.default_route = Some(deepseek.selection());
+        assert_eq!(
+            state.fallback_for(&plan.primary, "QUOTA_EXCEEDED"),
+            Some(deepseek.clone())
+        );
         state.deepseek.status = ModelHealth::Unverified;
-        assert!(state.thread_plan().unwrap().fallback.is_none());
+        assert!(
+            state
+                .fallback_for(&plan.primary, "QUOTA_EXCEEDED")
+                .is_none()
+        );
         state.deepseek.status = ModelHealth::Ready;
         state.default_route = Some(ModelSelection {
             provider: ModelProvider::Deepseek,
