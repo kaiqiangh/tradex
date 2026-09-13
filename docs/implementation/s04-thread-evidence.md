@@ -1,6 +1,6 @@
 # S04 Thread 历史切片验收
 
-状态：**#17 VERIFIED；S04 父 Spec #16 仍 OPEN**。本证据只覆盖 Thread 生命周期与历史恢复；#18 Turn 流式证据见 [S04 Turn 流式验收](s04-turn-evidence.md)，取消/重试和安全恢复由 #19 负责。
+状态：**#17 VERIFIED；S04 父 Spec #16 仍 OPEN**。本证据只覆盖 Thread 生命周期与历史恢复；#18 Turn 流式证据见 [S04 Turn 流式验收](s04-turn-evidence.md)，#19 取消/重试和安全恢复证据见 [S04 #19 验收](s04-cancel-retry-evidence.md)。
 
 ## 固定实现
 
@@ -27,5 +27,5 @@
 
 ## 未覆盖边界
 
-- Codex App Server stdio handshake、真实 `thread/start`/`turn/start`、流式 item/delta 和 provider attempts 已在 #18 通过受限适配器/fake/browser/CLI smoke 证据；真实 authenticated inference、cancel/interrupt、retry 和 crash recovery 仍保持 `RUNTIME_PENDING`，由 #19 及后续交叉回归负责。
+- Codex App Server stdio handshake、真实 `thread/start`/`turn/start`、流式 item/delta、取消/中断、retry 和 restart reconciliation 已在 #18/#19 通过受限适配器、fake、browser、Rust tests 和 CLI smoke 证据；真实 authenticated inference、跨进程 session resume、完整工具卡片和 QA-01–12/S33 交叉回归仍保持 `RUNTIME_PENDING`。
 - Full QA-01–12、S33 cross-page regression 和真实上游 authenticated inference 仍不能由本切片结论替代。
