@@ -2,7 +2,7 @@
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
-**这是完整应用的实施计划；S01、S02、S03 已完成，S04 的 #17 Thread 历史、#18 Turn 流式和 #19 取消/重试/安全恢复切片已完成；S05–S35 尚未完成。** S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布并完成验收；#11 网关生命周期、#12 模型连接的真实 OAuth/上游推理、#13 默认路由与回退审计、#14 五步入门与风险默认值、#15 账户复用与隔离本地清理均已绑定实现、协议、桌面或 Rust-backed 浏览器证据。#17 的 Thread/history 证据见 [S04 Thread 历史验收](s04-thread-evidence.md)，#18 的 Turn 证据见 [S04 Turn 流式验收](s04-turn-evidence.md)，#19 的取消/重试/恢复证据见 [S04 #19 验收](s04-cancel-retry-evidence.md)；下一项按串行顺序为 S05。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
+**这是完整应用的实施计划；S01、S02、S03 已完成，S04 的 #17 Thread 历史、#18 Turn 流式和 #19 取消/重试/安全恢复切片已完成；S05 已完成 Spec 发布并进入串行拆票，S05–S35 的实现尚未完成。** S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布并完成验收；#11 网关生命周期、#12 模型连接的真实 OAuth/上游推理、#13 默认路由与回退审计、#14 五步入门与风险默认值、#15 账户复用与隔离本地清理均已绑定实现、协议、桌面或 Rust-backed 浏览器证据。#17 的 Thread/history 证据见 [S04 Thread 历史验收](s04-thread-evidence.md)，#18 的 Turn 证据见 [S04 Turn 流式验收](s04-turn-evidence.md)，#19 的取消/重试/恢复证据见 [S04 #19 验收](s04-cancel-retry-evidence.md)；下一项按串行顺序为 S05。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
 
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
@@ -17,6 +17,7 @@
 - [S03 入门与风险验收](s03-onboarding-evidence.md)：#14 五步入门、Risk Defaults、SQLite schema v5、Ready 门控、浏览器交互和公共协议负例；Ready 实际桌面与当前代码浏览器路径已重跑；S04 和 S33 的外部或完整回归门槛仍待补齐。
 - [S03 账户复用验收](s03-account-evidence.md)：#15 权威账户读取、已有连接复用、版本化刷新、隔离本地清理、键盘与 390/768 布局证据；真实桌面账户只读检查，未删除真实凭据。
 - [S04 Thread/Turn 运行时 Spec](thread-runtime.md)：#16 持久化 Thread、不可变 Turn 来源、Codex App Server 流式事件、取消/重试与安全恢复的规范和三张依赖有序实现票。
+- [S05 Agent 能力与上下文 Spec](s05-capability-context.md)：#20 分离 Agent Mode / Execution Context，定义可信 capability policy、canonical context refs 和受限 typed tools 的串行实现边界。
 - [S04 Thread 历史切片验收](s04-thread-evidence.md)：#17 schema v6、Thread create/list/get、snapshot/replay/subscribe、历史恢复和 390/768 浏览器证据。
 - [S04 Turn 流式验收](s04-turn-evidence.md)：#18 不可变 Turn 来源、受限 Codex stdio 适配器和流式 typed timeline；#19 取消/重试/安全恢复的逐项证据见 [S04 #19 验收](s04-cancel-retry-evidence.md)。
 - [S02 提供方连接 Spec 与拆票](provider-connections.md)：四个提供方垂直切片、权限差异、原生凭据边界及官方资料。
