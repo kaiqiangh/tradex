@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { AgentMode, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadModel } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
@@ -119,18 +119,19 @@ function ThreadHistory({ workspaceId, selectedThreadId, onSelect, compact = fals
 
 function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string; model?: ModelState; onCreated: (thread: Thread) => void }) {
   const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'thread-composer'], queryFn: () => request('account.list', { workspaceId }) });
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState('New research thread');
   const [mode, setMode] = useState<AgentMode>('ASK');
   const [execution, setExecution] = useState<ExecutionContext>('NONE_READ_ONLY');
   const [accountId, setAccountId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const route = model?.defaultRoute;
+  const route = verifiedDefaultRoute(model);
   const selectedModel: ThreadModel | undefined = route ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) } : undefined;
   const create = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError(undefined);
     const payload: ThreadCreate = { workspaceId, title: title.trim(), defaultAgentMode: mode, defaultExecutionContext: execution, linkedContexts: [], ...(accountId ? { accountId } : {}), ...(selectedModel ? { model: selectedModel } : {}) };
-    try { onCreated(await request('thread.create', payload)); setTitle('New research thread'); }
+    try { const thread = await request('thread.create', payload); await queryClient.invalidateQueries({ queryKey: ['threads', workspaceId] }); onCreated(thread); setTitle('New research thread'); }
     catch (failure) { setError(explainError(failure)); }
     finally { setBusy(false); }
   };
@@ -254,6 +255,7 @@ export default function App() {
   const modelReady = modelState.ready;
   const projectionError = riskProjection.error ?? modelProjection.error;
   const reloadProjections = () => { void riskProjection.reload(); void modelProjection.reload(); };
+  useEffect(() => { setSelectedThreadId(undefined); }, [workspace?.workspaceId]);
   const navigate = (destination: Page) => {
     setPage(destination); setSetup(false); setWorkspacePicker(false);
     if (destination === 'New Thread') setSelectedThreadId(undefined);
@@ -262,7 +264,7 @@ export default function App() {
   const selectThread = (threadId: string) => { setSelectedThreadId(threadId); setPage('Threads'); setSetup(false); setWorkspacePicker(false); };
   const createdThread = (thread: Thread) => { setSelectedThreadId(thread.threadId); setPage('Threads'); };
   const submit = async (options: OpenWorkspace) => {
-    try { await state.opening.mutateAsync(options); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
+    try { await state.opening.mutateAsync(options); setSelectedThreadId(undefined); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
   };
   const onboardingVisible = !workspacePicker && (setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !modelReady)));
   const title = workspacePicker || setup || (!workspace && page === 'New Thread') ? 'Workspace setup' : page;
