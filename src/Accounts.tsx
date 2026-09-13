@@ -17,7 +17,7 @@ function AccountDetail({ account, busy, run }: { account: AccountConnection; bus
   const disconnected = account.connectionState === 'DISCONNECTED';
   const cleanupOnly = disconnected && account.health.credential === 'MISSING';
   const disconnectDisabled = busy || (disconnected && !cleanupOnly && account.health.credential !== 'DELETE_PENDING');
-  return <section className="card account-detail" aria-labelledby="account-detail-title">
+  return <section className="card account-detail" aria-labelledby="account-detail-title" data-state-version={account.stateVersion}>
     <div className="account-heading"><div><h2 id="account-detail-title">{account.label}</h2><p>{account.providerId} · {account.environment} · {account.connectionState}</p></div>
       <div className="account-actions"><button disabled={busy || disconnected || account.connectionState === 'CONNECTING' || ['MISSING', 'DELETE_PENDING'].includes(account.health.credential)} onClick={() => run(() => request('account.refresh', mutation(account)))}>Refresh account</button>
         <button disabled={disconnectDisabled} onClick={() => run(() => request('provider.disconnect', mutation(account)))}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : cleanupOnly ? 'Remove local connection' : 'Disconnect'}</button></div>

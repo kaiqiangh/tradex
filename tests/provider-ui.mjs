@@ -123,9 +123,15 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await tab.getAXState({ emit: false });
     assert.match(await detail.innerText(), /DISCONNECTED/);
     assert.equal(await ui.getByRole('button', { name: 'Refresh account', exact: true }).isEnabled(), false);
-    assert.equal(await ui.getByRole('button', { name: 'Remove local connection', exact: true }).isEnabled(), true);
-    await ui.getByRole('button', { name: 'Remove local connection', exact: true }).press('Enter');
+    const remove = ui.getByRole('button', { name: 'Remove local connection', exact: true });
+    assert.equal(await remove.isEnabled(), true);
+    const beforeCleanupVersion = await detail.getAttribute('data-state-version');
+    assert.ok(beforeCleanupVersion, 'Disconnected account should expose a state version for the cleanup assertion');
+    await remove.press('Enter');
     await ui.getByText('MISSING', { exact: true }).waitFor({ state: 'visible' });
+    assert.notEqual(await detail.getAttribute('data-state-version'), beforeCleanupVersion, 'Local cleanup should commit a new account state');
+    assert.match(await detail.innerText(), /DISCONNECTED/);
+    assert.equal(await remove.isEnabled(), true);
     assert.equal(await ui.getByRole('alert').count(), 0);
     assert.equal((await tab.dev.logs({ levels: ['error'], limit: 30 })).length, 0);
     observed.push('Disconnect removes local credential access; historical observations stay labeled disconnected and refresh is disabled.');
