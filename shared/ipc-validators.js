@@ -23698,6 +23698,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			},
 			"defaultAgentMode": { "$ref": "#/$defs/AgentMode" },
 			"defaultExecutionContext": { "$ref": "#/$defs/ExecutionContext" },
+			"expectedStateVersion": {
+				"type": ["string", "null"],
+				"maxLength": 256,
+				"minLength": 1
+			},
 			"linkedContexts": {
 				"type": "array",
 				"items": { "$ref": "#/$defs/ThreadContextRef" }
@@ -23743,7 +23748,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!(key0 === "accountId" || key0 === "defaultAgentMode" || key0 === "defaultExecutionContext" || key0 === "linkedContexts" || key0 === "model" || key0 === "title" || key0 === "workspaceId")) {
+					for (const key0 in data) if (!(key0 === "accountId" || key0 === "defaultAgentMode" || key0 === "defaultExecutionContext" || key0 === "expectedStateVersion" || key0 === "linkedContexts" || key0 === "model" || key0 === "title" || key0 === "workspaceId")) {
 						validate195.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -23845,87 +23850,88 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									var valid0 = _errs7 === errors;
 								} else var valid0 = true;
 								if (valid0) {
-									if (data.linkedContexts !== void 0) {
-										let data3 = data.linkedContexts;
+									if (data.expectedStateVersion !== void 0) {
+										let data3 = data.expectedStateVersion;
 										const _errs10 = errors;
+										if (typeof data3 !== "string" && data3 !== null) {
+											validate195.errors = [{
+												instancePath: instancePath + "/expectedStateVersion",
+												schemaPath: "#/properties/expectedStateVersion/type",
+												keyword: "type",
+												params: { type: schema124.properties.expectedStateVersion.type },
+												message: "must be string,null"
+											}];
+											return false;
+										}
 										if (errors === _errs10) {
-											if (Array.isArray(data3)) {
-												const len0 = data3.length;
-												for (let i0 = 0; i0 < len0; i0++) {
-													let data4 = data3[i0];
-													const _errs12 = errors;
-													if (errors === errors) {
-														if (data4 && typeof data4 == "object" && !Array.isArray(data4)) {
-															let missing1;
-															if (data4.kind === void 0 && (missing1 = "kind") || data4.id === void 0 && (missing1 = "id") || data4.hash === void 0 && (missing1 = "hash")) {
-																validate195.errors = [{
-																	instancePath: instancePath + "/linkedContexts/" + i0,
-																	schemaPath: "#/$defs/ThreadContextRef/required",
-																	keyword: "required",
-																	params: { missingProperty: missing1 },
-																	message: "must have required property '" + missing1 + "'"
-																}];
-																return false;
-															} else {
-																const _errs15 = errors;
-																for (const key1 in data4) if (!(key1 === "hash" || key1 === "id" || key1 === "kind")) {
+											if (typeof data3 === "string") {
+												if (func1(data3) > 256) {
+													validate195.errors = [{
+														instancePath: instancePath + "/expectedStateVersion",
+														schemaPath: "#/properties/expectedStateVersion/maxLength",
+														keyword: "maxLength",
+														params: { limit: 256 },
+														message: "must NOT have more than 256 characters"
+													}];
+													return false;
+												} else if (func1(data3) < 1) {
+													validate195.errors = [{
+														instancePath: instancePath + "/expectedStateVersion",
+														schemaPath: "#/properties/expectedStateVersion/minLength",
+														keyword: "minLength",
+														params: { limit: 1 },
+														message: "must NOT have fewer than 1 characters"
+													}];
+													return false;
+												}
+											}
+										}
+										var valid0 = _errs10 === errors;
+									} else var valid0 = true;
+									if (valid0) {
+										if (data.linkedContexts !== void 0) {
+											let data4 = data.linkedContexts;
+											const _errs12 = errors;
+											if (errors === _errs12) {
+												if (Array.isArray(data4)) {
+													const len0 = data4.length;
+													for (let i0 = 0; i0 < len0; i0++) {
+														let data5 = data4[i0];
+														const _errs14 = errors;
+														if (errors === errors) {
+															if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
+																let missing1;
+																if (data5.kind === void 0 && (missing1 = "kind") || data5.id === void 0 && (missing1 = "id") || data5.hash === void 0 && (missing1 = "hash")) {
 																	validate195.errors = [{
 																		instancePath: instancePath + "/linkedContexts/" + i0,
-																		schemaPath: "#/$defs/ThreadContextRef/additionalProperties",
-																		keyword: "additionalProperties",
-																		params: { additionalProperty: key1 },
-																		message: "must NOT have additional properties"
+																		schemaPath: "#/$defs/ThreadContextRef/required",
+																		keyword: "required",
+																		params: { missingProperty: missing1 },
+																		message: "must have required property '" + missing1 + "'"
 																	}];
 																	return false;
-																}
-																if (_errs15 === errors) {
-																	if (data4.hash !== void 0) {
-																		let data5 = data4.hash;
-																		const _errs16 = errors;
-																		if (errors === _errs16) {
-																			if (typeof data5 === "string") {
-																				if (func1(data5) > 256) {
-																					validate195.errors = [{
-																						instancePath: instancePath + "/linkedContexts/" + i0 + "/hash",
-																						schemaPath: "#/$defs/ThreadContextRef/properties/hash/maxLength",
-																						keyword: "maxLength",
-																						params: { limit: 256 },
-																						message: "must NOT have more than 256 characters"
-																					}];
-																					return false;
-																				} else if (func1(data5) < 1) {
-																					validate195.errors = [{
-																						instancePath: instancePath + "/linkedContexts/" + i0 + "/hash",
-																						schemaPath: "#/$defs/ThreadContextRef/properties/hash/minLength",
-																						keyword: "minLength",
-																						params: { limit: 1 },
-																						message: "must NOT have fewer than 1 characters"
-																					}];
-																					return false;
-																				}
-																			} else {
-																				validate195.errors = [{
-																					instancePath: instancePath + "/linkedContexts/" + i0 + "/hash",
-																					schemaPath: "#/$defs/ThreadContextRef/properties/hash/type",
-																					keyword: "type",
-																					params: { type: "string" },
-																					message: "must be string"
-																				}];
-																				return false;
-																			}
-																		}
-																		var valid5 = _errs16 === errors;
-																	} else var valid5 = true;
-																	if (valid5) {
-																		if (data4.id !== void 0) {
-																			let data6 = data4.id;
+																} else {
+																	const _errs17 = errors;
+																	for (const key1 in data5) if (!(key1 === "hash" || key1 === "id" || key1 === "kind")) {
+																		validate195.errors = [{
+																			instancePath: instancePath + "/linkedContexts/" + i0,
+																			schemaPath: "#/$defs/ThreadContextRef/additionalProperties",
+																			keyword: "additionalProperties",
+																			params: { additionalProperty: key1 },
+																			message: "must NOT have additional properties"
+																		}];
+																		return false;
+																	}
+																	if (_errs17 === errors) {
+																		if (data5.hash !== void 0) {
+																			let data6 = data5.hash;
 																			const _errs18 = errors;
 																			if (errors === _errs18) {
 																				if (typeof data6 === "string") {
 																					if (func1(data6) > 256) {
 																						validate195.errors = [{
-																							instancePath: instancePath + "/linkedContexts/" + i0 + "/id",
-																							schemaPath: "#/$defs/ThreadContextRef/properties/id/maxLength",
+																							instancePath: instancePath + "/linkedContexts/" + i0 + "/hash",
+																							schemaPath: "#/$defs/ThreadContextRef/properties/hash/maxLength",
 																							keyword: "maxLength",
 																							params: { limit: 256 },
 																							message: "must NOT have more than 256 characters"
@@ -23933,8 +23939,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						return false;
 																					} else if (func1(data6) < 1) {
 																						validate195.errors = [{
-																							instancePath: instancePath + "/linkedContexts/" + i0 + "/id",
-																							schemaPath: "#/$defs/ThreadContextRef/properties/id/minLength",
+																							instancePath: instancePath + "/linkedContexts/" + i0 + "/hash",
+																							schemaPath: "#/$defs/ThreadContextRef/properties/hash/minLength",
 																							keyword: "minLength",
 																							params: { limit: 1 },
 																							message: "must NOT have fewer than 1 characters"
@@ -23943,8 +23949,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					}
 																				} else {
 																					validate195.errors = [{
-																						instancePath: instancePath + "/linkedContexts/" + i0 + "/id",
-																						schemaPath: "#/$defs/ThreadContextRef/properties/id/type",
+																						instancePath: instancePath + "/linkedContexts/" + i0 + "/hash",
+																						schemaPath: "#/$defs/ThreadContextRef/properties/hash/type",
 																						keyword: "type",
 																						params: { type: "string" },
 																						message: "must be string"
@@ -23955,24 +23961,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			var valid5 = _errs18 === errors;
 																		} else var valid5 = true;
 																		if (valid5) {
-																			if (data4.kind !== void 0) {
-																				let data7 = data4.kind;
+																			if (data5.id !== void 0) {
+																				let data7 = data5.id;
 																				const _errs20 = errors;
 																				if (errors === _errs20) {
 																					if (typeof data7 === "string") {
-																						if (func1(data7) > 64) {
+																						if (func1(data7) > 256) {
 																							validate195.errors = [{
-																								instancePath: instancePath + "/linkedContexts/" + i0 + "/kind",
-																								schemaPath: "#/$defs/ThreadContextRef/properties/kind/maxLength",
+																								instancePath: instancePath + "/linkedContexts/" + i0 + "/id",
+																								schemaPath: "#/$defs/ThreadContextRef/properties/id/maxLength",
 																								keyword: "maxLength",
-																								params: { limit: 64 },
-																								message: "must NOT have more than 64 characters"
+																								params: { limit: 256 },
+																								message: "must NOT have more than 256 characters"
 																							}];
 																							return false;
 																						} else if (func1(data7) < 1) {
 																							validate195.errors = [{
-																								instancePath: instancePath + "/linkedContexts/" + i0 + "/kind",
-																								schemaPath: "#/$defs/ThreadContextRef/properties/kind/minLength",
+																								instancePath: instancePath + "/linkedContexts/" + i0 + "/id",
+																								schemaPath: "#/$defs/ThreadContextRef/properties/id/minLength",
 																								keyword: "minLength",
 																								params: { limit: 1 },
 																								message: "must NOT have fewer than 1 characters"
@@ -23981,8 +23987,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						}
 																					} else {
 																						validate195.errors = [{
-																							instancePath: instancePath + "/linkedContexts/" + i0 + "/kind",
-																							schemaPath: "#/$defs/ThreadContextRef/properties/kind/type",
+																							instancePath: instancePath + "/linkedContexts/" + i0 + "/id",
+																							schemaPath: "#/$defs/ThreadContextRef/properties/id/type",
 																							keyword: "type",
 																							params: { type: "string" },
 																							message: "must be string"
@@ -23992,318 +23998,318 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				}
 																				var valid5 = _errs20 === errors;
 																			} else var valid5 = true;
+																			if (valid5) {
+																				if (data5.kind !== void 0) {
+																					let data8 = data5.kind;
+																					const _errs22 = errors;
+																					if (errors === _errs22) {
+																						if (typeof data8 === "string") {
+																							if (func1(data8) > 64) {
+																								validate195.errors = [{
+																									instancePath: instancePath + "/linkedContexts/" + i0 + "/kind",
+																									schemaPath: "#/$defs/ThreadContextRef/properties/kind/maxLength",
+																									keyword: "maxLength",
+																									params: { limit: 64 },
+																									message: "must NOT have more than 64 characters"
+																								}];
+																								return false;
+																							} else if (func1(data8) < 1) {
+																								validate195.errors = [{
+																									instancePath: instancePath + "/linkedContexts/" + i0 + "/kind",
+																									schemaPath: "#/$defs/ThreadContextRef/properties/kind/minLength",
+																									keyword: "minLength",
+																									params: { limit: 1 },
+																									message: "must NOT have fewer than 1 characters"
+																								}];
+																								return false;
+																							}
+																						} else {
+																							validate195.errors = [{
+																								instancePath: instancePath + "/linkedContexts/" + i0 + "/kind",
+																								schemaPath: "#/$defs/ThreadContextRef/properties/kind/type",
+																								keyword: "type",
+																								params: { type: "string" },
+																								message: "must be string"
+																							}];
+																							return false;
+																						}
+																					}
+																					var valid5 = _errs22 === errors;
+																				} else var valid5 = true;
+																			}
 																		}
 																	}
 																}
+															} else {
+																validate195.errors = [{
+																	instancePath: instancePath + "/linkedContexts/" + i0,
+																	schemaPath: "#/$defs/ThreadContextRef/type",
+																	keyword: "type",
+																	params: { type: "object" },
+																	message: "must be object"
+																}];
+																return false;
 															}
-														} else {
-															validate195.errors = [{
-																instancePath: instancePath + "/linkedContexts/" + i0,
-																schemaPath: "#/$defs/ThreadContextRef/type",
-																keyword: "type",
-																params: { type: "object" },
-																message: "must be object"
-															}];
-															return false;
 														}
+														if (!(_errs14 === errors)) break;
 													}
-													if (!(_errs12 === errors)) break;
+												} else {
+													validate195.errors = [{
+														instancePath: instancePath + "/linkedContexts",
+														schemaPath: "#/properties/linkedContexts/type",
+														keyword: "type",
+														params: { type: "array" },
+														message: "must be array"
+													}];
+													return false;
 												}
-											} else {
-												validate195.errors = [{
-													instancePath: instancePath + "/linkedContexts",
-													schemaPath: "#/properties/linkedContexts/type",
-													keyword: "type",
-													params: { type: "array" },
-													message: "must be array"
-												}];
-												return false;
 											}
-										}
-										var valid0 = _errs10 === errors;
-									} else var valid0 = true;
-									if (valid0) {
-										if (data.model !== void 0) {
-											let data8 = data.model;
-											const _errs22 = errors;
-											const _errs23 = errors;
-											let valid6 = false;
-											const _errs24 = errors;
-											if (errors === errors) {
-												if (data8 && typeof data8 == "object" && !Array.isArray(data8)) {
-													let missing2;
-													if (data8.provider === void 0 && (missing2 = "provider") || data8.modelId === void 0 && (missing2 = "modelId")) {
-														const err0 = {
-															instancePath: instancePath + "/model",
-															schemaPath: "#/$defs/ThreadModel/required",
-															keyword: "required",
-															params: { missingProperty: missing2 },
-															message: "must have required property '" + missing2 + "'"
-														};
-														if (vErrors === null) vErrors = [err0];
-														else vErrors.push(err0);
-														errors++;
-													} else {
-														const _errs27 = errors;
-														for (const key2 in data8) if (!(key2 === "modelId" || key2 === "provider" || key2 === "thinkingType")) {
-															const err1 = {
+											var valid0 = _errs12 === errors;
+										} else var valid0 = true;
+										if (valid0) {
+											if (data.model !== void 0) {
+												let data9 = data.model;
+												const _errs24 = errors;
+												const _errs25 = errors;
+												let valid6 = false;
+												const _errs26 = errors;
+												if (errors === errors) {
+													if (data9 && typeof data9 == "object" && !Array.isArray(data9)) {
+														let missing2;
+														if (data9.provider === void 0 && (missing2 = "provider") || data9.modelId === void 0 && (missing2 = "modelId")) {
+															const err0 = {
 																instancePath: instancePath + "/model",
-																schemaPath: "#/$defs/ThreadModel/additionalProperties",
-																keyword: "additionalProperties",
-																params: { additionalProperty: key2 },
-																message: "must NOT have additional properties"
+																schemaPath: "#/$defs/ThreadModel/required",
+																keyword: "required",
+																params: { missingProperty: missing2 },
+																message: "must have required property '" + missing2 + "'"
 															};
-															if (vErrors === null) vErrors = [err1];
-															else vErrors.push(err1);
+															if (vErrors === null) vErrors = [err0];
+															else vErrors.push(err0);
 															errors++;
-															break;
-														}
-														if (_errs27 === errors) {
-															if (data8.modelId !== void 0) {
-																let data9 = data8.modelId;
-																const _errs28 = errors;
-																if (errors === _errs28) {
-																	if (typeof data9 === "string") {
-																		if (func1(data9) > 128) {
-																			const err2 = {
-																				instancePath: instancePath + "/model/modelId",
-																				schemaPath: "#/$defs/ThreadModel/properties/modelId/maxLength",
-																				keyword: "maxLength",
-																				params: { limit: 128 },
-																				message: "must NOT have more than 128 characters"
-																			};
-																			if (vErrors === null) vErrors = [err2];
-																			else vErrors.push(err2);
-																			errors++;
-																		} else if (func1(data9) < 1) {
-																			const err3 = {
-																				instancePath: instancePath + "/model/modelId",
-																				schemaPath: "#/$defs/ThreadModel/properties/modelId/minLength",
-																				keyword: "minLength",
-																				params: { limit: 1 },
-																				message: "must NOT have fewer than 1 characters"
-																			};
-																			if (vErrors === null) vErrors = [err3];
-																			else vErrors.push(err3);
-																			errors++;
-																		}
-																	} else {
-																		const err4 = {
-																			instancePath: instancePath + "/model/modelId",
-																			schemaPath: "#/$defs/ThreadModel/properties/modelId/type",
-																			keyword: "type",
-																			params: { type: "string" },
-																			message: "must be string"
-																		};
-																		if (vErrors === null) vErrors = [err4];
-																		else vErrors.push(err4);
-																		errors++;
-																	}
-																}
-																var valid8 = _errs28 === errors;
-															} else var valid8 = true;
-															if (valid8) {
-																if (data8.provider !== void 0) {
-																	let data10 = data8.provider;
+														} else {
+															const _errs29 = errors;
+															for (const key2 in data9) if (!(key2 === "modelId" || key2 === "provider" || key2 === "thinkingType")) {
+																const err1 = {
+																	instancePath: instancePath + "/model",
+																	schemaPath: "#/$defs/ThreadModel/additionalProperties",
+																	keyword: "additionalProperties",
+																	params: { additionalProperty: key2 },
+																	message: "must NOT have additional properties"
+																};
+																if (vErrors === null) vErrors = [err1];
+																else vErrors.push(err1);
+																errors++;
+																break;
+															}
+															if (_errs29 === errors) {
+																if (data9.modelId !== void 0) {
+																	let data10 = data9.modelId;
 																	const _errs30 = errors;
 																	if (errors === _errs30) {
 																		if (typeof data10 === "string") {
-																			if (func1(data10) > 32) {
-																				const err5 = {
-																					instancePath: instancePath + "/model/provider",
-																					schemaPath: "#/$defs/ThreadModel/properties/provider/maxLength",
+																			if (func1(data10) > 128) {
+																				const err2 = {
+																					instancePath: instancePath + "/model/modelId",
+																					schemaPath: "#/$defs/ThreadModel/properties/modelId/maxLength",
 																					keyword: "maxLength",
-																					params: { limit: 32 },
-																					message: "must NOT have more than 32 characters"
+																					params: { limit: 128 },
+																					message: "must NOT have more than 128 characters"
 																				};
-																				if (vErrors === null) vErrors = [err5];
-																				else vErrors.push(err5);
+																				if (vErrors === null) vErrors = [err2];
+																				else vErrors.push(err2);
 																				errors++;
 																			} else if (func1(data10) < 1) {
-																				const err6 = {
-																					instancePath: instancePath + "/model/provider",
-																					schemaPath: "#/$defs/ThreadModel/properties/provider/minLength",
+																				const err3 = {
+																					instancePath: instancePath + "/model/modelId",
+																					schemaPath: "#/$defs/ThreadModel/properties/modelId/minLength",
 																					keyword: "minLength",
 																					params: { limit: 1 },
 																					message: "must NOT have fewer than 1 characters"
 																				};
-																				if (vErrors === null) vErrors = [err6];
-																				else vErrors.push(err6);
+																				if (vErrors === null) vErrors = [err3];
+																				else vErrors.push(err3);
 																				errors++;
 																			}
 																		} else {
-																			const err7 = {
-																				instancePath: instancePath + "/model/provider",
-																				schemaPath: "#/$defs/ThreadModel/properties/provider/type",
+																			const err4 = {
+																				instancePath: instancePath + "/model/modelId",
+																				schemaPath: "#/$defs/ThreadModel/properties/modelId/type",
 																				keyword: "type",
 																				params: { type: "string" },
 																				message: "must be string"
 																			};
-																			if (vErrors === null) vErrors = [err7];
-																			else vErrors.push(err7);
+																			if (vErrors === null) vErrors = [err4];
+																			else vErrors.push(err4);
 																			errors++;
 																		}
 																	}
 																	var valid8 = _errs30 === errors;
 																} else var valid8 = true;
 																if (valid8) {
-																	if (data8.thinkingType !== void 0) {
-																		let data11 = data8.thinkingType;
+																	if (data9.provider !== void 0) {
+																		let data11 = data9.provider;
 																		const _errs32 = errors;
-																		if (typeof data11 !== "string" && data11 !== null) {
-																			const err8 = {
-																				instancePath: instancePath + "/model/thinkingType",
-																				schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
-																				keyword: "type",
-																				params: { type: schema77.properties.thinkingType.type },
-																				message: "must be string,null"
-																			};
-																			if (vErrors === null) vErrors = [err8];
-																			else vErrors.push(err8);
-																			errors++;
-																		}
 																		if (errors === _errs32) {
 																			if (typeof data11 === "string") {
 																				if (func1(data11) > 32) {
-																					const err9 = {
-																						instancePath: instancePath + "/model/thinkingType",
-																						schemaPath: "#/$defs/ThreadModel/properties/thinkingType/maxLength",
+																					const err5 = {
+																						instancePath: instancePath + "/model/provider",
+																						schemaPath: "#/$defs/ThreadModel/properties/provider/maxLength",
 																						keyword: "maxLength",
 																						params: { limit: 32 },
 																						message: "must NOT have more than 32 characters"
 																					};
-																					if (vErrors === null) vErrors = [err9];
-																					else vErrors.push(err9);
+																					if (vErrors === null) vErrors = [err5];
+																					else vErrors.push(err5);
 																					errors++;
 																				} else if (func1(data11) < 1) {
-																					const err10 = {
-																						instancePath: instancePath + "/model/thinkingType",
-																						schemaPath: "#/$defs/ThreadModel/properties/thinkingType/minLength",
+																					const err6 = {
+																						instancePath: instancePath + "/model/provider",
+																						schemaPath: "#/$defs/ThreadModel/properties/provider/minLength",
 																						keyword: "minLength",
 																						params: { limit: 1 },
 																						message: "must NOT have fewer than 1 characters"
 																					};
-																					if (vErrors === null) vErrors = [err10];
-																					else vErrors.push(err10);
+																					if (vErrors === null) vErrors = [err6];
+																					else vErrors.push(err6);
 																					errors++;
 																				}
+																			} else {
+																				const err7 = {
+																					instancePath: instancePath + "/model/provider",
+																					schemaPath: "#/$defs/ThreadModel/properties/provider/type",
+																					keyword: "type",
+																					params: { type: "string" },
+																					message: "must be string"
+																				};
+																				if (vErrors === null) vErrors = [err7];
+																				else vErrors.push(err7);
+																				errors++;
 																			}
 																		}
 																		var valid8 = _errs32 === errors;
 																	} else var valid8 = true;
+																	if (valid8) {
+																		if (data9.thinkingType !== void 0) {
+																			let data12 = data9.thinkingType;
+																			const _errs34 = errors;
+																			if (typeof data12 !== "string" && data12 !== null) {
+																				const err8 = {
+																					instancePath: instancePath + "/model/thinkingType",
+																					schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
+																					keyword: "type",
+																					params: { type: schema77.properties.thinkingType.type },
+																					message: "must be string,null"
+																				};
+																				if (vErrors === null) vErrors = [err8];
+																				else vErrors.push(err8);
+																				errors++;
+																			}
+																			if (errors === _errs34) {
+																				if (typeof data12 === "string") {
+																					if (func1(data12) > 32) {
+																						const err9 = {
+																							instancePath: instancePath + "/model/thinkingType",
+																							schemaPath: "#/$defs/ThreadModel/properties/thinkingType/maxLength",
+																							keyword: "maxLength",
+																							params: { limit: 32 },
+																							message: "must NOT have more than 32 characters"
+																						};
+																						if (vErrors === null) vErrors = [err9];
+																						else vErrors.push(err9);
+																						errors++;
+																					} else if (func1(data12) < 1) {
+																						const err10 = {
+																							instancePath: instancePath + "/model/thinkingType",
+																							schemaPath: "#/$defs/ThreadModel/properties/thinkingType/minLength",
+																							keyword: "minLength",
+																							params: { limit: 1 },
+																							message: "must NOT have fewer than 1 characters"
+																						};
+																						if (vErrors === null) vErrors = [err10];
+																						else vErrors.push(err10);
+																						errors++;
+																					}
+																				}
+																			}
+																			var valid8 = _errs34 === errors;
+																		} else var valid8 = true;
+																	}
 																}
 															}
 														}
+													} else {
+														const err11 = {
+															instancePath: instancePath + "/model",
+															schemaPath: "#/$defs/ThreadModel/type",
+															keyword: "type",
+															params: { type: "object" },
+															message: "must be object"
+														};
+														if (vErrors === null) vErrors = [err11];
+														else vErrors.push(err11);
+														errors++;
 													}
-												} else {
-													const err11 = {
+												}
+												var _valid0 = _errs26 === errors;
+												valid6 = valid6 || _valid0;
+												const _errs36 = errors;
+												if (data9 !== null) {
+													const err12 = {
 														instancePath: instancePath + "/model",
-														schemaPath: "#/$defs/ThreadModel/type",
+														schemaPath: "#/properties/model/anyOf/1/type",
 														keyword: "type",
-														params: { type: "object" },
-														message: "must be object"
+														params: { type: "null" },
+														message: "must be null"
 													};
-													if (vErrors === null) vErrors = [err11];
-													else vErrors.push(err11);
+													if (vErrors === null) vErrors = [err12];
+													else vErrors.push(err12);
 													errors++;
 												}
-											}
-											var _valid0 = _errs24 === errors;
-											valid6 = valid6 || _valid0;
-											const _errs34 = errors;
-											if (data8 !== null) {
-												const err12 = {
-													instancePath: instancePath + "/model",
-													schemaPath: "#/properties/model/anyOf/1/type",
-													keyword: "type",
-													params: { type: "null" },
-													message: "must be null"
-												};
-												if (vErrors === null) vErrors = [err12];
-												else vErrors.push(err12);
-												errors++;
-											}
-											var _valid0 = _errs34 === errors;
-											valid6 = valid6 || _valid0;
-											if (!valid6) {
-												const err13 = {
-													instancePath: instancePath + "/model",
-													schemaPath: "#/properties/model/anyOf",
-													keyword: "anyOf",
-													params: {},
-													message: "must match a schema in anyOf"
-												};
-												if (vErrors === null) vErrors = [err13];
-												else vErrors.push(err13);
-												errors++;
-												validate195.errors = vErrors;
-												return false;
-											} else {
-												errors = _errs23;
-												if (vErrors !== null) {
-													if (_errs23) vErrors.length = _errs23;
-													else vErrors = null;
-												}
-											}
-											var valid0 = _errs22 === errors;
-										} else var valid0 = true;
-										if (valid0) {
-											if (data.title !== void 0) {
-												let data12 = data.title;
-												const _errs36 = errors;
-												if (errors === _errs36) {
-													if (typeof data12 === "string") {
-														if (func1(data12) > 120) {
-															validate195.errors = [{
-																instancePath: instancePath + "/title",
-																schemaPath: "#/properties/title/maxLength",
-																keyword: "maxLength",
-																params: { limit: 120 },
-																message: "must NOT have more than 120 characters"
-															}];
-															return false;
-														} else if (func1(data12) < 1) {
-															validate195.errors = [{
-																instancePath: instancePath + "/title",
-																schemaPath: "#/properties/title/minLength",
-																keyword: "minLength",
-																params: { limit: 1 },
-																message: "must NOT have fewer than 1 characters"
-															}];
-															return false;
-														}
-													} else {
-														validate195.errors = [{
-															instancePath: instancePath + "/title",
-															schemaPath: "#/properties/title/type",
-															keyword: "type",
-															params: { type: "string" },
-															message: "must be string"
-														}];
-														return false;
+												var _valid0 = _errs36 === errors;
+												valid6 = valid6 || _valid0;
+												if (!valid6) {
+													const err13 = {
+														instancePath: instancePath + "/model",
+														schemaPath: "#/properties/model/anyOf",
+														keyword: "anyOf",
+														params: {},
+														message: "must match a schema in anyOf"
+													};
+													if (vErrors === null) vErrors = [err13];
+													else vErrors.push(err13);
+													errors++;
+													validate195.errors = vErrors;
+													return false;
+												} else {
+													errors = _errs25;
+													if (vErrors !== null) {
+														if (_errs25) vErrors.length = _errs25;
+														else vErrors = null;
 													}
 												}
-												var valid0 = _errs36 === errors;
+												var valid0 = _errs24 === errors;
 											} else var valid0 = true;
 											if (valid0) {
-												if (data.workspaceId !== void 0) {
-													let data13 = data.workspaceId;
+												if (data.title !== void 0) {
+													let data13 = data.title;
 													const _errs38 = errors;
 													if (errors === _errs38) {
 														if (typeof data13 === "string") {
-															if (func1(data13) > 128) {
+															if (func1(data13) > 120) {
 																validate195.errors = [{
-																	instancePath: instancePath + "/workspaceId",
-																	schemaPath: "#/properties/workspaceId/maxLength",
+																	instancePath: instancePath + "/title",
+																	schemaPath: "#/properties/title/maxLength",
 																	keyword: "maxLength",
-																	params: { limit: 128 },
-																	message: "must NOT have more than 128 characters"
+																	params: { limit: 120 },
+																	message: "must NOT have more than 120 characters"
 																}];
 																return false;
 															} else if (func1(data13) < 1) {
 																validate195.errors = [{
-																	instancePath: instancePath + "/workspaceId",
-																	schemaPath: "#/properties/workspaceId/minLength",
+																	instancePath: instancePath + "/title",
+																	schemaPath: "#/properties/title/minLength",
 																	keyword: "minLength",
 																	params: { limit: 1 },
 																	message: "must NOT have fewer than 1 characters"
@@ -24312,8 +24318,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															}
 														} else {
 															validate195.errors = [{
-																instancePath: instancePath + "/workspaceId",
-																schemaPath: "#/properties/workspaceId/type",
+																instancePath: instancePath + "/title",
+																schemaPath: "#/properties/title/type",
 																keyword: "type",
 																params: { type: "string" },
 																message: "must be string"
@@ -24323,6 +24329,45 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													}
 													var valid0 = _errs38 === errors;
 												} else var valid0 = true;
+												if (valid0) {
+													if (data.workspaceId !== void 0) {
+														let data14 = data.workspaceId;
+														const _errs40 = errors;
+														if (errors === _errs40) {
+															if (typeof data14 === "string") {
+																if (func1(data14) > 128) {
+																	validate195.errors = [{
+																		instancePath: instancePath + "/workspaceId",
+																		schemaPath: "#/properties/workspaceId/maxLength",
+																		keyword: "maxLength",
+																		params: { limit: 128 },
+																		message: "must NOT have more than 128 characters"
+																	}];
+																	return false;
+																} else if (func1(data14) < 1) {
+																	validate195.errors = [{
+																		instancePath: instancePath + "/workspaceId",
+																		schemaPath: "#/properties/workspaceId/minLength",
+																		keyword: "minLength",
+																		params: { limit: 1 },
+																		message: "must NOT have fewer than 1 characters"
+																	}];
+																	return false;
+																}
+															} else {
+																validate195.errors = [{
+																	instancePath: instancePath + "/workspaceId",
+																	schemaPath: "#/properties/workspaceId/type",
+																	keyword: "type",
+																	params: { type: "string" },
+																	message: "must be string"
+																}];
+																return false;
+															}
+														}
+														var valid0 = _errs40 === errors;
+													} else var valid0 = true;
+												}
 											}
 										}
 									}

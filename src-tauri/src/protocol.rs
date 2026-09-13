@@ -410,6 +410,9 @@ pub struct ThreadList {
 pub struct ThreadCreate {
     #[schemars(length(min = 1, max = 128))]
     pub workspace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: Option<String>,
     #[schemars(length(min = 1, max = 120))]
     pub title: String,
     pub default_agent_mode: AgentMode,

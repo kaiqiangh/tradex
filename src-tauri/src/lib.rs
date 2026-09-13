@@ -531,6 +531,16 @@ impl ControlPlane {
 
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {
         self.require_workspace(&input.workspace_id)?;
+        if let Some(expected) = &input.expected_state_version {
+            if expected.is_empty() || expected.len() > 256 {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+            let snapshot = self.store.as_mut().unwrap().snapshot()?;
+            let actual = format!("{}:{}", snapshot.aggregate_id, snapshot.last_sequence);
+            if expected != &actual {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+        }
         if input.title.trim().is_empty()
             || input.title.chars().count() > 120
             || input.title.chars().any(char::is_control)
@@ -1328,6 +1338,19 @@ mod thread_tests {
         let opened = control.dispatch(request("workspace.open", json!({})));
         assert_eq!(opened["ok"], true);
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let stale = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": "stale",
+                "title": "Stale request",
+                "defaultAgentMode": "ASK",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "linkedContexts": []
+            }),
+        ));
+        assert_eq!(stale["ok"], false);
+        assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT");
         let create = control.dispatch(request(
             "thread.create",
             json!({

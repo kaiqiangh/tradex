@@ -837,6 +837,7 @@ export interface ThreadCreate {
   accountId?: string | null;
   defaultAgentMode: AgentMode;
   defaultExecutionContext: ExecutionContext;
+  expectedStateVersion?: string | null;
   linkedContexts: ThreadContextRef[];
   model?: ThreadModel | null;
   title: string;

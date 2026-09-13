@@ -2221,6 +2221,14 @@
         "defaultExecutionContext": {
           "$ref": "#/$defs/ExecutionContext"
         },
+        "expectedStateVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
         "linkedContexts": {
           "type": "array",
           "items": {
