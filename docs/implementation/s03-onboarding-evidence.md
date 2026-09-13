@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。本票已完成可恢复的 Workspace → Providers → Model → Risk defaults → Ready 工作流、风险策略持久化与公共门控。用户要求暂缓的 #12 真实 OAuth/上游模型验收仍未完成，因此本票不把 fixture 失败或无凭据路径升级为 Ready 通过。
 
-实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）、`28e4979`（React 入门与 Risk & Limits 页面）、`9f048dd`（Ready 未知账户与恢复路径门控）、`75dfefa`（required policy payload、账户行身份校验、单步导航约束与生成 schema）、`a3bf8bc`（持久化 risk 完整性、required nullable 输出和 route provider 身份门控）、`54232de`（Ready 配置不变量与 fresh account health 门控）及 `bc2608d`（已有工作区的 Workspace picker/switch flow）；规范提交：`66ed6de`、`75dfefa`；开发分支：`dev`。
+实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）、`28e4979`（React 入门与 Risk & Limits 页面）、`9f048dd`（Ready 未知账户与恢复路径门控）、`75dfefa`（required policy payload、账户行身份校验、单步导航约束与生成 schema）、`a3bf8bc`（持久化 risk 完整性、required nullable 输出和 route provider 身份门控）、`54232de`（Ready 配置不变量与 fresh account health 门控）、`bc2608d`（已有工作区的 Workspace picker/switch flow）及 `56fcecd`（持久化账户运行时校验、projection 错误恢复与证据 CSV 修正）；规范提交：`66ed6de`、`75dfefa`；开发分支：`dev`。
 
 ## 已实现
 
@@ -16,7 +16,7 @@
 
 ## 自动化证据
 
-在最终代码 HEAD `bc2608d` 上通过：
+在最终代码 HEAD `56fcecd` 上通过：
 
 ```text
 cargo fmt --all -- --check
@@ -27,7 +27,7 @@ cargo clippy --features desktop --bin tradex -- -D warnings
 npm run check
 ```
 
-`npm run check` 包含 schema:check、TypeScript、Vite build、3 个前端 projection 单测、Rust workspace 和 `check_requirements.py`；最终 traceability 为 `201 requirements, 70 screens, 12 QA scenarios, 23 baseline files`。构建只有已有的 bundle size warning。风险专用单测覆盖默认值、精确小数/边界、非法输入、缺少 policy 字段、版本冲突、外来账户行、单步前后导航、Ready 模型门控、完成和重开后恢复。
+`npm run check` 包含 schema:check、TypeScript、Vite build、3 个前端 projection 单测、Rust workspace 和 `check_requirements.py`；最终 traceability 为 `201 requirements, 70 screens, 12 QA scenarios, 23 baseline files`。构建只有已有的 bundle size warning。风险专用单测覆盖默认值、精确小数/边界、非法输入、缺少 policy 字段、版本冲突、外来账户行、持久化 provider/environment/arming 校验、单步前后导航、Ready 模型门控、完成和重开后恢复；projection 错误 banner 提供重新加载路径。
 
 ## Rust-backed 浏览器证据
 
