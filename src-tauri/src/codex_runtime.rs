@@ -468,43 +468,41 @@ impl Process {
     }
 
     fn next_cancellable(&mut self, cancelled: &AtomicBool) -> Result<Option<Value>> {
-        if cancelled.load(Ordering::Acquire) {
-            return Ok(None);
-        }
-        if self.queue_overflow.load(Ordering::Acquire) {
-            return Err(TradeXError::new("CODEX_RUNTIME_BACKPRESSURE"));
-        }
-        let remaining = self.deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Err(TradeXError::new("CODEX_RUNTIME_TIMEOUT"));
-        }
-        let wait = remaining.min(Duration::from_millis(50));
-        match self.frames.recv_timeout(wait) {
-            Ok(line) => {
-                let line = line.map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
-                let frame: Value = serde_json::from_str(&line)
-                    .map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
-                if !frame.is_object() {
-                    return Err(TradeXError::new("CODEX_FRAME_INVALID"));
-                }
-                if frame.get("jsonrpc").is_some()
-                    && frame.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
-                {
-                    return Err(TradeXError::new("CODEX_PROTOCOL_UNSUPPORTED"));
-                }
-                Ok(Some(frame))
+        loop {
+            if cancelled.load(Ordering::Acquire) {
+                return Ok(None);
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                if cancelled.load(Ordering::Acquire) {
-                    Ok(None)
-                } else if Instant::now() >= self.deadline {
-                    Err(TradeXError::new("CODEX_RUNTIME_TIMEOUT"))
-                } else {
-                    self.next_cancellable(cancelled)
-                }
+            if self.queue_overflow.load(Ordering::Acquire) {
+                return Err(TradeXError::new("CODEX_RUNTIME_BACKPRESSURE"));
             }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                Err(TradeXError::new("CODEX_PROCESS_EXITED"))
+            let remaining = self.deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(TradeXError::new("CODEX_RUNTIME_TIMEOUT"));
+            }
+            let wait = remaining.min(Duration::from_millis(50));
+            match self.frames.recv_timeout(wait) {
+                Ok(line) => {
+                    let line = line.map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
+                    let frame: Value = serde_json::from_str(&line)
+                        .map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
+                    if !frame.is_object() {
+                        return Err(TradeXError::new("CODEX_FRAME_INVALID"));
+                    }
+                    if frame.get("jsonrpc").is_some()
+                        && frame.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+                    {
+                        return Err(TradeXError::new("CODEX_PROTOCOL_UNSUPPORTED"));
+                    }
+                    return Ok(Some(frame));
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    if Instant::now() >= self.deadline {
+                        return Err(TradeXError::new("CODEX_RUNTIME_TIMEOUT"));
+                    }
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err(TradeXError::new("CODEX_PROCESS_EXITED"));
+                }
             }
         }
     }
