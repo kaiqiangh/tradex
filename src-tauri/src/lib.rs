@@ -1694,6 +1694,31 @@ mod risk_tests {
                 [&original_projection],
             )
             .unwrap();
+        let mut invalid_completion: Value = serde_json::from_str(&original_projection).unwrap();
+        invalid_completion["configured"] = false.into();
+        invalid_completion["onboardingCompleted"] = true.into();
+        invalid_completion["onboardingStep"] = 5.into();
+        database
+            .execute(
+                "UPDATE risk_state SET projection=?1 WHERE singleton=1",
+                [serde_json::to_string(&invalid_completion).unwrap()],
+            )
+            .unwrap();
+        let invalid_completion_projection = command(
+            &mut reopened,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(
+            invalid_completion_projection["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
+        database
+            .execute(
+                "UPDATE risk_state SET projection=?1 WHERE singleton=1",
+                [&original_projection],
+            )
+            .unwrap();
         drop(database);
     }
 }
