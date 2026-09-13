@@ -1,6 +1,6 @@
 # S03 / #12 模型连接验收证据
 
-状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机和本地检查已完成；macOS secure entry、ChatGPT OAuth 和 DeepSeek 上游推理仍未取得验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
+状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机、原生网关和 credentialed 路由验证已完成；macOS secure entry 的保存/取消交互仍未取得验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
 
 实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`；配额边界测试 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
 
@@ -24,9 +24,9 @@
 | 固定版本网关真实生命周期 | macOS ignored test `pinned_gateway_lifecycle_uses_public_commands_without_model_readiness` 以 `.artifacts/s03-planning/upstream/cli-proxy-api` 运行通过：端口冲突、启动/探测、停止清理、stale config、4 次崩溃退避及最终失败 | PASS（直接进程） |
 | 凭据安全边界和原生 Keychain API | `src-tauri/src/model_credentials.rs` 的 `ModelVault`；renderer 没有 password input；取消录入测试 `cancelled_deepseek_entry_does_not_write_keychain_double` 通过；macOS ignored test `native_model_keychain_roundtrip_is_workspace_scoped` 以 disposable synthetic key 运行通过（`cargo test --test model native_model_keychain_roundtrip_is_workspace_scoped -- --ignored --nocapture`） | PASS（取消不写入 + 直接 Keychain round-trip）；secure entry UI 仍未验证 |
 | 精确 provider/model/mode allowlist | Rust allowlist tests 覆盖 ChatGPT `gpt-5.6*` 和 DeepSeek `deepseek-v4-flash` 两个显式模式，拒绝别名/未知模式 | PASS（本地） |
-| 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、纯函数目录/响应解析、固定 payload、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests | PASS（代码/本地分支）；未做 credentialed upstream run |
+| 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、纯函数目录/响应解析、固定 payload、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests；本轮原生 ChatGPT/DeepSeek 两类路由均完成有界真实推理 | PASS（代码、本地分支和 credentialed upstream run） |
 | 浏览器交互与窄屏 | 最终代码 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` 上重跑 `npm run dev:browser` 隔离工作区：Settings 显示两张模型卡；网关停止时 Login/Verify disabled；Configure DeepSeek synthetic fixture 后显示 `Configured · verification required`；未发现 renderer 密码输入。390/768 视口检查 `scrollWidth 375/753`，临时 SQLite/WAL/SHM 未发现 `integration-test-key`、`api.deepseek.com` 或 key 值 | PASS（浏览器 fixture） |
-| 真实 OAuth、上游 DeepSeek API 与桌面 secure dialog | 需要用户账户/凭据和解锁的 macOS 原生窗口；本轮 `cua.getState()` 返回 `The Mac is locked and automatic unlock could not unlock it` | BLOCKED_EXTERNAL |
+| 真实 OAuth、上游 DeepSeek API 与桌面 secure dialog | `dev@fecfa37` 的原生 release wrapper 打开现有工作区 `/Users/kai/Desktop/my-repo/tradex/.tradex`（workspace `22acfa1d-b5da-420a-a754-f01ea0c43458`）；固定网关 `7.2.155` 在 `127.0.0.1:8317` 运行并发现 10 个模型。ChatGPT OAuth 的 `gpt-5.6-luna` 有界验证于 `2026-09-13T09:48:19.127312Z` 成功；DeepSeek `deepseek-v4-flash` non-thinking（`thinking.type=disabled`）于 `2026-09-13T09:48:27.581872Z` 成功，thinking（`thinking.type=enabled`）于 `2026-09-13T09:48:47.393334Z` 成功；重新加载模型状态后仍为 Ready。没有读取或输出任何 token/key。 | PASS（credentialed route）；secure dialog 保存/取消交互仍未验证 |
 
 ## 可重跑检查
 
@@ -53,7 +53,7 @@ npm run check
 
 浏览器 fixture 的临时 SQLite/outbox/model_state 扫描没有 `integration-test-key`、`api.deepseek.com` 或 `key` 值；模型测试断言序列化 payload 不含这些值。真实 key 没有写入仓库、普通工作区文件或日志。
 
-本轮不能完成 macOS secure text field、Cmd-Return 保存/Escape 取消，因为 CUA 仍报告桌面锁定；直接原生 Keychain round-trip 已用 disposable synthetic key 运行通过。没有使用用户 ChatGPT/DeepSeek 账户、OAuth token、真实 API key 或真实推理请求；fixture 成功不会标记 Ready。解锁桌面并提供允许的独立测试资源后，重跑 secure entry、OAuth 取消/过期/超时和 DeepSeek 两模式上游推理，才能把本票提升为 VERIFIED。
+本轮保留用户已配置的凭据，没有重新录入或替换 key，因此 macOS secure text field、Cmd-Return 保存和 Escape 取消仍未验证；直接原生 Keychain round-trip 已用 disposable synthetic key 运行通过。真实 ChatGPT OAuth、真实 DeepSeek key 的两种模式有界推理已在原生窗口通过，并在 reload 后保持 Ready。要把本票提升为 VERIFIED，还需补跑 secure entry 保存/取消以及 OAuth 取消/过期/超时的独立 UI 证据。
 
 ## 串行代码审查
 
