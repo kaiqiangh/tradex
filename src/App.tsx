@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import { browserIntegration, desktop, explainError, transportAvailable } from './client.ts';
+import type { ModelRoute, ModelState, RiskPolicyState } from '../shared/ipc-types.ts';
+import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
+import { RiskDefaults, draftFromPolicy, type RiskDraft } from './RiskDefaults.tsx';
+import { fromModelSnapshot, fromRiskSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
+import { useDomainProjection } from './useDomainProjection.ts';
 import type { OpenWorkspace, Workspace } from '../shared/ipc-types.ts';
 
 const pages = ['New Thread', 'Threads', 'Markets', 'Watchlists', 'Accounts', 'Strategies', 'Artifacts', 'Settings'] as const;
@@ -74,19 +79,97 @@ function WorkspaceDetails({ workspace }: { workspace: Workspace }) {
   </aside>;
 }
 
+function verifiedDefaultRoute(model?: ModelState): ModelRoute | undefined {
+  const selection = model?.defaultRoute;
+  if (!model || !selection) return undefined;
+  const provider = selection.provider === 'CHATGPT' ? model.chatgpt : model.deepseek;
+  if (provider.status !== 'READY') return undefined;
+  return provider.routes.find(route => route.modelId === selection.modelId && route.thinkingType === selection.thinkingType && route.verifiedAt != null);
+}
+
+function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPolicyState }) {
+  const [draft, setDraft] = useState<RiskDraft>();
+  const [draftVersion, setDraftVersion] = useState('');
+  useEffect(() => {
+    if (risk && draftVersion !== risk.stateVersion) {
+      setDraft(draftFromPolicy(risk.policy));
+      setDraftVersion(risk.stateVersion);
+    }
+  }, [risk?.stateVersion, risk, draftVersion]);
+  if (!risk || !draft) return <p role="status">Loading risk policy…</p>;
+  return <RiskDefaults workspaceId={workspace.workspaceId} baseCurrency={workspace.baseCurrency} state={risk} draft={draft} onDraftChange={setDraft} />;
+}
+
+function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Workspace; risk?: RiskPolicyState; model?: ModelState; onCompleted: () => void }) {
+  const accounts = useQuery({ queryKey: ['accounts', workspace.workspaceId, 'onboarding'], queryFn: () => request('account.list', { workspaceId: workspace.workspaceId }) });
+  const [draft, setDraft] = useState<RiskDraft>();
+  const [draftVersion, setDraftVersion] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    if (risk && draftVersion !== risk.stateVersion) {
+      setDraft(draftFromPolicy(risk.policy));
+      setDraftVersion(risk.stateVersion);
+    }
+  }, [risk?.stateVersion, risk, draftVersion]);
+  if (!risk || !draft) return <section className="onboarding" aria-labelledby="onboarding-title"><p role="status">Loading onboarding state…</p></section>;
+  const step = risk.onboardingCompleted ? 5 : risk.onboardingStep;
+  const route = verifiedDefaultRoute(model);
+  const liveAccounts = accounts.data?.accounts.filter(account => account.environment === 'LIVE') ?? [];
+  const allLiveDisarmed = liveAccounts.every(account => account.health.arming === 'DISARMED');
+  const setStep = async (next: number, expectedStateVersion = risk.stateVersion) => {
+    setBusy(true); setError(undefined);
+    try { await request('onboarding.set_step', { workspaceId: workspace.workspaceId, expectedStateVersion, step: next }); }
+    catch (failure) { setError(explainError(failure)); }
+    finally { setBusy(false); }
+  };
+  const complete = async () => {
+    setBusy(true); setError(undefined);
+    try { await request('onboarding.complete', { workspaceId: workspace.workspaceId, expectedStateVersion: risk.stateVersion }); onCompleted(); }
+    catch (failure) { setError(explainError(failure)); }
+    finally { setBusy(false); }
+  };
+  const next = () => {
+    if (step === 3 && !route) { setError('Verify a default model route before continuing.'); return; }
+    if (step === 4 && !risk.configured) { setError('Save risk defaults before continuing.'); return; }
+    if (step < 5) void setStep(step + 1);
+    else void complete();
+  };
+  const riskSaved = (saved: RiskPolicyState) => {
+    setDraftVersion(saved.stateVersion);
+    void setStep(5, saved.stateVersion);
+  };
+  const providerSummary = accounts.isLoading ? 'Loading provider connections…' : accounts.data?.accounts.length ? accounts.data.accounts.map(account => `${account.label} · ${account.providerId} ${account.environment}`).join(' · ') : 'No external broker/data provider connected';
+  return <section className="onboarding" aria-labelledby="onboarding-title">
+    <ol className="steps" aria-label="Workspace setup progress">{['Workspace', 'Providers', 'Model', 'Risk defaults', 'Ready'].map((label, index) => <li key={label} aria-current={index + 1 === step ? 'step' : undefined}><span>{index + 1}</span>{label}</li>)}</ol>
+    {step === 1 && <section className="card onboarding-card"><h1 id="onboarding-title">Workspace</h1><p className="muted">{workspace.name} · base currency {workspace.baseCurrency}</p><dl className="summary-list"><div><dt>Local storage</dt><dd className="path">{workspace.path}</dd></div><div><dt>Workspace ID</dt><dd className="identity">{workspace.workspaceId}</dd></div></dl><p>Continue to reuse the existing provider connection and model setup surfaces.</p></section>}
+    {step === 2 && <section className="card onboarding-card"><h1 id="onboarding-title">Providers</h1><p className="muted">Connect read-only broker or data providers. Live accounts remain DISARMED.</p><Accounts workspaceId={workspace.workspaceId} /></section>}
+    {step === 3 && <section className="card onboarding-card"><h1 id="onboarding-title">Model</h1><p className="muted">Verify at least one real model route before Ready.</p><Models workspaceId={workspace.workspaceId} /></section>}
+    {step === 4 && <section className="card onboarding-card"><h1 id="onboarding-title">Risk defaults</h1><RiskDefaults workspaceId={workspace.workspaceId} baseCurrency={workspace.baseCurrency} state={risk} draft={draft} onDraftChange={setDraft} onSaved={riskSaved} continueLabel="Save and continue" /></section>}
+    {step === 5 && <section className="card onboarding-card"><h1 id="onboarding-title">Ready</h1><p className="muted">Review the current setup before completing onboarding.</p><dl className="summary-list"><div><dt>Workspace / currency</dt><dd>{workspace.name} · {workspace.baseCurrency}</dd></div><div><dt>Providers</dt><dd>{providerSummary}</dd></div><div><dt>Model route</dt><dd>{route ? `${route.provider} · ${route.modelId}${route.thinkingType ? ` · ${route.thinkingType}` : ''}` : 'Unavailable — verify a default route'}</dd></div><div><dt>Automatic fallback</dt><dd>{model?.automaticFallback ? 'ON · DeepSeek fallback disclosed' : 'OFF'}</dd></div><div><dt>Live accounts</dt><dd>{allLiveDisarmed ? 'All DISARMED' : 'A Live account needs to be DISARMED'}</dd></div></dl><div className="notice"><strong>Agent turns unavailable</strong><p>Codex App Server is not configured; Send remains disabled until its later runtime slice.</p></div></section>}
+    {error && <p className="error-text" role="alert">{error}</p>}
+    <div className="onboarding-actions">{step > 1 && <button type="button" onClick={() => void setStep(step - 1)} disabled={busy}>Back</button>}{step < 5 ? <button className="primary" type="button" onClick={next} disabled={busy || (step === 3 && !route) || (step === 4 && !risk.configured)}>{busy ? 'Saving…' : `Continue to ${['', 'Providers', 'Model', 'Risk defaults', 'Ready'][step]}`}</button> : <><button type="button" onClick={() => void setStep(1)} disabled={busy}>Edit setup</button><button className="primary" type="button" onClick={next} disabled={busy || !route || !risk.configured || !allLiveDisarmed}>{busy ? 'Completing…' : 'Complete onboarding'}</button></>}</div>
+  </section>;
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>('New Thread');
   const [setup, setSetup] = useState(false);
   const [settingsTab, setSettingsTab] = useState('Providers & Models');
   const state = useWorkspace();
   const workspace = state.workspace;
+  const riskProjection = useDomainProjection('risk', workspace?.workspaceId, fromRiskSnapshot);
+  const modelProjection = useDomainProjection('model', workspace?.workspaceId, fromModelSnapshot);
+  const risk = riskProjection.data;
+  const model = modelProjection.data;
   const navigate = (destination: Page) => {
     setPage(destination); setSetup(false);
     document.querySelectorAll('details[open]').forEach(details => details.removeAttribute('open'));
   };
   const submit = async (options: OpenWorkspace) => {
-    try { await state.opening.mutateAsync(options); setSetup(false); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
+    try { await state.opening.mutateAsync(options); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
   };
+  const onboardingVisible = setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !verifiedDefaultRoute(model)));
   const title = setup || (!workspace && page === 'New Thread') ? 'Workspace setup' : page;
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
@@ -108,7 +191,8 @@ export default function App() {
         {browserIntegration && <div className="integration-notice">Browser verification · isolated temporary workspace · provider responses are test fixtures</div>}
         {state.error != null && <div className="error-banner" role="alert"><div><strong>Workspace needs attention</strong><p>{explainError(state.error)}</p></div><button onClick={state.recover}>Retry connection</button></div>}
         {state.opening.isPending && !workspace ? <p role="status">Opening local workspace…</p> :
-          (setup || (!workspace && page === 'New Thread')) ? <WorkspaceSetup busy={state.opening.isPending} submit={submit} /> :
+          (!workspace && page === 'New Thread') ? <WorkspaceSetup busy={state.opening.isPending} submit={submit} /> :
+          (workspace && onboardingVisible) ? <Onboarding workspace={workspace} risk={risk} model={model} onCompleted={() => { setSetup(false); setPage('New Thread'); }} /> :
           <div className="workspace-layout"><section className="content">
             {page === 'New Thread' && <>
               <div className="thread-welcome"><h1>What would you like to research?</h1><p>Ask a question, explore an opportunity, or review your portfolio.</p></div>
@@ -131,8 +215,8 @@ export default function App() {
                   <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : 'No model provider is configured. Agent turns and onboarding Ready remain unavailable.'}</p>
                   <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : component.status.replaceAll('_', ' ')}</span></li>)}</ul>
                   <button onClick={() => { void state.runtime.refetch(); }} disabled={state.runtime.isFetching}>Refresh runtime status</button>
-                </> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => setSetup(true)}>Open another workspace</button></> :
-                  <p className="muted">{settingsTab === 'Risk & Limits' ? 'Risk policy configuration is not available in this build. Live execution remains unavailable.' : settingsTab === 'Account Health' ? 'Connection, authentication, stream, reconciliation and execution are separate checks.' : 'The workspace currently uses the RevC light theme.'}</p>}
+                </> : settingsTab === 'Risk & Limits' && workspace ? <RiskSettings workspace={workspace} risk={risk} /> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => setSetup(true)}>Open another workspace</button></> :
+                  <p className="muted">{settingsTab === 'Account Health' ? 'Connection, authentication, stream, reconciliation and execution are separate checks.' : 'The workspace currently uses the RevC light theme.'}</p>}
               </section>
             </>}
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}

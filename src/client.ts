@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -11,6 +11,10 @@ interface Inputs {
   'model.verify_route': VerifyRoute;
   'model.set_default': SetDefaultModel;
   'model.set_fallback_policy': SetFallbackPolicy;
+  'risk.get_policy': RiskQuery;
+  'risk.save_policy': SaveRiskPolicy;
+  'onboarding.set_step': SetOnboardingStep;
+  'onboarding.complete': CompleteOnboarding;
   'provider.list_definitions': EmptyPayload;
   'provider.get_schema': ProviderSelection;
   'provider.connect': Connect;
@@ -34,6 +38,10 @@ interface Outputs {
   'model.verify_route': ModelState;
   'model.set_default': ModelState;
   'model.set_fallback_policy': ModelState;
+  'risk.get_policy': RiskPolicyState;
+  'risk.save_policy': RiskPolicyState;
+  'onboarding.set_step': RiskPolicyState;
+  'onboarding.complete': RiskPolicyState;
   'provider.list_definitions': ProviderCatalog;
   'provider.get_schema': ProviderDefinition;
   'provider.connect': AccountConnection;
@@ -57,6 +65,10 @@ const definitions = {
   'model.verify_route': ['VerifyRoute', 'ModelState'],
   'model.set_default': ['SetDefaultModel', 'ModelState'],
   'model.set_fallback_policy': ['SetFallbackPolicy', 'ModelState'],
+  'risk.get_policy': ['RiskQuery', 'RiskPolicyState'],
+  'risk.save_policy': ['SaveRiskPolicy', 'RiskPolicyState'],
+  'onboarding.set_step': ['SetOnboardingStep', 'RiskPolicyState'],
+  'onboarding.complete': ['CompleteOnboarding', 'RiskPolicyState'],
   'provider.list_definitions': ['EmptyPayload', 'ProviderCatalog'],
   'provider.get_schema': ['ProviderSelection', 'ProviderDefinition'],
   'provider.connect': ['Connect', 'AccountConnection'],

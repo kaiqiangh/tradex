@@ -182,3 +182,33 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .model-attempts li { margin: 7px 0; }
 .model-attempts small { display: block; color: var(--muted); margin-top: 2px; }
 @media (max-width: 760px) { .model-providers { grid-template-columns: minmax(0, 1fr); } }
+
+.onboarding { max-width: 980px; margin: 18px auto 0; }
+.onboarding-card { padding: 24px; }
+.onboarding-card > .accounts-panel, .onboarding-card > .model-settings { margin-top: 20px; }
+.onboarding-card > p { font-size: 12px; }
+.summary-list { margin: 18px 0; }
+.summary-list > div { display: grid; grid-template-columns: minmax(150px, .35fr) minmax(0, 1fr); gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.summary-list dt { margin: 0; }
+.risk-defaults { display: grid; gap: 16px; }
+.risk-defaults > p { font-size: 12px; margin: 0; }
+.risk-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.risk-form .field { margin: 10px 0; }
+.risk-form .check-field { grid-column: span 2; margin: 12px 0; }
+.hard-rules { padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface2); }
+.hard-rules h3 { margin: 0 0 10px; font-size: 12px; }
+.hard-rules ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.hard-rules li { display: grid; gap: 3px; font-size: 11px; }
+.hard-rules li strong { font-size: 10px; letter-spacing: .2px; }
+.hard-rules li span { color: var(--muted); }
+.error-text { margin: 0; color: #991b1b; font-size: 12px; }
+.success-text { margin: 0; color: #166534; font-size: 12px; }
+.onboarding-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+@media (max-width: 620px) {
+  .onboarding-card { padding: 18px; }
+  .risk-form { grid-template-columns: minmax(0, 1fr); }
+  .risk-form .check-field { grid-column: auto; }
+  .summary-list > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .onboarding-actions { justify-content: stretch; }
+  .onboarding-actions button { flex: 1; }
+}
