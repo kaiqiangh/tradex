@@ -45,6 +45,14 @@ struct PreparedTurn {
     runtime_request: codex_runtime::RuntimeRequest,
 }
 
+pub struct DataSourceProbeJob {
+    pub input: DataSourceProbe,
+    pub source: protocol::DataSourceEntry,
+    state_version: String,
+    session: String,
+    request_id: String,
+}
+
 type RuntimeJobKey = (String, String);
 type RuntimeJobs = Arc<Mutex<HashMap<RuntimeJobKey, Arc<AtomicBool>>>>;
 
@@ -244,6 +252,9 @@ impl ControlPlane {
         sink: Option<EventSink>,
         runtime_access: Option<codex_runtime::RuntimeAccess>,
     ) -> Value {
+        if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
+            return self.dispatch_data_source_probe(request);
+        }
         let id = request
             .get("requestId")
             .and_then(Value::as_str)
@@ -260,6 +271,17 @@ impl ControlPlane {
             }
             Err(error) => json!({"requestId":id,"schemaVersion":1,"ok":false,"error":error}),
         }
+    }
+
+    fn dispatch_data_source_probe(&mut self, request: Value) -> Value {
+        let id = request_id(&request);
+        let job = match self.prepare_data_source_probe(&request) {
+            Ok(Some(job)) => job,
+            Ok(None) => return failure_reply(id, TradeXError::new("IPC_COMMAND_UNKNOWN")),
+            Err(error) => return failure_reply(id, error),
+        };
+        let outcome = data_sources::probe(&job.input.source_id, job.source.clone());
+        self.complete_data_source_probe(&job, outcome)
     }
 
     fn execute(
@@ -580,36 +602,6 @@ impl ControlPlane {
                         snapshot.aggregate_id, snapshot.last_sequence
                     )),
                 ))
-            }
-            "data.source.probe" => {
-                let input: DataSourceProbe = payload(request.payload)?;
-                self.require_workspace(&input.workspace_id)?;
-                let snapshot = self.store.as_mut().unwrap().snapshot()?;
-                let current_version =
-                    format!("{}:{}", snapshot.aggregate_id, snapshot.last_sequence);
-                if input.expected_state_version != current_version {
-                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-                }
-                let entry = data_sources::entries()
-                    .into_iter()
-                    .find(|source| source.source_id == input.source_id)
-                    .ok_or_else(|| TradeXError::new("DATA_SOURCE_UNKNOWN"))?;
-                let probed = data_sources::probe(&input.source_id, entry)?;
-                let catalog = protocol::DataSourceCatalog {
-                    workspace_id: input.workspace_id,
-                    state_version: current_version.clone(),
-                    sources: data_sources::entries()
-                        .into_iter()
-                        .map(|source| {
-                            if source.source_id == input.source_id {
-                                probed.clone()
-                            } else {
-                                source
-                            }
-                        })
-                        .collect(),
-                };
-                Ok((json!(catalog), Some(current_version)))
             }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;
@@ -2119,6 +2111,89 @@ impl ControlPlane {
         }
     }
 
+    /// Prepare a read-only source probe under the domain lock; the network call runs after the lock is released.
+    pub fn prepare_data_source_probe(
+        &mut self,
+        value: &Value,
+    ) -> Result<Option<DataSourceProbeJob>> {
+        if value.get("command").and_then(Value::as_str) != Some("data.source.probe") {
+            return Ok(None);
+        }
+        match value.get("schemaVersion").and_then(Value::as_u64) {
+            Some(1) => (),
+            Some(_) => return Err(TradeXError::new("IPC_SCHEMA_UNSUPPORTED")),
+            None => return Err(TradeXError::new("IPC_PAYLOAD_INVALID")),
+        }
+        let request: CommandEnvelope = payload(value.clone())?;
+        if request.request_id.is_empty() || request.request_id.len() > 128 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let request_id = request.request_id.clone();
+        let input: DataSourceProbe = payload(request.payload)?;
+        validate_data_source_probe(&input)?;
+        self.require_workspace(&input.workspace_id)?;
+        let snapshot = self.store.as_mut().unwrap().snapshot()?;
+        let state_version = format!("{}:{}", snapshot.aggregate_id, snapshot.last_sequence);
+        if input.expected_state_version != state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let source = data_sources::entries()
+            .into_iter()
+            .find(|source| source.source_id == input.source_id)
+            .ok_or_else(|| TradeXError::new("DATA_SOURCE_UNKNOWN"))?;
+        Ok(Some(DataSourceProbeJob {
+            input,
+            source,
+            state_version,
+            session: self.session.clone(),
+            request_id,
+        }))
+    }
+
+    pub fn complete_data_source_probe(
+        &mut self,
+        job: &DataSourceProbeJob,
+        outcome: Result<protocol::DataSourceEntry>,
+    ) -> Value {
+        let result = (|| -> Result<protocol::DataSourceCatalog> {
+            if job.session != self.session {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            self.require_workspace(&job.input.workspace_id)?;
+            let snapshot = self.store.as_mut().unwrap().snapshot()?;
+            let current_version = format!("{}:{}", snapshot.aggregate_id, snapshot.last_sequence);
+            if current_version != job.state_version {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let probed = outcome?;
+            if probed.source_id != job.input.source_id {
+                return Err(TradeXError::new("DATA_SOURCE_PROBE_FAILED"));
+            }
+            Ok(protocol::DataSourceCatalog {
+                workspace_id: job.input.workspace_id.clone(),
+                state_version: current_version,
+                sources: data_sources::entries()
+                    .into_iter()
+                    .map(|source| {
+                        if source.source_id == job.input.source_id {
+                            probed.clone()
+                        } else {
+                            source
+                        }
+                    })
+                    .collect(),
+            })
+        })();
+        match result {
+            Ok(catalog) => success_reply(
+                job.request_id.clone(),
+                json!(catalog),
+                Some(job.state_version.clone()),
+            ),
+            Err(error) => failure_reply(job.request_id.clone(), error),
+        }
+    }
+
     /// Prepare under the domain lock, perform native/provider work outside it, then commit with the same session/version.
     pub fn prepare_provider(&mut self, value: &Value) -> Result<Option<ProviderJob>> {
         match value.get("schemaVersion").and_then(Value::as_u64) {
@@ -2346,6 +2421,22 @@ impl ControlPlane {
 
 fn payload<T: DeserializeOwned>(value: Value) -> Result<T> {
     serde_json::from_value(value).map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))
+}
+
+fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {
+    if input.workspace_id.is_empty()
+        || input.workspace_id.len() > 128
+        || input.workspace_id.chars().any(char::is_control)
+        || input.source_id.is_empty()
+        || input.source_id.len() > 32
+        || input.source_id.chars().any(char::is_control)
+        || input.expected_state_version.is_empty()
+        || input.expected_state_version.len() > 256
+        || input.expected_state_version.chars().any(char::is_control)
+    {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
 }
 
 fn validate_aggregate(kind: &str, id: &str) -> Result<()> {

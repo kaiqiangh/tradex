@@ -456,7 +456,7 @@ pub struct DataSourceQuery {
     pub workspace_id: String,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DataSourceProbe {
     #[schemars(length(min = 1, max = 128))]

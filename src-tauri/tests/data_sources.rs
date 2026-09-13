@@ -69,6 +69,18 @@ fn catalog_and_credentialed_probe_are_scoped_and_read_only() {
         )["error"]["code"],
         "IPC_AGGREGATE_NOT_FOUND"
     );
+    for payload in [
+        json!({"workspaceId":workspace_id,"sourceId":"","expectedStateVersion":version}),
+        json!({"workspaceId":workspace_id,"sourceId":"OD-001\n","expectedStateVersion":version}),
+        json!({"workspaceId":workspace_id,"sourceId":"OD-001","expectedStateVersion":""}),
+        json!({"workspaceId":workspace_id,"sourceId":"OD-001","expectedStateVersion":"x".repeat(257)}),
+        json!({"workspaceId":workspace_id,"sourceId":"OD-001","expectedStateVersion":"bad\nversion"}),
+    ] {
+        assert_eq!(
+            command(&mut control, "data.source.probe", payload)["error"]["code"],
+            "IPC_PAYLOAD_INVALID"
+        );
+    }
     let after = command(
         &mut control,
         "domain.snapshot",

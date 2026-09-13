@@ -7,7 +7,7 @@ use std::sync::{
 };
 use tauri::{Manager, ipc::Channel};
 use tradex::{
-    ControlPlane, RuntimeSupervisor,
+    ControlPlane, RuntimeSupervisor, data_sources,
     gateway_process::GatewayHost,
     model,
     model_credentials::{ModelVault, NativeModelVault},
@@ -47,6 +47,21 @@ async fn control(
     let supervisor = service.2.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
+        if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
+            let job = match engine.lock() {
+                Ok(mut engine) => match engine.prepare_data_source_probe(&request) {
+                    Ok(Some(job)) => job,
+                    Ok(None) => return failed(&request, "IPC_COMMAND_UNKNOWN"),
+                    Err(error) => return failed(&request, &error.code),
+                },
+                Err(_) => return failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
+            };
+            let outcome = data_sources::probe(&job.input.source_id, job.source.clone());
+            return match engine.lock() {
+                Ok(mut engine) => engine.complete_data_source_probe(&job, outcome),
+                Err(_) => failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
+            };
+        }
         let model_job = match engine.lock() {
             Ok(mut engine) => match engine.prepare_model(&request) {
                 Ok(job) => job,

@@ -76,6 +76,39 @@ fn main() -> io::Result<()> {
                 oversized = false;
                 continue;
             }
+            if command == Some("data.source.probe") {
+                let prepared = match control.lock() {
+                    Ok(mut control) => control.prepare_data_source_probe(&request),
+                    Err(_) => Err(tradex::protocol::TradeXError::new(
+                        "IPC_CONTROL_PLANE_UNAVAILABLE",
+                    )),
+                };
+                let result = match prepared {
+                    Ok(Some(job)) => {
+                        let outcome =
+                            tradex::data_sources::probe(&job.input.source_id, job.source.clone());
+                        match control.lock() {
+                            Ok(mut control) => control.complete_data_source_probe(&job, outcome),
+                            Err(_) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                            }),
+                        }
+                    }
+                    Ok(None) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_COMMAND_UNKNOWN")
+                    }),
+                    Err(error) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":error
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             #[cfg(feature = "integration-test")]
             let result = match control.lock() {
                 Ok(mut control) => match control.prepare_provider(&request) {

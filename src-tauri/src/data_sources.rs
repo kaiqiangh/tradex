@@ -1,7 +1,8 @@
-use std::time::Duration;
+use std::{io::Read, time::Duration};
 
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
+use serde_json::Value;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::protocol::{
@@ -10,6 +11,7 @@ use crate::protocol::{
 
 const SOURCE_REVIEWED_AT: &str = "2026-09-13";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_RESPONSE_BYTES: usize = 1_048_576;
 const USER_AGENT: &str = "TradeX-local-research/0.1 (local workspace)";
 
 pub fn entries() -> Vec<DataSourceEntry> {
@@ -154,8 +156,9 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
         return Err(TradeXError::new("DATA_SOURCE_UNKNOWN"));
     }
     if source.probe_kind == DataSourceProbeKind::CredentialedMetadata {
-        source.checked_at = Some(SOURCE_REVIEWED_AT.into());
-        source.observed_at = Some(now()?);
+        let checked_at = now()?;
+        source.checked_at = Some(checked_at.clone());
+        source.observed_at = Some(checked_at);
         source.status = DataSourceStatus::BlockedExternal;
         source.availability_reason = "A user-managed provider entitlement is required; TradeX did not read or infer credentials.".into();
         return Ok(source);
@@ -168,8 +171,8 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
         _ => return Err(TradeXError::new("DATA_SOURCE_UNKNOWN")),
     };
     let observed_at = now()?;
-    source.observed_at = Some(observed_at);
-    source.checked_at = Some(SOURCE_REVIEWED_AT.into());
+    source.observed_at = Some(observed_at.clone());
+    source.checked_at = Some(observed_at);
     let client = Client::builder()
         .https_only(true)
         .redirect(Policy::none())
@@ -183,17 +186,58 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
         .send();
     match response {
         Ok(response) if response.status().is_success() => {
-            if source_id == "OD-004" {
-                source.status = DataSourceStatus::BlockedExternal;
+            if response
+                .content_length()
+                .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
+            {
+                source.status = DataSourceStatus::Unavailable;
                 source.availability_reason =
-                    "SEC filings endpoint responded; a licensed general-news provider is still not selected."
+                    "Public endpoint response exceeded the bounded probe size; no response body was retained."
                         .into();
-            } else {
-                source.status = DataSourceStatus::Available;
-                source.verified_at = source.observed_at.clone();
-                source.availability_reason =
-                    "Public endpoint responded; coverage, freshness and use restrictions still apply."
-                        .into();
+                return Ok(source);
+            }
+            let content_type = response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or_default()
+                .to_owned();
+            let mut body = Vec::new();
+            match response
+                .take((MAX_RESPONSE_BYTES as u64).saturating_add(1))
+                .read_to_end(&mut body)
+            {
+                Ok(_) if body.len() <= MAX_RESPONSE_BYTES => {
+                    if !validate_public_payload(source_id, &content_type, &body) {
+                        source.status = DataSourceStatus::Unavailable;
+                        source.availability_reason =
+                            "Public endpoint response did not match the expected bounded protocol shape; no response body was retained."
+                                .into();
+                    } else if source_id == "OD-004" {
+                        source.status = DataSourceStatus::BlockedExternal;
+                        source.availability_reason =
+                            "SEC filings endpoint responded with the expected shape; a licensed general-news provider is still not selected."
+                                .into();
+                    } else {
+                        source.status = DataSourceStatus::Available;
+                        source.verified_at = source.observed_at.clone();
+                        source.availability_reason =
+                            "Public endpoint and response shape verified; coverage, freshness and use restrictions still apply."
+                                .into();
+                    }
+                }
+                Ok(_) => {
+                    source.status = DataSourceStatus::Unavailable;
+                    source.availability_reason =
+                        "Public endpoint response exceeded the bounded probe size; no response body was retained."
+                            .into();
+                }
+                Err(_) => {
+                    source.status = DataSourceStatus::Unavailable;
+                    source.availability_reason =
+                        "Public endpoint response could not be read. No response body was retained."
+                            .into();
+                }
             }
         }
         Ok(response) => {
@@ -212,6 +256,36 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
         }
     }
     Ok(source)
+}
+
+fn validate_public_payload(source_id: &str, content_type: &str, body: &[u8]) -> bool {
+    match source_id {
+        "OD-003" | "OD-004" => {
+            content_type
+                .to_ascii_lowercase()
+                .contains("application/json")
+                && serde_json::from_slice::<Value>(body).is_ok_and(|value| {
+                    value.is_object()
+                        && value.get("cik").is_some()
+                        && value.get("filings").is_some()
+                })
+        }
+        "OD-006" => {
+            if !content_type.to_ascii_lowercase().contains("text/csv") {
+                return false;
+            }
+            let text = String::from_utf8_lossy(body);
+            let mut lines = text.lines().filter(|line| !line.trim().is_empty());
+            let Some(header) = lines.next() else {
+                return false;
+            };
+            let fields: Vec<_> = header.split(',').map(str::trim).collect();
+            fields.contains(&"TIME_PERIOD")
+                && fields.contains(&"OBS_VALUE")
+                && lines.next().is_some()
+        }
+        _ => false,
+    }
 }
 
 fn classify_probe_error(error: &reqwest::Error) -> &'static str {
@@ -260,6 +334,31 @@ mod tests {
         let result = probe("OD-001", source).unwrap();
         assert_eq!(result.status, DataSourceStatus::BlockedExternal);
         assert!(result.observed_at.is_some());
+        assert_ne!(result.checked_at.as_deref(), Some(SOURCE_REVIEWED_AT));
         assert!(!result.availability_reason.contains("key"));
+    }
+
+    #[test]
+    fn public_probe_requires_source_specific_response_shape() {
+        assert!(validate_public_payload(
+            "OD-003",
+            "application/json",
+            br#"{"cik":"0000320193","filings":{}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "application/json",
+            br#"{"cik":"0000320193"}"#
+        ));
+        assert!(validate_public_payload(
+            "OD-006",
+            "text/csv",
+            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nD.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\n"
+        ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "text/csv",
+            b"KEY,FREQ,CURRENCY\nD.USD.EUR.SP00.A,D,USD\n"
+        ));
     }
 }
