@@ -1,6 +1,6 @@
 # S03 — 配置模型网关并完成五步入门
 
-状态：Spec [配置模型网关并完成五步入门](https://github.com/kaiqiangh/tradex/issues/10) 已发布，未验收。实现顺序：[网关生命周期](https://github.com/kaiqiangh/tradex/issues/11) → [模型连接](https://github.com/kaiqiangh/tradex/issues/12) → [路由恢复](https://github.com/kaiqiangh/tradex/issues/13) → [五步入门](https://github.com/kaiqiangh/tradex/issues/14)。起点 `dev@c6c193fa50848168086377d782c82bfd4fb1ec4a`；S01/S02 已完成。沿用已确认的公共协议测试边界、纵向拆票粒度与严格串行交付约定。
+状态：Spec [配置模型网关并完成五步入门](https://github.com/kaiqiangh/tradex/issues/10) 已完成验收。实现顺序：[网关生命周期](https://github.com/kaiqiangh/tradex/issues/11) → [模型连接](https://github.com/kaiqiangh/tradex/issues/12) → [路由恢复](https://github.com/kaiqiangh/tradex/issues/13) → [五步入门](https://github.com/kaiqiangh/tradex/issues/14) → [账户复用与本地移除](https://github.com/kaiqiangh/tradex/issues/15)。起点 `dev@c6c193fa50848168086377d782c82bfd4fb1ec4a`；S01/S02/S03 已完成。沿用已确认的公共协议测试边界、纵向拆票粒度与严格串行交付约定。
 
 ## Problem Statement
 
