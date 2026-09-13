@@ -74,6 +74,35 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-welcome { padding: 30px 0 16px; }
 .thread-welcome p, .page-heading p { color: var(--muted); font-size: 12px; }
 .composer { border: 1px solid var(--border); border-radius: 12px; background: white; padding: 16px; }
+.thread-composer { margin-top: 18px; }
+.composer-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.composer-heading h2 { margin: 0; font-size: 15px; }
+.composer-heading p { margin: 5px 0 0; font-size: 11px; }
+.thread-picker-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
+.thread-picker-grid .field { min-width: 0; }
+.thread-history { display: grid; gap: 8px; margin-top: 12px; }
+.thread-history-row { display: grid; gap: 4px; width: 100%; min-width: 0; text-align: left; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: white; }
+.thread-history-row[aria-current="true"] { border-color: #2563eb; background: var(--blue-light); }
+.thread-history-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.thread-history-row small, .thread-history-row time { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.thread-history.compact { margin-top: 8px; max-height: 220px; overflow: auto; }
+.thread-history.compact .thread-history-row { border-color: transparent; background: transparent; color: #cbd5e1; }
+.thread-history.compact .thread-history-row[aria-current="true"] { background: #ffffff18; border-color: #ffffff30; }
+.thread-history.compact .thread-history-row small, .thread-history.compact .thread-history-row time { color: #cbd5e1; }
+.thread-history-error { display: grid; gap: 8px; }
+.thread-history-error p { color: #fecaca; font-size: 11px; margin: 0; }
+.thread-history-error button { font-size: 10px; }
+.threads-layout { display: grid; grid-template-columns: minmax(190px, .35fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.threads-list-card { padding: 16px; }
+.threads-list-card h2 { margin: 0; font-size: 14px; }
+.threads-main { min-width: 0; }
+.thread-detail { padding: 20px; }
+.thread-detail h2 { margin: 0; font-size: 17px; }
+.thread-detail h3 { margin: 0 0 8px; font-size: 13px; }
+.thread-provenance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
+.thread-provenance div { padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); min-width: 0; }
+.thread-provenance dt { color: var(--muted); font-size: 10px; }
+.thread-provenance dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
 .composer-context { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; }
 .composer textarea { display: block; width: 100%; min-height: 100px; resize: none; background: white; border: 0; padding: 20px 0; color: var(--muted); font-size: 13px; }
 .composer-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 10px; color: var(--muted); font-size: 11px; }
@@ -182,6 +211,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .model-attempts li { margin: 7px 0; }
 .model-attempts small { display: block; color: var(--muted); margin-top: 2px; }
 @media (max-width: 760px) { .model-providers { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .thread-picker-grid, .threads-layout { grid-template-columns: minmax(0, 1fr); } .thread-provenance { grid-template-columns: minmax(0, 1fr); } }
 
 .onboarding { max-width: 980px; margin: 18px auto 0; }
 .onboarding-card { padding: 24px; }

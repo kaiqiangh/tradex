@@ -12,13 +12,13 @@ use crate::gateway::GatewayState;
 use crate::model::ModelState;
 use crate::protocol::{
     DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result, Snapshot,
-    SubscriptionAck, TradeXError, Workspace,
+    SubscriptionAck, Thread, ThreadList, ThreadSummary, TradeXError, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-const SCHEMA_VERSION: u32 = 5;
+const SCHEMA_VERSION: u32 = 6;
 
 pub struct Store {
     connection: Connection,
@@ -152,6 +152,9 @@ impl Store {
             }
             if version < 5 {
                 tx.execute_batch("CREATE TABLE risk_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sequence INTEGER NOT NULL CHECK(sequence>0), projection TEXT NOT NULL); PRAGMA user_version=5;").map_err(storage_error)?;
+            }
+            if version < 6 {
+                tx.execute_batch("CREATE TABLE threads (thread_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, sequence INTEGER NOT NULL CHECK(sequence>=0), projection TEXT NOT NULL); CREATE INDEX threads_workspace_updated ON threads(workspace_id, sequence DESC); PRAGMA user_version=6;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -287,6 +290,10 @@ impl Store {
                         "model.provider.changed" | "model.provider_attempt.changed"
                     ),
                     "risk" => event.event_type != "risk.policy.changed",
+                    "thread" => !matches!(
+                        event.event_type.as_str(),
+                        "thread.created" | "thread.updated"
+                    ),
                     _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
                 }
                 || event.payload.id() != snapshot.aggregate_id
@@ -357,6 +364,111 @@ impl Store {
         Ok(account)
     }
 
+    pub fn threads(&self) -> Result<ThreadList> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare("SELECT thread_id, projection FROM threads WHERE workspace_id=?1 ORDER BY rowid DESC")
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(storage_error)?;
+        let mut summaries = Vec::new();
+        for row in rows {
+            let (thread_id, encoded) = row.map_err(storage_error)?;
+            let thread: Thread = serde_json::from_str(&encoded).map_err(storage_error)?;
+            if thread.thread_id != thread_id || thread.workspace_id != workspace_id {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            summaries.push(ThreadSummary {
+                thread_id: thread.thread_id,
+                workspace_id: thread.workspace_id,
+                title: thread.title,
+                updated_at: thread.updated_at,
+                default_agent_mode: thread.default_agent_mode,
+                default_execution_context: thread.default_execution_context,
+                status: thread.status,
+            });
+        }
+        Ok(ThreadList { threads: summaries })
+    }
+
+    pub fn thread(&self, id: &str) -> Result<Thread> {
+        let encoded: String = self
+            .connection
+            .query_row(
+                "SELECT projection FROM threads WHERE thread_id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(|_| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let thread: Thread = serde_json::from_str(&encoded).map_err(storage_error)?;
+        if thread.thread_id != id || thread.workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(thread)
+    }
+
+    pub fn save_thread(&mut self, mut thread: Thread, event_type: &str) -> Result<DomainEvent> {
+        if thread.workspace_id != self.workspace_id()? || thread.thread_id.is_empty() {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if !matches!(event_type, "thread.created" | "thread.updated") {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let previous: i64 = tx
+            .query_row(
+                "SELECT COALESCE((SELECT sequence FROM threads WHERE thread_id=?1),0)",
+                [&thread.thread_id],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        if previous < 0 || previous >= MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let sequence = previous + 1;
+        thread.state_version = format!("thread:{}:{}", thread.thread_id, sequence);
+        thread.updated_at = timestamp()?;
+        tx.execute(
+            "INSERT INTO threads(thread_id,workspace_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(thread_id) DO UPDATE SET workspace_id=excluded.workspace_id,sequence=excluded.sequence,projection=excluded.projection",
+            params![
+                &thread.thread_id,
+                &thread.workspace_id,
+                sequence,
+                serde_json::to_string(&thread).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+        let event = DomainEvent {
+            event_id: Uuid::new_v4().to_string(),
+            event_type: event_type.into(),
+            schema_version: 1,
+            occurred_at: thread.updated_at.clone(),
+            aggregate_type: "thread".into(),
+            aggregate_id: thread.thread_id.clone(),
+            sequence: sequence as u64,
+            payload: DomainProjection::Thread(Box::new(thread)),
+        };
+        tx.execute(
+            "INSERT INTO outbox VALUES('thread',?1,?2,?3,?4)",
+            params![
+                event.aggregate_id,
+                sequence,
+                event.event_id,
+                serde_json::to_string(&event).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(event)
+    }
+
     pub fn snapshot_for(&mut self, kind: &str, id: &str) -> Result<Snapshot> {
         if kind == "workspace" {
             let snapshot = self.snapshot()?;
@@ -414,6 +526,23 @@ impl Store {
                 aggregate_type: kind.into(),
                 aggregate_id: id.into(),
                 projection: DomainProjection::Risk(risk),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "thread" {
+            let thread = self.thread(id)?;
+            let sequence: i64 = self
+                .connection
+                .query_row(
+                    "SELECT sequence FROM threads WHERE thread_id=?1",
+                    [id],
+                    |r| r.get(0),
+                )
+                .map_err(storage_error)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::Thread(Box::new(thread)),
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }

@@ -9,7 +9,7 @@ export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
  */
-export type DomainProjection = GatewayState | ModelState | Workspace | AccountConnection | RiskPolicyState;
+export type DomainProjection = GatewayState | ModelState | Workspace | AccountConnection | RiskPolicyState | Thread;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayStatus".
@@ -51,6 +51,41 @@ export type ModelHealth = "NOT_CONFIGURED" | "UNVERIFIED" | "VERIFYING" | "READY
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AgentMode".
+ */
+export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionContext".
+ */
+export type ExecutionContext =
+  | "NONE_READ_ONLY"
+  | "HISTORICAL_SIMULATION"
+  | "LOCAL_PAPER"
+  | "ALPACA_PAPER"
+  | "TRADING212_DEMO"
+  | "TRADING212_LIVE"
+  | "BINANCE_TESTNET"
+  | "BINANCE_LIVE"
+  | "BITGET_DEMO"
+  | "BITGET_LIVE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadStatus".
+ */
+export type ThreadStatus = "ACTIVE" | "ARCHIVED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ItemStatus".
+ */
+export type ItemStatus = "STARTED" | "STREAMING" | "COMPLETED" | "FAILED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TurnStatus".
+ */
+export type TurnStatus = "RUNNING" | "COMPLETED" | "CANCELLED" | "INTERRUPTED" | "FAILED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayAction".
  */
 export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
@@ -87,6 +122,8 @@ export type ReplyData =
   | Snapshot
   | RuntimeStatus
   | SubscriptionAck
+  | Thread
+  | ThreadList
   | GatewayState
   | ModelState
   | RiskPolicyState
@@ -125,6 +162,8 @@ export interface IpcSchema {
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
   subscribe: Subscribe;
+  threadCreate: ThreadCreate;
+  threadQuery: ThreadQuery;
   verifyRoute: VerifyRoute;
   workspaceOpen: OpenWorkspace;
   workspaceQuery: WorkspaceQuery;
@@ -201,7 +240,7 @@ export interface EmptyPayload {}
  */
 export interface DomainEvent {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread";
   eventId: string;
   eventType:
     | "workspace.opened"
@@ -209,7 +248,9 @@ export interface DomainEvent {
     | "model.gateway.changed"
     | "model.provider.changed"
     | "model.provider_attempt.changed"
-    | "risk.policy.changed";
+    | "risk.policy.changed"
+    | "thread.created"
+    | "thread.updated";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -468,6 +509,94 @@ export interface RiskPolicy {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Thread".
+ */
+export interface Thread {
+  accountId?: string | null;
+  codexThreadId?: string | null;
+  createdAt: string;
+  defaultAgentMode: AgentMode;
+  defaultExecutionContext: ExecutionContext;
+  linkedContexts: ThreadContextRef[];
+  model?: ThreadModel | null;
+  stateVersion: string;
+  status: ThreadStatus;
+  threadId: string;
+  title: string;
+  turns?: ThreadTurn[];
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadContextRef".
+ */
+export interface ThreadContextRef {
+  hash: string;
+  id: string;
+  kind: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadModel".
+ */
+export interface ThreadModel {
+  modelId: string;
+  provider: string;
+  thinkingType?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadTurn".
+ */
+export interface ThreadTurn {
+  items: ThreadItem[];
+  providerAttempts: ThreadProviderAttempt[];
+  snapshot: TurnSnapshot;
+  status: TurnStatus;
+  turnId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadItem".
+ */
+export interface ThreadItem {
+  completedAt?: string | null;
+  content: string;
+  itemId: string;
+  itemType: string;
+  startedAt: string;
+  status: ItemStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadProviderAttempt".
+ */
+export interface ThreadProviderAttempt {
+  attemptId: string;
+  endedAt?: string | null;
+  errorCode?: string | null;
+  modelId: string;
+  outcome: string;
+  provider: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TurnSnapshot".
+ */
+export interface TurnSnapshot {
+  accountId?: string | null;
+  agentMode: AgentMode;
+  attachedContexts: ThreadContextRef[];
+  capabilityLevel: string;
+  executionContext: ExecutionContext;
+  model?: ThreadModel | null;
+  startedAt: string;
+  turnId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayMutation".
  */
 export interface GatewayMutation {
@@ -507,7 +636,7 @@ export interface SuccessEnvelope {
  */
 export interface Snapshot {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -536,9 +665,29 @@ export interface RuntimeComponent {
 export interface SubscriptionAck {
   afterSequence: number;
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread";
   lastSequence: number;
   replayedCount: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadList".
+ */
+export interface ThreadList {
+  threads: ThreadSummary[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadSummary".
+ */
+export interface ThreadSummary {
+  defaultAgentMode: AgentMode;
+  defaultExecutionContext: ExecutionContext;
+  status: ThreadStatus;
+  threadId: string;
+  title: string;
+  updatedAt: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -679,6 +828,27 @@ export interface Subscribe {
   afterSequence: number;
   aggregateId: string;
   aggregateType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadCreate".
+ */
+export interface ThreadCreate {
+  accountId?: string | null;
+  defaultAgentMode: AgentMode;
+  defaultExecutionContext: ExecutionContext;
+  linkedContexts: ThreadContextRef[];
+  model?: ThreadModel | null;
+  title: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadQuery".
+ */
+export interface ThreadQuery {
+  threadId: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

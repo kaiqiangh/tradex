@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyEvent, fromModelSnapshot, fromSnapshot, decode } from '../src/projection.ts';
+import { applyEvent, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
 
 const workspace = {
   workspaceId: 'workspace-one', name: 'Equity research', baseCurrency: 'EUR', path: '/workspace',
@@ -56,4 +56,24 @@ test('model projection accepts both provider event types and rejects foreign agg
   assert.equal(next.snapshot.lastSequence, 2);
   assert.equal(applyEvent(next, attempt).snapshot.lastSequence, 3);
   assert.throws(() => applyEvent(initial, { ...provider, eventType: 'model.gateway.changed' }));
+});
+
+test('thread projection preserves identity and contiguous event ordering', () => {
+  const thread = {
+    threadId: 'thread-one', workspaceId: 'workspace-one', title: 'Research',
+    createdAt: '2026-09-13T01:00:00Z', updatedAt: '2026-09-13T01:00:00Z', stateVersion: 'thread:thread-one:1',
+    defaultAgentMode: 'ASK' as const, defaultExecutionContext: 'NONE_READ_ONLY' as const,
+    linkedContexts: [], status: 'ACTIVE' as const, turns: [],
+  };
+  const initial = fromThreadSnapshot({ aggregateType: 'thread', aggregateId: 'thread-one', projection: thread, lastSequence: 1 });
+  const event = {
+    eventId: 'thread-two', eventType: 'thread.updated' as const, schemaVersion: 1, occurredAt: thread.updatedAt,
+    aggregateType: 'thread' as const, aggregateId: 'thread-one', sequence: 2,
+    payload: { ...thread, title: 'Updated research', stateVersion: 'thread:thread-one:2', updatedAt: '2026-09-13T01:01:00Z' },
+  };
+  const next = applyEvent(initial, event);
+  assert.equal(next.snapshot.projection.title, 'Updated research');
+  assert.equal(applyEvent(next, structuredClone(event)), next);
+  assert.throws(() => applyEvent(next, { ...event, sequence: 4 }));
+  assert.throws(() => applyEvent(next, { ...event, payload: { ...event.payload, workspaceId: 'other-workspace' } }));
 });

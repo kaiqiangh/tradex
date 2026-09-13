@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import type { ModelRoute, ModelState, RiskPolicyState, RuntimeStatus } from '../shared/ipc-types.ts';
+import type { AgentMode, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadModel } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
 import { RiskDefaults, draftFromPolicy, type RiskDraft } from './RiskDefaults.tsx';
-import { fromModelSnapshot, fromRiskSnapshot } from './projection.ts';
+import { fromModelSnapshot, fromRiskSnapshot, fromThreadSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
 import type { OpenWorkspace, Workspace } from '../shared/ipc-types.ts';
@@ -106,6 +106,67 @@ function modelGate(model: ModelState | undefined, runtime: RuntimeStatus | undef
   };
 }
 
+function ThreadHistory({ workspaceId, selectedThreadId, onSelect, compact = false }: { workspaceId: string; selectedThreadId?: string; onSelect: (threadId: string) => void; compact?: boolean }) {
+  const threads = useQuery({ queryKey: ['threads', workspaceId], queryFn: () => request('thread.list', { workspaceId }) });
+  if (threads.isPending) return <p className="sidebar-empty" role="status">Loading thread history…</p>;
+  if (threads.isError) return <div className="thread-history-error"><p role="alert">Thread history is unavailable.</p><button type="button" onClick={() => void threads.refetch()}>Reload history</button></div>;
+  if (!threads.data.threads.length) return <p className="sidebar-empty">No saved threads</p>;
+  return <div className={compact ? 'thread-history compact' : 'thread-history'}>{threads.data.threads.map(thread =>
+    <button key={thread.threadId} type="button" className="thread-history-row" aria-label={thread.title} aria-current={thread.threadId === selectedThreadId ? 'true' : undefined} onClick={() => onSelect(thread.threadId)}>
+      <strong>{thread.title}</strong><small>{thread.defaultAgentMode} · {thread.defaultExecutionContext}</small><time dateTime={thread.updatedAt}>{new Date(thread.updatedAt).toLocaleString()}</time>
+    </button>)}</div>;
+}
+
+function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string; model?: ModelState; onCreated: (thread: Thread) => void }) {
+  const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'thread-composer'], queryFn: () => request('account.list', { workspaceId }) });
+  const [title, setTitle] = useState('New research thread');
+  const [mode, setMode] = useState<AgentMode>('ASK');
+  const [execution, setExecution] = useState<ExecutionContext>('NONE_READ_ONLY');
+  const [accountId, setAccountId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const route = model?.defaultRoute;
+  const selectedModel: ThreadModel | undefined = route ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) } : undefined;
+  const create = async (event: FormEvent) => {
+    event.preventDefault(); setBusy(true); setError(undefined);
+    const payload: ThreadCreate = { workspaceId, title: title.trim(), defaultAgentMode: mode, defaultExecutionContext: execution, linkedContexts: [], ...(accountId ? { accountId } : {}), ...(selectedModel ? { model: selectedModel } : {}) };
+    try { onCreated(await request('thread.create', payload)); setTitle('New research thread'); }
+    catch (failure) { setError(explainError(failure)); }
+    finally { setBusy(false); }
+  };
+  return <section className="composer thread-composer" aria-labelledby="thread-composer-title">
+    <div className="composer-heading"><div><h2 id="thread-composer-title">Start a thread</h2><p className="muted">The selections below become this Thread's defaults.</p></div><span className="badge readonly">No financial approval</span></div>
+    <form onSubmit={create}>
+      <label className="field">Thread title<input value={title} onChange={event => setTitle(event.target.value)} maxLength={120} required /></label>
+      <div className="thread-picker-grid">
+        <label className="field">Agent mode<select value={mode} onChange={event => setMode(event.target.value as AgentMode)}><option value="ASK">Ask · read only</option><option value="RESEARCH">Research · read only</option><option value="BACKTEST">Backtest · historical simulation</option><option value="TRADE">Trade · later approval required</option></select></label>
+        <label className="field">Execution context<select value={execution} onChange={event => setExecution(event.target.value as ExecutionContext)}><option value="NONE_READ_ONLY">None · read only</option><option value="HISTORICAL_SIMULATION">Historical simulation</option><option value="LOCAL_PAPER">Local Paper</option><option value="ALPACA_PAPER">Alpaca Paper</option><option value="TRADING212_DEMO">Trading 212 Demo</option><option value="TRADING212_LIVE">Trading 212 Live</option><option value="BINANCE_TESTNET">Binance Testnet</option><option value="BINANCE_LIVE">Binance Live</option><option value="BITGET_DEMO">Bitget Demo</option><option value="BITGET_LIVE">Bitget Live</option></select></label>
+        <label className="field">Account<select value={accountId} onChange={event => setAccountId(event.target.value)} disabled={accounts.isPending}><option value="">No account selected</option>{accounts.data?.accounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.environment}</option>)}</select></label>
+      </div>
+      <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Selected when the next Turn starts'}</span></div>
+      {error && <p className="error-text" role="alert">{error}</p>}
+      <div className="composer-footer"><span>Context references: none</span><button className="primary" type="submit" disabled={busy || !title.trim() || accounts.isError}>{busy ? 'Creating…' : 'Create Thread'}</button></div>
+    </form>
+  </section>;
+}
+
+function ThreadDetail({ threadId }: { threadId: string }) {
+  const projection = useDomainProjection('thread', threadId, fromThreadSnapshot);
+  if (projection.error) return <div className="error-banner" role="alert"><div><strong>Thread needs attention</strong><p>{explainError(projection.error)}</p></div><button type="button" onClick={() => void projection.reload()}>Reload thread</button></div>;
+  const thread = projection.data;
+  if (!thread) return <p role="status">Loading thread…</p>;
+  return <section className="card thread-detail" aria-labelledby="thread-detail-title">
+    <div className="account-heading"><div><h2 id="thread-detail-title">{thread.title}</h2><p className="muted">Thread {thread.threadId}</p></div><span className="badge">{thread.status}</span></div>
+    <div className="composer-context"><span className="badge">Mode: {thread.defaultAgentMode}</span><span className="badge">Execution: {thread.defaultExecutionContext}</span><span className="muted">Account: {thread.accountId ?? 'None selected'}</span><span className="muted">Model: {thread.model ? `${thread.model.provider} · ${thread.model.modelId}` : 'Not selected'}</span></div>
+    <dl className="thread-provenance"><div><dt>Created</dt><dd><time dateTime={thread.createdAt}>{new Date(thread.createdAt).toLocaleString()}</time></dd></div><div><dt>Updated</dt><dd><time dateTime={thread.updatedAt}>{new Date(thread.updatedAt).toLocaleString()}</time></dd></div><div><dt>Context references</dt><dd>{thread.linkedContexts.length ? thread.linkedContexts.map(context => `${context.kind}:${context.id}`).join(', ') : 'None'}</dd></div></dl>
+    <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send remains unavailable until the Codex runtime slice is complete.</p></div>
+  </section>;
+}
+
+function ThreadsPage({ workspaceId, model, selectedThreadId, onSelect, onCreated }: { workspaceId: string; model?: ModelState; selectedThreadId?: string; onSelect: (threadId: string) => void; onCreated: (thread: Thread) => void }) {
+  return <><div className="page-heading"><h1>Threads</h1><p>Local history restores each Thread's own defaults and context.</p></div><div className="threads-layout"><section className="card threads-list-card"><h2>History</h2><ThreadHistory workspaceId={workspaceId} selectedThreadId={selectedThreadId} onSelect={onSelect} /></section><section className="threads-main"><ThreadComposer workspaceId={workspaceId} model={model} onCreated={onCreated} />{selectedThreadId && <ThreadDetail threadId={selectedThreadId} />}</section></div></>;
+}
+
 function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPolicyState }) {
   const [draft, setDraft] = useState<RiskDraft>();
   const [draftVersion, setDraftVersion] = useState('');
@@ -178,6 +239,7 @@ function Onboarding({ workspace, risk, model, modelError, reloadModel, runtime, 
 
 export default function App() {
   const [page, setPage] = useState<Page>('New Thread');
+  const [selectedThreadId, setSelectedThreadId] = useState<string>();
   const [setup, setSetup] = useState(false);
   const [workspacePicker, setWorkspacePicker] = useState(false);
   const [settingsTab, setSettingsTab] = useState('Providers & Models');
@@ -194,8 +256,11 @@ export default function App() {
   const reloadProjections = () => { void riskProjection.reload(); void modelProjection.reload(); };
   const navigate = (destination: Page) => {
     setPage(destination); setSetup(false); setWorkspacePicker(false);
+    if (destination === 'New Thread') setSelectedThreadId(undefined);
     document.querySelectorAll('details[open]').forEach(details => details.removeAttribute('open'));
   };
+  const selectThread = (threadId: string) => { setSelectedThreadId(threadId); setPage('Threads'); setSetup(false); setWorkspacePicker(false); };
+  const createdThread = (thread: Thread) => { setSelectedThreadId(thread.threadId); setPage('Threads'); };
   const submit = async (options: OpenWorkspace) => {
     try { await state.opening.mutateAsync(options); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
   };
@@ -207,7 +272,7 @@ export default function App() {
       <div className="brand">Trade<b>X</b></div>
       <Navigation page={page} navigate={navigate} />
       <div className="sidebar-divider" />
-      <div className="recent-heading">Recent threads</div><p className="sidebar-empty">No threads yet</p>
+      <div className="recent-heading">Recent threads</div>{workspace ? <ThreadHistory workspaceId={workspace.workspaceId} selectedThreadId={selectedThreadId} onSelect={selectThread} compact /> : <p className="sidebar-empty">No threads yet</p>}
       <div className="runtime-summary"><strong>{modelReady ? `Model ready · ${defaultModelRoute?.provider}` : defaultModelRoute ? 'Model gateway unavailable' : 'Model not configured'}</strong><p>{modelReady ? 'A verified route is available.' : modelState.reason}</p></div>
     </aside>
     <div className="shell">
@@ -227,14 +292,11 @@ export default function App() {
           <div className="workspace-layout"><section className="content">
             {page === 'New Thread' && <>
               <div className="thread-welcome"><h1>What would you like to research?</h1><p>Ask a question, explore an opportunity, or review your portfolio.</p></div>
-              <section className="composer" aria-label="Thread composer">
-                <div className="composer-context"><span className="badge">Agent mode: Ask</span><span className="badge">Execution: Read only</span><span className="muted">No account selected</span></div>
-                <textarea aria-label="Message" placeholder={modelReady ? 'Codex App Server is not configured' : modelState.reason} disabled />
-                <div className="composer-footer"><span>{modelReady ? `Model route ready · ${defaultModelRoute?.provider} · ${defaultModelRoute?.modelId}` : defaultModelRoute ? 'Model gateway unavailable' : 'Model not configured'}</span><button className="primary" disabled>Send</button></div>
-              </section>
+              {workspace && <ThreadComposer workspaceId={workspace.workspaceId} model={model} onCreated={createdThread} />}
               <div className="notice model-notice"><div><strong>{modelReady ? 'Agent turns unavailable' : defaultModelRoute ? 'Model gateway unavailable' : 'Connect a model provider'}</strong><p>{modelState.reason}</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
               <div className="empty-activity"><h2>Thread activity</h2><p>No agent turns have started in this workspace.</p></div>
             </>}
+            {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} selectedThreadId={selectedThreadId} onSelect={selectThread} onCreated={createdThread} />}
             {page === 'Settings' && <>
               <div className="page-heading"><h1>Settings</h1><p>Manage your local workspace and connected services.</p></div>
               <div className="settings-tabs" role="group" aria-label="Settings sections">{['Providers & Models', 'Risk & Limits', 'Data & Storage', 'Account Health', 'Appearance', 'About'].map(tab =>
@@ -251,10 +313,10 @@ export default function App() {
               </section>
             </>}
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}
-            {page !== 'New Thread' && page !== 'Settings' && page !== 'Accounts' && <>
+            {page !== 'New Thread' && page !== 'Threads' && page !== 'Settings' && page !== 'Accounts' && <>
               <div className="page-heading"><h1>{page}</h1></div>
-              <section className="card empty-page"><h2>{page === 'Threads' ? 'No saved threads' : page === 'Markets' ? 'Market data is not connected' : page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
-                <p>{page === 'Threads' ? 'Configure a model provider before starting a persistent thread.' : page === 'Markets' ? 'Provider connections are not available in this build. No account or market data has been loaded.' : 'This workflow is not available in this build. Your local workspace is ready for the next setup steps.'}</p>
+              <section className="card empty-page"><h2>{page === 'Markets' ? 'Market data is not connected' : page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
+                <p>{page === 'Markets' ? 'Provider connections are not available in this build. No account or market data has been loaded.' : 'This workflow is not available in this build. Your local workspace is ready for the next setup steps.'}</p>
                 <button onClick={() => navigate('Settings')}>Open settings</button>
               </section>
             </>}

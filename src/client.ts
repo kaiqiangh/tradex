@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -28,6 +28,9 @@ interface Inputs {
   'runtime.status': EmptyPayload;
   'domain.snapshot': Aggregate;
   'domain.subscribe': Subscribe;
+  'thread.list': WorkspaceQuery;
+  'thread.get': ThreadQuery;
+  'thread.create': ThreadCreate;
 }
 interface Outputs {
   'model.get_gateway': GatewayState;
@@ -55,6 +58,9 @@ interface Outputs {
   'runtime.status': RuntimeStatus;
   'domain.snapshot': Snapshot;
   'domain.subscribe': SubscriptionAck;
+  'thread.list': ThreadList;
+  'thread.get': Thread;
+  'thread.create': Thread;
 }
 const definitions = {
   'model.get_gateway': ['WorkspaceQuery', 'GatewayState'],
@@ -82,6 +88,9 @@ const definitions = {
   'runtime.status': ['EmptyPayload', 'RuntimeStatus'],
   'domain.snapshot': ['Aggregate', 'Snapshot'],
   'domain.subscribe': ['Subscribe', 'SubscriptionAck'],
+  'thread.list': ['WorkspaceQuery', 'ThreadList'],
+  'thread.get': ['ThreadQuery', 'Thread'],
+  'thread.create': ['ThreadCreate', 'Thread'],
 } as const;
 
 export const browserIntegration = import.meta.env.MODE === 'integration';

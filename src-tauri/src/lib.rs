@@ -14,7 +14,8 @@ mod storage;
 
 use protocol::{
     Aggregate, CommandEnvelope, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
-    OpenWorkspace, Result, RuntimeComponent, RuntimeStatus, Subscribe, TradeXError,
+    OpenWorkspace, Result, RuntimeComponent, RuntimeStatus, Subscribe, Thread, ThreadCreate,
+    ThreadQuery, TradeXError,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -310,6 +311,22 @@ impl ControlPlane {
                     }
                 }
             }
+            "thread.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                Ok((json!(self.store.as_ref().unwrap().threads()?), None))
+            }
+            "thread.get" => {
+                let input: ThreadQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_aggregate("thread", &input.thread_id)?;
+                let thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+                Ok((json!(thread), Some(thread.state_version)))
+            }
+            "thread.create" => {
+                let input: ThreadCreate = payload(request.payload)?;
+                self.create_thread(input)
+            }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;
                 Ok((json!(catalog()), None))
@@ -510,6 +527,73 @@ impl ControlPlane {
         let version = state.state_version.clone();
         self.publish(&event);
         Ok((json!(state), Some(version)))
+    }
+
+    fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.title.trim().is_empty()
+            || input.title.chars().count() > 120
+            || input.title.chars().any(char::is_control)
+            || input.linked_contexts.len() > 32
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        if let Some(account_id) = &input.account_id {
+            validate_aggregate("account", account_id)?;
+            self.store.as_ref().unwrap().account(account_id)?;
+        }
+        if let Some(model) = &input.model {
+            if !matches!(model.provider.as_str(), "CHATGPT" | "DEEPSEEK")
+                || model.model_id.trim().is_empty()
+                || model.model_id.chars().any(char::is_control)
+            {
+                return Err(TradeXError::new("MODEL_ROUTE_INVALID"));
+            }
+            if let Some(thinking_type) = &model.thinking_type
+                && !matches!(thinking_type.as_str(), "disabled" | "enabled")
+            {
+                return Err(TradeXError::new("MODEL_ROUTE_INVALID"));
+            }
+        }
+        for context in &input.linked_contexts {
+            if context.kind.trim().is_empty()
+                || context.id.trim().is_empty()
+                || context.hash.trim().is_empty()
+                || context.kind.chars().any(char::is_control)
+                || context.id.chars().any(char::is_control)
+                || context.hash.chars().any(char::is_control)
+            {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        }
+        let now = storage::timestamp()?;
+        let thread = Thread {
+            thread_id: uuid::Uuid::new_v4().to_string(),
+            workspace_id: input.workspace_id,
+            codex_thread_id: None,
+            title: input.title.trim().to_owned(),
+            created_at: now.clone(),
+            updated_at: now,
+            state_version: String::new(),
+            default_agent_mode: input.default_agent_mode,
+            default_execution_context: input.default_execution_context,
+            account_id: input.account_id,
+            model: input.model,
+            linked_contexts: input.linked_contexts,
+            status: protocol::ThreadStatus::Active,
+            turns: Vec::new(),
+        };
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(thread, "thread.created")?;
+        let DomainProjection::Thread(thread) = &event.payload else {
+            unreachable!()
+        };
+        let version = thread.state_version.clone();
+        self.publish(&event);
+        Ok((json!(thread), Some(version)))
     }
 
     fn set_fallback_policy(
@@ -1219,6 +1303,124 @@ fn validate_aggregate(kind: &str, id: &str) -> Result<()> {
         Err(TradeXError::new("IPC_PAYLOAD_INVALID"))
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod thread_tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    fn request(command: &str, payload: Value) -> Value {
+        json!({
+            "requestId": format!("request-{command}"),
+            "schemaVersion": 1,
+            "command": command,
+            "payload": payload,
+        })
+    }
+
+    #[test]
+    fn thread_create_list_snapshot_subscribe_and_reopen_are_persistent() {
+        let directory = tempfile::tempdir().unwrap();
+        let workspace_path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(workspace_path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        assert_eq!(opened["ok"], true);
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let create = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": "Earnings research",
+                "defaultAgentMode": "ASK",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "linkedContexts": []
+            }),
+        ));
+        assert_eq!(create["ok"], true);
+        let thread_id = create["data"]["threadId"].as_str().unwrap().to_owned();
+        assert_eq!(create["data"]["status"], "ACTIVE");
+
+        let listed = control.dispatch(request(
+            "thread.list",
+            json!({ "workspaceId": workspace_id }),
+        ));
+        assert_eq!(listed["data"]["threads"].as_array().unwrap().len(), 1);
+        let detail = control.dispatch(request(
+            "thread.get",
+            json!({ "workspaceId": workspace_id, "threadId": thread_id }),
+        ));
+        assert_eq!(detail["data"]["title"], "Earnings research");
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let collected = events.clone();
+        let sink: EventSink = Arc::new(move |event| {
+            collected.lock().unwrap().push(event);
+            true
+        });
+        let subscribed = control.dispatch_with_events(
+            request(
+                "domain.subscribe",
+                json!({ "aggregateType": "thread", "aggregateId": thread_id, "afterSequence": 0 }),
+            ),
+            "thread-test",
+            Some(sink),
+        );
+        assert_eq!(subscribed["ok"], true);
+        assert_eq!(subscribed["data"]["replayedCount"], 1);
+        let second = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": "Portfolio review",
+                "defaultAgentMode": "RESEARCH",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "linkedContexts": []
+            }),
+        ));
+        assert_eq!(second["ok"], true);
+        let mut updated = control.store.as_ref().unwrap().thread(&thread_id).unwrap();
+        updated.title = "Earnings research updated".into();
+        let event = control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(updated, "thread.updated")
+            .unwrap();
+        control.publish(&event);
+        assert_eq!(events.lock().unwrap().len(), 2);
+
+        drop(control);
+        let mut reopened = ControlPlane::new(workspace_path);
+        let reopened_workspace = reopened.dispatch(request("workspace.open", json!({})));
+        assert_eq!(reopened_workspace["ok"], true);
+        let listed_again = reopened.dispatch(request(
+            "thread.list",
+            json!({ "workspaceId": workspace_id }),
+        ));
+        assert_eq!(listed_again["data"]["threads"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn thread_create_rejects_an_account_from_outside_the_workspace() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+        let result = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": "Invalid account",
+                "defaultAgentMode": "ASK",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "accountId": "missing-account",
+                "linkedContexts": []
+            }),
+        ));
+        assert_eq!(result["ok"], false);
+        assert_eq!(result["error"]["code"], "IPC_AGGREGATE_NOT_FOUND");
     }
 }
 

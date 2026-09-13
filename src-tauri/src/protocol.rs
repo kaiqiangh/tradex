@@ -99,7 +99,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -135,6 +135,8 @@ pub enum ReplyData {
     Snapshot(Snapshot),
     Runtime(RuntimeStatus),
     Subscription(SubscriptionAck),
+    Thread(Box<Thread>),
+    Threads(ThreadList),
     Gateway(GatewayState),
     Model(ModelState),
     Risk(RiskPolicyState),
@@ -191,6 +193,8 @@ pub struct IpcSchema {
     pub account_query: AccountQuery,
     pub account_mutation: AccountMutation,
     pub provider_connect: Connect,
+    pub thread_create: ThreadCreate,
+    pub thread_query: ThreadQuery,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -203,8 +207,228 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 5))]
+    #[schemars(range(min = 1, max = 6))]
     pub storage_schema_version: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AgentMode {
+    Ask,
+    Research,
+    Backtest,
+    Trade,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum ExecutionContext {
+    #[serde(rename = "NONE_READ_ONLY")]
+    NoneReadOnly,
+    #[serde(rename = "HISTORICAL_SIMULATION")]
+    HistoricalSimulation,
+    #[serde(rename = "LOCAL_PAPER")]
+    LocalPaper,
+    #[serde(rename = "ALPACA_PAPER")]
+    AlpacaPaper,
+    #[serde(rename = "TRADING212_DEMO")]
+    Trading212Demo,
+    #[serde(rename = "TRADING212_LIVE")]
+    Trading212Live,
+    #[serde(rename = "BINANCE_TESTNET")]
+    BinanceTestnet,
+    #[serde(rename = "BINANCE_LIVE")]
+    BinanceLive,
+    #[serde(rename = "BITGET_DEMO")]
+    BitgetDemo,
+    #[serde(rename = "BITGET_LIVE")]
+    BitgetLive,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ThreadStatus {
+    Active,
+    Archived,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TurnStatus {
+    Running,
+    Completed,
+    Cancelled,
+    Interrupted,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ItemStatus {
+    Started,
+    Streaming,
+    Completed,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadModel {
+    #[schemars(length(min = 1, max = 32))]
+    pub provider: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub model_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 32))]
+    pub thinking_type: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadContextRef {
+    #[schemars(length(min = 1, max = 64))]
+    pub kind: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TurnSnapshot {
+    #[schemars(length(min = 1, max = 128))]
+    pub turn_id: String,
+    pub agent_mode: AgentMode,
+    pub execution_context: ExecutionContext,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub capability_level: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<ThreadModel>,
+    pub attached_contexts: Vec<ThreadContextRef>,
+    pub started_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadItem {
+    #[schemars(length(min = 1, max = 128))]
+    pub item_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub item_type: String,
+    pub status: ItemStatus,
+    pub content: String,
+    pub started_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadProviderAttempt {
+    #[schemars(length(min = 1, max = 128))]
+    pub attempt_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub model_id: String,
+    pub started_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<String>,
+    #[schemars(length(min = 1, max = 32))]
+    pub outcome: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadTurn {
+    #[schemars(length(min = 1, max = 128))]
+    pub turn_id: String,
+    pub status: TurnStatus,
+    pub snapshot: TurnSnapshot,
+    pub items: Vec<ThreadItem>,
+    pub provider_attempts: Vec<ThreadProviderAttempt>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Thread {
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub codex_thread_id: Option<String>,
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+    pub created_at: String,
+    pub updated_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub default_agent_mode: AgentMode,
+    pub default_execution_context: ExecutionContext,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<ThreadModel>,
+    pub linked_contexts: Vec<ThreadContextRef>,
+    pub status: ThreadStatus,
+    #[serde(default)]
+    pub turns: Vec<ThreadTurn>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadSummary {
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+    pub updated_at: String,
+    pub default_agent_mode: AgentMode,
+    pub default_execution_context: ExecutionContext,
+    pub status: ThreadStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadList {
+    pub threads: Vec<ThreadSummary>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadCreate {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+    pub default_agent_mode: AgentMode,
+    pub default_execution_context: ExecutionContext,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<ThreadModel>,
+    pub linked_contexts: Vec<ThreadContextRef>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
@@ -215,6 +439,7 @@ pub enum DomainProjection {
     Workspace(Workspace),
     Account(Box<AccountConnection>),
     Risk(RiskPolicyState),
+    Thread(Box<Thread>),
 }
 
 impl DomainProjection {
@@ -225,6 +450,7 @@ impl DomainProjection {
             Self::Workspace(w) => &w.workspace_id,
             Self::Account(a) => &a.connection_id,
             Self::Risk(r) => &r.workspace_id,
+            Self::Thread(t) => &t.thread_id,
         }
     }
     pub fn kind(&self) -> &str {
@@ -234,6 +460,7 @@ impl DomainProjection {
             Self::Workspace(_) => "workspace",
             Self::Account(_) => "account",
             Self::Risk(_) => "risk",
+            Self::Thread(_) => "thread",
         }
     }
 }
@@ -243,12 +470,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -260,7 +487,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
