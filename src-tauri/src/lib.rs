@@ -1030,6 +1030,11 @@ impl ControlPlane {
             .iter()
             .find(|turn| turn.turn_id == prepared.turn_id)
             .is_some_and(|turn| turn.status == protocol::TurnStatus::Running);
+        let cancel_requested = before
+            .turns
+            .iter()
+            .find(|turn| turn.turn_id == prepared.turn_id)
+            .is_some_and(|turn| turn.cancel_requested_at.is_some());
         let completed = matches!(&result, Ok(codex_runtime::RuntimeOutcome::Completed));
         let terminal_noncompleted = matches!(
             &result,
@@ -1040,7 +1045,16 @@ impl ControlPlane {
         match result {
             Ok(codex_runtime::RuntimeOutcome::Completed) => {
                 if was_running {
-                    self.complete_turn(&prepared.thread_id, &prepared.turn_id)?;
+                    if cancel_requested {
+                        self.terminal_turn(
+                            &prepared.thread_id,
+                            &prepared.turn_id,
+                            protocol::TurnStatus::Cancelled,
+                            "CODEX_TURN_CANCELLED",
+                        )?;
+                    } else {
+                        self.complete_turn(&prepared.thread_id, &prepared.turn_id)?;
+                    }
                 }
             }
             Ok(codex_runtime::RuntimeOutcome::Cancelled) => {
@@ -2792,6 +2806,60 @@ mod turn_runtime_tests {
             protocol::TurnStatus::Completed
         );
         assert_ne!(final_thread.turns[1].turn_id, turn_id);
+    }
+
+    #[test]
+    fn cancellation_request_wins_when_runtime_completes_after_cancel() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(json!({
+            "requestId":"open","schemaVersion":1,"command":"workspace.open","payload":{}
+        }));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let created = control.dispatch(json!({
+            "requestId":"create","schemaVersion":1,"command":"thread.create","payload":{
+                "workspaceId":workspace_id,"title":"Cancel completion race","defaultAgentMode":"ASK",
+                "defaultExecutionContext":"NONE_READ_ONLY","model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"},"linkedContexts":[]
+            }
+        }));
+        let thread_id = created["data"]["threadId"].as_str().unwrap().to_owned();
+        let (prepared, _) = control
+            .begin_turn(TurnStart {
+                workspace_id: workspace_id.clone(),
+                thread_id: thread_id.clone(),
+                expected_state_version: created["data"]["stateVersion"]
+                    .as_str()
+                    .unwrap()
+                    .to_owned(),
+                message: "cancel before completion".into(),
+                agent_mode: AgentMode::Ask,
+                execution_context: ExecutionContext::NoneReadOnly,
+                account_id: None,
+                model: Some(ThreadModel {
+                    provider: "CHATGPT".into(),
+                    model_id: "gpt-5.6-sol".into(),
+                    thinking_type: None,
+                }),
+                attached_contexts: Vec::new(),
+            })
+            .unwrap();
+        let running = control.store.as_ref().unwrap().thread(&thread_id).unwrap();
+        control
+            .request_turn_cancel(&TurnCancel {
+                workspace_id,
+                thread_id: thread_id.clone(),
+                turn_id: prepared.turn_id.clone(),
+                expected_state_version: running.state_version,
+            })
+            .unwrap();
+
+        control
+            .finish_runtime_turn(&prepared, Ok(codex_runtime::RuntimeOutcome::Completed))
+            .unwrap();
+        let thread = control.store.as_ref().unwrap().thread(&thread_id).unwrap();
+        assert_eq!(thread.turns[0].status, protocol::TurnStatus::Cancelled);
+        assert_eq!(thread.turns[0].provider_attempts[0].outcome, "CANCELLED");
+        assert!(thread.turns[0].cancel_requested_at.is_some());
     }
 
     #[test]
