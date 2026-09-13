@@ -219,15 +219,15 @@ export interface Aggregate {
  * via the `definition` "CapabilityQuery".
  */
 export interface CapabilityQuery {
-  accountId?: string | null;
+  accountId?: string;
   agentMode: AgentMode;
   /**
    * @maxItems 32
    */
   attachedContexts?: ThreadContextRef[];
   executionContext: ExecutionContext;
-  requestedLevel?: CapabilityLevel | null;
-  requestedTool?: string | null;
+  requestedLevel?: CapabilityLevel;
+  requestedTool?: string;
   workspaceId: string;
 }
 /**

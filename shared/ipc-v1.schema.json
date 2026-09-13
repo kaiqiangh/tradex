@@ -473,10 +473,7 @@
       "type": "object",
       "properties": {
         "accountId": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": "string",
           "maxLength": 128,
           "minLength": 1
         },
@@ -495,20 +492,10 @@
           "$ref": "#/$defs/ExecutionContext"
         },
         "requestedLevel": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/CapabilityLevel"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/CapabilityLevel"
         },
         "requestedTool": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": "string",
           "maxLength": 64,
           "minLength": 1
         },

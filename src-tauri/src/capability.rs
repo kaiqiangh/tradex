@@ -2,6 +2,14 @@ use crate::protocol::{AgentMode, ExecutionContext, Result, ThreadContextRef, Tra
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+fn present<'de, D, T>(value: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(value).map(Some)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum CapabilityLevel {
@@ -55,16 +63,29 @@ pub struct CapabilityQuery {
     pub workspace_id: String,
     pub agent_mode: AgentMode,
     pub execution_context: ExecutionContext,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(length(min = 1, max = 128))]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "String", length(min = 1, max = 128))]
     pub account_id: Option<String>,
     #[serde(default)]
     #[schemars(length(max = 32))]
     pub attached_contexts: Vec<ThreadContextRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(length(min = 1, max = 64))]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "String", length(min = 1, max = 64))]
     pub requested_tool: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "CapabilityLevel")]
     pub requested_level: Option<CapabilityLevel>,
 }
 
@@ -99,6 +120,10 @@ pub fn decide_query(
         return Err(TradeXError::new("UNSUPPORTED_CAPABILITY"));
     }
     if let Some(tool) = query.requested_tool.as_deref() {
+        if tool.trim().is_empty() || tool.chars().count() > 64 || tool.chars().any(char::is_control)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
         let allowed = decision
             .allowed_tools
             .iter()
@@ -557,6 +582,32 @@ mod tests {
             decide_query(&allowed, None).unwrap().level,
             CapabilityLevel::C0
         );
+    }
+
+    #[test]
+    fn capability_query_rejects_nulls_and_unbounded_tool_probes() {
+        let base = serde_json::json!({
+            "workspaceId": "workspace",
+            "agentMode": "ASK",
+            "executionContext": "NONE_READ_ONLY",
+            "attachedContexts": []
+        });
+        for field in ["accountId", "requestedTool", "requestedLevel"] {
+            let mut value = base.clone();
+            value[field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<CapabilityQuery>(value).is_err());
+        }
+
+        for requested_tool in [" ".into(), "x".repeat(65), "bad\u{0000}".into()] {
+            let query = CapabilityQuery {
+                requested_tool: Some(requested_tool),
+                ..base_without_request()
+            };
+            assert_eq!(
+                decide_query(&query, None).unwrap_err().code,
+                "IPC_PAYLOAD_INVALID"
+            );
+        }
     }
 
     fn base_without_request() -> CapabilityQuery {

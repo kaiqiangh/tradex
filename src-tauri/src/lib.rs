@@ -2539,6 +2539,19 @@ mod thread_tests {
         assert_eq!(ask["data"]["executionAllowed"], false);
         assert_eq!(ask["data"]["allowedTools"][0], "public_market_read");
 
+        for field in ["accountId", "requestedTool", "requestedLevel"] {
+            let mut payload = json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": []
+            });
+            payload[field] = Value::Null;
+            let rejected = control.dispatch(request("agent.capabilities", payload));
+            assert_eq!(rejected["ok"], false);
+            assert_eq!(rejected["error"]["code"], "IPC_PAYLOAD_INVALID");
+        }
+
         let paper = control.dispatch(request(
             "agent.capabilities",
             json!({
