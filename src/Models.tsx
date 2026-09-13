@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { ChatgptLoginAction, GatewayAction, ModelProviderState, ModelRoute, ThinkingType } from '../shared/ipc-types.ts';
+import type { ChatgptLoginAction, GatewayAction, ModelProviderState, ModelRoute, SetDefaultModel, SetFallbackPolicy, ThinkingType } from '../shared/ipc-types.ts';
 import { request, explainError } from './client.ts';
 import { fromGatewaySnapshot, fromModelSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -22,6 +22,9 @@ const reasons: Record<string, string> = {
   MODEL_NATIVE_REQUIRED: 'Open the desktop app to configure this model securely.',
   MODEL_NATIVE_ENTRY_REQUIRED: 'Open the desktop app to configure this model securely.',
   MODEL_GATEWAY_RUNNING: 'Stop the model gateway before replacing the DeepSeek key, then launch it again.',
+  MODEL_DEFAULT_MISSING: 'Choose a verified default model route before starting a model request.',
+  MODEL_FALLBACK_UNAVAILABLE: 'Automatic fallback needs a verified DeepSeek route in this workspace.',
+  MODEL_QUOTA_COOLDOWN: 'The selected model is in its known provider cooldown. Retry after the reset window.',
   MODEL_KEYCHAIN_MISSING: 'The DeepSeek OS Keychain key is unavailable. Configure it again.',
   MODEL_UNAVAILABLE: 'The selected model route is unavailable. Retry its probe or choose another route.',
   MODEL_OAUTH_EXPIRED: 'ChatGPT authorization expired or was rejected. Re-login before verifying the route.',
@@ -39,6 +42,9 @@ const modelHealth: Record<string, string> = {
 function routeLabel(route: ModelRoute) {
   return `${route.modelId}${route.thinkingType ? ` · ${route.thinkingType === 'enabled' ? 'Thinking' : 'Non-thinking'}` : ''}`;
 }
+
+type ModelCommand = 'model.login_chatgpt' | 'model.configure_deepseek' | 'model.verify_route' | 'model.set_default' | 'model.set_fallback_policy';
+type ModelPayload = { action: ChatgptLoginAction } | { provider: 'CHATGPT' | 'DEEPSEEK'; modelId: string; thinkingType: ThinkingType | null } | SetDefaultModel | SetFallbackPolicy | null;
 
 function providerError(provider: ModelProviderState) {
   return provider.errorCode ? reasons[provider.errorCode] ?? `The ${provider.provider === 'CHATGPT' ? 'ChatGPT' : 'DeepSeek'} route needs attention.` : null;
@@ -61,18 +67,31 @@ export function Models({ workspaceId }: { workspaceId: string }) {
     catch (error) { setError(error); }
     finally { setBusy(false); await gateway.reload(); }
   }
-  async function modelAct(command: 'model.login_chatgpt' | 'model.configure_deepseek' | 'model.verify_route', payload: { action: ChatgptLoginAction } | { provider: 'CHATGPT' | 'DEEPSEEK'; modelId: string; thinkingType: ThinkingType | null } | null) {
+  async function modelAct(command: ModelCommand, payload: ModelPayload) {
     if (!modelState || modelBusy) return;
     setModelBusy(true); setError(null);
     try {
       if (command === 'model.login_chatgpt') await request(command, { workspaceId, expectedStateVersion: modelState.stateVersion, action: (payload as { action: ChatgptLoginAction }).action });
       else if (command === 'model.configure_deepseek') await request(command, { workspaceId, expectedStateVersion: modelState.stateVersion });
-      else await request(command, { workspaceId, expectedStateVersion: modelState.stateVersion, ...(payload as { provider: 'CHATGPT' | 'DEEPSEEK'; modelId: string; thinkingType: ThinkingType | null }) });
+      else if (command === 'model.verify_route') await request(command, { workspaceId, expectedStateVersion: modelState.stateVersion, ...(payload as { provider: 'CHATGPT' | 'DEEPSEEK'; modelId: string; thinkingType: ThinkingType | null }) });
+      else if (command === 'model.set_default') await request(command, { ...(payload as SetDefaultModel), workspaceId, expectedStateVersion: modelState.stateVersion });
+      else await request(command, { ...(payload as SetFallbackPolicy), workspaceId, expectedStateVersion: modelState.stateVersion });
     } catch (error) { setError(error); }
     finally { setModelBusy(false); await model.reload(); await gateway.reload(); }
   }
   const gatewayRunning = state?.status === 'RUNNING';
   const verify = (provider: 'CHATGPT' | 'DEEPSEEK', modelId: string, thinkingType: ThinkingType | null) => { void modelAct('model.verify_route', { provider, modelId, thinkingType }); };
+  const defaultRoute = modelState?.defaultRoute ?? null;
+  const fallbackTarget = modelState?.deepseek.status === 'READY' ? modelState.deepseek.routes.find(route => route.provider === 'DEEPSEEK' && route.verifiedAt && route.modelId === 'deepseek-v4-flash' && route.thinkingType != null) ?? null : null;
+  const cooldownFor = (provider: 'CHATGPT' | 'DEEPSEEK') => {
+    const attempt = modelState ? [...modelState.attempts].reverse().find(item => item.provider === provider && item.errorCategory === 'QUOTA_EXCEEDED' && item.quota?.retryAfterSeconds != null) : undefined;
+    const seconds = attempt?.quota?.retryAfterSeconds;
+    return seconds != null && Number.isFinite(Date.parse(attempt?.endedAt ?? '')) && Date.parse(attempt?.endedAt ?? '') + seconds * 1000 > Date.now();
+  };
+  const chatgptCooldownActive = cooldownFor('CHATGPT');
+  const deepseekCooldownActive = cooldownFor('DEEPSEEK');
+  const setDefault = (route: ModelRoute) => { void modelAct('model.set_default', { provider: route.provider, modelId: route.modelId, thinkingType: route.thinkingType ?? null } as SetDefaultModel); };
+  const switchToDeepSeek = () => { if (fallbackTarget) setDefault(fallbackTarget); };
   return <section className="model-settings" aria-labelledby="model-title">
     <h3 id="model-title">Models · CLIProxyAPI</h3>
     <p>Model inference uses an external provider through your local gateway. Broker credentials stay separate.</p>
@@ -91,12 +110,15 @@ export function Models({ workspaceId }: { workspaceId: string }) {
         <article className="model-provider-card">
           <div className="model-provider-heading"><div><h4>CLIProxyAPI → ChatGPT</h4><p>ChatGPT subscription OAuth · GPT-5.6 series</p></div><span className="badge">{modelHealth[modelState.chatgpt.status]}</span></div>
           {providerError(modelState.chatgpt) && <p className="model-error" role="alert">{providerError(modelState.chatgpt)}</p>}
-          <div className="model-provider-actions"><button disabled={modelBusy || !gatewayRunning} onClick={() => { void modelAct('model.login_chatgpt', { action: modelState.chatgpt.configured ? 'RELOGIN' : 'LOGIN' }); }}>{modelState.chatgpt.configured ? 'Re-login ChatGPT' : 'Login ChatGPT'}</button></div>
+          <div className="model-provider-actions">
+            <button disabled={modelBusy || !gatewayRunning} onClick={() => { void modelAct('model.login_chatgpt', { action: modelState.chatgpt.configured ? 'RELOGIN' : 'LOGIN' }); }}>{modelState.chatgpt.configured ? 'Re-login ChatGPT' : 'Login ChatGPT'}</button>
+            {fallbackTarget && modelState.chatgpt.errorCode && ['MODEL_UNAVAILABLE', 'MODEL_OAUTH_EXPIRED', 'MODEL_QUOTA_EXCEEDED'].includes(modelState.chatgpt.errorCode) && <button disabled={modelBusy} onClick={switchToDeepSeek}>Switch to DeepSeek</button>}
+          </div>
           {!gatewayRunning && <p className="form-hint">Launch the pinned gateway before starting OAuth or verifying a route.</p>}
           <div className="model-routes">
             {modelState.chatgpt.routes.length === 0 ? <p className="form-hint">No allowed GPT-5.6 models discovered yet.</p> : modelState.chatgpt.routes.map(route => <div className="model-route" key={route.modelId}>
               <div><strong>{routeLabel(route)}</strong><small>{route.verifiedAt ? `Verified ${route.verifiedAt}` : 'Discovered · verification required'}</small></div>
-              <button disabled={modelBusy || !gatewayRunning} onClick={() => verify('CHATGPT', route.modelId, null)}>Verify route</button>
+              <div className="model-route-actions"><button disabled={modelBusy || modelState.chatgpt.status !== 'READY' || !route.verifiedAt || (defaultRoute?.provider === route.provider && defaultRoute.modelId === route.modelId && defaultRoute.thinkingType === route.thinkingType)} onClick={() => setDefault(route)}>Use as default</button><button disabled={modelBusy || !gatewayRunning || chatgptCooldownActive} onClick={() => verify('CHATGPT', route.modelId, null)}>{chatgptCooldownActive ? 'Cooldown' : 'Verify route'}</button></div>
             </div>)}
           </div>
         </article>
@@ -109,13 +131,20 @@ export function Models({ workspaceId }: { workspaceId: string }) {
             const route = modelState.deepseek.routes.find(item => item.modelId === 'deepseek-v4-flash' && item.thinkingType === mode);
             return <div className="model-route" key={mode}>
               <div><strong>deepseek-v4-flash · {mode === 'enabled' ? 'Thinking' : 'Non-thinking'}</strong><small>{route?.verifiedAt ? `Verified ${route.verifiedAt}` : 'Explicit mode · verification required'}</small></div>
-              <button disabled={modelBusy || !gatewayRunning || !modelState.deepseek.configured} onClick={() => verify('DEEPSEEK', 'deepseek-v4-flash', mode)}>Verify route</button>
+              <div className="model-route-actions"><button disabled={modelBusy || modelState.deepseek.status !== 'READY' || !route?.verifiedAt || (defaultRoute?.provider === 'DEEPSEEK' && defaultRoute.modelId === 'deepseek-v4-flash' && defaultRoute.thinkingType === mode)} onClick={() => { if (route) setDefault(route); }}>Use as default</button><button disabled={modelBusy || !gatewayRunning || !modelState.deepseek.configured || deepseekCooldownActive} onClick={() => verify('DEEPSEEK', 'deepseek-v4-flash', mode)}>{deepseekCooldownActive ? 'Cooldown' : 'Verify route'}</button></div>
             </div>;
           })}</div>
+          <div className="model-policy">
+            <label><input type="checkbox" checked={Boolean(modelState.automaticFallback)} disabled={modelBusy || !fallbackTarget} onChange={event => { void modelAct('model.set_fallback_policy', { automaticFallback: event.target.checked } as SetFallbackPolicy); }} /> Allow automatic fallback to DeepSeek</label>
+            <p className="form-hint">OFF by default. When enabled, only an eligible failed ChatGPT attempt may retry through this verified DeepSeek route; the provider change remains visible and audited.</p>
+            {!fallbackTarget && <p className="form-hint">Verify a DeepSeek route before enabling automatic fallback.</p>}
+            {modelState.automaticFallback && <small>Consent version {modelState.fallbackPolicyVersion ?? 1}</small>}
+          </div>
         </article>
       </div> : <p role="status">Loading model provider state…</p>}
-      {modelState?.currentRoute ? <p className="model-route-current" role="status">Current verified route: <strong>{routeLabel(modelState.currentRoute)}</strong> via {modelState.currentRoute.provider === 'CHATGPT' ? 'ChatGPT subscription' : 'DeepSeek official API'}</p> : <p>No verified model route. Agent turns and onboarding Ready remain unavailable.</p>}
-      {modelState && modelState.attempts.length > 0 && <details className="model-attempts"><summary>Setup attempts ({modelState.attempts.length})</summary><ul>{[...modelState.attempts].reverse().slice(0, 5).map(attempt => <li key={attempt.attemptId}><strong>{attempt.provider}</strong>{attempt.modelId ? ` · ${attempt.modelId}` : ''}{attempt.thinkingType ? ` · ${attempt.thinkingType}` : ''} · {attempt.outcome}{attempt.errorCategory ? ` · ${attempt.errorCategory}` : ''}<small>{attempt.endedAt}</small>{attempt.quota && <small>{[attempt.quota.remaining != null ? `Quota remaining ${attempt.quota.remaining}` : '', attempt.quota.window ?? '', attempt.quota.resetAt ? `Reset ${attempt.quota.resetAt}` : ''].filter(Boolean).join(' · ')}</small>}</li>)}</ul></details>}
+      {defaultRoute ? <p className="model-route-current" role="status">Default for next request: <strong>{routeLabel(defaultRoute)}</strong> via {defaultRoute.provider === 'CHATGPT' ? 'ChatGPT subscription' : 'DeepSeek official API'}</p> : <p>No default model route selected. Choose a verified route before starting an agent turn.</p>}
+      {(chatgptCooldownActive || deepseekCooldownActive) && <p className="model-error" role="status">Retry is blocked until the known provider cooldown expires.</p>}
+      {modelState && modelState.attempts.length > 0 && <details className="model-attempts"><summary>Provider attempts ({modelState.attempts.length})</summary><ul>{[...modelState.attempts].reverse().slice(0, 5).map(attempt => <li key={attempt.attemptId}><strong>{attempt.kind ?? 'SETUP'} · {attempt.provider}</strong>{attempt.modelId ? ` · ${attempt.modelId}` : ''}{attempt.thinkingType ? ` · ${attempt.thinkingType}` : ''} · {attempt.outcome}{attempt.errorCategory ? ` · ${attempt.errorCategory}` : ''}<small>{attempt.endedAt}</small>{attempt.quota && <small>{[attempt.quota.remaining != null ? `Quota remaining ${attempt.quota.remaining}` : '', attempt.quota.window ?? '', attempt.quota.retryAfterSeconds != null ? `Retry after ${attempt.quota.retryAfterSeconds}s` : '', attempt.quota.resetAt ? `Reset ${attempt.quota.resetAt}` : ''].filter(Boolean).join(' · ')}</small>}</li>)}</ul></details>}
       {modelBusy && <p role="status">Updating model provider…</p>}
     </> : <p role="status">Loading model gateway…</p>}
     <button onClick={() => { void gateway.reload(); void model.reload(); }}>Reload model state</button>

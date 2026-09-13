@@ -1,5 +1,8 @@
 use crate::gateway::{GatewayMutation, GatewayState};
-use crate::model::{ChatgptLogin, ConfigureDeepseek, ModelQuery, ModelState, VerifyRoute};
+use crate::model::{
+    ChatgptLogin, ConfigureDeepseek, ModelQuery, ModelState, SetDefaultModel, SetFallbackPolicy,
+    VerifyRoute,
+};
 use crate::providers::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -166,6 +169,8 @@ pub struct IpcSchema {
     pub chatgpt_login: ChatgptLogin,
     pub configure_deepseek: ConfigureDeepseek,
     pub verify_route: VerifyRoute,
+    pub set_default_model: SetDefaultModel,
+    pub set_fallback_policy: SetFallbackPolicy,
     pub command: CommandEnvelope,
     pub result: ResultEnvelope,
     pub event: DomainEvent,
@@ -435,6 +440,21 @@ impl TradeXError {
                 "stop_gateway",
                 "Stop gateway",
             ),
+            "MODEL_DEFAULT_MISSING" => (
+                "Choose a verified default model route before starting a model request.",
+                "choose_model",
+                "Choose default model",
+            ),
+            "MODEL_FALLBACK_UNAVAILABLE" => (
+                "Automatic fallback needs a verified DeepSeek route in the current workspace.",
+                "verify_model",
+                "Verify DeepSeek",
+            ),
+            "MODEL_QUOTA_COOLDOWN" => (
+                "The selected model is in its known provider cooldown. Retry after the reset window.",
+                "retry_model",
+                "Retry after cooldown",
+            ),
             "MODEL_KEY_INVALID" => (
                 "Enter a valid printable DeepSeek API key, or cancel without saving.",
                 "configure_model",
@@ -514,6 +534,8 @@ impl TradeXError {
                         | "MODEL_TEST_INFERENCE_FAILED"
                         | "MODEL_KEYCHAIN_MISSING"
                         | "MODEL_GATEWAY_RUNNING"
+                        | "MODEL_DEFAULT_MISSING"
+                        | "MODEL_FALLBACK_UNAVAILABLE"
                 ) {
                 "MODEL_UNAVAILABLE"
             } else if matches!(
@@ -521,7 +543,7 @@ impl TradeXError {
                 "MODEL_OAUTH_EXPIRED" | "MODEL_LOGIN_FAILED" | "MODEL_LOGIN_TIMEOUT"
             ) {
                 "OAUTH_EXPIRED"
-            } else if code == "MODEL_QUOTA_EXCEEDED" {
+            } else if matches!(code, "MODEL_QUOTA_EXCEEDED" | "MODEL_QUOTA_COOLDOWN") {
                 "QUOTA_EXCEEDED"
             } else if code.starts_with("MODEL_")
                 || code == "PROVIDER_AUTH_FAILED"

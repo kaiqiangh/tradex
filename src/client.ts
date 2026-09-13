@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -9,6 +9,8 @@ interface Inputs {
   'model.login_chatgpt': ChatgptLogin;
   'model.configure_deepseek': ConfigureDeepseek;
   'model.verify_route': VerifyRoute;
+  'model.set_default': SetDefaultModel;
+  'model.set_fallback_policy': SetFallbackPolicy;
   'provider.list_definitions': EmptyPayload;
   'provider.get_schema': ProviderSelection;
   'provider.connect': Connect;
@@ -30,6 +32,8 @@ interface Outputs {
   'model.login_chatgpt': ModelState;
   'model.configure_deepseek': ModelState;
   'model.verify_route': ModelState;
+  'model.set_default': ModelState;
+  'model.set_fallback_policy': ModelState;
   'provider.list_definitions': ProviderCatalog;
   'provider.get_schema': ProviderDefinition;
   'provider.connect': AccountConnection;
@@ -51,6 +55,8 @@ const definitions = {
   'model.login_chatgpt': ['ChatgptLogin', 'ModelState'],
   'model.configure_deepseek': ['ConfigureDeepseek', 'ModelState'],
   'model.verify_route': ['VerifyRoute', 'ModelState'],
+  'model.set_default': ['SetDefaultModel', 'ModelState'],
+  'model.set_fallback_policy': ['SetFallbackPolicy', 'ModelState'],
   'provider.list_definitions': ['EmptyPayload', 'ProviderCatalog'],
   'provider.get_schema': ['ProviderSelection', 'ProviderDefinition'],
   'provider.connect': ['Connect', 'AccountConnection'],

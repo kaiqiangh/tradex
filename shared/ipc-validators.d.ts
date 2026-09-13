@@ -23,6 +23,7 @@ declare const validators: {
   GatewayState: (value: unknown) => boolean;
   GatewayStatus: (value: unknown) => boolean;
   ModelAttempt: (value: unknown) => boolean;
+  ModelAttemptKind: (value: unknown) => boolean;
   ModelAttemptOutcome: (value: unknown) => boolean;
   ModelHealth: (value: unknown) => boolean;
   ModelProvider: (value: unknown) => boolean;
@@ -30,6 +31,7 @@ declare const validators: {
   ModelQuery: (value: unknown) => boolean;
   ModelQuota: (value: unknown) => boolean;
   ModelRoute: (value: unknown) => boolean;
+  ModelSelection: (value: unknown) => boolean;
   ModelState: (value: unknown) => boolean;
   OpenOrder: (value: unknown) => boolean;
   OpenWorkspace: (value: unknown) => boolean;
@@ -44,6 +46,8 @@ declare const validators: {
   ResultEnvelope: (value: unknown) => boolean;
   RuntimeComponent: (value: unknown) => boolean;
   RuntimeStatus: (value: unknown) => boolean;
+  SetDefaultModel: (value: unknown) => boolean;
+  SetFallbackPolicy: (value: unknown) => boolean;
   Snapshot: (value: unknown) => boolean;
   Subscribe: (value: unknown) => boolean;
   SubscriptionAck: (value: unknown) => boolean;

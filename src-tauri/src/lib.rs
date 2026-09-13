@@ -157,6 +157,14 @@ impl ControlPlane {
                 }
                 Err(TradeXError::new("MODEL_NATIVE_REQUIRED"))
             }
+            "model.set_default" => {
+                let input: model::SetDefaultModel = payload(request.payload)?;
+                self.set_default_model(input)
+            }
+            "model.set_fallback_policy" => {
+                let input: model::SetFallbackPolicy = payload(request.payload)?;
+                self.set_fallback_policy(input)
+            }
             "runtime.status" => {
                 let _: EmptyPayload = payload(request.payload)?;
                 let gateway_running = self
@@ -169,13 +177,7 @@ impl ControlPlane {
                         .store
                         .as_ref()
                         .and_then(|store| store.model().ok())
-                        .is_some_and(|model| {
-                            model.current_route.as_ref().is_some_and(|route| {
-                                route.verified_at.is_some()
-                                    && model.provider(&route.provider).status
-                                        == model::ModelHealth::Ready
-                            })
-                        });
+                        .is_some_and(|model| model.thread_plan().is_ok());
                 let runtime = RuntimeStatus {
                     components: vec![
                         RuntimeComponent {
@@ -434,6 +436,95 @@ impl ControlPlane {
             })
     }
 
+    fn set_default_model(
+        &mut self,
+        input: model::SetDefaultModel,
+    ) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        if !model::allowed_route(
+            &input.provider,
+            &input.model_id,
+            input.thinking_type.as_ref(),
+        ) {
+            return Err(TradeXError::new("MODEL_ROUTE_INVALID"));
+        }
+        let previous = self.store.as_ref().unwrap().model()?;
+        if previous.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let selection = model::ModelSelection {
+            provider: input.provider,
+            model_id: input.model_id,
+            thinking_type: input.thinking_type,
+        };
+        let route = previous
+            .verified_route(&selection)
+            .ok_or_else(|| TradeXError::new("MODEL_UNAVAILABLE"))?;
+        let mut state = previous;
+        state.default_route = Some(selection);
+        state.current_route = Some(route);
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(state, "model.provider.changed")?;
+        let DomainProjection::Model(state) = &event.payload else {
+            unreachable!()
+        };
+        let version = state.state_version.clone();
+        self.publish(&event);
+        Ok((json!(state), Some(version)))
+    }
+
+    fn set_fallback_policy(
+        &mut self,
+        input: model::SetFallbackPolicy,
+    ) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let previous = self.store.as_ref().unwrap().model()?;
+        if previous.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if input.automatic_fallback
+            && !previous.deepseek.routes.iter().any(|route| {
+                previous.deepseek.status == model::ModelHealth::Ready
+                    && model::allowed_route(
+                        &route.provider,
+                        &route.model_id,
+                        route.thinking_type.as_ref(),
+                    )
+                    && route.provider == model::ModelProvider::Deepseek
+                    && route.model_id == "deepseek-v4-flash"
+                    && route.verified_at.is_some()
+            })
+        {
+            return Err(TradeXError::new("MODEL_FALLBACK_UNAVAILABLE"));
+        }
+        let mut state = previous;
+        state.automatic_fallback = input.automatic_fallback;
+        state.fallback_policy_version = state
+            .fallback_policy_version
+            .checked_add(1)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(state, "model.provider.changed")?;
+        let DomainProjection::Model(state) = &event.payload else {
+            unreachable!()
+        };
+        let version = state.state_version.clone();
+        self.publish(&event);
+        Ok((json!(state), Some(version)))
+    }
+
     pub fn complete_gateway(
         &mut self,
         job: &gateway::GatewayJob,
@@ -531,6 +622,11 @@ impl ControlPlane {
         let previous = self.store.as_ref().unwrap().model()?;
         if previous.state_version != expected {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if matches!(&action, model::ModelAction::VerifyRoute { .. })
+            && previous.retry_blocked(&provider, time::OffsetDateTime::now_utc())
+        {
+            return Err(TradeXError::new("MODEL_QUOTA_COOLDOWN"));
         }
         if matches!(&action, model::ModelAction::ConfigureDeepseek) {
             let gateway = self.store.as_ref().unwrap().gateway()?;
@@ -667,7 +763,13 @@ impl ControlPlane {
                     }
                     provider_state.status = model::ModelHealth::Ready;
                     provider_state.last_verified_at = route.verified_at.clone();
-                    completed.current_route = Some(route);
+                    let selection = route.selection();
+                    if completed.default_route.is_none() {
+                        completed.default_route = Some(selection.clone());
+                    }
+                    if completed.default_route.as_ref() == Some(&selection) {
+                        completed.current_route = Some(route);
+                    }
                 }
                 _ => {
                     provider_state.routes = outcome.routes;
@@ -1055,6 +1157,7 @@ mod model_tests {
                 thinking_type: Some(model::ThinkingType::Disabled),
                 started_at: "2026-09-12T00:00:00Z".into(),
                 ended_at: "2026-09-12T00:00:01Z".into(),
+                kind: model::ModelAttemptKind::Setup,
                 outcome: model::ModelAttemptOutcome::Failed,
                 error_category: Some("MODEL_UNAVAILABLE".into()),
                 quota: None,
@@ -1078,5 +1181,169 @@ mod model_tests {
             reply["data"]["deepseek"]["errorCode"],
             "MODEL_TEST_INFERENCE_FAILED"
         );
+    }
+
+    #[test]
+    fn model_routing_commands_persist_default_and_require_verified_fallback() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(json!({
+            "requestId":"open",
+            "schemaVersion":1,
+            "command":"workspace.open",
+            "payload":{}
+        }));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let chatgpt = model::ModelRoute {
+            provider: model::ModelProvider::Chatgpt,
+            model_id: "gpt-5.6-sol".into(),
+            thinking_type: None,
+            verified_at: Some("2026-09-13T00:00:00Z".into()),
+        };
+        let deepseek = model::ModelRoute {
+            provider: model::ModelProvider::Deepseek,
+            model_id: "deepseek-v4-flash".into(),
+            thinking_type: Some(model::ThinkingType::Disabled),
+            verified_at: Some("2026-09-13T00:00:00Z".into()),
+        };
+        let mut seeded = control.store.as_ref().unwrap().model().unwrap();
+        seeded.chatgpt.configured = true;
+        seeded.chatgpt.status = model::ModelHealth::Ready;
+        seeded.chatgpt.routes = vec![chatgpt.clone()];
+        seeded.deepseek.configured = true;
+        seeded.deepseek.status = model::ModelHealth::Ready;
+        seeded.deepseek.routes = vec![deepseek.clone()];
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(seeded, "model.provider.changed")
+            .unwrap();
+        let current = control.dispatch(json!({
+            "requestId":"get",
+            "schemaVersion":1,
+            "command":"model.get",
+            "payload":{"workspaceId":workspace_id}
+        }));
+        let set_default = control.dispatch(json!({
+            "requestId":"default",
+            "schemaVersion":1,
+            "command":"model.set_default",
+            "payload":{"workspaceId":workspace_id,"expectedStateVersion":current["data"]["stateVersion"],"provider":"CHATGPT","modelId":"gpt-5.6-sol","thinkingType":null}
+        }));
+        assert_eq!(set_default["ok"], true, "{set_default}");
+        assert_eq!(
+            set_default["data"]["defaultRoute"]["modelId"],
+            "gpt-5.6-sol"
+        );
+        assert_eq!(set_default["data"]["automaticFallback"], false);
+        assert_eq!(set_default["data"]["fallbackPolicyVersion"], 1);
+        let set_fallback = control.dispatch(json!({
+            "requestId":"fallback",
+            "schemaVersion":1,
+            "command":"model.set_fallback_policy",
+            "payload":{"workspaceId":workspace_id,"expectedStateVersion":set_default["data"]["stateVersion"],"automaticFallback":true}
+        }));
+        assert_eq!(set_fallback["ok"], true, "{set_fallback}");
+        assert_eq!(set_fallback["data"]["automaticFallback"], true);
+        assert_eq!(set_fallback["data"]["fallbackPolicyVersion"], 2);
+        let stale = control.dispatch(json!({
+            "requestId":"stale",
+            "schemaVersion":1,
+            "command":"model.set_default",
+            "payload":{"workspaceId":workspace_id,"expectedStateVersion":current["data"]["stateVersion"],"provider":"DEEPSEEK","modelId":"deepseek-v4-flash","thinkingType":"disabled"}
+        }));
+        assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT");
+    }
+
+    #[test]
+    fn enabling_fallback_without_a_verified_deepseek_route_fails_closed() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(json!({
+            "requestId":"open",
+            "schemaVersion":1,
+            "command":"workspace.open",
+            "payload":{}
+        }));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+        let current = control.dispatch(json!({
+            "requestId":"get",
+            "schemaVersion":1,
+            "command":"model.get",
+            "payload":{"workspaceId":workspace_id}
+        }));
+        let reply = control.dispatch(json!({
+            "requestId":"fallback",
+            "schemaVersion":1,
+            "command":"model.set_fallback_policy",
+            "payload":{"workspaceId":workspace_id,"expectedStateVersion":current["data"]["stateVersion"],"automaticFallback":true}
+        }));
+        assert_eq!(reply["error"]["code"], "MODEL_FALLBACK_UNAVAILABLE");
+    }
+
+    #[test]
+    fn model_verify_is_blocked_during_known_quota_cooldown() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(json!({
+            "requestId":"open",
+            "schemaVersion":1,
+            "command":"workspace.open",
+            "payload":{}
+        }));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let route = model::ModelRoute {
+            provider: model::ModelProvider::Chatgpt,
+            model_id: "gpt-5.6-sol".into(),
+            thinking_type: None,
+            verified_at: Some("2026-09-13T00:00:00Z".into()),
+        };
+        let mut seeded = control.store.as_ref().unwrap().model().unwrap();
+        seeded.chatgpt.configured = true;
+        seeded.chatgpt.status = model::ModelHealth::Ready;
+        seeded.chatgpt.routes = vec![route.clone()];
+        seeded.default_route = Some(route.selection());
+        seeded.current_route = Some(route);
+        seeded.append_attempt(model::ModelAttempt {
+            attempt_id: "quota-cooldown".into(),
+            provider: model::ModelProvider::Chatgpt,
+            model_id: Some("gpt-5.6-sol".into()),
+            thinking_type: None,
+            started_at: "2099-01-01T00:00:00Z".into(),
+            ended_at: "2099-01-01T00:00:00Z".into(),
+            kind: model::ModelAttemptKind::Thread,
+            outcome: model::ModelAttemptOutcome::Failed,
+            error_category: Some("QUOTA_EXCEEDED".into()),
+            quota: Some(model::ModelQuota {
+                window: Some("retry-after:60s".into()),
+                reset_at: None,
+                retry_after_seconds: Some(60),
+                remaining: None,
+            }),
+        });
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(seeded, "model.provider_attempt.changed")
+            .unwrap();
+        let current = control.dispatch(json!({
+            "requestId":"get",
+            "schemaVersion":1,
+            "command":"model.get",
+            "payload":{"workspaceId":workspace_id}
+        }));
+        let request = json!({
+            "requestId":"verify",
+            "schemaVersion":1,
+            "command":"model.verify_route",
+            "payload":{"workspaceId":workspace_id,"expectedStateVersion":current["data"]["stateVersion"],"provider":"CHATGPT","modelId":"gpt-5.6-sol","thinkingType":null}
+        });
+        let error = match control.prepare_model(&request) {
+            Err(error) => error,
+            Ok(_) => panic!("known quota cooldown must block verification"),
+        };
+        assert_eq!(error.code, "MODEL_QUOTA_COOLDOWN");
     }
 }

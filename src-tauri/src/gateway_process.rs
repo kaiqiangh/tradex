@@ -115,6 +115,7 @@ fn quota_metadata(headers: &reqwest::header::HeaderMap) -> Option<ModelQuota> {
     Some(ModelQuota {
         window: retry_after.map(|seconds| format!("retry-after:{seconds}s")),
         reset_at,
+        retry_after_seconds: retry_after,
         remaining,
     })
 }

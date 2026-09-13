@@ -94,6 +94,11 @@ export type ReplyData =
   | Accounts
   | AccountConnection
   | PermissionReview;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelAttemptKind".
+ */
+export type ModelAttemptKind = "SETUP" | "THREAD";
 
 /**
  * Exported to JSON Schema and TypeScript, and used for renderer runtime validation.
@@ -112,6 +117,8 @@ export interface IpcSchema {
   providerConnect: Connect;
   providerSelection: ProviderSelection;
   result: ResultEnvelope;
+  setDefaultModel: SetDefaultModel;
+  setFallbackPolicy: SetFallbackPolicy;
   subscribe: Subscribe;
   verifyRoute: VerifyRoute;
   workspaceOpen: OpenWorkspace;
@@ -223,9 +230,12 @@ export interface ModelState {
    * @maxItems 100
    */
   attempts: ModelAttempt[];
+  automaticFallback?: boolean;
   chatgpt: ModelProviderState;
   currentRoute?: ModelRoute | null;
   deepseek: ModelProviderState;
+  defaultRoute?: ModelSelection | null;
+  fallbackPolicyVersion?: number;
   stateVersion: string;
   updatedAt: string;
   workspaceId: string;
@@ -238,6 +248,7 @@ export interface ModelAttempt {
   attemptId: string;
   endedAt: string;
   errorCategory?: string | null;
+  kind?: "SETUP" | "THREAD";
   modelId?: string | null;
   outcome: ModelAttemptOutcome;
   provider: ModelProvider;
@@ -252,6 +263,7 @@ export interface ModelAttempt {
 export interface ModelQuota {
   remaining?: number | null;
   resetAt?: string | null;
+  retryAfterSeconds?: number | null;
   window?: string | null;
 }
 /**
@@ -278,6 +290,15 @@ export interface ModelRoute {
   provider: ModelProvider;
   thinkingType?: ThinkingType | null;
   verifiedAt?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ModelSelection".
+ */
+export interface ModelSelection {
+  modelId: string;
+  provider: ModelProvider;
+  thinkingType?: ThinkingType | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -541,6 +562,26 @@ export interface TradeXError {
 export interface Remediation {
   id: string;
   label: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SetDefaultModel".
+ */
+export interface SetDefaultModel {
+  expectedStateVersion: string;
+  modelId: string;
+  provider: ModelProvider;
+  thinkingType?: ThinkingType | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SetFallbackPolicy".
+ */
+export interface SetFallbackPolicy {
+  automaticFallback: boolean;
+  expectedStateVersion: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

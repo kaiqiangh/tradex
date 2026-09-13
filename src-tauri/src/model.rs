@@ -34,6 +34,23 @@ pub enum ModelAttemptOutcome {
     Failed,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ModelAttemptKind {
+    #[default]
+    Setup,
+    Thread,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ModelSelection {
+    pub provider: ModelProvider,
+    #[schemars(length(min = 1, max = 128))]
+    pub model_id: String,
+    pub thinking_type: Option<ThinkingType>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ModelRoute {
@@ -42,6 +59,16 @@ pub struct ModelRoute {
     pub model_id: String,
     pub thinking_type: Option<ThinkingType>,
     pub verified_at: Option<String>,
+}
+
+impl ModelRoute {
+    pub fn selection(&self) -> ModelSelection {
+        ModelSelection {
+            provider: self.provider.clone(),
+            model_id: self.model_id.clone(),
+            thinking_type: self.thinking_type.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -61,6 +88,8 @@ pub struct ModelProviderState {
 pub struct ModelQuota {
     pub window: Option<String>,
     pub reset_at: Option<String>,
+    #[schemars(range(max = 86_400_u64))]
+    pub retry_after_seconds: Option<u64>,
     #[schemars(range(max = 1_000_000_000_u64))]
     pub remaining: Option<u64>,
 }
@@ -75,6 +104,8 @@ pub struct ModelAttempt {
     pub thinking_type: Option<ThinkingType>,
     pub started_at: String,
     pub ended_at: String,
+    #[serde(default)]
+    pub kind: ModelAttemptKind,
     pub outcome: ModelAttemptOutcome,
     pub error_category: Option<String>,
     pub quota: Option<ModelQuota>,
@@ -90,9 +121,20 @@ pub struct ModelState {
     pub chatgpt: ModelProviderState,
     pub deepseek: ModelProviderState,
     pub current_route: Option<ModelRoute>,
+    #[serde(default)]
+    pub default_route: Option<ModelSelection>,
+    #[serde(default)]
+    pub automatic_fallback: bool,
+    #[serde(default = "default_fallback_policy_version")]
+    #[schemars(range(min = 1))]
+    pub fallback_policy_version: u64,
     #[schemars(length(max = 100))]
     pub attempts: Vec<ModelAttempt>,
     pub updated_at: String,
+}
+
+fn default_fallback_policy_version() -> u64 {
+    1
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -141,6 +183,29 @@ pub struct VerifyRoute {
     pub thinking_type: Option<ThinkingType>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetDefaultModel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub provider: ModelProvider,
+    #[schemars(length(min = 1, max = 128))]
+    pub model_id: String,
+    pub thinking_type: Option<ThinkingType>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetFallbackPolicy {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub automatic_fallback: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModelAction {
     LoginChatgpt(ChatgptLoginAction),
@@ -158,6 +223,13 @@ pub struct ModelJob {
     pub(crate) action: ModelAction,
     pub(crate) previous: ModelState,
     pub(crate) state: ModelState,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ModelRequestPlan {
+    pub primary: ModelRoute,
+    pub fallback: Option<ModelRoute>,
+    pub fallback_policy_version: u64,
 }
 
 pub struct ModelOutcome {
@@ -226,6 +298,9 @@ impl ModelState {
             chatgpt: ModelProviderState::new(ModelProvider::Chatgpt),
             deepseek: ModelProviderState::new(ModelProvider::Deepseek),
             current_route: None,
+            default_route: None,
+            automatic_fallback: false,
+            fallback_policy_version: default_fallback_policy_version(),
             attempts: vec![],
             updated_at: String::new(),
         }
@@ -256,6 +331,97 @@ impl ModelState {
         if self.attempts.len() > 100 {
             self.attempts.remove(0);
         }
+    }
+
+    pub fn verified_route(&self, selection: &ModelSelection) -> Option<ModelRoute> {
+        let provider = self.provider(&selection.provider);
+        (provider.status == ModelHealth::Ready)
+            .then(|| {
+                provider
+                    .routes
+                    .iter()
+                    .find(|route| {
+                        allowed_route(
+                            &route.provider,
+                            &route.model_id,
+                            route.thinking_type.as_ref(),
+                        ) && route.model_id == selection.model_id
+                            && route.thinking_type == selection.thinking_type
+                            && route.verified_at.is_some()
+                    })
+                    .cloned()
+            })
+            .flatten()
+    }
+
+    pub fn thread_plan(&self) -> std::result::Result<ModelRequestPlan, &'static str> {
+        let selection = self.default_route.as_ref().ok_or("MODEL_DEFAULT_MISSING")?;
+        let primary = self.verified_route(selection).ok_or("MODEL_UNAVAILABLE")?;
+        let fallback = (self.automatic_fallback && primary.provider == ModelProvider::Chatgpt)
+            .then(|| {
+                (self.deepseek.status == ModelHealth::Ready).then(|| {
+                    self.deepseek
+                        .routes
+                        .iter()
+                        .filter(|route| {
+                            allowed_route(
+                                &route.provider,
+                                &route.model_id,
+                                route.thinking_type.as_ref(),
+                            ) && route.provider == ModelProvider::Deepseek
+                                && route.model_id == "deepseek-v4-flash"
+                                && route.verified_at.is_some()
+                        })
+                        .min_by_key(|route| {
+                            if route.thinking_type == Some(ThinkingType::Disabled) {
+                                0
+                            } else {
+                                1
+                            }
+                        })
+                        .cloned()
+                })
+            })
+            .flatten()
+            .flatten();
+        Ok(ModelRequestPlan {
+            primary,
+            fallback,
+            fallback_policy_version: self.fallback_policy_version,
+        })
+    }
+
+    pub fn fallback_for(&self, primary: &ModelRoute, error_category: &str) -> Option<ModelRoute> {
+        if !self.automatic_fallback
+            || primary.provider != ModelProvider::Chatgpt
+            || !matches!(
+                error_category,
+                "MODEL_UNAVAILABLE" | "OAUTH_EXPIRED" | "QUOTA_EXCEEDED"
+            )
+        {
+            return None;
+        }
+        self.thread_plan().ok()?.fallback
+    }
+
+    pub fn retry_blocked(&self, provider: &ModelProvider, now: time::OffsetDateTime) -> bool {
+        self.attempts
+            .iter()
+            .rev()
+            .find(|attempt| {
+                &attempt.provider == provider
+                    && attempt.error_category.as_deref() == Some("QUOTA_EXCEEDED")
+            })
+            .and_then(|attempt| {
+                let seconds = attempt.quota.as_ref()?.retry_after_seconds?;
+                let ended = time::OffsetDateTime::parse(
+                    &attempt.ended_at,
+                    &time::format_description::well_known::Rfc3339,
+                )
+                .ok()?;
+                Some(ended + time::Duration::seconds(seconds as i64))
+            })
+            .is_some_and(|until| now < until)
     }
 }
 
@@ -388,6 +554,7 @@ pub fn run_job(
             thinking_type,
             started_at,
             ended_at,
+            kind: ModelAttemptKind::Setup,
             outcome,
             error_category: error.as_ref().and_then(|failure| {
                 (failure.code != "MODEL_ENTRY_CANCELLED").then(|| failure.category.clone())
@@ -456,6 +623,7 @@ mod tests {
                 thinking_type: None,
                 started_at: "2026-09-12T00:00:00Z".into(),
                 ended_at: "2026-09-12T00:00:01Z".into(),
+                kind: ModelAttemptKind::Setup,
                 outcome: ModelAttemptOutcome::Failed,
                 error_category: Some("MODEL_UNAVAILABLE".into()),
                 quota: None,
@@ -468,5 +636,81 @@ mod tests {
         assert!(state.chatgpt.routes.is_empty());
         assert!(state.current_route.is_none());
         assert_eq!(state.attempts.len(), 100);
+    }
+
+    #[test]
+    fn thread_plan_requires_default_and_only_offers_opt_in_deepseek_fallback() {
+        let mut state = ModelState::new("workspace-one".into());
+        let chatgpt = ModelRoute {
+            provider: ModelProvider::Chatgpt,
+            model_id: "gpt-5.6-sol".into(),
+            thinking_type: None,
+            verified_at: Some("2026-09-13T00:00:00Z".into()),
+        };
+        let deepseek = ModelRoute {
+            provider: ModelProvider::Deepseek,
+            model_id: "deepseek-v4-flash".into(),
+            thinking_type: Some(ThinkingType::Disabled),
+            verified_at: Some("2026-09-13T00:00:00Z".into()),
+        };
+        assert_eq!(state.thread_plan(), Err("MODEL_DEFAULT_MISSING"));
+        state.chatgpt.status = ModelHealth::Ready;
+        state.chatgpt.routes = vec![chatgpt.clone()];
+        state.deepseek.status = ModelHealth::Ready;
+        state.deepseek.routes = vec![deepseek.clone()];
+        state.default_route = Some(chatgpt.selection());
+        assert!(state.thread_plan().unwrap().fallback.is_none());
+        state.automatic_fallback = true;
+        let plan = state.thread_plan().unwrap();
+        assert_eq!(plan.primary, chatgpt);
+        assert_eq!(plan.fallback, Some(deepseek.clone()));
+        assert_eq!(
+            state.fallback_for(&plan.primary, "QUOTA_EXCEEDED"),
+            Some(deepseek)
+        );
+        assert!(
+            state
+                .fallback_for(&plan.primary, "MODEL_TEST_INFERENCE_FAILED")
+                .is_none()
+        );
+        state.deepseek.status = ModelHealth::Unverified;
+        assert!(state.thread_plan().unwrap().fallback.is_none());
+        state.deepseek.status = ModelHealth::Ready;
+        state.default_route = Some(ModelSelection {
+            provider: ModelProvider::Deepseek,
+            model_id: "deepseek-v4-flash".into(),
+            thinking_type: Some(ThinkingType::Disabled),
+        });
+        assert!(state.thread_plan().unwrap().fallback.is_none());
+    }
+
+    #[test]
+    fn retry_cooldown_is_bounded_by_the_latest_quota_attempt() {
+        let mut state = ModelState::new("workspace-one".into());
+        let now = time::OffsetDateTime::parse(
+            "2026-09-13T00:00:30Z",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .unwrap();
+        state.append_attempt(ModelAttempt {
+            attempt_id: "quota-1".into(),
+            provider: ModelProvider::Chatgpt,
+            model_id: Some("gpt-5.6-sol".into()),
+            thinking_type: None,
+            started_at: "2026-09-13T00:00:00Z".into(),
+            ended_at: "2026-09-13T00:00:00Z".into(),
+            kind: ModelAttemptKind::Thread,
+            outcome: ModelAttemptOutcome::Failed,
+            error_category: Some("QUOTA_EXCEEDED".into()),
+            quota: Some(ModelQuota {
+                window: Some("retry-after:60s".into()),
+                reset_at: None,
+                retry_after_seconds: Some(60),
+                remaining: None,
+            }),
+        });
+        assert!(state.retry_blocked(&ModelProvider::Chatgpt, now));
+        assert!(!state.retry_blocked(&ModelProvider::Chatgpt, now + time::Duration::seconds(31)));
+        assert!(!state.retry_blocked(&ModelProvider::Deepseek, now));
     }
 }

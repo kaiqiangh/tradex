@@ -43,6 +43,12 @@
     "result": {
       "$ref": "#/$defs/ResultEnvelope"
     },
+    "setDefaultModel": {
+      "$ref": "#/$defs/SetDefaultModel"
+    },
+    "setFallbackPolicy": {
+      "$ref": "#/$defs/SetFallbackPolicy"
+    },
     "subscribe": {
       "$ref": "#/$defs/Subscribe"
     },
@@ -62,6 +68,8 @@
     "chatgptLogin",
     "configureDeepseek",
     "verifyRoute",
+    "setDefaultModel",
+    "setFallbackPolicy",
     "command",
     "result",
     "event",
@@ -778,6 +786,10 @@
             "null"
           ]
         },
+        "kind": {
+          "$ref": "#/$defs/ModelAttemptKind",
+          "default": "SETUP"
+        },
         "modelId": {
           "type": [
             "string",
@@ -821,6 +833,13 @@
         "startedAt",
         "endedAt",
         "outcome"
+      ]
+    },
+    "ModelAttemptKind": {
+      "type": "string",
+      "enum": [
+        "SETUP",
+        "THREAD"
       ]
     },
     "ModelAttemptOutcome": {
@@ -921,6 +940,15 @@
             "null"
           ]
         },
+        "retryAfterSeconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "maximum": 86400,
+          "minimum": 0
+        },
         "window": {
           "type": [
             "string",
@@ -964,6 +992,34 @@
         "modelId"
       ]
     },
+    "ModelSelection": {
+      "type": "object",
+      "properties": {
+        "modelId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "provider": {
+          "$ref": "#/$defs/ModelProvider"
+        },
+        "thinkingType": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ThinkingType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "modelId"
+      ]
+    },
     "ModelState": {
       "type": "object",
       "properties": {
@@ -973,6 +1029,10 @@
             "$ref": "#/$defs/ModelAttempt"
           },
           "maxItems": 100
+        },
+        "automaticFallback": {
+          "type": "boolean",
+          "default": false
         },
         "chatgpt": {
           "$ref": "#/$defs/ModelProviderState"
@@ -989,6 +1049,23 @@
         },
         "deepseek": {
           "$ref": "#/$defs/ModelProviderState"
+        },
+        "defaultRoute": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fallbackPolicyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 1,
+          "minimum": 1
         },
         "stateVersion": {
           "type": "string",
@@ -1439,6 +1516,70 @@
         "components",
         "modelAvailable",
         "liveExecutionAvailable"
+      ]
+    },
+    "SetDefaultModel": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "modelId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "provider": {
+          "$ref": "#/$defs/ModelProvider"
+        },
+        "thinkingType": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ThinkingType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "provider",
+        "modelId"
+      ]
+    },
+    "SetFallbackPolicy": {
+      "type": "object",
+      "properties": {
+        "automaticFallback": {
+          "type": "boolean"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "automaticFallback"
       ]
     },
     "Snapshot": {

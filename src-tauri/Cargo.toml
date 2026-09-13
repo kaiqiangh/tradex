@@ -34,7 +34,7 @@ hmac = "=0.12.1"
 sha2 = "=0.10.9"
 hex = "=0.4.3"
 uuid = { version = "=1.26.0", features = ["v4"] }
-time = { version = "=0.3.55", features = ["formatting"] }
+time = { version = "=0.3.55", features = ["formatting", "parsing"] }
 schemars = "=1.2.2"
 tauri = { version = "=2.11.5", optional = true, features = [] }
 tauri-plugin-dialog = { version = "=2.7.3", optional = true }
