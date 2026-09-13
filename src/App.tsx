@@ -159,6 +159,7 @@ function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Worksp
 export default function App() {
   const [page, setPage] = useState<Page>('New Thread');
   const [setup, setSetup] = useState(false);
+  const [workspacePicker, setWorkspacePicker] = useState(false);
   const [settingsTab, setSettingsTab] = useState('Providers & Models');
   const state = useWorkspace();
   const workspace = state.workspace;
@@ -167,14 +168,14 @@ export default function App() {
   const risk = riskProjection.data;
   const model = modelProjection.data;
   const navigate = (destination: Page) => {
-    setPage(destination); setSetup(false);
+    setPage(destination); setSetup(false); setWorkspacePicker(false);
     document.querySelectorAll('details[open]').forEach(details => details.removeAttribute('open'));
   };
   const submit = async (options: OpenWorkspace) => {
-    try { await state.opening.mutateAsync(options); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
+    try { await state.opening.mutateAsync(options); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
   };
-  const onboardingVisible = setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !verifiedDefaultRoute(model)));
-  const title = setup || (!workspace && page === 'New Thread') ? 'Workspace setup' : page;
+  const onboardingVisible = !workspacePicker && (setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !verifiedDefaultRoute(model))));
+  const title = workspacePicker || setup || (!workspace && page === 'New Thread') ? 'Workspace setup' : page;
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
     <aside className="sidebar">
@@ -189,13 +190,13 @@ export default function App() {
         <details className="mobile-nav"><summary>More</summary><Navigation page={page} navigate={navigate} /></details>
         <span className="topbar-title">{title}</span>
         <span className="badge readonly">Read only</span>
-        <button className="workspace-button" onClick={() => { setPage('New Thread'); setSetup(true); }}>Workspace</button>
+        <button className="workspace-button" onClick={() => { setPage('New Thread'); setSetup(false); setWorkspacePicker(true); }}>Workspace</button>
       </header>
       <main id="main" tabIndex={-1}>
         {browserIntegration && <div className="integration-notice">Browser verification · isolated temporary workspace · provider responses are test fixtures</div>}
         {state.error != null && <div className="error-banner" role="alert"><div><strong>Workspace needs attention</strong><p>{explainError(state.error)}</p></div><button onClick={state.recover}>Retry connection</button></div>}
         {state.opening.isPending && !workspace ? <p role="status">Opening local workspace…</p> :
-          (!workspace && page === 'New Thread') ? <WorkspaceSetup busy={state.opening.isPending} submit={submit} /> :
+          (workspacePicker || (!workspace && page === 'New Thread')) ? <WorkspaceSetup busy={state.opening.isPending} submit={submit} /> :
           (workspace && onboardingVisible) ? <Onboarding workspace={workspace} risk={risk} model={model} onCompleted={() => { setSetup(false); setPage('New Thread'); }} /> :
           <div className="workspace-layout"><section className="content">
             {page === 'New Thread' && <>
@@ -219,7 +220,7 @@ export default function App() {
                   <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : 'No model provider is configured. Agent turns and onboarding Ready remain unavailable.'}</p>
                   <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : component.status.replaceAll('_', ' ')}</span></li>)}</ul>
                   <button onClick={() => { void state.runtime.refetch(); }} disabled={state.runtime.isFetching}>Refresh runtime status</button>
-                </> : settingsTab === 'Risk & Limits' && workspace ? <RiskSettings workspace={workspace} risk={risk} /> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => setSetup(true)}>Open another workspace</button></> :
+                </> : settingsTab === 'Risk & Limits' && workspace ? <RiskSettings workspace={workspace} risk={risk} /> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => { setWorkspacePicker(true); setSetup(false); }}>Open another workspace</button></> :
                   <p className="muted">{settingsTab === 'Account Health' ? 'Connection, authentication, stream, reconciliation and execution are separate checks.' : 'The workspace currently uses the RevC light theme.'}</p>}
               </section>
             </>}
