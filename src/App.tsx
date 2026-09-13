@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import type { ModelRoute, ModelState, RiskPolicyState } from '../shared/ipc-types.ts';
+import type { ModelRoute, ModelState, RiskPolicyState, RuntimeStatus } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -87,6 +87,25 @@ function verifiedDefaultRoute(model?: ModelState): ModelRoute | undefined {
   return provider.routes.find(route => route.provider === selection.provider && route.modelId === selection.modelId && route.thinkingType === selection.thinkingType && route.verifiedAt != null);
 }
 
+function modelGate(model: ModelState | undefined, runtime: RuntimeStatus | undefined) {
+  const route = verifiedDefaultRoute(model);
+  const gateway = runtime?.components.find(component => component.id === 'cliproxyapi');
+  if (!route) return { route, ready: false, reason: 'Agent turns are unavailable until a model route is configured and verified.' };
+  if (!runtime) return { route, ready: false, reason: 'Model gateway status is unavailable; launch and verify the gateway before continuing.' };
+  if (!runtime.modelAvailable) {
+    const status = gateway?.status.replaceAll('_', ' ').toLowerCase() ?? 'unavailable';
+    return { route, ready: false, reason: `Model gateway is ${status}; launch and verify the gateway before continuing.` };
+  }
+  const codex = runtime.components.find(component => component.id === 'codex');
+  return {
+    route,
+    ready: true,
+    reason: codex?.status === 'NOT_CONFIGURED'
+      ? 'Codex App Server is not configured; Send remains disabled until its later runtime slice.'
+      : 'Codex thread runtime is not available in this build.',
+  };
+}
+
 function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPolicyState }) {
   const [draft, setDraft] = useState<RiskDraft>();
   const [draftVersion, setDraftVersion] = useState('');
@@ -100,7 +119,7 @@ function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPo
   return <RiskDefaults workspaceId={workspace.workspaceId} baseCurrency={workspace.baseCurrency} state={risk} draft={draft} onDraftChange={setDraft} />;
 }
 
-function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Workspace; risk?: RiskPolicyState; model?: ModelState; onCompleted: () => void }) {
+function Onboarding({ workspace, risk, model, runtime, onCompleted }: { workspace: Workspace; risk?: RiskPolicyState; model?: ModelState; runtime?: RuntimeStatus; onCompleted: () => void }) {
   const accounts = useQuery({ queryKey: ['accounts', workspace.workspaceId, 'onboarding'], queryFn: () => request('account.list', { workspaceId: workspace.workspaceId }) });
   const [draft, setDraft] = useState<RiskDraft>();
   const [draftVersion, setDraftVersion] = useState('');
@@ -114,7 +133,8 @@ function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Worksp
   }, [risk?.stateVersion, risk, draftVersion]);
   if (!risk || !draft) return <section className="onboarding" aria-labelledby="onboarding-title"><p role="status">Loading onboarding state…</p></section>;
   const step = risk.onboardingCompleted ? 5 : risk.onboardingStep;
-  const route = verifiedDefaultRoute(model);
+  const gate = modelGate(model, runtime);
+  const route = gate.route;
   const accountReady = accounts.status === 'success' && !accounts.isFetching && accounts.dataUpdatedAt > 0;
   const liveAccounts = accountReady ? accounts.data.accounts.filter(account => account.environment === 'LIVE') : undefined;
   const allLiveDisarmed = accountReady && liveAccounts!.every(account => account.health.arming === 'DISARMED');
@@ -134,7 +154,7 @@ function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Worksp
     finally { setBusy(false); }
   };
   const next = () => {
-    if (step === 3 && !route) { setError('Verify a default model route before continuing.'); return; }
+    if (step === 3 && !gate.ready) { setError(gate.reason); return; }
     if (step === 4 && !risk.configured) { setError('Save risk defaults before continuing.'); return; }
     if (step < 5) void setStep(step + 1);
     else void complete();
@@ -150,9 +170,9 @@ function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Worksp
     {step === 2 && <section className="card onboarding-card"><h1 id="onboarding-title">Providers</h1><p className="muted">Connect read-only broker or data providers. Live accounts remain DISARMED.</p><Accounts workspaceId={workspace.workspaceId} /></section>}
     {step === 3 && <section className="card onboarding-card"><h1 id="onboarding-title">Model</h1><p className="muted">Verify at least one real model route before Ready.</p><Models workspaceId={workspace.workspaceId} /></section>}
     {step === 4 && <section className="card onboarding-card"><h1 id="onboarding-title">Risk defaults</h1><RiskDefaults workspaceId={workspace.workspaceId} baseCurrency={workspace.baseCurrency} state={risk} draft={draft} onDraftChange={setDraft} onSaved={riskSaved} continueLabel="Save and continue" /></section>}
-    {step === 5 && <section className="card onboarding-card"><h1 id="onboarding-title">Ready</h1><p className="muted">Review the current setup before completing onboarding.</p><dl className="summary-list"><div><dt>Workspace / currency</dt><dd>{workspace.name} · {workspace.baseCurrency}</dd></div><div><dt>Providers</dt><dd>{providerSummary}</dd></div><div><dt>Model route</dt><dd>{route ? `${route.provider} · ${route.modelId}${route.thinkingType ? ` · ${route.thinkingType}` : ''}` : 'Unavailable — verify a default route'}</dd></div><div><dt>Automatic fallback</dt><dd>{model?.automaticFallback ? 'ON · DeepSeek fallback disclosed' : 'OFF'}</dd></div><div><dt>Live accounts</dt><dd>{liveAccountSummary}</dd></div></dl><div className="notice"><strong>Agent turns unavailable</strong><p>Codex App Server is not configured; Send remains disabled until its later runtime slice.</p></div></section>}
+    {step === 5 && <section className="card onboarding-card"><h1 id="onboarding-title">Ready</h1><p className="muted">Review the current setup before completing onboarding.</p><dl className="summary-list"><div><dt>Workspace / currency</dt><dd>{workspace.name} · {workspace.baseCurrency}</dd></div><div><dt>Providers</dt><dd>{providerSummary}</dd></div><div><dt>Model route</dt><dd>{route ? `${route.provider} · ${route.modelId}${route.thinkingType ? ` · ${route.thinkingType}` : ''}` : 'Unavailable — verify a default route'}</dd></div><div><dt>Automatic fallback</dt><dd>{model?.automaticFallback ? 'ON · DeepSeek fallback disclosed' : 'OFF'}</dd></div><div><dt>Live accounts</dt><dd>{liveAccountSummary}</dd></div></dl><div className="notice"><strong>{gate.ready ? 'Agent turns unavailable' : 'Model route unavailable'}</strong><p>{gate.reason}</p></div></section>}
     {error && <p className="error-text" role="alert">{error}</p>}
-    <div className="onboarding-actions">{step > 1 && <button type="button" onClick={() => void setStep(step - 1)} disabled={busy}>Back</button>}{step < 5 ? <button className="primary" type="button" onClick={next} disabled={busy || (step === 3 && !route) || (step === 4 && !risk.configured)}>{busy ? 'Saving…' : `Continue to ${['', 'Providers', 'Model', 'Risk defaults', 'Ready'][step]}`}</button> : <><button type="button" onClick={() => void setStep(4)} disabled={busy}>Edit setup</button><button className="primary" type="button" onClick={next} disabled={busy || !route || !risk.configured || !allLiveDisarmed}>{busy ? 'Completing…' : 'Complete onboarding'}</button></>}</div>
+    <div className="onboarding-actions">{step > 1 && <button type="button" onClick={() => void setStep(step - 1)} disabled={busy}>Back</button>}{step < 5 ? <button className="primary" type="button" onClick={next} disabled={busy || (step === 3 && !gate.ready) || (step === 4 && !risk.configured)}>{busy ? 'Saving…' : `Continue to ${['', 'Providers', 'Model', 'Risk defaults', 'Ready'][step]}`}</button> : <><button type="button" onClick={() => void setStep(4)} disabled={busy}>Edit setup</button><button className="primary" type="button" onClick={next} disabled={busy || !gate.ready || !risk.configured || !allLiveDisarmed}>{busy ? 'Completing…' : 'Complete onboarding'}</button></>}</div>
   </section>;
 }
 
@@ -167,14 +187,9 @@ export default function App() {
   const modelProjection = useDomainProjection('model', workspace?.workspaceId, fromModelSnapshot);
   const risk = riskProjection.data;
   const model = modelProjection.data;
-  const defaultModelRoute = verifiedDefaultRoute(model);
-  const modelReady = defaultModelRoute != null;
-  const codexStatus = state.runtime.data?.components.find(component => component.id === 'codex')?.status;
-  const agentUnavailableReason = !modelReady
-    ? 'Agent turns are unavailable until a model route is configured and verified.'
-    : codexStatus === 'NOT_CONFIGURED'
-      ? 'Codex App Server is not configured; Send remains disabled until its later runtime slice.'
-      : 'Codex thread runtime is not available in this build.';
+  const modelState = modelGate(model, state.runtime.data);
+  const defaultModelRoute = modelState.route;
+  const modelReady = modelState.ready;
   const projectionError = riskProjection.error ?? modelProjection.error;
   const reloadProjections = () => { void riskProjection.reload(); void modelProjection.reload(); };
   const navigate = (destination: Page) => {
@@ -184,7 +199,7 @@ export default function App() {
   const submit = async (options: OpenWorkspace) => {
     try { await state.opening.mutateAsync(options); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
   };
-  const onboardingVisible = !workspacePicker && (setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !defaultModelRoute)));
+  const onboardingVisible = !workspacePicker && (setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !modelReady)));
   const title = workspacePicker || setup || (!workspace && page === 'New Thread') ? 'Workspace setup' : page;
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
@@ -193,7 +208,7 @@ export default function App() {
       <Navigation page={page} navigate={navigate} />
       <div className="sidebar-divider" />
       <div className="recent-heading">Recent threads</div><p className="sidebar-empty">No threads yet</p>
-      <div className="runtime-summary"><strong>{modelReady ? `Model ready · ${defaultModelRoute.provider}` : 'Model not configured'}</strong><p>{modelReady ? 'A verified route is available.' : 'Choose a provider to begin.'}</p></div>
+      <div className="runtime-summary"><strong>{modelReady ? `Model ready · ${defaultModelRoute?.provider}` : defaultModelRoute ? 'Model gateway unavailable' : 'Model not configured'}</strong><p>{modelReady ? 'A verified route is available.' : modelState.reason}</p></div>
     </aside>
     <div className="shell">
       <header className="topbar">
@@ -208,16 +223,16 @@ export default function App() {
         {projectionError != null && <div className="error-banner" role="alert"><div><strong>Workspace state needs attention</strong><p>{explainError(projectionError)}</p></div><button onClick={reloadProjections}>Reload workspace state</button></div>}
         {state.opening.isPending && !workspace ? <p role="status">Opening local workspace…</p> :
           (workspacePicker || (!workspace && page === 'New Thread')) ? <WorkspaceSetup busy={state.opening.isPending} submit={submit} /> :
-          (workspace && onboardingVisible) ? <Onboarding workspace={workspace} risk={risk} model={model} onCompleted={() => { setSetup(false); setPage('New Thread'); }} /> :
+          (workspace && onboardingVisible) ? <Onboarding workspace={workspace} risk={risk} model={model} runtime={state.runtime.data} onCompleted={() => { setSetup(false); setPage('New Thread'); }} /> :
           <div className="workspace-layout"><section className="content">
             {page === 'New Thread' && <>
               <div className="thread-welcome"><h1>What would you like to research?</h1><p>Ask a question, explore an opportunity, or review your portfolio.</p></div>
               <section className="composer" aria-label="Thread composer">
                 <div className="composer-context"><span className="badge">Agent mode: Ask</span><span className="badge">Execution: Read only</span><span className="muted">No account selected</span></div>
-                <textarea aria-label="Message" placeholder={modelReady ? 'Codex App Server is not configured' : 'Configure and verify a model route to start a thread'} disabled />
-                <div className="composer-footer"><span>{modelReady ? `Model route ready · ${defaultModelRoute.provider} · ${defaultModelRoute.modelId}` : 'Model not configured'}</span><button className="primary" disabled>Send</button></div>
+                <textarea aria-label="Message" placeholder={modelReady ? 'Codex App Server is not configured' : modelState.reason} disabled />
+                <div className="composer-footer"><span>{modelReady ? `Model route ready · ${defaultModelRoute?.provider} · ${defaultModelRoute?.modelId}` : defaultModelRoute ? 'Model gateway unavailable' : 'Model not configured'}</span><button className="primary" disabled>Send</button></div>
               </section>
-              <div className="notice model-notice"><div><strong>{modelReady ? 'Agent turns unavailable' : 'Connect a model provider'}</strong><p>{agentUnavailableReason}</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
+              <div className="notice model-notice"><div><strong>{modelReady ? 'Agent turns unavailable' : defaultModelRoute ? 'Model gateway unavailable' : 'Connect a model provider'}</strong><p>{modelState.reason}</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
               <div className="empty-activity"><h2>Thread activity</h2><p>No agent turns have started in this workspace.</p></div>
             </>}
             {page === 'Settings' && <>
@@ -228,7 +243,7 @@ export default function App() {
                 {workspace && (settingsTab === 'Providers & Models' || settingsTab === 'Account Health') && <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} healthOnly={settingsTab === 'Account Health'} />}
                 {workspace && settingsTab === 'Providers & Models' && <Models key={`models:${workspace.workspaceId}`} workspaceId={workspace.workspaceId} />}
                 {settingsTab === 'Providers & Models' || settingsTab === 'About' ? <>
-                  <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : 'No model provider is configured. Agent turns and onboarding Ready remain unavailable.'}</p>
+                  <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : modelReady ? 'A verified model route is available; agent turns remain disabled until Codex App Server is configured.' : modelState.reason}</p>
                   <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : component.status.replaceAll('_', ' ')}</span></li>)}</ul>
                   <button onClick={() => { void state.runtime.refetch(); }} disabled={state.runtime.isFetching}>Refresh runtime status</button>
                 </> : settingsTab === 'Risk & Limits' && workspace ? <RiskSettings workspace={workspace} risk={risk} /> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => { setWorkspacePicker(true); setSetup(false); }}>Open another workspace</button></> :

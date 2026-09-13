@@ -193,8 +193,14 @@ impl RiskPolicyState {
         Ok(())
     }
 
-    pub fn ready_for_completion(&self, model: &crate::model::ModelState) -> bool {
-        self.configured && model.thread_plan().is_ok()
+    pub fn ready_for_completion(
+        &self,
+        model: &crate::model::ModelState,
+        gateway: &crate::gateway::GatewayState,
+    ) -> bool {
+        self.configured
+            && gateway.status == crate::gateway::GatewayStatus::Running
+            && model.thread_plan().is_ok()
     }
 
     pub fn reopen_after_model_reset(&mut self) {

@@ -586,7 +586,8 @@ impl ControlPlane {
         }
         if input.step == 5 {
             let model = self.store.as_ref().unwrap().model()?;
-            if !previous.ready_for_completion(&model) {
+            let gateway = self.store.as_ref().unwrap().gateway()?;
+            if !previous.ready_for_completion(&model, &gateway) {
                 return Err(TradeXError::new("ONBOARDING_BLOCKED"));
             }
         }
@@ -614,7 +615,8 @@ impl ControlPlane {
             return Err(TradeXError::new("ONBOARDING_STEP_INVALID"));
         }
         let model = self.store.as_ref().unwrap().model()?;
-        if !previous.ready_for_completion(&model) {
+        let gateway = self.store.as_ref().unwrap().gateway()?;
+        if !previous.ready_for_completion(&model, &gateway) {
             return Err(TradeXError::new("ONBOARDING_BLOCKED"));
         }
         if self
@@ -1649,6 +1651,28 @@ mod risk_tests {
             .as_mut()
             .unwrap()
             .save_model(model, "model.provider.changed")
+            .unwrap();
+        let current_risk = command(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let gateway_blocked = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":current_risk["data"]["stateVersion"],"step":5}),
+        );
+        assert_eq!(gateway_blocked["error"]["code"], "ONBOARDING_BLOCKED");
+        let mut gateway = control.store.as_ref().unwrap().gateway().unwrap();
+        gateway.status = gateway::GatewayStatus::Running;
+        gateway.desired_running = true;
+        gateway.installed = true;
+        gateway.model_available = true;
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_gateway(gateway)
             .unwrap();
         let current_risk = command(
             &mut control,
