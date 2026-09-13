@@ -15,10 +15,12 @@ function AccountDetail({ account, busy, run }: { account: AccountConnection; bus
   const p = account.permissions;
   const blocked = p.forbidden.length > 0 || p.unsupported.length > 0;
   const disconnected = account.connectionState === 'DISCONNECTED';
+  const cleanupOnly = disconnected && account.health.credential === 'MISSING';
+  const disconnectDisabled = busy || (disconnected && !cleanupOnly && account.health.credential !== 'DELETE_PENDING');
   return <section className="card account-detail" aria-labelledby="account-detail-title">
     <div className="account-heading"><div><h2 id="account-detail-title">{account.label}</h2><p>{account.providerId} · {account.environment} · {account.connectionState}</p></div>
       <div className="account-actions"><button disabled={busy || disconnected || account.connectionState === 'CONNECTING' || ['MISSING', 'DELETE_PENDING'].includes(account.health.credential)} onClick={() => run(() => request('account.refresh', mutation(account)))}>Refresh account</button>
-        <button disabled={busy || (disconnected && account.health.credential === 'MISSING')} onClick={() => run(() => request('provider.disconnect', mutation(account)))}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : 'Disconnect'}</button></div>
+        <button disabled={disconnectDisabled} onClick={() => run(() => request('provider.disconnect', mutation(account)))}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : cleanupOnly ? 'Remove local connection' : 'Disconnect'}</button></div>
     </div>
     <p className="notice">{account.health.reason}</p>
     <dl className="health-grid">{Object.entries(account.health).filter(([key]) => key !== 'reason').map(([key, value]) => <div key={key}><dt>{({ connection: 'Connection', authentication: 'Authentication', credential: 'Credential', privateStream: 'Private stream', reconciliation: 'Reconciliation', executionEligibility: 'Execution eligibility', arming: 'Arming' } as Record<string, string>)[key]}</dt><dd>{value}</dd></div>)}
@@ -49,14 +51,25 @@ function AccountDetail({ account, busy, run }: { account: AccountConnection; bus
 export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: string; healthOnly?: boolean }) {
   const queryClient = useQueryClient();
   const catalog = useQuery({ queryKey: ['providers'], queryFn: () => request('provider.list_definitions', {}) });
-  const list = useQuery({ queryKey: ['accounts', workspaceId], queryFn: () => request('account.list', { workspaceId }), refetchInterval: 5000 });
+  const list = useQuery({ queryKey: ['accounts', workspaceId], queryFn: () => request('account.list', { workspaceId }), refetchInterval: 5000, refetchOnMount: 'always', refetchOnReconnect: 'always' });
   const [selection, setSelection] = useState('alpaca/PAPER');
   const [label, setLabel] = useState('Paper research');
   const [selectedId, setSelectedId] = useState<string>();
+  const [connectionSource, setConnectionSource] = useState('new');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState('');
   const restoreFocus = useRef<HTMLElement | null>(null);
+  const accounts = list.data?.accounts ?? [];
+  const existingAccount = connectionSource === 'new' ? undefined : accounts.find(account => account.connectionId === connectionSource);
+  const canReuseExisting = Boolean(existingAccount && existingAccount.connectionState !== 'DISCONNECTED' && !['MISSING', 'DELETE_PENDING'].includes(existingAccount.health.credential));
+  useEffect(() => {
+    const next = accounts.find(account => account.workspaceId === workspaceId)?.connectionId;
+    if (!selectedId || !accounts.some(account => account.connectionId === selectedId && account.workspaceId === workspaceId)) {
+      if (next !== selectedId) setSelectedId(next);
+    }
+    if (connectionSource !== 'new' && !accounts.some(account => account.connectionId === connectionSource)) setConnectionSource('new');
+  }, [accounts, connectionSource, selectedId, workspaceId]);
   useEffect(() => {
     if (!busy && restoreFocus.current) {
       if (restoreFocus.current.isConnected) restoreFocus.current.focus();
@@ -67,18 +80,21 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
   const schema = catalog.data?.providers.find(p => `${p.providerId}/${p.environment}` === selection);
   const run = async (action: () => Promise<AccountConnection>, focusId?: string) => {
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    let affectedId = selectedId;
     setBusy(true); setError(null); setNotice('');
     try {
       const result = await action();
       if (result.workspaceId !== workspaceId) throw new Error('IPC_IDENTITY_CONFLICT');
       setSelectedId(result.connectionId);
+      affectedId = result.connectionId;
       await queryClient.invalidateQueries({ queryKey: ['account', result.connectionId] });
     } catch (failure) {
       if (failure instanceof CommandError && failure.detail.code === 'PROVIDER_ENTRY_CANCELLED') setNotice(failure.message);
       else setError(failure);
     } finally {
       await queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId] });
-      if (selectedId) await queryClient.invalidateQueries({ queryKey: ['account', selectedId] });
+      if (affectedId) await queryClient.invalidateQueries({ queryKey: ['account', affectedId] });
+      await list.refetch();
       restoreFocus.current = (focusId ? document.getElementById(focusId) : trigger) ?? null;
       setBusy(false);
     }
@@ -89,16 +105,25 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
     {notice && <p role="status">{notice}</p>}{busy && <p role="status">Completing account operation…</p>}
     {!healthOnly && <section className="card provider-config" aria-labelledby="broker-providers"><h2 id="broker-providers">Broker &amp; exchange providers</h2>
       <p>Local Paper is built-in and needs no credentials. Its simulation engine is not configured yet.</p>
-      <form onSubmit={event => { event.preventDefault(); if (schema) void run(() => request('provider.connect', { step: 'test', workspaceId, providerId: schema.providerId, environment: schema.environment, label }), 'connect-account'); }}>
-        <label className="field">Provider / environment<select value={selection} onChange={event => setSelection(event.target.value)} disabled={busy}>{catalog.data?.providers.map(p => <option key={`${p.providerId}/${p.environment}`} value={`${p.providerId}/${p.environment}`}>{p.displayName}{p.available ? '' : ' — unavailable'}</option>)}</select></label>
-        <label className="field">Connection label<input value={label} onChange={event => setLabel(event.target.value)} maxLength={120} required disabled={busy} /></label>
-        <p>{schema?.helpText}</p>
-        {schema?.available && <><p>Required reads: {schema.requiredPermissions.join(', ')}.</p><p>Secure fields: {schema.fields.map(field => `${field.label}${field.required ? ' (required)' : ''}`).join('; ')}. Enter these only in the native secure window.</p></>}
-        <button id="connect-account" className="primary" disabled={busy || !schema?.available || !label.trim() || !(desktop || browserIntegration)}>Connect account securely</button>
+      <form onSubmit={event => { event.preventDefault(); if (schema && connectionSource === 'new') void run(() => request('provider.connect', { step: 'test', workspaceId, providerId: schema.providerId, environment: schema.environment, label }), 'connect-account'); }}>
+        <label className="field">Connection source<select value={connectionSource} onChange={event => { const value = event.target.value; setConnectionSource(value); const existing = accounts.find(account => account.connectionId === value); if (existing) { setSelectedId(existing.connectionId); setSelection(`${existing.providerId}/${existing.environment}`); setLabel(existing.label); } }} disabled={busy}>
+          <option value="new">New account — enter credentials securely</option>
+          {accounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.providerId} · {account.environment} · {account.connectionState}</option>)}
+        </select></label>
+        <label className="field">Provider / environment<select value={selection} onChange={event => setSelection(event.target.value)} disabled={busy || connectionSource !== 'new'}>{catalog.data?.providers.map(p => <option key={`${p.providerId}/${p.environment}`} value={`${p.providerId}/${p.environment}`}>{p.displayName}{p.available ? '' : ' — unavailable'}</option>)}</select></label>
+        <label className="field">Connection label<input value={label} onChange={event => setLabel(event.target.value)} maxLength={120} required disabled={busy || connectionSource !== 'new'} /></label>
+        {connectionSource === 'new' ? <>
+          <p>{schema?.helpText}</p>
+          {schema?.available && <><p>Required reads: {schema.requiredPermissions.join(', ')}.</p><p>Secure fields: {schema.fields.map(field => `${field.label}${field.required ? ' (required)' : ''}`).join('; ')}. Enter these only in the native secure window.</p></>}
+          <button id="connect-account" className="primary" disabled={busy || !schema?.available || !label.trim() || !(desktop || browserIntegration)}>Connect account securely</button>
+        </> : <>
+          {existingAccount ? <p>{canReuseExisting ? 'Use the stored local credential for this connection. Refresh runs without opening the secure credential window.' : 'This connection has no usable local credential. Choose New account to reconnect; local removal preserves its non-secret audit row.'}</p> : <p>Choose an existing local connection to inspect or refresh it.</p>}
+          <button id="use-existing-account" type="button" className="primary" disabled={busy || !canReuseExisting || !(desktop || browserIntegration)} onClick={() => { if (existingAccount && canReuseExisting) void run(() => request('account.refresh', mutation(existingAccount)), 'use-existing-account'); }}>Use existing account</button>
+        </>}
       </form>
     </section>}
     <section aria-labelledby="connections-title"><h2 id="connections-title">Account connections</h2>
-      {list.isLoading ? <p role="status">Loading local connections…</p> : !list.data?.accounts.length ? <p>No external accounts are connected.</p> : <div className="account-list">{list.data.accounts.map(account => <button className="account-row" key={account.connectionId} aria-pressed={selectedId === account.connectionId} onClick={() => setSelectedId(account.connectionId)}><strong>{account.label}</strong><span>{account.providerId} · {account.environment}</span><span>{account.connectionState} · {account.health.connection}</span><span>Equity / balance: {account.data?.balances.map(balance => `${balance.asset} ${balance.total ?? balance.available}`).join(' · ') || 'Unavailable'}</span><span>Arming: {account.health.arming}</span><small>Last sync: {time(account.lastSuccessfulSync)}</small></button>)}</div>}
+      {list.isLoading ? <p role="status">Loading local connections…</p> : !accounts.length ? <p>No external accounts are connected.</p> : <div className="account-list">{accounts.map(account => <button className="account-row" key={account.connectionId} aria-pressed={selectedId === account.connectionId} onClick={() => setSelectedId(account.connectionId)}><strong>{account.label}</strong><span>{account.providerId} · {account.environment}</span><span>{account.connectionState} · {account.health.connection}</span><span>Equity / balance: {account.data?.balances.map(balance => `${balance.asset} ${balance.total ?? balance.available}`).join(' · ') || 'Unavailable'}</span><span>Arming: {account.health.arming}</span><small>Last sync: {time(account.lastSuccessfulSync)}</small></button>)}</div>}
     </section>
     {selected.data && <AccountDetail key={selected.data.connectionId} account={selected.data} busy={busy} run={action => { void run(action); }} />}
     {selectedId && !selected.data && !selected.error && <p role="status">Restoring account state…</p>}

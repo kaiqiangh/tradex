@@ -78,7 +78,13 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await tab.getAXState({ emit: false });
     await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
     await tab.getAXState({ emit: false });
-    await ui.locator('.account-row').filter({ hasText: label }).press('Enter');
+    await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
+    const source = ui.getByRole('combobox', { name: 'Connection source', exact: true });
+    const existingValue = await source.locator('option').filter({ hasText: label }).getAttribute('value');
+    assert.ok(existingValue, 'Persisted connection should be offered for reuse');
+    await source.selectOption(existingValue);
+    assert.equal(await ui.getByRole('button', { name: 'Use existing account', exact: true }).isEnabled(), true);
+    await ui.getByRole('button', { name: 'Use existing account', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Refresh account', exact: true }).press('Enter');
     await tab.getAXState({ emit: false });
@@ -117,6 +123,9 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await tab.getAXState({ emit: false });
     assert.match(await detail.innerText(), /DISCONNECTED/);
     assert.equal(await ui.getByRole('button', { name: 'Refresh account', exact: true }).isEnabled(), false);
+    assert.equal(await ui.getByRole('button', { name: 'Remove local connection', exact: true }).isEnabled(), true);
+    await ui.getByRole('button', { name: 'Remove local connection', exact: true }).press('Enter');
+    await ui.getByText('MISSING', { exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('alert').count(), 0);
     assert.equal((await tab.dev.logs({ levels: ['error'], limit: 30 })).length, 0);
     observed.push('Disconnect removes local credential access; historical observations stay labeled disconnected and refresh is disabled.');
