@@ -1786,7 +1786,7 @@ The following version-1 payloads define the first desktop vertical slice. All ob
 
 | Command | Payload | Success data |
 |---|---|---|
-| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`; omitted means the application default workspace directory; a supplied path must be an absolute directory path | Workspace projection: `{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 4}` and opaque `stateVersion` in the result envelope |
+| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`; omitted means the application default workspace directory; a supplied path must be an absolute directory path | Workspace projection: `{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 5}` and opaque `stateVersion` in the result envelope |
 | runtime.status | `{}` | `{components: [{id, status, message}], modelAvailable: boolean, liveExecutionAvailable: boolean}`; initial Codex/CLIProxyAPI status is `NOT_CONFIGURED`, never inferred healthy |
 | domain.snapshot | `{aggregateType: "workspace", aggregateId: string}` | `{aggregateType, aggregateId, projection: Workspace, lastSequence}` |
 | domain.subscribe | `{aggregateType: "workspace", aggregateId: string, afterSequence: number}` | `{aggregateType, aggregateId, afterSequence, lastSequence, replayedCount}` after all retained events through the acknowledged cursor have been delivered; subsequent events use the same transport channel |
@@ -1893,7 +1893,47 @@ The `model` aggregate uses `workspaceId` as its aggregate ID and contains only n
 
 `model.verify_route` first authenticates the owned loopback gateway's `/v1/models` response, then sends a bounded fixed harmless prompt to the exact returned route. Only GPT-5.6 series IDs or `deepseek-v4-flash` with explicit `thinking.type: disabled|enabled` are eligible. A catalog hit without successful inference remains UNVERIFIED. Setup attempts are append-only and carry the real provider/model/mode, times, outcome, canonical error (`MODEL_UNAVAILABLE`, `OAUTH_EXPIRED`, `QUOTA_EXCEEDED`) and only known quota windows/cooldowns; raw bodies and prompts are discarded.
 
-`model.provider.changed` carries the complete sanitized `ModelState`; `model.provider_attempt.changed` carries the same state after an appended attempt. Both use contiguous `model` aggregate sequences and strict aggregate/payload identity during replay. These mutations never change account capability, risk, arming or approval state. A verified route is required before `modelAvailable` or onboarding Ready can become true; default selection and cross-provider fallback consent remain in the subsequent S03 tickets.
+`model.provider.changed` carries the complete sanitized `ModelState`; `model.provider_attempt.changed` carries the same state after an appended attempt. Both use contiguous `model` aggregate sequences and strict aggregate/payload identity during replay. These mutations never change account capability, risk, arming or approval state. A verified route is required before `modelAvailable` or onboarding Ready can become true; default selection and cross-provider fallback consent are persisted in the model aggregate, while the onboarding and risk contract is defined in §41.6.
+
+### 41.6 Risk policy and onboarding payloads (S03 onboarding)
+
+The `risk` aggregate uses `workspaceId` as its aggregate ID and is the only authority for onboarding progress and the setup risk defaults. Version 1 adds these exact commands:
+
+| Command | Payload | Success data |
+|---|---|---|
+| risk.get_policy | `{workspaceId: string}` | `RiskPolicyState` and its opaque `stateVersion` |
+| risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicy}` | New `RiskPolicyState`, incremented `policyVersion`, and `risk.policy.changed` |
+| onboarding.set_step | `{workspaceId: string, expectedStateVersion: string, step: 1 \| 2 \| 3 \| 4 \| 5}` | New `RiskPolicyState` with the requested progress step |
+| onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | New `RiskPolicyState` with `onboardingCompleted: true` |
+
+~~~ts
+interface RiskPolicy {
+  maxOrderNotional: string | null;
+  maxSingleInstrumentExposurePercent: string | null;
+  maxDailyTradedNotional: string | null;
+  maxDailyRealizedLoss: string | null;
+  staleQuoteThresholdSeconds: number;
+  marketOrdersEnabled: boolean;
+  liveInactivityTimeoutMinutes: number;
+}
+interface RiskPolicyState {
+  workspaceId: string;
+  stateVersion: string;
+  policyVersion: number;
+  configured: boolean;
+  onboardingStep: 1 | 2 | 3 | 4 | 5;
+  onboardingCompleted: boolean;
+  policy: RiskPolicy;
+  hardRules: Array<{id: string; description: string}>;
+  updatedAt: string;
+}
+~~~
+
+Money and exposure values are decimal strings, never JSON numbers or floats. The four monetary/exposure limits may remain `null` until the user chooses them; a new policy defaults stale quote to 3 seconds, market orders to `false`, and Live inactivity timeout to 20 minutes. Accepted time bounds are 1–86,400 seconds and 1–1,440 minutes; exposure is at most 100 percent; empty, zero, scientific-notation, malformed or overlong decimals fail as `POLICY_ERROR / RISK_POLICY_INVALID`. `hardRules` is backend-owned read-only data: Live is DISARMED by default, approval remains required, stale data blocks Live, and an Agent cannot modify policy. This setup record does not implement the full S21 risk engine.
+
+All mutations require the active workspace and exact current `stateVersion`; stale cursors return `STATE_STALE / STATE_VERSION_CONFLICT` without mutation. Progress can move only one step forward or back; a jump returns `POLICY_ERROR / ONBOARDING_STEP_INVALID`. Step 5 and completion require `configured` risk defaults and a current verified default model route from §41.5. Completion additionally checks every Live account is `DISARMED`; no onboarding command arms an account or enables Send/Live execution. A model-session reset invalidates a completed setup and reopens at Model (step 3). `risk.policy.changed` is committed atomically with the risk projection and outbox, and its `risk` snapshot/subscribe/replay follows §41.2 with contiguous per-workspace sequence. New workspaces initialize the risk table during storage schema version 5 migration; recognized older workspaces are backed up before migration.
+
+The sanitized remediation codes are `RISK_POLICY_INVALID`, `RISK_POLICY_NOT_CONFIGURED`, `ONBOARDING_STEP_INVALID` and `ONBOARDING_BLOCKED`; no raw storage, account or model diagnostics are returned. Frontend controls must treat an unknown/loading account state as unavailable until an authoritative account projection is present, and must display the current provider/model/fallback, currency and Live arming facts in Ready. These commands are renderer setup operations; Agent/Thread execution has no policy mutation capability.
 
 ---
 

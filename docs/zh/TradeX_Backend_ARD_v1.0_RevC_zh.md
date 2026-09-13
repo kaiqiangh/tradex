@@ -1786,7 +1786,7 @@ interface TradeXError {
 
 | 命令 | Payload | 成功 data |
 |---|---|---|
-| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`；省略时使用应用默认工作区目录；提供的 path 必须为绝对目录路径 | Workspace 投影：`{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 4}`，result envelope 附不透明 `stateVersion` |
+| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`；省略时使用应用默认工作区目录；提供的 path 必须为绝对目录路径 | Workspace 投影：`{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 5}`，result envelope 附不透明 `stateVersion` |
 | runtime.status | `{}` | `{components: [{id, status, message}], modelAvailable: boolean, liveExecutionAvailable: boolean}`；初始 Codex/CLIProxyAPI 为 `NOT_CONFIGURED`，不得推断健康 |
 | domain.snapshot | `{aggregateType: "workspace", aggregateId: string}` | `{aggregateType, aggregateId, projection: Workspace, lastSequence}` |
 | domain.subscribe | `{aggregateType: "workspace", aggregateId: string, afterSequence: number}` | 在交付完确认游标之前全部保留事件后返回 `{aggregateType, aggregateId, afterSequence, lastSequence, replayedCount}`；后续事件沿用同一传输通道 |
@@ -1893,7 +1893,47 @@ LAUNCH 可先安装固定发布物，再启动并探测自己拥有的进程。S
 
 `model.verify_route` 先认证自有 loopback 网关的 `/v1/models` 响应，再使用固定、无害且有界的 prompt 对同一精确 provider/model 路由进行测试推理。只有 GPT-5.6 系列 ID，或带显式 `thinking.type: disabled|enabled` 的 `deepseek-v4-flash` 才允许。目录命中而推理不成功仍为 UNVERIFIED。Setup attempt 只追加，保存真实 provider/model/mode、时间、结果、规范错误（`MODEL_UNAVAILABLE`、`OAUTH_EXPIRED`、`QUOTA_EXCEEDED`）和服务端明确给出的 quota window/cooldown；丢弃原始 body 和 prompt。
 
-`model.provider.changed` 携带完整脱敏 `ModelState`；`model.provider_attempt.changed` 携带追加 attempt 后的同一状态。两者使用连续的 `model` 聚合序列，并在 replay 时严格校验聚合/载荷身份。这些变更绝不修改账户 capability、risk、arming 或 approval。只有验证通过的路由才能令 `modelAvailable` 或 onboarding Ready 为 true；默认选择和跨提供方 fallback consent 留给后续 S03 票。
+`model.provider.changed` 携带完整脱敏 `ModelState`；`model.provider_attempt.changed` 携带追加 attempt 后的同一状态。两者使用连续的 `model` 聚合序列，并在 replay 时严格校验聚合/载荷身份。这些变更绝不修改账户 capability、risk、arming 或 approval。只有验证通过的路由才能令 `modelAvailable` 或 onboarding Ready 为 true；默认选择和跨提供方 fallback consent 持久化在 model aggregate，入门和风险契约见 §41.6。
+
+### 41.6 风险策略与入门 payload（S03 onboarding）
+
+`risk` aggregate 使用 `workspaceId` 作为 aggregate ID，是入门进度和设置风险默认值的唯一权威。版本 1 增加以下精确命令：
+
+| 命令 | Payload | 成功数据 |
+|---|---|---|
+| risk.get_policy | `{workspaceId: string}` | `RiskPolicyState` 及其不透明 `stateVersion` |
+| risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicy}` | 新 `RiskPolicyState`、递增的 `policyVersion` 以及 `risk.policy.changed` |
+| onboarding.set_step | `{workspaceId: string, expectedStateVersion: string, step: 1 \| 2 \| 3 \| 4 \| 5}` | 带请求进度步骤的新 `RiskPolicyState` |
+| onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | `onboardingCompleted: true` 的新 `RiskPolicyState` |
+
+~~~ts
+interface RiskPolicy {
+  maxOrderNotional: string | null;
+  maxSingleInstrumentExposurePercent: string | null;
+  maxDailyTradedNotional: string | null;
+  maxDailyRealizedLoss: string | null;
+  staleQuoteThresholdSeconds: number;
+  marketOrdersEnabled: boolean;
+  liveInactivityTimeoutMinutes: number;
+}
+interface RiskPolicyState {
+  workspaceId: string;
+  stateVersion: string;
+  policyVersion: number;
+  configured: boolean;
+  onboardingStep: 1 | 2 | 3 | 4 | 5;
+  onboardingCompleted: boolean;
+  policy: RiskPolicy;
+  hardRules: Array<{id: string; description: string}>;
+  updatedAt: string;
+}
+~~~
+
+金额和敞口使用十进制字符串，绝不使用 JSON number 或浮点。四个金额/敞口额度在用户选择前可保持 `null`；新策略默认报价过期阈值 3 秒、市价单 `false`、Live inactivity timeout 20 分钟。时间边界为 1–86,400 秒和 1–1,440 分钟；敞口最多 100%；空值、零值、科学计数法、格式错误或超长小数返回 `POLICY_ERROR / RISK_POLICY_INVALID`。`hardRules` 由后端拥有且只读：Live 默认 DISARMED、仍需单独 approval、过期数据阻断 Live、Agent 不能修改策略。本设置记录不实现完整 S21 risk engine。
+
+所有变更都要求当前 workspace 和精确的 `stateVersion`；陈旧游标返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态。进度只能前进或后退一步；越级返回 `POLICY_ERROR / ONBOARDING_STEP_INVALID`。步骤 5 和完成都要求已配置风险默认值及 §41.5 的当前已验证默认模型路由。完成还要检查每个 Live 账户为 `DISARMED`；任何入门命令都不会 arm 账户或启用 Send/Live execution。模型会话重置会使已完成设置失效并回到 Model（步骤 3）。`risk.policy.changed` 与 risk projection/outbox 在同一事务提交，`risk` snapshot/subscribe/replay 遵循 §41.2 的工作区规则和连续序列。新工作区在 storage schema version 5 迁移时初始化风险表；已识别的旧工作区迁移前先备份。
+
+脱敏 remediation code 为 `RISK_POLICY_INVALID`、`RISK_POLICY_NOT_CONFIGURED`、`ONBOARDING_STEP_INVALID` 和 `ONBOARDING_BLOCKED`；不返回原始存储、账户或模型诊断。前端在拿到权威账户 projection 前必须把未知/加载中的账户状态视为不可用，并在 Ready 展示当前 provider/model/fallback、currency 与 Live arming 事实。这些命令仅供 renderer 入门设置；Agent/Thread 执行没有修改策略的能力。
 
 ---
 
