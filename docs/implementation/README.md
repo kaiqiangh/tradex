@@ -16,6 +16,7 @@
 - [S03 模型连接验收](s03-model-evidence.md)：#12 ChatGPT OAuth / DeepSeek Keychain / 精确 Flash 路由验证的实现、协议/浏览器证据和真实 sidecar 失效 UI。
 - [S03 入门与风险验收](s03-onboarding-evidence.md)：#14 五步入门、Risk Defaults、SQLite schema v5、Ready 门控、浏览器交互和公共协议负例；Ready 实际桌面与当前代码浏览器路径已重跑；S04 和 S33 的外部或完整回归门槛仍待补齐。
 - [S03 账户复用验收](s03-account-evidence.md)：#15 权威账户读取、已有连接复用、版本化刷新、隔离本地清理、键盘与 390/768 布局证据；真实桌面账户只读检查，未删除真实凭据。
+- [S04 Thread/Turn 运行时 Spec](thread-runtime.md)：#16 持久化 Thread、不可变 Turn 来源、Codex App Server 流式事件、取消/重试与安全恢复的规范和三张依赖有序实现票。
 - [S02 提供方连接 Spec 与拆票](provider-connections.md)：四个提供方垂直切片、权限差异、原生凭据边界及官方资料。
 - [首个工作项 Spec 和实现票](first-slice.md)：可审阅的测试边界与第一个垂直切片。
 
