@@ -7,6 +7,14 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
   const observed = [];
+  const waitForVersionChange = async (detail, previous, message) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const next = await detail.getAttribute('data-state-version');
+      if (next && next !== previous) return next;
+      await ui.waitForTimeout(50);
+    }
+    throw new Error(message);
+  };
   try {
     await viewport.set({ width: 1280, height: 900 });
     await tab.getAXState({ emit: false });
@@ -84,11 +92,15 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     assert.ok(existingValue, 'Persisted connection should be offered for reuse');
     await source.selectOption(existingValue);
     assert.equal(await ui.getByRole('button', { name: 'Use existing account', exact: true }).isEnabled(), true);
+    const beforeReuseVersion = await detail.getAttribute('data-state-version');
+    assert.ok(beforeReuseVersion, 'Persisted connection should expose a state version before reuse');
     await ui.getByRole('button', { name: 'Use existing account', exact: true }).press('Enter');
-    await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
-    await ui.getByRole('button', { name: 'Refresh account', exact: true }).press('Enter');
+    const afterReuseVersion = await waitForVersionChange(detail, beforeReuseVersion, 'Existing account reuse did not commit a new state');
+    const refresh = ui.getByRole('button', { name: 'Refresh account', exact: true });
+    assert.equal(await refresh.isEnabled(), true);
+    await refresh.press('Enter');
+    await waitForVersionChange(detail, afterReuseVersion, 'Manual account refresh did not commit a new state');
     await tab.getAXState({ emit: false });
-    await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('alert').count(), 0);
     assert.equal(await ui.getByRole('complementary', { name: 'Workspace', exact: true }).isVisible(), true);
     observed.push('Saved connection survives UI reload; account refresh and workspace subscriptions coexist without cross-aggregate errors.');
@@ -128,8 +140,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     const beforeCleanupVersion = await detail.getAttribute('data-state-version');
     assert.ok(beforeCleanupVersion, 'Disconnected account should expose a state version for the cleanup assertion');
     await remove.press('Enter');
+    await waitForVersionChange(detail, beforeCleanupVersion, 'Local cleanup did not commit a new account state');
     await ui.getByText('MISSING', { exact: true }).waitFor({ state: 'visible' });
-    assert.notEqual(await detail.getAttribute('data-state-version'), beforeCleanupVersion, 'Local cleanup should commit a new account state');
     assert.match(await detail.innerText(), /DISCONNECTED/);
     assert.equal(await remove.isEnabled(), true);
     assert.equal(await ui.getByRole('alert').count(), 0);
