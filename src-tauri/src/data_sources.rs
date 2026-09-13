@@ -13,6 +13,10 @@ const SOURCE_REVIEWED_AT: &str = "2026-09-13";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_RESPONSE_BYTES: usize = 1_048_576;
 const USER_AGENT: &str = "TradeX-local-research/0.1 (local workspace)";
+const SEC_SUBMISSIONS_URL: &str = "https://data.sec.gov/submissions/CIK0000320193.json";
+const SEC_XBRL_FRAMES_URL: &str =
+    "https://data.sec.gov/api/xbrl/frames/us-gaap/Revenues/USD/CY2024Q4.json";
+const ECB_EXR_URL: &str = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?format=csvdata&lastNObservations=1";
 
 pub fn entries() -> Vec<DataSourceEntry> {
     vec![
@@ -163,13 +167,6 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
         source.availability_reason = "A user-managed provider entitlement is required; TradeX did not read or infer credentials.".into();
         return Ok(source);
     }
-    let url = match source_id {
-        "OD-003" | "OD-004" => "https://data.sec.gov/submissions/CIK0000320193.json",
-        "OD-006" => {
-            "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?format=csvdata&lastNObservations=1"
-        }
-        _ => return Err(TradeXError::new("DATA_SOURCE_UNKNOWN")),
-    };
     let observed_at = now()?;
     source.observed_at = Some(observed_at.clone());
     source.checked_at = Some(observed_at);
@@ -179,88 +176,102 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
         .timeout(REQUEST_TIMEOUT)
         .build()
         .map_err(|_| TradeXError::new("DATA_SOURCE_PROBE_FAILED"))?;
-    let response = client
-        .get(url)
-        .header(reqwest::header::USER_AGENT, USER_AGENT)
-        .header(reqwest::header::ACCEPT, "application/json, text/csv")
-        .send();
-    match response {
-        Ok(response) if response.status().is_success() => {
-            if response
-                .content_length()
-                .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
-            {
-                source.status = DataSourceStatus::Unavailable;
-                source.availability_reason =
-                    "Public endpoint response exceeded the bounded probe size; no response body was retained."
-                        .into();
-                return Ok(source);
-            }
-            let content_type = response
-                .headers()
-                .get(reqwest::header::CONTENT_TYPE)
-                .and_then(|value| value.to_str().ok())
-                .unwrap_or_default()
-                .to_owned();
-            let mut body = Vec::new();
-            match response
-                .take((MAX_RESPONSE_BYTES as u64).saturating_add(1))
-                .read_to_end(&mut body)
-            {
-                Ok(_) if body.len() <= MAX_RESPONSE_BYTES => {
-                    if !validate_public_payload(source_id, &content_type, &body) {
-                        source.status = DataSourceStatus::Unavailable;
-                        source.availability_reason =
-                            "Public endpoint response did not match the expected bounded protocol shape; no response body was retained."
-                                .into();
-                    } else if source_id == "OD-004" {
-                        source.status = DataSourceStatus::BlockedExternal;
-                        source.availability_reason =
-                            "SEC filings endpoint responded with the expected shape; a licensed general-news provider is still not selected."
-                                .into();
-                    } else {
-                        source.status = DataSourceStatus::Available;
-                        source.verified_at = source.observed_at.clone();
-                        source.availability_reason =
-                            "Public endpoint and response shape verified; coverage, freshness and use restrictions still apply."
-                                .into();
-                    }
-                }
-                Ok(_) => {
-                    source.status = DataSourceStatus::Unavailable;
-                    source.availability_reason =
-                        "Public endpoint response exceeded the bounded probe size; no response body was retained."
-                            .into();
-                }
-                Err(_) => {
-                    source.status = DataSourceStatus::Unavailable;
-                    source.availability_reason =
-                        "Public endpoint response could not be read. No response body was retained."
-                            .into();
-                }
-            }
-        }
-        Ok(response) => {
+    let endpoints: &[(&str, &str)] = match source_id {
+        "OD-003" => &[
+            ("SEC submissions", SEC_SUBMISSIONS_URL),
+            ("SEC XBRL Frames", SEC_XBRL_FRAMES_URL),
+        ],
+        "OD-004" => &[("SEC filings", SEC_SUBMISSIONS_URL)],
+        "OD-006" => &[("ECB EXR", ECB_EXR_URL)],
+        _ => return Err(TradeXError::new("DATA_SOURCE_UNKNOWN")),
+    };
+    for (label, url) in endpoints {
+        if let Err(reason) = fetch_public_endpoint(&client, source_id, label, url) {
             source.status = DataSourceStatus::Unavailable;
-            source.availability_reason = format!(
-                "Public endpoint returned HTTP {}; retry later. No response body was retained.",
-                response.status().as_u16()
-            );
+            source.availability_reason = reason;
+            return Ok(source);
         }
-        Err(error) => {
-            source.status = DataSourceStatus::Unavailable;
-            source.availability_reason = format!(
-                "Public endpoint probe failed ({}). No response body was retained.",
-                classify_probe_error(&error)
-            );
-        }
+    }
+    if source_id == "OD-004" {
+        source.status = DataSourceStatus::BlockedExternal;
+        source.availability_reason =
+            "SEC filings endpoint responded with the expected shape; a licensed general-news provider is still not selected."
+                .into();
+    } else {
+        source.status = DataSourceStatus::Available;
+        source.verified_at = source.observed_at.clone();
+        source.availability_reason =
+            "Public endpoints and response shapes verified; coverage, freshness and use restrictions still apply."
+                .into();
     }
     Ok(source)
 }
 
-fn validate_public_payload(source_id: &str, content_type: &str, body: &[u8]) -> bool {
-    match source_id {
-        "OD-003" | "OD-004" => {
+fn fetch_public_endpoint(
+    client: &Client,
+    source_id: &str,
+    label: &str,
+    url: &str,
+) -> std::result::Result<(), String> {
+    let response = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, USER_AGENT)
+        .header(reqwest::header::ACCEPT, "application/json, text/csv")
+        .send()
+        .map_err(|error| {
+            format!(
+                "{label} probe failed ({}). No response body was retained.",
+                classify_probe_error(&error)
+            )
+        })?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "{label} endpoint returned HTTP {}; retry later. No response body was retained.",
+            response.status().as_u16()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
+    {
+        return Err(format!(
+            "{label} response exceeded the bounded probe size; no response body was retained."
+        ));
+    }
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    let mut body = Vec::new();
+    response
+        .take((MAX_RESPONSE_BYTES as u64).saturating_add(1))
+        .read_to_end(&mut body)
+        .map_err(|_| {
+            format!("{label} response could not be read. No response body was retained.")
+        })?;
+    if body.len() > MAX_RESPONSE_BYTES {
+        return Err(format!(
+            "{label} response exceeded the bounded probe size; no response body was retained."
+        ));
+    }
+    if !validate_public_payload(source_id, label, &content_type, &body) {
+        return Err(format!(
+            "{label} response did not match the expected bounded protocol shape; no response body was retained."
+        ));
+    }
+    Ok(())
+}
+
+fn validate_public_payload(
+    source_id: &str,
+    endpoint: &str,
+    content_type: &str,
+    body: &[u8],
+) -> bool {
+    match (source_id, endpoint) {
+        ("OD-003", "SEC submissions") | ("OD-004", "SEC filings") => {
             content_type
                 .to_ascii_lowercase()
                 .contains("application/json")
@@ -270,7 +281,21 @@ fn validate_public_payload(source_id: &str, content_type: &str, body: &[u8]) -> 
                         && value.get("filings").is_some()
                 })
         }
-        "OD-006" => {
+        ("OD-003", "SEC XBRL Frames") => {
+            content_type
+                .to_ascii_lowercase()
+                .contains("application/json")
+                && serde_json::from_slice::<Value>(body).is_ok_and(|value| {
+                    value.is_object()
+                        && value.get("taxonomy").is_some()
+                        && value.get("tag").is_some()
+                        && value
+                            .get("data")
+                            .and_then(Value::as_array)
+                            .is_some_and(|rows| !rows.is_empty())
+                })
+        }
+        ("OD-006", "ECB EXR") => {
             if !content_type.to_ascii_lowercase().contains("text/csv") {
                 return false;
             }
@@ -339,24 +364,40 @@ mod tests {
     }
 
     #[test]
-    fn public_probe_requires_source_specific_response_shape() {
+    fn public_probe_requires_all_sec_endpoint_shapes() {
         assert!(validate_public_payload(
             "OD-003",
+            "SEC submissions",
             "application/json",
             br#"{"cik":"0000320193","filings":{}}"#
         ));
         assert!(!validate_public_payload(
             "OD-003",
+            "SEC submissions",
             "application/json",
             br#"{"cik":"0000320193"}"#
         ));
         assert!(validate_public_payload(
+            "OD-003",
+            "SEC XBRL Frames",
+            "application/json",
+            br#"{"taxonomy":"us-gaap","tag":"Revenues","data":[{"val":1}]}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Frames",
+            "application/json",
+            br#"{"taxonomy":"us-gaap","tag":"Revenues"}"#
+        ));
+        assert!(validate_public_payload(
             "OD-006",
+            "ECB EXR",
             "text/csv",
             b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nD.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\n"
         ));
         assert!(!validate_public_payload(
             "OD-006",
+            "ECB EXR",
             "text/csv",
             b"KEY,FREQ,CURRENCY\nD.USD.EUR.SP00.A,D,USD\n"
         ));
