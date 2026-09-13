@@ -19,6 +19,7 @@ export async function checkDataSourceUI(tab, browser) {
     assert.equal(await ui.getByRole('heading', { name: /^OD-00[1-6]$/, exact: true }).count(), 6);
     assert.equal(await ui.locator('input[type="password"]').count(), 0, 'Data source settings must not expose secret inputs');
     assert.match(await ui.getByRole('article', { name: /OD-001/ }).innerText(), /Blocked by external setup/);
+    assert.match(await ui.getByRole('article', { name: /OD-001/ }).innerText(), /checked Not checked/);
     assert.match(await ui.getByRole('article', { name: /OD-004/ }).innerText(), /general-news|general news/);
     await ui.getByRole('article', { name: /OD-001/ }).getByRole('button', { name: 'Check entitlement', exact: true }).press('Enter');
     await ui.getByRole('article', { name: /OD-001/ }).getByText(/TradeX did not read or infer credentials/).waitFor({ state: 'visible' });

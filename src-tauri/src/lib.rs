@@ -219,6 +219,7 @@ pub struct ControlPlane {
     default_workspace: PathBuf,
     store: Option<Store>,
     subscribers: HashMap<(String, String, String), EventSink>,
+    data_source_observations: HashMap<(String, String), protocol::DataSourceEntry>,
     session: String,
 }
 
@@ -228,6 +229,7 @@ impl ControlPlane {
             default_workspace,
             store: None,
             subscribers: HashMap::new(),
+            data_source_observations: HashMap::new(),
             session: uuid::Uuid::new_v4().to_string(),
         }
     }
@@ -591,9 +593,9 @@ impl ControlPlane {
                 self.require_workspace(&input.workspace_id)?;
                 let snapshot = self.store.as_mut().unwrap().snapshot()?;
                 let catalog = protocol::DataSourceCatalog {
-                    workspace_id: input.workspace_id,
+                    workspace_id: input.workspace_id.clone(),
                     state_version: format!("{}:{}", snapshot.aggregate_id, snapshot.last_sequence),
-                    sources: data_sources::entries(),
+                    sources: self.data_source_sources(&input.workspace_id),
                 };
                 Ok((
                     json!(catalog),
@@ -2165,23 +2167,22 @@ impl ControlPlane {
             if current_version != job.state_version {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
             }
-            let probed = outcome?;
+            let probed = merge_data_source_observation(
+                self.data_source_observations
+                    .get(&(job.input.workspace_id.clone(), job.input.source_id.clone())),
+                outcome?,
+            );
             if probed.source_id != job.input.source_id {
                 return Err(TradeXError::new("DATA_SOURCE_PROBE_FAILED"));
             }
+            self.data_source_observations.insert(
+                (job.input.workspace_id.clone(), job.input.source_id.clone()),
+                probed,
+            );
             Ok(protocol::DataSourceCatalog {
                 workspace_id: job.input.workspace_id.clone(),
                 state_version: current_version,
-                sources: data_sources::entries()
-                    .into_iter()
-                    .map(|source| {
-                        if source.source_id == job.input.source_id {
-                            probed.clone()
-                        } else {
-                            source
-                        }
-                    })
-                    .collect(),
+                sources: self.data_source_sources(&job.input.workspace_id),
             })
         })();
         match result {
@@ -2192,6 +2193,18 @@ impl ControlPlane {
             ),
             Err(error) => failure_reply(job.request_id.clone(), error),
         }
+    }
+
+    fn data_source_sources(&self, workspace_id: &str) -> Vec<protocol::DataSourceEntry> {
+        data_sources::entries()
+            .into_iter()
+            .map(|source| {
+                self.data_source_observations
+                    .get(&(workspace_id.to_owned(), source.source_id.clone()))
+                    .cloned()
+                    .unwrap_or(source)
+            })
+            .collect()
     }
 
     /// Prepare under the domain lock, perform native/provider work outside it, then commit with the same session/version.
@@ -2439,6 +2452,42 @@ fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {
     Ok(())
 }
 
+const STALE_DATA_SOURCE_REASON: &str =
+    "Last successful observation retained; this result is stale.";
+
+fn merge_data_source_observation(
+    previous: Option<&protocol::DataSourceEntry>,
+    mut current: protocol::DataSourceEntry,
+) -> protocol::DataSourceEntry {
+    if !matches!(&current.status, protocol::DataSourceStatus::Unavailable) {
+        return current;
+    }
+    let Some(previous) = previous else {
+        return current;
+    };
+    let previous_was_successful =
+        !matches!(&previous.status, protocol::DataSourceStatus::Unavailable)
+            && previous.observed_at.is_some();
+    let previous_was_stale = previous
+        .availability_reason
+        .contains(STALE_DATA_SOURCE_REASON);
+    if !(previous_was_successful || previous_was_stale) {
+        return current;
+    }
+    current.observed_at = previous.observed_at.clone();
+    current.verified_at = previous.verified_at.clone();
+    if !current
+        .availability_reason
+        .contains(STALE_DATA_SOURCE_REASON)
+    {
+        current.availability_reason.push(' ');
+        current
+            .availability_reason
+            .push_str(STALE_DATA_SOURCE_REASON);
+    }
+    current
+}
+
 fn validate_aggregate(kind: &str, id: &str) -> Result<()> {
     if kind.is_empty() || kind.len() > 64 || id.is_empty() || id.len() > 128 {
         Err(TradeXError::new("IPC_PAYLOAD_INVALID"))
@@ -2568,6 +2617,38 @@ mod thread_tests {
             "command": command,
             "payload": payload,
         })
+    }
+
+    #[test]
+    fn data_source_probe_keeps_last_successful_observation_when_stale() {
+        let mut previous = data_sources::entries()
+            .into_iter()
+            .find(|source| source.source_id == "OD-003")
+            .unwrap();
+        previous.status = protocol::DataSourceStatus::Available;
+        previous.checked_at = Some("2026-09-13T23:00:00Z".into());
+        previous.observed_at = Some("2026-09-13T23:00:00Z".into());
+        previous.verified_at = previous.observed_at.clone();
+        let mut failed = previous.clone();
+        failed.status = protocol::DataSourceStatus::Unavailable;
+        failed.checked_at = Some("2026-09-13T23:01:00Z".into());
+        failed.observed_at = Some("2026-09-13T23:01:00Z".into());
+        failed.availability_reason =
+            "Public endpoint failed; no response body was retained.".into();
+
+        let stale = merge_data_source_observation(Some(&previous), failed.clone());
+        assert_eq!(stale.observed_at, previous.observed_at);
+        assert_eq!(stale.verified_at, previous.verified_at);
+        assert_eq!(stale.checked_at, failed.checked_at);
+        assert!(stale.availability_reason.contains(STALE_DATA_SOURCE_REASON));
+
+        let repeated = merge_data_source_observation(Some(&stale), failed);
+        assert_eq!(repeated.observed_at, previous.observed_at);
+        assert!(
+            repeated
+                .availability_reason
+                .contains(STALE_DATA_SOURCE_REASON)
+        );
     }
 
     #[test]

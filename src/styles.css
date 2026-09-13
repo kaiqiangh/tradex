@@ -179,6 +179,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .data-source-status-unavailable { color: #991b1b; background: #fee2e2; }
 .data-source-status-blocked_external { color: #92400e; background: #fef3c7; }
 .data-source-status-unverified { color: #475569; background: #e2e8f0; }
+.data-source-status-stale { border-style: dashed; }
 .data-source-capabilities { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .data-source-capabilities .badge { min-height: 23px; padding: 3px 8px; font-size: 10px; }
 .data-source-details { margin: 12px 0 0; }
