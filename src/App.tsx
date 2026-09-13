@@ -126,6 +126,10 @@ const toolLabels: Record<string, string> = {
   live_order_proposal: 'Live order proposal',
 };
 
+function formatContextRefs(contexts: ThreadContextRef[]) {
+  return contexts.length ? contexts.map(context => `${context.kind}:${context.id}#${context.hash}`).join(', ') : 'None';
+}
+
 function CapabilitySummary({ decision, loading, error }: { decision?: CapabilityDecision; loading?: boolean; error?: unknown }) {
   if (loading) return <span className="muted" role="status">Checking tool capability…</span>;
   if (error) return <span className="error-text" role="alert">{explainError(error)}</span>;
@@ -392,7 +396,7 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
       </div>
       <ContextPicker workspaceId={thread.workspaceId} pending={pendingContexts} onAttach={contexts => { setPendingContexts(contexts); setResearchPreview(undefined); }} mode={mode} />
       <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
-      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><button type="button" onClick={() => void previewResearch()} disabled={!ready || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button>{researchPreview && <div className="research-result" role="status"><strong>Typed result · {researchPreview.result.payload.state}</strong><span>{researchPreview.result.payload.reason}</span><code data-research-marker>{researchPreview.result.marker}</code><small>Source: {researchPreview.result.sourceId} · Context refs: {researchPreview.result.contextRefs.length}</small></div>}</section>}
+      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><button type="button" onClick={() => void previewResearch()} disabled={!ready || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button>{researchPreview && <div className="research-result" role="status"><strong>Typed result · {researchPreview.result.payload.state}</strong><span>{researchPreview.result.payload.reason}</span><code data-research-marker>{researchPreview.result.marker}</code><small>Source: {researchPreview.result.sourceId} · Context refs: {formatContextRefs(researchPreview.result.contextRefs)}</small></div>}</section>}
       {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
       {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
       {error && <p className="error-text" role="alert">{error}</p>}
@@ -401,9 +405,10 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
   </section>;
 }
 
-function TimelineItem({ item }: { item: ThreadItem }) {
+function TimelineItem({ item, contextRefs }: { item: ThreadItem; contextRefs: ThreadContextRef[] }) {
   return <article className={`timeline-item timeline-${item.status.toLowerCase()}`} data-item-status={item.status}>
     <div className="timeline-item-heading"><strong>{item.itemType.replaceAll('_', ' ')}</strong><span className="badge">{item.status}</span></div>
+    {item.sourceId && <small className="timeline-item-provenance">Source: {item.sourceId} · Context refs: {formatContextRefs(contextRefs)}</small>}
     <p>{item.content || 'Waiting for stream content…'}</p>
   </article>;
 }
@@ -414,7 +419,7 @@ function TurnTimeline({ turn, index, busy, onCancel, onRetry }: { turn: ThreadTu
     <div className="turn-heading"><div><h3 id={`turn-${turn.turnId}`}>Turn {index + 1}</h3><small>{turn.snapshot.agentMode} · {turn.snapshot.executionContext}</small></div><div className="turn-heading-actions"><span className="badge" role="status" aria-label={`Turn ${index + 1} status`} aria-live="polite">{turn.status}</span>{turn.status === 'RUNNING' && <button type="button" onClick={onCancel} disabled={busy} aria-label={`Cancel Turn ${index + 1}`}>{busy ? 'Cancelling…' : 'Cancel'}</button>}{['FAILED', 'CANCELLED', 'INTERRUPTED'].includes(turn.status) && <button type="button" onClick={onRetry} disabled={busy} aria-label={`Retry Turn ${index + 1}`}>{busy ? 'Retrying…' : 'Retry'}</button>}</div></div>
     {turn.cancelRequestedAt && turn.status === 'RUNNING' && <p className="form-hint" role="status">Cancellation requested…</p>}
     <div className="turn-provenance"><span>Model: {turn.snapshot.model ? `${turn.snapshot.model.provider} · ${turn.snapshot.model.modelId}` : 'Unavailable'}</span><span>Account: {turn.snapshot.accountId ? `${turn.snapshot.accountId} · ${turn.snapshot.accountEnvironment ?? 'environment unavailable'}` : 'None'}</span><span>Capability: {turn.snapshot.capabilityLevel}</span><span>Context: {turn.snapshot.attachedContexts.length ? turn.snapshot.attachedContexts.map(context => `${context.kind}:${context.id}#${context.hash}`).join(', ') : 'None'}</span></div>
-    <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} item={item} />)}</div>
+    <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} item={item} contextRefs={turn.snapshot.attachedContexts} />)}</div>
     {attempt && <p className="turn-attempt" data-provider-outcome={attempt.outcome}>Provider attempt: {attempt.provider} · {attempt.modelId} · {attempt.outcome}{attempt.errorCode ? ` · ${attempt.errorCode}` : ''}</p>}
   </article>;
 }

@@ -148,6 +148,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .timeline-items { display: grid; gap: 8px; }
 .timeline-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: white; }
 .timeline-item strong { text-transform: capitalize; font-size: 11px; }
+.timeline-item-provenance { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .timeline-item .badge { min-height: 22px; padding: 3px 8px; font-size: 9px; }
 .timeline-item p { margin: 8px 0 0; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .timeline-streaming { border-color: #93c5fd; }
