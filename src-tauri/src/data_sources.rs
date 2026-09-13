@@ -299,20 +299,28 @@ fn validate_public_payload(
                     let Some(recent) = filings.get("recent").and_then(Value::as_object) else {
                         return false;
                     };
+                    let Some(accessions) = recent.get("accessionNumber") else {
+                        return false;
+                    };
+                    let Some(forms) = recent.get("form") else {
+                        return false;
+                    };
+                    let Some(filing_dates) = recent.get("filingDate") else {
+                        return false;
+                    };
                     cik.len() == 10
                         && cik.bytes().all(|byte| byte.is_ascii_digit())
-                        && recent
-                            .get("accessionNumber")
-                            .and_then(Value::as_array)
-                            .is_some_and(|rows| !rows.is_empty())
-                        && recent
-                            .get("form")
-                            .and_then(Value::as_array)
-                            .is_some_and(|rows| !rows.is_empty())
-                        && recent
-                            .get("filingDate")
-                            .and_then(Value::as_array)
-                            .is_some_and(|rows| !rows.is_empty())
+                        && valid_string_array(accessions)
+                        && valid_string_array(forms)
+                        && valid_date_array(filing_dates)
+                        && accessions.as_array().map_or(false, |rows| {
+                            forms
+                                .as_array()
+                                .is_some_and(|forms| forms.len() == rows.len())
+                                && filing_dates
+                                    .as_array()
+                                    .is_some_and(|dates| dates.len() == rows.len())
+                        })
                 })
         }
         ("OD-003", "SEC XBRL Frames") => {
@@ -400,13 +408,49 @@ fn allow_request_at(requests: &mut VecDeque<Instant>, now: Instant) -> bool {
 
 fn valid_iso_date(value: &str) -> bool {
     let bytes = value.as_bytes();
-    bytes.len() == 10
+    if !(bytes.len() == 10
         && bytes[4] == b'-'
         && bytes[7] == b'-'
         && bytes
             .iter()
             .enumerate()
-            .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit())
+            .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit()))
+    {
+        return false;
+    }
+    let year = value[0..4].parse::<u32>().ok();
+    let month = value[5..7].parse::<u32>().ok();
+    let day = value[8..10].parse::<u32>().ok();
+    let (Some(year), Some(month), Some(day)) = (year, month, day) else {
+        return false;
+    };
+    let leap = year % 400 == 0 || (year % 4 == 0 && year % 100 != 0);
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    day >= 1 && day <= days_in_month
+}
+
+fn valid_string_array(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| {
+        !rows.is_empty()
+            && rows
+                .iter()
+                .all(|row| row.as_str().is_some_and(|value| !value.is_empty()))
+    })
+}
+
+fn valid_date_array(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| {
+        !rows.is_empty()
+            && rows
+                .iter()
+                .all(|row| row.as_str().is_some_and(valid_iso_date))
+    })
 }
 
 fn classify_probe_error(error: &reqwest::Error) -> &'static str {
@@ -473,6 +517,12 @@ mod tests {
             "application/json",
             br#"{"cik":"0000320193"}"#
         ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC submissions",
+            "application/json",
+            br#"{"cik":null,"filings":{"recent":{}}}"#
+        ));
         assert!(validate_public_payload(
             "OD-003",
             "SEC XBRL Frames",
@@ -484,6 +534,12 @@ mod tests {
             "SEC XBRL Frames",
             "application/json",
             br#"{"taxonomy":"us-gaap","tag":"Revenues"}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Frames",
+            "application/json",
+            br#"{"taxonomy":"us-gaap","tag":"Revenues","uom":"USD","data":[null]}"#
         ));
         assert!(validate_public_payload(
             "OD-006",
