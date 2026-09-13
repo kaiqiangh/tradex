@@ -5,7 +5,7 @@
 ## 固定实现
 
 - 起始审查 SHA：`45501e9`（#17 已完成后的 S04 固定点）。
-- #18 实现 SHA：`09122d2`（Thread/Turn/Item IPC、Rust 控制面、Codex 适配器、React 时间线）和 `f3cebe9`（无换行 JSONL 长帧的有界读取）。
+- #18 实现 SHA：`09122d2`（Thread/Turn/Item IPC、Rust 控制面、Codex 适配器、React 时间线）、`f3cebe9`（无换行 JSONL 长帧的有界读取）和 `f3d574f`（Clippy 清理）。
 - Rust schema、JSON Schema、TypeScript 类型和 AJV validators 已由同一生成流程同步。
 
 ## 交付范围
@@ -19,6 +19,7 @@
 ## 验证
 
 - `cargo fmt --all -- --check`：通过。
+- `cargo clippy --workspace --all-targets -- -D warnings`：通过。
 - `cargo test --workspace`：通过，29 个 Rust library tests、全部非 ignored workspace integration tests 通过；原生 Keychain/真实 gateway 测试按仓库约定保持 ignored。
 - `cargo test --lib --features integration-test turn_runtime_tests::fake_app_server_stream_is_persisted_before_completion -- --exact`：通过，验证 fake stream 在 completion 前持久化，含 context ID/hash、typed item、provider attempt 和严格事件序列。
 - `npm run schema:check`、`npm run typecheck`、`npm run build`、`npm run test:unit`、`python3 scripts/check_requirements.py`：通过。构建保留既有单 bundle >500 kB warning。
@@ -30,4 +31,3 @@
 - `turn.cancel`、`turn.retry`、`turn/interrupt`、取消后的状态和 crash recovery 由已解除阻塞的 #19 继续实现。
 - 上游跨进程 Thread resume 所需的持久 Codex session 目录、真实 authenticated inference、完整 tool/result duration/summary 和 QA-01–12/S33 交叉回归仍未声称完成。
 - 没有删除真实账户、写入用户凭据或触达外部金融执行；Trade/Live authority、FinancialApproval、Order Gateway 仍由后续切片负责。
-
