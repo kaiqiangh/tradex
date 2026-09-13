@@ -2,6 +2,31 @@
 
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AgentMode".
+ */
+export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionContext".
+ */
+export type ExecutionContext =
+  | "NONE_READ_ONLY"
+  | "HISTORICAL_SIMULATION"
+  | "LOCAL_PAPER"
+  | "ALPACA_PAPER"
+  | "TRADING212_DEMO"
+  | "TRADING212_LIVE"
+  | "BINANCE_TESTNET"
+  | "BINANCE_LIVE"
+  | "BITGET_DEMO"
+  | "BITGET_LIVE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapabilityLevel".
+ */
+export type CapabilityLevel = "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ChatgptLoginAction".
  */
 export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
@@ -49,26 +74,6 @@ export type ModelHealth = "NOT_CONFIGURED" | "UNVERIFIED" | "VERIFYING" | "READY
  * via the `definition` "ConnectionState".
  */
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AgentMode".
- */
-export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ExecutionContext".
- */
-export type ExecutionContext =
-  | "NONE_READ_ONLY"
-  | "HISTORICAL_SIMULATION"
-  | "LOCAL_PAPER"
-  | "ALPACA_PAPER"
-  | "TRADING212_DEMO"
-  | "TRADING212_LIVE"
-  | "BINANCE_TESTNET"
-  | "BINANCE_LIVE"
-  | "BITGET_DEMO"
-  | "BITGET_LIVE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadStatus".
@@ -131,7 +136,18 @@ export type ReplyData =
   | ProviderDefinition
   | Accounts
   | AccountConnection
-  | PermissionReview;
+  | PermissionReview
+  | CapabilityDecision;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ToolId".
+ */
+export type ToolId =
+  | "public_market_read"
+  | "account_read"
+  | "historical_simulation"
+  | "paper_demo_testnet_execution"
+  | "live_order_proposal";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
@@ -145,6 +161,7 @@ export interface IpcSchema {
   accountMutation: AccountMutation;
   accountQuery: AccountQuery;
   aggregate: Aggregate;
+  capabilityQuery: CapabilityQuery;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
   completeOnboarding: CompleteOnboarding;
@@ -196,6 +213,31 @@ export interface AccountQuery {
 export interface Aggregate {
   aggregateId: string;
   aggregateType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapabilityQuery".
+ */
+export interface CapabilityQuery {
+  accountId?: string | null;
+  agentMode: AgentMode;
+  /**
+   * @maxItems 32
+   */
+  attachedContexts?: ThreadContextRef[];
+  executionContext: ExecutionContext;
+  requestedLevel?: CapabilityLevel | null;
+  requestedTool?: string | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadContextRef".
+ */
+export interface ThreadContextRef {
+  hash: string;
+  id: string;
+  kind: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -532,15 +574,6 @@ export interface Thread {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ThreadContextRef".
- */
-export interface ThreadContextRef {
-  hash: string;
-  id: string;
-  kind: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadModel".
  */
 export interface ThreadModel {
@@ -739,6 +772,16 @@ export interface ProviderField {
  */
 export interface Accounts {
   accounts: AccountConnection[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapabilityDecision".
+ */
+export interface CapabilityDecision {
+  allowedTools: ToolId[];
+  executionAllowed: boolean;
+  level: CapabilityLevel;
+  reason?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

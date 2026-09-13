@@ -308,6 +308,22 @@ interface LiveAccountStatus {
 
 禁止使用 workspace 级 `liveArmed: boolean`。
 
+### 7.6 Capability 预检
+
+```ts
+type CapabilityLevel = "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
+type ToolId = "public_market_read" | "account_read" | "historical_simulation" | "paper_demo_testnet_execution" | "live_order_proposal";
+
+interface CapabilityDecision {
+  level: CapabilityLevel;
+  allowedTools: ToolId[];
+  executionAllowed: boolean;
+  reason?: string;
+}
+```
+
+Composer 可以通过 `agent.capabilities` 查询待发送状态，但 `turn.start` 必须接收相同输入并在可信边界重新计算 decision。C5/C6 以及未知或不允许的工具始终不可用。
+
 ---
 
 ## 8. Agent Mode × Execution Context UX 状态机

@@ -1660,6 +1660,12 @@ runtime.status
 runtime.restart_sidecar
 ```
 
+### Agent capability
+
+```text
+agent.capabilities
+```
+
 ### Threads
 
 ```text
@@ -1763,6 +1769,7 @@ interface TradeXError {
 
 | 前端职责 | 精确命令 | 最小 payload 契约 |
 |---|---|---|
+| 读取 Agent capability | agent.capabilities | workspace_id、agent_mode、execution_context、可选 account_id、attached_contexts，以及可选 requested_tool/requested_level 探针；返回 capability level、allowed tools、executionAllowed 和阻断原因；不允许或未知工具以及 C5/C6 返回 UNSUPPORTED_CAPABILITY |
 | 保存可编辑草稿 | trade.save_draft | 更新时含 draft_id、草稿字段和 expected_state_version；不授予权限 |
 | 生成 proposal | trade.generate_proposal | draft_id、expected_draft_version；后端生成不可变身份/hash |
 | 刷新陈旧 proposal | trade.refresh_proposal | proposal_id、expected_state_version；返回新 proposal 并使旧同意失效 |

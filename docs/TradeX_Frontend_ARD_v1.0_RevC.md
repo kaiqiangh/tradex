@@ -308,6 +308,22 @@ interface LiveAccountStatus {
 
 There is no workspace-wide `liveArmed: boolean`.
 
+### 7.6 Capability preflight
+
+```ts
+type CapabilityLevel = "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
+type ToolId = "public_market_read" | "account_read" | "historical_simulation" | "paper_demo_testnet_execution" | "live_order_proposal";
+
+interface CapabilityDecision {
+  level: CapabilityLevel;
+  allowedTools: ToolId[];
+  executionAllowed: boolean;
+  reason?: string;
+}
+```
+
+The composer may query `agent.capabilities` for pending state, but `turn.start` must receive the same inputs and recompute the decision at the trusted boundary. C5/C6 and unknown or disallowed tools remain unavailable.
+
 ---
 
 ## 8. Agent Mode × Execution Context UX State Machine

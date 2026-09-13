@@ -1660,6 +1660,12 @@ runtime.status
 runtime.restart_sidecar
 ```
 
+### Agent capability
+
+```text
+agent.capabilities
+```
+
 ### Threads
 
 ```text
@@ -1763,6 +1769,7 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 
 | Frontend responsibility | Exact command | Minimum payload contract |
 |---|---|---|
+| Read Agent capability | agent.capabilities | workspace_id, agent_mode, execution_context, optional account_id, attached_contexts, and optional requested_tool/requested_level probes; returns capability level, allowed tools, executionAllowed, and blocking reason; disallowed or unknown tools and C5/C6 return UNSUPPORTED_CAPABILITY |
 | Save editable draft | trade.save_draft | draft_id when updating, draft fields, expected_state_version when updating; no authority granted |
 | Generate proposal | trade.generate_proposal | draft_id, expected_draft_version; backend generates immutable identity/hash |
 | Refresh stale proposal | trade.refresh_proposal | proposal_id, expected_state_version; return a new proposal and invalidate old consent |

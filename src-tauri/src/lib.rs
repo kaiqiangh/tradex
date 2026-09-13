@@ -1,3 +1,4 @@
+pub mod capability;
 pub mod codex_runtime;
 pub mod gateway;
 #[cfg(target_os = "macos")]
@@ -13,11 +14,12 @@ pub mod providers;
 pub mod risk;
 mod storage;
 
+use capability::CapabilityQuery;
 use protocol::{
-    AgentMode, Aggregate, CommandEnvelope, DomainProjection, EmptyPayload, EventSink,
-    ExecutionContext, MAX_SEQUENCE, OpenWorkspace, Result, RuntimeComponent, RuntimeStatus,
-    Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery,
-    ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    Aggregate, CommandEnvelope, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
+    OpenWorkspace, Result, RuntimeComponent, RuntimeStatus, Subscribe, Thread, ThreadCreate,
+    ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError,
+    TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -537,6 +539,11 @@ impl ControlPlane {
                 let input: TurnRetry = payload(request.payload)?;
                 self.retry_turn(input, runtime_access)
             }
+            "agent.capabilities" => {
+                let input: CapabilityQuery = payload(request.payload)?;
+                let decision = self.capability_decision(&input)?;
+                Ok((json!(decision), None))
+            }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;
                 Ok((json!(catalog()), None))
@@ -739,6 +746,29 @@ impl ControlPlane {
         Ok((json!(state), Some(version)))
     }
 
+    fn capability_decision(
+        &self,
+        input: &CapabilityQuery,
+    ) -> Result<capability::CapabilityDecision> {
+        self.require_workspace(&input.workspace_id)?;
+        let account = input
+            .account_id
+            .as_deref()
+            .map(|account_id| {
+                validate_aggregate("account", account_id)?;
+                let account = self.store.as_ref().unwrap().account(account_id)?;
+                if account.connection_state != ConnectionState::Connected {
+                    return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+                }
+                Ok(capability::AccountContext {
+                    provider_id: account.provider_id,
+                    environment: account.environment,
+                })
+            })
+            .transpose()?;
+        capability::decide_query(input, account.as_ref())
+    }
+
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {
         self.require_workspace(&input.workspace_id)?;
         if let Some(expected) = &input.expected_state_version {
@@ -786,6 +816,15 @@ impl ControlPlane {
                 return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
             }
         }
+        let _capability = self.capability_decision(&CapabilityQuery {
+            workspace_id: input.workspace_id.clone(),
+            agent_mode: input.default_agent_mode.clone(),
+            execution_context: input.default_execution_context.clone(),
+            account_id: input.account_id.clone(),
+            attached_contexts: input.linked_contexts.clone(),
+            requested_tool: None,
+            requested_level: None,
+        })?;
         let now = storage::timestamp()?;
         let thread = Thread {
             thread_id: uuid::Uuid::new_v4().to_string(),
@@ -827,8 +866,7 @@ impl ControlPlane {
         {
             return Err(TradeXError::new("TURN_MESSAGE_INVALID"));
         }
-        validate_turn_context(&input.agent_mode, &input.execution_context)?;
-        validate_contexts(&input.attached_contexts)?;
+        capability::validate_contexts(&input.attached_contexts)?;
 
         let existing = self.store.as_ref().unwrap().thread(&input.thread_id)?;
         if existing.state_version != input.expected_state_version {
@@ -843,18 +881,27 @@ impl ControlPlane {
         }
 
         let account_id = input.account_id.clone().or(existing.account_id.clone());
-        let account_environment = validate_turn_account(
-            self.store.as_ref().unwrap(),
-            account_id.as_deref(),
-            &input.execution_context,
-        )?;
-        let route = self.resolve_turn_route(input.model.as_ref(), existing.model.as_ref())?;
-        let model = thread_model_from_route(&route);
         let attached_contexts = if input.attached_contexts.is_empty() {
             existing.linked_contexts.clone()
         } else {
             input.attached_contexts.clone()
         };
+        let capability = self.capability_decision(&CapabilityQuery {
+            workspace_id: input.workspace_id.clone(),
+            agent_mode: input.agent_mode.clone(),
+            execution_context: input.execution_context.clone(),
+            account_id: account_id.clone(),
+            attached_contexts: attached_contexts.clone(),
+            requested_tool: None,
+            requested_level: None,
+        })?;
+        let account_environment = account_id
+            .as_deref()
+            .map(|id| self.store.as_ref().unwrap().account(id))
+            .transpose()?
+            .map(|account| account.environment);
+        let route = self.resolve_turn_route(input.model.as_ref(), existing.model.as_ref())?;
+        let model = thread_model_from_route(&route);
         let now = storage::timestamp()?;
         let turn_id = uuid::Uuid::new_v4().to_string();
         let turn = ThreadTurn {
@@ -866,7 +913,7 @@ impl ControlPlane {
                 execution_context: input.execution_context.clone(),
                 account_id: account_id.clone(),
                 account_environment,
-                capability_level: turn_capability(&input.agent_mode).into(),
+                capability_level: capability.level.as_str().into(),
                 model: Some(model.clone()),
                 attached_contexts,
                 started_at: now.clone(),
@@ -2198,74 +2245,6 @@ fn validate_aggregate(kind: &str, id: &str) -> Result<()> {
     }
 }
 
-fn validate_turn_context(mode: &AgentMode, context: &ExecutionContext) -> Result<()> {
-    if matches!(mode, AgentMode::Trade)
-        && matches!(
-            context,
-            ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation
-        )
-    {
-        return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
-    }
-    Ok(())
-}
-
-fn validate_contexts(contexts: &[protocol::ThreadContextRef]) -> Result<()> {
-    if contexts.len() > 32 {
-        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
-    }
-    if contexts.iter().any(|context| {
-        context.kind.trim().is_empty()
-            || context.id.trim().is_empty()
-            || context.hash.trim().is_empty()
-            || context.kind.chars().count() > 64
-            || context.id.chars().count() > 256
-            || context.hash.chars().count() > 256
-            || context.kind.chars().any(char::is_control)
-            || context.id.chars().any(char::is_control)
-            || context.hash.chars().any(char::is_control)
-    }) {
-        return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
-    }
-    Ok(())
-}
-
-fn validate_turn_account(
-    store: &Store,
-    account_id: Option<&str>,
-    context: &ExecutionContext,
-) -> Result<Option<String>> {
-    let expected = match context {
-        ExecutionContext::AlpacaPaper => Some(("alpaca", "PAPER")),
-        ExecutionContext::Trading212Demo => Some(("trading212", "DEMO")),
-        ExecutionContext::Trading212Live => Some(("trading212", "LIVE")),
-        ExecutionContext::BinanceTestnet => Some(("binance", "TESTNET")),
-        ExecutionContext::BinanceLive => Some(("binance", "LIVE")),
-        ExecutionContext::BitgetDemo => Some(("bitget", "DEMO")),
-        ExecutionContext::BitgetLive => Some(("bitget", "LIVE")),
-        ExecutionContext::NoneReadOnly
-        | ExecutionContext::HistoricalSimulation
-        | ExecutionContext::LocalPaper => None,
-    };
-    let Some(account_id) = account_id else {
-        return if expected.is_some() {
-            Err(TradeXError::new("TURN_ACCOUNT_REQUIRED"))
-        } else {
-            Ok(None)
-        };
-    };
-    let account = store.account(account_id)?;
-    if let Some((provider, environment)) = expected
-        && (account.provider_id != provider || account.environment != environment)
-    {
-        return Err(TradeXError::new("TURN_ACCOUNT_INVALID"));
-    }
-    if account.connection_state != ConnectionState::Connected {
-        return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
-    }
-    Ok(Some(account.environment))
-}
-
 fn model_selection(model: &ThreadModel) -> Result<model::ModelSelection> {
     let provider = match model.provider.as_str() {
         "CHATGPT" => model::ModelProvider::Chatgpt,
@@ -2315,15 +2294,6 @@ fn model_route_for_integration(model: &ThreadModel) -> Result<model::ModelRoute>
         thinking_type: selection.thinking_type,
         verified_at: Some("integration-test".into()),
     })
-}
-
-fn turn_capability(mode: &AgentMode) -> &'static str {
-    match mode {
-        AgentMode::Ask => "READ_ONLY",
-        AgentMode::Research => "RESEARCH_READ_ONLY",
-        AgentMode::Backtest => "BACKTEST_SIMULATION",
-        AgentMode::Trade => "TRADE_PENDING_APPROVAL",
-    }
 }
 
 fn link_user_item(turn: &mut ThreadTurn, source_id: &str) {
@@ -2546,6 +2516,111 @@ mod thread_tests {
         ));
         assert_eq!(result["ok"], false);
         assert_eq!(result["error"]["code"], "TURN_CONTEXT_INVALID");
+    }
+
+    #[test]
+    fn capability_query_and_thread_creation_share_the_policy_matrix() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+
+        let ask = control.dispatch(request(
+            "agent.capabilities",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": []
+            }),
+        ));
+        assert_eq!(ask["ok"], true);
+        assert_eq!(ask["data"]["level"], "C0");
+        assert_eq!(ask["data"]["executionAllowed"], false);
+        assert_eq!(ask["data"]["allowedTools"][0], "public_market_read");
+
+        let paper = control.dispatch(request(
+            "agent.capabilities",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "TRADE",
+                "executionContext": "LOCAL_PAPER",
+                "attachedContexts": []
+            }),
+        ));
+        assert_eq!(paper["ok"], true);
+        assert_eq!(paper["data"]["level"], "C3");
+        assert_eq!(paper["data"]["executionAllowed"], true);
+
+        let before_rejected = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot()
+            .unwrap()
+            .last_sequence;
+        for payload in [
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "requestedTool": "order.submit",
+                "attachedContexts": []
+            }),
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "requestedLevel": "C5",
+                "attachedContexts": []
+            }),
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "requestedLevel": "C6",
+                "attachedContexts": []
+            }),
+        ] {
+            let unsupported = control.dispatch(request("agent.capabilities", payload));
+            assert_eq!(unsupported["ok"], false);
+            assert_eq!(unsupported["error"]["code"], "UNSUPPORTED_CAPABILITY");
+        }
+        assert_eq!(
+            control
+                .store
+                .as_mut()
+                .unwrap()
+                .snapshot()
+                .unwrap()
+                .last_sequence,
+            before_rejected
+        );
+
+        let invalid = control.dispatch(request(
+            "agent.capabilities",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "TRADE",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": []
+            }),
+        ));
+        assert_eq!(invalid["ok"], false);
+        assert_eq!(invalid["error"]["code"], "TURN_CONTEXT_INVALID");
+
+        let invalid_thread = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": "Invalid backtest",
+                "defaultAgentMode": "BACKTEST",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "linkedContexts": []
+            }),
+        ));
+        assert_eq!(invalid_thread["ok"], false);
+        assert_eq!(invalid_thread["error"]["code"], "TURN_CONTEXT_INVALID");
     }
 }
 
@@ -2830,8 +2905,8 @@ mod turn_runtime_tests {
                     .unwrap()
                     .to_owned(),
                 message: "cancel before completion".into(),
-                agent_mode: AgentMode::Ask,
-                execution_context: ExecutionContext::NoneReadOnly,
+                agent_mode: protocol::AgentMode::Ask,
+                execution_context: protocol::ExecutionContext::NoneReadOnly,
                 account_id: None,
                 model: Some(ThreadModel {
                     provider: "CHATGPT".into(),
@@ -2884,8 +2959,8 @@ mod turn_runtime_tests {
                     .unwrap()
                     .to_owned(),
                 message: "reconcile before completion".into(),
-                agent_mode: AgentMode::Ask,
-                execution_context: ExecutionContext::NoneReadOnly,
+                agent_mode: protocol::AgentMode::Ask,
+                execution_context: protocol::ExecutionContext::NoneReadOnly,
                 account_id: None,
                 model: Some(ThreadModel {
                     provider: "CHATGPT".into(),
@@ -2964,8 +3039,8 @@ mod turn_runtime_tests {
                     thread_id: thread_id.clone(),
                     expected_state_version: expected,
                     message: "persist before restart".into(),
-                    agent_mode: AgentMode::Ask,
-                    execution_context: ExecutionContext::NoneReadOnly,
+                    agent_mode: protocol::AgentMode::Ask,
+                    execution_context: protocol::ExecutionContext::NoneReadOnly,
                     account_id: None,
                     model: Some(ThreadModel {
                         provider: "CHATGPT".into(),

@@ -13,6 +13,9 @@
     "aggregate": {
       "$ref": "#/$defs/Aggregate"
     },
+    "capabilityQuery": {
+      "$ref": "#/$defs/CapabilityQuery"
+    },
     "chatgptLogin": {
       "$ref": "#/$defs/ChatgptLogin"
     },
@@ -90,6 +93,7 @@
     }
   },
   "required": [
+    "capabilityQuery",
     "gatewayMutation",
     "modelQuery",
     "chatgptLogin",
@@ -422,6 +426,103 @@
       "required": [
         "asset",
         "available"
+      ]
+    },
+    "CapabilityDecision": {
+      "type": "object",
+      "properties": {
+        "allowedTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ToolId"
+          }
+        },
+        "executionAllowed": {
+          "type": "boolean"
+        },
+        "level": {
+          "$ref": "#/$defs/CapabilityLevel"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "allowedTools",
+        "executionAllowed"
+      ]
+    },
+    "CapabilityLevel": {
+      "type": "string",
+      "enum": [
+        "C0",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6"
+      ]
+    },
+    "CapabilityQuery": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "agentMode": {
+          "$ref": "#/$defs/AgentMode"
+        },
+        "attachedContexts": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
+        "executionContext": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "requestedLevel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityLevel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestedTool": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "agentMode",
+        "executionContext"
       ]
     },
     "ChatgptLogin": {
@@ -1590,6 +1691,9 @@
         },
         {
           "$ref": "#/$defs/PermissionReview"
+        },
+        {
+          "$ref": "#/$defs/CapabilityDecision"
         }
       ]
     },
@@ -2535,6 +2639,16 @@
         "items",
         "providerAttempts",
         "startedAt"
+      ]
+    },
+    "ToolId": {
+      "type": "string",
+      "enum": [
+        "public_market_read",
+        "account_read",
+        "historical_simulation",
+        "paper_demo_testnet_execution",
+        "live_order_proposal"
       ]
     },
     "TradeXError": {

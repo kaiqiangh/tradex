@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import type { AgentMode, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
+import type { AgentMode, CapabilityDecision, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -117,6 +117,31 @@ function ThreadHistory({ workspaceId, selectedThreadId, onSelect, compact = fals
     </button>)}</div>;
 }
 
+const toolLabels: Record<string, string> = {
+  public_market_read: 'Public market read',
+  account_read: 'Account read',
+  historical_simulation: 'Historical simulation',
+  paper_demo_testnet_execution: 'Paper / Demo / Testnet',
+  live_order_proposal: 'Live order proposal',
+};
+
+function CapabilitySummary({ decision, loading, error }: { decision?: CapabilityDecision; loading?: boolean; error?: unknown }) {
+  if (loading) return <span className="muted" role="status">Checking tool capability…</span>;
+  if (error) return <span className="error-text" role="alert">{explainError(error)}</span>;
+  if (!decision) return <span className="muted">Capability unavailable</span>;
+  const tools = decision.allowedTools.map(tool => toolLabels[tool] ?? tool).join(' · ');
+  const reason = decision.reason === 'LIVE_READ_ONLY'
+    ? 'Live account is read only'
+    : decision.reason === 'LIVE_PROPOSAL_REQUIRES_ARMING_APPROVAL'
+      ? 'Live proposal only; arming and approval are separate'
+      : decision.reason === 'HISTORICAL_SIMULATION_ONLY'
+        ? 'Historical simulation only'
+        : decision.reason === 'LOCAL_PAPER_SIMULATION'
+          ? 'TradeX simulation'
+          : undefined;
+  return <span className="capability-summary"><strong>Capability: {decision.level}</strong><span>{tools}</span>{reason && <span className="muted">{reason}</span>}</span>;
+}
+
 function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string; model?: ModelState; onCreated: (thread: Thread) => void }) {
   const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'thread-composer'], queryFn: () => request('account.list', { workspaceId }) });
   const queryClient = useQueryClient();
@@ -126,6 +151,17 @@ function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string
   const [accountId, setAccountId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const capability = useQuery({
+    queryKey: ['agent-capability', workspaceId, mode, execution, accountId],
+    queryFn: () => request('agent.capabilities', {
+      workspaceId,
+      agentMode: mode,
+      executionContext: execution,
+      ...(accountId ? { accountId } : {}),
+      attachedContexts: [],
+    }),
+    retry: false,
+  });
   const route = verifiedDefaultRoute(model);
   const selectedModel: ThreadModel | undefined = route
     ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) }
@@ -146,9 +182,9 @@ function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string
         <label className="field">Execution context<select value={execution} onChange={event => setExecution(event.target.value as ExecutionContext)}><option value="NONE_READ_ONLY">None · read only</option><option value="HISTORICAL_SIMULATION">Historical simulation</option><option value="LOCAL_PAPER">Local Paper</option><option value="ALPACA_PAPER">Alpaca Paper</option><option value="TRADING212_DEMO">Trading 212 Demo</option><option value="TRADING212_LIVE">Trading 212 Live</option><option value="BINANCE_TESTNET">Binance Testnet</option><option value="BINANCE_LIVE">Binance Live</option><option value="BITGET_DEMO">Bitget Demo</option><option value="BITGET_LIVE">Bitget Live</option></select></label>
         <label className="field">Account<select value={accountId} onChange={event => setAccountId(event.target.value)} disabled={accounts.isPending}><option value="">No account selected</option>{accounts.data?.accounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.environment}</option>)}</select></label>
       </div>
-      <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Selected when the next Turn starts'}</span></div>
+      <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Selected when the next Turn starts'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
       {error && <p className="error-text" role="alert">{error}</p>}
-      <div className="composer-footer"><span>Context references: none</span><button className="primary" type="submit" disabled={busy || !title.trim() || accounts.isError}>{busy ? 'Creating…' : 'Create Thread'}</button></div>
+      <div className="composer-footer"><span>Context references: none</span><button className="primary" type="submit" disabled={busy || !title.trim() || accounts.isError || capability.isPending || capability.isError || !capability.data}>{busy ? 'Creating…' : 'Create Thread'}</button></div>
     </form>
   </section>;
 }
@@ -168,7 +204,18 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const selectedModel = thread.model ?? routeAsThreadModel(verifiedDefaultRoute(model));
-  const ready = runtimeReady(runtime) && Boolean(selectedModel);
+  const capability = useQuery({
+    queryKey: ['agent-capability', thread.workspaceId, thread.defaultAgentMode, thread.defaultExecutionContext, thread.accountId ?? '', thread.linkedContexts],
+    queryFn: () => request('agent.capabilities', {
+      workspaceId: thread.workspaceId,
+      agentMode: thread.defaultAgentMode,
+      executionContext: thread.defaultExecutionContext,
+      ...(thread.accountId ? { accountId: thread.accountId } : {}),
+      attachedContexts: thread.linkedContexts,
+    }),
+    retry: false,
+  });
+  const ready = runtimeReady(runtime) && Boolean(selectedModel) && Boolean(capability.data) && !capability.isError;
   const send = async (event: FormEvent) => {
     event.preventDefault();
     if (!ready || !message.trim() || busy) return;
@@ -195,7 +242,7 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
     <div className="composer-heading"><div><h3 id="turn-composer-title">Ask this Thread</h3><p className="muted">The current Thread defaults are frozen when you send.</p></div><span className="badge readonly">No financial approval</span></div>
     <form onSubmit={send}>
       <label className="field">Request<textarea aria-label="Turn request" value={message} onChange={event => setMessage(event.target.value)} maxLength={100000} placeholder="Ask a read-only question…" disabled={busy} /></label>
-      <div className="composer-context"><span className="badge">Mode: {thread.defaultAgentMode}</span><span className="badge">Execution: {thread.defaultExecutionContext}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span></div>
+      <div className="composer-context"><span className="badge">Mode: {thread.defaultAgentMode}</span><span className="badge">Execution: {thread.defaultExecutionContext}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
       {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
       {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
       {error && <p className="error-text" role="alert">{error}</p>}

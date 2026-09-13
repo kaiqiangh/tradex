@@ -9,6 +9,9 @@ declare const validators: {
   AgentMode: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
+  CapabilityDecision: (value: unknown) => boolean;
+  CapabilityLevel: (value: unknown) => boolean;
+  CapabilityQuery: (value: unknown) => boolean;
   ChatgptLogin: (value: unknown) => boolean;
   ChatgptLoginAction: (value: unknown) => boolean;
   CommandEnvelope: (value: unknown) => boolean;
@@ -75,6 +78,7 @@ declare const validators: {
   ThreadStatus: (value: unknown) => boolean;
   ThreadSummary: (value: unknown) => boolean;
   ThreadTurn: (value: unknown) => boolean;
+  ToolId: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;
   TurnCancel: (value: unknown) => boolean;
   TurnRetry: (value: unknown) => boolean;

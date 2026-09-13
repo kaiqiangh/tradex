@@ -104,6 +104,8 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-provenance dt { color: var(--muted); font-size: 10px; }
 .thread-provenance dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
 .composer-context { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+.capability-summary { display: inline-flex; flex-wrap: wrap; gap: 5px 8px; align-items: baseline; max-width: 100%; }
+.capability-summary strong { color: var(--ink); }
 .composer textarea { display: block; width: 100%; min-height: 100px; resize: none; background: white; border: 0; padding: 20px 0; color: var(--muted); font-size: 13px; }
 .turn-composer { margin-top: 18px; }
 .turn-composer textarea { min-height: 96px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: var(--text); resize: vertical; }

@@ -13,13 +13,21 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('button', { name: 'Threads', exact: true }).click();
     await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('textbox', { name: 'Thread title', exact: true }).fill('Earnings timeline');
-    await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('RESEARCH');
+    await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('TRADE');
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('NONE_READ_ONLY');
+    await ui.getByText('This mode and execution context cannot be used together.', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByRole('button', { name: 'Create Thread', exact: true }).isEnabled(), false, 'Illegal mode/context must block thread creation');
+    observed.push('An illegal Trade + read-only selection is explained and cannot create a Thread.');
+
+    await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('RESEARCH');
+    await ui.getByText('Capability: C0', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText('Public market read', { exact: true }).isVisible(), true);
     await ui.getByRole('button', { name: 'Create Thread', exact: true }).click();
     await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).waitFor({ state: 'visible' });
     assert.ok(await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).count() >= 2, 'New Thread should appear in sidebar and history immediately');
     assert.equal(await ui.getByText('Mode: RESEARCH', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('Execution: NONE_READ_ONLY', { exact: true }).isVisible(), true);
+    assert.equal(await ui.getByText('Capability: C0', { exact: true }).count() >= 1, true);
     assert.equal(await ui.getByText('No turns have started. Send a request to begin the read-only timeline.', { exact: true }).isVisible(), true);
     observed.push('Thread create persists its title and mode/context defaults before any Turn exists.');
 
@@ -60,6 +68,7 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).last().click();
     await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('alert').count(), 0);
+    assert.equal(await ui.getByText('Capability: C0', { exact: true }).count() >= 1, true);
     assert.equal(await ui.getByText('Read-only response for: Summarize the evidence', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByRole('status', { name: 'Turn 2 status', exact: true }).innerText(), 'CANCELLED');
     assert.equal(await ui.getByRole('status', { name: 'Turn 3 status', exact: true }).innerText(), 'COMPLETED');

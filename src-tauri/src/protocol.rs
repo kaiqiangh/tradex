@@ -1,3 +1,4 @@
+use crate::capability::{CapabilityDecision, CapabilityQuery};
 use crate::gateway::{GatewayMutation, GatewayState};
 use crate::model::{
     ChatgptLogin, ConfigureDeepseek, ModelQuery, ModelState, SetDefaultModel, SetFallbackPolicy,
@@ -145,6 +146,7 @@ pub enum ReplyData {
     Accounts(Accounts),
     Account(Box<AccountConnection>),
     Permissions(PermissionReview),
+    Capability(CapabilityDecision),
 }
 
 #[derive(JsonSchema)]
@@ -170,6 +172,7 @@ pub enum ResultEnvelope {
 #[derive(JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IpcSchema {
+    pub capability_query: CapabilityQuery,
     pub gateway_mutation: GatewayMutation,
     pub model_query: ModelQuery,
     pub chatgpt_login: ChatgptLogin,
@@ -834,6 +837,11 @@ impl TradeXError {
                 "choose_context",
                 "Choose a supported context",
             ),
+            "UNSUPPORTED_CAPABILITY" => (
+                "The requested capability is not available for this Turn.",
+                "choose_context",
+                "Choose a supported capability",
+            ),
             "TURN_ACCOUNT_REQUIRED" => (
                 "Select the account that belongs to this execution context.",
                 "select_account",
@@ -979,7 +987,7 @@ impl TradeXError {
                 "RATE_LIMITED"
             } else if code == "PROVIDER_UNAVAILABLE" {
                 "NETWORK_ERROR"
-            } else if code == "PROVIDER_UNSUPPORTED" {
+            } else if matches!(code, "PROVIDER_UNSUPPORTED" | "UNSUPPORTED_CAPABILITY") {
                 "UNSUPPORTED_CAPABILITY"
             } else if code == "PROVIDER_PERMISSION_BLOCKED" {
                 "PERMISSION_ERROR"
