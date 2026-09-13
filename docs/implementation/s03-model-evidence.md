@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。模型连接的协议、受信边界、状态机、原生网关和 credentialed 路由验证已完成；原生 secure entry 的取消与保存交互、OAuth 取消 UI 和 OAuth 超时 UI 已验证，OAuth 401 过期 UI 仍未取得独立验收证据，因此不关闭 #12 或其父项 #10，也不开始 #13。
 
-实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`；配额边界测试 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
+实现代码提交：`8c4a87043f1bd379732809a1a1a2eba914eafbf8` + 边界修复 `fdf9fdc465619eab3cfbfddfca83f84c46077cbd` + 最终网关 key 生命周期修复 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` + OAuth timeout 文案修复 `5f9a1fe`（`dev`）；取消安全边界测试 `a94038545b7ffc3096fd58289324ac14fcf2f0da`；网关响应边界测试 `57aca77d942e58ddb8756056ef174b6204248956`；配额边界测试 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`。基线源清单修正提交：`612ef61b4eb6f5327943dfdd4349e23e6f1598c8`。用户已批准 DeepSeek 使用官方现行 `deepseek-v4-flash`，并显式区分 `thinking.type=disabled|enabled`。
 
 ## 已实现的边界
 
@@ -27,12 +27,12 @@
 | 凭据安全边界和原生 Keychain API | `src-tauri/src/model_credentials.rs` 的 `ModelVault`；renderer 没有 password input；取消录入测试 `cancelled_deepseek_entry_does_not_write_keychain_double` 通过；macOS ignored test `native_model_keychain_roundtrip_is_workspace_scoped` 以 disposable synthetic key 运行通过；本轮桌面 secure entry 的 Escape 取消返回 Model 页面且未写入 key；隔离 workspace 的 Cmd-Return Save、Keychain metadata 回读和清理已完成 | PASS（取消不写入 + Save 写入/回读/清理 + 直接 Keychain round-trip + 原生 UI）；真实 upstream key 未受影响 |
 | 精确 provider/model/mode allowlist | Rust allowlist tests 覆盖 ChatGPT `gpt-5.6*` 和 DeepSeek `deepseek-v4-flash` 两个显式模式，拒绝别名/未知模式 | PASS（本地） |
 | 认证 probe、测试推理与错误分类 | `gateway_process.rs` bounded `/v1/models`、`/v1/chat/completions`、纯函数目录/响应解析、固定 payload、401/404/429/非 JSON/空 choices 分支；protocol canonical mapping 和 model failure tests；本轮原生 ChatGPT/DeepSeek 两类路由均完成有界真实推理 | PASS（代码、本地分支和 credentialed upstream run） |
-| 浏览器交互与窄屏 | 最终代码 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` 上重跑 `npm run dev:browser` 隔离工作区：Settings 显示两张模型卡；网关停止时 Login/Verify disabled；Configure DeepSeek synthetic fixture 后显示 `Configured · verification required`；未发现 renderer 密码输入。390/768 视口检查 `scrollWidth 375/753`，临时 SQLite/WAL/SHM 未发现 `integration-test-key`、`api.deepseek.com` 或 key 值 | PASS（浏览器 fixture） |
+| 浏览器交互与窄屏 | 实现基线 `753f273d4315ff68bdfa95c6f7cc784ec0da8053` 上重跑 `npm run dev:browser` 隔离工作区（随后以 `5f9a1fe` 验证超时文案）：Settings 显示两张模型卡；网关停止时 Login/Verify disabled；Configure DeepSeek synthetic fixture 后显示 `Configured · verification required`；未发现 renderer 密码输入。390/768 视口检查 `scrollWidth 375/753`，临时 SQLite/WAL/SHM 未发现 `integration-test-key`、`api.deepseek.com` 或 key 值 | PASS（浏览器 fixture） |
 | 真实 OAuth、上游 DeepSeek API 与桌面 secure dialog | `dev@fecfa37` 的原生 release wrapper 打开现有工作区 `/Users/kai/Desktop/my-repo/tradex/.tradex`（workspace `22acfa1d-b5da-420a-a754-f01ea0c43458`）；固定网关 `7.2.155` 在 `127.0.0.1:8317` 运行并发现 10 个模型。ChatGPT `gpt-5.6-luna` 在 `2026-09-13T10:26:40.883838Z` 完成重新登录后的有界验证；DeepSeek `deepseek-v4-flash` non-thinking（`thinking.type=disabled`）于 `2026-09-13T10:29:39.631364Z` 成功，thinking（`thinking.type=enabled`）于 `2026-09-13T10:29:47.288029Z` 成功；本轮 OAuth 账号选择页于 `2026-09-13T10:50:37.076Z` 关闭后状态变为 `Configured · verification required`，重新 Verify 于 `2026-09-13T10:51:23.471841Z` 成功，之后重新加载模型状态 ChatGPT 与 DeepSeek 均为 Ready。隔离 workspace `224aacdb-06e0-43eb-ad02-92e7d44b1e0c` 的 secure dialog Save 于 `2026-09-13T11:21:48Z` 完成并回读稳定；隔离 workspace `b72c879a-ff0c-42c3-9af6-3058100df9c7` 的 OAuth timeout attempt 于 `2026-09-13T11:42:54.549551Z` 明确显示超时文案并保持不可用；没有读取或输出任何 token/key。 | PASS（credentialed route + OAuth re-login/cancel + timeout UI + isolated secure Save）；OAuth 401 expiry UI remains unverified |
 
 ## 可重跑检查
 
-以下检查在最终生产实现 `dev@753f273d4315ff68bdfa95c6f7cc784ec0da8053` 及后续边界测试提交（取消 `a94038545b7ffc3096fd58289324ac14fcf2f0da`、响应 `57aca77d942e58ddb8756056ef174b6204248956`、配额 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`）上通过：
+以下检查在最终生产实现 `dev@753f273d4315ff68bdfa95c6f7cc784ec0da8053`、OAuth timeout 文案修复 `5f9a1fe` 及后续边界测试提交（取消 `a94038545b7ffc3096fd58289324ac14fcf2f0da`、响应 `57aca77d942e58ddb8756056ef174b6204248956`、配额 `904a62bc19d9cf786ea60fa74b080d6cab73ed4a`）上通过：
 
 ```text
 git diff --check
