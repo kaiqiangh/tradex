@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { ChatgptLoginAction, GatewayAction, ModelProviderState, ModelRoute, SetDefaultModel, SetFallbackPolicy, ThinkingType } from '../shared/ipc-types.ts';
+import type { ChatgptLoginAction, GatewayAction, ModelProviderState, ModelRoute, ModelState, SetDefaultModel, SetFallbackPolicy, ThinkingType } from '../shared/ipc-types.ts';
 import { request, explainError } from './client.ts';
-import { fromGatewaySnapshot, fromModelSnapshot } from './projection.ts';
+import { fromGatewaySnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
 
 const states = { STOPPED: 'Stopped', INSTALLING: 'Installing', STARTING: 'Starting / probing', RUNNING: 'Running', PORT_CONFLICT: 'Port conflict', UNAUTHORIZED: 'Unauthorized', BACKOFF: 'Waiting to restart', FAILED: 'Failed', STOPPING: 'Stopping' };
@@ -52,14 +52,12 @@ function providerError(provider: ModelProviderState) {
   return provider.errorCode ? reasons[provider.errorCode] ?? `The ${provider.provider === 'CHATGPT' ? 'ChatGPT' : 'DeepSeek'} route needs attention.` : null;
 }
 
-export function Models({ workspaceId }: { workspaceId: string }) {
+export function Models({ workspaceId, model: modelState, modelError, reloadModel }: { workspaceId: string; model?: ModelState; modelError?: unknown; reloadModel: () => Promise<unknown> }) {
   const gateway = useDomainProjection('model-gateway', workspaceId, fromGatewaySnapshot);
-  const model = useDomainProjection('model', workspaceId, fromModelSnapshot);
   const [busy, setBusy] = useState(false);
   const [modelBusy, setModelBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const state = gateway.data;
-  const modelState = model.data;
   const queryClient = useQueryClient();
   useEffect(() => { void queryClient.invalidateQueries({ queryKey: ['runtime'] }); }, [state?.stateVersion, modelState?.stateVersion, queryClient]);
   async function act(action: GatewayAction) {
@@ -79,7 +77,7 @@ export function Models({ workspaceId }: { workspaceId: string }) {
       else if (command === 'model.set_default') await request(command, { ...(payload as SetDefaultModel), workspaceId, expectedStateVersion: modelState.stateVersion });
       else await request(command, { ...(payload as SetFallbackPolicy), workspaceId, expectedStateVersion: modelState.stateVersion });
     } catch (error) { setError(error); }
-    finally { setModelBusy(false); await model.reload(); await gateway.reload(); }
+    finally { setModelBusy(false); await reloadModel(); await gateway.reload(); }
   }
   const gatewayRunning = state?.status === 'RUNNING';
   const verify = (provider: 'CHATGPT' | 'DEEPSEEK', modelId: string, thinkingType: ThinkingType | null) => { void modelAct('model.verify_route', { provider, modelId, thinkingType }); };
@@ -97,7 +95,7 @@ export function Models({ workspaceId }: { workspaceId: string }) {
   return <section className="model-settings" aria-labelledby="model-title">
     <h3 id="model-title">Models · CLIProxyAPI</h3>
     <p>Model inference uses an external provider through your local gateway. Broker credentials stay separate.</p>
-    {(error || gateway.error || model.error) != null && <p role="alert">{explainError(error || gateway.error || model.error)}</p>}
+    {(error || gateway.error || modelError) != null && <p role="alert">{explainError(error || gateway.error || modelError)}</p>}
     {state ? <>
       <p role="status"><strong>{states[state.status]}</strong> · Pinned version {state.pinnedVersion}</p>
       <p>Endpoint: <code>{state.endpoint}</code></p>
@@ -149,6 +147,6 @@ export function Models({ workspaceId }: { workspaceId: string }) {
       {modelState && modelState.attempts.length > 0 && <details className="model-attempts"><summary>Provider attempts ({modelState.attempts.length})</summary><ul>{[...modelState.attempts].reverse().slice(0, 5).map(attempt => <li key={attempt.attemptId}><strong>{attempt.kind ?? 'SETUP'} · {attempt.provider}</strong>{attempt.modelId ? ` · ${attempt.modelId}` : ''}{attempt.thinkingType ? ` · ${attempt.thinkingType}` : ''} · {attempt.outcome}{attempt.errorCategory ? ` · ${attempt.errorCategory}` : ''}<small>{attempt.endedAt}</small>{attempt.quota && <small>{[attempt.quota.remaining != null ? `Quota remaining ${attempt.quota.remaining}` : '', attempt.quota.window ?? '', attempt.quota.retryAfterSeconds != null ? `Retry after ${attempt.quota.retryAfterSeconds}s` : '', attempt.quota.resetAt ? `Reset ${attempt.quota.resetAt}` : ''].filter(Boolean).join(' · ')}</small>}</li>)}</ul></details>}
       {modelBusy && <p role="status">Updating model provider…</p>}
     </> : <p role="status">Loading model gateway…</p>}
-    <button onClick={() => { void gateway.reload(); void model.reload(); }}>Reload model state</button>
+    <button onClick={() => { void gateway.reload(); void reloadModel(); }}>Reload model state</button>
   </section>;
 }
