@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。本票已完成可恢复的 Workspace → Providers → Model → Risk defaults → Ready 工作流、风险策略持久化与公共门控。用户要求暂缓的 #12 真实 OAuth/上游模型验收仍未完成，因此本票不把 fixture 失败或无凭据路径升级为 Ready 通过。
 
-实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）、`28e4979`（React 入门与 Risk & Limits 页面）、`9f048dd`（Ready 未知账户与恢复路径门控）、`75dfefa`（required policy payload、账户行身份校验、单步导航约束与生成 schema）、`a3bf8bc`（持久化 risk 完整性、required nullable 输出和 route provider 身份门控）及 `54232de`（Ready 配置不变量与 fresh account health 门控）；规范提交：`66ed6de`、`75dfefa`；开发分支：`dev`。
+实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）、`28e4979`（React 入门与 Risk & Limits 页面）、`9f048dd`（Ready 未知账户与恢复路径门控）、`75dfefa`（required policy payload、账户行身份校验、单步导航约束与生成 schema）、`a3bf8bc`（持久化 risk 完整性、required nullable 输出和 route provider 身份门控）、`54232de`（Ready 配置不变量与 fresh account health 门控）及 `bc2608d`（已有工作区的 Workspace picker/switch flow）；规范提交：`66ed6de`、`75dfefa`；开发分支：`dev`。
 
 ## 已实现
 
@@ -16,7 +16,7 @@
 
 ## 自动化证据
 
-在最终代码 HEAD `54232de` 上通过：
+在最终代码 HEAD `bc2608d` 上通过：
 
 ```text
 cargo fmt --all -- --check
