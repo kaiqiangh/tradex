@@ -313,7 +313,7 @@ fn validate_public_payload(
                         && valid_string_array(accessions)
                         && valid_string_array(forms)
                         && valid_date_array(filing_dates)
-                        && accessions.as_array().map_or(false, |rows| {
+                        && accessions.as_array().is_some_and(|rows| {
                             forms
                                 .as_array()
                                 .is_some_and(|forms| forms.len() == rows.len())
