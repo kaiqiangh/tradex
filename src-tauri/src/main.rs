@@ -108,14 +108,29 @@ async fn control(
             }
             return reply;
         }
+        let runtime_access = (request.get("command").and_then(Value::as_str) == Some("turn.start"))
+            .then(|| {
+                request
+                    .get("payload")
+                    .and_then(|payload| payload.get("workspaceId"))
+                    .and_then(Value::as_str)
+                    .and_then(|workspace_id| {
+                        gateway
+                            .lock()
+                            .ok()
+                            .and_then(|host| host.codex_runtime_access(workspace_id))
+                    })
+            })
+            .flatten();
         let prepared = match engine.lock() {
             Ok(mut engine) => match engine.prepare_provider(&request) {
                 Ok(Some(job)) => job,
                 Ok(None) => {
-                    return engine.dispatch_with_events(
+                    return engine.dispatch_with_runtime(
                         request,
                         &consumer,
                         Some(Arc::new(move |event| events.send(event).is_ok())),
+                        runtime_access,
                     );
                 }
                 Err(error) => return failed(&request, &error.code),

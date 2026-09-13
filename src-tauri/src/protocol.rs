@@ -195,6 +195,7 @@ pub struct IpcSchema {
     pub provider_connect: Connect,
     pub thread_create: ThreadCreate,
     pub thread_query: ThreadQuery,
+    pub turn_start: TurnStart,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -303,6 +304,9 @@ pub struct TurnSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub account_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 16))]
+    pub account_environment: Option<String>,
     #[schemars(length(min = 1, max = 64))]
     pub capability_level: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -320,6 +324,9 @@ pub struct ThreadItem {
     pub item_type: String,
     pub status: ItemStatus,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub source_id: Option<String>,
     pub started_at: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<String>,
@@ -353,6 +360,9 @@ pub struct ThreadTurn {
     pub snapshot: TurnSnapshot,
     pub items: Vec<ThreadItem>,
     pub provider_attempts: Vec<ThreadProviderAttempt>,
+    pub started_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -432,6 +442,29 @@ pub struct ThreadQuery {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub thread_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TurnStart {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 100_000))]
+    pub message: String,
+    pub agent_mode: AgentMode,
+    pub execution_context: ExecutionContext,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<ThreadModel>,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub attached_contexts: Vec<ThreadContextRef>,
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
@@ -761,6 +794,71 @@ impl TradeXError {
                 "open_desktop",
                 "Open TradeX",
             ),
+            "TURN_MESSAGE_INVALID" => (
+                "Enter a non-empty request without control characters.",
+                "retry_request",
+                "Review request",
+            ),
+            "TURN_CONTEXT_INVALID" => (
+                "This mode and execution context cannot be used together.",
+                "choose_context",
+                "Choose a supported context",
+            ),
+            "TURN_ACCOUNT_REQUIRED" => (
+                "Select the account that belongs to this execution context.",
+                "select_account",
+                "Select account",
+            ),
+            "TURN_ACCOUNT_INVALID" => (
+                "The selected account does not match this execution context.",
+                "select_account",
+                "Choose a matching account",
+            ),
+            "TURN_ALREADY_RUNNING" => (
+                "This Thread already has a running Turn.",
+                "wait_for_turn",
+                "Wait for Turn",
+            ),
+            "CODEX_RUNTIME_NOT_CONFIGURED" => (
+                "Codex App Server is not configured for this workspace.",
+                "configure_runtime",
+                "Configure runtime",
+            ),
+            "CODEX_RUNTIME_START_FAILED" => (
+                "Codex App Server could not be started. The request was preserved.",
+                "retry_turn",
+                "Retry Turn",
+            ),
+            "CODEX_RUNTIME_TIMEOUT" => (
+                "Codex App Server timed out. The partial Turn was preserved.",
+                "retry_turn",
+                "Retry Turn",
+            ),
+            "CODEX_PROCESS_EXITED" => (
+                "Codex App Server exited before the Turn completed. The partial Turn was preserved.",
+                "retry_turn",
+                "Retry Turn",
+            ),
+            "CODEX_FRAME_INVALID" => (
+                "Codex App Server returned an invalid stream frame. The Turn was failed safely.",
+                "retry_turn",
+                "Retry Turn",
+            ),
+            "CODEX_PROTOCOL_UNSUPPORTED" => (
+                "The installed Codex App Server protocol is incompatible with this build.",
+                "check_version",
+                "Check Codex version",
+            ),
+            "CODEX_EVENT_GAP" => (
+                "The Codex stream was interrupted. Reload the Thread before retrying.",
+                "reload_snapshot",
+                "Reload Thread",
+            ),
+            "CODEX_UPSTREAM_ERROR" => (
+                "Codex App Server reported a bounded runtime error. The Turn was preserved.",
+                "retry_turn",
+                "Retry Turn",
+            ),
             "RISK_POLICY_INVALID" => (
                 "Enter valid risk defaults within the stated decimal and time bounds.",
                 "review_risk",
@@ -806,6 +904,18 @@ impl TradeXError {
                 "OAUTH_EXPIRED"
             } else if matches!(code, "MODEL_QUOTA_EXCEEDED" | "MODEL_QUOTA_COOLDOWN") {
                 "QUOTA_EXCEEDED"
+            } else if matches!(
+                code,
+                "CODEX_RUNTIME_NOT_CONFIGURED"
+                    | "CODEX_RUNTIME_START_FAILED"
+                    | "CODEX_RUNTIME_TIMEOUT"
+                    | "CODEX_PROCESS_EXITED"
+                    | "CODEX_FRAME_INVALID"
+                    | "CODEX_PROTOCOL_UNSUPPORTED"
+                    | "CODEX_EVENT_GAP"
+                    | "CODEX_UPSTREAM_ERROR"
+            ) {
+                "RUNTIME_ERROR"
             } else if code.starts_with("MODEL_")
                 || code == "PROVIDER_AUTH_FAILED"
                 || code.starts_with("CREDENTIAL_")
@@ -845,6 +955,11 @@ impl TradeXError {
                     | "MODEL_LOGIN_FAILED"
                     | "MODEL_LOGIN_TIMEOUT"
                     | "MODEL_TEST_INFERENCE_FAILED"
+                    | "CODEX_RUNTIME_START_FAILED"
+                    | "CODEX_RUNTIME_TIMEOUT"
+                    | "CODEX_PROCESS_EXITED"
+                    | "CODEX_FRAME_INVALID"
+                    | "CODEX_UPSTREAM_ERROR"
             ),
             blocking: true,
             remediation_actions: vec![Remediation {

@@ -77,6 +77,7 @@ declare const validators: {
   ThreadTurn: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;
   TurnSnapshot: (value: unknown) => boolean;
+  TurnStart: (value: unknown) => boolean;
   TurnStatus: (value: unknown) => boolean;
   VerifyRoute: (value: unknown) => boolean;
   Workspace: (value: unknown) => boolean;

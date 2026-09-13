@@ -70,6 +70,9 @@
     "threadQuery": {
       "$ref": "#/$defs/ThreadQuery"
     },
+    "turnStart": {
+      "$ref": "#/$defs/TurnStart"
+    },
     "verifyRoute": {
       "$ref": "#/$defs/VerifyRoute"
     },
@@ -105,7 +108,8 @@
     "accountMutation",
     "providerConnect",
     "threadCreate",
-    "threadQuery"
+    "threadQuery",
+    "turnStart"
   ],
   "$defs": {
     "AccountConnection": {
@@ -2287,6 +2291,14 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "sourceId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
         "startedAt": {
           "type": "string"
         },
@@ -2468,6 +2480,12 @@
     "ThreadTurn": {
       "type": "object",
       "properties": {
+        "completedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "items": {
           "type": "array",
           "items": {
@@ -2482,6 +2500,9 @@
         },
         "snapshot": {
           "$ref": "#/$defs/TurnSnapshot"
+        },
+        "startedAt": {
+          "type": "string"
         },
         "status": {
           "$ref": "#/$defs/TurnStatus"
@@ -2498,7 +2519,8 @@
         "status",
         "snapshot",
         "items",
-        "providerAttempts"
+        "providerAttempts",
+        "startedAt"
       ]
     },
     "TradeXError": {
@@ -2539,6 +2561,14 @@
     "TurnSnapshot": {
       "type": "object",
       "properties": {
+        "accountEnvironment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
         "accountId": {
           "type": [
             "string",
@@ -2591,6 +2621,72 @@
         "capabilityLevel",
         "attachedContexts",
         "startedAt"
+      ]
+    },
+    "TurnStart": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "agentMode": {
+          "$ref": "#/$defs/AgentMode"
+        },
+        "attachedContexts": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
+        "executionContext": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 100000,
+          "minLength": 1
+        },
+        "model": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ThreadModel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "threadId",
+        "expectedStateVersion",
+        "message",
+        "agentMode",
+        "executionContext"
       ]
     },
     "TurnStatus": {

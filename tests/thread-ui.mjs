@@ -20,8 +20,24 @@ export async function checkThreadUI(tab, browser) {
     assert.ok(await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).count() >= 2, 'New Thread should appear in sidebar and history immediately');
     assert.equal(await ui.getByText('Mode: RESEARCH', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('Execution: NONE_READ_ONLY', { exact: true }).isVisible(), true);
-    assert.equal(await ui.getByText('No turns have started. Send remains unavailable until the Codex runtime slice is complete.', { exact: true }).isVisible(), true);
+    assert.equal(await ui.getByText('No turns have started. Send a request to begin the read-only timeline.', { exact: true }).isVisible(), true);
     observed.push('Thread create persists its title and mode/context defaults before any Turn exists.');
+
+    await ui.getByLabel('Turn request', { exact: true }).fill('Summarize the evidence');
+    await ui.getByRole('button', { name: 'Send', exact: true }).click();
+    const turnStatus = ui.getByRole('status', { name: 'Turn 1 status', exact: true });
+    await turnStatus.waitFor({ state: 'visible' });
+    let sawRunning = (await turnStatus.innerText()) === 'RUNNING';
+    for (let attempt = 0; attempt < 40 && (await turnStatus.innerText()) !== 'COMPLETED'; attempt += 1) {
+      await ui.waitForTimeout(25);
+      sawRunning ||= (await turnStatus.innerText()) === 'RUNNING';
+    }
+    assert.equal(sawRunning, true, 'Turn should expose RUNNING before completion');
+    assert.equal(await ui.getByText('user message', { exact: true }).isVisible(), true);
+    await ui.getByText('Read-only response for: Summarize the evidence', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await turnStatus.innerText(), 'COMPLETED');
+    assert.match(await ui.getByText('Provider attempt:', { exact: false }).innerText(), /SUCCEEDED/);
+    observed.push('A fake App Server handshake produces a persisted running Turn, typed user/agent timeline and completed provider attempt.');
 
     await tab.reload();
     await ui.getByRole('button', { name: 'Threads', exact: true }).click();
@@ -29,6 +45,7 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).last().click();
     await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('alert').count(), 0);
+    assert.equal(await ui.getByText('Read-only response for: Summarize the evidence', { exact: true }).isVisible(), true);
     observed.push('Thread history and its selected detail survive renderer/workspace reload.');
 
     for (const width of [768, 390]) {

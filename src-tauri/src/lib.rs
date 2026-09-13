@@ -1,3 +1,4 @@
+pub mod codex_runtime;
 pub mod gateway;
 #[cfg(target_os = "macos")]
 pub mod gateway_process;
@@ -13,9 +14,10 @@ pub mod risk;
 mod storage;
 
 use protocol::{
-    Aggregate, CommandEnvelope, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
-    OpenWorkspace, Result, RuntimeComponent, RuntimeStatus, Subscribe, Thread, ThreadCreate,
-    ThreadQuery, TradeXError,
+    AgentMode, Aggregate, CommandEnvelope, DomainProjection, EmptyPayload, EventSink,
+    ExecutionContext, MAX_SEQUENCE, OpenWorkspace, Result, RuntimeComponent, RuntimeStatus,
+    Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery,
+    ThreadTurn, TradeXError, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -52,13 +54,23 @@ impl ControlPlane {
         consumer: &str,
         sink: Option<EventSink>,
     ) -> Value {
+        self.dispatch_with_runtime(request, consumer, sink, None)
+    }
+
+    pub fn dispatch_with_runtime(
+        &mut self,
+        request: Value,
+        consumer: &str,
+        sink: Option<EventSink>,
+        runtime_access: Option<codex_runtime::RuntimeAccess>,
+    ) -> Value {
         let id = request
             .get("requestId")
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty() && s.len() <= 128)
             .unwrap_or("invalid-request")
             .to_owned();
-        match self.execute(request, consumer, sink) {
+        match self.execute(request, consumer, sink, runtime_access.as_ref()) {
             Ok((data, version)) => {
                 let mut reply = json!({"requestId":id,"schemaVersion":1,"ok":true,"data":data});
                 if let Some(version) = version {
@@ -75,6 +87,7 @@ impl ControlPlane {
         value: Value,
         consumer: &str,
         sink: Option<EventSink>,
+        runtime_access: Option<&codex_runtime::RuntimeAccess>,
     ) -> Result<(Value, Option<String>)> {
         match value.get("schemaVersion").and_then(Value::as_u64) {
             Some(1) => (),
@@ -201,6 +214,7 @@ impl ControlPlane {
             }
             "runtime.status" => {
                 let _: EmptyPayload = payload(request.payload)?;
+                let codex_available = codex_runtime::AppServerConfig::available();
                 let gateway_running = self
                     .store
                     .as_ref()
@@ -212,8 +226,9 @@ impl ControlPlane {
                         .as_ref()
                         .and_then(|store| store.model().ok())
                         .is_some_and(|model| model.thread_plan().is_ok());
-                let runtime = RuntimeStatus {
-                    components: vec![
+                let runtime =
+                    RuntimeStatus {
+                        components: vec![
                         RuntimeComponent {
                             id: "control-plane".into(),
                             status: "RUNNING".into(),
@@ -221,8 +236,12 @@ impl ControlPlane {
                         },
                         RuntimeComponent {
                             id: "codex".into(),
-                            status: "NOT_CONFIGURED".into(),
-                            message: "Codex App Server is not configured.".into(),
+                            status: if codex_available { "READY" } else { "NOT_CONFIGURED" }.into(),
+                            message: if codex_available {
+                                "Bounded stdio Codex App Server is available.".into()
+                            } else {
+                                "Codex App Server executable was not found.".into()
+                            },
                         },
                         RuntimeComponent {
                             id: "cliproxyapi".into(),
@@ -243,9 +262,9 @@ impl ControlPlane {
                             message: "Live execution is unavailable.".into(),
                         },
                     ],
-                    model_available,
-                    live_execution_available: false,
-                };
+                        model_available,
+                        live_execution_available: false,
+                    };
                 Ok((json!(runtime), None))
             }
             "domain.snapshot" => {
@@ -326,6 +345,10 @@ impl ControlPlane {
             "thread.create" => {
                 let input: ThreadCreate = payload(request.payload)?;
                 self.create_thread(input)
+            }
+            "turn.start" => {
+                let input: TurnStart = payload(request.payload)?;
+                self.start_turn(input, runtime_access)
             }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;
@@ -604,6 +627,336 @@ impl ControlPlane {
         let version = thread.state_version.clone();
         self.publish(&event);
         Ok((json!(thread), Some(version)))
+    }
+
+    fn start_turn(
+        &mut self,
+        input: TurnStart,
+        runtime_access: Option<&codex_runtime::RuntimeAccess>,
+    ) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        if input.message.trim().is_empty()
+            || input.message.chars().count() > 100_000
+            || input.message.chars().any(char::is_control)
+        {
+            return Err(TradeXError::new("TURN_MESSAGE_INVALID"));
+        }
+        validate_turn_context(&input.agent_mode, &input.execution_context)?;
+        validate_contexts(&input.attached_contexts)?;
+
+        let existing = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+        if existing.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if existing
+            .turns
+            .iter()
+            .any(|turn| turn.status == protocol::TurnStatus::Running)
+        {
+            return Err(TradeXError::new("TURN_ALREADY_RUNNING"));
+        }
+
+        let account_id = input.account_id.clone().or(existing.account_id.clone());
+        let account_environment = validate_turn_account(
+            self.store.as_ref().unwrap(),
+            account_id.as_deref(),
+            &input.execution_context,
+        )?;
+        let route = self.resolve_turn_route(input.model.as_ref(), existing.model.as_ref())?;
+        let model = thread_model_from_route(&route);
+        let attached_contexts = if input.attached_contexts.is_empty() {
+            existing.linked_contexts.clone()
+        } else {
+            input.attached_contexts.clone()
+        };
+        let now = storage::timestamp()?;
+        let turn_id = uuid::Uuid::new_v4().to_string();
+        let turn = ThreadTurn {
+            turn_id: turn_id.clone(),
+            status: protocol::TurnStatus::Running,
+            snapshot: TurnSnapshot {
+                turn_id: turn_id.clone(),
+                agent_mode: input.agent_mode.clone(),
+                execution_context: input.execution_context.clone(),
+                account_id: account_id.clone(),
+                account_environment,
+                capability_level: turn_capability(&input.agent_mode).into(),
+                model: Some(model.clone()),
+                attached_contexts,
+                started_at: now.clone(),
+            },
+            items: vec![ThreadItem {
+                item_id: uuid::Uuid::new_v4().to_string(),
+                item_type: "user_message".into(),
+                status: protocol::ItemStatus::Completed,
+                content: input.message.clone(),
+                source_id: None,
+                started_at: now.clone(),
+                completed_at: Some(now.clone()),
+            }],
+            provider_attempts: vec![ThreadProviderAttempt {
+                attempt_id: uuid::Uuid::new_v4().to_string(),
+                provider: model.provider.clone(),
+                model_id: model.model_id.clone(),
+                started_at: now.clone(),
+                ended_at: None,
+                outcome: "RUNNING".into(),
+                error_code: None,
+            }],
+            started_at: now,
+            completed_at: None,
+        };
+        let mut started = existing.clone();
+        started.turns.push(turn);
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(started, "thread.updated")?;
+        self.publish(&event);
+
+        let runtime_request = codex_runtime::RuntimeRequest {
+            codex_thread_id: existing.codex_thread_id,
+            model,
+            message: input.message,
+        };
+        let mut seen = std::collections::HashSet::new();
+        let runtime_result =
+            codex_runtime::run(&runtime_request, runtime_access, &mut |runtime_event| {
+                if !seen.insert(runtime_event_key(&runtime_event)) {
+                    return Ok(());
+                }
+                self.apply_runtime_event(&input.thread_id, &turn_id, runtime_event)
+            });
+        if let Err(error) = runtime_result {
+            self.fail_turn(&input.thread_id, &turn_id, &error)?;
+        }
+        let thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+        if let Some(turn) = thread
+            .turns
+            .iter()
+            .find(|turn| turn.turn_id == turn_id)
+            .cloned()
+        {
+            self.record_model_attempt(&runtime_request.model, &turn.snapshot.started_at, &turn)?;
+        }
+        let version = thread.state_version.clone();
+        Ok((json!(thread), Some(version)))
+    }
+
+    fn record_model_attempt(
+        &mut self,
+        model: &ThreadModel,
+        started_at: &str,
+        turn: &ThreadTurn,
+    ) -> Result<()> {
+        let selection = model_selection(model)?;
+        let ended_at = turn
+            .completed_at
+            .clone()
+            .unwrap_or_else(|| started_at.to_owned());
+        let last_attempt = turn.provider_attempts.last();
+        let outcome = if turn.status == protocol::TurnStatus::Completed {
+            model::ModelAttemptOutcome::Verified
+        } else {
+            model::ModelAttemptOutcome::Failed
+        };
+        let mut state = self.store.as_ref().unwrap().model()?;
+        state.append_attempt(model::ModelAttempt {
+            attempt_id: uuid::Uuid::new_v4().to_string(),
+            provider: selection.provider,
+            model_id: Some(selection.model_id),
+            thinking_type: selection.thinking_type,
+            started_at: started_at.to_owned(),
+            ended_at,
+            kind: model::ModelAttemptKind::Thread,
+            outcome,
+            error_category: last_attempt
+                .and_then(|attempt| attempt.error_code.as_deref())
+                .map(|code| TradeXError::new(code).category),
+            quota: None,
+        });
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(state, "model.provider_attempt.changed")?;
+        self.publish(&event);
+        Ok(())
+    }
+
+    fn resolve_turn_route(
+        &self,
+        requested: Option<&ThreadModel>,
+        fallback: Option<&ThreadModel>,
+    ) -> Result<model::ModelRoute> {
+        let state = self.store.as_ref().unwrap().model()?;
+        let requested = requested.or(fallback);
+        let route = if let Some(selection) = requested {
+            let selection = model_selection(selection)?;
+            state.verified_route(&selection)
+        } else {
+            state.thread_plan().ok().map(|plan| plan.primary)
+        };
+        if let Some(route) = route {
+            return Ok(route);
+        }
+        #[cfg(feature = "integration-test")]
+        if let Some(selection) = requested {
+            return Ok(model_route_for_integration(selection)?);
+        }
+        Err(TradeXError::new("MODEL_UNAVAILABLE"))
+    }
+
+    fn apply_runtime_event(
+        &mut self,
+        thread_id: &str,
+        turn_id: &str,
+        event: codex_runtime::RuntimeEvent,
+    ) -> Result<()> {
+        self.update_thread(thread_id, |thread| {
+            let turn = thread
+                .turns
+                .iter_mut()
+                .find(|turn| turn.turn_id == turn_id)
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            if turn.status != protocol::TurnStatus::Running {
+                return Ok(());
+            }
+            match event {
+                codex_runtime::RuntimeEvent::ThreadStarted { thread_id, .. } => {
+                    thread.codex_thread_id = Some(thread_id);
+                }
+                codex_runtime::RuntimeEvent::TurnStarted { .. } => {}
+                codex_runtime::RuntimeEvent::ItemStarted {
+                    item_id, item_type, ..
+                } => {
+                    if item_type == "user_message" {
+                        link_user_item(turn, &item_id);
+                    } else if !turn.items.iter().any(|item| item.item_id == item_id) {
+                        turn.items.push(ThreadItem {
+                            item_id,
+                            item_type,
+                            status: protocol::ItemStatus::Started,
+                            content: String::new(),
+                            source_id: None,
+                            started_at: storage::timestamp()?,
+                            completed_at: None,
+                        });
+                    }
+                }
+                codex_runtime::RuntimeEvent::ItemDelta {
+                    item_id,
+                    item_type,
+                    delta,
+                    ..
+                } => {
+                    if item_type == "user_message" {
+                        link_user_item(turn, &item_id);
+                    } else {
+                        let item = find_or_add_item(turn, &item_id, &item_type)?;
+                        if item.content.chars().count() + delta.chars().count() > 100_000 {
+                            return Err(TradeXError::new("CODEX_FRAME_INVALID"));
+                        }
+                        item.content.push_str(&delta);
+                        item.status = protocol::ItemStatus::Streaming;
+                    }
+                }
+                codex_runtime::RuntimeEvent::ItemCompleted {
+                    item_id,
+                    item_type,
+                    content,
+                    ..
+                } => {
+                    if item_type == "user_message" {
+                        link_user_item(turn, &item_id);
+                    } else {
+                        let item = find_or_add_item(turn, &item_id, &item_type)?;
+                        if let Some(content) = content.filter(|content| !content.is_empty()) {
+                            if content.chars().count() > 100_000 {
+                                return Err(TradeXError::new("CODEX_FRAME_INVALID"));
+                            }
+                            item.content = content;
+                        }
+                        item.status = protocol::ItemStatus::Completed;
+                        item.completed_at = Some(storage::timestamp()?);
+                    }
+                }
+                codex_runtime::RuntimeEvent::TurnCompleted { .. } => {
+                    turn.status = protocol::TurnStatus::Completed;
+                    turn.completed_at = Some(storage::timestamp()?);
+                    for item in &mut turn.items {
+                        if matches!(
+                            item.status,
+                            protocol::ItemStatus::Started | protocol::ItemStatus::Streaming
+                        ) {
+                            item.status = protocol::ItemStatus::Completed;
+                            item.completed_at = turn.completed_at.clone();
+                        }
+                    }
+                    finish_attempt(turn, "SUCCEEDED", None)?;
+                }
+            }
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    fn fail_turn(&mut self, thread_id: &str, turn_id: &str, error: &TradeXError) -> Result<()> {
+        self.update_thread(thread_id, |thread| {
+            let turn = thread
+                .turns
+                .iter_mut()
+                .find(|turn| turn.turn_id == turn_id)
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            if turn.status != protocol::TurnStatus::Running {
+                return Ok(());
+            }
+            turn.status = protocol::TurnStatus::Failed;
+            turn.completed_at = Some(storage::timestamp()?);
+            finish_attempt(turn, "FAILED", Some(error.code.clone()))?;
+            turn.items.push(ThreadItem {
+                item_id: uuid::Uuid::new_v4().to_string(),
+                item_type: "error".into(),
+                status: protocol::ItemStatus::Failed,
+                content: error.message.clone(),
+                source_id: None,
+                started_at: turn.completed_at.clone().unwrap_or_default(),
+                completed_at: turn.completed_at.clone(),
+            });
+            for item in &mut turn.items {
+                if matches!(
+                    item.status,
+                    protocol::ItemStatus::Started | protocol::ItemStatus::Streaming
+                ) {
+                    item.status = protocol::ItemStatus::Failed;
+                    item.completed_at = turn.completed_at.clone();
+                }
+            }
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    fn update_thread<F>(&mut self, thread_id: &str, mutate: F) -> Result<Thread>
+    where
+        F: FnOnce(&mut Thread) -> Result<()>,
+    {
+        let mut thread = self.store.as_ref().unwrap().thread(thread_id)?;
+        mutate(&mut thread)?;
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(thread, "thread.updated")?;
+        self.publish(&event);
+        match event.payload {
+            DomainProjection::Thread(thread) => Ok(*thread),
+            _ => unreachable!(),
+        }
     }
 
     fn set_fallback_policy(
@@ -1316,6 +1669,192 @@ fn validate_aggregate(kind: &str, id: &str) -> Result<()> {
     }
 }
 
+fn validate_turn_context(mode: &AgentMode, context: &ExecutionContext) -> Result<()> {
+    if matches!(mode, AgentMode::Trade)
+        && matches!(
+            context,
+            ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation
+        )
+    {
+        return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_contexts(contexts: &[protocol::ThreadContextRef]) -> Result<()> {
+    if contexts.len() > 32 {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    if contexts.iter().any(|context| {
+        context.kind.trim().is_empty()
+            || context.id.trim().is_empty()
+            || context.hash.trim().is_empty()
+            || context.kind.chars().count() > 64
+            || context.id.chars().count() > 256
+            || context.hash.chars().count() > 256
+            || context.kind.chars().any(char::is_control)
+            || context.id.chars().any(char::is_control)
+            || context.hash.chars().any(char::is_control)
+    }) {
+        return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_turn_account(
+    store: &Store,
+    account_id: Option<&str>,
+    context: &ExecutionContext,
+) -> Result<Option<String>> {
+    let expected = match context {
+        ExecutionContext::AlpacaPaper => Some(("alpaca", "PAPER")),
+        ExecutionContext::Trading212Demo => Some(("trading212", "DEMO")),
+        ExecutionContext::Trading212Live => Some(("trading212", "LIVE")),
+        ExecutionContext::BinanceTestnet => Some(("binance", "TESTNET")),
+        ExecutionContext::BinanceLive => Some(("binance", "LIVE")),
+        ExecutionContext::BitgetDemo => Some(("bitget", "DEMO")),
+        ExecutionContext::BitgetLive => Some(("bitget", "LIVE")),
+        ExecutionContext::NoneReadOnly
+        | ExecutionContext::HistoricalSimulation
+        | ExecutionContext::LocalPaper => None,
+    };
+    let Some(account_id) = account_id else {
+        return if expected.is_some() {
+            Err(TradeXError::new("TURN_ACCOUNT_REQUIRED"))
+        } else {
+            Ok(None)
+        };
+    };
+    let account = store.account(account_id)?;
+    if let Some((provider, environment)) = expected
+        && (account.provider_id != provider || account.environment != environment)
+    {
+        return Err(TradeXError::new("TURN_ACCOUNT_INVALID"));
+    }
+    if account.connection_state != ConnectionState::Connected {
+        return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+    }
+    Ok(Some(account.environment))
+}
+
+fn model_selection(model: &ThreadModel) -> Result<model::ModelSelection> {
+    let provider = match model.provider.as_str() {
+        "CHATGPT" => model::ModelProvider::Chatgpt,
+        "DEEPSEEK" => model::ModelProvider::Deepseek,
+        _ => return Err(TradeXError::new("MODEL_ROUTE_INVALID")),
+    };
+    let thinking_type = match model.thinking_type.as_deref() {
+        None => None,
+        Some("disabled") => Some(model::ThinkingType::Disabled),
+        Some("enabled") => Some(model::ThinkingType::Enabled),
+        Some(_) => return Err(TradeXError::new("MODEL_ROUTE_INVALID")),
+    };
+    if !model::allowed_route(&provider, &model.model_id, thinking_type.as_ref()) {
+        return Err(TradeXError::new("MODEL_ROUTE_INVALID"));
+    }
+    Ok(model::ModelSelection {
+        provider,
+        model_id: model.model_id.clone(),
+        thinking_type,
+    })
+}
+
+fn thread_model_from_route(route: &model::ModelRoute) -> ThreadModel {
+    ThreadModel {
+        provider: match &route.provider {
+            model::ModelProvider::Chatgpt => "CHATGPT",
+            model::ModelProvider::Deepseek => "DEEPSEEK",
+        }
+        .into(),
+        model_id: route.model_id.clone(),
+        thinking_type: route.thinking_type.as_ref().map(|mode| {
+            match mode {
+                model::ThinkingType::Disabled => "disabled",
+                model::ThinkingType::Enabled => "enabled",
+            }
+            .into()
+        }),
+    }
+}
+
+#[cfg(feature = "integration-test")]
+fn model_route_for_integration(model: &ThreadModel) -> Result<model::ModelRoute> {
+    let selection = model_selection(model)?;
+    Ok(model::ModelRoute {
+        provider: selection.provider,
+        model_id: selection.model_id,
+        thinking_type: selection.thinking_type,
+        verified_at: Some("integration-test".into()),
+    })
+}
+
+fn turn_capability(mode: &AgentMode) -> &'static str {
+    match mode {
+        AgentMode::Ask => "READ_ONLY",
+        AgentMode::Research => "RESEARCH_READ_ONLY",
+        AgentMode::Backtest => "BACKTEST_SIMULATION",
+        AgentMode::Trade => "TRADE_PENDING_APPROVAL",
+    }
+}
+
+fn link_user_item(turn: &mut ThreadTurn, source_id: &str) {
+    if let Some(item) = turn
+        .items
+        .iter_mut()
+        .find(|item| item.item_type == "user_message")
+    {
+        item.source_id = Some(source_id.to_owned());
+    }
+}
+
+fn find_or_add_item<'a>(
+    turn: &'a mut ThreadTurn,
+    item_id: &str,
+    item_type: &str,
+) -> Result<&'a mut ThreadItem> {
+    if !turn.items.iter().any(|item| item.item_id == item_id) {
+        turn.items.push(ThreadItem {
+            item_id: item_id.to_owned(),
+            item_type: item_type.to_owned(),
+            status: protocol::ItemStatus::Started,
+            content: String::new(),
+            source_id: Some(item_id.to_owned()),
+            started_at: storage::timestamp()?,
+            completed_at: None,
+        });
+    }
+    turn.items
+        .iter_mut()
+        .find(|item| item.item_id == item_id)
+        .ok_or_else(|| TradeXError::new("CODEX_FRAME_INVALID"))
+}
+
+fn finish_attempt(turn: &mut ThreadTurn, outcome: &str, error_code: Option<String>) -> Result<()> {
+    let ended_at = storage::timestamp()?;
+    if let Some(attempt) = turn
+        .provider_attempts
+        .iter_mut()
+        .rev()
+        .find(|attempt| attempt.ended_at.is_none())
+    {
+        attempt.ended_at = Some(ended_at);
+        attempt.outcome = outcome.into();
+        attempt.error_code = error_code;
+    }
+    Ok(())
+}
+
+fn runtime_event_key(event: &codex_runtime::RuntimeEvent) -> String {
+    match event {
+        codex_runtime::RuntimeEvent::ThreadStarted { key, .. }
+        | codex_runtime::RuntimeEvent::TurnStarted { key }
+        | codex_runtime::RuntimeEvent::TurnCompleted { key } => key.clone(),
+        codex_runtime::RuntimeEvent::ItemStarted { key, .. }
+        | codex_runtime::RuntimeEvent::ItemDelta { key, .. }
+        | codex_runtime::RuntimeEvent::ItemCompleted { key, .. } => key.clone(),
+    }
+}
+
 #[cfg(test)]
 mod thread_tests {
     use super::*;
@@ -1444,6 +1983,125 @@ mod thread_tests {
         ));
         assert_eq!(result["ok"], false);
         assert_eq!(result["error"]["code"], "IPC_AGGREGATE_NOT_FOUND");
+    }
+
+    #[test]
+    fn turn_start_rejects_trade_without_an_execution_context() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+        let create = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": "Ask thread",
+                "defaultAgentMode": "ASK",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
+                "linkedContexts": []
+            }),
+        ));
+        let result = control.dispatch(request(
+            "turn.start",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": create["data"]["threadId"],
+                "expectedStateVersion": create["data"]["stateVersion"],
+                "message": "Should be rejected",
+                "agentMode": "TRADE",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": [],
+                "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
+            }),
+        ));
+        assert_eq!(result["ok"], false);
+        assert_eq!(result["error"]["code"], "TURN_CONTEXT_INVALID");
+    }
+}
+
+#[cfg(feature = "integration-test")]
+#[cfg(test)]
+mod turn_runtime_tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn fake_app_server_stream_is_persisted_before_completion() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(json!({
+            "requestId":"open",
+            "schemaVersion":1,
+            "command":"workspace.open",
+            "payload":{}
+        }));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let created = control.dispatch(json!({
+            "requestId":"create",
+            "schemaVersion":1,
+            "command":"thread.create",
+            "payload":{
+                "workspaceId":workspace_id,
+                "title":"Streaming thread",
+                "defaultAgentMode":"RESEARCH",
+                "defaultExecutionContext":"NONE_READ_ONLY",
+                "model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
+                "linkedContexts":[]
+            }
+        }));
+        let thread_id = created["data"]["threadId"].as_str().unwrap().to_owned();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let collected = events.clone();
+        let sink: EventSink = Arc::new(move |event| {
+            collected.lock().unwrap().push(event);
+            true
+        });
+        let subscribed = control.dispatch_with_events(
+            json!({
+                "requestId":"subscribe",
+                "schemaVersion":1,
+                "command":"domain.subscribe",
+                "payload":{"aggregateType":"thread","aggregateId":thread_id,"afterSequence":0}
+            }),
+            "turn-test",
+            Some(sink),
+        );
+        assert_eq!(subscribed["ok"], true);
+        let started = control.dispatch(json!({
+            "requestId":"turn",
+            "schemaVersion":1,
+            "command":"turn.start",
+            "payload":{
+                "workspaceId":workspace_id,
+                "threadId":thread_id,
+                "expectedStateVersion":created["data"]["stateVersion"],
+                "message":"Summarize the evidence",
+                "agentMode":"RESEARCH",
+                "executionContext":"NONE_READ_ONLY",
+                "attachedContexts":[{"kind":"artifact","id":"artifact-1","hash":"sha256:abc"}],
+                "model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
+            }
+        }));
+        assert_eq!(started["ok"], true, "{started}");
+        let thread = control.store.as_ref().unwrap().thread(&thread_id).unwrap();
+        let turn = thread.turns.last().unwrap();
+        assert_eq!(turn.status, protocol::TurnStatus::Completed);
+        assert_eq!(turn.items.len(), 2);
+        assert_eq!(turn.items[1].status, protocol::ItemStatus::Completed);
+        assert!(turn.items[1].content.contains("Read-only response"));
+        assert_eq!(turn.snapshot.attached_contexts[0].id, "artifact-1");
+        assert_eq!(turn.snapshot.attached_contexts[0].hash, "sha256:abc");
+        assert_eq!(turn.snapshot.account_environment, None);
+        assert_eq!(turn.provider_attempts[0].outcome, "SUCCEEDED");
+        assert!(thread.codex_thread_id.is_some());
+        let events = events.lock().unwrap();
+        assert!(events.len() >= 7, "expected initial + stream events");
+        assert!(
+            events
+                .windows(2)
+                .all(|pair| pair[1].sequence > pair[0].sequence)
+        );
     }
 }
 

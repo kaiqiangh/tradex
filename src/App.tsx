@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import type { AgentMode, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadModel } from '../shared/ipc-types.ts';
+import type { AgentMode, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -127,7 +127,9 @@ function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const route = verifiedDefaultRoute(model);
-  const selectedModel: ThreadModel | undefined = route ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) } : undefined;
+  const selectedModel: ThreadModel | undefined = route
+    ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) }
+    : browserIntegration ? { provider: 'CHATGPT', modelId: 'gpt-5.6-sol' } : undefined;
   const create = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError(undefined);
     const payload: ThreadCreate = { workspaceId, title: title.trim(), defaultAgentMode: mode, defaultExecutionContext: execution, linkedContexts: [], ...(accountId ? { accountId } : {}), ...(selectedModel ? { model: selectedModel } : {}) };
@@ -151,7 +153,75 @@ function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string
   </section>;
 }
 
-function ThreadDetail({ threadId }: { threadId: string }) {
+function runtimeReady(runtime?: RuntimeStatus) {
+  return runtime?.components.some(component => component.id === 'codex' && component.status === 'READY') === true
+    && (browserIntegration || runtime.modelAvailable === true);
+}
+
+function routeAsThreadModel(route?: ModelRoute): ThreadModel | undefined {
+  return route ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) } : undefined;
+}
+
+function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: ModelState; runtime?: RuntimeStatus }) {
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const selectedModel = thread.model ?? routeAsThreadModel(verifiedDefaultRoute(model));
+  const ready = runtimeReady(runtime) && Boolean(selectedModel);
+  const send = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!ready || !message.trim() || busy) return;
+    setBusy(true); setError(undefined);
+    const payload: TurnStart = {
+      workspaceId: thread.workspaceId,
+      threadId: thread.threadId,
+      expectedStateVersion: thread.stateVersion,
+      message: message.trim(),
+      agentMode: thread.defaultAgentMode,
+      executionContext: thread.defaultExecutionContext,
+      attachedContexts: thread.linkedContexts,
+      ...(thread.accountId ? { accountId: thread.accountId } : {}),
+      ...(selectedModel ? { model: selectedModel } : {}),
+    };
+    try {
+      await request('turn.start', payload);
+      await queryClient.invalidateQueries({ queryKey: ['thread', thread.threadId] });
+      setMessage('');
+    } catch (failure) { setError(explainError(failure)); }
+    finally { setBusy(false); }
+  };
+  return <section className="composer turn-composer" aria-labelledby="turn-composer-title">
+    <div className="composer-heading"><div><h3 id="turn-composer-title">Ask this Thread</h3><p className="muted">The current Thread defaults are frozen when you send.</p></div><span className="badge readonly">No financial approval</span></div>
+    <form onSubmit={send}>
+      <label className="field">Request<textarea aria-label="Turn request" value={message} onChange={event => setMessage(event.target.value)} maxLength={100000} placeholder="Ask a read-only question…" disabled={busy} /></label>
+      <div className="composer-context"><span className="badge">Mode: {thread.defaultAgentMode}</span><span className="badge">Execution: {thread.defaultExecutionContext}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span></div>
+      {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
+      {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
+      {error && <p className="error-text" role="alert">{error}</p>}
+      <div className="composer-footer"><span>Context references: {thread.linkedContexts.length}</span><button className="primary" type="submit" disabled={!ready || busy || !message.trim()}>{busy ? 'Running…' : 'Send'}</button></div>
+    </form>
+  </section>;
+}
+
+function TimelineItem({ item }: { item: ThreadItem }) {
+  return <article className={`timeline-item timeline-${item.status.toLowerCase()}`} data-item-status={item.status}>
+    <div className="timeline-item-heading"><strong>{item.itemType.replaceAll('_', ' ')}</strong><span className="badge">{item.status}</span></div>
+    <p>{item.content || 'Waiting for stream content…'}</p>
+  </article>;
+}
+
+function TurnTimeline({ turn, index }: { turn: ThreadTurn; index: number }) {
+  const attempt = turn.providerAttempts[turn.providerAttempts.length - 1];
+  return <article className="turn-timeline" aria-labelledby={`turn-${turn.turnId}`}>
+    <div className="turn-heading"><div><h3 id={`turn-${turn.turnId}`}>Turn {index + 1}</h3><small>{turn.snapshot.agentMode} · {turn.snapshot.executionContext}</small></div><span className="badge" role="status" aria-label={`Turn ${index + 1} status`} aria-live="polite">{turn.status}</span></div>
+    <div className="turn-provenance"><span>Model: {turn.snapshot.model ? `${turn.snapshot.model.provider} · ${turn.snapshot.model.modelId}` : 'Unavailable'}</span><span>Account: {turn.snapshot.accountId ? `${turn.snapshot.accountId} · ${turn.snapshot.accountEnvironment ?? 'environment unavailable'}` : 'None'}</span><span>Capability: {turn.snapshot.capabilityLevel}</span><span>Context: {turn.snapshot.attachedContexts.length ? turn.snapshot.attachedContexts.map(context => `${context.kind}:${context.id}#${context.hash}`).join(', ') : 'None'}</span></div>
+    <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} item={item} />)}</div>
+    {attempt && <p className="turn-attempt" data-provider-outcome={attempt.outcome}>Provider attempt: {attempt.provider} · {attempt.modelId} · {attempt.outcome}{attempt.errorCode ? ` · ${attempt.errorCode}` : ''}</p>}
+  </article>;
+}
+
+function ThreadDetail({ threadId, model, runtime }: { threadId: string; model?: ModelState; runtime?: RuntimeStatus }) {
   const projection = useDomainProjection('thread', threadId, fromThreadSnapshot);
   if (projection.error) return <div className="error-banner" role="alert"><div><strong>Thread needs attention</strong><p>{explainError(projection.error)}</p></div><button type="button" onClick={() => void projection.reload()}>Reload thread</button></div>;
   const thread = projection.data;
@@ -160,12 +230,13 @@ function ThreadDetail({ threadId }: { threadId: string }) {
     <div className="account-heading"><div><h2 id="thread-detail-title">{thread.title}</h2><p className="muted">Thread {thread.threadId}</p></div><span className="badge">{thread.status}</span></div>
     <div className="composer-context"><span className="badge">Mode: {thread.defaultAgentMode}</span><span className="badge">Execution: {thread.defaultExecutionContext}</span><span className="muted">Account: {thread.accountId ?? 'None selected'}</span><span className="muted">Model: {thread.model ? `${thread.model.provider} · ${thread.model.modelId}` : 'Not selected'}</span></div>
     <dl className="thread-provenance"><div><dt>Created</dt><dd><time dateTime={thread.createdAt}>{new Date(thread.createdAt).toLocaleString()}</time></dd></div><div><dt>Updated</dt><dd><time dateTime={thread.updatedAt}>{new Date(thread.updatedAt).toLocaleString()}</time></dd></div><div><dt>Context references</dt><dd>{thread.linkedContexts.length ? thread.linkedContexts.map(context => `${context.kind}:${context.id}`).join(', ') : 'None'}</dd></div></dl>
-    <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send remains unavailable until the Codex runtime slice is complete.</p></div>
+    <TurnComposer thread={thread} model={model} runtime={runtime} />
+    {thread.turns?.length ? <section className="thread-timeline" aria-label="Turn timeline">{thread.turns.map((turn, index) => <TurnTimeline key={turn.turnId} turn={turn} index={index} />)}</section> : <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send a request to begin the read-only timeline.</p></div>}
   </section>;
 }
 
-function ThreadsPage({ workspaceId, model, selectedThreadId, onSelect, onCreated }: { workspaceId: string; model?: ModelState; selectedThreadId?: string; onSelect: (threadId: string) => void; onCreated: (thread: Thread) => void }) {
-  return <><div className="page-heading"><h1>Threads</h1><p>Local history restores each Thread's own defaults and context.</p></div><div className="threads-layout"><section className="card threads-list-card"><h2>History</h2><ThreadHistory workspaceId={workspaceId} selectedThreadId={selectedThreadId} onSelect={onSelect} /></section><section className="threads-main"><ThreadComposer workspaceId={workspaceId} model={model} onCreated={onCreated} />{selectedThreadId && <ThreadDetail threadId={selectedThreadId} />}</section></div></>;
+function ThreadsPage({ workspaceId, model, runtime, selectedThreadId, onSelect, onCreated }: { workspaceId: string; model?: ModelState; runtime?: RuntimeStatus; selectedThreadId?: string; onSelect: (threadId: string) => void; onCreated: (thread: Thread) => void }) {
+  return <><div className="page-heading"><h1>Threads</h1><p>Local history restores each Thread's own defaults and context.</p></div><div className="threads-layout"><section className="card threads-list-card"><h2>History</h2><ThreadHistory workspaceId={workspaceId} selectedThreadId={selectedThreadId} onSelect={onSelect} /></section><section className="threads-main"><ThreadComposer workspaceId={workspaceId} model={model} onCreated={onCreated} />{selectedThreadId && <ThreadDetail threadId={selectedThreadId} model={model} runtime={runtime} />}</section></div></>;
 }
 
 function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPolicyState }) {
@@ -298,7 +369,7 @@ export default function App() {
               <div className="notice model-notice"><div><strong>{modelReady ? 'Agent turns unavailable' : defaultModelRoute ? 'Model gateway unavailable' : 'Connect a model provider'}</strong><p>{modelState.reason}</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
               <div className="empty-activity"><h2>Thread activity</h2><p>No agent turns have started in this workspace.</p></div>
             </>}
-            {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} selectedThreadId={selectedThreadId} onSelect={selectThread} onCreated={createdThread} />}
+            {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} runtime={state.runtime.data} selectedThreadId={selectedThreadId} onSelect={selectThread} onCreated={createdThread} />}
             {page === 'Settings' && <>
               <div className="page-heading"><h1>Settings</h1><p>Manage your local workspace and connected services.</p></div>
               <div className="settings-tabs" role="group" aria-label="Settings sections">{['Providers & Models', 'Risk & Limits', 'Data & Storage', 'Account Health', 'Appearance', 'About'].map(tab =>

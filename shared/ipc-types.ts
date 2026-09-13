@@ -164,6 +164,7 @@ export interface IpcSchema {
   subscribe: Subscribe;
   threadCreate: ThreadCreate;
   threadQuery: ThreadQuery;
+  turnStart: TurnStart;
   verifyRoute: VerifyRoute;
   workspaceOpen: OpenWorkspace;
   workspaceQuery: WorkspaceQuery;
@@ -550,9 +551,11 @@ export interface ThreadModel {
  * via the `definition` "ThreadTurn".
  */
 export interface ThreadTurn {
+  completedAt?: string | null;
   items: ThreadItem[];
   providerAttempts: ThreadProviderAttempt[];
   snapshot: TurnSnapshot;
+  startedAt: string;
   status: TurnStatus;
   turnId: string;
 }
@@ -565,6 +568,7 @@ export interface ThreadItem {
   content: string;
   itemId: string;
   itemType: string;
+  sourceId?: string | null;
   startedAt: string;
   status: ItemStatus;
 }
@@ -586,6 +590,7 @@ export interface ThreadProviderAttempt {
  * via the `definition` "TurnSnapshot".
  */
 export interface TurnSnapshot {
+  accountEnvironment?: string | null;
   accountId?: string | null;
   agentMode: AgentMode;
   attachedContexts: ThreadContextRef[];
@@ -848,6 +853,24 @@ export interface ThreadCreate {
  * via the `definition` "ThreadQuery".
  */
 export interface ThreadQuery {
+  threadId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TurnStart".
+ */
+export interface TurnStart {
+  accountId?: string | null;
+  agentMode: AgentMode;
+  /**
+   * @maxItems 32
+   */
+  attachedContexts?: ThreadContextRef[];
+  executionContext: ExecutionContext;
+  expectedStateVersion: string;
+  message: string;
+  model?: ThreadModel | null;
   threadId: string;
   workspaceId: string;
 }

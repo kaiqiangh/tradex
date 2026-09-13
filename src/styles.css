@@ -105,6 +105,23 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-provenance dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
 .composer-context { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; }
 .composer textarea { display: block; width: 100%; min-height: 100px; resize: none; background: white; border: 0; padding: 20px 0; color: var(--muted); font-size: 13px; }
+.turn-composer { margin-top: 18px; }
+.turn-composer textarea { min-height: 96px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: var(--text); resize: vertical; }
+.thread-timeline { display: grid; gap: 14px; margin-top: 18px; }
+.turn-timeline { border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: var(--surface2); }
+.turn-heading, .timeline-item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.turn-heading h3 { margin: 0; font-size: 13px; text-transform: none; }
+.turn-heading small, .turn-attempt { color: var(--muted); font-size: 10px; }
+.turn-provenance { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 12px 0; color: var(--muted); font-size: 10px; }
+.turn-provenance span { overflow-wrap: anywhere; }
+.timeline-items { display: grid; gap: 8px; }
+.timeline-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: white; }
+.timeline-item strong { text-transform: capitalize; font-size: 11px; }
+.timeline-item .badge { min-height: 22px; padding: 3px 8px; font-size: 9px; }
+.timeline-item p { margin: 8px 0 0; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.timeline-streaming { border-color: #93c5fd; }
+.timeline-failed { border-color: #fca5a5; background: #fff7f7; }
+.turn-attempt { margin: 12px 0 0; }
 .composer-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 10px; color: var(--muted); font-size: 11px; }
 .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px; border-radius: 9px; font-size: 12px; }
 .notice p { margin: 6px 0 0; font-size: 11px; }

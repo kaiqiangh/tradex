@@ -368,7 +368,7 @@ impl Store {
         let workspace_id = self.workspace_id()?;
         let mut query = self
             .connection
-            .prepare("SELECT thread_id, projection FROM threads WHERE workspace_id=?1 ORDER BY rowid DESC")
+            .prepare("SELECT thread_id, projection FROM threads WHERE workspace_id=?1 ORDER BY sequence DESC")
             .map_err(storage_error)?;
         let rows = query
             .query_map([workspace_id.as_str()], |row| {

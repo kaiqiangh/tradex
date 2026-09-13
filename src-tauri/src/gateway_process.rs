@@ -239,6 +239,15 @@ impl GatewayHost {
         self.deepseek_key_reload_pending
     }
 
+    pub fn codex_runtime_access(
+        &self,
+        workspace_id: &str,
+    ) -> Option<crate::codex_runtime::RuntimeAccess> {
+        (self.workspace.as_deref() == Some(workspace_id) && self.child.is_some())
+            .then(|| crate::codex_runtime::RuntimeAccess::for_gateway(self.key.as_str()))
+            .flatten()
+    }
+
     fn install(&mut self) -> Result<PathBuf> {
         if !cfg!(all(
             target_os = "macos",
