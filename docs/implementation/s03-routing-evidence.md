@@ -1,6 +1,6 @@
 # S03 / #13 模型路由、回退与配额恢复证据
 
-状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。#12 按用户指示暂缓外部 OAuth/真实上游验收；本票完成本地公共协议、持久化路由策略、回退规划、冷却门控和 Rust-backed UI 可验证范围。S04 的 Codex Thread/Turn 流式生命周期仍未开始。
+状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。本票完成本地公共协议、持久化路由策略、回退规划、冷却门控和 Rust-backed UI 可验证范围；#12 的 credentialed OAuth/上游 route 已在独立原生运行中通过，但 secure-entry Save、OAuth 取消/过期/超时 UI 和 S04 的 Codex Thread/Turn 流式生命周期仍未开始。
 
 实现提交：`f2603f8`（包含 `83e91c9`、`dfc8e16`、`22cff46`）；规范提交：`7d398ad`；开发分支：`dev`。
 
@@ -44,7 +44,7 @@ git diff --check
 
 ## 未验证边界
 
-没有使用真实 ChatGPT/DeepSeek 账户、OAuth token、API key 或上游推理；fixture 失败不能替代 #12 的外部验收。当前实现提供后续 S04 可消费的 planner 与 attempt contract，但不声称已完成 Codex stream、真实 Thread attempt、跨 provider fallback 的上游成功或五步 Ready。#12 外部验收完成后，仍需按串行顺序补 S04 运行时消费与完整 UI 回归。
+本票的 fixture 证据没有使用真实 ChatGPT/DeepSeek 账户、OAuth token、API key 或上游推理，且不能替代 #12 的外部验收；该段记录的是 credentialed route 运行之前的历史范围。当前实现提供后续 S04 可消费的 planner 与 attempt contract，但不声称已完成 Codex stream、真实 Thread attempt、跨 provider fallback 的上游成功或五步 Ready。#12 的 secure-entry Save 与 OAuth 取消/过期/超时 UI 补证后，仍需按串行顺序补 S04 运行时消费与完整 UI 回归。
 
 ## 串行代码审查
 

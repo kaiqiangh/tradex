@@ -1,6 +1,6 @@
 # S03 / #13 模型默认路由、回退与配额恢复 Spec
 
-状态：**READY FOR IMPLEMENTATION（#12 外部验收按用户指示暂缓）**。本票建立可供后续 Turn 使用的路由与 attempt 边界；不伪造 #12 的真实 OAuth/上游推理成功，也不实现 S04 的 Codex 流式生命周期。
+状态：**IMPLEMENTED LOCALLY（保持 OPEN，#12 的 secure-entry/OAuth 失败 UI 门槛仍待验收）**。本票建立可供后续 Turn 使用的路由与 attempt 边界；#12 的真实 OAuth/上游 route 证据已记录在 `s03-model-evidence.md`，本票仍不实现 S04 的 Codex 流式生命周期。
 
 ## Problem Statement
 
@@ -56,7 +56,7 @@
 
 ## Out of Scope
 
-Real ChatGPT OAuth, real DeepSeek credentials/upstream success, the native secure dialog, Codex App Server streaming, full Turn persistence, automatic model invocation transport, and complete five-step onboarding remain outside this ticket. #12 remains open until its independent external evidence is supplied.
+The native secure-dialog Save path and OAuth cancel/expiry/timeout UI remain outside this ticket. Codex App Server streaming, full Turn persistence, automatic model invocation transport, and complete five-step onboarding also remain outside this ticket. Credentialed ChatGPT/DeepSeek route evidence is recorded in `s03-model-evidence.md`; #12 remains open until its remaining independent UI evidence is supplied.
 
 ## Further Notes
 
