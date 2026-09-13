@@ -2,18 +2,19 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。本票已完成可恢复的 Workspace → Providers → Model → Risk defaults → Ready 工作流、风险策略持久化与公共门控。用户要求暂缓的 #12 真实 OAuth/上游模型验收仍未完成，因此本票不把 fixture 失败或无凭据路径升级为 Ready 通过。
 
-实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）与 `28e4979`（React 入门与 Risk & Limits 页面）；开发分支：`dev`。
+实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）、`28e4979`（React 入门与 Risk & Limits 页面）、`9f048dd`（Ready 未知账户与恢复路径门控）及 `75dfefa`（required policy payload、账户行身份校验、单步导航约束与生成 schema）；规范提交：`66ed6de`、`75dfefa`；开发分支：`dev`。
 
 ## 已实现
 
 - `RiskPolicy` 使用精确十进制字符串保存四个金额/敞口字段；金额默认留空，市场单默认关闭，stale quote 默认 3 秒，Live inactivity 默认 20 分钟。数值边界和非法科学计数法在 Rust trust boundary 拒绝。
 - `risk_state` 在 SQLite schema v5 中持久化 workspace、policy version、onboarding step、完成标记和只读四条硬安全规则；`risk.policy.changed` 事件进入 outbox、snapshot、replay 和前端 projection。
 - `risk.get_policy`、`risk.save_policy`、`onboarding.set_step`、`onboarding.complete` 都要求 workspace/state version。跳步、陈旧游标、未配置风险策略、未验证默认模型 route 或非 DISARMED Live 账户均 fail closed。
+- `risk.save_policy` 的七个字段在公共 wire payload 中全部必填；四个金额/敞口字段必须显式使用十进制字符串或 `null`。账户 projection 同时校验数据库 row key、projection `connectionId` 与 active workspace，外来/损坏行返回 `WORKSPACE_INTEGRITY_FAILED`；入门进度只允许前进或后退一步。
 - 入门页面复用既有 Accounts / Models surfaces；Workspace、Providers、Model、Risk defaults、Ready 五步可恢复。Ready 汇总 provider/model/fallback/Live arming，并在 Codex App Server 未配置时明确保持 Send disabled。Risk & Limits 页面将字段和硬规则作为可审阅的表单/只读列表呈现。
 
 ## 自动化证据
 
-在 `28e4979` 上通过：
+在 `75dfefa` 上通过：
 
 ```text
 cargo fmt --all -- --check
@@ -24,11 +25,11 @@ cargo clippy --features desktop --bin tradex -- -D warnings
 npm run check
 ```
 
-`npm run check` 包含 schema:check、TypeScript、Vite build、3 个前端 projection 单测、Rust workspace 和 `check_requirements.py`；最终 traceability 为 `201 requirements, 70 screens, 12 QA scenarios, 23 baseline files`。构建只有已有的 bundle size warning。风险专用单测覆盖默认值、精确小数/边界、非法输入、版本冲突、顺序门控、Ready 模型门控、完成和重开后恢复。
+`npm run check` 包含 schema:check、TypeScript、Vite build、3 个前端 projection 单测、Rust workspace 和 `check_requirements.py`；最终 traceability 为 `201 requirements, 70 screens, 12 QA scenarios, 23 baseline files`。构建只有已有的 bundle size warning。风险专用单测覆盖默认值、精确小数/边界、非法输入、缺少 policy 字段、版本冲突、外来账户行、单步前后导航、Ready 模型门控、完成和重开后恢复。
 
 ## Rust-backed 浏览器证据
 
-`npm run dev:browser` 使用隔离临时 SQLite workspace 和 fixture provider，不接触用户凭据。CUA 通过真实页面路径验证：
+`npm run dev:browser` 使用隔离临时 SQLite workspace 和 fixture provider，不接触用户凭据。以下页面证据是在初始实现提交 `28e4979` 的 Rust-backed 浏览器运行中采集；最终 review 修复由公共协议、schema 与自动化检查覆盖，需在可用桌面窗口中重新跑一遍完整 S33 才能升级为最终 UI 证据。CUA 通过真实页面路径验证：
 
 - Open workspace 后可依次进入 Workspace、Providers、Model；无已验证 route 时 Continue to Risk defaults 保持 disabled，并显示需要验证默认模型的原因。
 - 通过 Settings → Risk & Limits 检查四个可留空的金额/敞口字段、3 秒 stale quote、20 分钟 inactivity、OFF 市价单和四条 read-only hard rules；保存返回 `Saved policy v2/v3`。
@@ -55,4 +56,4 @@ npm run check
 ## 串行代码审查
 
 - Standards：格式、Clippy、schema、typecheck/build、Rust workspace、前端单测和 traceability 均通过。
-- Spec：风险字段、默认值、五步顺序、Ready/Send 门控、硬规则只读、错误分类和 state-version 约束与 PRD/UI §14/Backend §41–42 及 `model-onboarding.md` 一致；credentialed #12、S04 和完整 S33 证据明确保留为后续门槛。
+- Spec：风险字段、默认值、五步顺序、Ready/Send 门控、硬规则只读、required/nullable wire schema、账户完整性、单步导航、错误分类和 state-version 约束与 PRD/UI §14/Backend §41–42 及 `model-onboarding.md` 一致；credentialed #12、S04 和完整 S33 证据明确保留为后续门槛。
