@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tradex::{ControlPlane, protocol::EventSink};
+use tradex::{ControlPlane, RuntimeSupervisor, protocol::EventSink};
 
 #[cfg(feature = "integration-test")]
 #[path = "../../tests/support/provider_fixtures.rs"]
@@ -17,7 +17,8 @@ fn main() -> io::Result<()> {
         eprintln!("Usage: tradex-ipc <isolated-workspace-directory>");
         std::process::exit(2);
     };
-    let mut control = ControlPlane::new(PathBuf::from(path));
+    let control = Arc::new(Mutex::new(ControlPlane::new(PathBuf::from(path))));
+    let supervisor = RuntimeSupervisor::new();
     #[cfg(all(feature = "integration-test", target_os = "macos"))]
     let runtime_path =
         std::env::temp_dir().join(format!("tradex-model-ui-{}", uuid::Uuid::new_v4()));
@@ -53,65 +54,113 @@ fn main() -> io::Result<()> {
             } else {
                 serde_json::from_slice(&frame).unwrap_or(Value::Null)
             };
+            let command = request.get("command").and_then(Value::as_str);
+            if command == Some("workspace.open") {
+                supervisor.stop_all();
+            }
+            if command == Some("turn.start") || command == Some("turn.retry") {
+                let result = if command == Some("turn.start") {
+                    supervisor.start(control.clone(), request, None)
+                } else {
+                    supervisor.retry(control.clone(), request, None)
+                };
+                write_frame(&output, &json!({"kind":"result", "result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            if command == Some("turn.cancel") {
+                let result = supervisor.cancel(control.clone(), request);
+                write_frame(&output, &json!({"kind":"result", "result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             #[cfg(feature = "integration-test")]
-            let result = match control.prepare_provider(&request) {
-                Ok(Some(job)) => {
-                    let outcome = job.run(
-                        &vault,
-                        |definition| {
-                            if definition.provider_id == "bitget" {
-                                fixtures::bitget::credentials()
-                            } else {
-                                fixtures::credentials()
-                            }
-                        },
-                        &http,
-                        || control.provider_job_current(&job),
-                    );
-                    let reply = control.complete_provider(&job, outcome);
-                    if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, &vault) {
-                        control.record_credential_cleanup(&job, cleanup);
-                    }
-                    reply
-                }
-                Ok(None) | Err(_) => {
-                    control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()))
-                }
-            };
-            #[cfg(not(feature = "integration-test"))]
-            let result = control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()));
-            #[cfg(all(feature = "integration-test", target_os = "macos"))]
-            let result = match request.get("command").and_then(Value::as_str) {
-                Some("model.gateway") => match control.prepare_gateway(&request) {
+            let result = match control.lock() {
+                Ok(mut control) => match control.prepare_provider(&request) {
                     Ok(Some(job)) => {
-                        let outcome = gateway.run(&job, || control.gateway_job_current(&job));
-                        control.complete_gateway(&job, outcome)
+                        let outcome = job.run(
+                            &vault,
+                            |definition| {
+                                if definition.provider_id == "bitget" {
+                                    fixtures::bitget::credentials()
+                                } else {
+                                    fixtures::credentials()
+                                }
+                            },
+                            &http,
+                            || control.provider_job_current(&job),
+                        );
+                        let reply = control.complete_provider(&job, outcome);
+                        if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, &vault) {
+                            control.record_credential_cleanup(&job, cleanup);
+                        }
+                        reply
                     }
-                    Ok(None) => result,
-                    Err(error) => {
-                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
+                    Ok(None) | Err(_) => {
+                        control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()))
                     }
                 },
-                Some("model.configure_deepseek") | Some("model.verify_route") => {
-                    match control.prepare_model(&request) {
+                Err(_) => json!({
+                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                    "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                }),
+            };
+            #[cfg(not(feature = "integration-test"))]
+            let result = match control.lock() {
+                Ok(mut control) => {
+                    control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()))
+                }
+                Err(_) => json!({
+                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                    "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                }),
+            };
+            #[cfg(all(feature = "integration-test", target_os = "macos"))]
+            let result = match request.get("command").and_then(Value::as_str) {
+                Some("model.gateway") => match control.lock() {
+                    Ok(mut control) => match control.prepare_gateway(&request) {
                         Ok(Some(job)) => {
-                            let outcome = tradex::model::run_job(
-                                &job,
-                                &mut gateway,
-                                &model_vault,
-                                || {
-                                    tradex::model_credentials::ModelKey::new(
-                                        "integration-test-key".into(),
-                                    )
-                                },
-                                || control.model_job_current(&job),
-                            );
-                            control.complete_model(&job, outcome)
+                            let outcome = gateway.run(&job, || control.gateway_job_current(&job));
+                            control.complete_gateway(&job, outcome)
                         }
                         Ok(None) => result,
                         Err(error) => {
                             json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
                         }
+                    },
+                    Err(_) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                    }),
+                },
+                Some("model.configure_deepseek") | Some("model.verify_route") => {
+                    match control.lock() {
+                        Ok(mut control) => match control.prepare_model(&request) {
+                            Ok(Some(job)) => {
+                                let outcome = tradex::model::run_job(
+                                    &job,
+                                    &mut gateway,
+                                    &model_vault,
+                                    || {
+                                        tradex::model_credentials::ModelKey::new(
+                                            "integration-test-key".into(),
+                                        )
+                                    },
+                                    || control.model_job_current(&job),
+                                );
+                                control.complete_model(&job, outcome)
+                            }
+                            Ok(None) => result,
+                            Err(error) => {
+                                json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
+                            }
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
                     }
                 }
                 Some("model.login_chatgpt") => json!({
@@ -125,6 +174,7 @@ fn main() -> io::Result<()> {
             oversized = false;
         }
     }
+    supervisor.stop_all();
     #[cfg(all(feature = "integration-test", target_os = "macos"))]
     if gateway.stop() {
         let _ = std::fs::remove_dir_all(runtime_path);

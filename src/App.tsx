@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import type { AgentMode, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnStart } from '../shared/ipc-types.ts';
+import type { AgentMode, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -211,10 +211,11 @@ function TimelineItem({ item }: { item: ThreadItem }) {
   </article>;
 }
 
-function TurnTimeline({ turn, index }: { turn: ThreadTurn; index: number }) {
+function TurnTimeline({ turn, index, busy, onCancel, onRetry }: { turn: ThreadTurn; index: number; busy: boolean; onCancel: () => void; onRetry: () => void }) {
   const attempt = turn.providerAttempts[turn.providerAttempts.length - 1];
   return <article className="turn-timeline" aria-labelledby={`turn-${turn.turnId}`}>
-    <div className="turn-heading"><div><h3 id={`turn-${turn.turnId}`}>Turn {index + 1}</h3><small>{turn.snapshot.agentMode} · {turn.snapshot.executionContext}</small></div><span className="badge" role="status" aria-label={`Turn ${index + 1} status`} aria-live="polite">{turn.status}</span></div>
+    <div className="turn-heading"><div><h3 id={`turn-${turn.turnId}`}>Turn {index + 1}</h3><small>{turn.snapshot.agentMode} · {turn.snapshot.executionContext}</small></div><div className="turn-heading-actions"><span className="badge" role="status" aria-label={`Turn ${index + 1} status`} aria-live="polite">{turn.status}</span>{turn.status === 'RUNNING' && <button type="button" onClick={onCancel} disabled={busy} aria-label={`Cancel Turn ${index + 1}`}>{busy ? 'Cancelling…' : 'Cancel'}</button>}{['FAILED', 'CANCELLED', 'INTERRUPTED'].includes(turn.status) && <button type="button" onClick={onRetry} disabled={busy} aria-label={`Retry Turn ${index + 1}`}>{busy ? 'Retrying…' : 'Retry'}</button>}</div></div>
+    {turn.cancelRequestedAt && turn.status === 'RUNNING' && <p className="form-hint" role="status">Cancellation requested…</p>}
     <div className="turn-provenance"><span>Model: {turn.snapshot.model ? `${turn.snapshot.model.provider} · ${turn.snapshot.model.modelId}` : 'Unavailable'}</span><span>Account: {turn.snapshot.accountId ? `${turn.snapshot.accountId} · ${turn.snapshot.accountEnvironment ?? 'environment unavailable'}` : 'None'}</span><span>Capability: {turn.snapshot.capabilityLevel}</span><span>Context: {turn.snapshot.attachedContexts.length ? turn.snapshot.attachedContexts.map(context => `${context.kind}:${context.id}#${context.hash}`).join(', ') : 'None'}</span></div>
     <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} item={item} />)}</div>
     {attempt && <p className="turn-attempt" data-provider-outcome={attempt.outcome}>Provider attempt: {attempt.provider} · {attempt.modelId} · {attempt.outcome}{attempt.errorCode ? ` · ${attempt.errorCode}` : ''}</p>}
@@ -222,16 +223,32 @@ function TurnTimeline({ turn, index }: { turn: ThreadTurn; index: number }) {
 }
 
 function ThreadDetail({ threadId, model, runtime }: { threadId: string; model?: ModelState; runtime?: RuntimeStatus }) {
+  const queryClient = useQueryClient();
   const projection = useDomainProjection('thread', threadId, fromThreadSnapshot);
+  const [actionTurnId, setActionTurnId] = useState<string>();
+  const [actionError, setActionError] = useState<string>();
   if (projection.error) return <div className="error-banner" role="alert"><div><strong>Thread needs attention</strong><p>{explainError(projection.error)}</p></div><button type="button" onClick={() => void projection.reload()}>Reload thread</button></div>;
   const thread = projection.data;
   if (!thread) return <p role="status">Loading thread…</p>;
+  const act = async (turn: ThreadTurn, command: 'turn.cancel' | 'turn.retry') => {
+    setActionTurnId(turn.turnId); setActionError(undefined);
+    try {
+      const payload = command === 'turn.cancel'
+        ? { workspaceId: thread.workspaceId, threadId: thread.threadId, turnId: turn.turnId, expectedStateVersion: thread.stateVersion } satisfies TurnCancel
+        : { workspaceId: thread.workspaceId, threadId: thread.threadId, turnId: turn.turnId, expectedStateVersion: thread.stateVersion } satisfies TurnRetry;
+      await request(command, payload);
+      await queryClient.invalidateQueries({ queryKey: ['thread', thread.threadId] });
+      await projection.reload();
+    } catch (failure) { setActionError(explainError(failure)); }
+    finally { setActionTurnId(undefined); }
+  };
   return <section className="card thread-detail" aria-labelledby="thread-detail-title">
     <div className="account-heading"><div><h2 id="thread-detail-title">{thread.title}</h2><p className="muted">Thread {thread.threadId}</p></div><span className="badge">{thread.status}</span></div>
     <div className="composer-context"><span className="badge">Mode: {thread.defaultAgentMode}</span><span className="badge">Execution: {thread.defaultExecutionContext}</span><span className="muted">Account: {thread.accountId ?? 'None selected'}</span><span className="muted">Model: {thread.model ? `${thread.model.provider} · ${thread.model.modelId}` : 'Not selected'}</span></div>
     <dl className="thread-provenance"><div><dt>Created</dt><dd><time dateTime={thread.createdAt}>{new Date(thread.createdAt).toLocaleString()}</time></dd></div><div><dt>Updated</dt><dd><time dateTime={thread.updatedAt}>{new Date(thread.updatedAt).toLocaleString()}</time></dd></div><div><dt>Context references</dt><dd>{thread.linkedContexts.length ? thread.linkedContexts.map(context => `${context.kind}:${context.id}`).join(', ') : 'None'}</dd></div></dl>
     <TurnComposer thread={thread} model={model} runtime={runtime} />
-    {thread.turns?.length ? <section className="thread-timeline" aria-label="Turn timeline">{thread.turns.map((turn, index) => <TurnTimeline key={turn.turnId} turn={turn} index={index} />)}</section> : <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send a request to begin the read-only timeline.</p></div>}
+    {actionError && <p className="error-text" role="alert">{actionError}</p>}
+    {thread.turns?.length ? <section className="thread-timeline" aria-label="Turn timeline">{thread.turns.map((turn, index) => <TurnTimeline key={turn.turnId} turn={turn} index={index} busy={actionTurnId === turn.turnId} onCancel={() => void act(turn, 'turn.cancel')} onRetry={() => void act(turn, 'turn.retry')} />)}</section> : <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send a request to begin the read-only timeline.</p></div>}
   </section>;
 }
 

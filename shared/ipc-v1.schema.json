@@ -70,6 +70,12 @@
     "threadQuery": {
       "$ref": "#/$defs/ThreadQuery"
     },
+    "turnCancel": {
+      "$ref": "#/$defs/TurnCancel"
+    },
+    "turnRetry": {
+      "$ref": "#/$defs/TurnRetry"
+    },
     "turnStart": {
       "$ref": "#/$defs/TurnStart"
     },
@@ -109,7 +115,9 @@
     "providerConnect",
     "threadCreate",
     "threadQuery",
-    "turnStart"
+    "turnStart",
+    "turnCancel",
+    "turnRetry"
   ],
   "$defs": {
     "AccountConnection": {
@@ -2480,6 +2488,12 @@
     "ThreadTurn": {
       "type": "object",
       "properties": {
+        "cancelRequestedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "completedAt": {
           "type": [
             "string",
@@ -2556,6 +2570,70 @@
         "retryable",
         "blocking",
         "remediationActions"
+      ]
+    },
+    "TurnCancel": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "turnId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "threadId",
+        "turnId",
+        "expectedStateVersion"
+      ]
+    },
+    "TurnRetry": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "turnId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "threadId",
+        "turnId",
+        "expectedStateVersion"
       ]
     },
     "TurnSnapshot": {

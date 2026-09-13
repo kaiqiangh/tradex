@@ -17,15 +17,191 @@ use protocol::{
     AgentMode, Aggregate, CommandEnvelope, DomainProjection, EmptyPayload, EventSink,
     ExecutionContext, MAX_SEQUENCE, OpenWorkspace, Result, RuntimeComponent, RuntimeStatus,
     Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery,
-    ThreadTurn, TradeXError, TurnSnapshot, TurnStart,
+    ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
 use risk::RiskPolicyState;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
+};
 use storage::Store;
+
+struct PreparedTurn {
+    thread_id: String,
+    turn_id: String,
+    runtime_request: codex_runtime::RuntimeRequest,
+}
+
+type RuntimeJobKey = (String, String);
+type RuntimeJobs = Arc<Mutex<HashMap<RuntimeJobKey, Arc<AtomicBool>>>>;
+
+#[derive(Clone, Default)]
+pub struct RuntimeSupervisor {
+    jobs: RuntimeJobs,
+}
+
+impl RuntimeSupervisor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn stop_all(&self) {
+        if let Ok(jobs) = self.jobs.lock() {
+            for cancel in jobs.values() {
+                cancel.store(true, Ordering::Release);
+            }
+        }
+    }
+
+    pub fn start(
+        &self,
+        engine: Arc<Mutex<ControlPlane>>,
+        request: Value,
+        runtime_access: Option<codex_runtime::RuntimeAccess>,
+    ) -> Value {
+        let id = request_id(&request);
+        let payload = match async_payload(request, "turn.start").and_then(payload::<TurnStart>) {
+            Ok(input) => input,
+            Err(error) => return failure_reply(id, error),
+        };
+        let (prepared, thread) = match engine.lock() {
+            Ok(mut control) => match control.begin_turn(payload) {
+                Ok(value) => value,
+                Err(error) => return failure_reply(id, error),
+            },
+            Err(_) => return failure_reply(id, TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")),
+        };
+        self.spawn(engine, prepared, runtime_access);
+        success_reply(id, json!(thread), Some(thread.state_version))
+    }
+
+    pub fn cancel(&self, engine: Arc<Mutex<ControlPlane>>, request: Value) -> Value {
+        let id = request_id(&request);
+        let input = match async_payload(request, "turn.cancel").and_then(payload::<TurnCancel>) {
+            Ok(input) => input,
+            Err(error) => return failure_reply(id, error),
+        };
+        let thread = match engine.lock() {
+            Ok(mut control) => match control.request_turn_cancel(&input) {
+                Ok(thread) => thread,
+                Err(error) => return failure_reply(id, error),
+            },
+            Err(_) => return failure_reply(id, TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")),
+        };
+        let key = (input.thread_id.clone(), input.turn_id.clone());
+        if let Ok(jobs) = self.jobs.lock() {
+            if let Some(cancel) = jobs.get(&key) {
+                cancel.store(true, Ordering::Release);
+            } else if let Ok(mut control) = engine.lock() {
+                let _ = control.interrupt_unmanaged_turn(&input.thread_id, &input.turn_id);
+            }
+        }
+        success_reply(id, json!(thread), Some(thread.state_version))
+    }
+
+    pub fn retry(
+        &self,
+        engine: Arc<Mutex<ControlPlane>>,
+        request: Value,
+        runtime_access: Option<codex_runtime::RuntimeAccess>,
+    ) -> Value {
+        let id = request_id(&request);
+        let input = match async_payload(request, "turn.retry").and_then(payload::<TurnRetry>) {
+            Ok(input) => input,
+            Err(error) => return failure_reply(id, error),
+        };
+        let (prepared, thread) = match engine.lock() {
+            Ok(mut control) => match control.begin_retry(input) {
+                Ok(value) => value,
+                Err(error) => return failure_reply(id, error),
+            },
+            Err(_) => return failure_reply(id, TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")),
+        };
+        self.spawn(engine, prepared, runtime_access);
+        success_reply(id, json!(thread), Some(thread.state_version))
+    }
+
+    fn spawn(
+        &self,
+        engine: Arc<Mutex<ControlPlane>>,
+        prepared: PreparedTurn,
+        runtime_access: Option<codex_runtime::RuntimeAccess>,
+    ) {
+        let key = (prepared.thread_id.clone(), prepared.turn_id.clone());
+        let cancel = Arc::new(AtomicBool::new(false));
+        if let Ok(mut jobs) = self.jobs.lock() {
+            jobs.insert(key.clone(), cancel.clone());
+        }
+        let jobs = self.jobs.clone();
+        thread::spawn(move || {
+            let mut seen = HashSet::new();
+            let result = codex_runtime::run_cancellable(
+                &prepared.runtime_request,
+                runtime_access.as_ref(),
+                &cancel,
+                &mut |event| {
+                    if !seen.insert(runtime_event_key(&event)) {
+                        return Ok(());
+                    }
+                    let mut control = engine
+                        .lock()
+                        .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
+                    control.apply_runtime_event(&prepared.thread_id, &prepared.turn_id, event)
+                },
+            );
+            if let Ok(mut control) = engine.lock() {
+                let _ = control.finish_runtime_turn(&prepared, result);
+            }
+            if let Ok(mut jobs) = jobs.lock() {
+                jobs.remove(&key);
+            }
+        });
+    }
+}
+
+fn request_id(value: &Value) -> String {
+    value
+        .get("requestId")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty() && id.len() <= 128)
+        .unwrap_or("invalid-request")
+        .to_owned()
+}
+
+fn async_payload(value: Value, command: &str) -> Result<Value> {
+    match value.get("schemaVersion").and_then(Value::as_u64) {
+        Some(1) => (),
+        Some(_) => return Err(TradeXError::new("IPC_SCHEMA_UNSUPPORTED")),
+        None => return Err(TradeXError::new("IPC_PAYLOAD_INVALID")),
+    }
+    let request: CommandEnvelope = payload(value)?;
+    if request.request_id.is_empty() || request.request_id.len() > 128 || request.command != command
+    {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(request.payload)
+}
+
+fn success_reply(id: String, data: Value, version: Option<String>) -> Value {
+    let mut reply = json!({"requestId":id,"schemaVersion":1,"ok":true,"data":data});
+    if let Some(version) = version {
+        reply["stateVersion"] = version.into();
+    }
+    reply
+}
+
+fn failure_reply(id: String, error: TradeXError) -> Value {
+    json!({"requestId":id,"schemaVersion":1,"ok":false,"error":error})
+}
 
 pub struct ControlPlane {
     default_workspace: PathBuf,
@@ -121,6 +297,7 @@ impl ControlPlane {
                 )?;
                 let same = self.store.as_ref().is_some_and(|store| store.path == path);
                 if same {
+                    self.reconcile_running_turns()?;
                     let event = self.store.as_mut().unwrap().record_open()?;
                     self.publish(&event);
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
@@ -145,9 +322,10 @@ impl ControlPlane {
                             store.save_risk(RiskPolicyState::new(workspace_id))?;
                         }
                     }
-                    let event = store.record_open()?;
-                    let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.store = Some(store);
+                    self.reconcile_running_turns()?;
+                    let event = self.store.as_mut().unwrap().record_open()?;
+                    let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.subscribers.clear();
                     self.session = uuid::Uuid::new_v4().to_string();
                     Ok((json!(event.payload), Some(version)))
@@ -349,6 +527,15 @@ impl ControlPlane {
             "turn.start" => {
                 let input: TurnStart = payload(request.payload)?;
                 self.start_turn(input, runtime_access)
+            }
+            "turn.cancel" => {
+                let input: TurnCancel = payload(request.payload)?;
+                let thread = self.request_turn_cancel(&input)?;
+                Ok((json!(thread), Some(thread.state_version)))
+            }
+            "turn.retry" => {
+                let input: TurnRetry = payload(request.payload)?;
+                self.retry_turn(input, runtime_access)
             }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;
@@ -629,11 +816,7 @@ impl ControlPlane {
         Ok((json!(thread), Some(version)))
     }
 
-    fn start_turn(
-        &mut self,
-        input: TurnStart,
-        runtime_access: Option<&codex_runtime::RuntimeAccess>,
-    ) -> Result<(Value, Option<String>)> {
+    fn begin_turn(&mut self, input: TurnStart) -> Result<(PreparedTurn, Thread)> {
         self.require_workspace(&input.workspace_id)?;
         if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
@@ -708,6 +891,7 @@ impl ControlPlane {
             }],
             started_at: now,
             completed_at: None,
+            cancel_requested_at: None,
         };
         let mut started = existing.clone();
         started.turns.push(turn);
@@ -716,35 +900,364 @@ impl ControlPlane {
             .as_mut()
             .unwrap()
             .save_thread(started, "thread.updated")?;
-        self.publish(&event);
-
-        let runtime_request = codex_runtime::RuntimeRequest {
-            codex_thread_id: existing.codex_thread_id,
-            model,
-            message: input.message,
+        let DomainProjection::Thread(thread) = &event.payload else {
+            unreachable!()
         };
-        let mut seen = std::collections::HashSet::new();
-        let runtime_result =
-            codex_runtime::run(&runtime_request, runtime_access, &mut |runtime_event| {
+        let thread = (**thread).clone();
+        self.publish(&event);
+        Ok((
+            PreparedTurn {
+                thread_id: input.thread_id,
+                turn_id,
+                runtime_request: codex_runtime::RuntimeRequest {
+                    codex_thread_id: existing.codex_thread_id,
+                    model,
+                    message: input.message,
+                },
+            },
+            thread,
+        ))
+    }
+
+    fn start_turn(
+        &mut self,
+        input: TurnStart,
+        runtime_access: Option<&codex_runtime::RuntimeAccess>,
+    ) -> Result<(Value, Option<String>)> {
+        let (prepared, _) = self.begin_turn(input)?;
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let mut seen = HashSet::new();
+        let result = codex_runtime::run_cancellable(
+            &prepared.runtime_request,
+            runtime_access,
+            &cancelled,
+            &mut |runtime_event| {
                 if !seen.insert(runtime_event_key(&runtime_event)) {
                     return Ok(());
                 }
-                self.apply_runtime_event(&input.thread_id, &turn_id, runtime_event)
-            });
-        if let Err(error) = runtime_result {
-            self.fail_turn(&input.thread_id, &turn_id, &error)?;
+                self.apply_runtime_event(&prepared.thread_id, &prepared.turn_id, runtime_event)
+            },
+        );
+        self.finish_runtime_turn(&prepared, result)?;
+        let thread = self.store.as_ref().unwrap().thread(&prepared.thread_id)?;
+        let version = thread.state_version.clone();
+        Ok((json!(thread), Some(version)))
+    }
+
+    fn begin_retry(&mut self, input: TurnRetry) -> Result<(PreparedTurn, Thread)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
         let thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+        if thread.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if thread
+            .turns
+            .iter()
+            .any(|turn| turn.status == protocol::TurnStatus::Running)
+        {
+            return Err(TradeXError::new("TURN_ALREADY_RUNNING"));
+        }
+        let source = thread
+            .turns
+            .iter()
+            .find(|turn| turn.turn_id == input.turn_id)
+            .cloned()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        if !matches!(
+            source.status,
+            protocol::TurnStatus::Failed
+                | protocol::TurnStatus::Cancelled
+                | protocol::TurnStatus::Interrupted
+        ) {
+            return Err(TradeXError::new("TURN_NOT_RETRYABLE"));
+        }
+        let message = source
+            .items
+            .iter()
+            .find(|item| item.item_type == "user_message")
+            .map(|item| item.content.clone())
+            .filter(|message| !message.trim().is_empty())
+            .ok_or_else(|| TradeXError::new("TURN_NOT_RETRYABLE"))?;
+        self.begin_turn(TurnStart {
+            workspace_id: input.workspace_id,
+            thread_id: input.thread_id,
+            expected_state_version: input.expected_state_version,
+            message,
+            agent_mode: source.snapshot.agent_mode,
+            execution_context: source.snapshot.execution_context,
+            account_id: source.snapshot.account_id,
+            model: source.snapshot.model,
+            attached_contexts: source.snapshot.attached_contexts,
+        })
+    }
+
+    fn retry_turn(
+        &mut self,
+        input: TurnRetry,
+        runtime_access: Option<&codex_runtime::RuntimeAccess>,
+    ) -> Result<(Value, Option<String>)> {
+        let (prepared, _) = self.begin_retry(input)?;
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let mut seen = HashSet::new();
+        let result = codex_runtime::run_cancellable(
+            &prepared.runtime_request,
+            runtime_access,
+            &cancelled,
+            &mut |runtime_event| {
+                if !seen.insert(runtime_event_key(&runtime_event)) {
+                    return Ok(());
+                }
+                self.apply_runtime_event(&prepared.thread_id, &prepared.turn_id, runtime_event)
+            },
+        );
+        self.finish_runtime_turn(&prepared, result)?;
+        let thread = self.store.as_ref().unwrap().thread(&prepared.thread_id)?;
+        let version = thread.state_version.clone();
+        Ok((json!(thread), Some(version)))
+    }
+
+    fn finish_runtime_turn(
+        &mut self,
+        prepared: &PreparedTurn,
+        result: Result<codex_runtime::RuntimeOutcome>,
+    ) -> Result<()> {
+        let before = self.store.as_ref().unwrap().thread(&prepared.thread_id)?;
+        let was_running = before
+            .turns
+            .iter()
+            .find(|turn| turn.turn_id == prepared.turn_id)
+            .is_some_and(|turn| turn.status == protocol::TurnStatus::Running);
+        let completed = matches!(&result, Ok(codex_runtime::RuntimeOutcome::Completed));
+        let terminal_noncompleted = matches!(
+            &result,
+            Ok(codex_runtime::RuntimeOutcome::Cancelled)
+                | Ok(codex_runtime::RuntimeOutcome::Interrupted)
+                | Err(_)
+        );
+        match result {
+            Ok(codex_runtime::RuntimeOutcome::Completed) => {
+                if was_running {
+                    self.complete_turn(&prepared.thread_id, &prepared.turn_id)?;
+                }
+            }
+            Ok(codex_runtime::RuntimeOutcome::Cancelled) => {
+                if was_running {
+                    self.terminal_turn(
+                        &prepared.thread_id,
+                        &prepared.turn_id,
+                        protocol::TurnStatus::Cancelled,
+                        "CODEX_TURN_CANCELLED",
+                    )?;
+                }
+            }
+            Ok(codex_runtime::RuntimeOutcome::Interrupted) => {
+                if was_running {
+                    self.terminal_turn(
+                        &prepared.thread_id,
+                        &prepared.turn_id,
+                        protocol::TurnStatus::Interrupted,
+                        "CODEX_PROCESS_EXITED",
+                    )?;
+                }
+            }
+            Err(error) => {
+                if was_running {
+                    self.fail_turn(&prepared.thread_id, &prepared.turn_id, &error)?;
+                }
+            }
+        }
+        if completed || was_running && terminal_noncompleted {
+            let thread = self.store.as_ref().unwrap().thread(&prepared.thread_id)?;
+            if let Some(turn) = thread
+                .turns
+                .iter()
+                .find(|turn| turn.turn_id == prepared.turn_id)
+                .cloned()
+                && let Some(model) = turn.snapshot.model.as_ref()
+            {
+                self.record_model_attempt(model, &turn.snapshot.started_at, &turn)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn complete_turn(&mut self, thread_id: &str, turn_id: &str) -> Result<()> {
+        self.update_thread(thread_id, |thread| {
+            let turn = thread
+                .turns
+                .iter_mut()
+                .find(|turn| turn.turn_id == turn_id)
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            if turn.status != protocol::TurnStatus::Running || turn.cancel_requested_at.is_some() {
+                return Ok(());
+            }
+            turn.status = protocol::TurnStatus::Completed;
+            turn.completed_at = Some(storage::timestamp()?);
+            for item in &mut turn.items {
+                if matches!(
+                    item.status,
+                    protocol::ItemStatus::Started | protocol::ItemStatus::Streaming
+                ) {
+                    item.status = protocol::ItemStatus::Completed;
+                    item.completed_at = turn.completed_at.clone();
+                }
+            }
+            finish_attempt(turn, "SUCCEEDED", None)
+        })?;
+        Ok(())
+    }
+
+    fn request_turn_cancel(&mut self, input: &TurnCancel) -> Result<Thread> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+        if thread.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let running = thread
+            .turns
+            .iter()
+            .find(|turn| turn.turn_id == input.turn_id)
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        if running.status != protocol::TurnStatus::Running {
+            return Err(TradeXError::new("TURN_NOT_RUNNING"));
+        }
+        if running.cancel_requested_at.is_some() {
+            return Ok(thread);
+        }
+        let mut updated = thread;
+        let turn = updated
+            .turns
+            .iter_mut()
+            .find(|turn| turn.turn_id == input.turn_id)
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        turn.cancel_requested_at = Some(storage::timestamp()?);
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(updated, "thread.updated")?;
+        let DomainProjection::Thread(thread) = &event.payload else {
+            unreachable!()
+        };
+        self.publish(&event);
+        Ok((**thread).clone())
+    }
+
+    fn interrupt_unmanaged_turn(&mut self, thread_id: &str, turn_id: &str) -> Result<()> {
+        let thread = self.store.as_ref().unwrap().thread(thread_id)?;
+        let was_running = thread
+            .turns
+            .iter()
+            .find(|turn| turn.turn_id == turn_id)
+            .is_some_and(|turn| turn.status == protocol::TurnStatus::Running);
+        if !was_running {
+            return Ok(());
+        }
+        self.terminal_turn(
+            thread_id,
+            turn_id,
+            protocol::TurnStatus::Interrupted,
+            "CODEX_PROCESS_EXITED",
+        )?;
+        let thread = self.store.as_ref().unwrap().thread(thread_id)?;
         if let Some(turn) = thread
             .turns
             .iter()
             .find(|turn| turn.turn_id == turn_id)
             .cloned()
+            && let Some(model) = turn.snapshot.model.as_ref()
         {
-            self.record_model_attempt(&runtime_request.model, &turn.snapshot.started_at, &turn)?;
+            self.record_model_attempt(model, &turn.snapshot.started_at, &turn)?;
         }
-        let version = thread.state_version.clone();
-        Ok((json!(thread), Some(version)))
+        Ok(())
+    }
+
+    fn terminal_turn(
+        &mut self,
+        thread_id: &str,
+        turn_id: &str,
+        status: protocol::TurnStatus,
+        error_code: &str,
+    ) -> Result<()> {
+        let error = TradeXError::new(error_code);
+        self.update_thread(thread_id, |thread| {
+            let turn = thread
+                .turns
+                .iter_mut()
+                .find(|turn| turn.turn_id == turn_id)
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            if turn.status != protocol::TurnStatus::Running {
+                return Ok(());
+            }
+            turn.status = status.clone();
+            turn.completed_at = Some(storage::timestamp()?);
+            finish_attempt(
+                turn,
+                match status {
+                    protocol::TurnStatus::Cancelled => "CANCELLED",
+                    protocol::TurnStatus::Interrupted => "INTERRUPTED",
+                    _ => "FAILED",
+                },
+                Some(error.code.clone()),
+            )?;
+            turn.items.push(ThreadItem {
+                item_id: uuid::Uuid::new_v4().to_string(),
+                item_type: "error".into(),
+                status: protocol::ItemStatus::Failed,
+                content: error.message.clone(),
+                source_id: None,
+                started_at: turn.completed_at.clone().unwrap_or_default(),
+                completed_at: turn.completed_at.clone(),
+            });
+            for item in &mut turn.items {
+                if matches!(
+                    item.status,
+                    protocol::ItemStatus::Started | protocol::ItemStatus::Streaming
+                ) {
+                    item.status = protocol::ItemStatus::Failed;
+                    item.completed_at = turn.completed_at.clone();
+                }
+            }
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    fn reconcile_running_turns(&mut self) -> Result<()> {
+        let summaries = self.store.as_ref().unwrap().threads()?.threads;
+        for summary in summaries {
+            let thread = self.store.as_ref().unwrap().thread(&summary.thread_id)?;
+            for turn in thread
+                .turns
+                .iter()
+                .filter(|turn| turn.status == protocol::TurnStatus::Running)
+                .cloned()
+            {
+                self.terminal_turn(
+                    &summary.thread_id,
+                    &turn.turn_id,
+                    protocol::TurnStatus::Interrupted,
+                    "CODEX_PROCESS_EXITED",
+                )?;
+                let updated = self.store.as_ref().unwrap().thread(&summary.thread_id)?;
+                if let Some(turn) = updated
+                    .turns
+                    .iter()
+                    .find(|candidate| candidate.turn_id == turn.turn_id)
+                    .cloned()
+                    && let Some(model) = turn.snapshot.model.as_ref()
+                {
+                    self.record_model_attempt(model, &turn.snapshot.started_at, &turn)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn record_model_attempt(
@@ -759,10 +1272,14 @@ impl ControlPlane {
             .clone()
             .unwrap_or_else(|| started_at.to_owned());
         let last_attempt = turn.provider_attempts.last();
-        let outcome = if turn.status == protocol::TurnStatus::Completed {
-            model::ModelAttemptOutcome::Verified
-        } else {
-            model::ModelAttemptOutcome::Failed
+        let outcome = match turn.status {
+            protocol::TurnStatus::Completed => model::ModelAttemptOutcome::Verified,
+            protocol::TurnStatus::Cancelled | protocol::TurnStatus::Interrupted => {
+                model::ModelAttemptOutcome::Cancelled
+            }
+            protocol::TurnStatus::Failed | protocol::TurnStatus::Running => {
+                model::ModelAttemptOutcome::Failed
+            }
         };
         let mut state = self.store.as_ref().unwrap().model()?;
         state.append_attempt(model::ModelAttempt {
@@ -806,7 +1323,7 @@ impl ControlPlane {
         }
         #[cfg(feature = "integration-test")]
         if let Some(selection) = requested {
-            return Ok(model_route_for_integration(selection)?);
+            return model_route_for_integration(selection);
         }
         Err(TradeXError::new("MODEL_UNAVAILABLE"))
     }
@@ -823,7 +1340,7 @@ impl ControlPlane {
                 .iter_mut()
                 .find(|turn| turn.turn_id == turn_id)
                 .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
-            if turn.status != protocol::TurnStatus::Running {
+            if turn.status != protocol::TurnStatus::Running || turn.cancel_requested_at.is_some() {
                 return Ok(());
             }
             match event {
@@ -2101,6 +2618,236 @@ mod turn_runtime_tests {
             events
                 .windows(2)
                 .all(|pair| pair[1].sequence > pair[0].sequence)
+        );
+    }
+
+    #[test]
+    fn supervisor_cancel_then_retry_preserves_the_original_turn() {
+        if std::env::var_os("TRADEX_CODEX_APP_SERVER").is_some() {
+            return;
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let control = Arc::new(Mutex::new(ControlPlane::new(
+            directory.path().join("workspace"),
+        )));
+        let workspace_id = {
+            let mut control = control.lock().unwrap();
+            let opened = control.dispatch(json!({
+                "requestId":"open","schemaVersion":1,"command":"workspace.open","payload":{}
+            }));
+            let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+            let thread_id = control.dispatch(json!({
+                "requestId":"create","schemaVersion":1,"command":"thread.create","payload":{
+                    "workspaceId":workspace_id,"title":"Cancel thread","defaultAgentMode":"RESEARCH",
+                    "defaultExecutionContext":"NONE_READ_ONLY","model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"},"linkedContexts":[]
+                }
+            }))["data"]["threadId"].as_str().unwrap().to_owned();
+            (workspace_id, thread_id)
+        };
+        let (workspace_id, thread_id) = workspace_id;
+        let supervisor = RuntimeSupervisor::new();
+        let expected = control
+            .lock()
+            .unwrap()
+            .store
+            .as_ref()
+            .unwrap()
+            .thread(&thread_id)
+            .unwrap()
+            .state_version;
+        let started = supervisor.start(
+            control.clone(),
+            json!({
+                "requestId":"start","schemaVersion":1,"command":"turn.start","payload":{
+                    "workspaceId":workspace_id,"threadId":thread_id,"expectedStateVersion":expected,
+                    "message":"cancel this","agentMode":"RESEARCH","executionContext":"NONE_READ_ONLY",
+                    "attachedContexts":[],"model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
+                }
+            }),
+            None,
+        );
+        assert_eq!(started["ok"], true, "{started}");
+        let turn_id = started["data"]["turns"][0]["turnId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let cancelled = loop {
+            let cancel_version = control
+                .lock()
+                .unwrap()
+                .store
+                .as_ref()
+                .unwrap()
+                .thread(&thread_id)
+                .unwrap()
+                .state_version;
+            let cancelled = supervisor.cancel(
+                control.clone(),
+                json!({
+                    "requestId":"cancel","schemaVersion":1,"command":"turn.cancel","payload":{
+                        "workspaceId":workspace_id,"threadId":thread_id,"turnId":turn_id,"expectedStateVersion":cancel_version
+                    }
+                }),
+            );
+            if cancelled["ok"] == true {
+                break cancelled;
+            }
+            assert_eq!(cancelled["error"]["code"], "STATE_VERSION_CONFLICT");
+        };
+        assert_eq!(cancelled["ok"], true, "{cancelled}");
+        {
+            let mut control = control.lock().unwrap();
+            control
+                .apply_runtime_event(
+                    &thread_id,
+                    &turn_id,
+                    codex_runtime::RuntimeEvent::TurnCompleted { key: "late".into() },
+                )
+                .unwrap();
+        }
+        let after_late_event = control
+            .lock()
+            .unwrap()
+            .store
+            .as_ref()
+            .unwrap()
+            .thread(&thread_id)
+            .unwrap();
+        assert_ne!(
+            after_late_event.turns[0].status,
+            protocol::TurnStatus::Completed
+        );
+        assert!(after_late_event.turns[0].cancel_requested_at.is_some());
+        for _ in 0..100 {
+            if control
+                .lock()
+                .unwrap()
+                .store
+                .as_ref()
+                .unwrap()
+                .thread(&thread_id)
+                .unwrap()
+                .turns[0]
+                .status
+                != protocol::TurnStatus::Running
+            {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let after_cancel = control
+            .lock()
+            .unwrap()
+            .store
+            .as_ref()
+            .unwrap()
+            .thread(&thread_id)
+            .unwrap();
+        assert_eq!(
+            after_cancel.turns[0].status,
+            protocol::TurnStatus::Cancelled
+        );
+        let retry = supervisor.retry(
+            control.clone(),
+            json!({
+                "requestId":"retry","schemaVersion":1,"command":"turn.retry","payload":{
+                    "workspaceId":workspace_id,"threadId":thread_id,"turnId":turn_id,
+                    "expectedStateVersion":after_cancel.state_version
+                }
+            }),
+            None,
+        );
+        assert_eq!(retry["ok"], true, "{retry}");
+        for _ in 0..100 {
+            let thread = control
+                .lock()
+                .unwrap()
+                .store
+                .as_ref()
+                .unwrap()
+                .thread(&thread_id)
+                .unwrap();
+            if thread.turns.len() == 2 && thread.turns[1].status == protocol::TurnStatus::Completed
+            {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let final_thread = control
+            .lock()
+            .unwrap()
+            .store
+            .as_ref()
+            .unwrap()
+            .thread(&thread_id)
+            .unwrap();
+        assert_eq!(final_thread.turns.len(), 2);
+        assert_eq!(final_thread.turns[0].turn_id, turn_id);
+        assert_eq!(
+            final_thread.turns[0].status,
+            protocol::TurnStatus::Cancelled
+        );
+        assert_eq!(
+            final_thread.turns[1].status,
+            protocol::TurnStatus::Completed
+        );
+        assert_ne!(final_thread.turns[1].turn_id, turn_id);
+    }
+
+    #[test]
+    fn reopening_workspace_reconciles_persisted_running_turn() {
+        if std::env::var_os("TRADEX_CODEX_APP_SERVER").is_some() {
+            return;
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let (workspace_id, thread_id) = {
+            let mut control = ControlPlane::new(path.clone());
+            let opened = control.dispatch(json!({
+                "requestId":"open","schemaVersion":1,"command":"workspace.open","payload":{}
+            }));
+            let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+            let created = control.dispatch(json!({
+                "requestId":"create","schemaVersion":1,"command":"thread.create","payload":{
+                    "workspaceId":workspace_id,"title":"Restart thread","defaultAgentMode":"ASK",
+                    "defaultExecutionContext":"NONE_READ_ONLY","model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"},"linkedContexts":[]
+                }
+            }));
+            let thread_id = created["data"]["threadId"].as_str().unwrap().to_owned();
+            let expected = created["data"]["stateVersion"].as_str().unwrap().to_owned();
+            let _ = control
+                .begin_turn(TurnStart {
+                    workspace_id: workspace_id.clone(),
+                    thread_id: thread_id.clone(),
+                    expected_state_version: expected,
+                    message: "persist before restart".into(),
+                    agent_mode: AgentMode::Ask,
+                    execution_context: ExecutionContext::NoneReadOnly,
+                    account_id: None,
+                    model: Some(ThreadModel {
+                        provider: "CHATGPT".into(),
+                        model_id: "gpt-5.6-sol".into(),
+                        thinking_type: None,
+                    }),
+                    attached_contexts: Vec::new(),
+                })
+                .unwrap();
+            (workspace_id, thread_id)
+        };
+        let mut reopened = ControlPlane::new(path);
+        let opened = reopened.dispatch(json!({
+            "requestId":"reopen","schemaVersion":1,"command":"workspace.open","payload":{}
+        }));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let thread = reopened.dispatch(json!({
+            "requestId":"get","schemaVersion":1,"command":"thread.get","payload":{
+                "workspaceId":workspace_id,"threadId":thread_id
+            }
+        }));
+        assert_eq!(thread["data"]["turns"][0]["status"], "INTERRUPTED");
+        assert_eq!(
+            thread["data"]["turns"][0]["providerAttempts"][0]["outcome"],
+            "INTERRUPTED"
         );
     }
 }

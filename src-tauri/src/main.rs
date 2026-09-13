@@ -7,7 +7,7 @@ use std::sync::{
 };
 use tauri::{Manager, ipc::Channel};
 use tradex::{
-    ControlPlane,
+    ControlPlane, RuntimeSupervisor,
     gateway_process::GatewayHost,
     model,
     model_credentials::{ModelVault, NativeModelVault},
@@ -19,6 +19,7 @@ use tradex::{
 struct Service(
     Arc<Mutex<ControlPlane>>,
     Arc<Mutex<GatewayHost>>,
+    RuntimeSupervisor,
     Arc<AtomicBool>,
 );
 
@@ -43,6 +44,7 @@ async fn control(
     }
     let engine = service.0.clone();
     let gateway = service.1.clone();
+    let supervisor = service.2.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
         let model_job = match engine.lock() {
@@ -108,20 +110,30 @@ async fn control(
             }
             return reply;
         }
-        let runtime_access = (request.get("command").and_then(Value::as_str) == Some("turn.start"))
-            .then(|| {
-                request
-                    .get("payload")
-                    .and_then(|payload| payload.get("workspaceId"))
-                    .and_then(Value::as_str)
-                    .and_then(|workspace_id| {
-                        gateway
-                            .lock()
-                            .ok()
-                            .and_then(|host| host.codex_runtime_access(workspace_id))
-                    })
-            })
-            .flatten();
+        if request.get("command").and_then(Value::as_str) == Some("workspace.open") {
+            supervisor.stop_all();
+        }
+        let command = request.get("command").and_then(Value::as_str);
+        if command == Some("turn.start") || command == Some("turn.retry") {
+            let runtime_access = request
+                .get("payload")
+                .and_then(|payload| payload.get("workspaceId"))
+                .and_then(Value::as_str)
+                .and_then(|workspace_id| {
+                    gateway
+                        .lock()
+                        .ok()
+                        .and_then(|host| host.codex_runtime_access(workspace_id))
+                });
+            return if command == Some("turn.start") {
+                supervisor.start(engine, request, runtime_access)
+            } else {
+                supervisor.retry(engine, request, runtime_access)
+            };
+        }
+        if command == Some("turn.cancel") {
+            return supervisor.cancel(engine, request);
+        }
         let prepared = match engine.lock() {
             Ok(mut engine) => match engine.prepare_provider(&request) {
                 Ok(Some(job)) => job,
@@ -130,7 +142,7 @@ async fn control(
                         request,
                         &consumer,
                         Some(Arc::new(move |event| events.send(event).is_ok())),
-                        runtime_access,
+                        None,
                     );
                 }
                 Err(error) => return failed(&request, &error.code),
@@ -176,7 +188,12 @@ fn main() {
             let engine = Arc::new(Mutex::new(ControlPlane::new(default)));
             let gateway = Arc::new(Mutex::new(GatewayHost::new(app_data.join("models"))));
             let exiting = Arc::new(AtomicBool::new(false));
-            app.manage(Service(engine.clone(), gateway.clone(), exiting.clone()));
+            app.manage(Service(
+                engine.clone(),
+                gateway.clone(),
+                RuntimeSupervisor::new(),
+                exiting.clone(),
+            ));
             std::thread::spawn(move || {
                 while !exiting.load(Ordering::Acquire) {
                     if let Ok(mut host) = gateway.try_lock() {
@@ -217,7 +234,8 @@ fn main() {
         .expect("TradeX could not start its desktop shell")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
-                app.state::<Service>().2.store(true, Ordering::Release);
+                app.state::<Service>().2.stop_all();
+                app.state::<Service>().3.store(true, Ordering::Release);
                 if let Ok(mut gateway) = app.state::<Service>().1.lock() {
                     gateway.stop();
                 }

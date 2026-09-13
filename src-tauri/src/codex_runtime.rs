@@ -5,13 +5,17 @@ use std::{
     io::{BufRead, BufReader, Write},
     path::PathBuf,
     process::{Child, ChildStdin, Command, Stdio},
-    sync::mpsc::{self, Receiver},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver},
+    },
     thread,
     time::{Duration, Instant},
 };
 use zeroize::Zeroizing;
 
 const MAX_FRAME_BYTES: usize = 65_536;
+const MAX_PENDING_FRAMES: usize = 64;
 const DEFAULT_TIMEOUT_SECS: u64 = 20;
 const LOOPBACK_ENDPOINT: &str = "http://127.0.0.1:8317/v1";
 
@@ -65,6 +69,13 @@ pub enum RuntimeEvent {
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuntimeOutcome {
+    Completed,
+    Cancelled,
+    Interrupted,
+}
+
 #[derive(Clone, Debug)]
 pub struct AppServerConfig {
     executable: PathBuf,
@@ -105,17 +116,34 @@ pub fn run(
     access: Option<&RuntimeAccess>,
     emit: &mut impl FnMut(RuntimeEvent) -> Result<()>,
 ) -> Result<()> {
+    let cancelled = AtomicBool::new(false);
+    run_cancellable(request, access, &cancelled, emit).map(|_| ())
+}
+
+pub fn run_cancellable(
+    request: &RuntimeRequest,
+    access: Option<&RuntimeAccess>,
+    cancelled: &AtomicBool,
+    emit: &mut impl FnMut(RuntimeEvent) -> Result<()>,
+) -> Result<RuntimeOutcome> {
     if cfg!(feature = "integration-test") && env::var_os("TRADEX_CODEX_APP_SERVER").is_none() {
-        return run_fake(request, emit);
+        return run_fake(request, cancelled, emit);
     }
     let access = access.ok_or_else(|| TradeXError::new("CODEX_RUNTIME_NOT_CONFIGURED"))?;
-    run_process(&AppServerConfig::from_environment(), request, access, emit)
+    run_process(
+        &AppServerConfig::from_environment(),
+        request,
+        access,
+        cancelled,
+        emit,
+    )
 }
 
 fn run_fake(
     request: &RuntimeRequest,
+    cancelled: &AtomicBool,
     emit: &mut impl FnMut(RuntimeEvent) -> Result<()>,
-) -> Result<()> {
+) -> Result<RuntimeOutcome> {
     let scenario = env::var("TRADEX_FAKE_APP_SERVER_SCENARIO").unwrap_or_default();
     if scenario == "malformed" {
         return Err(TradeXError::new("CODEX_FRAME_INVALID"));
@@ -157,6 +185,9 @@ fn run_fake(
         },
     ];
     for (index, event) in frames.into_iter().enumerate() {
+        if cancelled.load(Ordering::Acquire) {
+            return Ok(RuntimeOutcome::Cancelled);
+        }
         if scenario == "duplicate" && index == 4 {
             emit(event.clone())?;
         }
@@ -167,17 +198,26 @@ fn run_fake(
             return Err(TradeXError::new("MODEL_UNAVAILABLE"));
         }
         emit(event)?;
-        thread::sleep(Duration::from_millis(100));
+        for _ in 0..10 {
+            if cancelled.load(Ordering::Acquire) {
+                return Ok(RuntimeOutcome::Cancelled);
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
     }
-    Ok(())
+    Ok(RuntimeOutcome::Completed)
 }
 
 fn run_process(
     config: &AppServerConfig,
     request: &RuntimeRequest,
     access: &RuntimeAccess,
+    cancelled: &AtomicBool,
     emit: &mut impl FnMut(RuntimeEvent) -> Result<()>,
-) -> Result<()> {
+) -> Result<RuntimeOutcome> {
+    if cancelled.load(Ordering::Acquire) {
+        return Ok(RuntimeOutcome::Interrupted);
+    }
     let mut process = Process::spawn(config, access)?;
     let mut id = 1_u64;
     process.send(json!({
@@ -187,7 +227,10 @@ fn run_process(
             "clientInfo": {"name": "tradex", "title": "TradeX", "version": "0.1.0"}
         }
     }))?;
-    process.response(id)?;
+    if process.response_cancellable(id, cancelled)?.is_none() {
+        process.finish();
+        return Ok(RuntimeOutcome::Interrupted);
+    }
     process.send(json!({"method": "initialized", "params": {}}))?;
 
     id += 1;
@@ -206,7 +249,10 @@ fn run_process(
         })
     };
     process.send(json!({"id": id, "method": method, "params": params}))?;
-    let thread_response = process.response(id)?;
+    let Some(thread_response) = process.response_cancellable(id, cancelled)? else {
+        process.finish();
+        return Ok(RuntimeOutcome::Interrupted);
+    };
     let thread_id = thread_id_from_response(&thread_response)
         .ok_or_else(|| TradeXError::new("CODEX_PROTOCOL_UNSUPPORTED"))?;
     let turn_thread_id = thread_id.clone();
@@ -241,7 +287,42 @@ fn run_process(
     let mut last_upstream_sequence = None;
     let mut seen_sequences = std::collections::HashSet::new();
     loop {
-        let frame = process.next()?;
+        let Some(frame) = process.next_cancellable(cancelled)? else {
+            let Some(turn_id) = turn_id.as_deref() else {
+                process.finish();
+                return Ok(RuntimeOutcome::Interrupted);
+            };
+            let interrupt_id = id + 1;
+            if process
+                .send(json!({
+                    "id": interrupt_id,
+                    "method": "turn/interrupt",
+                    "params": {"threadId": thread_id, "turnId": turn_id}
+                }))
+                .is_err()
+            {
+                process.finish();
+                return Ok(RuntimeOutcome::Interrupted);
+            }
+            loop {
+                match process.next() {
+                    Ok(frame) if frame.get("id").and_then(Value::as_u64) == Some(interrupt_id) => {
+                        let outcome = if frame.get("error").is_some() {
+                            RuntimeOutcome::Interrupted
+                        } else {
+                            RuntimeOutcome::Cancelled
+                        };
+                        process.finish();
+                        return Ok(outcome);
+                    }
+                    Ok(_) => continue,
+                    Err(_) => {
+                        process.finish();
+                        return Ok(RuntimeOutcome::Interrupted);
+                    }
+                }
+            }
+        };
         if frame.get("id").and_then(Value::as_u64) == Some(id) {
             response_error(&frame)?;
             turn_id = turn_id_from_response(&frame);
@@ -276,13 +357,14 @@ fn run_process(
         return Err(TradeXError::new("CODEX_PROTOCOL_UNSUPPORTED"));
     }
     process.finish();
-    Ok(())
+    Ok(RuntimeOutcome::Completed)
 }
 
 struct Process {
     child: Child,
     stdin: ChildStdin,
     frames: Receiver<std::result::Result<String, String>>,
+    queue_overflow: std::sync::Arc<AtomicBool>,
     deadline: Instant,
     runtime_home: PathBuf,
 }
@@ -329,19 +411,33 @@ impl Process {
             let _ = fs::remove_dir_all(&runtime_home);
             TradeXError::new("CODEX_RUNTIME_START_FAILED")
         })?;
-        let (sender, frames) = mpsc::channel();
+        let (sender, frames) = mpsc::sync_channel(MAX_PENDING_FRAMES);
+        let queue_overflow = std::sync::Arc::new(AtomicBool::new(false));
+        let overflow = queue_overflow.clone();
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             loop {
                 match read_frame(&mut reader) {
                     Ok(Some(line)) => {
-                        if !line.is_empty() && sender.send(Ok(line)).is_err() {
-                            break;
+                        if !line.is_empty() {
+                            match sender.try_send(Ok(line)) {
+                                Ok(()) => {}
+                                Err(mpsc::TrySendError::Full(_)) => {
+                                    overflow.store(true, Ordering::Release);
+                                    break;
+                                }
+                                Err(mpsc::TrySendError::Disconnected(_)) => break,
+                            }
                         }
                     }
                     Ok(None) => break,
                     Err(error) => {
-                        let _ = sender.send(Err(error));
+                        if matches!(
+                            sender.try_send(Err(error)),
+                            Err(mpsc::TrySendError::Full(_))
+                        ) {
+                            overflow.store(true, Ordering::Release);
+                        }
                         break;
                     }
                 }
@@ -351,6 +447,7 @@ impl Process {
             child,
             stdin,
             frames,
+            queue_overflow,
             deadline: Instant::now() + config.timeout,
             runtime_home,
         })
@@ -366,37 +463,60 @@ impl Process {
     }
 
     fn next(&mut self) -> Result<Value> {
+        self.next_cancellable(&AtomicBool::new(false))?
+            .ok_or_else(|| TradeXError::new("CODEX_PROCESS_EXITED"))
+    }
+
+    fn next_cancellable(&mut self, cancelled: &AtomicBool) -> Result<Option<Value>> {
+        if cancelled.load(Ordering::Acquire) {
+            return Ok(None);
+        }
+        if self.queue_overflow.load(Ordering::Acquire) {
+            return Err(TradeXError::new("CODEX_RUNTIME_BACKPRESSURE"));
+        }
         let remaining = self.deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
             return Err(TradeXError::new("CODEX_RUNTIME_TIMEOUT"));
         }
-        let line = self
-            .frames
-            .recv_timeout(remaining)
-            .map_err(|error| match error {
-                mpsc::RecvTimeoutError::Timeout => TradeXError::new("CODEX_RUNTIME_TIMEOUT"),
-                mpsc::RecvTimeoutError::Disconnected => TradeXError::new("CODEX_PROCESS_EXITED"),
-            })?
-            .map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
-        let frame: Value =
-            serde_json::from_str(&line).map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
-        if !frame.is_object() {
-            return Err(TradeXError::new("CODEX_FRAME_INVALID"));
+        let wait = remaining.min(Duration::from_millis(50));
+        match self.frames.recv_timeout(wait) {
+            Ok(line) => {
+                let line = line.map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
+                let frame: Value = serde_json::from_str(&line)
+                    .map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
+                if !frame.is_object() {
+                    return Err(TradeXError::new("CODEX_FRAME_INVALID"));
+                }
+                if frame.get("jsonrpc").is_some()
+                    && frame.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+                {
+                    return Err(TradeXError::new("CODEX_PROTOCOL_UNSUPPORTED"));
+                }
+                Ok(Some(frame))
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if cancelled.load(Ordering::Acquire) {
+                    Ok(None)
+                } else if Instant::now() >= self.deadline {
+                    Err(TradeXError::new("CODEX_RUNTIME_TIMEOUT"))
+                } else {
+                    self.next_cancellable(cancelled)
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(TradeXError::new("CODEX_PROCESS_EXITED"))
+            }
         }
-        if frame.get("jsonrpc").is_some()
-            && frame.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
-        {
-            return Err(TradeXError::new("CODEX_PROTOCOL_UNSUPPORTED"));
-        }
-        Ok(frame)
     }
 
-    fn response(&mut self, id: u64) -> Result<Value> {
+    fn response_cancellable(&mut self, id: u64, cancelled: &AtomicBool) -> Result<Option<Value>> {
         loop {
-            let frame = self.next()?;
+            let Some(frame) = self.next_cancellable(cancelled)? else {
+                return Ok(None);
+            };
             if frame.get("id").and_then(Value::as_u64) == Some(id) {
                 response_error(&frame)?;
-                return Ok(frame);
+                return Ok(Some(frame));
             }
             if frame.get("method").is_some() {
                 continue;
@@ -782,7 +902,8 @@ done
             message: "hello".into(),
         };
         let mut events = Vec::new();
-        run_process(&config, &request, &access, &mut |event| {
+        let cancelled = AtomicBool::new(false);
+        run_process(&config, &request, &access, &cancelled, &mut |event| {
             events.push(event);
             Ok(())
         })
@@ -798,6 +919,63 @@ done
             events.iter().any(
                 |event| matches!(event, RuntimeEvent::ItemDelta { delta, .. } if delta == "OK")
             )
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn process_adapter_maps_cancel_to_turn_interrupt() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("fake-codex-cancel");
+        fs::write(
+            &executable,
+            r#"#!/bin/sh
+while IFS= read -r line; do
+  case "$line" in
+    *'"method":"initialize"'*) printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{}}' ;;
+    *'"method":"thread/start"'*) printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"threadId":"fake-thread"}}' ;;
+    *'"method":"turn/start"'*)
+      printf '%s\n' '{"jsonrpc":"2.0","id":3,"result":{"turnId":"fake-turn"}}'
+      printf '%s\n' '{"method":"turn/started","params":{"threadId":"fake-thread","turnId":"fake-turn"}}'
+      printf '%s\n' '{"method":"item/started","params":{"threadId":"fake-thread","turnId":"fake-turn","item":{"id":"item-1","type":"agent_message"}}}' ;;
+    *'"method":"turn/interrupt"'*) printf '%s\n' '{"jsonrpc":"2.0","id":4,"result":{}}' ;;
+  esac
+done
+"#,
+        )
+        .unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        let config = AppServerConfig {
+            executable,
+            timeout: Duration::from_secs(3),
+        };
+        let access = RuntimeAccess::for_gateway("test-key").unwrap();
+        let request = RuntimeRequest {
+            codex_thread_id: None,
+            model: ThreadModel {
+                provider: "CHATGPT".into(),
+                model_id: "gpt-5.6-sol".into(),
+                thinking_type: None,
+            },
+            message: "cancel me".into(),
+        };
+        let cancelled = AtomicBool::new(false);
+        let mut events = Vec::new();
+        let outcome = run_process(&config, &request, &access, &cancelled, &mut |event| {
+            if matches!(event, RuntimeEvent::ItemStarted { .. }) {
+                cancelled.store(true, Ordering::Release);
+            }
+            events.push(event);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(outcome, RuntimeOutcome::Cancelled);
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, RuntimeEvent::ItemStarted { .. }))
         );
     }
 }

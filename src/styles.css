@@ -110,6 +110,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-timeline { display: grid; gap: 14px; margin-top: 18px; }
 .turn-timeline { border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: var(--surface2); }
 .turn-heading, .timeline-item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.turn-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .turn-heading h3 { margin: 0; font-size: 13px; text-transform: none; }
 .turn-heading small, .turn-attempt { color: var(--muted); font-size: 10px; }
 .turn-provenance { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 12px 0; color: var(--muted); font-size: 10px; }

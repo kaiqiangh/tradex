@@ -39,6 +39,21 @@ export async function checkThreadUI(tab, browser) {
     assert.match(await ui.getByText('Provider attempt:', { exact: false }).innerText(), /SUCCEEDED/);
     observed.push('A fake App Server handshake produces a persisted running Turn, typed user/agent timeline and completed provider attempt.');
 
+    await ui.getByLabel('Turn request', { exact: true }).fill('Cancel this request');
+    await ui.getByRole('button', { name: 'Send', exact: true }).click();
+    const cancelledStatus = ui.getByRole('status', { name: 'Turn 2 status', exact: true });
+    await cancelledStatus.waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Cancel Turn 2', exact: true }).click();
+    for (let attempt = 0; attempt < 40 && (await cancelledStatus.innerText()) === 'RUNNING'; attempt += 1) await ui.waitForTimeout(25);
+    assert.equal(await cancelledStatus.innerText(), 'CANCELLED');
+    assert.equal(await ui.getByRole('button', { name: 'Retry Turn 2', exact: true }).isVisible(), true);
+    await ui.getByRole('button', { name: 'Retry Turn 2', exact: true }).click();
+    const retriedStatus = ui.getByRole('status', { name: 'Turn 3 status', exact: true });
+    await retriedStatus.waitFor({ state: 'visible' });
+    for (let attempt = 0; attempt < 40 && (await retriedStatus.innerText()) !== 'COMPLETED'; attempt += 1) await ui.waitForTimeout(25);
+    assert.equal(await retriedStatus.innerText(), 'COMPLETED');
+    observed.push('Cancel persists a distinct CANCELLED Turn, and retry creates a new Turn that completes without rewriting the cancelled history.');
+
     await tab.reload();
     await ui.getByRole('button', { name: 'Threads', exact: true }).click();
     await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).last().waitFor({ state: 'visible' });
@@ -46,6 +61,8 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('alert').count(), 0);
     assert.equal(await ui.getByText('Read-only response for: Summarize the evidence', { exact: true }).isVisible(), true);
+    assert.equal(await ui.getByRole('status', { name: 'Turn 2 status', exact: true }).innerText(), 'CANCELLED');
+    assert.equal(await ui.getByRole('status', { name: 'Turn 3 status', exact: true }).innerText(), 'COMPLETED');
     observed.push('Thread history and its selected detail survive renderer/workspace reload.');
 
     for (const width of [768, 390]) {

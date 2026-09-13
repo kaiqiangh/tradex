@@ -164,6 +164,8 @@ export interface IpcSchema {
   subscribe: Subscribe;
   threadCreate: ThreadCreate;
   threadQuery: ThreadQuery;
+  turnCancel: TurnCancel;
+  turnRetry: TurnRetry;
   turnStart: TurnStart;
   verifyRoute: VerifyRoute;
   workspaceOpen: OpenWorkspace;
@@ -551,6 +553,7 @@ export interface ThreadModel {
  * via the `definition` "ThreadTurn".
  */
 export interface ThreadTurn {
+  cancelRequestedAt?: string | null;
   completedAt?: string | null;
   items: ThreadItem[];
   providerAttempts: ThreadProviderAttempt[];
@@ -854,6 +857,26 @@ export interface ThreadCreate {
  */
 export interface ThreadQuery {
   threadId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TurnCancel".
+ */
+export interface TurnCancel {
+  expectedStateVersion: string;
+  threadId: string;
+  turnId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TurnRetry".
+ */
+export interface TurnRetry {
+  expectedStateVersion: string;
+  threadId: string;
+  turnId: string;
   workspaceId: string;
 }
 /**

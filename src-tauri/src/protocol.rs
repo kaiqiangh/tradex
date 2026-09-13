@@ -196,6 +196,8 @@ pub struct IpcSchema {
     pub thread_create: ThreadCreate,
     pub thread_query: ThreadQuery,
     pub turn_start: TurnStart,
+    pub turn_cancel: TurnCancel,
+    pub turn_retry: TurnRetry,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -363,6 +365,8 @@ pub struct ThreadTurn {
     pub started_at: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cancel_requested_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -465,6 +469,32 @@ pub struct TurnStart {
     #[serde(default)]
     #[schemars(length(max = 32))]
     pub attached_contexts: Vec<ThreadContextRef>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TurnCancel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub turn_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TurnRetry {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub turn_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
@@ -819,6 +849,21 @@ impl TradeXError {
                 "wait_for_turn",
                 "Wait for Turn",
             ),
+            "TURN_NOT_RUNNING" => (
+                "This Turn is no longer running and cannot be cancelled.",
+                "reload_snapshot",
+                "Reload Turn",
+            ),
+            "TURN_NOT_RETRYABLE" => (
+                "Only failed or interrupted Turns can be retried.",
+                "reload_snapshot",
+                "Reload Turn",
+            ),
+            "CODEX_TURN_CANCELLED" => (
+                "The Turn was cancelled before completion.",
+                "retry_turn",
+                "Retry Turn",
+            ),
             "CODEX_RUNTIME_NOT_CONFIGURED" => (
                 "Codex App Server is not configured for this workspace.",
                 "configure_runtime",
@@ -831,6 +876,11 @@ impl TradeXError {
             ),
             "CODEX_RUNTIME_TIMEOUT" => (
                 "Codex App Server timed out. The partial Turn was preserved.",
+                "retry_turn",
+                "Retry Turn",
+            ),
+            "CODEX_RUNTIME_BACKPRESSURE" => (
+                "Codex App Server produced data faster than TradeX could persist it. The partial Turn was preserved.",
                 "retry_turn",
                 "Retry Turn",
             ),
@@ -909,11 +959,13 @@ impl TradeXError {
                 "CODEX_RUNTIME_NOT_CONFIGURED"
                     | "CODEX_RUNTIME_START_FAILED"
                     | "CODEX_RUNTIME_TIMEOUT"
+                    | "CODEX_RUNTIME_BACKPRESSURE"
                     | "CODEX_PROCESS_EXITED"
                     | "CODEX_FRAME_INVALID"
                     | "CODEX_PROTOCOL_UNSUPPORTED"
                     | "CODEX_EVENT_GAP"
                     | "CODEX_UPSTREAM_ERROR"
+                    | "CODEX_TURN_CANCELLED"
             ) {
                 "RUNTIME_ERROR"
             } else if code.starts_with("MODEL_")
@@ -957,9 +1009,11 @@ impl TradeXError {
                     | "MODEL_TEST_INFERENCE_FAILED"
                     | "CODEX_RUNTIME_START_FAILED"
                     | "CODEX_RUNTIME_TIMEOUT"
+                    | "CODEX_RUNTIME_BACKPRESSURE"
                     | "CODEX_PROCESS_EXITED"
                     | "CODEX_FRAME_INVALID"
                     | "CODEX_UPSTREAM_ERROR"
+                    | "CODEX_TURN_CANCELLED"
             ),
             blocking: true,
             remediation_actions: vec![Remediation {
