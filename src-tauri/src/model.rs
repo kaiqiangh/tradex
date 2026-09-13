@@ -615,6 +615,7 @@ mod tests {
             thinking_type: None,
             verified_at: Some("2026-09-12T00:00:00Z".into()),
         });
+        state.default_route = state.current_route.as_ref().map(ModelRoute::selection);
         for index in 0..101 {
             state.append_attempt(ModelAttempt {
                 attempt_id: index.to_string(),
@@ -635,6 +636,10 @@ mod tests {
         assert_eq!(state.chatgpt.status, ModelHealth::Unverified);
         assert!(state.chatgpt.routes.is_empty());
         assert!(state.current_route.is_none());
+        assert_eq!(
+            state.default_route.as_ref().unwrap().model_id,
+            "gpt-5.6-sol"
+        );
         assert_eq!(state.attempts.len(), 100);
     }
 
