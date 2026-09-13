@@ -2552,6 +2552,31 @@ mod thread_tests {
             assert_eq!(rejected["error"]["code"], "IPC_PAYLOAD_INVALID");
         }
 
+        let unknown_account = control.dispatch(request(
+            "agent.capabilities",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "accountId": "missing-account",
+                "attachedContexts": []
+            }),
+        ));
+        assert_eq!(unknown_account["ok"], false);
+        assert_eq!(unknown_account["error"]["code"], "IPC_AGGREGATE_NOT_FOUND");
+
+        let unknown_context = control.dispatch(request(
+            "agent.capabilities",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": [{"kind":"prompt","id":"p","hash":"sha256:p"}]
+            }),
+        ));
+        assert_eq!(unknown_context["ok"], false);
+        assert_eq!(unknown_context["error"]["code"], "TURN_CONTEXT_INVALID");
+
         let paper = control.dispatch(request(
             "agent.capabilities",
             json!({
@@ -2564,6 +2589,39 @@ mod thread_tests {
         assert_eq!(paper["ok"], true);
         assert_eq!(paper["data"]["level"], "C3");
         assert_eq!(paper["data"]["executionAllowed"], true);
+
+        let trade_thread = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": "Capability boundary",
+                "defaultAgentMode": "TRADE",
+                "defaultExecutionContext": "LOCAL_PAPER",
+                "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
+                "linkedContexts": []
+            }),
+        ));
+        assert_eq!(trade_thread["ok"], true);
+        let trade_thread_id = trade_thread["data"]["threadId"].as_str().unwrap();
+        let trade_state_version = trade_thread["data"]["stateVersion"].as_str().unwrap();
+        let started = control.dispatch(request(
+            "turn.start",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": trade_thread_id,
+                "expectedStateVersion": trade_state_version,
+                "message": "Check the paper boundary",
+                "agentMode": "TRADE",
+                "executionContext": "LOCAL_PAPER",
+                "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
+                "attachedContexts": []
+            }),
+        ));
+        assert_eq!(started["ok"], true);
+        assert_eq!(
+            started["data"]["turns"][0]["snapshot"]["capabilityLevel"],
+            paper["data"]["level"]
+        );
 
         let before_rejected = control
             .store
