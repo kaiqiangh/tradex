@@ -79,6 +79,11 @@ export async function checkThreadUI(tab, browser) {
     observed.push('Thread create persists its title and mode/context defaults before any Turn exists.');
 
     await ui.getByLabel('Turn request', { exact: true }).fill('Summarize the evidence');
+    await ui.getByRole('button', { name: 'Preview typed research result', exact: true }).click();
+    await ui.getByText('Typed result · UNAVAILABLE', { exact: true }).waitFor({ state: 'visible' });
+    const researchMarker = await ui.locator('[data-research-marker]').innerText();
+    assert.match(researchMarker, /^research:v1:sha256:[0-9a-f]{64}$/);
+    assert.equal(await ui.getByText('Source: control-plane:research · Context refs: 1', { exact: true }).isVisible(), true);
     await ui.getByRole('button', { name: 'Send', exact: true }).click();
     const turnStatus = ui.getByRole('status', { name: 'Turn 1 status', exact: true });
     await turnStatus.waitFor({ state: 'visible' });
@@ -89,10 +94,13 @@ export async function checkThreadUI(tab, browser) {
     }
     assert.equal(sawRunning, true, 'Turn should expose RUNNING before completion');
     assert.equal(await ui.getByText('user message', { exact: true }).isVisible(), true);
-    await ui.getByText('Read-only response for: Summarize the evidence', { exact: true }).waitFor({ state: 'visible' });
+    const agentResult = ui.getByText(/Read-only response for: Summarize the evidence/, { exact: false });
+    await agentResult.waitFor({ state: 'visible' });
+    assert.match(await agentResult.first().innerText(), new RegExp(researchMarker));
+    assert.equal(await ui.getByText('research result', { exact: true }).isVisible(), true);
     assert.equal(await turnStatus.innerText(), 'COMPLETED');
     assert.match(await ui.getByText('Provider attempt:', { exact: false }).innerText(), /SUCCEEDED/);
-    observed.push('A fake App Server handshake produces a persisted running Turn, typed user/agent timeline and completed provider attempt.');
+    observed.push('The Composer previews a typed unavailable result with source/context identity; its marker is persisted and reaches the final fake Turn output.');
 
     await ui.getByRole('button', { name: `Remove ${accountLabel}`, exact: true }).click();
     await ui.getByText('Capability: C0', { exact: true }).waitFor({ state: 'visible' });
@@ -121,7 +129,7 @@ export async function checkThreadUI(tab, browser) {
     assert.equal(await ui.getByText('Capability: C1', { exact: true }).count() >= 1, true);
     assert.equal(await ui.getByText('Capability: C0', { exact: true }).count() >= 1, true);
     assert.equal(await ui.getByText('Context references: 1', { exact: true }).isVisible(), true);
-    assert.equal(await ui.getByText('Read-only response for: Summarize the evidence', { exact: true }).isVisible(), true);
+    assert.equal(await ui.getByText(/Read-only response for: Summarize the evidence/, { exact: false }).isVisible(), true);
     assert.equal(await ui.getByRole('status', { name: 'Turn 2 status', exact: true }).innerText(), 'CANCELLED');
     assert.equal(await ui.getByRole('status', { name: 'Turn 3 status', exact: true }).innerText(), 'COMPLETED');
     observed.push('Thread history and its selected detail survive renderer/workspace reload.');

@@ -48,11 +48,33 @@ pub enum ToolId {
     LiveOrderProposal,
 }
 
+/// Data-plane tools are intentionally separate from financial authority IDs.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ResearchToolId {
+    PublicMarketRead,
+    AccountRead,
+    HistoricalSimulation,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchToolDefinition {
+    pub id: ResearchToolId,
+    #[schemars(length(min = 1, max = 120))]
+    pub label: String,
+    pub read_only: bool,
+    #[schemars(length(min = 1, max = 256))]
+    pub description: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CapabilityDecision {
     pub level: CapabilityLevel,
     pub allowed_tools: Vec<ToolId>,
+    #[schemars(length(max = 3))]
+    pub research_tools: Vec<ResearchToolDefinition>,
     pub execution_allowed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -343,12 +365,13 @@ fn decide_policy(
             if account.is_some() || attached_account {
                 tools.push(ToolId::AccountRead);
             }
-            Ok(CapabilityDecision {
+            Ok(with_research_tools(CapabilityDecision {
                 level: if account.is_some() || attached_account {
                     CapabilityLevel::C1
                 } else {
                     CapabilityLevel::C0
                 },
+                research_tools: Vec::new(),
                 allowed_tools: tools,
                 execution_allowed: false,
                 reason: if is_live(context) {
@@ -356,7 +379,7 @@ fn decide_policy(
                 } else {
                     None
                 },
-            })
+            }))
         }
         AgentMode::Backtest => {
             validate_backtest_context(context, account)?;
@@ -364,12 +387,13 @@ fn decide_policy(
             if account.is_some() || attached_account {
                 tools.push(ToolId::AccountRead);
             }
-            Ok(CapabilityDecision {
+            Ok(with_research_tools(CapabilityDecision {
                 level: CapabilityLevel::C2,
+                research_tools: Vec::new(),
                 allowed_tools: tools,
                 execution_allowed: false,
                 reason: Some("HISTORICAL_SIMULATION_ONLY".into()),
-            })
+            }))
         }
         AgentMode::Trade => {
             if matches!(
@@ -380,26 +404,28 @@ fn decide_policy(
             }
             let Some(account) = account else {
                 if matches!(context, ExecutionContext::LocalPaper) {
-                    return Ok(CapabilityDecision {
+                    return Ok(with_research_tools(CapabilityDecision {
                         level: CapabilityLevel::C3,
+                        research_tools: Vec::new(),
                         allowed_tools: vec![
                             ToolId::PublicMarketRead,
                             ToolId::PaperDemoTestnetExecution,
                         ],
                         execution_allowed: true,
                         reason: Some("LOCAL_PAPER_SIMULATION".into()),
-                    });
+                    }));
                 }
                 return Err(TradeXError::new("TURN_ACCOUNT_REQUIRED"));
             };
             validate_account_environment(context, account)?;
             let live = is_live(context);
-            Ok(CapabilityDecision {
+            Ok(with_research_tools(CapabilityDecision {
                 level: if live {
                     CapabilityLevel::C4
                 } else {
                     CapabilityLevel::C3
                 },
+                research_tools: Vec::new(),
                 allowed_tools: if live {
                     vec![
                         ToolId::PublicMarketRead,
@@ -422,9 +448,41 @@ fn decide_policy(
                     }
                     .into(),
                 ),
-            })
+            }))
         }
     }
+}
+
+fn with_research_tools(mut decision: CapabilityDecision) -> CapabilityDecision {
+    decision.research_tools = decision
+        .allowed_tools
+        .iter()
+        .filter_map(|tool| match tool {
+            ToolId::PublicMarketRead => Some(ResearchToolDefinition {
+                id: ResearchToolId::PublicMarketRead,
+                label: "Public market read".into(),
+                read_only: true,
+                description: "Read-only public market context; no order or broker mutation.".into(),
+            }),
+            ToolId::AccountRead => Some(ResearchToolDefinition {
+                id: ResearchToolId::AccountRead,
+                label: "Account read".into(),
+                read_only: true,
+                description: "Read-only account context; credentials stay in native storage."
+                    .into(),
+            }),
+            ToolId::HistoricalSimulation => Some(ResearchToolDefinition {
+                id: ResearchToolId::HistoricalSimulation,
+                label: "Historical simulation".into(),
+                read_only: true,
+                description:
+                    "Historical-only simulation context; current-market execution is unavailable."
+                        .into(),
+            }),
+            ToolId::PaperDemoTestnetExecution | ToolId::LiveOrderProposal => None,
+        })
+        .collect();
+    decision
 }
 
 fn tool_id(tool: &ToolId) -> &'static str {
@@ -570,6 +628,14 @@ mod tests {
         assert_eq!(backtest.level, CapabilityLevel::C2);
         assert!(!backtest.execution_allowed);
         assert_eq!(backtest.allowed_tools, vec![ToolId::HistoricalSimulation]);
+        assert_eq!(
+            backtest
+                .research_tools
+                .iter()
+                .map(|tool| tool.id.clone())
+                .collect::<Vec<_>>(),
+            vec![ResearchToolId::HistoricalSimulation]
+        );
 
         let live = decide(
             &AgentMode::Trade,
@@ -581,6 +647,12 @@ mod tests {
         assert_eq!(live.level, CapabilityLevel::C4);
         assert!(!live.execution_allowed);
         assert!(live.allowed_tools.contains(&ToolId::LiveOrderProposal));
+        assert!(live.research_tools.iter().all(|tool| {
+            matches!(
+                tool.id,
+                ResearchToolId::PublicMarketRead | ResearchToolId::AccountRead
+            )
+        }));
     }
 
     #[test]

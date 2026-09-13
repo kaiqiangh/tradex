@@ -24,6 +24,7 @@ pub struct RuntimeRequest {
     pub codex_thread_id: Option<String>,
     pub model: ThreadModel,
     pub message: String,
+    pub research_marker: Option<String>,
 }
 
 pub struct RuntimeAccess {
@@ -172,7 +173,13 @@ fn run_fake(
             key: "item/delta:1".into(),
             item_id: "item-agent-1".into(),
             item_type: "agent_message".into(),
-            delta: format!("Read-only response for: {}", request.message),
+            delta: match &request.research_marker {
+                Some(marker) => format!(
+                    "Read-only response for: {}\nResearch result marker: {}",
+                    request.message, marker
+                ),
+                None => format!("Read-only response for: {}", request.message),
+            },
         },
         RuntimeEvent::ItemCompleted {
             key: "item/completed:1".into(),
@@ -262,9 +269,13 @@ fn run_process(
     })?;
 
     id += 1;
+    let input_text = match &request.research_marker {
+        Some(marker) => format!("{}\nResearch result marker: {}", request.message, marker),
+        None => request.message.clone(),
+    };
     let mut turn_params = json!({
         "threadId": turn_thread_id,
-        "input": [{"type": "text", "text": request.message}],
+        "input": [{"type": "text", "text": input_text}],
         "model": request.model.model_id,
         "approvalPolicy": "never",
         "sandboxPolicy": {"type": "readOnly", "networkAccess": false}
@@ -904,6 +915,7 @@ done
                 thinking_type: Some("enabled".into()),
             },
             message: "hello".into(),
+            research_marker: None,
         };
         let mut events = Vec::new();
         let cancelled = AtomicBool::new(false);
@@ -964,6 +976,7 @@ done
                 thinking_type: None,
             },
             message: "cancel me".into(),
+            research_marker: None,
         };
         let cancelled = AtomicBool::new(false);
         let mut events = Vec::new();

@@ -346,6 +346,12 @@ interface ContextCatalog {
 
 可用的附加 account 上下文会为 Ask、Research 和 Backtest 暴露只读账户工具；Trade 需要执行账户时仍必须使用独立的 Account picker。
 
+### 7.8 Typed research registry 与 result preview
+
+Capability summary 必须渲染独立的 `researchTools` data-plane registry。它只包含 read-only IDs `public_market_read`、`account_read` 和 `historical_simulation`；`allowedTools` 中的金融 authority IDs 不是 research tool。Composer 可以对已授权 ID 调用 `research.run`，并展示结构化 unavailable payload、source ID、canonical context refs 和 marker。query 文本始终是不可信输入，不得被写入 result payload。
+
+Send 之前，Composer 可以成对附加 `ResearchToolInvocation` 与 `ResearchToolResult`。`turn.start` 在可信边界重新校验 pair；缺失或篡改的 pair 显示 `RESEARCH_RESULT_INVALID` 且 Thread 保持不变。合法 result 会渲染为 `research_result` timeline item，其 marker 在最终 Turn 输出可见。mode、execution context、account 或附加 refs 改变时，preview 临时状态会清除。
+
 ---
 
 ## 8. Agent Mode × Execution Context UX 状态机

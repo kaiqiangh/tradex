@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createPortal } from 'react-dom';
-import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
+import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -131,6 +131,7 @@ function CapabilitySummary({ decision, loading, error }: { decision?: Capability
   if (error) return <span className="error-text" role="alert">{explainError(error)}</span>;
   if (!decision) return <span className="muted">Capability unavailable</span>;
   const tools = decision.allowedTools.map(tool => toolLabels[tool] ?? tool).join(' · ');
+  const researchTools = decision.researchTools.map(tool => toolLabels[tool.id] ?? tool.id).join(' · ') || 'None';
   const reason = decision.reason === 'LIVE_READ_ONLY'
     ? 'Live account is read only'
     : decision.reason === 'LIVE_PROPOSAL_REQUIRES_ARMING_APPROVAL'
@@ -140,7 +141,7 @@ function CapabilitySummary({ decision, loading, error }: { decision?: Capability
         : decision.reason === 'LOCAL_PAPER_SIMULATION'
           ? 'TradeX simulation'
           : undefined;
-  return <span className="capability-summary"><strong>Capability: {decision.level}</strong><span>{tools}</span>{reason && <span className="muted">{reason}</span>}</span>;
+  return <span className="capability-summary"><strong>Capability: {decision.level}</strong><span>{tools}</span><span className="muted">Data-plane research: {researchTools}</span>{reason && <span className="muted">{reason}</span>}</span>;
 }
 
 const modeOptions: { value: AgentMode; label: string }[] = [
@@ -308,6 +309,8 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
   const [execution, setExecution] = useState<ExecutionContext>(thread.defaultExecutionContext);
   const [accountId, setAccountId] = useState(thread.accountId ?? '');
   const [pendingContexts, setPendingContexts] = useState<ThreadContextRef[]>(thread.linkedContexts);
+  const [researchPreview, setResearchPreview] = useState<{ invocation: ResearchToolInvocation; result: ResearchToolResult }>();
+  const [researchBusy, setResearchBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   useEffect(() => {
@@ -315,8 +318,12 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
     setExecution(thread.defaultExecutionContext);
     setAccountId(thread.accountId ?? '');
     setPendingContexts(thread.linkedContexts);
+    setResearchPreview(undefined);
     setError(undefined);
   }, [thread.threadId, thread.stateVersion]);
+  useEffect(() => {
+    setResearchPreview(undefined);
+  }, [mode, execution, accountId, pendingContexts]);
   const selectedModel = thread.model ?? routeAsThreadModel(verifiedDefaultRoute(model));
   const capability = useQuery({
     queryKey: ['agent-capability', thread.workspaceId, mode, execution, accountId, pendingContexts],
@@ -330,6 +337,26 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
     retry: false,
   });
   const ready = runtimeReady(runtime) && Boolean(selectedModel) && Boolean(capability.data) && !capability.isError;
+  const previewResearch = async () => {
+    const definition = capability.data?.researchTools[0];
+    if (!definition || researchBusy || busy) return;
+    const query = message.trim() || 'Preview typed research context';
+    setResearchBusy(true); setError(undefined);
+    try {
+      const invocation: ResearchToolInvocation = { toolId: definition.id, query };
+      const result = await request('research.run', {
+        workspaceId: thread.workspaceId,
+        agentMode: mode,
+        executionContext: execution,
+        ...(accountId ? { accountId } : {}),
+        attachedContexts: pendingContexts,
+        toolId: invocation.toolId,
+        query: invocation.query,
+      });
+      setResearchPreview({ invocation, result });
+    } catch (failure) { setError(explainError(failure)); }
+    finally { setResearchBusy(false); }
+  };
   const send = async (event: FormEvent) => {
     event.preventDefault();
     if (!ready || !message.trim() || busy) return;
@@ -344,25 +371,28 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
       attachedContexts: pendingContexts,
       ...(accountId ? { accountId } : {}),
       ...(selectedModel ? { model: selectedModel } : {}),
+      ...(researchPreview ? { researchInvocation: researchPreview.invocation, researchResult: researchPreview.result } : {}),
     };
     try {
       await request('turn.start', payload);
       await queryClient.invalidateQueries({ queryKey: ['thread', thread.threadId] });
       setMessage('');
+      setResearchPreview(undefined);
     } catch (failure) { setError(explainError(failure)); }
     finally { setBusy(false); }
   };
   return <section className="composer turn-composer" aria-labelledby="turn-composer-title">
     <div className="composer-heading"><div><h3 id="turn-composer-title">Ask this Thread</h3><p className="muted">Choose context for this Turn; the saved Thread defaults stay unchanged.</p></div><span className="badge readonly">No financial approval</span></div>
     <form onSubmit={send}>
-      <label className="field">Request<textarea aria-label="Turn request" value={message} onChange={event => setMessage(event.target.value)} maxLength={100000} placeholder="Ask a read-only question…" disabled={busy} /></label>
+      <label className="field">Request<textarea aria-label="Turn request" value={message} onChange={event => { setMessage(event.target.value); setResearchPreview(undefined); }} maxLength={100000} placeholder="Ask a read-only question…" disabled={busy} /></label>
       <div className="thread-picker-grid">
         <label className="field">Agent mode<select value={mode} onChange={event => setMode(event.target.value as AgentMode)} disabled={busy}>{modeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label className="field">Execution context<select value={execution} onChange={event => setExecution(event.target.value as ExecutionContext)} disabled={busy}>{executionOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label className="field">Account<select value={accountId} onChange={event => setAccountId(event.target.value)} disabled={busy || accounts.isPending || contextCatalog.isPending || contextCatalog.isError}><option value="">No account selected</option>{accounts.data?.accounts.map(account => { const available = catalogAccountAvailable(contextCatalog.data, account.connectionId); return <option key={account.connectionId} value={account.connectionId} disabled={!available}>{accountOptionLabel(account, mode, available)}</option>; })}</select></label>
       </div>
-      <ContextPicker workspaceId={thread.workspaceId} pending={pendingContexts} onAttach={setPendingContexts} mode={mode} />
+      <ContextPicker workspaceId={thread.workspaceId} pending={pendingContexts} onAttach={contexts => { setPendingContexts(contexts); setResearchPreview(undefined); }} mode={mode} />
       <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
+      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><button type="button" onClick={() => void previewResearch()} disabled={!ready || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button>{researchPreview && <div className="research-result" role="status"><strong>Typed result · {researchPreview.result.payload.state}</strong><span>{researchPreview.result.payload.reason}</span><code data-research-marker>{researchPreview.result.marker}</code><small>Source: {researchPreview.result.sourceId} · Context refs: {researchPreview.result.contextRefs.length}</small></div>}</section>}
       {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
       {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
       {error && <p className="error-text" role="alert">{error}</p>}

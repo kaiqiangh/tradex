@@ -1,4 +1,4 @@
-use crate::capability::{CapabilityDecision, CapabilityQuery, ContextCatalog};
+use crate::capability::{CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolId};
 use crate::gateway::{GatewayMutation, GatewayState};
 use crate::model::{
     ChatgptLogin, ConfigureDeepseek, ModelQuery, ModelState, SetDefaultModel, SetFallbackPolicy,
@@ -150,6 +150,7 @@ pub enum ReplyData {
     Permissions(PermissionReview),
     Capability(CapabilityDecision),
     ContextCatalog(ContextCatalog),
+    ResearchResult(ResearchToolResult),
 }
 
 #[derive(JsonSchema)]
@@ -205,6 +206,9 @@ pub struct IpcSchema {
     pub turn_start: TurnStart,
     pub turn_cancel: TurnCancel,
     pub turn_retry: TurnRetry,
+    pub research_request: ResearchToolRequest,
+    pub research_invocation: ResearchToolInvocation,
+    pub research_result: ResearchToolResult,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -301,6 +305,73 @@ pub struct ThreadContextRef {
     pub id: String,
     #[schemars(length(min = 1, max = 256))]
     pub hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ResearchResultState {
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchToolPayload {
+    pub state: ResearchResultState,
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchToolRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub agent_mode: AgentMode,
+    pub execution_context: ExecutionContext,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    #[schemars(length(max = 32))]
+    pub attached_contexts: Vec<ThreadContextRef>,
+    pub tool_id: ResearchToolId,
+    #[schemars(length(min = 1, max = 100_000))]
+    pub query: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchToolInvocation {
+    pub tool_id: ResearchToolId,
+    #[schemars(length(min = 1, max = 100_000))]
+    pub query: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchToolResult {
+    #[schemars(length(min = 1, max = 128))]
+    pub result_id: String,
+    pub tool_id: ResearchToolId,
+    #[schemars(length(min = 1, max = 128))]
+    pub source_id: String,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    #[schemars(length(min = 1, max = 80))]
+    pub request_hash: String,
+    #[schemars(length(min = 1, max = 96))]
+    pub marker: String,
+    #[schemars(length(max = 32))]
+    pub context_refs: Vec<ThreadContextRef>,
+    pub payload: ResearchToolPayload,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -480,6 +551,18 @@ pub struct TurnStart {
     )]
     #[schemars(with = "Vec<ThreadContextRef>", length(max = 32))]
     pub attached_contexts: Option<Vec<ThreadContextRef>>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub research_invocation: Option<ResearchToolInvocation>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub research_result: Option<ResearchToolResult>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -850,6 +933,11 @@ impl TradeXError {
                 "choose_context",
                 "Choose a supported capability",
             ),
+            "RESEARCH_RESULT_INVALID" => (
+                "The typed research result is missing or no longer matches this Turn.",
+                "retry_request",
+                "Refresh research result",
+            ),
             "TURN_ACCOUNT_REQUIRED" => (
                 "Select the account that belongs to this execution context.",
                 "select_account",
@@ -995,7 +1083,10 @@ impl TradeXError {
                 "RATE_LIMITED"
             } else if code == "PROVIDER_UNAVAILABLE" {
                 "NETWORK_ERROR"
-            } else if matches!(code, "PROVIDER_UNSUPPORTED" | "UNSUPPORTED_CAPABILITY") {
+            } else if matches!(
+                code,
+                "PROVIDER_UNSUPPORTED" | "UNSUPPORTED_CAPABILITY" | "RESEARCH_RESULT_INVALID"
+            ) {
                 "UNSUPPORTED_CAPABILITY"
             } else if code == "PROVIDER_PERMISSION_BLOCKED" {
                 "PERMISSION_ERROR"

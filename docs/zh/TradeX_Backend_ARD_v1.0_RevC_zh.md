@@ -1985,6 +1985,31 @@ interface ContextCatalogEmptyState {
 
 可用的附加 account 上下文会为 Ask、Research 和 Backtest 增加只读 `account_read` 能力，但不会满足 Trade 所需的独立执行账户条件。
 
+### 41.8 Typed research tool/result 边界（S05）
+
+`CapabilityDecision.researchTools` 是 Control Plane 从 `allowedTools` 派生的 data-plane registry，只能包含 `public_market_read`、`account_read` 和 `historical_simulation`；`paper_demo_testnet_execution`、`live_order_proposal` 以及 risk、approval、arming、keychain 和 Order Gateway 命令永远不会成为 registry entry。总能力列表仍是模式/环境的权威决策：Trade Paper/Demo/Testnet 是唯一非 Live execution 路径，Trade Live 始终停在 proposal-only。
+
+| Command | Payload | Success data |
+|---|---|---|
+| research.run | `ResearchToolRequest` | `ResearchToolResult` |
+
+~~~ts
+type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
+interface ResearchToolDefinition { id: ResearchToolId; label: string; readOnly: boolean; description: string; }
+interface ResearchToolRequest {
+  workspaceId: string; agentMode: AgentMode; executionContext: ExecutionContext;
+  accountId?: string; attachedContexts: ThreadContextRef[];
+  toolId: ResearchToolId; query: string;
+}
+interface ResearchToolResult {
+  resultId: string; toolId: ResearchToolId; sourceId: string; accountId?: string;
+  requestHash: string; marker: string; contextRefs: ThreadContextRef[];
+  payload: { state: "UNAVAILABLE"; reason: string };
+}
+~~~
+
+`research.run` 是只读命令，在拥有 market/account/history 的 slice 接入 provider 前返回明确的 unavailable payload。query 文本有界并只参与 hash，不会回显到 result。`turn.start` 只能成对提交 `ResearchToolInvocation` 和 result；Control Plane 从 Turn 输入重建完整 request，再次运行同一 registry 并逐字段比较，确认后才写入 `research_result` item 或启动 runtime。缺失、错配或篡改 pair 返回 `RESEARCH_RESULT_INVALID`，且不修改 projection。持久化 item 保留非秘密 source/context refs 与 marker；runtime 只接收清洗后的 marker。broker credential、model secret 和 direct external LLM endpoint 不会跨越该边界。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

@@ -346,6 +346,12 @@ interface ContextCatalog {
 
 An available attached account context exposes read-only account tools for Ask, Research and Backtest; the separate Account picker remains required when Trade needs an execution account.
 
+### 7.8 Typed research registry and result preview
+
+The capability summary must render the separate `researchTools` data-plane registry. It contains only the read-only IDs `public_market_read`, `account_read`, and `historical_simulation`; financial authority IDs in `allowedTools` are not research tools. The Composer may call `research.run` for an authorized ID and show the structured unavailable payload, source ID, canonical context refs and marker. Query text remains untrusted and is never rendered into the result payload.
+
+Before Send, the Composer may attach a `ResearchToolInvocation` and its `ResearchToolResult`. `turn.start` revalidates the pair at the trusted boundary; a missing or tampered pair is surfaced as `RESEARCH_RESULT_INVALID` and leaves the Thread unchanged. A valid result renders as a `research_result` timeline item and its marker is visible in the final Turn output. Preview state is ephemeral and is cleared when mode, execution context, account or attached refs change.
+
 ---
 
 ## 8. Agent Mode × Execution Context UX State Machine

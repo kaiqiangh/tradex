@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -36,6 +36,7 @@ interface Inputs {
   'turn.retry': TurnRetry;
   'agent.capabilities': CapabilityQuery;
   'context.catalog': WorkspaceQuery;
+  'research.run': ResearchToolRequest;
 }
 interface Outputs {
   'model.get_gateway': GatewayState;
@@ -71,6 +72,7 @@ interface Outputs {
   'turn.retry': Thread;
   'agent.capabilities': CapabilityDecision;
   'context.catalog': ContextCatalog;
+  'research.run': ResearchToolResult;
 }
 const definitions = {
   'model.get_gateway': ['WorkspaceQuery', 'GatewayState'],
@@ -106,6 +108,7 @@ const definitions = {
   'turn.retry': ['TurnRetry', 'Thread'],
   'agent.capabilities': ['CapabilityQuery', 'CapabilityDecision'],
   'context.catalog': ['WorkspaceQuery', 'ContextCatalog'],
+  'research.run': ['ResearchToolRequest', 'ResearchToolResult'],
 } as const;
 
 export const browserIntegration = import.meta.env.MODE === 'integration';

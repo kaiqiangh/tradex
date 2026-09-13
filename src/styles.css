@@ -104,6 +104,10 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-provenance dt { color: var(--muted); font-size: 10px; }
 .thread-provenance dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
 .composer-context { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+.research-preview { display: grid; gap: 8px; margin: 8px 0 12px; }
+.research-result { display: grid; gap: 4px; min-width: 0; padding: 9px; border: 1px solid #bfdbfe; border-radius: 8px; background: var(--blue-light); color: #1e40af; font-size: 11px; }
+.research-result span, .research-result small, .research-result code { overflow-wrap: anywhere; }
+.research-result code { font-size: 10px; }
 .context-picker { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 .context-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .context-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 6px 4px 9px; border: 1px solid #bfdbfe; border-radius: 999px; background: var(--blue-light); color: #1e40af; font-size: 11px; }

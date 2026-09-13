@@ -1985,6 +1985,31 @@ Account hashes are `sha256:<64 lowercase hex characters>` over the canonical non
 
 An available attached account context adds read-only `account_read` capability for Ask, Research and Backtest. It never satisfies the separate execution-account requirement for Trade.
 
+### 41.8 Typed research tool/result boundary (S05)
+
+`CapabilityDecision.researchTools` is a data-plane registry derived by the Control Plane from `allowedTools`. It may contain only `public_market_read`, `account_read`, and `historical_simulation`; `paper_demo_testnet_execution` and `live_order_proposal`, plus risk, approval, arming, keychain and Order Gateway commands, are never registry entries. The total capability list remains the authoritative mode/environment decision: Trade Paper/Demo/Testnet is the only non-live execution path and Trade Live remains proposal-only.
+
+| Command | Payload | Success data |
+|---|---|---|
+| research.run | `ResearchToolRequest` | `ResearchToolResult` |
+
+~~~ts
+type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
+interface ResearchToolDefinition { id: ResearchToolId; label: string; readOnly: boolean; description: string; }
+interface ResearchToolRequest {
+  workspaceId: string; agentMode: AgentMode; executionContext: ExecutionContext;
+  accountId?: string; attachedContexts: ThreadContextRef[];
+  toolId: ResearchToolId; query: string;
+}
+interface ResearchToolResult {
+  resultId: string; toolId: ResearchToolId; sourceId: string; accountId?: string;
+  requestHash: string; marker: string; contextRefs: ThreadContextRef[];
+  payload: { state: "UNAVAILABLE"; reason: string };
+}
+~~~
+
+`research.run` is read-only and returns an explicit unavailable payload until the owning market/account/history slices connect providers. Query text is bounded and hashed but never echoed into the result. `turn.start` may submit a `ResearchToolInvocation` only together with its result; the Control Plane reconstructs the full request from the Turn inputs, reruns the same registry function, and compares every result field before writing a `research_result` item or starting runtime. Missing, mismatched, or tampered pairs return `RESEARCH_RESULT_INVALID` without projection mutation. The persisted item keeps the non-secret source/context refs and marker; runtime receives only the sanitized marker. No broker credentials, model secrets, or direct external LLM endpoint cross this seam.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

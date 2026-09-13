@@ -49,6 +49,15 @@
     "providerSelection": {
       "$ref": "#/$defs/ProviderSelection"
     },
+    "researchInvocation": {
+      "$ref": "#/$defs/ResearchToolInvocation"
+    },
+    "researchRequest": {
+      "$ref": "#/$defs/ResearchToolRequest"
+    },
+    "researchResult": {
+      "$ref": "#/$defs/ResearchToolResult"
+    },
     "result": {
       "$ref": "#/$defs/ResultEnvelope"
     },
@@ -125,7 +134,10 @@
     "threadQuery",
     "turnStart",
     "turnCancel",
-    "turnRetry"
+    "turnRetry",
+    "researchRequest",
+    "researchInvocation",
+    "researchResult"
   ],
   "$defs": {
     "AccountConnection": {
@@ -452,12 +464,20 @@
             "string",
             "null"
           ]
+        },
+        "researchTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResearchToolDefinition"
+          },
+          "maxItems": 3
         }
       },
       "additionalProperties": false,
       "required": [
         "level",
         "allowedTools",
+        "researchTools",
         "executionAllowed"
       ]
     },
@@ -1778,7 +1798,187 @@
         },
         {
           "$ref": "#/$defs/ContextCatalog"
+        },
+        {
+          "$ref": "#/$defs/ResearchToolResult"
         }
+      ]
+    },
+    "ResearchResultState": {
+      "type": "string",
+      "enum": [
+        "UNAVAILABLE"
+      ]
+    },
+    "ResearchToolDefinition": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "id": {
+          "$ref": "#/$defs/ResearchToolId"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "readOnly": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "readOnly",
+        "description"
+      ]
+    },
+    "ResearchToolId": {
+      "description": "Data-plane tools are intentionally separate from financial authority IDs.",
+      "type": "string",
+      "enum": [
+        "public_market_read",
+        "account_read",
+        "historical_simulation"
+      ]
+    },
+    "ResearchToolInvocation": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "maxLength": 100000,
+          "minLength": 1
+        },
+        "toolId": {
+          "$ref": "#/$defs/ResearchToolId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "toolId",
+        "query"
+      ]
+    },
+    "ResearchToolPayload": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/ResearchResultState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "reason"
+      ]
+    },
+    "ResearchToolRequest": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "agentMode": {
+          "$ref": "#/$defs/AgentMode"
+        },
+        "attachedContexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
+        "executionContext": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "query": {
+          "type": "string",
+          "maxLength": 100000,
+          "minLength": 1
+        },
+        "toolId": {
+          "$ref": "#/$defs/ResearchToolId"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "agentMode",
+        "executionContext",
+        "attachedContexts",
+        "toolId",
+        "query"
+      ]
+    },
+    "ResearchToolResult": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "contextRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
+        "marker": {
+          "type": "string",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "payload": {
+          "$ref": "#/$defs/ResearchToolPayload"
+        },
+        "requestHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "resultId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "toolId": {
+          "$ref": "#/$defs/ResearchToolId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "resultId",
+        "toolId",
+        "sourceId",
+        "requestHash",
+        "marker",
+        "contextRefs",
+        "payload"
       ]
     },
     "ResultEnvelope": {
@@ -2937,6 +3137,26 @@
           "anyOf": [
             {
               "$ref": "#/$defs/ThreadModel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "researchInvocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchToolInvocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "researchResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchToolResult"
             },
             {
               "type": "null"

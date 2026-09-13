@@ -54,6 +54,13 @@ declare const validators: {
   ProviderSelection: (value: unknown) => boolean;
   Remediation: (value: unknown) => boolean;
   ReplyData: (value: unknown) => boolean;
+  ResearchResultState: (value: unknown) => boolean;
+  ResearchToolDefinition: (value: unknown) => boolean;
+  ResearchToolId: (value: unknown) => boolean;
+  ResearchToolInvocation: (value: unknown) => boolean;
+  ResearchToolPayload: (value: unknown) => boolean;
+  ResearchToolRequest: (value: unknown) => boolean;
+  ResearchToolResult: (value: unknown) => boolean;
   ResultEnvelope: (value: unknown) => boolean;
   RiskPolicy: (value: unknown) => boolean;
   RiskPolicyInput: (value: unknown) => boolean;

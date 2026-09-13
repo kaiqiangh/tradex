@@ -114,6 +114,18 @@ export type Connect =
       workspaceId: string;
     };
 /**
+ * Data-plane tools are intentionally separate from financial authority IDs.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolId".
+ */
+export type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchResultState".
+ */
+export type ResearchResultState = "UNAVAILABLE";
+/**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ResultEnvelope".
  */
@@ -138,7 +150,8 @@ export type ReplyData =
   | AccountConnection
   | PermissionReview
   | CapabilityDecision
-  | ContextCatalog;
+  | ContextCatalog
+  | ResearchToolResult;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ToolId".
@@ -174,6 +187,9 @@ export interface IpcSchema {
   modelQuery: ModelQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
+  researchInvocation: ResearchToolInvocation;
+  researchRequest: ResearchToolRequest;
+  researchResult: ResearchToolResult;
   result: ResultEnvelope;
   riskQuery: RiskQuery;
   saveRiskPolicy: SaveRiskPolicy;
@@ -671,6 +687,55 @@ export interface ProviderSelection {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolInvocation".
+ */
+export interface ResearchToolInvocation {
+  query: string;
+  toolId: ResearchToolId;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolRequest".
+ */
+export interface ResearchToolRequest {
+  accountId?: string;
+  agentMode: AgentMode;
+  /**
+   * @maxItems 32
+   */
+  attachedContexts: ThreadContextRef[];
+  executionContext: ExecutionContext;
+  query: string;
+  toolId: ResearchToolId;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolResult".
+ */
+export interface ResearchToolResult {
+  accountId?: string;
+  /**
+   * @maxItems 32
+   */
+  contextRefs: ThreadContextRef[];
+  marker: string;
+  payload: ResearchToolPayload;
+  requestHash: string;
+  resultId: string;
+  sourceId: string;
+  toolId: ResearchToolId;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolPayload".
+ */
+export interface ResearchToolPayload {
+  reason: string;
+  state: ResearchResultState;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SuccessEnvelope".
  */
 export interface SuccessEnvelope {
@@ -791,6 +856,24 @@ export interface CapabilityDecision {
   executionAllowed: boolean;
   level: CapabilityLevel;
   reason?: string | null;
+  /**
+   * @maxItems 3
+   */
+  researchTools:
+    | []
+    | [ResearchToolDefinition]
+    | [ResearchToolDefinition, ResearchToolDefinition]
+    | [ResearchToolDefinition, ResearchToolDefinition, ResearchToolDefinition];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolDefinition".
+ */
+export interface ResearchToolDefinition {
+  description: string;
+  id: ResearchToolId;
+  label: string;
+  readOnly: boolean;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -993,6 +1076,8 @@ export interface TurnStart {
   expectedStateVersion: string;
   message: string;
   model?: ThreadModel | null;
+  researchInvocation?: ResearchToolInvocation | null;
+  researchResult?: ResearchToolResult | null;
   threadId: string;
   workspaceId: string;
 }
