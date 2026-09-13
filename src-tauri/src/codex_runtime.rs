@@ -285,7 +285,7 @@ fn run_process(
     }))?;
     let mut turn_id = None;
     let mut last_upstream_sequence = None;
-    let mut seen_sequences = std::collections::HashSet::new();
+    let mut seen_sequences = std::collections::HashMap::new();
     loop {
         let Some(frame) = process.next_cancellable(cancelled)? else {
             let Some(turn_id) = turn_id.as_deref() else {
@@ -328,14 +328,20 @@ fn run_process(
             turn_id = turn_id_from_response(&frame);
             continue;
         }
-        if let Some(sequence) = upstream_sequence(&frame)
-            && !seen_sequences.contains(&sequence)
-        {
-            if last_upstream_sequence.is_some_and(|previous| sequence != previous + 1) {
-                return Err(TradeXError::new("CODEX_EVENT_GAP"));
+        if let Some(sequence) = upstream_sequence(&frame) {
+            let fingerprint = serde_json::to_string(&frame)
+                .map_err(|_| TradeXError::new("CODEX_FRAME_INVALID"))?;
+            if let Some(previous) = seen_sequences.get(&sequence) {
+                if previous != &fingerprint {
+                    return Err(TradeXError::new("CODEX_EVENT_GAP"));
+                }
+            } else {
+                if last_upstream_sequence.is_some_and(|previous| sequence != previous + 1) {
+                    return Err(TradeXError::new("CODEX_EVENT_GAP"));
+                }
+                seen_sequences.insert(sequence, fingerprint);
+                last_upstream_sequence = Some(sequence);
             }
-            seen_sequences.insert(sequence);
-            last_upstream_sequence = Some(sequence);
         }
         validate_notification_scope(&frame, &thread_id, turn_id.as_deref())?;
         if let Some(event) = notification(&frame)? {
