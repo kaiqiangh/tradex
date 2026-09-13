@@ -5,8 +5,8 @@ A3,Provider Connection / Permission Review,docs/TradeX_UI_Prototype_Spec_v1.0_Re
 A4,LLM Providers (Model),docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,291,"S03,S33",IN_PROGRESS,"docs/implementation/s03-routing-evidence.md; gateway, provider cards, default route, opt-in fallback, cooldown and attempt disclosure are verified for #13; #12 credentialed routes and native secure/OAuth evidence are complete, while S04 and S33 acceptance remain pending"
 A5,Risk Defaults,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,313,"S21,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s03-onboarding-evidence.md; Risk Defaults seven-field form, exact decimal validation, safe defaults and read-only rules accepted in #14 at c812ad6 through real desktop and supporting Rust-backed browser paths; full S21/S33 acceptance remains pending"
 A6,Ready,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,327,"S03,S21,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s03-onboarding-evidence.md; #14 Ready summary/gates accepted at c812ad6 through real desktop and supporting Rust-backed browser paths, including live gateway gate, All DISARMED and accurate Codex disabled reason; full S21/S33 acceptance remains pending"
-B1,New Thread,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,341,"S04,S33",NOT_STARTED,
-B2,Thread History / Resume,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,350,"S04,S33",NOT_STARTED,
+B1,New Thread,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,341,"S04,S33",IMPLEMENTED_UNVERIFIED,"#17 Thread creation/composer defaults and immediate history refresh: docs/implementation/s04-thread-evidence.md; Codex Turn send remains runtime-pending"
+B2,Thread History / Resume,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,350,"S04,S33",IMPLEMENTED_UNVERIFIED,"#17 persisted Thread list/detail, workspace reopen and selector-owned defaults: docs/implementation/s04-thread-evidence.md; resume safety and Turn runtime remain pending"
 B3,Ask Mode,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,354,"S05,S33",NOT_STARTED,
 B4,Composer Pickers,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,362,"S05,S33",NOT_STARTED,
 B5,Research Running,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,370,"S04,S10,S33",NOT_STARTED,
