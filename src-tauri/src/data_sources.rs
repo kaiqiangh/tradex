@@ -1,4 +1,9 @@
-use std::{io::Read, time::Duration};
+use std::{
+    collections::VecDeque,
+    io::Read,
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant},
+};
 
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
@@ -17,6 +22,9 @@ const SEC_SUBMISSIONS_URL: &str = "https://data.sec.gov/submissions/CIK000032019
 const SEC_XBRL_FRAMES_URL: &str =
     "https://data.sec.gov/api/xbrl/frames/us-gaap/Revenues/USD/CY2024Q4.json";
 const ECB_EXR_URL: &str = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?format=csvdata&lastNObservations=1";
+const SEC_RATE_WINDOW: Duration = Duration::from_secs(1);
+const SEC_RATE_LIMIT: usize = 10;
+static SEC_REQUESTS: OnceLock<Mutex<VecDeque<Instant>>> = OnceLock::new();
 
 pub fn entries() -> Vec<DataSourceEntry> {
     vec![
@@ -213,6 +221,12 @@ fn fetch_public_endpoint(
     label: &str,
     url: &str,
 ) -> std::result::Result<(), String> {
+    if url.starts_with("https://data.sec.gov/") && !allow_sec_request() {
+        return Err(
+            "SEC fair-access request limit reached; retry later. No response body was retained."
+                .into(),
+        );
+    }
     let response = client
         .get(url)
         .header(reqwest::header::USER_AGENT, USER_AGENT)
@@ -276,9 +290,29 @@ fn validate_public_payload(
                 .to_ascii_lowercase()
                 .contains("application/json")
                 && serde_json::from_slice::<Value>(body).is_ok_and(|value| {
-                    value.is_object()
-                        && value.get("cik").is_some()
-                        && value.get("filings").is_some()
+                    let Some(cik) = value.get("cik").and_then(Value::as_str) else {
+                        return false;
+                    };
+                    let Some(filings) = value.get("filings").and_then(Value::as_object) else {
+                        return false;
+                    };
+                    let Some(recent) = filings.get("recent").and_then(Value::as_object) else {
+                        return false;
+                    };
+                    cik.len() == 10
+                        && cik.bytes().all(|byte| byte.is_ascii_digit())
+                        && recent
+                            .get("accessionNumber")
+                            .and_then(Value::as_array)
+                            .is_some_and(|rows| !rows.is_empty())
+                        && recent
+                            .get("form")
+                            .and_then(Value::as_array)
+                            .is_some_and(|rows| !rows.is_empty())
+                        && recent
+                            .get("filingDate")
+                            .and_then(Value::as_array)
+                            .is_some_and(|rows| !rows.is_empty())
                 })
         }
         ("OD-003", "SEC XBRL Frames") => {
@@ -286,13 +320,29 @@ fn validate_public_payload(
                 .to_ascii_lowercase()
                 .contains("application/json")
                 && serde_json::from_slice::<Value>(body).is_ok_and(|value| {
-                    value.is_object()
-                        && value.get("taxonomy").is_some()
-                        && value.get("tag").is_some()
+                    value.get("taxonomy").and_then(Value::as_str) == Some("us-gaap")
+                        && value.get("tag").and_then(Value::as_str) == Some("Revenues")
+                        && value.get("uom").and_then(Value::as_str) == Some("USD")
                         && value
                             .get("data")
                             .and_then(Value::as_array)
-                            .is_some_and(|rows| !rows.is_empty())
+                            .is_some_and(|rows| {
+                                rows.iter().any(|row| {
+                                    let Some(row) = row.as_object() else {
+                                        return false;
+                                    };
+                                    let cik = row.get("cik").and_then(Value::as_u64).is_some();
+                                    let accession = row
+                                        .get("accn")
+                                        .and_then(Value::as_str)
+                                        .is_some_and(|value| !value.is_empty());
+                                    let value = row
+                                        .get("val")
+                                        .and_then(Value::as_f64)
+                                        .is_some_and(f64::is_finite);
+                                    cik && accession && value
+                                })
+                            })
                 })
         }
         ("OD-006", "ECB EXR") => {
@@ -305,12 +355,58 @@ fn validate_public_payload(
                 return false;
             };
             let fields: Vec<_> = header.split(',').map(str::trim).collect();
-            fields.contains(&"TIME_PERIOD")
-                && fields.contains(&"OBS_VALUE")
-                && lines.next().is_some()
+            let Some(time_index) = fields.iter().position(|field| *field == "TIME_PERIOD") else {
+                return false;
+            };
+            let Some(value_index) = fields.iter().position(|field| *field == "OBS_VALUE") else {
+                return false;
+            };
+            lines.any(|line| {
+                let columns: Vec<_> = line.split(',').map(str::trim).collect();
+                let Some(time) = columns.get(time_index) else {
+                    return false;
+                };
+                let Some(value) = columns.get(value_index) else {
+                    return false;
+                };
+                valid_iso_date(time) && value.parse::<f64>().is_ok_and(f64::is_finite)
+            })
         }
         _ => false,
     }
+}
+
+fn allow_sec_request() -> bool {
+    let requests = SEC_REQUESTS.get_or_init(|| Mutex::new(VecDeque::new()));
+    let Ok(mut requests) = requests.lock() else {
+        return false;
+    };
+    allow_request_at(&mut requests, Instant::now())
+}
+
+fn allow_request_at(requests: &mut VecDeque<Instant>, now: Instant) -> bool {
+    while requests
+        .front()
+        .is_some_and(|started| now.duration_since(*started) >= SEC_RATE_WINDOW)
+    {
+        requests.pop_front();
+    }
+    if requests.len() >= SEC_RATE_LIMIT {
+        return false;
+    }
+    requests.push_back(now);
+    true
+}
+
+fn valid_iso_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit())
 }
 
 fn classify_probe_error(error: &reqwest::Error) -> &'static str {
@@ -369,7 +465,7 @@ mod tests {
             "OD-003",
             "SEC submissions",
             "application/json",
-            br#"{"cik":"0000320193","filings":{}}"#
+            br#"{"cik":"0000320193","filings":{"recent":{"accessionNumber":["0000320193-24-000001"],"form":["10-K"],"filingDate":["2024-01-01"]},"files":[]}}"#
         ));
         assert!(!validate_public_payload(
             "OD-003",
@@ -381,7 +477,7 @@ mod tests {
             "OD-003",
             "SEC XBRL Frames",
             "application/json",
-            br#"{"taxonomy":"us-gaap","tag":"Revenues","data":[{"val":1}]}"#
+            br#"{"taxonomy":"us-gaap","tag":"Revenues","uom":"USD","data":[{"cik":320193,"accn":"0000320193-24-000001","val":1}]}"#
         ));
         assert!(!validate_public_payload(
             "OD-003",
@@ -401,5 +497,22 @@ mod tests {
             "text/csv",
             b"KEY,FREQ,CURRENCY\nD.USD.EUR.SP00.A,D,USD\n"
         ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
+            b"KEY,TIME_PERIOD,OBS_VALUE\nD.USD.EUR.SP00.A,not-a-date,NaN\n"
+        ));
+    }
+
+    #[test]
+    fn sec_rate_limit_rejects_the_eleventh_request_in_a_window() {
+        let now = Instant::now();
+        let mut requests = VecDeque::new();
+        for _ in 0..SEC_RATE_LIMIT {
+            requests.push_back(now);
+        }
+        assert!(!allow_request_at(&mut requests, now));
+        assert!(allow_request_at(&mut requests, now + SEC_RATE_WINDOW));
     }
 }
