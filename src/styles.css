@@ -104,6 +104,30 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-provenance dt { color: var(--muted); font-size: 10px; }
 .thread-provenance dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
 .composer-context { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+.context-picker { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.context-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.context-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 6px 4px 9px; border: 1px solid #bfdbfe; border-radius: 999px; background: var(--blue-light); color: #1e40af; font-size: 11px; }
+.context-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.context-chip button { min-height: 22px; padding: 1px 5px; border: 0; background: transparent; color: #1e40af; font-size: 15px; line-height: 1; }
+.picker-backdrop { position: fixed; inset: 0; z-index: 30; display: flex; justify-content: center; align-items: flex-start; overflow: auto; padding: 12vh 16px 24px; background: #0f172a55; }
+.picker-dialog { flex: 0 1 700px; width: min(700px, 100%); max-width: 700px; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); box-shadow: 0 18px 45px #0f172a33; }
+.picker-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.picker-dialog-heading h3 { margin: 0; font-size: 13px; }
+.picker-dialog-heading p { margin: 4px 0 0; font-size: 11px; }
+.picker-dialog-heading > button { min-height: 30px; padding: 4px 9px; font-size: 16px; line-height: 1; }
+.context-options { display: grid; gap: 8px; margin: 14px 0; padding: 0; border: 0; }
+.context-options legend { margin-bottom: 2px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.context-option { display: flex; align-items: flex-start; gap: 9px; padding: 9px; border: 1px solid var(--border); border-radius: 8px; background: white; font-size: 11px; }
+.context-option input { width: auto; margin-top: 2px; flex: none; }
+.context-option span { min-width: 0; }
+.context-option strong, .context-option small, .context-option em { display: block; overflow-wrap: anywhere; }
+.context-option small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.context-option em { margin-top: 4px; color: #92400e; font-size: 10px; font-style: normal; }
+.context-empty { padding: 10px; border: 1px dashed #cbd5e1; border-radius: 8px; background: white; color: var(--muted); font-size: 10px; }
+.context-empty h4 { margin: 0 0 6px; color: var(--text); font-size: 11px; }
+.context-empty ul { margin: 0; padding-left: 16px; }
+.context-empty li { margin: 4px 0; }
+.picker-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .capability-summary { display: inline-flex; flex-wrap: wrap; gap: 5px 8px; align-items: baseline; max-width: 100%; }
 .capability-summary strong { color: var(--ink); }
 .composer textarea { display: block; width: 100%; min-height: 100px; resize: none; background: white; border: 0; padding: 20px 0; color: var(--muted); font-size: 13px; }

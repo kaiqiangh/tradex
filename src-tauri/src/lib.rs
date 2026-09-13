@@ -544,6 +544,10 @@ impl ControlPlane {
                 let decision = self.capability_decision(&input)?;
                 Ok((json!(decision), None))
             }
+            "context.catalog" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                Ok((json!(self.context_catalog(&input)?), None))
+            }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;
                 Ok((json!(catalog()), None))
@@ -751,13 +755,19 @@ impl ControlPlane {
         input: &CapabilityQuery,
     ) -> Result<capability::CapabilityDecision> {
         self.require_workspace(&input.workspace_id)?;
+        let accounts = self.store.as_ref().unwrap().accounts()?;
+        capability::validate_catalog_refs(
+            &input.workspace_id,
+            &input.attached_contexts,
+            &accounts,
+        )?;
         let account = input
             .account_id
             .as_deref()
             .map(|account_id| {
                 validate_aggregate("account", account_id)?;
                 let account = self.store.as_ref().unwrap().account(account_id)?;
-                if account.connection_state != ConnectionState::Connected {
+                if !capability::account_available(&account) {
                     return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
                 }
                 Ok(capability::AccountContext {
@@ -767,6 +777,12 @@ impl ControlPlane {
             })
             .transpose()?;
         capability::decide_query(input, account.as_ref())
+    }
+
+    fn context_catalog(&self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
+        self.require_workspace(&input.workspace_id)?;
+        let accounts = self.store.as_ref().unwrap().accounts()?;
+        capability::context_catalog(&accounts)
     }
 
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {
@@ -803,17 +819,6 @@ impl ControlPlane {
                 && !matches!(thinking_type.as_str(), "disabled" | "enabled")
             {
                 return Err(TradeXError::new("MODEL_ROUTE_INVALID"));
-            }
-        }
-        for context in &input.linked_contexts {
-            if context.kind.trim().is_empty()
-                || context.id.trim().is_empty()
-                || context.hash.trim().is_empty()
-                || context.kind.chars().any(char::is_control)
-                || context.id.chars().any(char::is_control)
-                || context.hash.chars().any(char::is_control)
-            {
-                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
             }
         }
         let _capability = self.capability_decision(&CapabilityQuery {
@@ -866,8 +871,6 @@ impl ControlPlane {
         {
             return Err(TradeXError::new("TURN_MESSAGE_INVALID"));
         }
-        capability::validate_contexts(&input.attached_contexts)?;
-
         let existing = self.store.as_ref().unwrap().thread(&input.thread_id)?;
         if existing.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
@@ -881,11 +884,13 @@ impl ControlPlane {
         }
 
         let account_id = input.account_id.clone().or(existing.account_id.clone());
-        let attached_contexts = if input.attached_contexts.is_empty() {
-            existing.linked_contexts.clone()
-        } else {
-            input.attached_contexts.clone()
-        };
+        let attached_contexts = input
+            .attached_contexts
+            .clone()
+            .unwrap_or_else(|| existing.linked_contexts.clone());
+        if attached_contexts.len() > 32 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
         let capability = self.capability_decision(&CapabilityQuery {
             workspace_id: input.workspace_id.clone(),
             agent_mode: input.agent_mode.clone(),
@@ -1037,7 +1042,7 @@ impl ControlPlane {
             execution_context: source.snapshot.execution_context,
             account_id: source.snapshot.account_id,
             model: source.snapshot.model,
-            attached_contexts: source.snapshot.attached_contexts,
+            attached_contexts: Some(source.snapshot.attached_contexts),
         })
     }
 
@@ -2485,6 +2490,40 @@ mod thread_tests {
     }
 
     #[test]
+    fn context_catalog_command_is_workspace_scoped_and_read_only() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+        let catalog = control.dispatch(request(
+            "context.catalog",
+            json!({ "workspaceId": workspace_id }),
+        ));
+        assert_eq!(catalog["ok"], true);
+        assert_eq!(catalog["data"]["entries"].as_array().unwrap().len(), 0);
+        let empty_states = catalog["data"]["emptyStates"].as_array().unwrap();
+        assert!(empty_states.iter().any(|state| state["kind"] == "account"));
+        assert!(
+            empty_states
+                .iter()
+                .any(|state| state["kind"] == "instrument")
+        );
+        assert!(empty_states.iter().any(|state| state["kind"] == "strategy"));
+        assert!(empty_states.iter().any(|state| state["kind"] == "backtest"));
+        assert!(empty_states.iter().any(|state| state["kind"] == "artifact"));
+
+        let unknown_workspace = control.dispatch(request(
+            "context.catalog",
+            json!({ "workspaceId": "00000000-0000-4000-8000-000000000000" }),
+        ));
+        assert_eq!(unknown_workspace["ok"], false);
+        assert_eq!(
+            unknown_workspace["error"]["code"],
+            "IPC_AGGREGATE_NOT_FOUND"
+        );
+    }
+
+    #[test]
     fn turn_start_rejects_trade_without_an_execution_context() {
         let directory = tempfile::tempdir().unwrap();
         let mut control = ControlPlane::new(directory.path().join("workspace"));
@@ -2516,6 +2555,21 @@ mod thread_tests {
         ));
         assert_eq!(result["ok"], false);
         assert_eq!(result["error"]["code"], "TURN_CONTEXT_INVALID");
+        let explicit_null = control.dispatch(request(
+            "turn.start",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": create["data"]["threadId"],
+                "expectedStateVersion": create["data"]["stateVersion"],
+                "message": "Null must be rejected",
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": null,
+                "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
+            }),
+        ));
+        assert_eq!(explicit_null["ok"], false);
+        assert_eq!(explicit_null["error"]["code"], "IPC_PAYLOAD_INVALID");
     }
 
     #[test]
@@ -2571,11 +2625,26 @@ mod thread_tests {
                 "workspaceId": workspace_id,
                 "agentMode": "ASK",
                 "executionContext": "NONE_READ_ONLY",
-                "attachedContexts": [{"kind":"prompt","id":"p","hash":"sha256:p"}]
+                "attachedContexts": [{"kind":"prompt","id":"p","hash":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]
             }),
         ));
         assert_eq!(unknown_context["ok"], false);
         assert_eq!(unknown_context["error"]["code"], "TURN_CONTEXT_INVALID");
+
+        let unknown_account_context = control.dispatch(request(
+            "agent.capabilities",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": [{"kind":"account","id":"missing","hash":"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}]
+            }),
+        ));
+        assert_eq!(unknown_account_context["ok"], false);
+        assert_eq!(
+            unknown_account_context["error"]["code"],
+            "TURN_CONTEXT_INVALID"
+        );
 
         let paper = control.dispatch(request(
             "agent.capabilities",
@@ -2623,6 +2692,40 @@ mod thread_tests {
             assert_eq!(
                 started["data"]["turns"][0]["snapshot"]["capabilityLevel"],
                 paper["data"]["level"]
+            );
+
+            let seeded = control.dispatch(request(
+                "thread.create",
+                json!({
+                    "workspaceId": workspace_id,
+                    "title": "Context reset",
+                    "defaultAgentMode": "RESEARCH",
+                    "defaultExecutionContext": "NONE_READ_ONLY",
+                    "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
+                    "linkedContexts": [{"kind":"artifact","id":"artifact-1","hash":"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}]
+                }),
+            ));
+            assert_eq!(seeded["ok"], true);
+            let cleared = control.dispatch(request(
+                "turn.start",
+                json!({
+                    "workspaceId": workspace_id,
+                    "threadId": seeded["data"]["threadId"],
+                    "expectedStateVersion": seeded["data"]["stateVersion"],
+                    "message": "Clear the context",
+                    "agentMode": "RESEARCH",
+                    "executionContext": "NONE_READ_ONLY",
+                    "attachedContexts": [],
+                    "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
+                }),
+            ));
+            assert_eq!(cleared["ok"], true);
+            assert_eq!(
+                cleared["data"]["turns"][0]["snapshot"]["attachedContexts"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                0
             );
         }
 
@@ -2757,7 +2860,7 @@ mod turn_runtime_tests {
                 "message":"Summarize the evidence",
                 "agentMode":"RESEARCH",
                 "executionContext":"NONE_READ_ONLY",
-                "attachedContexts":[{"kind":"artifact","id":"artifact-1","hash":"sha256:abc"}],
+                "attachedContexts":[{"kind":"artifact","id":"artifact-1","hash":"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}],
                 "model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
             }
         }));
@@ -2769,7 +2872,10 @@ mod turn_runtime_tests {
         assert_eq!(turn.items[1].status, protocol::ItemStatus::Completed);
         assert!(turn.items[1].content.contains("Read-only response"));
         assert_eq!(turn.snapshot.attached_contexts[0].id, "artifact-1");
-        assert_eq!(turn.snapshot.attached_contexts[0].hash, "sha256:abc");
+        assert_eq!(
+            turn.snapshot.attached_contexts[0].hash,
+            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        );
         assert_eq!(turn.snapshot.account_environment, None);
         assert_eq!(turn.provider_attempts[0].outcome, "SUCCEEDED");
         assert!(thread.codex_thread_id.is_some());
@@ -2987,7 +3093,7 @@ mod turn_runtime_tests {
                     model_id: "gpt-5.6-sol".into(),
                     thinking_type: None,
                 }),
-                attached_contexts: Vec::new(),
+                attached_contexts: Some(Vec::new()),
             })
             .unwrap();
         let running = control.store.as_ref().unwrap().thread(&thread_id).unwrap();
@@ -3041,7 +3147,7 @@ mod turn_runtime_tests {
                     model_id: "gpt-5.6-sol".into(),
                     thinking_type: None,
                 }),
-                attached_contexts: Vec::new(),
+                attached_contexts: Some(Vec::new()),
             })
             .unwrap();
         control
@@ -3121,7 +3227,7 @@ mod turn_runtime_tests {
                         model_id: "gpt-5.6-sol".into(),
                         thinking_type: None,
                     }),
-                    attached_contexts: Vec::new(),
+                    attached_contexts: Some(Vec::new()),
                 })
                 .unwrap();
             (workspace_id, thread_id)

@@ -19,6 +19,9 @@ declare const validators: {
   ConfigureDeepseek: (value: unknown) => boolean;
   Connect: (value: unknown) => boolean;
   ConnectionState: (value: unknown) => boolean;
+  ContextCatalog: (value: unknown) => boolean;
+  ContextCatalogEmptyState: (value: unknown) => boolean;
+  ContextCatalogEntry: (value: unknown) => boolean;
   DomainEvent: (value: unknown) => boolean;
   DomainProjection: (value: unknown) => boolean;
   EmptyPayload: (value: unknown) => boolean;

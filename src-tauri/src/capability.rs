@@ -1,6 +1,8 @@
 use crate::protocol::{AgentMode, ExecutionContext, Result, ThreadContextRef, TradeXError};
+use crate::providers::{AccountConnection, ConnectionState};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 fn present<'de, D, T>(value: D) -> std::result::Result<Option<T>, D::Error>
 where
@@ -89,10 +91,194 @@ pub struct CapabilityQuery {
     pub requested_level: Option<CapabilityLevel>,
 }
 
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ContextCatalog {
+    #[schemars(length(max = 256))]
+    pub entries: Vec<ContextCatalogEntry>,
+    #[schemars(length(max = 5))]
+    pub empty_states: Vec<ContextCatalogEmptyState>,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ContextCatalogEntry {
+    pub context_ref: ThreadContextRef,
+    #[schemars(length(min = 1, max = 120))]
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub provider_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 16))]
+    pub environment: Option<String>,
+    pub read_only: bool,
+    pub available: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 256))]
+    pub availability_reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ContextCatalogEmptyState {
+    #[schemars(extend("enum" = ["instrument", "account", "strategy", "backtest", "artifact"]))]
+    pub kind: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub availability_reason: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccountContext {
     pub provider_id: String,
     pub environment: String,
+}
+
+pub const MAX_CONTEXT_CATALOG_ENTRIES: usize = 256;
+
+pub fn context_catalog(accounts: &[AccountConnection]) -> Result<ContextCatalog> {
+    if accounts.len() > MAX_CONTEXT_CATALOG_ENTRIES {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    let mut entries = Vec::with_capacity(accounts.len());
+    for account in accounts {
+        let (available, availability_reason) = account_availability(account);
+        entries.push(ContextCatalogEntry {
+            context_ref: account_context_ref(account),
+            label: account.label.clone(),
+            provider_id: Some(account.provider_id.clone()),
+            environment: Some(account.environment.clone()),
+            read_only: true,
+            available,
+            availability_reason,
+        });
+    }
+    let mut empty_states = [
+        (
+            "instrument",
+            "No instrument catalog is connected yet; S07 will populate it.",
+        ),
+        (
+            "strategy",
+            "No saved strategies are available yet; S14 will populate them.",
+        ),
+        (
+            "backtest",
+            "No backtest runs are available yet; S15 will populate them.",
+        ),
+        (
+            "artifact",
+            "No research artifacts are available yet; S12 will populate them.",
+        ),
+    ]
+    .into_iter()
+    .map(|(kind, availability_reason)| ContextCatalogEmptyState {
+        kind: kind.into(),
+        availability_reason: availability_reason.into(),
+    })
+    .collect::<Vec<_>>();
+    if accounts.is_empty() {
+        empty_states.insert(
+            0,
+            ContextCatalogEmptyState {
+                kind: "account".into(),
+                availability_reason:
+                    "No persisted account connections are available in this workspace.".into(),
+            },
+        );
+    }
+    Ok(ContextCatalog {
+        entries,
+        empty_states,
+    })
+}
+
+pub fn account_available(account: &AccountConnection) -> bool {
+    account_availability(account).0
+}
+
+pub fn validate_catalog_refs(
+    workspace_id: &str,
+    contexts: &[ThreadContextRef],
+    accounts: &[AccountConnection],
+) -> Result<()> {
+    validate_contexts(contexts)?;
+    for context in contexts.iter().filter(|context| context.kind == "account") {
+        let Some(account) = accounts
+            .iter()
+            .find(|account| account.connection_id == context.id)
+        else {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        };
+        if account.workspace_id != workspace_id
+            || account_context_ref(account).hash != context.hash
+            || !account_available(account)
+        {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        }
+    }
+    Ok(())
+}
+
+pub fn account_context_ref(account: &AccountConnection) -> ThreadContextRef {
+    let material = format!(
+        "{}\0{}\0{}\0{}\0{}",
+        account.workspace_id,
+        account.connection_id,
+        account.provider_id,
+        account.environment,
+        account.created_at,
+    );
+    let digest = Sha256::digest(material.as_bytes());
+    ThreadContextRef {
+        kind: "account".into(),
+        id: account.connection_id.clone(),
+        hash: format!("sha256:{}", hex::encode(digest)),
+    }
+}
+
+fn account_availability(account: &AccountConnection) -> (bool, Option<String>) {
+    if account.health.credential == "MISSING" {
+        return (
+            false,
+            Some("The local credential is unavailable; reconnect this account.".into()),
+        );
+    }
+    if account.health.credential == "DELETE_PENDING" {
+        return (
+            false,
+            Some("Local credential cleanup is pending; remove or reconnect this account.".into()),
+        );
+    }
+    match &account.connection_state {
+        ConnectionState::Connected
+            if account.health.connection == "ONLINE"
+                && account.health.authentication == "VALID"
+                && account.health.credential == "CONFIGURED" =>
+        {
+            (true, None)
+        }
+        ConnectionState::Connected => (
+            false,
+            Some("Account health is stale; re-test it before attaching this context.".into()),
+        ),
+        ConnectionState::Connecting => (
+            false,
+            Some("Account testing is still in progress; try again when it is connected.".into()),
+        ),
+        ConnectionState::ReviewRequired => (
+            false,
+            Some("Complete the account permission review before attaching it.".into()),
+        ),
+        ConnectionState::Failed => (
+            false,
+            Some("The last account test failed; reconnect before attaching it.".into()),
+        ),
+        ConnectionState::Disconnected => (
+            false,
+            Some("This account is disconnected; reconnect before attaching it.".into()),
+        ),
+    }
 }
 
 pub fn decide(
@@ -147,15 +333,18 @@ fn decide_policy(
     attached_contexts: &[ThreadContextRef],
 ) -> Result<CapabilityDecision> {
     validate_contexts(attached_contexts)?;
+    let attached_account = attached_contexts
+        .iter()
+        .any(|context| context.kind == "account");
     match mode {
         AgentMode::Ask | AgentMode::Research => {
             validate_read_context(context, account)?;
             let mut tools = vec![ToolId::PublicMarketRead];
-            if account.is_some() {
+            if account.is_some() || attached_account {
                 tools.push(ToolId::AccountRead);
             }
             Ok(CapabilityDecision {
-                level: if account.is_some() {
+                level: if account.is_some() || attached_account {
                     CapabilityLevel::C1
                 } else {
                     CapabilityLevel::C0
@@ -172,7 +361,7 @@ fn decide_policy(
         AgentMode::Backtest => {
             validate_backtest_context(context, account)?;
             let mut tools = vec![ToolId::HistoricalSimulation];
-            if account.is_some() {
+            if account.is_some() || attached_account {
                 tools.push(ToolId::AccountRead);
             }
             Ok(CapabilityDecision {
@@ -329,11 +518,22 @@ pub fn validate_contexts(contexts: &[ThreadContextRef]) -> Result<()> {
             || context.kind.chars().any(char::is_control)
             || context.id.chars().any(char::is_control)
             || context.hash.chars().any(char::is_control)
+            || !valid_hash(&context.hash)
             || !seen.insert((&context.kind, &context.id, &context.hash))
     }) {
         return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
     }
     Ok(())
+}
+
+fn valid_hash(hash: &str) -> bool {
+    let Some(digest) = hash.strip_prefix("sha256:") else {
+        return false;
+    };
+    digest.len() == 64
+        && digest
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 #[cfg(test)]
@@ -510,12 +710,14 @@ mod tests {
             ThreadContextRef {
                 kind: "artifact".into(),
                 id: "a".into(),
-                hash: "sha256:a".into(),
+                hash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .into(),
             },
             ThreadContextRef {
                 kind: "artifact".into(),
                 id: "a".into(),
-                hash: "sha256:a".into(),
+                hash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .into(),
             },
         ];
         assert_eq!(
@@ -532,7 +734,7 @@ mod tests {
         let unknown = [ThreadContextRef {
             kind: "prompt".into(),
             id: "x".into(),
-            hash: "sha256:x".into(),
+            hash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
         }];
         assert_eq!(
             decide(
@@ -620,5 +822,192 @@ mod tests {
             requested_tool: None,
             requested_level: None,
         }
+    }
+
+    fn connected_account() -> AccountConnection {
+        let mut account = AccountConnection::new(
+            "workspace".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "Research account".into(),
+        )
+        .unwrap();
+        account.connection_state = ConnectionState::Connected;
+        account.health.connection = "ONLINE".into();
+        account.health.authentication = "VALID".into();
+        account.health.credential = "CONFIGURED".into();
+        account
+    }
+
+    #[test]
+    fn account_context_ref_is_stable_and_secret_free() {
+        let account = connected_account();
+        let reference = account_context_ref(&account);
+        assert_eq!(reference.kind, "account");
+        assert_eq!(reference.id, account.connection_id);
+        assert!(reference.hash.starts_with("sha256:"));
+        assert_eq!(reference.hash.len(), 71);
+        assert!(!reference.hash.contains(&account.label));
+
+        let mut renamed = account.clone();
+        renamed.label = "Renamed account".into();
+        assert_eq!(account_context_ref(&account), account_context_ref(&renamed));
+
+        let mut moved = account.clone();
+        moved.environment = "LIVE".into();
+        assert_ne!(account_context_ref(&account), account_context_ref(&moved));
+    }
+
+    #[test]
+    fn context_catalog_lists_accounts_and_future_empty_states() {
+        let account = connected_account();
+        let catalog = context_catalog(std::slice::from_ref(&account)).unwrap();
+        assert_eq!(catalog.entries.len(), 1);
+        let entry = &catalog.entries[0];
+        assert_eq!(entry.context_ref, account_context_ref(&account));
+        assert_eq!(entry.label, "Research account");
+        assert_eq!(entry.provider_id.as_deref(), Some("alpaca"));
+        assert_eq!(entry.environment.as_deref(), Some("PAPER"));
+        assert!(entry.read_only);
+        assert!(entry.available);
+        assert_eq!(catalog.empty_states.len(), 4);
+        assert!(
+            catalog
+                .empty_states
+                .iter()
+                .all(|state| state.kind != "account")
+        );
+
+        let empty = context_catalog(&[]).unwrap();
+        assert_eq!(empty.entries.len(), 0);
+        assert!(
+            empty
+                .empty_states
+                .iter()
+                .any(|state| state.kind == "account")
+        );
+    }
+
+    #[test]
+    fn context_catalog_keeps_stale_and_cleanup_accounts_unavailable() {
+        let mut stale = connected_account();
+        stale.health.connection = "STALE".into();
+        stale.health.authentication = "UNVERIFIED".into();
+        stale.health.credential = "UNCHECKED".into();
+        let stale_catalog = context_catalog(std::slice::from_ref(&stale)).unwrap();
+        let stale_entry = &stale_catalog.entries[0];
+        assert!(!stale_entry.available);
+        assert!(
+            stale_entry
+                .availability_reason
+                .as_deref()
+                .unwrap()
+                .contains("stale")
+        );
+
+        let mut cleanup = connected_account();
+        cleanup.health.credential = "DELETE_PENDING".into();
+        let cleanup_catalog = context_catalog(std::slice::from_ref(&cleanup)).unwrap();
+        let cleanup_entry = &cleanup_catalog.entries[0];
+        assert!(!cleanup_entry.available);
+        assert!(
+            cleanup_entry
+                .availability_reason
+                .as_deref()
+                .unwrap()
+                .contains("cleanup")
+        );
+    }
+
+    #[test]
+    fn context_catalog_rejects_unbounded_account_lists() {
+        let accounts = vec![connected_account(); MAX_CONTEXT_CATALOG_ENTRIES + 1];
+        assert_eq!(
+            context_catalog(&accounts).unwrap_err().code,
+            "IPC_PAYLOAD_INVALID"
+        );
+    }
+
+    #[test]
+    fn attached_account_context_adds_read_capability_without_trade_authority() {
+        let account = connected_account();
+        let context = account_context_ref(&account);
+        let ask = decide(
+            &AgentMode::Ask,
+            &ExecutionContext::NoneReadOnly,
+            None,
+            std::slice::from_ref(&context),
+        )
+        .unwrap();
+        assert_eq!(ask.level, CapabilityLevel::C1);
+        assert!(ask.allowed_tools.contains(&ToolId::AccountRead));
+        assert!(!ask.execution_allowed);
+
+        let trade = decide(
+            &AgentMode::Trade,
+            &ExecutionContext::AlpacaPaper,
+            None,
+            std::slice::from_ref(&context),
+        )
+        .unwrap_err();
+        assert_eq!(trade.code, "TURN_ACCOUNT_REQUIRED");
+    }
+
+    #[test]
+    fn catalog_ref_validation_rejects_malformed_duplicate_and_unknown_refs() {
+        let account = connected_account();
+        let reference = account_context_ref(&account);
+        assert_eq!(
+            validate_catalog_refs(
+                "workspace",
+                &[reference.clone(), reference.clone()],
+                std::slice::from_ref(&account)
+            )
+            .unwrap_err()
+            .code,
+            "TURN_CONTEXT_INVALID"
+        );
+        let mut malformed = reference.clone();
+        malformed.hash = "sha256:abc".into();
+        assert_eq!(
+            validate_catalog_refs("workspace", &[malformed], std::slice::from_ref(&account))
+                .unwrap_err()
+                .code,
+            "TURN_CONTEXT_INVALID"
+        );
+        let mut uppercase = reference.clone();
+        uppercase.hash = uppercase
+            .hash
+            .to_uppercase()
+            .replacen("SHA256:", "sha256:", 1);
+        assert!(!valid_hash(&uppercase.hash));
+        assert_eq!(
+            validate_catalog_refs("workspace", &[uppercase], std::slice::from_ref(&account))
+                .unwrap_err()
+                .code,
+            "TURN_CONTEXT_INVALID"
+        );
+        let unknown = ThreadContextRef {
+            kind: "account".into(),
+            id: "missing-account".into(),
+            hash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+        };
+        assert_eq!(
+            validate_catalog_refs("workspace", &[unknown], std::slice::from_ref(&account))
+                .unwrap_err()
+                .code,
+            "TURN_CONTEXT_INVALID"
+        );
+        let unsupported = ThreadContextRef {
+            kind: "unknown".into(),
+            id: "x".into(),
+            hash: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into(),
+        };
+        assert_eq!(
+            validate_catalog_refs("workspace", &[unsupported], std::slice::from_ref(&account))
+                .unwrap_err()
+                .code,
+            "TURN_CONTEXT_INVALID"
+        );
     }
 }

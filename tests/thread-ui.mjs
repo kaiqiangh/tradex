@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { dirname, join } from 'node:path';
 
 export async function checkThreadUI(tab, browser) {
   const ui = tab.playwright;
@@ -7,12 +8,57 @@ export async function checkThreadUI(tab, browser) {
   try {
     await viewport.set({ width: 1280, height: 860 });
     await tab.getAXState({ emit: false });
+    const pathCount = await ui.locator('.path').count();
+    const previousPath = pathCount ? await ui.locator('.path').first().innerText() : undefined;
+    const accountLabel = `Context Live Fixture ${Date.now()}`;
     await ui.getByRole('button', { name: 'Workspace', exact: true }).click();
-    await ui.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('S04 Thread Research');
+    await ui.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('S05 Context Picker');
+    if (previousPath) await ui.getByLabel('Local storage', { exact: true }).fill(join(dirname(previousPath), `thread-${Date.now()}`));
     await ui.getByRole('button', { name: 'Open workspace', exact: true }).click();
+    await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
+    await ui.getByRole('combobox', { name: 'Provider / environment', exact: true }).selectOption('binance/LIVE');
+    await ui.getByLabel('Connection label', { exact: true }).fill(accountLabel);
+    await ui.getByRole('button', { name: 'Connect account securely', exact: true }).click();
+    const accountDetail = ui.getByRole('region', { name: accountLabel, exact: true });
+    await ui.getByRole('heading', { name: 'Permission review', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Confirm connection', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Confirm connection', exact: true }).waitFor({ state: 'hidden' });
+    assert.match(await accountDetail.innerText(), /CONNECTED/);
     await ui.getByRole('button', { name: 'Threads', exact: true }).click();
     await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('textbox', { name: 'Thread title', exact: true }).fill('Earnings timeline');
+    const contextButton = ui.getByRole('button', { name: /@ Context/, exact: false }).first();
+    await contextButton.click();
+    const dialog = ui.getByRole('dialog');
+    await dialog.waitFor({ state: 'visible' });
+    assert.equal(await ui.evaluate(() => document.activeElement?.matches('[role="dialog"] h3[tabindex="-1"]')), true, 'Context picker should focus its title first');
+    assert.equal(await ui.evaluate(() => document.querySelector('.app-shell')?.hasAttribute('inert')), true, 'Background shell should be inert while the picker is open');
+    await dialog.press('Shift+Tab');
+    assert.equal(await ui.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null), true, 'Shift+Tab must stay inside the picker');
+    await dialog.press('Tab');
+    assert.equal(await ui.evaluate(() => document.activeElement?.matches('[role="dialog"] h3[tabindex="-1"]')), true, 'Tab from the last control should wrap to the title');
+    await dialog.press('Escape');
+    assert.equal(await dialog.count(), 0, 'Escape should close the picker');
+    assert.equal(await ui.evaluate(() => document.activeElement?.matches('button[aria-haspopup="dialog"]')), true, 'Closing should return focus to the picker trigger');
+    await contextButton.click();
+    await dialog.waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText(accountLabel, { exact: true }).isVisible(), true);
+    assert.match(await ui.getByRole('dialog').innerText(), /LIVE · READ-ONLY/);
+    assert.equal(await ui.getByText('No instrument catalog is connected yet; S07 will populate it.', { exact: false }).isVisible(), true);
+    await ui.getByRole('button', { name: 'Cancel', exact: true }).click();
+    assert.equal(await ui.getByRole('dialog').count(), 0, 'Cancel must discard the temporary picker state');
+    await contextButton.click();
+    await ui.getByRole('checkbox', { name: new RegExp(accountLabel), exact: false }).check();
+    await ui.getByRole('button', { name: 'Attach', exact: true }).click();
+    assert.equal(await ui.getByText('Context references: 1', { exact: true }).isVisible(), true);
+    assert.equal(await ui.getByRole('button', { name: `Remove ${accountLabel}`, exact: true }).isVisible(), true);
+    await ui.getByRole('button', { name: `Remove ${accountLabel}`, exact: true }).click();
+    assert.equal(await ui.getByText('Context references: 0', { exact: true }).isVisible(), true);
+    await contextButton.click();
+    await ui.getByRole('checkbox', { name: new RegExp(accountLabel), exact: false }).check();
+    await ui.getByRole('button', { name: 'Attach', exact: true }).click();
+    assert.equal(await ui.getByText('Context references: 1', { exact: true }).isVisible(), true);
+    observed.push('Context picker opens the canonical account catalog, discloses a Live read-only row, exposes future empty states, and keeps Attach/Cancel/remove temporary.');
     await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('TRADE');
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('NONE_READ_ONLY');
     await ui.getByText('This mode and execution context cannot be used together.', { exact: true }).waitFor({ state: 'visible' });
@@ -20,14 +66,15 @@ export async function checkThreadUI(tab, browser) {
     observed.push('An illegal Trade + read-only selection is explained and cannot create a Thread.');
 
     await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('RESEARCH');
-    await ui.getByText('Capability: C0', { exact: true }).waitFor({ state: 'visible' });
-    assert.equal(await ui.getByText('Public market read', { exact: true }).isVisible(), true);
+    await ui.getByText('Capability: C1', { exact: true }).waitFor({ state: 'visible' });
+    assert.match(await ui.locator('.thread-composer .capability-summary').innerText(), /Public market read/);
     await ui.getByRole('button', { name: 'Create Thread', exact: true }).click();
     await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).waitFor({ state: 'visible' });
     assert.ok(await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).count() >= 2, 'New Thread should appear in sidebar and history immediately');
     assert.equal(await ui.getByText('Mode: RESEARCH', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('Execution: NONE_READ_ONLY', { exact: true }).isVisible(), true);
-    assert.equal(await ui.getByText('Capability: C0', { exact: true }).count() >= 1, true);
+    assert.equal(await ui.getByText('Capability: C1', { exact: true }).count() >= 1, true);
+    assert.equal(await ui.getByText('Context references: 1', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('No turns have started. Send a request to begin the read-only timeline.', { exact: true }).isVisible(), true);
     observed.push('Thread create persists its title and mode/context defaults before any Turn exists.');
 
@@ -47,6 +94,9 @@ export async function checkThreadUI(tab, browser) {
     assert.match(await ui.getByText('Provider attempt:', { exact: false }).innerText(), /SUCCEEDED/);
     observed.push('A fake App Server handshake produces a persisted running Turn, typed user/agent timeline and completed provider attempt.');
 
+    await ui.getByRole('button', { name: `Remove ${accountLabel}`, exact: true }).click();
+    await ui.getByText('Capability: C0', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText('Context references: 0', { exact: true }).isVisible(), true);
     await ui.getByLabel('Turn request', { exact: true }).fill('Cancel this request');
     await ui.getByRole('button', { name: 'Send', exact: true }).click();
     const cancelledStatus = ui.getByRole('status', { name: 'Turn 2 status', exact: true });
@@ -68,7 +118,9 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).last().click();
     await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('alert').count(), 0);
+    assert.equal(await ui.getByText('Capability: C1', { exact: true }).count() >= 1, true);
     assert.equal(await ui.getByText('Capability: C0', { exact: true }).count() >= 1, true);
+    assert.equal(await ui.getByText('Context references: 1', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('Read-only response for: Summarize the evidence', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByRole('status', { name: 'Turn 2 status', exact: true }).innerText(), 'CANCELLED');
     assert.equal(await ui.getByRole('status', { name: 'Turn 3 status', exact: true }).innerText(), 'COMPLETED');

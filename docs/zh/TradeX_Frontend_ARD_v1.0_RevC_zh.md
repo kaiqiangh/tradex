@@ -324,6 +324,28 @@ interface CapabilityDecision {
 
 Composer 可以通过 `agent.capabilities` 查询待发送状态，但 `turn.start` 必须接收相同输入并在可信边界重新计算 decision。C5/C6 以及未知或不允许的工具始终不可用。
 
+### 7.7 上下文目录与临时 picker 状态
+
+```ts
+interface ContextCatalogEntry {
+  contextRef: { kind: "account"; id: string; hash: string };
+  label: string;
+  providerId?: string;
+  environment?: string;
+  readOnly: boolean;
+  available: boolean;
+  availabilityReason?: string;
+}
+interface ContextCatalog {
+  entries: ContextCatalogEntry[];
+  emptyStates: { kind: "instrument" | "account" | "strategy" | "backtest" | "artifact"; availabilityReason: string }[];
+}
+```
+
+`context.catalog` 由后端拥有，返回已持久化的 account refs 以及未来目录的明确空状态。picker 保持临时 pending 列表：Attach 替换列表，Cancel 不改变列表，移除 chip 只影响下一 Turn。Ask/Research 中的 Live account 显示 `LIVE · READ-ONLY`；Backtest 只将其保留为可选 read-only seed。创建 Thread 或开始 Turn 时，后端重新校验 ref ID 和 hash。`turn.start` 省略 `attachedContexts` 时兼容性沿用已保存 Thread refs，显式空数组清除本轮 refs，`null` 无效。
+
+可用的附加 account 上下文会为 Ask、Research 和 Backtest 暴露只读账户工具；Trade 需要执行账户时仍必须使用独立的 Account picker。
+
 ---
 
 ## 8. Agent Mode × Execution Context UX 状态机

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import type { AgentMode, CapabilityDecision, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
+import { createPortal } from 'react-dom';
+import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -142,23 +143,122 @@ function CapabilitySummary({ decision, loading, error }: { decision?: Capability
   return <span className="capability-summary"><strong>Capability: {decision.level}</strong><span>{tools}</span>{reason && <span className="muted">{reason}</span>}</span>;
 }
 
+const modeOptions: { value: AgentMode; label: string }[] = [
+  { value: 'ASK', label: 'Ask · read only' },
+  { value: 'RESEARCH', label: 'Research · read only' },
+  { value: 'BACKTEST', label: 'Backtest · historical simulation' },
+  { value: 'TRADE', label: 'Trade · later approval required' },
+];
+
+const executionOptions: { value: ExecutionContext; label: string }[] = [
+  { value: 'NONE_READ_ONLY', label: 'None · read only' },
+  { value: 'HISTORICAL_SIMULATION', label: 'Historical simulation' },
+  { value: 'LOCAL_PAPER', label: 'Local Paper' },
+  { value: 'ALPACA_PAPER', label: 'Alpaca Paper' },
+  { value: 'TRADING212_DEMO', label: 'Trading 212 Demo' },
+  { value: 'TRADING212_LIVE', label: 'Trading 212 Live' },
+  { value: 'BINANCE_TESTNET', label: 'Binance Testnet' },
+  { value: 'BINANCE_LIVE', label: 'Binance Live' },
+  { value: 'BITGET_DEMO', label: 'Bitget Demo' },
+  { value: 'BITGET_LIVE', label: 'Bitget Live' },
+];
+
+function liveReadOnly(mode: AgentMode, environment: string) {
+  return environment === 'LIVE' && (mode === 'ASK' || mode === 'RESEARCH');
+}
+
+function catalogAccountAvailable(catalog: ContextCatalog | undefined, accountId: string) {
+  return catalog?.entries.some(entry => entry.contextRef.kind === 'account' && entry.contextRef.id === accountId && entry.available) ?? false;
+}
+
+function accountOptionLabel(account: { label: string; providerId: string; environment: string }, mode: AgentMode, available = true) {
+  const liveDisclosure = liveReadOnly(mode, account.environment) ? ' · READ-ONLY' : '';
+  return `${account.label} · ${account.providerId} · ${account.environment}${liveDisclosure}${available ? '' : ' · unavailable'}`;
+}
+
+function ContextPicker({ workspaceId, pending, onAttach, mode }: { workspaceId: string; pending: ThreadContextRef[]; onAttach: (contexts: ThreadContextRef[]) => void; mode: AgentMode }) {
+  const catalog = useQuery({ queryKey: ['context-catalog', workspaceId], queryFn: () => request('context.catalog', { workspaceId }), retry: false });
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<ThreadContextRef[]>(pending);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const pickerId = useId().replaceAll(':', '');
+  const titleId = `context-picker-title-${pickerId}`;
+  useEffect(() => {
+    if (open) {
+      setDraft(pending);
+      window.setTimeout(() => dialogRef.current?.querySelector<HTMLElement>('h3, input, button')?.focus(), 0);
+    } else if (triggerRef.current) triggerRef.current.focus();
+  }, [open, pending]);
+  useEffect(() => {
+    if (!open) return;
+    const shell = document.querySelector<HTMLElement>('.app-shell');
+    if (!shell) return;
+    shell.inert = true;
+    return () => { shell.inert = false; };
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const handleDialogKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>('h3[tabindex="-1"], button:not(:disabled), input:not(:disabled), [tabindex="0"]') ?? [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', handleDialogKey);
+    return () => window.removeEventListener('keydown', handleDialogKey);
+  }, [open]);
+  const entries = catalog.data?.entries ?? [];
+  const selected = (entry: ContextCatalogEntry) => draft.some(context => context.kind === entry.contextRef.kind && context.id === entry.contextRef.id && context.hash === entry.contextRef.hash);
+  const toggle = (entry: ContextCatalogEntry) => setDraft(current => {
+    const isSelected = current.some(context => context.kind === entry.contextRef.kind && context.id === entry.contextRef.id && context.hash === entry.contextRef.hash);
+    return isSelected
+      ? current.filter(context => !(context.kind === entry.contextRef.kind && context.id === entry.contextRef.id && context.hash === entry.contextRef.hash))
+      : [...current, entry.contextRef];
+  });
+  const entryLabel = (context: ThreadContextRef) => entries.find(entry => entry.contextRef.kind === context.kind && entry.contextRef.id === context.id && entry.contextRef.hash === context.hash)?.label ?? `${context.kind}:${context.id}`;
+  const pickerDialog = open ? createPortal(<div className="picker-backdrop">
+    <div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={dialogRef}>
+      <div className="picker-dialog-heading"><div><h3 id={titleId} tabIndex={-1}>Choose context</h3><p className="muted">Attach references for the next Turn only.</p></div><button type="button" aria-label="Close context picker" onClick={() => setOpen(false)}>×</button></div>
+      {catalog.isPending && <p role="status">Loading context catalog…</p>}
+      {catalog.isError && <div className="error-banner" role="alert"><p>Context catalog is unavailable.</p><button type="button" onClick={() => void catalog.refetch()}>Reload catalog</button></div>}
+      {catalog.data && <>
+        <fieldset className="context-options"><legend>Available contexts</legend>{entries.length ? entries.map(entry => <label className="context-option" key={`${entry.contextRef.kind}:${entry.contextRef.id}:${entry.contextRef.hash}`}><input type="checkbox" checked={selected(entry)} disabled={!entry.available} onChange={() => toggle(entry)} /><span><strong>{entry.label}</strong><small>{entry.providerId ? `${entry.providerId} · ` : ''}{entry.environment ?? entry.contextRef.kind}{liveReadOnly(mode, entry.environment ?? '') ? ' · READ-ONLY' : ''}{entry.readOnly ? ' · read-only context' : ''}</small>{!entry.available && <em>{entry.availabilityReason}</em>}</span></label>) : <p>No account contexts are available.</p>}</fieldset>
+        {catalog.data.emptyStates.length > 0 && <section className="context-empty" aria-label="Unavailable context catalogs"><h4>Future context catalogs</h4><ul>{catalog.data.emptyStates.map(state => <li key={state.kind}><strong>{state.kind}</strong> — {state.availabilityReason}</li>)}</ul></section>}
+      </>}
+      <div className="picker-dialog-actions"><button type="button" onClick={() => setOpen(false)}>Cancel</button><button type="button" className="primary" disabled={catalog.isPending || catalog.isError} onClick={() => { onAttach(draft); setOpen(false); }}>Attach</button></div>
+    </div>
+  </div>, document.body) : null;
+  return <div className="context-picker">
+    <button ref={triggerRef} type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>@ Context{pending.length ? ` · ${pending.length}` : ''}</button>
+    {pending.length > 0 && <div className="context-chips" aria-label="Attached contexts">{pending.map(context => <span className="context-chip" key={`${context.kind}:${context.id}:${context.hash}`}><span>{entryLabel(context)}{context.kind === 'account' && context.hash ? ` · ${context.id.slice(0, 8)}` : ''}</span><button type="button" aria-label={`Remove ${entryLabel(context)}`} onClick={() => onAttach(pending.filter(item => item !== context))}>×</button></span>)}</div>}
+    {pickerDialog}
+  </div>;
+}
+
 function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string; model?: ModelState; onCreated: (thread: Thread) => void }) {
   const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'thread-composer'], queryFn: () => request('account.list', { workspaceId }) });
+  const contextCatalog = useQuery({ queryKey: ['context-catalog', workspaceId], queryFn: () => request('context.catalog', { workspaceId }), retry: false });
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('New research thread');
   const [mode, setMode] = useState<AgentMode>('ASK');
   const [execution, setExecution] = useState<ExecutionContext>('NONE_READ_ONLY');
   const [accountId, setAccountId] = useState('');
+  const [pendingContexts, setPendingContexts] = useState<ThreadContextRef[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const capability = useQuery({
-    queryKey: ['agent-capability', workspaceId, mode, execution, accountId],
+    queryKey: ['agent-capability', workspaceId, mode, execution, accountId, pendingContexts],
     queryFn: () => request('agent.capabilities', {
       workspaceId,
       agentMode: mode,
       executionContext: execution,
       ...(accountId ? { accountId } : {}),
-      attachedContexts: [],
+      attachedContexts: pendingContexts,
     }),
     retry: false,
   });
@@ -168,8 +268,8 @@ function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string
     : browserIntegration ? { provider: 'CHATGPT', modelId: 'gpt-5.6-sol' } : undefined;
   const create = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError(undefined);
-    const payload: ThreadCreate = { workspaceId, title: title.trim(), defaultAgentMode: mode, defaultExecutionContext: execution, linkedContexts: [], ...(accountId ? { accountId } : {}), ...(selectedModel ? { model: selectedModel } : {}) };
-    try { const thread = await request('thread.create', payload); await queryClient.invalidateQueries({ queryKey: ['threads', workspaceId] }); onCreated(thread); setTitle('New research thread'); }
+    const payload: ThreadCreate = { workspaceId, title: title.trim(), defaultAgentMode: mode, defaultExecutionContext: execution, linkedContexts: pendingContexts, ...(accountId ? { accountId } : {}), ...(selectedModel ? { model: selectedModel } : {}) };
+    try { const thread = await request('thread.create', payload); await queryClient.invalidateQueries({ queryKey: ['threads', workspaceId] }); onCreated(thread); setTitle('New research thread'); setPendingContexts([]); }
     catch (failure) { setError(explainError(failure)); }
     finally { setBusy(false); }
   };
@@ -178,13 +278,14 @@ function ThreadComposer({ workspaceId, model, onCreated }: { workspaceId: string
     <form onSubmit={create}>
       <label className="field">Thread title<input value={title} onChange={event => setTitle(event.target.value)} maxLength={120} required /></label>
       <div className="thread-picker-grid">
-        <label className="field">Agent mode<select value={mode} onChange={event => setMode(event.target.value as AgentMode)}><option value="ASK">Ask · read only</option><option value="RESEARCH">Research · read only</option><option value="BACKTEST">Backtest · historical simulation</option><option value="TRADE">Trade · later approval required</option></select></label>
-        <label className="field">Execution context<select value={execution} onChange={event => setExecution(event.target.value as ExecutionContext)}><option value="NONE_READ_ONLY">None · read only</option><option value="HISTORICAL_SIMULATION">Historical simulation</option><option value="LOCAL_PAPER">Local Paper</option><option value="ALPACA_PAPER">Alpaca Paper</option><option value="TRADING212_DEMO">Trading 212 Demo</option><option value="TRADING212_LIVE">Trading 212 Live</option><option value="BINANCE_TESTNET">Binance Testnet</option><option value="BINANCE_LIVE">Binance Live</option><option value="BITGET_DEMO">Bitget Demo</option><option value="BITGET_LIVE">Bitget Live</option></select></label>
-        <label className="field">Account<select value={accountId} onChange={event => setAccountId(event.target.value)} disabled={accounts.isPending}><option value="">No account selected</option>{accounts.data?.accounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.environment}</option>)}</select></label>
+        <label className="field">Agent mode<select value={mode} onChange={event => setMode(event.target.value as AgentMode)}>{modeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className="field">Execution context<select value={execution} onChange={event => setExecution(event.target.value as ExecutionContext)}>{executionOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className="field">Account<select value={accountId} onChange={event => setAccountId(event.target.value)} disabled={accounts.isPending || contextCatalog.isPending || contextCatalog.isError}><option value="">No account selected</option>{accounts.data?.accounts.map(account => { const available = catalogAccountAvailable(contextCatalog.data, account.connectionId); return <option key={account.connectionId} value={account.connectionId} disabled={!available}>{accountOptionLabel(account, mode, available)}</option>; })}</select></label>
       </div>
+      <ContextPicker workspaceId={workspaceId} pending={pendingContexts} onAttach={setPendingContexts} mode={mode} />
       <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Selected when the next Turn starts'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
       {error && <p className="error-text" role="alert">{error}</p>}
-      <div className="composer-footer"><span>Context references: none</span><button className="primary" type="submit" disabled={busy || !title.trim() || accounts.isError || capability.isPending || capability.isError || !capability.data}>{busy ? 'Creating…' : 'Create Thread'}</button></div>
+      <div className="composer-footer"><span>Context references: {pendingContexts.length}</span><button className="primary" type="submit" disabled={busy || !title.trim() || accounts.isError || capability.isPending || capability.isError || !capability.data}>{busy ? 'Creating…' : 'Create Thread'}</button></div>
     </form>
   </section>;
 }
@@ -199,19 +300,32 @@ function routeAsThreadModel(route?: ModelRoute): ThreadModel | undefined {
 }
 
 function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: ModelState; runtime?: RuntimeStatus }) {
+  const accounts = useQuery({ queryKey: ['accounts', thread.workspaceId, 'turn-composer'], queryFn: () => request('account.list', { workspaceId: thread.workspaceId }) });
+  const contextCatalog = useQuery({ queryKey: ['context-catalog', thread.workspaceId], queryFn: () => request('context.catalog', { workspaceId: thread.workspaceId }), retry: false });
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
+  const [mode, setMode] = useState<AgentMode>(thread.defaultAgentMode);
+  const [execution, setExecution] = useState<ExecutionContext>(thread.defaultExecutionContext);
+  const [accountId, setAccountId] = useState(thread.accountId ?? '');
+  const [pendingContexts, setPendingContexts] = useState<ThreadContextRef[]>(thread.linkedContexts);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  useEffect(() => {
+    setMode(thread.defaultAgentMode);
+    setExecution(thread.defaultExecutionContext);
+    setAccountId(thread.accountId ?? '');
+    setPendingContexts(thread.linkedContexts);
+    setError(undefined);
+  }, [thread.threadId, thread.stateVersion]);
   const selectedModel = thread.model ?? routeAsThreadModel(verifiedDefaultRoute(model));
   const capability = useQuery({
-    queryKey: ['agent-capability', thread.workspaceId, thread.defaultAgentMode, thread.defaultExecutionContext, thread.accountId ?? '', thread.linkedContexts],
+    queryKey: ['agent-capability', thread.workspaceId, mode, execution, accountId, pendingContexts],
     queryFn: () => request('agent.capabilities', {
       workspaceId: thread.workspaceId,
-      agentMode: thread.defaultAgentMode,
-      executionContext: thread.defaultExecutionContext,
-      ...(thread.accountId ? { accountId: thread.accountId } : {}),
-      attachedContexts: thread.linkedContexts,
+      agentMode: mode,
+      executionContext: execution,
+      ...(accountId ? { accountId } : {}),
+      attachedContexts: pendingContexts,
     }),
     retry: false,
   });
@@ -225,10 +339,10 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
       threadId: thread.threadId,
       expectedStateVersion: thread.stateVersion,
       message: message.trim(),
-      agentMode: thread.defaultAgentMode,
-      executionContext: thread.defaultExecutionContext,
-      attachedContexts: thread.linkedContexts,
-      ...(thread.accountId ? { accountId: thread.accountId } : {}),
+      agentMode: mode,
+      executionContext: execution,
+      attachedContexts: pendingContexts,
+      ...(accountId ? { accountId } : {}),
       ...(selectedModel ? { model: selectedModel } : {}),
     };
     try {
@@ -239,14 +353,20 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
     finally { setBusy(false); }
   };
   return <section className="composer turn-composer" aria-labelledby="turn-composer-title">
-    <div className="composer-heading"><div><h3 id="turn-composer-title">Ask this Thread</h3><p className="muted">The current Thread defaults are frozen when you send.</p></div><span className="badge readonly">No financial approval</span></div>
+    <div className="composer-heading"><div><h3 id="turn-composer-title">Ask this Thread</h3><p className="muted">Choose context for this Turn; the saved Thread defaults stay unchanged.</p></div><span className="badge readonly">No financial approval</span></div>
     <form onSubmit={send}>
       <label className="field">Request<textarea aria-label="Turn request" value={message} onChange={event => setMessage(event.target.value)} maxLength={100000} placeholder="Ask a read-only question…" disabled={busy} /></label>
-      <div className="composer-context"><span className="badge">Mode: {thread.defaultAgentMode}</span><span className="badge">Execution: {thread.defaultExecutionContext}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
+      <div className="thread-picker-grid">
+        <label className="field">Agent mode<select value={mode} onChange={event => setMode(event.target.value as AgentMode)} disabled={busy}>{modeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className="field">Execution context<select value={execution} onChange={event => setExecution(event.target.value as ExecutionContext)} disabled={busy}>{executionOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className="field">Account<select value={accountId} onChange={event => setAccountId(event.target.value)} disabled={busy || accounts.isPending || contextCatalog.isPending || contextCatalog.isError}><option value="">No account selected</option>{accounts.data?.accounts.map(account => { const available = catalogAccountAvailable(contextCatalog.data, account.connectionId); return <option key={account.connectionId} value={account.connectionId} disabled={!available}>{accountOptionLabel(account, mode, available)}</option>; })}</select></label>
+      </div>
+      <ContextPicker workspaceId={thread.workspaceId} pending={pendingContexts} onAttach={setPendingContexts} mode={mode} />
+      <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
       {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
       {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
       {error && <p className="error-text" role="alert">{error}</p>}
-      <div className="composer-footer"><span>Context references: {thread.linkedContexts.length}</span><button className="primary" type="submit" disabled={!ready || busy || !message.trim()}>{busy ? 'Running…' : 'Send'}</button></div>
+      <div className="composer-footer"><span>Context references: {pendingContexts.length}</span><button className="primary" type="submit" disabled={!ready || busy || !message.trim()}>{busy ? 'Running…' : 'Send'}</button></div>
     </form>
   </section>;
 }

@@ -1,4 +1,4 @@
-use crate::capability::{CapabilityDecision, CapabilityQuery};
+use crate::capability::{CapabilityDecision, CapabilityQuery, ContextCatalog};
 use crate::gateway::{GatewayMutation, GatewayState};
 use crate::model::{
     ChatgptLogin, ConfigureDeepseek, ModelQuery, ModelState, SetDefaultModel, SetFallbackPolicy,
@@ -50,10 +50,12 @@ pub struct OpenWorkspace {
     pub base_currency: Option<String>,
 }
 
-fn present<'de, D: serde::Deserializer<'de>>(
-    value: D,
-) -> std::result::Result<Option<String>, D::Error> {
-    String::deserialize(value).map(Some)
+fn present<'de, D, T>(value: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(value).map(Some)
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -147,6 +149,7 @@ pub enum ReplyData {
     Account(Box<AccountConnection>),
     Permissions(PermissionReview),
     Capability(CapabilityDecision),
+    ContextCatalog(ContextCatalog),
 }
 
 #[derive(JsonSchema)]
@@ -173,6 +176,7 @@ pub enum ResultEnvelope {
 #[serde(rename_all = "camelCase")]
 pub struct IpcSchema {
     pub capability_query: CapabilityQuery,
+    pub context_catalog: WorkspaceQuery,
     pub gateway_mutation: GatewayMutation,
     pub model_query: ModelQuery,
     pub chatgpt_login: ChatgptLogin,
@@ -469,9 +473,13 @@ pub struct TurnStart {
     pub account_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<ThreadModel>,
-    #[serde(default)]
-    #[schemars(length(max = 32))]
-    pub attached_contexts: Vec<ThreadContextRef>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "Vec<ThreadContextRef>", length(max = 32))]
+    pub attached_contexts: Option<Vec<ThreadContextRef>>,
 }
 
 #[derive(Deserialize, JsonSchema)]

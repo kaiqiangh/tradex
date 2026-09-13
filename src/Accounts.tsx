@@ -93,6 +93,7 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
       else setError(failure);
     } finally {
       await queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['context-catalog', workspaceId] });
       if (affectedId) await queryClient.invalidateQueries({ queryKey: ['account', affectedId] });
       await list.refetch();
       restoreFocus.current = (focusId ? document.getElementById(focusId) : trigger) ?? null;

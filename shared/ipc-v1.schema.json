@@ -28,6 +28,9 @@
     "configureDeepseek": {
       "$ref": "#/$defs/ConfigureDeepseek"
     },
+    "contextCatalog": {
+      "$ref": "#/$defs/WorkspaceQuery"
+    },
     "empty": {
       "$ref": "#/$defs/EmptyPayload"
     },
@@ -94,6 +97,7 @@
   },
   "required": [
     "capabilityQuery",
+    "contextCatalog",
     "gatewayMutation",
     "modelQuery",
     "chatgptLogin",
@@ -680,6 +684,96 @@
         "CONNECTED",
         "FAILED",
         "DISCONNECTED"
+      ]
+    },
+    "ContextCatalog": {
+      "type": "object",
+      "properties": {
+        "emptyStates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContextCatalogEmptyState"
+          },
+          "maxItems": 5
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContextCatalogEntry"
+          },
+          "maxItems": 256
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "entries",
+        "emptyStates"
+      ]
+    },
+    "ContextCatalogEmptyState": {
+      "type": "object",
+      "properties": {
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "instrument",
+            "account",
+            "strategy",
+            "backtest",
+            "artifact"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "availabilityReason"
+      ]
+    },
+    "ContextCatalogEntry": {
+      "type": "object",
+      "properties": {
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "contextRef": {
+          "$ref": "#/$defs/ThreadContextRef"
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "readOnly": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "contextRef",
+        "label",
+        "readOnly",
+        "available"
       ]
     },
     "DomainEvent": {
@@ -1681,6 +1775,9 @@
         },
         {
           "$ref": "#/$defs/CapabilityDecision"
+        },
+        {
+          "$ref": "#/$defs/ContextCatalog"
         }
       ]
     },
@@ -2818,7 +2915,6 @@
         },
         "attachedContexts": {
           "type": "array",
-          "default": [],
           "items": {
             "$ref": "#/$defs/ThreadContextRef"
           },

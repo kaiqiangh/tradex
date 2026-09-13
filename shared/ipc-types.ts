@@ -137,7 +137,8 @@ export type ReplyData =
   | Accounts
   | AccountConnection
   | PermissionReview
-  | CapabilityDecision;
+  | CapabilityDecision
+  | ContextCatalog;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ToolId".
@@ -166,6 +167,7 @@ export interface IpcSchema {
   command: CommandEnvelope;
   completeOnboarding: CompleteOnboarding;
   configureDeepseek: ConfigureDeepseek;
+  contextCatalog: WorkspaceQuery;
   empty: EmptyPayload;
   event: DomainEvent;
   gatewayMutation: GatewayMutation;
@@ -272,6 +274,13 @@ export interface CompleteOnboarding {
  */
 export interface ConfigureDeepseek {
   expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceQuery".
+ */
+export interface WorkspaceQuery {
   workspaceId: string;
 }
 /**
@@ -785,6 +794,53 @@ export interface CapabilityDecision {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ContextCatalog".
+ */
+export interface ContextCatalog {
+  /**
+   * @maxItems 5
+   */
+  emptyStates:
+    | []
+    | [ContextCatalogEmptyState]
+    | [ContextCatalogEmptyState, ContextCatalogEmptyState]
+    | [ContextCatalogEmptyState, ContextCatalogEmptyState, ContextCatalogEmptyState]
+    | [ContextCatalogEmptyState, ContextCatalogEmptyState, ContextCatalogEmptyState, ContextCatalogEmptyState]
+    | [
+        ContextCatalogEmptyState,
+        ContextCatalogEmptyState,
+        ContextCatalogEmptyState,
+        ContextCatalogEmptyState,
+        ContextCatalogEmptyState
+      ];
+  /**
+   * @maxItems 256
+   */
+  entries: ContextCatalogEntry[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ContextCatalogEmptyState".
+ */
+export interface ContextCatalogEmptyState {
+  availabilityReason: string;
+  kind: "instrument" | "account" | "strategy" | "backtest" | "artifact";
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ContextCatalogEntry".
+ */
+export interface ContextCatalogEntry {
+  availabilityReason?: string;
+  available: boolean;
+  contextRef: ThreadContextRef;
+  environment?: string;
+  label: string;
+  providerId?: string;
+  readOnly: boolean;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FailureEnvelope".
  */
 export interface FailureEnvelope {
@@ -959,11 +1015,4 @@ export interface OpenWorkspace {
   baseCurrency?: string;
   name?: string;
   path?: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "WorkspaceQuery".
- */
-export interface WorkspaceQuery {
-  workspaceId: string;
 }

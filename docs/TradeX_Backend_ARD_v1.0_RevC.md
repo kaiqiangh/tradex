@@ -1953,6 +1953,38 @@ The sanitized remediation codes are `RISK_POLICY_INVALID`, `RISK_POLICY_NOT_CONF
 
 ---
 
+### 41.7 Context catalog payloads (S05)
+
+The context catalog is a read-only workspace query. It exposes canonical non-secret account refs for the Composer and explicit empty states for future context kinds; it never returns credentials, provider bodies or permission secrets.
+
+| Command | Payload | Success data |
+|---|---|---|
+| context.catalog | `{workspaceId: string}` | `ContextCatalog` with bounded account entries and explicit empty states |
+
+~~~ts
+interface ContextCatalog {
+  entries: ContextCatalogEntry[];
+  emptyStates: ContextCatalogEmptyState[];
+}
+interface ContextCatalogEntry {
+  contextRef: { kind: "account"; id: string; hash: string };
+  label: string;
+  providerId?: string;
+  environment?: string;
+  readOnly: boolean;
+  available: boolean;
+  availabilityReason?: string;
+}
+interface ContextCatalogEmptyState {
+  kind: "instrument" | "account" | "strategy" | "backtest" | "artifact";
+  availabilityReason: string;
+}
+~~~
+
+Account hashes are `sha256:<64 lowercase hex characters>` over the canonical non-secret tuple `workspaceId\0connectionId\0providerId\0environment\0createdAt`. Labels and credential material are not hash inputs. Disconnected, missing-credential and cleanup-pending connections remain visible with `available: false`; future instrument, strategy, backtest and artifact kinds return an explicit empty state rather than fixtures. `thread.create` and `turn.start` accept only bounded supported refs; account refs must match the active workspace catalog and derived hash. Duplicate, malformed, unknown or cross-workspace refs fail before persistence or runtime work. For `turn.start`, omitted `attachedContexts` preserves the saved Thread refs for compatibility, while an explicit empty array clears them; explicit `null` is invalid.
+
+An available attached account context adds read-only `account_read` capability for Ask, Research and Backtest. It never satisfies the separate execution-account requirement for Trade.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

@@ -1953,6 +1953,38 @@ interface RiskPolicyState {
 
 ---
 
+### 41.7 上下文目录载荷（S05）
+
+上下文目录是只读的工作区查询，为 Composer 暴露非秘密 canonical account refs，并为未来上下文类别返回明确的空状态；绝不返回凭据、提供方响应或权限秘密。
+
+| Command | Payload | Success data |
+|---|---|---|
+| context.catalog | `{workspaceId: string}` | `ContextCatalog`，包含有界账户条目和明确空状态 |
+
+~~~ts
+interface ContextCatalog {
+  entries: ContextCatalogEntry[];
+  emptyStates: ContextCatalogEmptyState[];
+}
+interface ContextCatalogEntry {
+  contextRef: { kind: "account"; id: string; hash: string };
+  label: string;
+  providerId?: string;
+  environment?: string;
+  readOnly: boolean;
+  available: boolean;
+  availabilityReason?: string;
+}
+interface ContextCatalogEmptyState {
+  kind: "instrument" | "account" | "strategy" | "backtest" | "artifact";
+  availabilityReason: string;
+}
+~~~
+
+账户 hash 使用 `sha256:<64 个小写十六进制字符>`，输入为 canonical 非秘密元组 `workspaceId\0connectionId\0providerId\0environment\0createdAt`。label 与凭据不参与 hash。DISCONNECTED、缺少凭据和清理待处理连接仍可见但 `available: false`；未来 instrument、strategy、backtest、artifact 类别返回明确空状态而非 fixture。`thread.create` 和 `turn.start` 只接受有界的受支持 refs；account ref 必须匹配活动工作区目录及派生 hash。重复、格式错误、未知或跨工作区 ref 在持久化或 runtime 前失败。`turn.start` 省略 `attachedContexts` 时为兼容性沿用已保存 Thread refs，显式空数组会清除本轮上下文，显式 `null` 无效。
+
+可用的附加 account 上下文会为 Ask、Research 和 Backtest 增加只读 `account_read` 能力，但不会满足 Trade 所需的独立执行账户条件。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

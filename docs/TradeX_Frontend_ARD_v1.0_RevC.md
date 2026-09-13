@@ -324,6 +324,28 @@ interface CapabilityDecision {
 
 The composer may query `agent.capabilities` for pending state, but `turn.start` must receive the same inputs and recompute the decision at the trusted boundary. C5/C6 and unknown or disallowed tools remain unavailable.
 
+### 7.7 Context catalog and temporary picker state
+
+```ts
+interface ContextCatalogEntry {
+  contextRef: { kind: "account"; id: string; hash: string };
+  label: string;
+  providerId?: string;
+  environment?: string;
+  readOnly: boolean;
+  available: boolean;
+  availabilityReason?: string;
+}
+interface ContextCatalog {
+  entries: ContextCatalogEntry[];
+  emptyStates: { kind: "instrument" | "account" | "strategy" | "backtest" | "artifact"; availabilityReason: string }[];
+}
+```
+
+`context.catalog` is backend-owned and contains persisted account refs plus explicit empty states for future catalogs. The picker keeps a temporary pending list: Attach replaces it, Cancel leaves it unchanged, and removing a chip affects only the next Turn. A Live account in Ask/Research is labelled `LIVE · READ-ONLY`; Backtest retains it only as an optional read-only seed. The backend revalidates ref IDs and hashes when creating a Thread or starting a Turn. An omitted `attachedContexts` field on `turn.start` preserves saved Thread refs for compatibility, while an explicit empty array clears them; `null` is invalid.
+
+An available attached account context exposes read-only account tools for Ask, Research and Backtest; the separate Account picker remains required when Trade needs an execution account.
+
 ---
 
 ## 8. Agent Mode × Execution Context UX State Machine
