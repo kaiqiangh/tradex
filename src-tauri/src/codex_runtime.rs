@@ -247,14 +247,14 @@ fn run_process(
             turn_id = turn_id_from_response(&frame);
             continue;
         }
-        if let Some(sequence) = upstream_sequence(&frame) {
-            if !seen_sequences.contains(&sequence) {
-                if last_upstream_sequence.is_some_and(|previous| sequence != previous + 1) {
-                    return Err(TradeXError::new("CODEX_EVENT_GAP"));
-                }
-                seen_sequences.insert(sequence);
-                last_upstream_sequence = Some(sequence);
+        if let Some(sequence) = upstream_sequence(&frame)
+            && !seen_sequences.contains(&sequence)
+        {
+            if last_upstream_sequence.is_some_and(|previous| sequence != previous + 1) {
+                return Err(TradeXError::new("CODEX_EVENT_GAP"));
             }
+            seen_sequences.insert(sequence);
+            last_upstream_sequence = Some(sequence);
         }
         validate_notification_scope(&frame, &thread_id, turn_id.as_deref())?;
         if let Some(event) = notification(&frame)? {
