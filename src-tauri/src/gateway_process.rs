@@ -177,6 +177,20 @@ fn classify_inference_status(status: u16, model_id: &str) -> Result<()> {
     }
 }
 
+fn classify_inference_response(status: u16, model_id: &str, body: &[u8]) -> Result<()> {
+    if status == 503 && model_id != "deepseek-v4-flash" {
+        let lower = String::from_utf8_lossy(body).to_ascii_lowercase();
+        if lower.contains("auth_unavailable")
+            || lower.contains("token_expired")
+            || lower.contains("could not validate your token")
+            || lower.contains("invalid or expired token")
+        {
+            return Err("MODEL_OAUTH_EXPIRED");
+        }
+    }
+    classify_inference_status(status, model_id)
+}
+
 fn parse_inference_response(body: &[u8]) -> Result<()> {
     if body.len() > 1024 * 1024 {
         return Err("MODEL_TEST_INFERENCE_FAILED");
@@ -470,12 +484,13 @@ impl GatewayHost {
             .send()
             .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
         self.last_quota = quota_metadata(response.headers());
-        classify_inference_status(response.status().as_u16(), model_id)?;
+        let status = response.status().as_u16();
         let mut bytes = Zeroizing::new(Vec::new());
         response
             .take(1024 * 1024 + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| "MODEL_TEST_INFERENCE_FAILED")?;
+        classify_inference_response(status, model_id, &bytes)?;
         parse_inference_response(&bytes)
     }
 
@@ -869,6 +884,22 @@ mod tests {
         assert_eq!(classify_inference_status(200, "gpt-5.6-sol"), Ok(()));
         assert_eq!(
             classify_inference_status(503, "gpt-5.6-sol"),
+            Err("MODEL_TEST_INFERENCE_FAILED")
+        );
+        assert_eq!(
+            classify_inference_response(
+                503,
+                "gpt-5.6-sol",
+                br#"{"error":{"code":"auth_unavailable","message":"token_expired"}}"#,
+            ),
+            Err("MODEL_OAUTH_EXPIRED")
+        );
+        assert_eq!(
+            classify_inference_response(
+                503,
+                "deepseek-v4-flash",
+                br#"{"error":{"code":"auth_unavailable"}}"#,
+            ),
             Err("MODEL_TEST_INFERENCE_FAILED")
         );
     }
