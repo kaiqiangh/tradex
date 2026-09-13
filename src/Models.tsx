@@ -28,6 +28,8 @@ const reasons: Record<string, string> = {
   MODEL_KEYCHAIN_MISSING: 'The DeepSeek OS Keychain key is unavailable. Configure it again.',
   MODEL_UNAVAILABLE: 'The selected model route is unavailable. Retry its probe or choose another route.',
   MODEL_OAUTH_EXPIRED: 'ChatGPT authorization expired or was rejected. Re-login before verifying the route.',
+  MODEL_LOGIN_FAILED: 'ChatGPT authorization did not complete. Retry login; no token was imported into TradeX.',
+  MODEL_LOGIN_TIMEOUT: 'ChatGPT authorization timed out. Retry login in the browser.',
   MODEL_QUOTA_EXCEEDED: 'The model provider reported a quota limit. Wait before retrying.',
   MODEL_TEST_INFERENCE_FAILED: 'The selected route did not complete the bounded setup inference.',
 };
