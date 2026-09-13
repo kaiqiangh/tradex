@@ -56,7 +56,7 @@
 
 ## Out of Scope
 
-The native secure-dialog Save path and OAuth expiry/timeout UI remain outside this ticket. OAuth cancellation evidence is recorded in `s03-model-evidence.md`. Codex App Server streaming, full Turn persistence, automatic model invocation transport, and complete five-step onboarding also remain outside this ticket. Credentialed ChatGPT/DeepSeek route evidence is recorded in `s03-model-evidence.md`; #12 remains open until its remaining independent UI evidence is supplied.
+The native secure-dialog Save path is evidenced in an isolated workspace; OAuth expiry/timeout UI remains outside this ticket. OAuth cancellation evidence is recorded in `s03-model-evidence.md`. Codex App Server streaming, full Turn persistence, automatic model invocation transport, and complete five-step onboarding also remain outside this ticket. Credentialed ChatGPT/DeepSeek route evidence is recorded in `s03-model-evidence.md`; #12 remains open until its remaining independent UI evidence is supplied.
 
 ## Further Notes
 

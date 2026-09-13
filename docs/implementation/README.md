@@ -2,7 +2,7 @@
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
-**这是完整应用的实施计划；S01、S02 已完成；S03–S35 尚未完成。S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布；#11 网关生命周期已验收，#12 模型连接的真实 OAuth/上游推理、原生取消和 OAuth 取消 UI 已取得证据，但 secure entry Save、OAuth 过期/超时 UI 仍待独立验收，因此保持 OPEN/IMPLEMENTED_UNVERIFIED；#13 默认路由、fallback consent、配额冷却和 attempt 审计已完成本地实现与 Rust-backed UI 检查，但按串行顺序等待 #12；#14 五步入门、风险默认值、持久化策略和 Ready 门控已完成本地实现与 Rust-backed UI/协议负例检查，但因 #12/S04 外部边界保持 OPEN/IMPLEMENTED_UNVERIFIED；见 [S03 需求与方案](model-onboarding.md)、[#11 网关证据](s03-gateway-evidence.md)、[#12 模型连接证据](s03-model-evidence.md)、[#13 路由证据](s03-routing-evidence.md) 和 [#14 入门与风险证据](s03-onboarding-evidence.md)。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
+**这是完整应用的实施计划；S01、S02 已完成；S03–S35 尚未完成。S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布；#11 网关生命周期已验收，#12 模型连接的真实 OAuth/上游推理、原生取消/保存和 OAuth 取消 UI 已取得证据，但 OAuth 过期/超时 UI 仍待独立验收，因此保持 OPEN/IMPLEMENTED_UNVERIFIED；#13 默认路由、fallback consent、配额冷却和 attempt 审计已完成本地实现与 Rust-backed UI 检查，但按串行顺序等待 #12；#14 五步入门、风险默认值、持久化策略和 Ready 门控已完成本地实现与 Rust-backed UI/协议负例检查，但因 #12/S04 外部边界保持 OPEN/IMPLEMENTED_UNVERIFIED；见 [S03 需求与方案](model-onboarding.md)、[#11 网关证据](s03-gateway-evidence.md)、[#12 模型连接证据](s03-model-evidence.md)、[#13 路由证据](s03-routing-evidence.md) 和 [#14 入门与风险证据](s03-onboarding-evidence.md)。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
 
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
