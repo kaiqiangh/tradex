@@ -210,7 +210,8 @@ impl RiskPolicyState {
             || self.updated_at.is_empty()
             || self.policy_version == 0
             || !(1..=5).contains(&self.onboarding_step)
-            || (self.onboarding_completed && (!self.configured || self.onboarding_step != 5))
+            || (self.onboarding_step == 5 && !self.configured)
+            || (self.onboarding_completed && self.onboarding_step != 5)
             || self.hard_rules != hard_safety_rules()
         {
             return Err(crate::protocol::TradeXError::new(

@@ -115,10 +115,11 @@ function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Worksp
   if (!risk || !draft) return <section className="onboarding" aria-labelledby="onboarding-title"><p role="status">Loading onboarding state…</p></section>;
   const step = risk.onboardingCompleted ? 5 : risk.onboardingStep;
   const route = verifiedDefaultRoute(model);
-  const liveAccounts = accounts.data?.accounts.filter(account => account.environment === 'LIVE');
-  const allLiveDisarmed = liveAccounts != null && liveAccounts.every(account => account.health.arming === 'DISARMED');
-  const liveAccountSummary = !accounts.data
-    ? (accounts.isError ? 'Unavailable — reload account health' : 'Loading account health…')
+  const accountReady = accounts.status === 'success' && !accounts.isFetching && accounts.dataUpdatedAt > 0;
+  const liveAccounts = accountReady ? accounts.data.accounts.filter(account => account.environment === 'LIVE') : undefined;
+  const allLiveDisarmed = accountReady && liveAccounts!.every(account => account.health.arming === 'DISARMED');
+  const liveAccountSummary = !accountReady
+    ? (accounts.isError ? 'Unavailable — reload account health' : accounts.isFetching ? 'Loading account health…' : 'Unavailable — reload account health')
     : allLiveDisarmed ? 'All DISARMED' : 'A Live account needs to be DISARMED';
   const setStep = async (next: number, expectedStateVersion = risk.stateVersion) => {
     setBusy(true); setError(undefined);
@@ -142,7 +143,7 @@ function Onboarding({ workspace, risk, model, onCompleted }: { workspace: Worksp
     setDraftVersion(saved.stateVersion);
     void setStep(5, saved.stateVersion);
   };
-  const providerSummary = accounts.isLoading ? 'Loading provider connections…' : accounts.isError ? 'Unavailable — reload provider connections' : accounts.data?.accounts.length ? accounts.data.accounts.map(account => `${account.label} · ${account.providerId} ${account.environment}`).join(' · ') : 'No external broker/data provider connected';
+  const providerSummary = !accountReady ? (accounts.isError ? 'Unavailable — reload provider connections' : accounts.isFetching ? 'Loading provider connections…' : 'Unavailable — reload provider connections') : accounts.data.accounts.length ? accounts.data.accounts.map(account => `${account.label} · ${account.providerId} ${account.environment}`).join(' · ') : 'No external broker/data provider connected';
   return <section className="onboarding" aria-labelledby="onboarding-title">
     <ol className="steps" aria-label="Workspace setup progress">{['Workspace', 'Providers', 'Model', 'Risk defaults', 'Ready'].map((label, index) => <li key={label} aria-current={index + 1 === step ? 'step' : undefined}><span>{index + 1}</span>{label}</li>)}</ol>
     {step === 1 && <section className="card onboarding-card"><h1 id="onboarding-title">Workspace</h1><p className="muted">{workspace.name} · base currency {workspace.baseCurrency}</p><dl className="summary-list"><div><dt>Local storage</dt><dd className="path">{workspace.path}</dd></div><div><dt>Workspace ID</dt><dd className="identity">{workspace.workspaceId}</dd></div></dl><p>Continue to reuse the existing provider connection and model setup surfaces.</p></section>}
