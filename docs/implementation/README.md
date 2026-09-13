@@ -2,7 +2,7 @@
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
-**这是完整应用的实施计划；S01、S02 已完成；S03–S35 尚未完成。S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布；#11 网关生命周期已验收，#12 模型连接的真实 OAuth/上游推理、原生取消/保存、OAuth 取消、超时和失效 UI 已取得证据并完成验收；#13 默认路由、fallback consent、配额冷却和 attempt 审计已按证据完成验收；#14 五步入门、风险默认值、持久化策略和 Ready 门控已完成实际桌面与 Rust-backed UI/协议验收，下一项按串行顺序进入 #15 账户复用与本地移除；见 [S03 需求与方案](model-onboarding.md)、[#11 网关证据](s03-gateway-evidence.md)、[#12 模型连接证据](s03-model-evidence.md)、[#13 路由证据](s03-routing-evidence.md) 和 [#14 入门与风险证据](s03-onboarding-evidence.md)。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
+**这是完整应用的实施计划；S01、S02 已完成；S03–S35 尚未完成。S02 四张提供方票及整体验收已通过，S03 规范和串行实现票已发布；#11 网关生命周期已验收，#12 模型连接的真实 OAuth/上游推理、原生取消/保存、OAuth 取消、超时和失效 UI 已取得证据并完成验收；#13 默认路由、fallback consent、配额冷却和 attempt 审计已按证据完成验收；#14 五步入门、风险默认值、持久化策略和 Ready 门控已完成实际桌面与 Rust-backed UI/协议验收；#15 账户复用、自动读取、已有连接刷新和隔离本地清理已完成完整 Rust-backed 浏览器验收，下一项按串行顺序需重新读取并拆解后续 S04；见 [S03 需求与方案](model-onboarding.md)、[#11 网关证据](s03-gateway-evidence.md)、[#12 模型连接证据](s03-model-evidence.md)、[#13 路由证据](s03-routing-evidence.md)、[#14 入门与风险证据](s03-onboarding-evidence.md) 和 [#15 账户证据](s03-account-evidence.md)。** 已逐一阅读基线下全部 23 个受版本控制的 docs 文件（含中英文文档、工作流说明及 HTML/CSS/JS 原型），不是只检索需求编号。原型 QA 的 9 个 FAILED、3 个 PARTIAL 保留为历史证据，不能升级为应用验收。当前证据见 [S01 verification](s01-evidence.md)。
 
 - [逐条需求清单](requirements.csv)：201 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余 198 条均需完成。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–12 的负责工作项。
@@ -15,6 +15,7 @@
 - [S03 网关生命周期验收](s03-gateway-evidence.md)：#11 固定 CLIProxyAPI 生命周期、真实进程探测/冲突/退避/清理、公共 Settings 页面和串行 Standards/Spec 审查；#13 路由/回退/配额验收和 #14 入门/风险验收已完成，下一项为 #15 账户复用与本地移除。
 - [S03 模型连接验收](s03-model-evidence.md)：#12 ChatGPT OAuth / DeepSeek Keychain / 精确 Flash 路由验证的实现、协议/浏览器证据和真实 sidecar 失效 UI。
 - [S03 入门与风险验收](s03-onboarding-evidence.md)：#14 五步入门、Risk Defaults、SQLite schema v5、Ready 门控、浏览器交互和公共协议负例；Ready 实际桌面与当前代码浏览器路径已重跑；S04 和 S33 的外部或完整回归门槛仍待补齐。
+- [S03 账户复用验收](s03-account-evidence.md)：#15 权威账户读取、已有连接复用、版本化刷新、隔离本地清理、键盘与 390/768 布局证据；真实桌面账户只读检查，未删除真实凭据。
 - [S02 提供方连接 Spec 与拆票](provider-connections.md)：四个提供方垂直切片、权限差异、原生凭据边界及官方资料。
 - [首个工作项 Spec 和实现票](first-slice.md)：可审阅的测试边界与第一个垂直切片。
 
