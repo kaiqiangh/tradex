@@ -458,13 +458,13 @@ export interface HardSafetyRule {
  * via the `definition` "RiskPolicy".
  */
 export interface RiskPolicy {
-  liveInactivityTimeoutMinutes?: number;
-  marketOrdersEnabled?: boolean;
-  maxDailyRealizedLoss?: string | null;
-  maxDailyTradedNotional?: string | null;
-  maxOrderNotional?: string | null;
-  maxSingleInstrumentExposurePercent?: string | null;
-  staleQuoteThresholdSeconds?: number;
+  liveInactivityTimeoutMinutes: number;
+  marketOrdersEnabled: boolean;
+  maxDailyRealizedLoss: string | null;
+  maxDailyTradedNotional: string | null;
+  maxOrderNotional: string | null;
+  maxSingleInstrumentExposurePercent: string | null;
+  staleQuoteThresholdSeconds: number;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

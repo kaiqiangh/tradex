@@ -346,6 +346,7 @@ impl ModelState {
                             &route.model_id,
                             route.thinking_type.as_ref(),
                         ) && route.model_id == selection.model_id
+                            && route.provider == selection.provider
                             && route.thinking_type == selection.thinking_type
                             && route.verified_at.is_some()
                     })
@@ -659,6 +660,24 @@ mod tests {
             "gpt-5.6-sol"
         );
         assert_eq!(state.attempts.len(), 100);
+    }
+
+    #[test]
+    fn verified_route_requires_matching_provider_identity() {
+        let mut state = ModelState::new("workspace-one".into());
+        state.chatgpt.status = ModelHealth::Ready;
+        state.chatgpt.routes = vec![ModelRoute {
+            provider: ModelProvider::Deepseek,
+            model_id: "deepseek-v4-flash".into(),
+            thinking_type: Some(ThinkingType::Disabled),
+            verified_at: Some("2026-09-13T00:00:00Z".into()),
+        }];
+        state.default_route = Some(ModelSelection {
+            provider: ModelProvider::Chatgpt,
+            model_id: "deepseek-v4-flash".into(),
+            thinking_type: Some(ThinkingType::Disabled),
+        });
+        assert_eq!(state.thread_plan(), Err("MODEL_UNAVAILABLE"));
     }
 
     #[test]

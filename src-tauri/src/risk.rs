@@ -1,5 +1,6 @@
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::borrow::Cow;
 
 pub const DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS: u64 = 3;
@@ -8,34 +9,20 @@ pub const DEFAULT_LIVE_INACTIVITY_TIMEOUT_MINUTES: u64 = 20;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RiskPolicy {
-    #[serde(default)]
-    #[schemars(length(max = 32))]
+    #[schemars(with = "RequiredNullableDecimal", required, length(max = 32))]
     pub max_order_notional: Option<String>,
-    #[serde(default)]
-    #[schemars(length(max = 32))]
+    #[schemars(with = "RequiredNullableDecimal", required, length(max = 32))]
     pub max_single_instrument_exposure_percent: Option<String>,
-    #[serde(default)]
-    #[schemars(length(max = 32))]
+    #[schemars(with = "RequiredNullableDecimal", required, length(max = 32))]
     pub max_daily_traded_notional: Option<String>,
-    #[serde(default)]
-    #[schemars(length(max = 32))]
+    #[schemars(with = "RequiredNullableDecimal", required, length(max = 32))]
     pub max_daily_realized_loss: Option<String>,
-    #[serde(default = "default_stale_quote_threshold_seconds")]
-    #[schemars(range(min = 1, max = 86_400_u64))]
+    #[schemars(required, range(min = 1, max = 86_400_u64))]
     pub stale_quote_threshold_seconds: u64,
-    #[serde(default)]
+    #[schemars(required)]
     pub market_orders_enabled: bool,
-    #[serde(default = "default_live_inactivity_timeout_minutes")]
-    #[schemars(range(min = 1, max = 1_440_u64))]
+    #[schemars(required, range(min = 1, max = 1_440_u64))]
     pub live_inactivity_timeout_minutes: u64,
-}
-
-fn default_stale_quote_threshold_seconds() -> u64 {
-    DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS
-}
-
-fn default_live_inactivity_timeout_minutes() -> u64 {
-    DEFAULT_LIVE_INACTIVITY_TIMEOUT_MINUTES
 }
 
 impl Default for RiskPolicy {
@@ -215,6 +202,61 @@ impl RiskPolicyState {
             self.onboarding_completed = false;
             self.onboarding_step = 3;
         }
+    }
+
+    pub fn validate_persisted(&self, workspace_id: &str) -> crate::protocol::Result<()> {
+        if self.workspace_id != workspace_id
+            || self.state_version.is_empty()
+            || self.updated_at.is_empty()
+            || self.policy_version == 0
+            || !(1..=5).contains(&self.onboarding_step)
+            || (self.onboarding_completed && self.onboarding_step != 5)
+            || self.hard_rules != hard_safety_rules()
+        {
+            return Err(crate::protocol::TradeXError::new(
+                "WORKSPACE_INTEGRITY_FAILED",
+            ));
+        }
+        let mut checked = self.clone();
+        checked
+            .validate_policy()
+            .map_err(|_| crate::protocol::TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if checked.policy != self.policy
+            || (!self.configured && self.policy != RiskPolicy::default())
+        {
+            return Err(crate::protocol::TradeXError::new(
+                "WORKSPACE_INTEGRITY_FAILED",
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn from_persisted_json(data: &str, workspace_id: &str) -> crate::protocol::Result<Self> {
+        let value: Value = serde_json::from_str(data)
+            .map_err(|_| crate::protocol::TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        let policy = value
+            .get("policy")
+            .and_then(Value::as_object)
+            .ok_or_else(|| crate::protocol::TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        for field in [
+            "maxOrderNotional",
+            "maxSingleInstrumentExposurePercent",
+            "maxDailyTradedNotional",
+            "maxDailyRealizedLoss",
+            "staleQuoteThresholdSeconds",
+            "marketOrdersEnabled",
+            "liveInactivityTimeoutMinutes",
+        ] {
+            if !policy.contains_key(field) {
+                return Err(crate::protocol::TradeXError::new(
+                    "WORKSPACE_INTEGRITY_FAILED",
+                ));
+            }
+        }
+        let state: Self = serde_json::from_value(value)
+            .map_err(|_| crate::protocol::TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        state.validate_persisted(workspace_id)?;
+        Ok(state)
     }
 }
 

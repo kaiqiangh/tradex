@@ -7052,43 +7052,43 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"liveInactivityTimeoutMinutes": {
 				"type": "integer",
 				"format": "uint64",
-				"default": 20,
 				"maximum": 1440,
 				"minimum": 1
 			},
-			"marketOrdersEnabled": {
-				"type": "boolean",
-				"default": false
-			},
+			"marketOrdersEnabled": { "type": "boolean" },
 			"maxDailyRealizedLoss": {
 				"type": ["string", "null"],
-				"default": null,
 				"maxLength": 32
 			},
 			"maxDailyTradedNotional": {
 				"type": ["string", "null"],
-				"default": null,
 				"maxLength": 32
 			},
 			"maxOrderNotional": {
 				"type": ["string", "null"],
-				"default": null,
 				"maxLength": 32
 			},
 			"maxSingleInstrumentExposurePercent": {
 				"type": ["string", "null"],
-				"default": null,
 				"maxLength": 32
 			},
 			"staleQuoteThresholdSeconds": {
 				"type": "integer",
 				"format": "uint64",
-				"default": 3,
 				"maximum": 86400,
 				"minimum": 1
 			}
 		},
-		"additionalProperties": false
+		"additionalProperties": false,
+		"required": [
+			"maxOrderNotional",
+			"maxSingleInstrumentExposurePercent",
+			"maxDailyTradedNotional",
+			"maxDailyRealizedLoss",
+			"staleQuoteThresholdSeconds",
+			"marketOrdersEnabled",
+			"liveInactivityTimeoutMinutes"
+		]
 	};
 	function validate43(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
@@ -7313,116 +7313,100 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data.policy !== void 0) {
 									let data7 = data.policy;
 									if (data7 && typeof data7 == "object" && !Array.isArray(data7)) {
-										for (const key2 in data7) if (!(key2 === "liveInactivityTimeoutMinutes" || key2 === "marketOrdersEnabled" || key2 === "maxDailyRealizedLoss" || key2 === "maxDailyTradedNotional" || key2 === "maxOrderNotional" || key2 === "maxSingleInstrumentExposurePercent" || key2 === "staleQuoteThresholdSeconds")) {
+										let missing2;
+										if (data7.maxOrderNotional === void 0 && (missing2 = "maxOrderNotional") || data7.maxSingleInstrumentExposurePercent === void 0 && (missing2 = "maxSingleInstrumentExposurePercent") || data7.maxDailyTradedNotional === void 0 && (missing2 = "maxDailyTradedNotional") || data7.maxDailyRealizedLoss === void 0 && (missing2 = "maxDailyRealizedLoss") || data7.staleQuoteThresholdSeconds === void 0 && (missing2 = "staleQuoteThresholdSeconds") || data7.marketOrdersEnabled === void 0 && (missing2 = "marketOrdersEnabled") || data7.liveInactivityTimeoutMinutes === void 0 && (missing2 = "liveInactivityTimeoutMinutes")) {
 											validate43.errors = [{
 												instancePath: instancePath + "/policy",
-												schemaPath: "#/$defs/RiskPolicy/additionalProperties",
-												keyword: "additionalProperties",
-												params: { additionalProperty: key2 },
-												message: "must NOT have additional properties"
+												schemaPath: "#/$defs/RiskPolicy/required",
+												keyword: "required",
+												params: { missingProperty: missing2 },
+												message: "must have required property '" + missing2 + "'"
 											}];
 											return false;
-										}
-										if (data7.liveInactivityTimeoutMinutes !== void 0) {
-											let data8 = data7.liveInactivityTimeoutMinutes;
-											if (!(typeof data8 == "number" && !(data8 % 1) && !isNaN(data8))) {
+										} else {
+											for (const key2 in data7) if (!(key2 === "liveInactivityTimeoutMinutes" || key2 === "marketOrdersEnabled" || key2 === "maxDailyRealizedLoss" || key2 === "maxDailyTradedNotional" || key2 === "maxOrderNotional" || key2 === "maxSingleInstrumentExposurePercent" || key2 === "staleQuoteThresholdSeconds")) {
 												validate43.errors = [{
-													instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
-													schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/type",
-													keyword: "type",
-													params: { type: "integer" },
-													message: "must be integer"
+													instancePath: instancePath + "/policy",
+													schemaPath: "#/$defs/RiskPolicy/additionalProperties",
+													keyword: "additionalProperties",
+													params: { additionalProperty: key2 },
+													message: "must NOT have additional properties"
 												}];
 												return false;
 											}
-											if (typeof data8 == "number") {
-												if (data8 > 1440 || isNaN(data8)) {
+											if (data7.liveInactivityTimeoutMinutes !== void 0) {
+												let data8 = data7.liveInactivityTimeoutMinutes;
+												if (!(typeof data8 == "number" && !(data8 % 1) && !isNaN(data8))) {
 													validate43.errors = [{
 														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
-														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/maximum",
-														keyword: "maximum",
-														params: {
-															comparison: "<=",
-															limit: 1440
-														},
-														message: "must be <= 1440"
-													}];
-													return false;
-												} else if (data8 < 1 || isNaN(data8)) {
-													validate43.errors = [{
-														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
-														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/minimum",
-														keyword: "minimum",
-														params: {
-															comparison: ">=",
-															limit: 1
-														},
-														message: "must be >= 1"
+														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/type",
+														keyword: "type",
+														params: { type: "integer" },
+														message: "must be integer"
 													}];
 													return false;
 												}
-											}
-											var valid5 = true;
-										} else var valid5 = true;
-										if (valid5) {
-											if (data7.marketOrdersEnabled !== void 0) {
-												if (typeof data7.marketOrdersEnabled !== "boolean") {
-													validate43.errors = [{
-														instancePath: instancePath + "/policy/marketOrdersEnabled",
-														schemaPath: "#/$defs/RiskPolicy/properties/marketOrdersEnabled/type",
-														keyword: "type",
-														params: { type: "boolean" },
-														message: "must be boolean"
-													}];
-													return false;
+												if (typeof data8 == "number") {
+													if (data8 > 1440 || isNaN(data8)) {
+														validate43.errors = [{
+															instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+															schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/maximum",
+															keyword: "maximum",
+															params: {
+																comparison: "<=",
+																limit: 1440
+															},
+															message: "must be <= 1440"
+														}];
+														return false;
+													} else if (data8 < 1 || isNaN(data8)) {
+														validate43.errors = [{
+															instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+															schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/minimum",
+															keyword: "minimum",
+															params: {
+																comparison: ">=",
+																limit: 1
+															},
+															message: "must be >= 1"
+														}];
+														return false;
+													}
 												}
 												var valid5 = true;
 											} else var valid5 = true;
 											if (valid5) {
-												if (data7.maxDailyRealizedLoss !== void 0) {
-													let data10 = data7.maxDailyRealizedLoss;
-													if (typeof data10 !== "string" && data10 !== null) {
+												if (data7.marketOrdersEnabled !== void 0) {
+													if (typeof data7.marketOrdersEnabled !== "boolean") {
 														validate43.errors = [{
-															instancePath: instancePath + "/policy/maxDailyRealizedLoss",
-															schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
+															instancePath: instancePath + "/policy/marketOrdersEnabled",
+															schemaPath: "#/$defs/RiskPolicy/properties/marketOrdersEnabled/type",
 															keyword: "type",
-															params: { type: schema72.properties.maxDailyRealizedLoss.type },
-															message: "must be string,null"
+															params: { type: "boolean" },
+															message: "must be boolean"
 														}];
 														return false;
-													}
-													if (typeof data10 === "string") {
-														if (func1(data10) > 32) {
-															validate43.errors = [{
-																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
-																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/maxLength",
-																keyword: "maxLength",
-																params: { limit: 32 },
-																message: "must NOT have more than 32 characters"
-															}];
-															return false;
-														}
 													}
 													var valid5 = true;
 												} else var valid5 = true;
 												if (valid5) {
-													if (data7.maxDailyTradedNotional !== void 0) {
-														let data11 = data7.maxDailyTradedNotional;
-														if (typeof data11 !== "string" && data11 !== null) {
+													if (data7.maxDailyRealizedLoss !== void 0) {
+														let data10 = data7.maxDailyRealizedLoss;
+														if (typeof data10 !== "string" && data10 !== null) {
 															validate43.errors = [{
-																instancePath: instancePath + "/policy/maxDailyTradedNotional",
-																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
+																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
 																keyword: "type",
-																params: { type: schema72.properties.maxDailyTradedNotional.type },
+																params: { type: schema72.properties.maxDailyRealizedLoss.type },
 																message: "must be string,null"
 															}];
 															return false;
 														}
-														if (typeof data11 === "string") {
-															if (func1(data11) > 32) {
+														if (typeof data10 === "string") {
+															if (func1(data10) > 32) {
 																validate43.errors = [{
-																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
-																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/maxLength",
+																	instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/maxLength",
 																	keyword: "maxLength",
 																	params: { limit: 32 },
 																	message: "must NOT have more than 32 characters"
@@ -7433,23 +7417,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														var valid5 = true;
 													} else var valid5 = true;
 													if (valid5) {
-														if (data7.maxOrderNotional !== void 0) {
-															let data12 = data7.maxOrderNotional;
-															if (typeof data12 !== "string" && data12 !== null) {
+														if (data7.maxDailyTradedNotional !== void 0) {
+															let data11 = data7.maxDailyTradedNotional;
+															if (typeof data11 !== "string" && data11 !== null) {
 																validate43.errors = [{
-																	instancePath: instancePath + "/policy/maxOrderNotional",
-																	schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
+																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
 																	keyword: "type",
-																	params: { type: schema72.properties.maxOrderNotional.type },
+																	params: { type: schema72.properties.maxDailyTradedNotional.type },
 																	message: "must be string,null"
 																}];
 																return false;
 															}
-															if (typeof data12 === "string") {
-																if (func1(data12) > 32) {
+															if (typeof data11 === "string") {
+																if (func1(data11) > 32) {
 																	validate43.errors = [{
-																		instancePath: instancePath + "/policy/maxOrderNotional",
-																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/maxLength",
+																		instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/maxLength",
 																		keyword: "maxLength",
 																		params: { limit: 32 },
 																		message: "must NOT have more than 32 characters"
@@ -7460,23 +7444,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															var valid5 = true;
 														} else var valid5 = true;
 														if (valid5) {
-															if (data7.maxSingleInstrumentExposurePercent !== void 0) {
-																let data13 = data7.maxSingleInstrumentExposurePercent;
-																if (typeof data13 !== "string" && data13 !== null) {
+															if (data7.maxOrderNotional !== void 0) {
+																let data12 = data7.maxOrderNotional;
+																if (typeof data12 !== "string" && data12 !== null) {
 																	validate43.errors = [{
-																		instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
-																		schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
+																		instancePath: instancePath + "/policy/maxOrderNotional",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
 																		keyword: "type",
-																		params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+																		params: { type: schema72.properties.maxOrderNotional.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
 																}
-																if (typeof data13 === "string") {
-																	if (func1(data13) > 32) {
+																if (typeof data12 === "string") {
+																	if (func1(data12) > 32) {
 																		validate43.errors = [{
-																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
-																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/maxLength",
+																			instancePath: instancePath + "/policy/maxOrderNotional",
+																			schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/maxLength",
 																			keyword: "maxLength",
 																			params: { limit: 32 },
 																			message: "must NOT have more than 32 characters"
@@ -7487,47 +7471,75 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																var valid5 = true;
 															} else var valid5 = true;
 															if (valid5) {
-																if (data7.staleQuoteThresholdSeconds !== void 0) {
-																	let data14 = data7.staleQuoteThresholdSeconds;
-																	if (!(typeof data14 == "number" && !(data14 % 1) && !isNaN(data14))) {
+																if (data7.maxSingleInstrumentExposurePercent !== void 0) {
+																	let data13 = data7.maxSingleInstrumentExposurePercent;
+																	if (typeof data13 !== "string" && data13 !== null) {
 																		validate43.errors = [{
-																			instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
-																			schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/type",
+																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
 																			keyword: "type",
-																			params: { type: "integer" },
-																			message: "must be integer"
+																			params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+																			message: "must be string,null"
 																		}];
 																		return false;
 																	}
-																	if (typeof data14 == "number") {
-																		if (data14 > 86400 || isNaN(data14)) {
+																	if (typeof data13 === "string") {
+																		if (func1(data13) > 32) {
 																			validate43.errors = [{
-																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
-																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/maximum",
-																				keyword: "maximum",
-																				params: {
-																					comparison: "<=",
-																					limit: 86400
-																				},
-																				message: "must be <= 86400"
-																			}];
-																			return false;
-																		} else if (data14 < 1 || isNaN(data14)) {
-																			validate43.errors = [{
-																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
-																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/minimum",
-																				keyword: "minimum",
-																				params: {
-																					comparison: ">=",
-																					limit: 1
-																				},
-																				message: "must be >= 1"
+																				instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																				schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/maxLength",
+																				keyword: "maxLength",
+																				params: { limit: 32 },
+																				message: "must NOT have more than 32 characters"
 																			}];
 																			return false;
 																		}
 																	}
 																	var valid5 = true;
 																} else var valid5 = true;
+																if (valid5) {
+																	if (data7.staleQuoteThresholdSeconds !== void 0) {
+																		let data14 = data7.staleQuoteThresholdSeconds;
+																		if (!(typeof data14 == "number" && !(data14 % 1) && !isNaN(data14))) {
+																			validate43.errors = [{
+																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/type",
+																				keyword: "type",
+																				params: { type: "integer" },
+																				message: "must be integer"
+																			}];
+																			return false;
+																		}
+																		if (typeof data14 == "number") {
+																			if (data14 > 86400 || isNaN(data14)) {
+																				validate43.errors = [{
+																					instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																					schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/maximum",
+																					keyword: "maximum",
+																					params: {
+																						comparison: "<=",
+																						limit: 86400
+																					},
+																					message: "must be <= 86400"
+																				}];
+																				return false;
+																			} else if (data14 < 1 || isNaN(data14)) {
+																				validate43.errors = [{
+																					instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																					schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/minimum",
+																					keyword: "minimum",
+																					params: {
+																						comparison: ">=",
+																						limit: 1
+																					},
+																					message: "must be >= 1"
+																				}];
+																				return false;
+																			}
+																		}
+																		var valid5 = true;
+																	} else var valid5 = true;
+																}
 															}
 														}
 													}
@@ -16539,116 +16551,100 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		if (evaluated0.dynamicProps) evaluated0.props = void 0;
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
-			for (const key0 in data) if (!(key0 === "liveInactivityTimeoutMinutes" || key0 === "marketOrdersEnabled" || key0 === "maxDailyRealizedLoss" || key0 === "maxDailyTradedNotional" || key0 === "maxOrderNotional" || key0 === "maxSingleInstrumentExposurePercent" || key0 === "staleQuoteThresholdSeconds")) {
+			let missing0;
+			if (data.maxOrderNotional === void 0 && (missing0 = "maxOrderNotional") || data.maxSingleInstrumentExposurePercent === void 0 && (missing0 = "maxSingleInstrumentExposurePercent") || data.maxDailyTradedNotional === void 0 && (missing0 = "maxDailyTradedNotional") || data.maxDailyRealizedLoss === void 0 && (missing0 = "maxDailyRealizedLoss") || data.staleQuoteThresholdSeconds === void 0 && (missing0 = "staleQuoteThresholdSeconds") || data.marketOrdersEnabled === void 0 && (missing0 = "marketOrdersEnabled") || data.liveInactivityTimeoutMinutes === void 0 && (missing0 = "liveInactivityTimeoutMinutes")) {
 				validate154.errors = [{
 					instancePath,
-					schemaPath: "#/additionalProperties",
-					keyword: "additionalProperties",
-					params: { additionalProperty: key0 },
-					message: "must NOT have additional properties"
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: missing0 },
+					message: "must have required property '" + missing0 + "'"
 				}];
 				return false;
-			}
-			if (data.liveInactivityTimeoutMinutes !== void 0) {
-				let data0 = data.liveInactivityTimeoutMinutes;
-				if (!(typeof data0 == "number" && !(data0 % 1) && !isNaN(data0))) {
+			} else {
+				for (const key0 in data) if (!(key0 === "liveInactivityTimeoutMinutes" || key0 === "marketOrdersEnabled" || key0 === "maxDailyRealizedLoss" || key0 === "maxDailyTradedNotional" || key0 === "maxOrderNotional" || key0 === "maxSingleInstrumentExposurePercent" || key0 === "staleQuoteThresholdSeconds")) {
 					validate154.errors = [{
-						instancePath: instancePath + "/liveInactivityTimeoutMinutes",
-						schemaPath: "#/properties/liveInactivityTimeoutMinutes/type",
-						keyword: "type",
-						params: { type: "integer" },
-						message: "must be integer"
+						instancePath,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: key0 },
+						message: "must NOT have additional properties"
 					}];
 					return false;
 				}
-				if (typeof data0 == "number") {
-					if (data0 > 1440 || isNaN(data0)) {
+				if (data.liveInactivityTimeoutMinutes !== void 0) {
+					let data0 = data.liveInactivityTimeoutMinutes;
+					if (!(typeof data0 == "number" && !(data0 % 1) && !isNaN(data0))) {
 						validate154.errors = [{
 							instancePath: instancePath + "/liveInactivityTimeoutMinutes",
-							schemaPath: "#/properties/liveInactivityTimeoutMinutes/maximum",
-							keyword: "maximum",
-							params: {
-								comparison: "<=",
-								limit: 1440
-							},
-							message: "must be <= 1440"
-						}];
-						return false;
-					} else if (data0 < 1 || isNaN(data0)) {
-						validate154.errors = [{
-							instancePath: instancePath + "/liveInactivityTimeoutMinutes",
-							schemaPath: "#/properties/liveInactivityTimeoutMinutes/minimum",
-							keyword: "minimum",
-							params: {
-								comparison: ">=",
-								limit: 1
-							},
-							message: "must be >= 1"
+							schemaPath: "#/properties/liveInactivityTimeoutMinutes/type",
+							keyword: "type",
+							params: { type: "integer" },
+							message: "must be integer"
 						}];
 						return false;
 					}
-				}
-				var valid0 = true;
-			} else var valid0 = true;
-			if (valid0) {
-				if (data.marketOrdersEnabled !== void 0) {
-					if (typeof data.marketOrdersEnabled !== "boolean") {
-						validate154.errors = [{
-							instancePath: instancePath + "/marketOrdersEnabled",
-							schemaPath: "#/properties/marketOrdersEnabled/type",
-							keyword: "type",
-							params: { type: "boolean" },
-							message: "must be boolean"
-						}];
-						return false;
+					if (typeof data0 == "number") {
+						if (data0 > 1440 || isNaN(data0)) {
+							validate154.errors = [{
+								instancePath: instancePath + "/liveInactivityTimeoutMinutes",
+								schemaPath: "#/properties/liveInactivityTimeoutMinutes/maximum",
+								keyword: "maximum",
+								params: {
+									comparison: "<=",
+									limit: 1440
+								},
+								message: "must be <= 1440"
+							}];
+							return false;
+						} else if (data0 < 1 || isNaN(data0)) {
+							validate154.errors = [{
+								instancePath: instancePath + "/liveInactivityTimeoutMinutes",
+								schemaPath: "#/properties/liveInactivityTimeoutMinutes/minimum",
+								keyword: "minimum",
+								params: {
+									comparison: ">=",
+									limit: 1
+								},
+								message: "must be >= 1"
+							}];
+							return false;
+						}
 					}
 					var valid0 = true;
 				} else var valid0 = true;
 				if (valid0) {
-					if (data.maxDailyRealizedLoss !== void 0) {
-						let data2 = data.maxDailyRealizedLoss;
-						if (typeof data2 !== "string" && data2 !== null) {
+					if (data.marketOrdersEnabled !== void 0) {
+						if (typeof data.marketOrdersEnabled !== "boolean") {
 							validate154.errors = [{
-								instancePath: instancePath + "/maxDailyRealizedLoss",
-								schemaPath: "#/properties/maxDailyRealizedLoss/type",
+								instancePath: instancePath + "/marketOrdersEnabled",
+								schemaPath: "#/properties/marketOrdersEnabled/type",
 								keyword: "type",
-								params: { type: schema72.properties.maxDailyRealizedLoss.type },
-								message: "must be string,null"
+								params: { type: "boolean" },
+								message: "must be boolean"
 							}];
 							return false;
-						}
-						if (typeof data2 === "string") {
-							if (func1(data2) > 32) {
-								validate154.errors = [{
-									instancePath: instancePath + "/maxDailyRealizedLoss",
-									schemaPath: "#/properties/maxDailyRealizedLoss/maxLength",
-									keyword: "maxLength",
-									params: { limit: 32 },
-									message: "must NOT have more than 32 characters"
-								}];
-								return false;
-							}
 						}
 						var valid0 = true;
 					} else var valid0 = true;
 					if (valid0) {
-						if (data.maxDailyTradedNotional !== void 0) {
-							let data3 = data.maxDailyTradedNotional;
-							if (typeof data3 !== "string" && data3 !== null) {
+						if (data.maxDailyRealizedLoss !== void 0) {
+							let data2 = data.maxDailyRealizedLoss;
+							if (typeof data2 !== "string" && data2 !== null) {
 								validate154.errors = [{
-									instancePath: instancePath + "/maxDailyTradedNotional",
-									schemaPath: "#/properties/maxDailyTradedNotional/type",
+									instancePath: instancePath + "/maxDailyRealizedLoss",
+									schemaPath: "#/properties/maxDailyRealizedLoss/type",
 									keyword: "type",
-									params: { type: schema72.properties.maxDailyTradedNotional.type },
+									params: { type: schema72.properties.maxDailyRealizedLoss.type },
 									message: "must be string,null"
 								}];
 								return false;
 							}
-							if (typeof data3 === "string") {
-								if (func1(data3) > 32) {
+							if (typeof data2 === "string") {
+								if (func1(data2) > 32) {
 									validate154.errors = [{
-										instancePath: instancePath + "/maxDailyTradedNotional",
-										schemaPath: "#/properties/maxDailyTradedNotional/maxLength",
+										instancePath: instancePath + "/maxDailyRealizedLoss",
+										schemaPath: "#/properties/maxDailyRealizedLoss/maxLength",
 										keyword: "maxLength",
 										params: { limit: 32 },
 										message: "must NOT have more than 32 characters"
@@ -16659,23 +16655,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							var valid0 = true;
 						} else var valid0 = true;
 						if (valid0) {
-							if (data.maxOrderNotional !== void 0) {
-								let data4 = data.maxOrderNotional;
-								if (typeof data4 !== "string" && data4 !== null) {
+							if (data.maxDailyTradedNotional !== void 0) {
+								let data3 = data.maxDailyTradedNotional;
+								if (typeof data3 !== "string" && data3 !== null) {
 									validate154.errors = [{
-										instancePath: instancePath + "/maxOrderNotional",
-										schemaPath: "#/properties/maxOrderNotional/type",
+										instancePath: instancePath + "/maxDailyTradedNotional",
+										schemaPath: "#/properties/maxDailyTradedNotional/type",
 										keyword: "type",
-										params: { type: schema72.properties.maxOrderNotional.type },
+										params: { type: schema72.properties.maxDailyTradedNotional.type },
 										message: "must be string,null"
 									}];
 									return false;
 								}
-								if (typeof data4 === "string") {
-									if (func1(data4) > 32) {
+								if (typeof data3 === "string") {
+									if (func1(data3) > 32) {
 										validate154.errors = [{
-											instancePath: instancePath + "/maxOrderNotional",
-											schemaPath: "#/properties/maxOrderNotional/maxLength",
+											instancePath: instancePath + "/maxDailyTradedNotional",
+											schemaPath: "#/properties/maxDailyTradedNotional/maxLength",
 											keyword: "maxLength",
 											params: { limit: 32 },
 											message: "must NOT have more than 32 characters"
@@ -16686,23 +16682,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								var valid0 = true;
 							} else var valid0 = true;
 							if (valid0) {
-								if (data.maxSingleInstrumentExposurePercent !== void 0) {
-									let data5 = data.maxSingleInstrumentExposurePercent;
-									if (typeof data5 !== "string" && data5 !== null) {
+								if (data.maxOrderNotional !== void 0) {
+									let data4 = data.maxOrderNotional;
+									if (typeof data4 !== "string" && data4 !== null) {
 										validate154.errors = [{
-											instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
-											schemaPath: "#/properties/maxSingleInstrumentExposurePercent/type",
+											instancePath: instancePath + "/maxOrderNotional",
+											schemaPath: "#/properties/maxOrderNotional/type",
 											keyword: "type",
-											params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+											params: { type: schema72.properties.maxOrderNotional.type },
 											message: "must be string,null"
 										}];
 										return false;
 									}
-									if (typeof data5 === "string") {
-										if (func1(data5) > 32) {
+									if (typeof data4 === "string") {
+										if (func1(data4) > 32) {
 											validate154.errors = [{
-												instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
-												schemaPath: "#/properties/maxSingleInstrumentExposurePercent/maxLength",
+												instancePath: instancePath + "/maxOrderNotional",
+												schemaPath: "#/properties/maxOrderNotional/maxLength",
 												keyword: "maxLength",
 												params: { limit: 32 },
 												message: "must NOT have more than 32 characters"
@@ -16713,47 +16709,75 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									var valid0 = true;
 								} else var valid0 = true;
 								if (valid0) {
-									if (data.staleQuoteThresholdSeconds !== void 0) {
-										let data6 = data.staleQuoteThresholdSeconds;
-										if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
+									if (data.maxSingleInstrumentExposurePercent !== void 0) {
+										let data5 = data.maxSingleInstrumentExposurePercent;
+										if (typeof data5 !== "string" && data5 !== null) {
 											validate154.errors = [{
-												instancePath: instancePath + "/staleQuoteThresholdSeconds",
-												schemaPath: "#/properties/staleQuoteThresholdSeconds/type",
+												instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
+												schemaPath: "#/properties/maxSingleInstrumentExposurePercent/type",
 												keyword: "type",
-												params: { type: "integer" },
-												message: "must be integer"
+												params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+												message: "must be string,null"
 											}];
 											return false;
 										}
-										if (typeof data6 == "number") {
-											if (data6 > 86400 || isNaN(data6)) {
+										if (typeof data5 === "string") {
+											if (func1(data5) > 32) {
 												validate154.errors = [{
-													instancePath: instancePath + "/staleQuoteThresholdSeconds",
-													schemaPath: "#/properties/staleQuoteThresholdSeconds/maximum",
-													keyword: "maximum",
-													params: {
-														comparison: "<=",
-														limit: 86400
-													},
-													message: "must be <= 86400"
-												}];
-												return false;
-											} else if (data6 < 1 || isNaN(data6)) {
-												validate154.errors = [{
-													instancePath: instancePath + "/staleQuoteThresholdSeconds",
-													schemaPath: "#/properties/staleQuoteThresholdSeconds/minimum",
-													keyword: "minimum",
-													params: {
-														comparison: ">=",
-														limit: 1
-													},
-													message: "must be >= 1"
+													instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
+													schemaPath: "#/properties/maxSingleInstrumentExposurePercent/maxLength",
+													keyword: "maxLength",
+													params: { limit: 32 },
+													message: "must NOT have more than 32 characters"
 												}];
 												return false;
 											}
 										}
 										var valid0 = true;
 									} else var valid0 = true;
+									if (valid0) {
+										if (data.staleQuoteThresholdSeconds !== void 0) {
+											let data6 = data.staleQuoteThresholdSeconds;
+											if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
+												validate154.errors = [{
+													instancePath: instancePath + "/staleQuoteThresholdSeconds",
+													schemaPath: "#/properties/staleQuoteThresholdSeconds/type",
+													keyword: "type",
+													params: { type: "integer" },
+													message: "must be integer"
+												}];
+												return false;
+											}
+											if (typeof data6 == "number") {
+												if (data6 > 86400 || isNaN(data6)) {
+													validate154.errors = [{
+														instancePath: instancePath + "/staleQuoteThresholdSeconds",
+														schemaPath: "#/properties/staleQuoteThresholdSeconds/maximum",
+														keyword: "maximum",
+														params: {
+															comparison: "<=",
+															limit: 86400
+														},
+														message: "must be <= 86400"
+													}];
+													return false;
+												} else if (data6 < 1 || isNaN(data6)) {
+													validate154.errors = [{
+														instancePath: instancePath + "/staleQuoteThresholdSeconds",
+														schemaPath: "#/properties/staleQuoteThresholdSeconds/minimum",
+														keyword: "minimum",
+														params: {
+															comparison: ">=",
+															limit: 1
+														},
+														message: "must be >= 1"
+													}];
+													return false;
+												}
+											}
+											var valid0 = true;
+										} else var valid0 = true;
+									}
 								}
 							}
 						}
@@ -17304,116 +17328,100 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data.policy !== void 0) {
 									let data7 = data.policy;
 									if (data7 && typeof data7 == "object" && !Array.isArray(data7)) {
-										for (const key2 in data7) if (!(key2 === "liveInactivityTimeoutMinutes" || key2 === "marketOrdersEnabled" || key2 === "maxDailyRealizedLoss" || key2 === "maxDailyTradedNotional" || key2 === "maxOrderNotional" || key2 === "maxSingleInstrumentExposurePercent" || key2 === "staleQuoteThresholdSeconds")) {
+										let missing2;
+										if (data7.maxOrderNotional === void 0 && (missing2 = "maxOrderNotional") || data7.maxSingleInstrumentExposurePercent === void 0 && (missing2 = "maxSingleInstrumentExposurePercent") || data7.maxDailyTradedNotional === void 0 && (missing2 = "maxDailyTradedNotional") || data7.maxDailyRealizedLoss === void 0 && (missing2 = "maxDailyRealizedLoss") || data7.staleQuoteThresholdSeconds === void 0 && (missing2 = "staleQuoteThresholdSeconds") || data7.marketOrdersEnabled === void 0 && (missing2 = "marketOrdersEnabled") || data7.liveInactivityTimeoutMinutes === void 0 && (missing2 = "liveInactivityTimeoutMinutes")) {
 											validate156.errors = [{
 												instancePath: instancePath + "/policy",
-												schemaPath: "#/$defs/RiskPolicy/additionalProperties",
-												keyword: "additionalProperties",
-												params: { additionalProperty: key2 },
-												message: "must NOT have additional properties"
+												schemaPath: "#/$defs/RiskPolicy/required",
+												keyword: "required",
+												params: { missingProperty: missing2 },
+												message: "must have required property '" + missing2 + "'"
 											}];
 											return false;
-										}
-										if (data7.liveInactivityTimeoutMinutes !== void 0) {
-											let data8 = data7.liveInactivityTimeoutMinutes;
-											if (!(typeof data8 == "number" && !(data8 % 1) && !isNaN(data8))) {
+										} else {
+											for (const key2 in data7) if (!(key2 === "liveInactivityTimeoutMinutes" || key2 === "marketOrdersEnabled" || key2 === "maxDailyRealizedLoss" || key2 === "maxDailyTradedNotional" || key2 === "maxOrderNotional" || key2 === "maxSingleInstrumentExposurePercent" || key2 === "staleQuoteThresholdSeconds")) {
 												validate156.errors = [{
-													instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
-													schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/type",
-													keyword: "type",
-													params: { type: "integer" },
-													message: "must be integer"
+													instancePath: instancePath + "/policy",
+													schemaPath: "#/$defs/RiskPolicy/additionalProperties",
+													keyword: "additionalProperties",
+													params: { additionalProperty: key2 },
+													message: "must NOT have additional properties"
 												}];
 												return false;
 											}
-											if (typeof data8 == "number") {
-												if (data8 > 1440 || isNaN(data8)) {
+											if (data7.liveInactivityTimeoutMinutes !== void 0) {
+												let data8 = data7.liveInactivityTimeoutMinutes;
+												if (!(typeof data8 == "number" && !(data8 % 1) && !isNaN(data8))) {
 													validate156.errors = [{
 														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
-														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/maximum",
-														keyword: "maximum",
-														params: {
-															comparison: "<=",
-															limit: 1440
-														},
-														message: "must be <= 1440"
-													}];
-													return false;
-												} else if (data8 < 1 || isNaN(data8)) {
-													validate156.errors = [{
-														instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
-														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/minimum",
-														keyword: "minimum",
-														params: {
-															comparison: ">=",
-															limit: 1
-														},
-														message: "must be >= 1"
+														schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/type",
+														keyword: "type",
+														params: { type: "integer" },
+														message: "must be integer"
 													}];
 													return false;
 												}
-											}
-											var valid5 = true;
-										} else var valid5 = true;
-										if (valid5) {
-											if (data7.marketOrdersEnabled !== void 0) {
-												if (typeof data7.marketOrdersEnabled !== "boolean") {
-													validate156.errors = [{
-														instancePath: instancePath + "/policy/marketOrdersEnabled",
-														schemaPath: "#/$defs/RiskPolicy/properties/marketOrdersEnabled/type",
-														keyword: "type",
-														params: { type: "boolean" },
-														message: "must be boolean"
-													}];
-													return false;
+												if (typeof data8 == "number") {
+													if (data8 > 1440 || isNaN(data8)) {
+														validate156.errors = [{
+															instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+															schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/maximum",
+															keyword: "maximum",
+															params: {
+																comparison: "<=",
+																limit: 1440
+															},
+															message: "must be <= 1440"
+														}];
+														return false;
+													} else if (data8 < 1 || isNaN(data8)) {
+														validate156.errors = [{
+															instancePath: instancePath + "/policy/liveInactivityTimeoutMinutes",
+															schemaPath: "#/$defs/RiskPolicy/properties/liveInactivityTimeoutMinutes/minimum",
+															keyword: "minimum",
+															params: {
+																comparison: ">=",
+																limit: 1
+															},
+															message: "must be >= 1"
+														}];
+														return false;
+													}
 												}
 												var valid5 = true;
 											} else var valid5 = true;
 											if (valid5) {
-												if (data7.maxDailyRealizedLoss !== void 0) {
-													let data10 = data7.maxDailyRealizedLoss;
-													if (typeof data10 !== "string" && data10 !== null) {
+												if (data7.marketOrdersEnabled !== void 0) {
+													if (typeof data7.marketOrdersEnabled !== "boolean") {
 														validate156.errors = [{
-															instancePath: instancePath + "/policy/maxDailyRealizedLoss",
-															schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
+															instancePath: instancePath + "/policy/marketOrdersEnabled",
+															schemaPath: "#/$defs/RiskPolicy/properties/marketOrdersEnabled/type",
 															keyword: "type",
-															params: { type: schema72.properties.maxDailyRealizedLoss.type },
-															message: "must be string,null"
+															params: { type: "boolean" },
+															message: "must be boolean"
 														}];
 														return false;
-													}
-													if (typeof data10 === "string") {
-														if (func1(data10) > 32) {
-															validate156.errors = [{
-																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
-																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/maxLength",
-																keyword: "maxLength",
-																params: { limit: 32 },
-																message: "must NOT have more than 32 characters"
-															}];
-															return false;
-														}
 													}
 													var valid5 = true;
 												} else var valid5 = true;
 												if (valid5) {
-													if (data7.maxDailyTradedNotional !== void 0) {
-														let data11 = data7.maxDailyTradedNotional;
-														if (typeof data11 !== "string" && data11 !== null) {
+													if (data7.maxDailyRealizedLoss !== void 0) {
+														let data10 = data7.maxDailyRealizedLoss;
+														if (typeof data10 !== "string" && data10 !== null) {
 															validate156.errors = [{
-																instancePath: instancePath + "/policy/maxDailyTradedNotional",
-																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
+																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
 																keyword: "type",
-																params: { type: schema72.properties.maxDailyTradedNotional.type },
+																params: { type: schema72.properties.maxDailyRealizedLoss.type },
 																message: "must be string,null"
 															}];
 															return false;
 														}
-														if (typeof data11 === "string") {
-															if (func1(data11) > 32) {
+														if (typeof data10 === "string") {
+															if (func1(data10) > 32) {
 																validate156.errors = [{
-																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
-																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/maxLength",
+																	instancePath: instancePath + "/policy/maxDailyRealizedLoss",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/maxLength",
 																	keyword: "maxLength",
 																	params: { limit: 32 },
 																	message: "must NOT have more than 32 characters"
@@ -17424,23 +17432,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														var valid5 = true;
 													} else var valid5 = true;
 													if (valid5) {
-														if (data7.maxOrderNotional !== void 0) {
-															let data12 = data7.maxOrderNotional;
-															if (typeof data12 !== "string" && data12 !== null) {
+														if (data7.maxDailyTradedNotional !== void 0) {
+															let data11 = data7.maxDailyTradedNotional;
+															if (typeof data11 !== "string" && data11 !== null) {
 																validate156.errors = [{
-																	instancePath: instancePath + "/policy/maxOrderNotional",
-																	schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
+																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
 																	keyword: "type",
-																	params: { type: schema72.properties.maxOrderNotional.type },
+																	params: { type: schema72.properties.maxDailyTradedNotional.type },
 																	message: "must be string,null"
 																}];
 																return false;
 															}
-															if (typeof data12 === "string") {
-																if (func1(data12) > 32) {
+															if (typeof data11 === "string") {
+																if (func1(data11) > 32) {
 																	validate156.errors = [{
-																		instancePath: instancePath + "/policy/maxOrderNotional",
-																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/maxLength",
+																		instancePath: instancePath + "/policy/maxDailyTradedNotional",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/maxLength",
 																		keyword: "maxLength",
 																		params: { limit: 32 },
 																		message: "must NOT have more than 32 characters"
@@ -17451,23 +17459,23 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															var valid5 = true;
 														} else var valid5 = true;
 														if (valid5) {
-															if (data7.maxSingleInstrumentExposurePercent !== void 0) {
-																let data13 = data7.maxSingleInstrumentExposurePercent;
-																if (typeof data13 !== "string" && data13 !== null) {
+															if (data7.maxOrderNotional !== void 0) {
+																let data12 = data7.maxOrderNotional;
+																if (typeof data12 !== "string" && data12 !== null) {
 																	validate156.errors = [{
-																		instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
-																		schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
+																		instancePath: instancePath + "/policy/maxOrderNotional",
+																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
 																		keyword: "type",
-																		params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+																		params: { type: schema72.properties.maxOrderNotional.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
 																}
-																if (typeof data13 === "string") {
-																	if (func1(data13) > 32) {
+																if (typeof data12 === "string") {
+																	if (func1(data12) > 32) {
 																		validate156.errors = [{
-																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
-																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/maxLength",
+																			instancePath: instancePath + "/policy/maxOrderNotional",
+																			schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/maxLength",
 																			keyword: "maxLength",
 																			params: { limit: 32 },
 																			message: "must NOT have more than 32 characters"
@@ -17478,47 +17486,75 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																var valid5 = true;
 															} else var valid5 = true;
 															if (valid5) {
-																if (data7.staleQuoteThresholdSeconds !== void 0) {
-																	let data14 = data7.staleQuoteThresholdSeconds;
-																	if (!(typeof data14 == "number" && !(data14 % 1) && !isNaN(data14))) {
+																if (data7.maxSingleInstrumentExposurePercent !== void 0) {
+																	let data13 = data7.maxSingleInstrumentExposurePercent;
+																	if (typeof data13 !== "string" && data13 !== null) {
 																		validate156.errors = [{
-																			instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
-																			schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/type",
+																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
 																			keyword: "type",
-																			params: { type: "integer" },
-																			message: "must be integer"
+																			params: { type: schema72.properties.maxSingleInstrumentExposurePercent.type },
+																			message: "must be string,null"
 																		}];
 																		return false;
 																	}
-																	if (typeof data14 == "number") {
-																		if (data14 > 86400 || isNaN(data14)) {
+																	if (typeof data13 === "string") {
+																		if (func1(data13) > 32) {
 																			validate156.errors = [{
-																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
-																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/maximum",
-																				keyword: "maximum",
-																				params: {
-																					comparison: "<=",
-																					limit: 86400
-																				},
-																				message: "must be <= 86400"
-																			}];
-																			return false;
-																		} else if (data14 < 1 || isNaN(data14)) {
-																			validate156.errors = [{
-																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
-																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/minimum",
-																				keyword: "minimum",
-																				params: {
-																					comparison: ">=",
-																					limit: 1
-																				},
-																				message: "must be >= 1"
+																				instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
+																				schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/maxLength",
+																				keyword: "maxLength",
+																				params: { limit: 32 },
+																				message: "must NOT have more than 32 characters"
 																			}];
 																			return false;
 																		}
 																	}
 																	var valid5 = true;
 																} else var valid5 = true;
+																if (valid5) {
+																	if (data7.staleQuoteThresholdSeconds !== void 0) {
+																		let data14 = data7.staleQuoteThresholdSeconds;
+																		if (!(typeof data14 == "number" && !(data14 % 1) && !isNaN(data14))) {
+																			validate156.errors = [{
+																				instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																				schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/type",
+																				keyword: "type",
+																				params: { type: "integer" },
+																				message: "must be integer"
+																			}];
+																			return false;
+																		}
+																		if (typeof data14 == "number") {
+																			if (data14 > 86400 || isNaN(data14)) {
+																				validate156.errors = [{
+																					instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																					schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/maximum",
+																					keyword: "maximum",
+																					params: {
+																						comparison: "<=",
+																						limit: 86400
+																					},
+																					message: "must be <= 86400"
+																				}];
+																				return false;
+																			} else if (data14 < 1 || isNaN(data14)) {
+																				validate156.errors = [{
+																					instancePath: instancePath + "/policy/staleQuoteThresholdSeconds",
+																					schemaPath: "#/$defs/RiskPolicy/properties/staleQuoteThresholdSeconds/minimum",
+																					keyword: "minimum",
+																					params: {
+																						comparison: ">=",
+																						limit: 1
+																					},
+																					message: "must be >= 1"
+																				}];
+																				return false;
+																			}
+																		}
+																		var valid5 = true;
+																	} else var valid5 = true;
+																}
 															}
 														}
 													}

@@ -1551,6 +1551,12 @@ mod risk_tests {
         assert_eq!(saved["ok"], true, "{saved}");
         assert_eq!(saved["data"]["configured"], true);
         assert_eq!(saved["data"]["policyVersion"], 2);
+        let stale_step = command(
+            &mut control,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"step":2}),
+        );
+        assert_eq!(stale_step["error"]["code"], "STATE_VERSION_CONFLICT");
         let skipped = command(
             &mut control,
             "onboarding.set_step",
@@ -1620,7 +1626,7 @@ mod risk_tests {
         );
         assert_eq!(completed["data"]["onboardingCompleted"], true);
         drop(control);
-        let mut reopened = ControlPlane::new(path);
+        let mut reopened = ControlPlane::new(path.clone());
         let reopened_workspace = command(&mut reopened, "workspace.open", json!({}));
         assert_eq!(reopened_workspace["ok"], true);
         let reopened_risk = command(
@@ -1630,5 +1636,64 @@ mod risk_tests {
         );
         assert_eq!(reopened_risk["data"]["onboardingCompleted"], false);
         assert_eq!(reopened_risk["data"]["onboardingStep"], 3);
+
+        let database = Connection::open(path.join("workspace.sqlite3")).unwrap();
+        let original_projection: String = database
+            .query_row(
+                "SELECT projection FROM risk_state WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut missing_field: Value = serde_json::from_str(&original_projection).unwrap();
+        missing_field["policy"]
+            .as_object_mut()
+            .unwrap()
+            .remove("maxOrderNotional");
+        database
+            .execute(
+                "UPDATE risk_state SET projection=?1 WHERE singleton=1",
+                [serde_json::to_string(&missing_field).unwrap()],
+            )
+            .unwrap();
+        let missing_projection = command(
+            &mut reopened,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(
+            missing_projection["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
+        database
+            .execute(
+                "UPDATE risk_state SET projection=?1 WHERE singleton=1",
+                [&original_projection],
+            )
+            .unwrap();
+        let mut invalid_policy: Value = serde_json::from_str(&original_projection).unwrap();
+        invalid_policy["policy"]["maxSingleInstrumentExposurePercent"] = "100.01".into();
+        database
+            .execute(
+                "UPDATE risk_state SET projection=?1 WHERE singleton=1",
+                [serde_json::to_string(&invalid_policy).unwrap()],
+            )
+            .unwrap();
+        let invalid_projection = command(
+            &mut reopened,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(
+            invalid_projection["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
+        database
+            .execute(
+                "UPDATE risk_state SET projection=?1 WHERE singleton=1",
+                [&original_projection],
+            )
+            .unwrap();
+        drop(database);
     }
 }

@@ -1544,20 +1544,17 @@
         "liveInactivityTimeoutMinutes": {
           "type": "integer",
           "format": "uint64",
-          "default": 20,
           "maximum": 1440,
           "minimum": 1
         },
         "marketOrdersEnabled": {
-          "type": "boolean",
-          "default": false
+          "type": "boolean"
         },
         "maxDailyRealizedLoss": {
           "type": [
             "string",
             "null"
           ],
-          "default": null,
           "maxLength": 32
         },
         "maxDailyTradedNotional": {
@@ -1565,7 +1562,6 @@
             "string",
             "null"
           ],
-          "default": null,
           "maxLength": 32
         },
         "maxOrderNotional": {
@@ -1573,7 +1569,6 @@
             "string",
             "null"
           ],
-          "default": null,
           "maxLength": 32
         },
         "maxSingleInstrumentExposurePercent": {
@@ -1581,18 +1576,25 @@
             "string",
             "null"
           ],
-          "default": null,
           "maxLength": 32
         },
         "staleQuoteThresholdSeconds": {
           "type": "integer",
           "format": "uint64",
-          "default": 3,
           "maximum": 86400,
           "minimum": 1
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "maxOrderNotional",
+        "maxSingleInstrumentExposurePercent",
+        "maxDailyTradedNotional",
+        "maxDailyRealizedLoss",
+        "staleQuoteThresholdSeconds",
+        "marketOrdersEnabled",
+        "liveInactivityTimeoutMinutes"
+      ]
     },
     "RiskPolicyInput": {
       "type": "object",

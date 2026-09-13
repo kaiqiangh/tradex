@@ -488,6 +488,7 @@ impl Store {
     }
 
     pub fn risk(&self) -> Result<RiskPolicyState> {
+        let workspace_id = self.workspace_id()?;
         let data: String = self
             .connection
             .query_row(
@@ -496,15 +497,11 @@ impl Store {
                 |r| r.get(0),
             )
             .map_err(storage_error)?;
-        let risk: RiskPolicyState = serde_json::from_str(&data)
-            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
-        if risk.workspace_id != self.workspace_id()? {
-            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
-        }
-        Ok(risk)
+        RiskPolicyState::from_persisted_json(&data, &workspace_id)
     }
 
     pub fn risk_or_new(&self) -> Result<Option<RiskPolicyState>> {
+        let workspace_id = self.workspace_id()?;
         let data: Option<String> = self
             .connection
             .query_row(
@@ -515,14 +512,10 @@ impl Store {
             .optional()
             .map_err(storage_error)?;
         match data {
-            Some(data) => {
-                let risk: RiskPolicyState = serde_json::from_str(&data)
-                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
-                if risk.workspace_id != self.workspace_id()? {
-                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
-                }
-                Ok(Some(risk))
-            }
+            Some(data) => Ok(Some(RiskPolicyState::from_persisted_json(
+                &data,
+                &workspace_id,
+            )?)),
             None => Ok(None),
         }
     }

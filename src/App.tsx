@@ -84,7 +84,7 @@ function verifiedDefaultRoute(model?: ModelState): ModelRoute | undefined {
   if (!model || !selection) return undefined;
   const provider = selection.provider === 'CHATGPT' ? model.chatgpt : model.deepseek;
   if (provider.status !== 'READY') return undefined;
-  return provider.routes.find(route => route.modelId === selection.modelId && route.thinkingType === selection.thinkingType && route.verifiedAt != null);
+  return provider.routes.find(route => route.provider === selection.provider && route.modelId === selection.modelId && route.thinkingType === selection.thinkingType && route.verifiedAt != null);
 }
 
 function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPolicyState }) {
