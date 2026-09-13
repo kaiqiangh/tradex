@@ -1025,16 +1025,14 @@ impl ControlPlane {
         result: Result<codex_runtime::RuntimeOutcome>,
     ) -> Result<()> {
         let before = self.store.as_ref().unwrap().thread(&prepared.thread_id)?;
-        let was_running = before
+        let before_turn = before
             .turns
             .iter()
             .find(|turn| turn.turn_id == prepared.turn_id)
-            .is_some_and(|turn| turn.status == protocol::TurnStatus::Running);
-        let cancel_requested = before
-            .turns
-            .iter()
-            .find(|turn| turn.turn_id == prepared.turn_id)
-            .is_some_and(|turn| turn.cancel_requested_at.is_some());
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let was_running = before_turn.status == protocol::TurnStatus::Running;
+        let was_completed = before_turn.status == protocol::TurnStatus::Completed;
+        let cancel_requested = before_turn.cancel_requested_at.is_some();
         let completed = matches!(&result, Ok(codex_runtime::RuntimeOutcome::Completed));
         let terminal_noncompleted = matches!(
             &result,
@@ -1083,7 +1081,7 @@ impl ControlPlane {
                 }
             }
         }
-        if completed || was_running && terminal_noncompleted {
+        if completed && (was_running || was_completed) || was_running && terminal_noncompleted {
             let thread = self.store.as_ref().unwrap().thread(&prepared.thread_id)?;
             if let Some(turn) = thread
                 .turns
@@ -2860,6 +2858,83 @@ mod turn_runtime_tests {
         assert_eq!(thread.turns[0].status, protocol::TurnStatus::Cancelled);
         assert_eq!(thread.turns[0].provider_attempts[0].outcome, "CANCELLED");
         assert!(thread.turns[0].cancel_requested_at.is_some());
+    }
+
+    #[test]
+    fn reconciled_turn_ignores_a_late_completed_worker_attempt() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(json!({
+            "requestId":"open","schemaVersion":1,"command":"workspace.open","payload":{}
+        }));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let created = control.dispatch(json!({
+            "requestId":"create","schemaVersion":1,"command":"thread.create","payload":{
+                "workspaceId":workspace_id,"title":"Reconciled turn","defaultAgentMode":"ASK",
+                "defaultExecutionContext":"NONE_READ_ONLY","model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"},"linkedContexts":[]
+            }
+        }));
+        let thread_id = created["data"]["threadId"].as_str().unwrap().to_owned();
+        let (prepared, _) = control
+            .begin_turn(TurnStart {
+                workspace_id: workspace_id.clone(),
+                thread_id: thread_id.clone(),
+                expected_state_version: created["data"]["stateVersion"]
+                    .as_str()
+                    .unwrap()
+                    .to_owned(),
+                message: "reconcile before completion".into(),
+                agent_mode: AgentMode::Ask,
+                execution_context: ExecutionContext::NoneReadOnly,
+                account_id: None,
+                model: Some(ThreadModel {
+                    provider: "CHATGPT".into(),
+                    model_id: "gpt-5.6-sol".into(),
+                    thinking_type: None,
+                }),
+                attached_contexts: Vec::new(),
+            })
+            .unwrap();
+        control
+            .terminal_turn(
+                &thread_id,
+                &prepared.turn_id,
+                protocol::TurnStatus::Interrupted,
+                "CODEX_PROCESS_EXITED",
+            )
+            .unwrap();
+        let interrupted = control.store.as_ref().unwrap().thread(&thread_id).unwrap();
+        let turn = interrupted.turns[0].clone();
+        control
+            .record_model_attempt(
+                turn.snapshot.model.as_ref().unwrap(),
+                &turn.snapshot.started_at,
+                &turn,
+            )
+            .unwrap();
+        let attempts = control
+            .store
+            .as_ref()
+            .unwrap()
+            .model()
+            .unwrap()
+            .attempts
+            .len();
+
+        control
+            .finish_runtime_turn(&prepared, Ok(codex_runtime::RuntimeOutcome::Completed))
+            .unwrap();
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .model()
+                .unwrap()
+                .attempts
+                .len(),
+            attempts
+        );
     }
 
     #[test]
