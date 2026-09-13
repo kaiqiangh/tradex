@@ -358,37 +358,39 @@ impl ModelState {
         let selection = self.default_route.as_ref().ok_or("MODEL_DEFAULT_MISSING")?;
         let primary = self.verified_route(selection).ok_or("MODEL_UNAVAILABLE")?;
         let fallback = (self.automatic_fallback && primary.provider == ModelProvider::Chatgpt)
-            .then(|| {
-                (self.deepseek.status == ModelHealth::Ready).then(|| {
-                    self.deepseek
-                        .routes
-                        .iter()
-                        .filter(|route| {
-                            allowed_route(
-                                &route.provider,
-                                &route.model_id,
-                                route.thinking_type.as_ref(),
-                            ) && route.provider == ModelProvider::Deepseek
-                                && route.model_id == "deepseek-v4-flash"
-                                && route.verified_at.is_some()
-                        })
-                        .min_by_key(|route| {
-                            if route.thinking_type == Some(ThinkingType::Disabled) {
-                                0
-                            } else {
-                                1
-                            }
-                        })
-                        .cloned()
-                })
-            })
-            .flatten()
+            .then(|| self.verified_deepseek_route())
             .flatten();
         Ok(ModelRequestPlan {
             primary,
             fallback,
             fallback_policy_version: self.fallback_policy_version,
         })
+    }
+
+    pub fn verified_deepseek_route(&self) -> Option<ModelRoute> {
+        if self.deepseek.status != ModelHealth::Ready {
+            return None;
+        }
+        self.deepseek
+            .routes
+            .iter()
+            .filter(|route| {
+                allowed_route(
+                    &route.provider,
+                    &route.model_id,
+                    route.thinking_type.as_ref(),
+                ) && route.provider == ModelProvider::Deepseek
+                    && route.model_id == "deepseek-v4-flash"
+                    && route.verified_at.is_some()
+            })
+            .min_by_key(|route| {
+                if route.thinking_type == Some(ThinkingType::Disabled) {
+                    0
+                } else {
+                    1
+                }
+            })
+            .cloned()
     }
 
     pub fn fallback_for(&self, primary: &ModelRoute, error_category: &str) -> Option<ModelRoute> {

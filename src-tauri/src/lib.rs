@@ -491,19 +491,7 @@ impl ControlPlane {
         if previous.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        if input.automatic_fallback
-            && !previous.deepseek.routes.iter().any(|route| {
-                previous.deepseek.status == model::ModelHealth::Ready
-                    && model::allowed_route(
-                        &route.provider,
-                        &route.model_id,
-                        route.thinking_type.as_ref(),
-                    )
-                    && route.provider == model::ModelProvider::Deepseek
-                    && route.model_id == "deepseek-v4-flash"
-                    && route.verified_at.is_some()
-            })
-        {
+        if input.automatic_fallback && previous.verified_deepseek_route().is_none() {
             return Err(TradeXError::new("MODEL_FALLBACK_UNAVAILABLE"));
         }
         let mut state = previous;
