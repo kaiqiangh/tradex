@@ -27,7 +27,7 @@ use storage::Store;
 pub struct ControlPlane {
     default_workspace: PathBuf,
     store: Option<Store>,
-    subscribers: HashMap<(String, String, String), Vec<EventSink>>,
+    subscribers: HashMap<(String, String, String), EventSink>,
     session: String,
 }
 
@@ -288,17 +288,26 @@ impl ControlPlane {
                     &sink,
                 ) {
                     Ok(ack) => {
-                        self.subscribers
-                            .entry((
+                        self.subscribers.insert(
+                            (
                                 consumer.to_owned(),
                                 input.aggregate_type,
                                 input.aggregate_id,
-                            ))
-                            .or_default()
-                            .push(sink);
+                            ),
+                            sink,
+                        );
                         Ok((json!(ack), None))
                     }
-                    Err(error) => Err(error),
+                    Err(error) => {
+                        if error.code == "IPC_SUBSCRIPTION_DELIVERY_FAILED" {
+                            self.subscribers.remove(&(
+                                consumer.to_owned(),
+                                input.aggregate_type,
+                                input.aggregate_id,
+                            ));
+                        }
+                        Err(error)
+                    }
                 }
             }
             "provider.list_definitions" => {
@@ -912,12 +921,8 @@ impl ControlPlane {
     }
 
     fn publish(&mut self, event: &protocol::DomainEvent) {
-        self.subscribers.retain(|(_, kind, id), sinks| {
-            if kind != &event.aggregate_type || id != &event.aggregate_id {
-                return true;
-            }
-            sinks.retain(|sink| sink(event.clone()));
-            !sinks.is_empty()
+        self.subscribers.retain(|(_, kind, id), sink| {
+            kind != &event.aggregate_type || id != &event.aggregate_id || sink(event.clone())
         });
     }
 
@@ -1220,10 +1225,6 @@ fn validate_aggregate(kind: &str, id: &str) -> Result<()> {
 #[cfg(test)]
 mod model_tests {
     use super::*;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    };
 
     #[test]
     fn failed_route_verification_stays_unverified_and_clears_current_route() {
@@ -1463,80 +1464,6 @@ mod model_tests {
             Ok(_) => panic!("known quota cooldown must block verification"),
         };
         assert_eq!(error.code, "MODEL_QUOTA_COOLDOWN");
-    }
-
-    #[test]
-    fn model_events_reach_multiple_active_subscribers() {
-        let directory = tempfile::tempdir().unwrap();
-        let mut control = ControlPlane::new(directory.path().join("workspace"));
-        let opened = control.dispatch(json!({
-            "requestId":"open",
-            "schemaVersion":1,
-            "command":"workspace.open",
-            "payload":{}
-        }));
-        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
-        let route = model::ModelRoute {
-            provider: model::ModelProvider::Chatgpt,
-            model_id: "gpt-5.6-sol".into(),
-            thinking_type: None,
-            verified_at: Some("2026-09-13T00:00:00Z".into()),
-        };
-        let mut seeded = control.store.as_ref().unwrap().model().unwrap();
-        seeded.chatgpt.configured = true;
-        seeded.chatgpt.status = model::ModelHealth::Ready;
-        seeded.chatgpt.routes = vec![route.clone()];
-        control
-            .store
-            .as_mut()
-            .unwrap()
-            .save_model(seeded, "model.provider.changed")
-            .unwrap();
-        let current = control.dispatch(json!({
-            "requestId":"get",
-            "schemaVersion":1,
-            "command":"model.get",
-            "payload":{"workspaceId":workspace_id}
-        }));
-        let after_sequence = current["data"]["stateVersion"]
-            .as_str()
-            .unwrap()
-            .rsplit(':')
-            .next()
-            .unwrap()
-            .parse::<u64>()
-            .unwrap();
-        let first_count = Arc::new(AtomicUsize::new(0));
-        let second_count = Arc::new(AtomicUsize::new(0));
-        for (request_id, count) in [
-            ("subscribe-one", first_count.clone()),
-            ("subscribe-two", second_count.clone()),
-        ] {
-            let sink: EventSink = Arc::new(move |_| {
-                count.fetch_add(1, Ordering::SeqCst);
-                true
-            });
-            let reply = control.dispatch_with_events(
-                json!({
-                    "requestId":request_id,
-                    "schemaVersion":1,
-                    "command":"domain.subscribe",
-                    "payload":{"aggregateType":"model","aggregateId":workspace_id,"afterSequence":after_sequence}
-                }),
-                "main",
-                Some(sink),
-            );
-            assert_eq!(reply["ok"], true, "{reply}");
-        }
-        let changed = control.dispatch(json!({
-            "requestId":"default",
-            "schemaVersion":1,
-            "command":"model.set_default",
-            "payload":{"workspaceId":workspace_id,"expectedStateVersion":current["data"]["stateVersion"],"provider":"CHATGPT","modelId":"gpt-5.6-sol","thinkingType":null}
-        }));
-        assert_eq!(changed["ok"], true, "{changed}");
-        assert_eq!(first_count.load(Ordering::SeqCst), 1);
-        assert_eq!(second_count.load(Ordering::SeqCst), 1);
     }
 }
 
