@@ -333,21 +333,15 @@ impl Process {
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             loop {
-                let mut line = Vec::new();
-                match reader.read_until(b'\n', &mut line) {
-                    Ok(0) => break,
-                    Ok(_) if line.len() > MAX_FRAME_BYTES => {
-                        let _ = sender.send(Err("oversized".into()));
-                        break;
-                    }
-                    Ok(_) => {
-                        let line = String::from_utf8_lossy(&line).trim().to_owned();
+                match read_frame(&mut reader) {
+                    Ok(Some(line)) => {
                         if !line.is_empty() && sender.send(Ok(line)).is_err() {
                             break;
                         }
                     }
+                    Ok(None) => break,
                     Err(error) => {
-                        let _ = sender.send(Err(error.to_string()));
+                        let _ = sender.send(Err(error));
                         break;
                     }
                 }
@@ -416,6 +410,42 @@ impl Process {
         let _ = self.child.kill();
         let _ = self.child.wait();
         let _ = fs::remove_dir_all(&self.runtime_home);
+    }
+}
+
+fn read_frame(reader: &mut impl BufRead) -> std::result::Result<Option<String>, String> {
+    let mut bytes = Vec::new();
+    loop {
+        let (chunk, take, complete) = {
+            let available = reader.fill_buf().map_err(|error| error.to_string())?;
+            if available.is_empty() {
+                if bytes.is_empty() {
+                    return Ok(None);
+                }
+                return String::from_utf8(bytes)
+                    .map(|line| Some(line.trim().to_owned()))
+                    .map_err(|_| "utf8".into());
+            }
+            let take = available
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .map_or(available.len(), |index| index + 1);
+            (
+                available[..take].to_vec(),
+                take,
+                take < available.len() || available[take - 1] == b'\n',
+            )
+        };
+        if bytes.len() + take > MAX_FRAME_BYTES {
+            return Err("oversized".into());
+        }
+        bytes.extend_from_slice(&chunk);
+        reader.consume(take);
+        if complete {
+            return String::from_utf8(bytes)
+                .map(|line| Some(line.trim().to_owned()))
+                .map_err(|_| "utf8".into());
+        }
     }
 }
 
@@ -690,6 +720,12 @@ mod tests {
         let error =
             notification(&json!({"method":"item/started","params":{"item":{}}})).unwrap_err();
         assert_eq!(error.code, "CODEX_FRAME_INVALID");
+    }
+
+    #[test]
+    fn bounded_frame_reader_rejects_an_unterminated_oversized_frame() {
+        let mut reader = std::io::Cursor::new(vec![b'x'; MAX_FRAME_BYTES + 1]);
+        assert_eq!(read_frame(&mut reader), Err("oversized".into()));
     }
 
     #[cfg(unix)]
