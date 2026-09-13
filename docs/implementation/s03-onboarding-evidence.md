@@ -2,7 +2,7 @@
 
 状态：**IMPLEMENTED_UNVERIFIED（保持 OPEN）**。本票已完成可恢复的 Workspace → Providers → Model → Risk defaults → Ready 工作流、风险策略持久化与公共门控。用户要求暂缓的 #12 真实 OAuth/上游模型验收仍未完成，因此本票不把 fixture 失败或无凭据路径升级为 Ready 通过。
 
-实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）、`28e4979`（React 入门与 Risk & Limits 页面）、`9f048dd`（Ready 未知账户与恢复路径门控）、`75dfefa`（required policy payload、账户行身份校验、单步导航约束与生成 schema）及 `a3bf8bc`（持久化 risk 完整性、required nullable 输出和 route provider 身份门控）；规范提交：`66ed6de`、`75dfefa`；开发分支：`dev`。
+实现提交：`9aa66f9`（Rust 风险状态、SQLite schema v5、公共 IPC）、`28e4979`（React 入门与 Risk & Limits 页面）、`9f048dd`（Ready 未知账户与恢复路径门控）、`75dfefa`（required policy payload、账户行身份校验、单步导航约束与生成 schema）、`a3bf8bc`（持久化 risk 完整性、required nullable 输出和 route provider 身份门控）及 `54232de`（Ready 配置不变量与 fresh account health 门控）；规范提交：`66ed6de`、`75dfefa`；开发分支：`dev`。
 
 ## 已实现
 
@@ -11,11 +11,12 @@
 - `risk.get_policy`、`risk.save_policy`、`onboarding.set_step`、`onboarding.complete` 都要求 workspace/state version。跳步、陈旧游标、未配置风险策略、未验证默认模型 route 或非 DISARMED Live 账户均 fail closed。
 - `risk.save_policy` 的七个字段在公共 wire payload 中全部必填；四个金额/敞口字段必须显式使用十进制字符串或 `null`。账户 projection 同时校验数据库 row key、projection `connectionId` 与 active workspace，外来/损坏行返回 `WORKSPACE_INTEGRITY_FAILED`；入门进度只允许前进或后退一步。
 - 重新加载 risk projection 时再次检查七个 policy key、十进制/边界语义、state version、policy version、步骤/完成关系和后端 hard rules；缺失或被篡改的持久化 JSON 在进入 Ready 前返回 `WORKSPACE_INTEGRITY_FAILED`。已验证 route 同时要求 route 与当前选择的 provider 身份一致。
+- `onboardingCompleted` 或 step 5 没有已配置策略时，持久化读取失败；Ready 只有在账户查询成功且不处于 fetching（没有使用失败重取时的缓存账户数据）时才显示账户状态并启用完成按钮。
 - 入门页面复用既有 Accounts / Models surfaces；Workspace、Providers、Model、Risk defaults、Ready 五步可恢复。Ready 汇总 provider/model/fallback/Live arming，并在 Codex App Server 未配置时明确保持 Send disabled。Risk & Limits 页面将字段和硬规则作为可审阅的表单/只读列表呈现。
 
 ## 自动化证据
 
-在 `75dfefa` 上通过：
+在最终代码 HEAD `54232de` 上通过：
 
 ```text
 cargo fmt --all -- --check
