@@ -17,6 +17,7 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('NONE_READ_ONLY');
     await ui.getByRole('button', { name: 'Create Thread', exact: true }).click();
     await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).waitFor({ state: 'visible' });
+    assert.ok(await ui.getByRole('button', { name: 'Earnings timeline', exact: true }).count() >= 2, 'New Thread should appear in sidebar and history immediately');
     assert.equal(await ui.getByText('Mode: RESEARCH', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('Execution: NONE_READ_ONLY', { exact: true }).isVisible(), true);
     assert.equal(await ui.getByText('No turns have started. Send remains unavailable until the Codex runtime slice is complete.', { exact: true }).isVisible(), true);
