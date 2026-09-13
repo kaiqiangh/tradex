@@ -145,7 +145,11 @@ fn retained_events_join_live_delivery_and_resubscription_preserves_event_identit
         event_two
     );
     command(&mut control, "workspace.open", json!({}));
-    assert_eq!(observed.lock().unwrap().len(), 2, "old channel is replaced");
+    assert_eq!(
+        observed.lock().unwrap().len(),
+        3,
+        "active subscribers receive live events"
+    );
     assert_eq!(resumed.lock().unwrap()[1].sequence, 3);
     assert_eq!(
         resumed.lock().unwrap()[1].aggregate_id,
