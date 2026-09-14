@@ -14,11 +14,11 @@ B6,Tool / Turn States,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,378,"S04,S33",I
 B7,Research Result — Equities,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,390,"S10,S33",NOT_STARTED,
 B8,Research Result — Crypto,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,399,"S10,S33",NOT_STARTED,
 B9,Immutable Turn Provenance,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,407,"S04,S12,S33",IMPLEMENTED_UNVERIFIED,#18/#19 freeze mode/context/account/environment/model/provider/context IDs and hashes and preserve them across retry: docs/implementation/s04-cancel-retry-evidence.md; S12 artifact export and S33 remain pending
-C1,Market Explorer,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,422,"S07,S33",NOT_STARTED,
+C1,Market Explorer,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,422,"S07,S33",IMPLEMENTED_UNVERIFIED,"S07 #27 evidence: docs/implementation/s07-market-evidence.md at fd5e0a2089fb70063561c09f5faafac04a496e33; S33 cross-page regression remains pending"
 C2,Natural-language Screener Builder,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,430,"S11,S33",NOT_STARTED,
 C3,Screener Result,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,440,"S11,S33",NOT_STARTED,
-C4,Equity Instrument Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,444,"S07,S08,S33",NOT_STARTED,
-C5,Crypto Instrument Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,454,"S07,S33",NOT_STARTED,
+C4,Equity Instrument Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,444,"S07,S08,S33",IMPLEMENTED_UNVERIFIED,"S07 #27 evidence: docs/implementation/s07-market-evidence.md at fd5e0a2089fb70063561c09f5faafac04a496e33; S08 session/corporate-action and S33 regression remain pending"
+C5,Crypto Instrument Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,454,"S07,S33",IMPLEMENTED_UNVERIFIED,"S07 #27 evidence: docs/implementation/s07-market-evidence.md at fd5e0a2089fb70063561c09f5faafac04a496e33; S33 cross-page regression remains pending"
 C6,Market Session / Corporate Actions,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,462,"S08,S33",NOT_STARTED,
 D1,Watchlist Library,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,475,"S07,S33",NOT_STARTED,
 D2,Watchlist Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,476,"S07,S33",NOT_STARTED,
