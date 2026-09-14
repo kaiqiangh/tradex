@@ -72,6 +72,7 @@ fn actual_snapshot(
             .saturating_add(data.positions.len())
             > MAX_PORTFOLIO_ROWS
             || open_orders.len().saturating_add(data.open_orders.len()) > MAX_PORTFOLIO_ROWS
+            || data.balances.iter().any(|balance| balance.asset.len() > 64)
         {
             return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
         }
@@ -1166,6 +1167,31 @@ mod tests {
             limitations: vec![],
         });
         let error = get("w", "USD", &[account], None, &time_status(), false).unwrap_err();
+        assert_eq!(error.code, "PROVIDER_DATA_INCOMPLETE");
+
+        let mut oversized_asset =
+            AccountConnection::new("w".into(), "alpaca".into(), "PAPER".into(), "asset".into())
+                .unwrap();
+        oversized_asset.connection_state = ConnectionState::Connected;
+        oversized_asset.data = Some(AccountData {
+            remote_account_id: "remote".into(),
+            account_type: "PAPER".into(),
+            currency: Some("USD".into()),
+            balances: vec![Balance {
+                asset: "A".repeat(65),
+                available: "1".into(),
+                total: Some("1".into()),
+                reserved: None,
+                in_pies: None,
+                locked: None,
+                restricted_available: None,
+            }],
+            positions: vec![],
+            open_orders: vec![],
+            capabilities: vec![],
+            limitations: vec![],
+        });
+        let error = get("w", "USD", &[oversized_asset], None, &time_status(), false).unwrap_err();
         assert_eq!(error.code, "PROVIDER_DATA_INCOMPLETE");
 
         let mut routed =
