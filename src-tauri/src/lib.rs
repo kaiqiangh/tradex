@@ -327,6 +327,7 @@ impl ControlPlane {
                 )?;
                 let same = self.store.as_ref().is_some_and(|store| store.path == path);
                 if same {
+                    market::ensure_history(&self.store.as_ref().unwrap().path)?;
                     self.reconcile_running_turns()?;
                     let event = self.store.as_mut().unwrap().record_open()?;
                     self.publish(&event);

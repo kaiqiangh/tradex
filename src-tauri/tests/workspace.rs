@@ -103,6 +103,26 @@ fn creation_settings_survive_reopen_and_invalid_requests_do_not_change_state() {
 }
 
 #[test]
+fn same_workspace_reopen_recreates_missing_market_history_table() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let opened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let path = std::path::PathBuf::from(opened["data"]["path"].as_str().unwrap());
+    duckdb::Connection::open(path.join("market.duckdb"))
+        .unwrap()
+        .execute_batch("DROP TABLE ohlcv_1m")
+        .unwrap();
+    let reopened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(reopened["ok"], true, "{reopened}");
+    let count: i64 = duckdb::Connection::open(path.join("market.duckdb"))
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM ohlcv_1m", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 0);
+}
+
+#[test]
 fn retained_events_join_live_delivery_and_resubscription_preserves_event_identity() {
     let directory = tempfile::tempdir().unwrap();
     let mut control = ControlPlane::new(directory.path().join("workspace"));
