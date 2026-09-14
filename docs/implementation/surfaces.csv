@@ -68,7 +68,7 @@ K3,Authentication Failure,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,824,"S02,S2
 K4,Private Stream Disconnect,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,825,"S27,S33",NOT_STARTED,
 K5,Rate Limiting,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,826,"S27,S33",NOT_STARTED,
 K6,Clock / Freshness Failure,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,827,"S08,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s08-time-evidence.md; K6 trusted-time status, explicit recovery, aria-live/focus and responsive browser evidence; implementation c659d2b0a9e766abd41a69ec2318df0033016fdf; evidence cf8e02edfd6ecc4514731f557fc8155545b3d022; S33 full regression remains pending"
-K7,Canonical Error Surface Variants,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,831,"S32,S33",NOT_STARTED,
+K7,Canonical Error Surface Variants,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,831,"S08,S32,S33",IMPLEMENTED_UNVERIFIED,"S08 market-specific MARKET_CLOSED/INSTRUMENT_HALTED variants use reusable ErrorRecoveryPanel at 90060eab99f26fe8218da4dc6666d6e061ee4314; complete S32 error catalog and S33 full regression remain pending"
 QA-01,Preserve cancellation through arming,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,28,"S26,S33",NOT_STARTED,
 QA-02,Unknown order timeline,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,39,"S25,S33",NOT_STARTED,
 QA-03,Evidence-based Manual Resolution,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,50,"S25,S33",NOT_STARTED,

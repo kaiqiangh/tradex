@@ -2,7 +2,7 @@
 
 日期：2026-09-14
 前置：S06 数据源授权目录、S07 canonical market/Watchlists
-状态：已拆为 #30（可信时间门禁）与 #31（市场时段、停牌与公司行为）；#30 已完成，#31 已实现并待审查
+状态：已拆为 #30（可信时间门禁）与 #31（市场时段、停牌与公司行为）；#30 已完成，#31 已实现并通过独立审查；OD-005 真实授权与 S33/后续 authority consumers 仍待完成
 
 ## Problem Statement
 
@@ -78,4 +78,4 @@ TradeX 已能用 canonical instrument ID 浏览 Markets 和管理 Watchlists，�
 - 权威来源：PRD §§33、35、45、51、62.1、62.4、62.5、63；UI Spec C4–C6、K1–K7、§9–§14；Backend ARD §§14–15、17、43–44；Frontend ARD market snapshot/error/accessibility seams；Coverage/QA FR-038、FR-062、FR-077、AC-049、AC-063、QA-04。
 - S06 的 OD-005 状态仍是 BLOCKED_EXTERNAL；这份规范明确分离“状态契约/fixture 验证”和真实数据授权。
 - S07 的 MarketDetail 继续保留原有 snapshot optional 语义；新增 market state 不会把 unavailable source 变成 quote。
-- #31 实现固定 SHA 为 `de7b5eee14c522bac374b81ddc4cf2b32fdd2165`（包含初始边界 `813a75a00497d7746167c3876583f80e07b0193b` 与桌面 Clippy 修复 `dc8e8c2e4b2efa59e98320f2ecdf297108d0e199`）；本轮证据记录锚点为 `ece04c5de3413aa13bf7437729ad9b701a31b4f3`（[S08 #31 验收](s08-market-evidence.md)）。C6、C4/C5 的 S08 子范围已更新为 `IMPLEMENTED_UNVERIFIED`；K6 的可信时间记录沿用 [S08 #30 证据](s08-time-evidence.md)，QA-04 和 S33 仍待后续完整回归。
+- #31 当前实现 SHA 为 `90060eab99f26fe8218da4dc6666d6e061ee4314`（包含初始边界 `813a75a00497d7746167c3876583f80e07b0193b`、权威门禁修复 `de7b5eee14c522bac374b81ddc4cf2b32fdd2165` 与桌面 Clippy 修复 `dc8e8c2e4b2efa59e98320f2ecdf297108d0e199`）；证据记录沿用 [S08 #31 验收](s08-market-evidence.md)。C6、C4/C5 的 S08 子范围以及 K7 的市场错误变体已更新为 `IMPLEMENTED_UNVERIFIED`；K6 的可信时间记录沿用 [S08 #30 证据](s08-time-evidence.md)，QA-04、S33 与真实 OD-005 仍待后续完整回归。
