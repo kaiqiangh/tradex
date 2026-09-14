@@ -16,7 +16,7 @@
 
 ## Automated checks
 
-The following checks passed during implementation and are repeated after the final docs anchor:
+The following checks passed against the final implementation commit `dbbed1e`; the later docs-only anchor `82706d5` records the corrected exposure spot check and evidence pointers:
 
 ```text
 npm run schema:check
