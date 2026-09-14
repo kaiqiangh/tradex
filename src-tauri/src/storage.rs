@@ -916,16 +916,7 @@ impl Store {
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        if tx
-            .query_row(
-                "SELECT 1 FROM watchlists WHERE workspace_id=?1 AND name=?2 LIMIT 1",
-                params![workspace_id, &name],
-                |_| Ok(()),
-            )
-            .optional()
-            .map_err(storage_error)?
-            .is_some()
-        {
+        if watchlist_name_conflict(&tx, workspace_id, &name, None)? {
             return Err(TradeXError::new("WATCHLIST_NAME_CONFLICT"));
         }
         let count: i64 = tx
@@ -984,16 +975,7 @@ impl Store {
         if watchlist.state_version != expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        if tx
-            .query_row(
-                "SELECT 1 FROM watchlists WHERE workspace_id=?1 AND name=?2 AND watchlist_id<>?3 LIMIT 1",
-                params![workspace_id, &name, watchlist_id],
-                |_| Ok(()),
-            )
-            .optional()
-            .map_err(storage_error)?
-            .is_some()
-        {
+        if watchlist_name_conflict(&tx, workspace_id, &name, Some(watchlist_id))? {
             return Err(TradeXError::new("WATCHLIST_NAME_CONFLICT"));
         }
         let sequence = next_watchlist_sequence(&tx, watchlist_id)?;
@@ -1113,6 +1095,34 @@ fn validate_watchlist_name(name: &str) -> Result<String> {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     Ok(trimmed.to_owned())
+}
+
+fn watchlist_name_conflict(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+    name: &str,
+    excluded_id: Option<&str>,
+) -> Result<bool> {
+    let folded = name.to_lowercase();
+    // ponytail: bounded 128-list scan; add a normalized key/index if this limit changes.
+    let mut query = tx
+        .prepare("SELECT watchlist_id,name FROM watchlists WHERE workspace_id=?1")
+        .map_err(storage_error)?;
+    let rows = query
+        .query_map([workspace_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(storage_error)?;
+    for row in rows {
+        let (watchlist_id, existing_name) = row.map_err(storage_error)?;
+        if excluded_id == Some(watchlist_id.as_str()) {
+            continue;
+        }
+        if existing_name.to_lowercase() == folded {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn load_watchlist_tx(

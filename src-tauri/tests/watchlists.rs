@@ -215,6 +215,22 @@ fn watchlist_schema_rejects_unknown_fields_and_invalid_names() {
     );
     assert_eq!(unknown["error"]["code"], "IPC_PAYLOAD_INVALID");
 
+    let unicode = command(
+        &mut control,
+        "watchlist.create",
+        json!({"workspaceId": workspace_id, "name": "Ångström"}),
+    );
+    assert_eq!(unicode["ok"], true, "{unicode}");
+    let unicode_duplicate = command(
+        &mut control,
+        "watchlist.create",
+        json!({"workspaceId": workspace_id, "name": "ångström"}),
+    );
+    assert_eq!(
+        unicode_duplicate["error"]["code"],
+        "WATCHLIST_NAME_CONFLICT"
+    );
+
     let created = command(
         &mut control,
         "watchlist.create",
@@ -225,7 +241,10 @@ fn watchlist_schema_rejects_unknown_fields_and_invalid_names() {
     let database = path.join("workspace.sqlite3");
     let connection = rusqlite::Connection::open(database).unwrap();
     connection
-        .execute("UPDATE watchlists SET name='Tampered column'", [])
+        .execute(
+            "UPDATE watchlists SET name='Tampered column' WHERE watchlist_id=?1",
+            rusqlite::params![created["data"]["watchlistId"].as_str().unwrap()],
+        )
         .unwrap();
     drop(connection);
     let mut tampered = ControlPlane::new(path);
