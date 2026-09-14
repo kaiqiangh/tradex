@@ -248,10 +248,10 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("TradeX could not start its desktop shell")
         .run(|app, event| {
-            if matches!(event, tauri::RunEvent::Resumed) {
-                if let Ok(mut engine) = app.state::<Service>().0.lock() {
-                    engine.resume();
-                }
+            if matches!(event, tauri::RunEvent::Resumed)
+                && let Ok(mut engine) = app.state::<Service>().0.lock()
+            {
+                engine.resume();
             }
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<Service>().2.stop_all();
