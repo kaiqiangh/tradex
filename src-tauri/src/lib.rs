@@ -842,8 +842,12 @@ impl ControlPlane {
         decision: &capability::CapabilityDecision,
     ) -> Result<protocol::ResearchToolResult> {
         let sources = self.data_source_sources(&request.workspace_id);
-        let source = research::source_id_for(&request.tool_id)
+        let source_id = research::source_id_for(&request.tool_id);
+        let source = source_id
             .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
+        if source_id.is_some() && source.is_none() {
+            return Err(TradeXError::new("RESEARCH_RESULT_INVALID"));
+        }
         research::run_with_source(request, decision, source)
     }
 
