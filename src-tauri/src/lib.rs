@@ -243,6 +243,16 @@ impl ControlPlane {
         self.dispatch_with_events(request, "headless", None)
     }
 
+    pub fn resume(&mut self) {
+        if let Some(workspace_id) = self
+            .store
+            .as_ref()
+            .and_then(|store| store.workspace_id().ok())
+        {
+            self.time.resume(&workspace_id);
+        }
+    }
+
     pub fn dispatch_with_events(
         &mut self,
         request: Value,

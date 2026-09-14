@@ -8,7 +8,7 @@
 
 - 新增 Rust Control Plane `TimeService`，使用 UTC wall clock 与进程内 monotonic `Instant`；公开 2,000 ms wall/monotonic 容差和 5,000 ms provider/server offset 上限。
 - `time.status` 与 `time.revalidate` 使用现有 `WorkspaceQuery` 输入，输出生成的 `TimeStatus`；未知 workspace、未知字段和 renderer `wallClock` 覆盖均返回 `IPC_AGGREGATE_NOT_FOUND` 或 `IPC_PAYLOAD_INVALID`。
-- workspace open、同 workspace reopen、进程新建和显式 `resume` 都清除既有基准。首次 status 保持 `CLOCK_UNCERTAIN`；只有显式 revalidate 建立 `TRUSTED` 基准。
+- workspace open、同 workspace reopen、进程新建和 Tauri `RunEvent::Resumed` 都清除既有基准。首次 status 保持 `CLOCK_UNCERTAIN`；只有显式 revalidate 建立 `TRUSTED` 基准。
 - 注入式单测覆盖首次基准、正常 elapsed、material wall jump、monotonic rollback、provider offset、resume 和 `require_trusted` 门禁。失信返回 `CLOCK_UNCERTAIN` 或 `STALE`，并使用 `CLOCK_SKEW` / `time_revalidate` remediation。
 - `time.status` / `time.revalidate` 只读进程状态，不写 SQLite、outbox、DomainProjection、account、risk、approval 或 thread；ControlPlane 集成测试验证 workspace 隔离、reopen 失信和状态快照不变。
 - 双语 Backend ARD §41.12、Frontend ARD §13.3、FILE_MANIFEST 与生成的 JSON Schema/TypeScript 已同步。
