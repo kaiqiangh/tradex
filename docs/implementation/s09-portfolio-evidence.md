@@ -2,7 +2,8 @@
 
 日期：2026-09-14
 开发分支：`dev`
-最终实现提交：`6dda93b` (`fix: normalize all provider portfolio identities`)
+最终实现提交：`9d4a332` (`fix: enforce portfolio base currency schema`)
+前置 provider identity 修复：`6dda93b` (`fix: normalize all provider portfolio identities`)
 前置身份边界修复：`188209b` (`fix: guard portfolio identity lengths`)
 前置输出上限修复：`7d754b6` (`fix: bound portfolio snapshot output`)
 前置暴露修复：`dbbed1e` (`fix: exclude unavailable balances from exposure`)
@@ -20,7 +21,7 @@
 
 ## Automated checks
 
-The following checks passed against the final implementation commit `6dda93b`; the later docs-only anchors record the corrected exposure spot check, output-boundary fix, and evidence pointers:
+The following checks passed against the final implementation commit `9d4a332`; the earlier isolated browser spot check at `6dda93b` remains applicable because this commit only rejects an invalid persisted base currency before rendering and does not change valid fixture output:
 
 ```text
 npm run schema:check
