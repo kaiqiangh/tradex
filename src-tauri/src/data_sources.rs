@@ -77,7 +77,7 @@ pub fn entries() -> Vec<DataSourceEntry> {
             source_id: "OD-003".into(),
             provider: "SEC EDGAR data.sec.gov".into(),
             capabilities: vec!["Fundamentals and XBRL facts".into()],
-            coverage: "SEC submissions and XBRL Company Facts/Frames for supported forms and filers.".into(),
+            coverage: "SEC submissions and the Apple XBRL Company Concept endpoint for supported forms and facts.".into(),
             latency: "SEC publication and processing time; not a realtime market feed.".into(),
             entitlement: "Public API; every automated request needs an identifying User-Agent.".into(),
             retention: "Keep source URL, form/period and fetched timestamp with stored facts.".into(),
