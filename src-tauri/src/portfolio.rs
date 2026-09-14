@@ -433,7 +433,7 @@ fn fixture_snapshot(
         .collect();
     let exposure_values: Vec<_> = holdings
         .iter()
-        .filter(|holding| holding.asset != "USDT")
+        .filter(|holding| holding.instrument_id.is_some())
         .map(|holding| holding.value.clone())
         .collect();
     let degraded = fx_routes.iter().any(|route| {
@@ -1056,6 +1056,15 @@ mod tests {
         let snapshot = get("w", "GBP", &[], None, &time_status(), true).unwrap();
         assert_eq!(snapshot.status, PortfolioStatus::Degraded);
         assert!(snapshot.totals.equity.workspace_value.is_none());
+    }
+
+    #[test]
+    fn fixture_exposure_excludes_unavailable_balance_identity() {
+        let snapshot = get("w", "USD", &[], None, &time_status(), true).unwrap();
+        assert_eq!(
+            snapshot.totals.exposure.workspace_value.as_deref(),
+            Some("55712")
+        );
     }
 
     #[test]
