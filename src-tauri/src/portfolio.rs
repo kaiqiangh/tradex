@@ -7,6 +7,9 @@ use crate::providers::{AccountConnection, AccountHealth, Balance, ConnectionStat
 use serde_json::Value;
 
 const IDENTITY_SOURCE: &str = "IDENTITY";
+const MAX_PORTFOLIO_ACCOUNTS: usize = 256;
+const MAX_PORTFOLIO_ROWS: usize = 512;
+const MAX_PORTFOLIO_FX_ROUTES: usize = 128;
 
 pub fn get(
     workspace_id: &str,
@@ -41,7 +44,7 @@ fn actual_snapshot(
     fx_source: Option<&DataSourceEntry>,
     time_status: &TimeStatus,
 ) -> Result<PortfolioSnapshot> {
-    if accounts.len() > 256
+    if accounts.len() > MAX_PORTFOLIO_ACCOUNTS
         || accounts
             .iter()
             .any(|account| account.workspace_id != workspace_id)
@@ -63,6 +66,15 @@ fn actual_snapshot(
             portfolio_accounts.push(account_row(account, base_currency, None, None, 0, 0, None));
             continue;
         };
+        if holdings
+            .len()
+            .saturating_add(data.balances.len())
+            .saturating_add(data.positions.len())
+            > MAX_PORTFOLIO_ROWS
+            || open_orders.len().saturating_add(data.open_orders.len()) > MAX_PORTFOLIO_ROWS
+        {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
         any_observation = true;
         data_incomplete = true;
         let account_currency = data.currency.as_deref();
@@ -105,12 +117,12 @@ fn actual_snapshot(
             .transpose()?;
         if let Some(value) = equity.as_ref() {
             conversion_missing |= value.workspace_value.is_none() && value.native_value.is_some();
-            collect_fx(value, &mut fx_routes);
+            collect_fx(value, &mut fx_routes)?;
             equity_values.push(value.clone());
         }
         if let Some(value) = cash.as_ref() {
             conversion_missing |= value.workspace_value.is_none() && value.native_value.is_some();
-            collect_fx(value, &mut fx_routes);
+            collect_fx(value, &mut fx_routes)?;
             cash_values.push(value.clone());
         }
         for balance in &data.balances {
@@ -130,7 +142,7 @@ fn actual_snapshot(
                 )?;
                 conversion_missing |=
                     value.workspace_value.is_none() && value.native_value.is_some();
-                collect_fx(&value, &mut fx_routes);
+                collect_fx(&value, &mut fx_routes)?;
                 holdings.push(holding_from_balance(account, balance, value, time_status));
             }
         }
@@ -157,7 +169,7 @@ fn actual_snapshot(
             if let Some(value) = value.as_ref() {
                 conversion_missing |=
                     value.workspace_value.is_none() && value.native_value.is_some();
-                collect_fx(value, &mut fx_routes);
+                collect_fx(value, &mut fx_routes)?;
                 exposure_values.push(value.clone());
             }
             holdings.push(holding_from_position(
@@ -421,7 +433,7 @@ fn fixture_snapshot(
                 .flat_map(|items| items.iter().map(|fill| &fill.value)),
         )
     {
-        collect_fx(value, &mut fx_routes);
+        collect_fx(value, &mut fx_routes)?;
     }
     let equity_values: Vec<_> = accounts
         .iter()
@@ -784,12 +796,16 @@ fn unavailable_fx(
     }
 }
 
-fn collect_fx(value: &PortfolioValue, routes: &mut Vec<FxProvenance>) {
+fn collect_fx(value: &PortfolioValue, routes: &mut Vec<FxProvenance>) -> Result<()> {
     if let Some(route) = &value.fx_provenance
         && !routes.iter().any(|existing| existing == route)
     {
+        if routes.len() >= MAX_PORTFOLIO_FX_ROUTES {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
         routes.push(route.clone());
     }
+    Ok(())
 }
 
 fn sum_values(
@@ -1011,6 +1027,7 @@ fn format_decimal(negative: bool, digits: &str, scale: usize) -> Result<String> 
 mod tests {
     use super::*;
     use crate::protocol::{TimeConfidence, TimeStatus};
+    use crate::providers::AccountData;
 
     fn time_status() -> TimeStatus {
         TimeStatus {
@@ -1116,5 +1133,66 @@ mod tests {
             total.fx_provenance.as_ref().unwrap().pair_path,
             "EUR -> USD"
         );
+    }
+
+    #[test]
+    fn production_snapshot_rejects_rows_and_routes_over_wire_limits() {
+        let mut account = AccountConnection::new(
+            "w".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "bounded".into(),
+        )
+        .unwrap();
+        account.connection_state = ConnectionState::Connected;
+        account.data = Some(AccountData {
+            remote_account_id: "remote".into(),
+            account_type: "PAPER".into(),
+            currency: Some("USD".into()),
+            balances: (0..=MAX_PORTFOLIO_ROWS)
+                .map(|index| Balance {
+                    asset: format!("A{index}"),
+                    available: "1".into(),
+                    total: Some("1".into()),
+                    reserved: None,
+                    in_pies: None,
+                    locked: None,
+                    restricted_available: None,
+                })
+                .collect(),
+            positions: vec![],
+            open_orders: vec![],
+            capabilities: vec![],
+            limitations: vec![],
+        });
+        let error = get("w", "USD", &[account], None, &time_status(), false).unwrap_err();
+        assert_eq!(error.code, "PROVIDER_DATA_INCOMPLETE");
+
+        let mut routed =
+            AccountConnection::new("w".into(), "alpaca".into(), "PAPER".into(), "routes".into())
+                .unwrap();
+        routed.connection_state = ConnectionState::Connected;
+        routed.data = Some(AccountData {
+            remote_account_id: "remote".into(),
+            account_type: "PAPER".into(),
+            currency: None,
+            balances: vec![],
+            positions: (0..=MAX_PORTFOLIO_FX_ROUTES)
+                .map(|index| Position {
+                    symbol: format!("S{index}"),
+                    instrument_id: None,
+                    quantity: "1".into(),
+                    market_value: Some("1".into()),
+                    average_entry_price: None,
+                    instrument_currency: Some(format!("C{index}")),
+                    market_value_currency: None,
+                })
+                .collect(),
+            open_orders: vec![],
+            capabilities: vec![],
+            limitations: vec![],
+        });
+        let error = get("w", "USD", &[routed], None, &time_status(), false).unwrap_err();
+        assert_eq!(error.code, "PROVIDER_DATA_INCOMPLETE");
     }
 }
