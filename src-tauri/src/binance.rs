@@ -240,6 +240,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
             if sum != "0" {
                 positions.push(Position {
                     symbol: asset.clone(),
+                    instrument_id: None,
                     quantity: sum.clone(),
                     market_value: None,
                     average_entry_price: None,
@@ -289,6 +290,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
                 trigger_price: None,
                 broker_order_id,
                 symbol,
+                instrument_id: None,
                 side,
                 quantity: if qty == "0" { None } else { Some(qty) },
                 notional: if quote == "0" { None } else { Some(quote) },

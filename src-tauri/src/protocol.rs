@@ -865,6 +865,9 @@ pub struct PortfolioHolding {
     pub value: PortfolioValue,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unrealized_pnl: Option<PortfolioValue>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub health: AccountHealth,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -894,6 +897,9 @@ pub struct PortfolioOrder {
     pub currency: Option<String>,
     #[schemars(length(min = 1, max = 32))]
     pub status: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub health: AccountHealth,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -915,6 +921,7 @@ pub struct PortfolioFill {
     pub value: PortfolioValue,
     #[schemars(length(min = 1, max = 64))]
     pub observed_at: String,
+    pub health: AccountHealth,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -939,8 +946,9 @@ pub struct PortfolioAccount {
     pub positions_count: u32,
     #[schemars(range(min = 0, max = 10000))]
     pub open_orders_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(range(min = 0, max = 10000))]
-    pub fills_count: u32,
+    pub fills_count: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

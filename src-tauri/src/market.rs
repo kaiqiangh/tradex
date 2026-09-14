@@ -266,6 +266,20 @@ pub fn instruments() -> Vec<Instrument> {
     ]
 }
 
+/// Resolves a provider symbol at the adapter boundary. Portfolio code only consumes this
+/// canonical identity; an unknown mapping remains unavailable instead of leaking the symbol.
+pub fn canonical_instrument_id(provider_id: &str, provider_symbol: &str) -> Option<String> {
+    instruments().into_iter().find_map(|instrument| {
+        instrument
+            .providers
+            .iter()
+            .any(|mapping| {
+                mapping.provider_id == provider_id && mapping.provider_symbol == provider_symbol
+            })
+            .then_some(instrument.instrument_id)
+    })
+}
+
 pub fn validate_instrument_id(id: &str) -> bool {
     if id.len() > 128 || id.chars().any(char::is_control) {
         return false;

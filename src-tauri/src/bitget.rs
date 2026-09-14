@@ -149,6 +149,7 @@ pub(super) fn read(
         if sum != "0" {
             positions.push(Position {
                 symbol: asset.clone(),
+                instrument_id: None,
                 quantity: sum.clone(),
                 market_value: None,
                 average_entry_price: None,
@@ -349,6 +350,7 @@ fn order(v: &Value, kind: &str, identity: &str, order_id: String) -> Result<Open
     Ok(OpenOrder {
         broker_order_id: format!("{}:{order_id}", if plan { "plan" } else { "order" }),
         symbol: identifier(v, "symbol")?,
+        instrument_id: None,
         side: side.to_uppercase(),
         quantity: (!quote).then(|| size.clone()),
         notional: quote.then_some(size),

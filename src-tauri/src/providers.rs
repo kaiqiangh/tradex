@@ -195,6 +195,9 @@ pub struct Balance {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Position {
     pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
     pub quantity: String,
     pub market_value: Option<String>,
     pub average_entry_price: Option<String>,
@@ -207,6 +210,9 @@ pub struct Position {
 pub struct OpenOrder {
     pub broker_order_id: String,
     pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
     pub side: String,
     pub quantity: Option<String>,
     pub notional: Option<String>,

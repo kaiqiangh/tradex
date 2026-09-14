@@ -597,6 +597,7 @@ export interface OpenOrder {
   currency?: string | null;
   filledQuantity?: string | null;
   filledValue?: string | null;
+  instrumentId?: string | null;
   kind?: "NORMAL" | "TPSL" | "PLAN" | null;
   limitPrice?: string | null;
   notional?: string | null;
@@ -613,6 +614,7 @@ export interface OpenOrder {
 export interface Position {
   averageEntryPrice?: string | null;
   instrumentCurrency?: string | null;
+  instrumentId?: string | null;
   marketValue?: string | null;
   marketValueCurrency?: string | null;
   quantity: string;
@@ -1490,7 +1492,7 @@ export interface PortfolioAccount {
   connectionState: ConnectionState;
   environment: string;
   equity: PortfolioValue;
-  fillsCount: number;
+  fillsCount?: number | null;
   health: AccountHealth;
   label: string;
   openOrdersCount: number;
@@ -1533,6 +1535,7 @@ export interface PortfolioFill {
   asset: string;
   connectionId: string;
   fillId: string;
+  health: AccountHealth;
   instrumentId?: string | null;
   observedAt: string;
   quantity: string;
@@ -1547,7 +1550,9 @@ export interface PortfolioHolding {
   asset: string;
   connectionId: string;
   environment: string;
+  health: AccountHealth;
   instrumentId?: string | null;
+  observedAt: string;
   providerId: string;
   quantity?: string;
   unrealizedPnl?: PortfolioValue | null;
@@ -1572,8 +1577,10 @@ export interface PortfolioOrder {
   brokerOrderId: string;
   connectionId: string;
   currency?: string | null;
+  health: AccountHealth;
   instrumentId?: string | null;
   notional?: string;
+  observedAt: string;
   quantity?: string;
   side: string;
   status: string;

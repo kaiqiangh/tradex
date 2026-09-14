@@ -1,4 +1,5 @@
 use crate::{
+    market,
     protocol::{Result, TradeXError},
     providers::*,
 };
@@ -221,6 +222,15 @@ pub(crate) struct Observation {
     pub data: AccountData,
     pub permissions: PermissionReview,
 }
+
+fn normalize_account_data(data: &mut AccountData, provider_id: &str) {
+    for position in &mut data.positions {
+        position.instrument_id = market::canonical_instrument_id(provider_id, &position.symbol);
+    }
+    for order in &mut data.open_orders {
+        order.instrument_id = market::canonical_instrument_id(provider_id, &order.symbol);
+    }
+}
 pub struct ProviderOutcome {
     pub(crate) observation: Option<Observation>,
     pub(crate) error: Option<TradeXError>,
@@ -345,7 +355,7 @@ impl ProviderJob {
                 }
                 Ok(value)
             };
-            let observation = if endpoint == ProviderEndpoint::AlpacaPaper {
+            let mut observation = if endpoint == ProviderEndpoint::AlpacaPaper {
                 let account = query("/v2/account")?;
                 let remote_id = id(&account, "id")?;
                 if self
@@ -406,6 +416,7 @@ impl ProviderJob {
                     query("/api/v0/equity/orders")?,
                 )?
             };
+            normalize_account_data(&mut observation.data, &self.account.provider_id);
             if !current() {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
             }
@@ -594,6 +605,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
         .map(|p| {
             Ok(Position {
                 symbol: symbol(p)?,
+                instrument_id: None,
                 quantity: decimal(&p["qty"])?,
                 market_value: optional_decimal(p, "market_value")?,
                 average_entry_price: optional_decimal(p, "avg_entry_price")?,
@@ -641,6 +653,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
                 trigger_price: None,
                 broker_order_id,
                 symbol: symbol(o)?,
+                instrument_id: None,
                 side,
                 quantity,
                 notional,

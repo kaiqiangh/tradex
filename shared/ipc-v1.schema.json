@@ -2249,6 +2249,14 @@
             "null"
           ]
         },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
         "kind": {
           "type": [
             "string",
@@ -2406,7 +2414,10 @@
           "$ref": "#/$defs/PortfolioValue"
         },
         "fillsCount": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "format": "uint32",
           "maximum": 10000,
           "minimum": 0
@@ -2448,8 +2459,7 @@
         "equity",
         "cash",
         "positionsCount",
-        "openOrdersCount",
-        "fillsCount"
+        "openOrdersCount"
       ]
     },
     "PortfolioFill": {
@@ -2474,6 +2484,9 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "health": {
+          "$ref": "#/$defs/AccountHealth"
         },
         "instrumentId": {
           "type": [
@@ -2505,7 +2518,8 @@
         "asset",
         "quantity",
         "value",
-        "observedAt"
+        "observedAt",
+        "health"
       ]
     },
     "PortfolioHolding": {
@@ -2531,12 +2545,20 @@
           "maxLength": 16,
           "minLength": 1
         },
+        "health": {
+          "$ref": "#/$defs/AccountHealth"
+        },
         "instrumentId": {
           "type": [
             "string",
             "null"
           ],
           "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
           "minLength": 1
         },
         "providerId": {
@@ -2578,7 +2600,9 @@
         "providerId",
         "environment",
         "asset",
-        "value"
+        "value",
+        "observedAt",
+        "health"
       ]
     },
     "PortfolioLiveRisk": {
@@ -2630,6 +2654,9 @@
           "maxLength": 16,
           "minLength": 1
         },
+        "health": {
+          "$ref": "#/$defs/AccountHealth"
+        },
         "instrumentId": {
           "type": [
             "string",
@@ -2641,6 +2668,11 @@
         "notional": {
           "type": "string",
           "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
           "minLength": 1
         },
         "quantity": {
@@ -2666,7 +2698,9 @@
         "brokerOrderId",
         "asset",
         "side",
-        "status"
+        "status",
+        "observedAt",
+        "health"
       ]
     },
     "PortfolioQuery": {
@@ -2874,6 +2908,14 @@
             "string",
             "null"
           ]
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
         },
         "marketValue": {
           "type": [

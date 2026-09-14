@@ -94,6 +94,7 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
             };
             Ok(Position {
                 symbol,
+                instrument_id: None,
                 quantity: number(&p["quantity"])?,
                 market_value,
                 average_entry_price,
@@ -167,6 +168,7 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
                 trigger_price: None,
                 broker_order_id,
                 symbol,
+                instrument_id: None,
                 side: side.to_ascii_lowercase(),
                 quantity,
                 notional,

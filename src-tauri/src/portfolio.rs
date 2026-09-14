@@ -1,4 +1,3 @@
-use crate::market;
 use crate::protocol::{
     DataSourceEntry, DataSourceStatus, FxFreshness, FxProvenance, FxQuality, PortfolioAccount,
     PortfolioFill, PortfolioHolding, PortfolioLiveRisk, PortfolioOrder, PortfolioSnapshot,
@@ -58,12 +57,14 @@ fn actual_snapshot(
     let mut exposure_values = Vec::new();
     let mut any_observation = false;
     let mut conversion_missing = false;
+    let mut data_incomplete = false;
     for account in accounts {
         let Some(data) = account.data.as_ref() else {
-            portfolio_accounts.push(account_row(account, base_currency, None, None, 0, 0, 0));
+            portfolio_accounts.push(account_row(account, base_currency, None, None, 0, 0, None));
             continue;
         };
         any_observation = true;
+        data_incomplete = true;
         let account_currency = data.currency.as_deref();
         let cash_balance = data
             .balances
@@ -130,7 +131,7 @@ fn actual_snapshot(
                 conversion_missing |=
                     value.workspace_value.is_none() && value.native_value.is_some();
                 collect_fx(&value, &mut fx_routes);
-                holdings.push(holding_from_balance(account, balance, value));
+                holdings.push(holding_from_balance(account, balance, value, time_status));
             }
         }
         for position in &data.positions {
@@ -164,6 +165,7 @@ fn actual_snapshot(
                 position,
                 value,
                 base_currency,
+                time_status,
             ));
         }
         for order in &data.open_orders {
@@ -171,16 +173,18 @@ fn actual_snapshot(
                 connection_id: account.connection_id.clone(),
                 account_label: account.label.clone(),
                 broker_order_id: order.broker_order_id.clone(),
-                instrument_id: market_instrument_id(&order.symbol, &account.provider_id),
-                asset: order.symbol.clone(),
+                instrument_id: order.instrument_id.clone(),
+                asset: order
+                    .instrument_id
+                    .clone()
+                    .unwrap_or_else(|| "UNAVAILABLE".into()),
                 side: order.side.clone(),
                 quantity: order.quantity.clone(),
                 notional: order.notional.clone(),
-                currency: order
-                    .currency
-                    .clone()
-                    .or_else(|| account_currency.map(str::to_owned)),
+                currency: order.currency.clone(),
                 status: order.status.clone(),
+                observed_at: observation_timestamp(account, time_status),
+                health: account.health.clone(),
             });
         }
         portfolio_accounts.push(account_row(
@@ -190,7 +194,7 @@ fn actual_snapshot(
             cash,
             data.positions.len(),
             data.open_orders.len(),
-            0,
+            None,
         ));
     }
     let status = if !any_observation {
@@ -203,6 +207,8 @@ fn actual_snapshot(
             Some(DataSourceStatus::Unavailable) => PortfolioStatus::Unavailable,
             Some(DataSourceStatus::Available) => PortfolioStatus::Degraded,
         }
+    } else if data_incomplete {
+        PortfolioStatus::Degraded
     } else {
         PortfolioStatus::Available
     };
@@ -211,7 +217,7 @@ fn actual_snapshot(
             "Provider observations are shown with workspace-currency values where the route is trusted."
         }
         PortfolioStatus::Degraded => {
-            "Some FX routes are unavailable or stale; affected workspace values remain unavailable."
+            "Some provider fields or FX routes are unavailable; affected values remain unavailable."
         }
         PortfolioStatus::Unavailable => {
             "No complete provider or FX observations are available for portfolio normalization."
@@ -298,7 +304,7 @@ fn fixture_snapshot(
             cash,
             positions_count: 1,
             open_orders_count: 1,
-            fills_count: 1,
+            fills_count: Some(1),
         });
     }
     let mut holdings = vec![
@@ -308,7 +314,6 @@ fn fixture_snapshot(
                 account_label: "Trading 212 Live (fixture)",
                 provider_id: "trading212",
                 environment: "LIVE",
-                asset: "AAPL",
                 instrument_id: Some("equity:US:AAPL"),
                 quantity: "100",
                 value: "18000",
@@ -324,7 +329,6 @@ fn fixture_snapshot(
                 account_label: "Binance Live (fixture)",
                 provider_id: "binance",
                 environment: "LIVE",
-                asset: "BTC/USDT",
                 instrument_id: Some("crypto:BTC/USDT:spot"),
                 quantity: "0.25",
                 value: "16000",
@@ -340,7 +344,6 @@ fn fixture_snapshot(
                 account_label: "Alpaca Paper (fixture)",
                 provider_id: "alpaca",
                 environment: "PAPER",
-                asset: "MSFT",
                 instrument_id: Some("equity:US:MSFT"),
                 quantity: "50",
                 value: "22000",
@@ -357,7 +360,6 @@ fn fixture_snapshot(
             account_label: "Binance Live (fixture)",
             provider_id: "binance",
             environment: "LIVE",
-            asset: "USDT",
             instrument_id: None,
             quantity: "10000",
             value: "10000",
@@ -373,24 +375,28 @@ fn fixture_snapshot(
             account_label: "Trading 212 Live (fixture)".into(),
             broker_order_id: "fixture-order-aapl".into(),
             instrument_id: Some("equity:US:AAPL".into()),
-            asset: "AAPL".into(),
+            asset: "equity:US:AAPL".into(),
             side: "BUY".into(),
             quantity: Some("10".into()),
             notional: Some("1800".into()),
             currency: Some("USD".into()),
             status: "PENDING".into(),
+            observed_at: time_status.observed_at.clone(),
+            health: fixture_health(),
         },
         PortfolioOrder {
             connection_id: "fixture:binance-live".into(),
             account_label: "Binance Live (fixture)".into(),
             broker_order_id: "fixture-order-btc".into(),
             instrument_id: Some("crypto:BTC/USDT:spot".into()),
-            asset: "BTC/USDT".into(),
+            asset: "crypto:BTC/USDT:spot".into(),
             side: "SELL".into(),
             quantity: Some("0.05".into()),
             notional: None,
             currency: Some("USDT".into()),
             status: "NEW".into(),
+            observed_at: time_status.observed_at.clone(),
+            health: fixture_health(),
         },
     ];
     let fills = Some(vec![PortfolioFill {
@@ -398,10 +404,11 @@ fn fixture_snapshot(
         account_label: "Trading 212 Live (fixture)".into(),
         fill_id: "fixture-fill-aapl".into(),
         instrument_id: Some("equity:US:AAPL".into()),
-        asset: "AAPL".into(),
+        asset: "equity:US:AAPL".into(),
         quantity: "100".into(),
         value: fixture_value("16800", "USD", base_currency, time_status)?,
         observed_at: time_status.observed_at.clone(),
+        health: fixture_health(),
     }]);
     let mut fx_routes = Vec::new();
     for value in accounts
@@ -429,9 +436,12 @@ fn fixture_snapshot(
         .filter(|holding| holding.asset != "USDT")
         .map(|holding| holding.value.clone())
         .collect();
-    let degraded = fx_routes
-        .iter()
-        .any(|route| route.quality == FxQuality::Degraded);
+    let degraded = fx_routes.iter().any(|route| {
+        matches!(
+            route.quality,
+            FxQuality::Degraded | FxQuality::Unknown | FxQuality::Unavailable
+        )
+    });
     Ok(PortfolioSnapshot {
         workspace_id: workspace_id.into(),
         base_currency: base_currency.into(),
@@ -442,7 +452,7 @@ fn fixture_snapshot(
             PortfolioStatus::Available
         },
         availability_reason: if degraded {
-            "Synthetic fixture includes a stablecoin quality warning; workspace analytics are degraded.".into()
+            "Synthetic fixture includes degraded or unavailable FX routes; workspace analytics are not authority.".into()
         } else {
             "Synthetic fixture values are labelled for contract and rendering verification only."
                 .into()
@@ -486,7 +496,6 @@ struct FixtureHoldingSpec<'a> {
     account_label: &'a str,
     provider_id: &'a str,
     environment: &'a str,
-    asset: &'a str,
     instrument_id: Option<&'a str>,
     quantity: &'a str,
     value: &'a str,
@@ -504,9 +513,9 @@ fn fixture_holding(
         account_label: spec.account_label.into(),
         provider_id: spec.provider_id.into(),
         environment: spec.environment.into(),
-        venue: Some(spec.provider_id.into()),
+        venue: None,
         instrument_id: spec.instrument_id.map(str::to_owned),
-        asset: spec.asset.into(),
+        asset: spec.instrument_id.unwrap_or("UNAVAILABLE").into(),
         quantity: Some(normalize_decimal(spec.quantity)?),
         value: fixture_value(spec.value, spec.currency, base_currency, time_status)?,
         unrealized_pnl: Some(fixture_value(
@@ -515,6 +524,8 @@ fn fixture_holding(
             base_currency,
             time_status,
         )?),
+        observed_at: time_status.observed_at.clone(),
+        health: fixture_health(),
     })
 }
 
@@ -522,13 +533,14 @@ fn holding_from_balance(
     account: &AccountConnection,
     balance: &Balance,
     value: PortfolioValue,
+    time_status: &TimeStatus,
 ) -> PortfolioHolding {
     PortfolioHolding {
         connection_id: account.connection_id.clone(),
         account_label: account.label.clone(),
         provider_id: account.provider_id.clone(),
         environment: account.environment.clone(),
-        venue: Some(account.provider_id.clone()),
+        venue: None,
         instrument_id: None,
         asset: balance.asset.clone(),
         quantity: balance
@@ -537,6 +549,8 @@ fn holding_from_balance(
             .or_else(|| Some(balance.available.clone())),
         value,
         unrealized_pnl: None,
+        observed_at: observation_timestamp(account, time_status),
+        health: account.health.clone(),
     }
 }
 
@@ -545,19 +559,32 @@ fn holding_from_position(
     position: &Position,
     value: Option<PortfolioValue>,
     base_currency: &str,
+    time_status: &TimeStatus,
 ) -> PortfolioHolding {
     PortfolioHolding {
         connection_id: account.connection_id.clone(),
         account_label: account.label.clone(),
         provider_id: account.provider_id.clone(),
         environment: account.environment.clone(),
-        venue: Some(account.provider_id.clone()),
-        instrument_id: market_instrument_id(&position.symbol, &account.provider_id),
-        asset: position.symbol.clone(),
+        venue: None,
+        instrument_id: position.instrument_id.clone(),
+        asset: position
+            .instrument_id
+            .clone()
+            .unwrap_or_else(|| "UNAVAILABLE".into()),
         quantity: Some(position.quantity.clone()),
         value: value.unwrap_or_else(|| unavailable_value(base_currency)),
         unrealized_pnl: None,
+        observed_at: observation_timestamp(account, time_status),
+        health: account.health.clone(),
     }
+}
+
+fn observation_timestamp(account: &AccountConnection, time_status: &TimeStatus) -> String {
+    account
+        .last_successful_sync
+        .clone()
+        .unwrap_or_else(|| time_status.observed_at.clone())
 }
 
 fn account_row(
@@ -567,7 +594,7 @@ fn account_row(
     cash: Option<PortfolioValue>,
     positions_count: usize,
     open_orders_count: usize,
-    fills_count: usize,
+    fills_count: Option<u32>,
 ) -> PortfolioAccount {
     PortfolioAccount {
         connection_id: account.connection_id.clone(),
@@ -581,7 +608,7 @@ fn account_row(
         cash: cash.unwrap_or_else(|| unavailable_value(base_currency)),
         positions_count: positions_count as u32,
         open_orders_count: open_orders_count as u32,
-        fills_count: fills_count as u32,
+        fills_count,
     }
 }
 
@@ -772,8 +799,14 @@ fn sum_values(
 ) -> Result<PortfolioValue> {
     let mut total: Option<String> = None;
     let mut route: Option<FxProvenance> = None;
+    let mut missing_route: Option<FxProvenance> = None;
+    let mut missing_value = false;
     for value in values {
         let Some(workspace_value) = value.workspace_value.as_deref() else {
+            missing_value |= value.native_value.is_some();
+            if missing_route.is_none() {
+                missing_route = value.fx_provenance.clone();
+            }
             continue;
         };
         total = Some(match total {
@@ -789,9 +822,10 @@ fn sum_values(
         native_currency: None,
         account_value: None,
         account_currency: None,
-        workspace_value: total,
+        workspace_value: if missing_value { None } else { total },
         workspace_currency: base_currency.into(),
-        fx_provenance: route
+        fx_provenance: missing_route
+            .or(route)
             .or_else(|| Some(unavailable_fx("UNKNOWN", base_currency, None, time_status))),
     })
 }
@@ -806,16 +840,6 @@ fn unavailable_value(currency: &str) -> PortfolioValue {
         workspace_currency: currency.into(),
         fx_provenance: None,
     }
-}
-
-fn market_instrument_id(symbol: &str, provider: &str) -> Option<String> {
-    market::instruments().into_iter().find_map(|instrument| {
-        (instrument.symbol == symbol
-            || instrument.providers.iter().any(|mapping| {
-                mapping.provider_id == provider && mapping.provider_symbol == symbol
-            }))
-        .then_some(instrument.instrument_id)
-    })
 }
 
 fn valid_workspace_id(value: &str) -> bool {
@@ -1028,6 +1052,13 @@ mod tests {
     }
 
     #[test]
+    fn fixture_with_unmapped_base_currency_degrades_instead_of_claiming_availability() {
+        let snapshot = get("w", "GBP", &[], None, &time_status(), true).unwrap();
+        assert_eq!(snapshot.status, PortfolioStatus::Degraded);
+        assert!(snapshot.totals.equity.workspace_value.is_none());
+    }
+
+    #[test]
     fn empty_production_snapshot_is_unavailable_without_mutation() {
         let status = time_status();
         let snapshot = get("w", "EUR", &[], None, &status, false).unwrap();
@@ -1044,6 +1075,37 @@ mod tests {
         assert_eq!(
             value.fx_provenance.as_ref().unwrap().pair_path,
             "UNKNOWN -> USD"
+        );
+    }
+
+    #[test]
+    fn aggregation_fails_closed_when_one_native_value_lacks_conversion() {
+        let status = time_status();
+        let known = value_from_parts(
+            Some("5"),
+            Some("USD"),
+            Some("USD"),
+            "USD",
+            None,
+            &status,
+            false,
+        )
+        .unwrap();
+        let missing = value_from_parts(
+            Some("3"),
+            Some("EUR"),
+            Some("EUR"),
+            "USD",
+            None,
+            &status,
+            false,
+        )
+        .unwrap();
+        let total = sum_values(&[known, missing], "USD", &status).unwrap();
+        assert!(total.workspace_value.is_none());
+        assert_eq!(
+            total.fx_provenance.as_ref().unwrap().pair_path,
+            "EUR -> USD"
         );
     }
 }
