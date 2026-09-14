@@ -612,7 +612,7 @@ export default function App() {
             {page === 'Watchlists' && (workspace ? <Watchlists workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Watchlists</h1><p>Keep ordered canonical instruments in a local workspace.</p></div><section className="card empty-page"><h2>Open a workspace to manage watchlists</h2><p>Watchlists are stored in the selected local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {(page === 'Strategies' || page === 'Artifacts') && <>
               <div className="page-heading"><h1>{page}</h1></div>
-              <section className="card empty-page"><h2>{page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
+              <section className="card empty-page"><h2>{page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
                 <p>This workflow is not available in this build. Your local workspace is ready for the next setup steps.</p>
                 <button onClick={() => navigate('Settings')}>Open settings</button>
               </section>
