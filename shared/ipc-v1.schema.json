@@ -405,6 +405,15 @@
         "accounts"
       ]
     },
+    "AdjustmentStatus": {
+      "type": "string",
+      "enum": [
+        "ADJUSTED",
+        "UNADJUSTED",
+        "UNKNOWN",
+        "UNAVAILABLE"
+      ]
+    },
     "AgentMode": {
       "type": "string",
       "enum": [
@@ -837,6 +846,65 @@
         "label",
         "readOnly",
         "available"
+      ]
+    },
+    "CorporateAction": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "actionType": {
+          "$ref": "#/$defs/CorporateActionType"
+        },
+        "adjustmentStatus": {
+          "$ref": "#/$defs/AdjustmentStatus"
+        },
+        "announcedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "effectiveAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "instrumentId",
+        "actionType",
+        "effectiveAt",
+        "description",
+        "adjustmentStatus"
+      ]
+    },
+    "CorporateActionType": {
+      "type": "string",
+      "enum": [
+        "SPLIT",
+        "DIVIDEND",
+        "SYMBOL_CHANGE",
+        "DELISTING"
       ]
     },
     "DataSourceCatalog": {
@@ -1499,13 +1567,26 @@
     "MarketDetail": {
       "type": "object",
       "properties": {
+        "adjustmentStatus": {
+          "$ref": "#/$defs/AdjustmentStatus"
+        },
         "availabilityReason": {
           "type": "string",
           "maxLength": 512,
           "minLength": 1
         },
+        "corporateActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CorporateAction"
+          },
+          "maxItems": 16
+        },
         "instrument": {
           "$ref": "#/$defs/Instrument"
+        },
+        "marketState": {
+          "$ref": "#/$defs/MarketState"
         },
         "snapshot": {
           "anyOf": [
@@ -1540,7 +1621,10 @@
         "instrument",
         "tier",
         "status",
-        "availabilityReason"
+        "availabilityReason",
+        "marketState",
+        "corporateActions",
+        "adjustmentStatus"
       ]
     },
     "MarketEntitlement": {
@@ -1581,6 +1665,19 @@
         "workspaceId",
         "instrumentId",
         "tier"
+      ]
+    },
+    "MarketSession": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "CLOSED",
+        "EXTENDED_HOURS",
+        "HALTED",
+        "MAINTENANCE",
+        "SUSPENDED",
+        "DEGRADED",
+        "UNKNOWN"
       ]
     },
     "MarketSnapshot": {
@@ -1659,6 +1756,69 @@
         "receivedTimestamp",
         "entitlement",
         "freshness"
+      ]
+    },
+    "MarketState": {
+      "type": "object",
+      "properties": {
+        "calendarVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "nextClose": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "nextOpen": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerTime": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "session": {
+          "$ref": "#/$defs/MarketSession"
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceStatus": {
+          "$ref": "#/$defs/MarketDataStatus"
+        },
+        "timeConfidence": {
+          "$ref": "#/$defs/TimeConfidence"
+        },
+        "venue": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "session",
+        "venue",
+        "sourceStatus",
+        "observedAt",
+        "timeConfidence",
+        "reason"
       ]
     },
     "MarketTier": {

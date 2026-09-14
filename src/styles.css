@@ -233,6 +233,24 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .market-status-blocked_external { color: #92400e; background: #fffbeb; border-color: #fde68a; }
 .market-status-unverified { color: #475569; background: #f8fafc; }
 .market-status-badge { font-size: 10px; }
+.market-session, .market-actions-panel { margin-top: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.market-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.market-panel-heading h3 { margin: 0; font-size: 13px; }
+.market-panel-heading .eyebrow { margin-bottom: 3px; }
+.market-session > p { margin: 8px 0; font-size: 11px; overflow-wrap: anywhere; }
+.market-state-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; margin: 10px 0; }
+.market-state-details > div { min-width: 0; }
+.market-state-details dt { color: var(--muted); font-size: 9px; }
+.market-state-details dd { margin: 2px 0 0; font-size: 10px; overflow-wrap: anywhere; }
+.market-session button { min-height: 32px; font-size: 10px; }
+.market-session-unknown { border-color: #fde68a; background: #fffbeb; }
+.market-actions-panel h3 { font-size: 12px; }
+.market-actions-panel > .muted { margin: 10px 0 0; font-size: 11px; }
+.corporate-actions { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.corporate-actions li { display: grid; gap: 3px; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+.corporate-actions strong { font-size: 10px; text-transform: capitalize; }
+.corporate-actions span, .corporate-actions small { font-size: 10px; overflow-wrap: anywhere; }
+.corporate-actions small { color: var(--muted); }
 .market-unavailable { display: grid; gap: 10px; }
 .market-unavailable button { justify-self: start; }
 .market-quote { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }

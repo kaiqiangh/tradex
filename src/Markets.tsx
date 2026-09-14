@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { Instrument, MarketDataStatus, MarketDetail } from '../shared/ipc-types.ts';
+import type { AdjustmentStatus, CorporateAction, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
 
 const statusLabel: Record<MarketDataStatus, string> = {
@@ -11,11 +11,44 @@ const statusLabel: Record<MarketDataStatus, string> = {
   UNVERIFIED: 'Unverified',
 };
 
+const sessionLabel: Record<MarketSession, string> = {
+  OPEN: 'Open',
+  CLOSED: 'Closed',
+  EXTENDED_HOURS: 'Extended hours',
+  HALTED: 'Halted',
+  MAINTENANCE: 'Maintenance',
+  SUSPENDED: 'Suspended',
+  DEGRADED: 'Degraded',
+  UNKNOWN: 'Unknown',
+};
+
+const adjustmentLabel: Record<AdjustmentStatus, string> = {
+  ADJUSTED: 'Adjusted',
+  UNADJUSTED: 'Unadjusted',
+  UNKNOWN: 'Unknown',
+  UNAVAILABLE: 'Unavailable',
+};
+
 function InstrumentRow({ instrument, selected, onSelect }: { instrument: Instrument; selected: boolean; onSelect: () => void }) {
   return <button type="button" className="market-row" aria-current={selected ? 'true' : undefined} onClick={onSelect}>
     <span className="market-row-main"><strong>{instrument.symbol}</strong><small>{instrument.displayName}</small></span>
     <span className="market-row-meta"><span className="badge">{instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'}</span><small className="identity">{instrument.instrumentId}</small></span>
   </button>;
+}
+
+function MarketStatePanel({ state, adjustmentStatus, actions, onOpenDataSources }: { state: MarketState; adjustmentStatus: AdjustmentStatus; actions: CorporateAction[]; onOpenDataSources: () => void }) {
+  return <>
+    <section className={`market-session market-session-${state.session.toLowerCase()}`} aria-labelledby="market-session-title" role="status" aria-live="polite">
+      <div className="market-panel-heading"><div><p className="eyebrow">Market session</p><h3 id="market-session-title">{sessionLabel[state.session]}</h3></div><span className="badge">{state.timeConfidence}</span></div>
+      <p>{state.reason}</p>
+      <dl className="market-state-details"><div><dt>Venue</dt><dd>{state.venue}</dd></div><div><dt>Source status</dt><dd>{statusLabel[state.sourceStatus]}</dd></div><div><dt>Next open</dt><dd>{state.nextOpen ?? 'Unavailable'}</dd></div><div><dt>Next close</dt><dd>{state.nextClose ?? 'Unavailable'}</dd></div><div><dt>Calendar version</dt><dd>{state.calendarVersion ?? 'Unavailable'}</dd></div><div><dt>Provider time</dt><dd>{state.providerTime ?? 'Unavailable'}</dd></div><div><dt>Observed</dt><dd>{state.observedAt}</dd></div></dl>
+      {(state.sourceStatus === 'BLOCKED_EXTERNAL' || state.sourceStatus === 'UNAVAILABLE') && <button type="button" onClick={onOpenDataSources}>Review calendar source</button>}
+    </section>
+    <section className="market-actions-panel" aria-labelledby="corporate-actions-title">
+      <div className="market-panel-heading"><div><p className="eyebrow">Corporate actions</p><h3 id="corporate-actions-title">History adjustment: {adjustmentLabel[adjustmentStatus]}</h3></div><span className="badge">{actions.length} recorded</span></div>
+      {actions.length ? <ul className="corporate-actions">{actions.map(action => <li key={action.actionId}><strong>{action.actionType.replaceAll('_', ' ')}</strong><span>{action.description}</span><small>Effective {action.effectiveAt}{action.announcedAt ? ` · Announced ${action.announcedAt}` : ''}{action.sourceId ? ` · Source ${action.sourceId}` : ''}</small></li>)}</ul> : <p className="muted">No authoritative corporate-action records are available. Historical data is not marked adjusted.</p>}
+    </section>
+  </>;
 }
 
 function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; onBack: () => void; onOpenDataSources: () => void }) {
@@ -24,6 +57,7 @@ function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; o
     <div className="market-detail-heading"><div><p className="eyebrow">Instrument detail</p><h2 id="market-detail-title">{instrument.displayName}</h2><p className="identity">{instrument.instrumentId}</p></div><button type="button" onClick={onBack}>Back to results</button></div>
     <dl className="market-identity"><div><dt>Symbol</dt><dd>{instrument.symbol}</dd></div><div><dt>Asset class</dt><dd>{instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'}</dd></div><div><dt>Venue</dt><dd>{instrument.exchange ?? 'Provider venue selected at fetch'}</dd></div><div><dt>Currency</dt><dd>{instrument.currency}</dd></div><div><dt>Access tier</dt><dd>{detail.tier}</dd></div></dl>
     <div className={`market-status market-status-${detail.status.toLowerCase()}`} role="status"><strong>{statusLabel[detail.status]}</strong><p>{detail.availabilityReason}</p><small>Source: {detail.sourceId ?? 'No source selected'}</small></div>
+    <MarketStatePanel state={detail.marketState} adjustmentStatus={detail.adjustmentStatus} actions={detail.corporateActions} onOpenDataSources={onOpenDataSources} />
     {detail.snapshot ? <section className="market-quote" aria-label="Market quote"><h3>Quote</h3><p className="market-price">{detail.snapshot.lastPrice ?? 'No last price'}</p><p className="muted">{detail.snapshot.provenance.entitlement} · {detail.snapshot.provenance.freshness}</p><dl className="market-provenance"><div><dt>Provider time</dt><dd>{detail.snapshot.provenance.providerTimestamp}</dd></div><div><dt>Received</dt><dd>{detail.snapshot.provenance.receivedTimestamp}</dd></div><div><dt>Venue</dt><dd>{detail.snapshot.provenance.venue ?? 'Not supplied'}</dd></div></dl></section> : <div className="market-unavailable"><p className="muted">No quote or chart is shown until the selected source is entitled and the adapter returns a validated snapshot.</p><button type="button" onClick={onOpenDataSources}>Open Data &amp; Storage settings</button></div>}
   </section>;
 }

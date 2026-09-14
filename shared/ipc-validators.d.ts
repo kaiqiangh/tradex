@@ -6,6 +6,7 @@ declare const validators: {
   AccountMutation: (value: unknown) => boolean;
   AccountQuery: (value: unknown) => boolean;
   Accounts: (value: unknown) => boolean;
+  AdjustmentStatus: (value: unknown) => boolean;
   AgentMode: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
   AssetClass: (value: unknown) => boolean;
@@ -23,6 +24,8 @@ declare const validators: {
   ContextCatalog: (value: unknown) => boolean;
   ContextCatalogEmptyState: (value: unknown) => boolean;
   ContextCatalogEntry: (value: unknown) => boolean;
+  CorporateAction: (value: unknown) => boolean;
+  CorporateActionType: (value: unknown) => boolean;
   DataSourceCatalog: (value: unknown) => boolean;
   DataSourceEntry: (value: unknown) => boolean;
   DataSourceProbe: (value: unknown) => boolean;
@@ -49,8 +52,10 @@ declare const validators: {
   MarketEntitlement: (value: unknown) => boolean;
   MarketFreshness: (value: unknown) => boolean;
   MarketGetQuery: (value: unknown) => boolean;
+  MarketSession: (value: unknown) => boolean;
   MarketSnapshot: (value: unknown) => boolean;
   MarketSnapshotProvenance: (value: unknown) => boolean;
+  MarketState: (value: unknown) => boolean;
   MarketTier: (value: unknown) => boolean;
   ModelAttempt: (value: unknown) => boolean;
   ModelAttemptKind: (value: unknown) => boolean;

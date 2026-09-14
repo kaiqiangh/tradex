@@ -507,6 +507,37 @@ pub enum MarketDataStatus {
     Unverified,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MarketSession {
+    Open,
+    Closed,
+    ExtendedHours,
+    Halted,
+    Maintenance,
+    Suspended,
+    Degraded,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AdjustmentStatus {
+    Adjusted,
+    Unadjusted,
+    Unknown,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CorporateActionType {
+    Split,
+    Dividend,
+    SymbolChange,
+    Delisting,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MarketEntitlement {
@@ -619,6 +650,56 @@ pub struct MarketCatalog {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketState {
+    pub session: MarketSession,
+    #[schemars(length(min = 1, max = 32))]
+    pub venue: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub source_id: Option<String>,
+    pub source_status: MarketDataStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub next_open: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub next_close: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub calendar_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_time: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub time_confidence: TimeConfidence,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CorporateAction {
+    #[schemars(length(min = 1, max = 128))]
+    pub action_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub action_type: CorporateActionType,
+    #[schemars(length(min = 1, max = 64))]
+    pub effective_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub announced_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub source_id: Option<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub description: String,
+    pub adjustment_status: AdjustmentStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketDetail {
     #[schemars(length(min = 1, max = 128))]
     pub workspace_id: String,
@@ -632,6 +713,10 @@ pub struct MarketDetail {
     pub availability_reason: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snapshot: Option<MarketSnapshot>,
+    pub market_state: MarketState,
+    #[schemars(length(max = 16))]
+    pub corporate_actions: Vec<CorporateAction>,
+    pub adjustment_status: AdjustmentStatus,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -1137,6 +1222,16 @@ impl TradeXError {
                 "reload_snapshot",
                 "Review data sources",
             ),
+            "MARKET_CLOSED" => (
+                "The market session is closed or unavailable; live authority remains blocked.",
+                "view_market_state",
+                "View market state",
+            ),
+            "INSTRUMENT_HALTED" => (
+                "The instrument is halted; live authority remains blocked until the venue recovers.",
+                "view_market_state",
+                "View market state",
+            ),
             "WATCHLIST_NAME_CONFLICT" => (
                 "A watchlist with this name already exists in the workspace.",
                 "choose_watchlist_name",
@@ -1513,6 +1608,8 @@ impl TradeXError {
                     | "DATA_SOURCE_UNKNOWN"
             ) {
                 "UNSUPPORTED_CAPABILITY"
+            } else if matches!(code, "MARKET_CLOSED" | "INSTRUMENT_HALTED") {
+                code
             } else if code == "PROVIDER_PERMISSION_BLOCKED" {
                 "PERMISSION_ERROR"
             } else if matches!(
@@ -1535,6 +1632,8 @@ impl TradeXError {
                 "WORKSPACE_BUSY"
                     | "WORKSPACE_OPEN_FAILED"
                     | "MARKET_HISTORY_UNAVAILABLE"
+                    | "MARKET_CLOSED"
+                    | "INSTRUMENT_HALTED"
                     | "CLOCK_SKEW"
                     | "MODEL_UNAVAILABLE"
                     | "MODEL_OAUTH_EXPIRED"

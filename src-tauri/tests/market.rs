@@ -61,6 +61,14 @@ fn market_catalog_and_detail_preserve_identity_and_gate_entitlement() {
     );
     assert_eq!(detail["data"]["status"], "BLOCKED_EXTERNAL");
     assert!(detail["data"]["snapshot"].is_null());
+    assert_eq!(detail["data"]["marketState"]["session"], "UNKNOWN");
+    assert_eq!(
+        detail["data"]["marketState"]["sourceStatus"],
+        "BLOCKED_EXTERNAL"
+    );
+    assert_eq!(detail["data"]["marketState"]["sourceId"], "OD-005");
+    assert_eq!(detail["data"]["adjustmentStatus"], "UNAVAILABLE");
+    assert_eq!(detail["data"]["corporateActions"], json!([]));
     let crypto_detail = command(
         &mut control,
         "market.get",
@@ -70,6 +78,12 @@ fn market_catalog_and_detail_preserve_identity_and_gate_entitlement() {
     assert_eq!(crypto_detail["data"]["status"], "UNAVAILABLE");
     assert!(crypto_detail["data"]["sourceId"].is_null());
     assert!(crypto_detail["data"]["snapshot"].is_null());
+    assert_eq!(crypto_detail["data"]["marketState"]["session"], "UNKNOWN");
+    assert_eq!(
+        crypto_detail["data"]["marketState"]["sourceStatus"],
+        "UNAVAILABLE"
+    );
+    assert_eq!(crypto_detail["data"]["adjustmentStatus"], "UNKNOWN");
     let unknown = command(
         &mut control,
         "market.get",
@@ -79,9 +93,15 @@ fn market_catalog_and_detail_preserve_identity_and_gate_entitlement() {
     let malformed = command(
         &mut control,
         "market.get",
+        json!({"workspaceId":workspace_id,"instrumentId":"equity:US:AAPL","tier":"HOT","marketState":{}}),
+    );
+    assert_eq!(malformed["error"]["code"], "IPC_PAYLOAD_INVALID");
+    let invalid = command(
+        &mut control,
+        "market.get",
         json!({"workspaceId":workspace_id,"instrumentId":"AAPL","tier":"HOT"}),
     );
-    assert_eq!(malformed["error"]["code"], "MARKET_INSTRUMENT_INVALID");
+    assert_eq!(invalid["error"]["code"], "MARKET_INSTRUMENT_INVALID");
     let after = command(
         &mut control,
         "domain.snapshot",

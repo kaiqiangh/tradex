@@ -200,6 +200,22 @@ export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
 export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AdjustmentStatus".
+ */
+export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CorporateActionType".
+ */
+export type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketSession".
+ */
+export type MarketSession =
+  "OPEN" | "CLOSED" | "EXTENDED_HOURS" | "HALTED" | "MAINTENANCE" | "SUSPENDED" | "DEGRADED" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketEntitlement".
  */
 export type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
@@ -1195,13 +1211,192 @@ export interface InstrumentProviderMapping {
  * via the `definition` "MarketDetail".
  */
 export interface MarketDetail {
+  adjustmentStatus: AdjustmentStatus;
   availabilityReason: string;
+  /**
+   * @maxItems 16
+   */
+  corporateActions:
+    | []
+    | [CorporateAction]
+    | [CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ];
   instrument: Instrument;
+  marketState: MarketState;
   snapshot?: MarketSnapshot | null;
   sourceId?: string;
   status: MarketDataStatus;
   tier: MarketTier;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CorporateAction".
+ */
+export interface CorporateAction {
+  actionId: string;
+  actionType: CorporateActionType;
+  adjustmentStatus: AdjustmentStatus;
+  announcedAt?: string;
+  description: string;
+  effectiveAt: string;
+  instrumentId: string;
+  sourceId?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketState".
+ */
+export interface MarketState {
+  calendarVersion?: string;
+  nextClose?: string;
+  nextOpen?: string;
+  observedAt: string;
+  providerTime?: string;
+  reason: string;
+  session: MarketSession;
+  sourceId?: string;
+  sourceStatus: MarketDataStatus;
+  timeConfidence: TimeConfidence;
+  venue: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
