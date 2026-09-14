@@ -12,6 +12,7 @@
 - Aggregated stored account balances, positions and open orders without writing SQLite, outbox, account, model, risk or thread state. Provider fills, P&L and unsupported fields remain explicit unavailable values when an adapter does not expose them.
 - Preserved native, account and workspace value layers, configured workspace base currency, decimal-safe string arithmetic, FX source/path, provider timestamp, TradeX received timestamp, freshness, quality and stablecoin warning fields.
 - Normalized provider symbols to canonical instrument IDs at the adapter boundary, retained per-row observed time/health, omitted fabricated venues and failed closed when any contributing FX conversion was unavailable.
+- Enforced the generated snapshot limits in the production aggregator: more than 256 accounts, 512 rows or 128 FX routes returns `PROVIDER_DATA_INCOMPLETE` instead of emitting an oversized payload.
 - Added the Accounts-context Portfolio view. It is reachable from Accounts and is not a new primary navigation item. The view exposes totals, account/holding/order/fill tables, text status, `aria-live` status and inspectable FX/stablecoin provenance.
 - Added an integration-only `TRADEX_PORTFOLIO_FIXTURE` seam. The seam is enabled only with the `integration-test` feature and labels all synthetic accounts as `(fixture)`; it is unavailable to a normal desktop Control Plane.
 
