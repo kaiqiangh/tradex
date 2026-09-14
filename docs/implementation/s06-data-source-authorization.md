@@ -3,7 +3,7 @@
 日期：2026-09-13
 工作项：核实并选定所需外部数据与授权
 依赖：S02 提供方账户边界、S05 typed research 结果边界
-状态：待实现
+状态：实现中（代码与验证收口）
 
 ## Problem Statement
 
@@ -36,11 +36,11 @@ Control Plane 增加只读 `data.source.catalog` 查询和 `data.source.probe` �
 
 `data.source.probe` 接受 workspace、source ID 和 `expectedStateVersion`，只执行公开 endpoint 的 bounded metadata/health request，或在缺少用户配置时返回可解释的 `BLOCKED_EXTERNAL`。它不能写 domain state、改变 account/model/risk、启动 order gateway、读取 Keychain 明文或把 200 响应变成 entitlement。Alpaca probe 在没有已连接且允许的 source credential 时必须明确返回 `BLOCKED_EXTERNAL`；SEC/ECB 的无密钥 probe 可记录公开 HTTP 成功，但仍保留数据质量和许可限制。
 
-所有 `ResearchToolResult` 继续通过 S05 的 source/context/request marker 校验。若 source status 不是 `AVAILABLE`，typed research 结果只能是 sanitized `UNAVAILABLE`，原因必须指向 source ID 和 gate，不得拼接外部响应文本。
+所有 `ResearchToolResult` 继续通过 S05 的 source/context/request marker 校验。Control Plane 在 `research.run` 和 `turn.start` 成对校验前读取当前目录：`public_market_read` 映射 `OD-001`，`historical_simulation` 映射 `OD-002`，`account_read` 保留 S02 的内部 `control-plane:account` 健康来源。若所属 source status 不是 `AVAILABLE`，typed research 结果只能是 sanitized `UNAVAILABLE`，原因必须指向 source ID 和 gate，不得拼接外部响应文本；即使 source 可用，所属数据切片尚未实现时仍保持 `UNAVAILABLE`。
 
 ### UI and interaction
 
-在 Settings → Data & Storage 增加 “Data sources” 区域。每个 OD 项展示 provider、capability chips、checked time、latency/coverage、entitlement/terms link 和状态；`BLOCKED_EXTERNAL`/`UNAVAILABLE` 显示简洁原因和后续动作（连接/订阅/稍后重试），不提供 secret 输入框。用户可以刷新单个公开 probe，按钮在运行中禁用并显示 `Checking…`；连续失败保留上一次观察但将状态标为 stale。键盘顺序、语义按钮、焦点返回和 390/768 窄屏遵循 UI Spec §14 与 S05 的 picker 约定。
+在 Settings → Data & Storage 增加 “Data sources” 区域。每个 OD 项展示 provider、capability chips、checked time、latency/coverage、entitlement/terms link 和状态；`BLOCKED_EXTERNAL`/`UNAVAILABLE` 显示简洁原因和后续动作（连接/订阅/稍后重试），不提供 secret 输入框。用户可以刷新单个公开 probe，按钮在运行中禁用并显示 `Checking…`；连续失败保留上一次观察但将状态标为 stale。探测观察按 workspace/source 保存在当前 Control Plane 进程的内存中，renderer reload/remount 会保留，进程重启会回到静态 `UNVERIFIED`/`BLOCKED_EXTERNAL` 并要求重新探测；不会写入 SQLite、日志、响应正文或凭据。键盘顺序、语义按钮、焦点返回和 390/768 窄屏遵循 UI Spec §14 与 S05 的 picker 约定。
 
 ### User stories and acceptance
 
@@ -53,7 +53,7 @@ Control Plane 增加只读 `data.source.catalog` 查询和 `data.source.probe` �
 ## Implementation Decisions
 
 - 在现有 `protocol.rs` 添加 source catalog/probe 的双向 JSON schema，并运行 schema generator；不通过 `serde_json::Value` 绕过类型。
-- 目录使用代码内的常量政策表（少量静态决策无需新表）；`checkedAt/verifiedAt` 作为查询结果元数据，不新增第二个权威数据库。
+- 目录使用代码内的常量政策表（少量静态决策无需新表）；`checkedAt/verifiedAt` 作为查询结果元数据，观察值只在 Control Plane 进程内按 workspace/source 缓存，不新增第二个权威数据库；进程重启后按上述静态默认值重新开始。
 - 使用现有 `ControlPlane` dispatcher、`request`/runtime validator 和 Settings tab；不新增网络 client 依赖。真实 provider fetch 留给 S07–S10 的 provider adapter。
 - 公开 probe 使用现有 Rust stdlib/HTTP 边界或返回 `BLOCKED_EXTERNAL`；测试默认采用确定性 fixture response，fixture 不能产生 `AVAILABLE` 的 entitlement 结论。
 - 所有 source URLs/terms URLs 在英文规范和中文配对文档中同步；官方页面、访问日期和真实探测摘要写入本项 evidence。

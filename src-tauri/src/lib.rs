@@ -581,7 +581,7 @@ impl ControlPlane {
                     requested_tool: None,
                     requested_level: None,
                 })?;
-                let result = research::run(&input, &decision)?;
+                let result = self.run_research(&input, &decision)?;
                 Ok((json!(result), None))
             }
             "context.catalog" => {
@@ -836,6 +836,17 @@ impl ControlPlane {
         capability::decide_query(input, account.as_ref())
     }
 
+    fn run_research(
+        &self,
+        request: &protocol::ResearchToolRequest,
+        decision: &capability::CapabilityDecision,
+    ) -> Result<protocol::ResearchToolResult> {
+        let sources = self.data_source_sources(&request.workspace_id);
+        let source = research::source_id_for(&request.tool_id)
+            .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
+        research::run_with_source(request, decision, source)
+    }
+
     fn context_catalog(&self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
         self.require_workspace(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
@@ -968,7 +979,7 @@ impl ControlPlane {
                     attached_contexts.clone(),
                     invocation,
                 );
-                let expected = match research::run(&request, &capability) {
+                let expected = match self.run_research(&request, &capability) {
                     Ok(expected) => expected,
                     Err(error) if error.code == "UNSUPPORTED_CAPABILITY" => return Err(error),
                     Err(_) => return Err(TradeXError::new("RESEARCH_RESULT_INVALID")),
@@ -2832,7 +2843,13 @@ mod thread_tests {
             }),
         ));
         assert_eq!(result["ok"], true);
-        assert_eq!(result["data"]["sourceId"], "control-plane:research");
+        assert_eq!(result["data"]["sourceId"], "OD-001");
+        assert!(
+            result["data"]["payload"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("OD-001 is BLOCKED_EXTERNAL")
+        );
         assert!(
             result["data"]["marker"]
                 .as_str()

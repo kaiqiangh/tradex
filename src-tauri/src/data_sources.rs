@@ -18,9 +18,10 @@ const SOURCE_REVIEWED_AT: &str = "2026-09-13";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_RESPONSE_BYTES: usize = 1_048_576;
 const USER_AGENT: &str = "TradeX-local-research/0.1 (local workspace)";
+const SEC_CIK: &str = "0000320193";
 const SEC_SUBMISSIONS_URL: &str = "https://data.sec.gov/submissions/CIK0000320193.json";
-const SEC_XBRL_FRAMES_URL: &str =
-    "https://data.sec.gov/api/xbrl/frames/us-gaap/Revenues/USD/CY2024Q4.json";
+const SEC_XBRL_COMPANY_CONCEPT_URL: &str =
+    "https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/Revenues.json";
 const ECB_EXR_URL: &str = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?format=csvdata&lastNObservations=1";
 const SEC_RATE_WINDOW: Duration = Duration::from_secs(1);
 const SEC_RATE_LIMIT: usize = 10;
@@ -187,7 +188,7 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
     let endpoints: &[(&str, &str)] = match source_id {
         "OD-003" => &[
             ("SEC submissions", SEC_SUBMISSIONS_URL),
-            ("SEC XBRL Frames", SEC_XBRL_FRAMES_URL),
+            ("SEC XBRL Company Concept", SEC_XBRL_COMPANY_CONCEPT_URL),
         ],
         "OD-004" => &[("SEC filings", SEC_SUBMISSIONS_URL)],
         "OD-006" => &[("ECB EXR", ECB_EXR_URL)],
@@ -308,7 +309,7 @@ fn validate_public_payload(
                     let Some(filing_dates) = recent.get("filingDate") else {
                         return false;
                     };
-                    cik.len() == 10
+                    cik == SEC_CIK
                         && cik.bytes().all(|byte| byte.is_ascii_digit())
                         && valid_string_array(accessions)
                         && valid_string_array(forms)
@@ -323,33 +324,39 @@ fn validate_public_payload(
                         })
                 })
         }
-        ("OD-003", "SEC XBRL Frames") => {
+        ("OD-003", "SEC XBRL Company Concept") => {
             content_type
                 .to_ascii_lowercase()
                 .contains("application/json")
                 && serde_json::from_slice::<Value>(body).is_ok_and(|value| {
-                    value.get("taxonomy").and_then(Value::as_str) == Some("us-gaap")
+                    value.get("cik").and_then(Value::as_u64) == Some(320_193)
+                        && value.get("taxonomy").and_then(Value::as_str) == Some("us-gaap")
                         && value.get("tag").and_then(Value::as_str) == Some("Revenues")
-                        && value.get("uom").and_then(Value::as_str) == Some("USD")
+                        && value.get("entityName").and_then(Value::as_str) == Some("Apple Inc.")
                         && value
-                            .get("data")
-                            .and_then(Value::as_array)
-                            .is_some_and(|rows| {
-                                rows.iter().any(|row| {
-                                    let Some(row) = row.as_object() else {
-                                        return false;
-                                    };
-                                    let cik = row.get("cik").and_then(Value::as_u64).is_some();
-                                    let accession = row
-                                        .get("accn")
-                                        .and_then(Value::as_str)
-                                        .is_some_and(|value| !value.is_empty());
-                                    let value = row
-                                        .get("val")
-                                        .and_then(Value::as_f64)
-                                        .is_some_and(f64::is_finite);
-                                    cik && accession && value
-                                })
+                            .get("units")
+                            .and_then(Value::as_object)
+                            .is_some_and(|units| {
+                                units
+                                    .get("USD")
+                                    .and_then(Value::as_array)
+                                    .is_some_and(|rows| {
+                                        !rows.is_empty()
+                                            && rows.iter().all(|row| {
+                                                let Some(row) = row.as_object() else {
+                                                    return false;
+                                                };
+                                                let accession = row
+                                                    .get("accn")
+                                                    .and_then(Value::as_str)
+                                                    .is_some_and(|value| !value.is_empty());
+                                                let value = row
+                                                    .get("val")
+                                                    .and_then(Value::as_f64)
+                                                    .is_some_and(f64::is_finite);
+                                                accession && value
+                                            })
+                                    })
                             })
                 })
         }
@@ -357,31 +364,85 @@ fn validate_public_payload(
             if !content_type.to_ascii_lowercase().contains("text/csv") {
                 return false;
             }
-            let text = String::from_utf8_lossy(body);
+            let Ok(text) = std::str::from_utf8(body) else {
+                return false;
+            };
             let mut lines = text.lines().filter(|line| !line.trim().is_empty());
-            let Some(header) = lines.next() else {
+            let Some(header) = lines.next().and_then(parse_csv_line) else {
                 return false;
             };
-            let fields: Vec<_> = header.split(',').map(str::trim).collect();
-            let Some(time_index) = fields.iter().position(|field| *field == "TIME_PERIOD") else {
+            let Some(key_index) = header.iter().position(|field| field == "KEY") else {
                 return false;
             };
-            let Some(value_index) = fields.iter().position(|field| *field == "OBS_VALUE") else {
+            let Some(freq_index) = header.iter().position(|field| field == "FREQ") else {
                 return false;
             };
-            lines.any(|line| {
-                let columns: Vec<_> = line.split(',').map(str::trim).collect();
-                let Some(time) = columns.get(time_index) else {
-                    return false;
-                };
-                let Some(value) = columns.get(value_index) else {
-                    return false;
-                };
-                valid_iso_date(time) && value.parse::<f64>().is_ok_and(f64::is_finite)
-            })
+            let Some(currency_index) = header.iter().position(|field| field == "CURRENCY") else {
+                return false;
+            };
+            let Some(time_index) = header.iter().position(|field| field == "TIME_PERIOD") else {
+                return false;
+            };
+            let Some(value_index) = header.iter().position(|field| field == "OBS_VALUE") else {
+                return false;
+            };
+            let required_len = [
+                key_index,
+                freq_index,
+                currency_index,
+                time_index,
+                value_index,
+            ]
+            .into_iter()
+            .max()
+            .map_or(0, |index| index + 1);
+            let Some(rows) = lines
+                .map(parse_csv_line)
+                .collect::<Option<Vec<Vec<String>>>>()
+            else {
+                return false;
+            };
+            !rows.is_empty()
+                && rows.iter().all(|columns| {
+                    columns.len() == header.len()
+                        && columns.len() >= required_len
+                        && columns[key_index] == "EXR.D.USD.EUR.SP00.A"
+                        && columns[freq_index] == "D"
+                        && columns[currency_index] == "USD"
+                        && valid_iso_date(&columns[time_index])
+                        && columns[value_index]
+                            .parse::<f64>()
+                            .is_ok_and(f64::is_finite)
+                })
         }
         _ => false,
     }
+}
+
+fn parse_csv_line(line: &str) -> Option<Vec<String>> {
+    let mut fields = Vec::new();
+    let mut field = String::new();
+    let mut quoted = false;
+    let mut chars = line.chars().peekable();
+    while let Some(character) = chars.next() {
+        match character {
+            '"' if quoted && chars.peek() == Some(&'"') => {
+                field.push('"');
+                chars.next();
+            }
+            '"' => quoted = !quoted,
+            ',' if !quoted => {
+                fields.push(field.trim().to_owned());
+                field.clear();
+            }
+            _ => field.push(character),
+        }
+    }
+    if quoted {
+        return None;
+    }
+    fields.push(field.trim().to_owned());
+    Some(fields)
 }
 
 fn allow_sec_request() -> bool {
@@ -523,29 +584,47 @@ mod tests {
             "application/json",
             br#"{"cik":null,"filings":{"recent":{}}}"#
         ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC submissions",
+            "application/json",
+            br#"{"cik":"0000002969","filings":{"recent":{"accessionNumber":["0000002969-24-000001"],"form":["10-K"],"filingDate":["2024-01-01"]}}}"#
+        ));
         assert!(validate_public_payload(
             "OD-003",
-            "SEC XBRL Frames",
+            "SEC XBRL Company Concept",
             "application/json",
-            br#"{"taxonomy":"us-gaap","tag":"Revenues","uom":"USD","data":[{"cik":320193,"accn":"0000320193-24-000001","val":1}]}"#
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Apple Inc.","units":{"USD":[{"accn":"0000320193-24-000001","val":1}]}}"#
         ));
         assert!(!validate_public_payload(
             "OD-003",
-            "SEC XBRL Frames",
+            "SEC XBRL Company Concept",
             "application/json",
-            br#"{"taxonomy":"us-gaap","tag":"Revenues"}"#
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Apple Inc.","units":{"USD":[]}}"#
         ));
         assert!(!validate_public_payload(
             "OD-003",
-            "SEC XBRL Frames",
+            "SEC XBRL Company Concept",
             "application/json",
-            br#"{"taxonomy":"us-gaap","tag":"Revenues","uom":"USD","data":[null]}"#
+            br#"{"cik":999,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Other","units":{"USD":[{"accn":"x","val":1}]}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Company Concept",
+            "application/json",
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Assets","entityName":"Apple Inc.","units":{"USD":[{"accn":"x","val":1}]}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Company Concept",
+            "application/json",
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Apple Inc.","units":{"USD":[{"accn":"x","val":1},null]}}"#
         ));
         assert!(validate_public_payload(
             "OD-006",
             "ECB EXR",
             "text/csv",
-            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nD.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\n"
+            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nEXR.D.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\n"
         ));
         assert!(!validate_public_payload(
             "OD-006",
@@ -558,6 +637,12 @@ mod tests {
             "ECB EXR",
             "text/csv",
             b"KEY,TIME_PERIOD,OBS_VALUE\nD.USD.EUR.SP00.A,not-a-date,NaN\n"
+        ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
+            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nEXR.D.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\nEXR.D.USD.EUR.SP00.A,D,USD,not-a-date,1.2\n"
         ));
     }
 

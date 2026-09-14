@@ -1,15 +1,23 @@
 use crate::capability::{self, CapabilityDecision, ResearchToolId};
 use crate::protocol::{
-    AgentMode, ExecutionContext, ResearchResultState, ResearchToolPayload, ResearchToolRequest,
-    ResearchToolResult, Result, TradeXError,
+    AgentMode, DataSourceEntry, DataSourceStatus, ExecutionContext, ResearchResultState,
+    ResearchToolPayload, ResearchToolRequest, ResearchToolResult, Result, TradeXError,
 };
 use sha2::{Digest, Sha256};
 
-const SOURCE_ID: &str = "control-plane:research";
+const ACCOUNT_SOURCE_ID: &str = "control-plane:account";
 
 pub fn run(
     request: &ResearchToolRequest,
     decision: &CapabilityDecision,
+) -> Result<ResearchToolResult> {
+    run_with_source(request, decision, None)
+}
+
+pub fn run_with_source(
+    request: &ResearchToolRequest,
+    decision: &CapabilityDecision,
+    source: Option<&DataSourceEntry>,
 ) -> Result<ResearchToolResult> {
     if request.workspace_id.trim().is_empty()
         || request.workspace_id.chars().count() > 128
@@ -33,7 +41,7 @@ pub fn run(
         .strip_prefix("sha256:")
         .expect("request hash always has a sha256 prefix")
         .to_owned();
-    let reason = match request.tool_id {
+    let base_reason = match request.tool_id {
         ResearchToolId::PublicMarketRead => {
             "No public market provider is connected in S05; S07 owns market data."
         }
@@ -44,19 +52,58 @@ pub fn run(
             "No historical simulation provider is connected in S05; S15 owns backtests."
         }
     };
+    let source_id = source
+        .map(|entry| entry.source_id.clone())
+        .unwrap_or_else(|| default_source_id(&request.tool_id).into());
+    let reason = match source {
+        Some(entry) => {
+            let expected = source_id_for(&request.tool_id);
+            if expected != Some(entry.source_id.as_str()) {
+                return Err(TradeXError::new("RESEARCH_RESULT_INVALID"));
+            }
+            format!(
+                "{} is {}; {}",
+                entry.source_id,
+                status_name(&entry.status),
+                base_reason
+            )
+        }
+        None => base_reason.to_owned(),
+    };
     Ok(ResearchToolResult {
         result_id: format!("research-{}", &digest[..24]),
         tool_id: request.tool_id.clone(),
-        source_id: SOURCE_ID.into(),
+        source_id,
         account_id: request.account_id.clone(),
         request_hash,
         marker: format!("research:v1:sha256:{digest}"),
         context_refs: request.attached_contexts.clone(),
         payload: ResearchToolPayload {
             state: ResearchResultState::Unavailable,
-            reason: reason.into(),
+            reason,
         },
     })
+}
+
+pub fn source_id_for(tool: &ResearchToolId) -> Option<&'static str> {
+    match tool {
+        ResearchToolId::PublicMarketRead => Some("OD-001"),
+        ResearchToolId::HistoricalSimulation => Some("OD-002"),
+        ResearchToolId::AccountRead => None,
+    }
+}
+
+fn default_source_id(tool: &ResearchToolId) -> &'static str {
+    source_id_for(tool).unwrap_or(ACCOUNT_SOURCE_ID)
+}
+
+fn status_name(status: &DataSourceStatus) -> &'static str {
+    match status {
+        DataSourceStatus::Available => "AVAILABLE",
+        DataSourceStatus::Unavailable => "UNAVAILABLE",
+        DataSourceStatus::BlockedExternal => "BLOCKED_EXTERNAL",
+        DataSourceStatus::Unverified => "UNVERIFIED",
+    }
 }
 
 pub fn request_hash(request: &ResearchToolRequest) -> Result<String> {
