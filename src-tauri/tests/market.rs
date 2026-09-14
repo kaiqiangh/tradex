@@ -41,6 +41,14 @@ fn market_catalog_and_detail_preserve_identity_and_gate_entitlement() {
     );
     assert_eq!(default_tier_catalog["ok"], true, "{default_tier_catalog}");
     assert_eq!(default_tier_catalog["data"]["tier"], "CENSUS");
+    let crypto_catalog = command(
+        &mut control,
+        "market.catalog",
+        json!({"workspaceId":workspace_id,"query":"BTC/USDT","tier":"CENSUS"}),
+    );
+    assert_eq!(crypto_catalog["ok"], true, "{crypto_catalog}");
+    assert_eq!(crypto_catalog["data"]["status"], "UNAVAILABLE");
+    assert!(crypto_catalog["data"]["sourceId"].is_null());
     let detail = command(
         &mut control,
         "market.get",

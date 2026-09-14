@@ -1,6 +1,6 @@
 # TradeX v1.0 RevC — File Manifest / 文件清单
 
-**Generated / 生成日期:** 2026-09-12
+**Generated / 生成日期:** 2026-09-14
 
 Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions and user-approved S03 DeepSeek model clarification, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
 
@@ -21,8 +21,8 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 859 | `4a78a3a5911bf2665cee55c40a70761d921598328d3751038e98a7cd83ac3e3f` |
 | `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 951 | `d0e7a620e96240d93933f90898c71fb293c04bf24c0e2ce6f94c6a47ed78b6d8` |
 | `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 949 | `2f08e3c5c711e7dc6071406bcf9da6382b038d2aef3fda3e84b7263d51652617` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2167 | `89088075103d9bf63e0a50dc7fbaad5c8099009405fab9014e0f796a9998e41b` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2165 | `12412beee62fb21c3bc9d8c2a5d6f583c5a4b2567232674932e6e5915d69e76c` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2360 | `1db2000ce5d66de7c898e17344333702aa0dc1e2e7dc5975c8cecfa01c5ca81b` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2358 | `0aa3e876408d5f716d038e1dbe88cdf60c69105c4800ea1ddf3a7675712726cf` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 212 | `04a5c1a163f97467c3c1d736f97ea76982183bbb9a62605d1662858fc2df649e` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 212 | `025990daf57f354f831a06eb41c8df8b0cac45c519c1a0782025a7beeab4a2f4` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 177 | `42ad6359f057aa2a4fae91864de37b8b4b1de97aab87d385242a69611a4ecc1b` |

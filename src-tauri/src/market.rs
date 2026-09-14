@@ -26,7 +26,7 @@ pub struct HistoricalBar {
     pub freshness: MarketFreshness,
 }
 
-pub fn ensure_history(path: &Path) -> Result<()> {
+pub(crate) fn ensure_history(path: &Path) -> Result<()> {
     let database = path.join("market.duckdb");
     if database
         .symlink_metadata()
@@ -58,12 +58,17 @@ pub fn ensure_history(path: &Path) -> Result<()> {
         .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))
 }
 
-pub fn insert_history(
+fn insert_history(
     path: &Path,
     bar: &HistoricalBar,
     source: Option<&DataSourceEntry>,
 ) -> Result<()> {
     validate_bar(bar)?;
+    if !history_source_matches_instrument(&bar.instrument_id, &bar.source)
+        || matches!(bar.entitlement, MarketEntitlement::Realtime)
+    {
+        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE"));
+    }
     if source
         .filter(|entry| {
             entry.source_id == bar.source && entry.status == DataSourceStatus::Available
@@ -105,7 +110,7 @@ pub fn insert_history(
     Ok(())
 }
 
-pub fn history_count(path: &Path) -> Result<u64> {
+fn history_count(path: &Path) -> Result<u64> {
     ensure_history(path)?;
     let connection = Connection::open(path.join("market.duckdb"))
         .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
@@ -117,6 +122,9 @@ pub fn history_count(path: &Path) -> Result<u64> {
 
 fn validate_bar(bar: &HistoricalBar) -> Result<()> {
     if !validate_instrument_id(&bar.instrument_id)
+        || !instruments()
+            .iter()
+            .any(|instrument| instrument.instrument_id == bar.instrument_id)
         || !valid_timestamp(&bar.interval_start, true)
         || !valid_timestamp(&bar.provider_timestamp, false)
         || !valid_timestamp(&bar.received_timestamp, false)
@@ -132,6 +140,16 @@ fn validate_bar(bar: &HistoricalBar) -> Result<()> {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     Ok(())
+}
+
+fn history_source_matches_instrument(instrument_id: &str, source_id: &str) -> bool {
+    instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == instrument_id)
+        .is_some_and(|instrument| {
+            matches!(instrument.asset_class, AssetClass::Equity)
+                && matches!(source_id, "OD-001" | "OD-002")
+        })
 }
 
 fn valid_text(value: &str, max_len: usize) -> bool {
@@ -320,15 +338,10 @@ fn source_gate(
     }
 }
 
-pub fn catalog(
-    input: &MarketCatalogQuery,
-    source: Option<&DataSourceEntry>,
-) -> Result<MarketCatalog> {
+pub fn catalog(input: &MarketCatalogQuery, sources: &[DataSourceEntry]) -> Result<MarketCatalog> {
     validate_query(&input.workspace_id, &input.query)?;
-    let source_id = source_for_tier(&input.tier);
-    let (status, availability_reason) = source_gate(source, Some(source_id));
     let query = input.query.trim().to_ascii_lowercase();
-    let instruments = instruments()
+    let instruments: Vec<Instrument> = instruments()
         .into_iter()
         .filter(|instrument| {
             query.is_empty()
@@ -343,11 +356,38 @@ pub fn catalog(
                     .contains(&query)
         })
         .collect();
+    let source_id = instruments.first().and_then(|instrument| {
+        let candidate = source_id_for_instrument(&instrument.instrument_id, &input.tier);
+        candidate.filter(|source_id| {
+            instruments.iter().all(|item| {
+                source_id_for_instrument(&item.instrument_id, &input.tier) == Some(*source_id)
+            })
+        })
+    });
+    let (status, availability_reason) = match source_id {
+        Some(source_id) => {
+            let source = sources.iter().find(|entry| entry.source_id == source_id);
+            source_gate(source, Some(source_id))
+        }
+        None if instruments
+            .iter()
+            .any(|instrument| matches!(instrument.asset_class, AssetClass::CryptoSpot)) =>
+        {
+            (
+                MarketDataStatus::Unavailable,
+                "Market source is not selected for the returned crypto instruments.".into(),
+            )
+        }
+        None => (
+            MarketDataStatus::Unavailable,
+            "No canonical instruments match this search.".into(),
+        ),
+    };
     Ok(MarketCatalog {
         workspace_id: input.workspace_id.clone(),
         query: input.query.trim().into(),
         tier: input.tier.clone(),
-        source_id: Some(source_id.into()),
+        source_id: source_id.map(str::to_owned),
         status,
         availability_reason,
         instruments,
@@ -424,7 +464,7 @@ mod tests {
             query: "aapl".into(),
             tier: MarketTier::Hot,
         };
-        let catalog = catalog(&input, Some(&blocked_source("OD-001"))).unwrap();
+        let catalog = catalog(&input, &[blocked_source("OD-001")]).unwrap();
         assert_eq!(catalog.instruments.len(), 1);
         assert_eq!(catalog.instruments[0].instrument_id, "equity:US:AAPL");
         assert_eq!(catalog.status, MarketDataStatus::BlockedExternal);
@@ -478,6 +518,29 @@ mod tests {
                 .unwrap_err()
                 .code,
             "IPC_PAYLOAD_INVALID"
+        );
+    }
+
+    #[test]
+    fn history_rejects_crypto_and_realtime_entitlement() {
+        let dir = tempdir().unwrap();
+        let mut source = blocked_source("OD-002");
+        source.status = DataSourceStatus::Available;
+        let mut bar = history_bar();
+        bar.instrument_id = "crypto:BTC/USDT:spot".into();
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "MARKET_HISTORY_UNAVAILABLE"
+        );
+        let mut bar = history_bar();
+        bar.entitlement = MarketEntitlement::Realtime;
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "MARKET_HISTORY_UNAVAILABLE"
         );
     }
 
