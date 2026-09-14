@@ -3,7 +3,7 @@
 日期：2026-09-14  
 工作项：浏览真实行情并管理 Watchlists  
 依赖：S01 本地工作区、S06 数据源授权目录  
-状态：S07 #27 市场目录、详情与历史边界已实现；Watchlists CRUD 由 #28 串行交付
+状态：S07 #27 市场目录、详情与历史边界、#28 Watchlists CRUD 均已实现；真实 provider entitlement 与 S33 全应用回归仍按门禁保留
 
 ## Problem Statement
 
@@ -36,6 +36,8 @@ Add typed Rust protocol objects:
 - `Watchlist`, `WatchlistItem` and `Watchlists` provide versioned local state. `watchlist.create`, `watchlist.rename`, `watchlist.delete`, `watchlist.add` and `watchlist.remove` use `expectedStateVersion` for mutations.
 
 SQLite schema version 7 adds a `watchlists` projection table keyed by workspace and watchlist ID. Each projection includes ordered canonical members and a monotonic `stateVersion`; a uniqueness constraint prevents duplicate names in one workspace. Existing workspace, account and thread migrations remain transactional and back up before migration.
+
+Watchlists are a workspace-scoped local collection projection. Their SQLite row and projection metadata commit atomically with per-list CAS; they intentionally do not participate in the financial/agent-authority `DomainProjection` outbox or `domain.snapshot`/`domain.subscribe` surface in v1.0. `watchlist.list` remains the authoritative read after mutation and reopen.
 
 DuckDB lives beside `workspace.sqlite3` as `market.duckdb`. It is opened only by the market data layer and contains the bounded `ohlcv_1m`/historical tables with canonical `instrument_id`, source, venue, provider timestamp, received timestamp, entitlement and freshness columns. SQLite owns no analytical rows. When OD-002 is unavailable, the database stays empty and the UI explains why.
 
