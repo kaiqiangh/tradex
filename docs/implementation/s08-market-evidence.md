@@ -1,7 +1,7 @@
 # S08 #31 Market session / corporate-action acceptance evidence
 
 验证日期：2026-09-14
-固定实现代码点：`813a75a00497d7746167c3876583f80e07b0193b`
+固定实现代码点：`de7b5eee14c522bac374b81ddc4cf2b32fdd2165`（包含初始 market detail 边界 `813a75a00497d7746167c3876583f80e07b0193b`）
 桌面 Clippy 修复点：`dc8e8c2e4b2efa59e98320f2ecdf297108d0e199`（`ReplyData::MarketDetail` 装箱；wire schema 未变化）
 证据记录提交点：ece04c5de3413aa13bf7437729ad9b701a31b4f3
 浏览器地址：`http://127.0.0.1:1420/`（integration mode，隔离临时 workspace）
@@ -10,13 +10,14 @@
 
 - `MarketDetail` 新增 typed `MarketState`、有界 `CorporateAction[]` 和 `AdjustmentStatus`；枚举覆盖 equity session、crypto venue failure 与 split/dividend/symbol-change/delisting。
 - `market.get` 读取 workspace-scoped TimeService confidence 和 OD-005 calendar/corporate-action source gate。当前 OD-005 为 `BLOCKED_EXTERNAL`，AAPL 明确返回 `UNKNOWN` / `BLOCKED_EXTERNAL` / `UNAVAILABLE`，crypto 明确返回 `UNKNOWN` / `UNAVAILABLE`；没有 source 时不推断 `OPEN`、next boundary 或 adjusted history。
-- corporate-action validation 拒绝未知 canonical instrument、重复 action ID、控制字符、无效 RFC 3339 时间和超过 16 条记录；不写 SQLite、DuckDB、outbox、account、risk 或 thread。
-- `market_execution_eligibility` 先消费 `TimeService::require_trusted`，再将 `CLOSED` / `HALTED` 映射为 `MARKET_CLOSED` / `INSTRUMENT_HALTED`；maintenance、suspended、degraded、unknown 继续 fail closed。当前 S08 不实现 order、approval、risk、reservation 或 gateway。
+- bounded market-state observation seam validates source/venue/time fields and covers equity regular/holiday/half-day/extended/closed/halted plus crypto maintenance/suspended/degraded fixtures; blocked sources still return UNKNOWN/UNAVAILABLE.
+- corporate-action validation rejects unknown canonical instrument, duplicate action ID, control characters, invalid RFC 3339 time and more than 16 records, then orders accepted records by effective time/action ID; no SQLite, DuckDB, outbox, account, risk or thread writes occur.
+- `market_execution_eligibility` first consumes `TimeService::require_trusted`, then requires an AVAILABLE source and known adjustment before allowing OPEN/EXTENDED_HOURS; CLOSED/HALTED map to `MARKET_CLOSED`/`INSTRUMENT_HALTED`, and maintenance/suspended/degraded/unknown remain fail closed. Current S08 does not implement order, approval, risk, reservation or gateway.
 
 ## 检查命令
 
 - `npm run schema:check`、`npm run typecheck`：通过，Rust / JSON Schema / TypeScript 一致。
-- `cargo test -p tradex --lib market::tests -- --nocapture`：6/6 通过（source gate、session gate、duplicate/timestamp validation、既有历史边界）。
+- `cargo test -p tradex --lib market::tests -- --nocapture`：8/8 通过（source gate、fixture session taxonomy、eligibility source/adjustment gate、duplicate/timestamp validation、既有历史边界）。
 - `cargo test -p tradex --test market -- --nocapture`：2/2 通过（typed detail、workspace/domain read-only、unknown field fail closed）。
 - `npm run check`：通过；schema、build、4 个前端单测、workspace Rust tests、requirements traceability 均通过。
 - desktop `cargo check`、desktop clippy、`cargo fmt --all -- --check`、`git diff --check`：通过。
