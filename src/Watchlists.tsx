@@ -67,6 +67,7 @@ export function Watchlists({ workspaceId }: { workspaceId: string }) {
   const [busy, setBusy] = useState(false);
   const [catalogTerm, setCatalogTerm] = useState('');
   const [error, setError] = useState<unknown>();
+  const [notice, setNotice] = useState('');
   useEffect(() => {
     const lists = state.data?.watchlists ?? [];
     if (!lists.some(list => list.watchlistId === selectedId)) setSelectedId(lists[0]?.watchlistId);
@@ -75,23 +76,23 @@ export function Watchlists({ workspaceId }: { workspaceId: string }) {
   const refresh = async () => { await queryClient.invalidateQueries({ queryKey: ['watchlists', workspaceId] }); };
   const submitCreate = async (event: FormEvent) => {
     event.preventDefault();
-    setBusy(true); setError(undefined);
-    try { const created = await request('watchlist.create', { workspaceId, name: newName }); await refresh(); setSelectedId(created.watchlistId); setNewName(''); setCreating(false); } catch (nextError) { setError(nextError); } finally { setBusy(false); }
+    setBusy(true); setError(undefined); setNotice('');
+    try { const created = await request('watchlist.create', { workspaceId, name: newName }); await refresh(); setSelectedId(created.watchlistId); setNewName(''); setCreating(false); setNotice(`Created “${created.name}”.`); } catch (nextError) { setError(nextError); } finally { setBusy(false); }
   };
   const rename = async (name: string) => {
     if (!selected) return;
-    setBusy(true); setError(undefined);
-    try { await request('watchlist.rename', { workspaceId, watchlistId: selected.watchlistId, name, expectedStateVersion: selected.stateVersion }); await refresh(); } catch (nextError) { setError(nextError); throw nextError; } finally { setBusy(false); }
+    setBusy(true); setError(undefined); setNotice('');
+    try { await request('watchlist.rename', { workspaceId, watchlistId: selected.watchlistId, name, expectedStateVersion: selected.stateVersion }); await refresh(); setNotice('Watchlist renamed.'); } catch (nextError) { setError(nextError); throw nextError; } finally { setBusy(false); }
   };
   const removeList = async () => {
     if (!selected) return;
-    setBusy(true); setError(undefined);
-    try { await request('watchlist.delete', { workspaceId, watchlistId: selected.watchlistId, expectedStateVersion: selected.stateVersion }); await refresh(); } catch (nextError) { setError(nextError); } finally { setBusy(false); }
+    setBusy(true); setError(undefined); setNotice('');
+    try { await request('watchlist.delete', { workspaceId, watchlistId: selected.watchlistId, expectedStateVersion: selected.stateVersion }); await refresh(); setNotice('Watchlist deleted.'); } catch (nextError) { setError(nextError); } finally { setBusy(false); }
   };
   const memberMutation = async (instrumentId: string, command: 'watchlist.add' | 'watchlist.remove') => {
     if (!selected) return;
-    setBusy(true); setError(undefined);
-    try { await request(command, { workspaceId, watchlistId: selected.watchlistId, instrumentId, expectedStateVersion: selected.stateVersion }); await refresh(); } catch (nextError) { setError(nextError); } finally { setBusy(false); }
+    setBusy(true); setError(undefined); setNotice('');
+    try { await request(command, { workspaceId, watchlistId: selected.watchlistId, instrumentId, expectedStateVersion: selected.stateVersion }); await refresh(); setNotice(command === 'watchlist.add' ? 'Instrument added.' : 'Instrument removed.'); } catch (nextError) { setError(nextError); } finally { setBusy(false); }
   };
-  return <><div className="page-heading"><h1>Watchlists</h1><p>Keep ordered canonical instruments in the local workspace. Refresh is on demand and coarse.</p></div>{state.isPending ? <p role="status">Loading watchlists…</p> : state.error ? <div className="error-banner" role="alert"><div><strong>Watchlists need attention</strong><p>{explainError(state.error)}</p></div><button type="button" onClick={() => { void state.refetch(); }}>Reload watchlists</button></div> : state.data ? <><div className="watchlist-toolbar"><button className="primary" type="button" onClick={() => setCreating(value => !value)} disabled={busy}>{creating ? 'Cancel new watchlist' : 'New watchlist'}</button>{creating && <form className="watchlist-create-form" onSubmit={submitCreate}><label htmlFor="watchlist-new-name">New watchlist name</label><div><input id="watchlist-new-name" value={newName} maxLength={80} onChange={event => setNewName(event.target.value)} placeholder="e.g. Core equities" /><button className="primary" type="submit" disabled={busy || !newName.trim()}>Create</button></div></form>}</div>{error && <div className="watchlist-error" role="alert"><p>{mutationMessage(error)}</p><button type="button" onClick={() => { setError(undefined); void state.refetch(); }}>Reload</button></div>}<div className="watchlists-layout"><Library state={state.data} selectedId={selectedId} onSelect={setSelectedId} />{selected ? <Detail workspaceId={workspaceId} list={selected} catalogTerm={catalogTerm} setCatalogTerm={setCatalogTerm} onRename={rename} onDelete={removeList} onAdd={instrumentId => memberMutation(instrumentId, 'watchlist.add')} onRemove={instrumentId => memberMutation(instrumentId, 'watchlist.remove')} busy={busy} /> : <section className="card watchlist-detail-empty"><h2>{state.data.watchlists.length ? 'Select a watchlist' : 'Create your first watchlist'}</h2><p>{state.data.watchlists.length ? 'Choose a list from the library to inspect members and manage it.' : 'Your list will be stored in SQLite and available after the workspace reopens.'}</p></section>}</div></> : null}</>;
+  return <><div className="page-heading"><h1>Watchlists</h1><p>Keep ordered canonical instruments in the local workspace. Refresh is on demand and coarse.</p></div>{state.isPending ? <p role="status">Loading watchlists…</p> : state.error ? <div className="error-banner" role="alert"><div><strong>Watchlists need attention</strong><p>{explainError(state.error)}</p></div><button type="button" onClick={() => { void state.refetch(); }}>Reload watchlists</button></div> : state.data ? <><div className="watchlist-toolbar"><button className="primary" type="button" onClick={() => setCreating(value => !value)} disabled={busy}>{creating ? 'Cancel new watchlist' : 'New watchlist'}</button>{creating && <form className="watchlist-create-form" onSubmit={submitCreate}><label htmlFor="watchlist-new-name">New watchlist name</label><div><input id="watchlist-new-name" value={newName} maxLength={80} onChange={event => setNewName(event.target.value)} placeholder="e.g. Core equities" /><button className="primary" type="submit" disabled={busy || !newName.trim()}>Create</button></div></form>}</div>{notice && <p className="watchlist-success" role="status" aria-live="polite">{notice}</p>}{error && <div className="watchlist-error" role="alert"><p>{mutationMessage(error)}</p><button type="button" onClick={() => { setError(undefined); void state.refetch(); }}>Reload</button></div>}<div className="watchlists-layout"><Library state={state.data} selectedId={selectedId} onSelect={setSelectedId} />{selected ? <Detail workspaceId={workspaceId} list={selected} catalogTerm={catalogTerm} setCatalogTerm={setCatalogTerm} onRename={rename} onDelete={removeList} onAdd={instrumentId => memberMutation(instrumentId, 'watchlist.add')} onRemove={instrumentId => memberMutation(instrumentId, 'watchlist.remove')} busy={busy} /> : <section className="card watchlist-detail-empty"><h2>{state.data.watchlists.length ? 'Select a watchlist' : 'Create your first watchlist'}</h2><p>{state.data.watchlists.length ? 'Choose a list from the library to inspect members and manage it.' : 'Your list will be stored in SQLite and available after the workspace reopens.'}</p></section>}</div></> : null}</>;
 }
