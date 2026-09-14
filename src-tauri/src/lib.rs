@@ -16,6 +16,7 @@ pub mod providers;
 pub mod research;
 pub mod risk;
 mod storage;
+pub mod time;
 
 use capability::CapabilityQuery;
 use protocol::{
@@ -223,6 +224,7 @@ pub struct ControlPlane {
     subscribers: HashMap<(String, String, String), EventSink>,
     data_source_observations: HashMap<(String, String), protocol::DataSourceEntry>,
     session: String,
+    time: time::TimeService,
 }
 
 impl ControlPlane {
@@ -233,6 +235,7 @@ impl ControlPlane {
             subscribers: HashMap::new(),
             data_source_observations: HashMap::new(),
             session: uuid::Uuid::new_v4().to_string(),
+            time: time::TimeService::new(),
         }
     }
 
@@ -330,6 +333,8 @@ impl ControlPlane {
                     market::ensure_history(&self.store.as_ref().unwrap().path)?;
                     self.reconcile_running_turns()?;
                     let event = self.store.as_mut().unwrap().record_open()?;
+                    let workspace_id = event.aggregate_id.clone();
+                    self.time.reset(&workspace_id);
                     self.publish(&event);
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     Ok((json!(event.payload), Some(version)))
@@ -357,11 +362,25 @@ impl ControlPlane {
                     self.store = Some(store);
                     self.reconcile_running_turns()?;
                     let event = self.store.as_mut().unwrap().record_open()?;
+                    let workspace_id = event.aggregate_id.clone();
+                    self.time.reset(&workspace_id);
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.subscribers.clear();
                     self.session = uuid::Uuid::new_v4().to_string();
                     Ok((json!(event.payload), Some(version)))
                 }
+            }
+            "time.status" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let status = self.time.status(&input.workspace_id)?;
+                Ok((json!(status), None))
+            }
+            "time.revalidate" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let status = self.time.revalidate(&input.workspace_id)?;
+                Ok((json!(status), None))
             }
             "model.get_gateway" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
@@ -1968,7 +1987,7 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         if matches!(&action, model::ModelAction::VerifyRoute { .. })
-            && previous.retry_blocked(&provider, time::OffsetDateTime::now_utc())
+            && previous.retry_blocked(&provider, ::time::OffsetDateTime::now_utc())
         {
             return Err(TradeXError::new("MODEL_QUOTA_COOLDOWN"));
         }

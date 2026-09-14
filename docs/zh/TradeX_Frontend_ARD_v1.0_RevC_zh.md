@@ -557,7 +557,11 @@ interface MarketSnapshotProvenance {
 
 只要 market data 参与 live authority decision，approval view 就必须展示完整 provenance。
 
-### 13.3 FX/stablecoin provenance
+### 13.3 Trusted time health
+
+Settings / Account Health 展示 workspace-scoped 的 `time.status`，以语义状态呈现 wall-clock、monotonic reading、provider offset、observed timestamp、有限长度 reason；当 confidence 为 `CLOCK_UNCERTAIN` 或 `STALE` 时提供键盘可达的 `time.revalidate` 动作。面板使用 `role="status"` 与 `aria-live="polite"`，保留可见焦点，并在 768 px 与 390 px 保持同样的阻塞原因。renderer 不能覆盖后端读数；只有 Control Plane 报告 `TRUSTED` 后 Live eligibility 才能恢复。
+
+### 13.4 FX/stablecoin provenance
 
 跨账户归一化必须展示：
 

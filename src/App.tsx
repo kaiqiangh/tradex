@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createPortal } from 'react-dom';
-import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
+import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TimeStatus, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -474,6 +474,47 @@ function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPo
   return <RiskDefaults workspaceId={workspace.workspaceId} baseCurrency={workspace.baseCurrency} state={risk} draft={draft} onDraftChange={setDraft} />;
 }
 
+function TimeHealth({ workspaceId }: { workspaceId: string }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const actionRef = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  const status = useQuery({
+    queryKey: ['time-status', workspaceId],
+    queryFn: () => request('time.status', { workspaceId }),
+    refetchInterval: 10_000,
+  });
+  const current = status.data as TimeStatus | undefined;
+  const revalidate = async () => {
+    restoreFocus.current = document.activeElement === actionRef.current;
+    setBusy(true); setError(undefined);
+    try {
+      const refreshed = await request('time.revalidate', { workspaceId });
+      queryClient.setQueryData(['time-status', workspaceId], refreshed);
+    } catch (failure) {
+      setError(explainError(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (!busy && restoreFocus.current) {
+      restoreFocus.current = false;
+      actionRef.current?.focus();
+    }
+  }, [busy]);
+  if (status.isPending) return <p role="status">Checking trusted time…</p>;
+  if (status.isError || !current) return <div className="error-banner" role="alert"><div><strong>Trusted time needs attention</strong><p>{explainError(status.error)}</p></div><button type="button" onClick={() => void status.refetch()}>Reload time status</button></div>;
+  return <section className="time-health" aria-labelledby="time-health-title">
+    <div className="account-heading"><div><h3 id="time-health-title">Trusted time</h3><p className="muted">Live freshness and TTL decisions use this Control Plane reading.</p></div><span className={`badge time-confidence-${current.confidence.toLowerCase()}`} role="status" aria-live="polite">{current.confidence.replaceAll('_', ' ')}</span></div>
+    <p className="notice" role="status" aria-live="polite">{current.reason}</p>
+    <dl className="health-grid"><div><dt>Wall clock</dt><dd><time dateTime={current.wallClock}>{current.wallClock}</time></dd></div><div><dt>Monotonic reading</dt><dd>{current.monotonicMs} ms</dd></div><div><dt>Provider offset</dt><dd>{current.providerOffsetMs == null ? 'Unavailable' : `${current.providerOffsetMs} ms`}</dd></div><div><dt>Observed</dt><dd><time dateTime={current.observedAt}>{current.observedAt}</time></dd></div></dl>
+    <button ref={actionRef} type="button" className="primary" onClick={() => void revalidate()} disabled={busy}>{busy ? 'Synchronizing…' : 'Synchronize time'}</button>
+    {error && <p className="error-text" role="alert">{error}</p>}
+  </section>;
+}
+
 function Onboarding({ workspace, risk, model, modelError, reloadModel, runtime, onCompleted }: { workspace: Workspace; risk?: RiskPolicyState; model?: ModelState; modelError?: unknown; reloadModel: () => Promise<unknown>; runtime?: RuntimeStatus; onCompleted: () => void }) {
   const accounts = useQuery({ queryKey: ['accounts', workspace.workspaceId, 'onboarding'], queryFn: () => request('account.list', { workspaceId: workspace.workspaceId }) });
   const [draft, setDraft] = useState<RiskDraft>();
@@ -598,6 +639,7 @@ export default function App() {
                 <button key={tab} aria-pressed={settingsTab === tab} onClick={() => setSettingsTab(tab)}>{tab}</button>)}</div>
               <section className="card settings-section"><h2>{settingsTab}</h2>
                 {workspace && (settingsTab === 'Providers & Models' || settingsTab === 'Account Health') && <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} healthOnly={settingsTab === 'Account Health'} />}
+                {workspace && settingsTab === 'Account Health' && <TimeHealth workspaceId={workspace.workspaceId} />}
                 {workspace && settingsTab === 'Providers & Models' && <Models key={`models:${workspace.workspaceId}`} workspaceId={workspace.workspaceId} model={model} modelError={modelProjection.error} reloadModel={modelProjection.reload} />}
                 {settingsTab === 'Providers & Models' || settingsTab === 'About' ? <>
                   <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : modelReady ? 'A verified model route is available; agent turns remain disabled until Codex App Server is configured.' : modelState.reason}</p>

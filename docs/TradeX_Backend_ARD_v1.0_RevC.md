@@ -1658,6 +1658,8 @@ workspace.export
 workspace.import
 runtime.status
 runtime.restart_sidecar
+time.status
+time.revalidate
 ```
 
 ### Agent capability
@@ -2123,6 +2125,21 @@ interface Watchlists {
 Every payload rejects undeclared fields, control characters and overlong values. Names are trimmed, bounded and case-insensitively unique per workspace; membership uses only canonical instrument IDs and preserves insertion order. A mutation requires the exact per-list `expectedStateVersion`; a stale cursor returns `STATE_STALE / STATE_VERSION_CONFLICT` without mutation. Add/remove of an already-present/absent member is idempotent. The bounded limits are 128 lists per workspace and 256 members per list. Sanitized errors are `WATCHLIST_NAME_CONFLICT`, `WATCHLIST_NOT_FOUND`, `MARKET_INSTRUMENT_INVALID`, `MARKET_INSTRUMENT_NOT_FOUND`, `STATE_VERSION_CONFLICT` and `IPC_PAYLOAD_INVALID`.
 
 Each mutation commits the projection and its table metadata in one immediate SQLite transaction. It never stores credentials or quotes and never changes account, model, risk or thread versions. `watchlist.list` is the authoritative read after mutation and workspace reopen. Watchlists intentionally do not use `DomainProjection`, the outbox, or `domain.snapshot`/`domain.subscribe` in v1.0; §42 event/replay applies to financial and agent-authority aggregates. If cross-window live synchronization is introduced, promote this collection to an evented aggregate and add the replay/snapshot contract before enabling it.
+
+### 41.12 Trusted time payloads (S08)
+
+`time.status` and `time.revalidate` are workspace-scoped, read-only runtime queries. Both accept `{workspaceId: string}` and return `TimeStatus`:
+
+~~~ts
+type TimeConfidence = "TRUSTED" | "CLOCK_UNCERTAIN" | "STALE";
+interface TimeStatus {
+  workspaceId: string; confidence: TimeConfidence; wallClock: string;
+  monotonicMs: number; providerOffsetMs?: number; observedAt: string;
+  reason: string; remediation: { id: string; label: string };
+}
+~~~
+
+The Rust Control Plane compares UTC wall-clock and monotonic elapsed time using a documented 2,000 ms tolerance and bounds provider/server offset at 5,000 ms. Workspace open, process restart, and resume reset trust; the first status remains `CLOCK_UNCERTAIN` until an explicit `time.revalidate` establishes a valid baseline. Material wall-clock divergence, monotonic rollback, or an out-of-bound provider offset returns `CLOCK_UNCERTAIN` or `STALE`, with `CLOCK_SKEW` remediation `time_revalidate`. Time readings are process-scoped and never enter SQLite, DomainProjection, outbox, account, risk, approval, or thread state. Future freshness/TTL/approval/dispatch paths must consume `TimeService::require_trusted`; the renderer cannot supply a clock override.
 
 ## 42. Backend-to-Frontend Event Surface
 

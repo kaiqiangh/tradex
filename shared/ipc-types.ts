@@ -143,6 +143,7 @@ export type ReplyData =
   | Workspace
   | Snapshot
   | RuntimeStatus
+  | TimeStatus
   | SubscriptionAck
   | Thread
   | ThreadList
@@ -162,6 +163,11 @@ export type ReplyData =
   | Watchlist
   | Watchlists
   | ResearchToolResult;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TimeConfidence".
+ */
+export type TimeConfidence = "TRUSTED" | "CLOCK_UNCERTAIN" | "STALE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ToolId".
@@ -243,6 +249,7 @@ export interface IpcSchema {
   subscribe: Subscribe;
   threadCreate: ThreadCreate;
   threadQuery: ThreadQuery;
+  timeStatus: TimeStatus;
   turnCancel: TurnCancel;
   turnRetry: TurnRetry;
   turnStart: TurnStart;
@@ -857,6 +864,28 @@ export interface RuntimeComponent {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TimeStatus".
+ */
+export interface TimeStatus {
+  confidence: TimeConfidence;
+  monotonicMs: number;
+  observedAt: string;
+  providerOffsetMs?: number | null;
+  reason: string;
+  remediation: Remediation;
+  wallClock: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Remediation".
+ */
+export interface Remediation {
+  id: string;
+  label: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SubscriptionAck".
  */
 export interface SubscriptionAck {
@@ -1252,14 +1281,6 @@ export interface TradeXError {
   message: string;
   remediationActions: Remediation[];
   retryable: boolean;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "Remediation".
- */
-export interface Remediation {
-  id: string;
-  label: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

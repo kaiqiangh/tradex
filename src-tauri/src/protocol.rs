@@ -79,6 +79,33 @@ pub struct RuntimeStatus {
     pub live_execution_available: bool,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TimeConfidence {
+    Trusted,
+    ClockUncertain,
+    Stale,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TimeStatus {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub confidence: TimeConfidence,
+    #[schemars(length(min = 1, max = 64))]
+    pub wall_clock: String,
+    #[schemars(range(min = 0, max = 9_007_199_254_740_991_u64))]
+    pub monotonic_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_offset_ms: Option<i64>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+    pub remediation: Remediation,
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Aggregate {
@@ -137,6 +164,7 @@ pub enum ReplyData {
     Workspace(Workspace),
     Snapshot(Snapshot),
     Runtime(RuntimeStatus),
+    Time(TimeStatus),
     Subscription(SubscriptionAck),
     Thread(Box<Thread>),
     Threads(ThreadList),
@@ -201,6 +229,7 @@ pub struct IpcSchema {
     pub aggregate: Aggregate,
     pub subscribe: Subscribe,
     pub empty: EmptyPayload,
+    pub time_status: TimeStatus,
     pub provider_selection: ProviderSelection,
     pub workspace_query: WorkspaceQuery,
     pub account_query: AccountQuery,
@@ -1006,7 +1035,7 @@ pub struct Snapshot {
     pub last_sequence: u64,
 }
 
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Remediation {
     #[schemars(length(min = 1))]
@@ -1159,9 +1188,9 @@ impl TradeXError {
                 "Retry connection",
             ),
             "CLOCK_SKEW" => (
-                "Provider signing time could not be validated. Saved observations were preserved.",
-                "retry_provider",
-                "Check connectivity and retry server-time synchronization",
+                "TradeX time could not be trusted. Live authority decisions remain blocked.",
+                "time_revalidate",
+                "Synchronize time",
             ),
             "PROVIDER_RESPONSE_INVALID" => (
                 "The provider response could not be validated. Saved observations were preserved.",
@@ -1506,6 +1535,7 @@ impl TradeXError {
                 "WORKSPACE_BUSY"
                     | "WORKSPACE_OPEN_FAILED"
                     | "MARKET_HISTORY_UNAVAILABLE"
+                    | "CLOCK_SKEW"
                     | "MODEL_UNAVAILABLE"
                     | "MODEL_OAUTH_EXPIRED"
                     | "MODEL_QUOTA_EXCEEDED"

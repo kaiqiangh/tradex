@@ -557,7 +557,11 @@ interface MarketSnapshotProvenance {
 
 Live approval views require the full provenance block when market data participates in authority decisions.
 
-### 13.3 FX/stablecoin provenance
+### 13.3 Trusted time health
+
+Settings / Account Health renders the workspace-scoped `time.status` result as a semantic status with wall-clock, monotonic reading, provider offset, observed timestamp, bounded reason, and a keyboard-accessible `time.revalidate` action whenever confidence is `CLOCK_UNCERTAIN` or `STALE`. The panel uses `role="status"` with `aria-live="polite"`, keeps focus visible, and preserves the same blocking reason at 768 px and 390 px. Renderer state cannot override the backend reading; Live eligibility remains unavailable until the Control Plane reports `TRUSTED`.
+
+### 13.4 FX/stablecoin provenance
 
 Portfolio normalization surfaces:
 

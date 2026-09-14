@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -26,6 +26,8 @@ interface Inputs {
   'account.refresh': AccountMutation;
   'workspace.open': OpenWorkspace;
   'runtime.status': EmptyPayload;
+  'time.status': WorkspaceQuery;
+  'time.revalidate': WorkspaceQuery;
   'domain.snapshot': Aggregate;
   'domain.subscribe': Subscribe;
   'thread.list': WorkspaceQuery;
@@ -72,6 +74,8 @@ interface Outputs {
   'account.refresh': AccountConnection;
   'workspace.open': Workspace;
   'runtime.status': RuntimeStatus;
+  'time.status': TimeStatus;
+  'time.revalidate': TimeStatus;
   'domain.snapshot': Snapshot;
   'domain.subscribe': SubscriptionAck;
   'thread.list': ThreadList;
@@ -118,6 +122,8 @@ const definitions = {
   'account.refresh': ['AccountMutation', 'AccountConnection'],
   'workspace.open': ['OpenWorkspace', 'Workspace'],
   'runtime.status': ['EmptyPayload', 'RuntimeStatus'],
+  'time.status': ['WorkspaceQuery', 'TimeStatus'],
+  'time.revalidate': ['WorkspaceQuery', 'TimeStatus'],
   'domain.snapshot': ['Aggregate', 'Snapshot'],
   'domain.subscribe': ['Subscribe', 'SubscriptionAck'],
   'thread.list': ['WorkspaceQuery', 'ThreadList'],

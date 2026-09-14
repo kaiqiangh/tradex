@@ -1658,6 +1658,8 @@ workspace.export
 workspace.import
 runtime.status
 runtime.restart_sidecar
+time.status
+time.revalidate
 ```
 
 ### Agent capability
@@ -2123,6 +2125,21 @@ interface Watchlists {
 每个 payload 都拒绝未声明字段、控制字符和超长值。Name 会 trim、有界并在 workspace 内大小写不敏感地唯一；membership 只使用 canonical instrument ID 并保留插入顺序。mutation 必须携带该 list 精确的 `expectedStateVersion`；陈旧游标返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态。对已存在/不存在成员的 add/remove 是幂等的。上限为每 workspace 128 个 list、每 list 256 个成员。脱敏错误包括 `WATCHLIST_NAME_CONFLICT`、`WATCHLIST_NOT_FOUND`、`MARKET_INSTRUMENT_INVALID`、`MARKET_INSTRUMENT_NOT_FOUND`、`STATE_VERSION_CONFLICT` 和 `IPC_PAYLOAD_INVALID`。
 
 每个 mutation 在一个 immediate SQLite transaction 中同时提交 projection 与表元数据。它绝不存储 credential 或 quote，也不改变 account、model、risk 或 thread 版本。mutation 和 workspace reopen 后，`watchlist.list` 是权威读取。V1.0 中 Watchlists 有意不使用 `DomainProjection`、outbox 或 `domain.snapshot`/`domain.subscribe`；§42 的 event/replay 适用于 financial 和 agent-authority aggregate。如果未来需要跨窗口实时同步，应先将该 collection 提升为 evented aggregate，并补充 replay/snapshot 契约后再启用。
+
+### 41.12 Trusted time payload（S08）
+
+`time.status` 与 `time.revalidate` 是 workspace-scoped、只读的运行时查询。两者都接收 `{workspaceId: string}`，返回 `TimeStatus`：
+
+~~~ts
+type TimeConfidence = "TRUSTED" | "CLOCK_UNCERTAIN" | "STALE";
+interface TimeStatus {
+  workspaceId: string; confidence: TimeConfidence; wallClock: string;
+  monotonicMs: number; providerOffsetMs?: number; observedAt: string;
+  reason: string; remediation: { id: string; label: string };
+}
+~~~
+
+Rust Control Plane 使用文档化的 2,000 ms 容差比较 UTC wall-clock 与 monotonic elapsed，并将 provider/server offset 限制在 5,000 ms。workspace open、进程重启和 resume 都会重置 trust；首次 status 在显式执行 `time.revalidate` 建立有效基准前保持 `CLOCK_UNCERTAIN`。wall-clock 重大偏离、monotonic 回退或超界 provider offset 返回 `CLOCK_UNCERTAIN` 或 `STALE`，并以 `CLOCK_SKEW`/`time_revalidate` 提供 remediation。时间读数只存在进程内，绝不写入 SQLite、DomainProjection、outbox、account、risk、approval 或 thread 状态。未来 freshness/TTL/approval/dispatch 路径必须消费 `TimeService::require_trusted`；renderer 不能传入时钟覆盖。
 
 ## 42. Backend-to-Frontend Event Surface
 
