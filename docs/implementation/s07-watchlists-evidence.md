@@ -1,8 +1,8 @@
 # S07 #28 Watchlists CRUD 验收证据
 
-验证日期：2026-09-14  
-固定实现代码点：`1e157ae`
-前端播报代码点：`318936a9888d5f1c8500352b488001b12d81f1cd`  
+验证日期：2026-09-14
+固定实现代码点：`1e157ae0623cdcf2139a25cf8b878b720ccdbc8b`
+前端播报代码点：`318936a9888d5f1c8500352b488001b12d81f1cd`
 浏览器地址：`http://127.0.0.1:1420/`（integration mode，隔离临时 workspace）
 
 ## Rust、协议与持久化
@@ -11,7 +11,7 @@
 - `cargo test --test watchlists -- --nocapture`：3/3 通过。
   - `watchlists_are_versioned_ordered_idempotent_and_persistent` 覆盖空列表、create、大小写不敏感重名、canonical AAPL/MSFT 有序 add、重复 add/remove 幂等、stale remove 无变更、rename、未知 instrument、删除及删除后 not-found；删除前关闭并重开 workspace，确认重开的非空列表仍含 `equity:US:MSFT`。
   - `watchlist_schema_rejects_unknown_fields_and_invalid_names` 还验证 Unicode `Ångström`/`ångström` 重名被拒绝，避免 SQLite ASCII-only `NOCASE` 漏洞。
-  - `watchlist_schema_rejects_unknown_fields_and_invalid_names` 覆盖未知字段、控制字符名称，以及 SQLite 表 `name` 与 JSON projection 名称篡改时的 `WORKSPACE_INTEGRITY_FAILED`。
+  - `watchlist_schema_rejects_unknown_fields_and_invalid_names` 覆盖未知字段、控制字符名称，以及 SQLite 表 `name` 列篡改触发的 projection 完整性 `WORKSPACE_INTEGRITY_FAILED`。
   - `schema_six_workspaces_migrate_watchlists_transactionally` 覆盖 schema 6→7 迁移和重开。
 - `cargo fmt --all`：通过；`git diff --check`：通过。
 - Watchlist projection 只包含 list 元数据与 canonical member IDs，不包含 credentials、quotes 或 provider response。每次 mutation 在一个 immediate SQLite transaction 中执行 per-list CAS；不写账户、模型、风险、Thread 或 outbox/event 状态。该 v1.0 collection boundary 与双语 Backend ARD §41.11 一致。

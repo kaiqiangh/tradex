@@ -1,8 +1,8 @@
 # S07 行情浏览与 Watchlists 规范
 
-日期：2026-09-14  
-工作项：浏览真实行情并管理 Watchlists  
-依赖：S01 本地工作区、S06 数据源授权目录  
+日期：2026-09-14
+工作项：浏览真实行情并管理 Watchlists
+依赖：S01 本地工作区、S06 数据源授权目录
 状态：S07 #27 市场目录、详情与历史边界、#28 Watchlists CRUD 均已实现；真实 provider entitlement 与 S33 全应用回归仍按门禁保留
 
 ## Problem Statement
