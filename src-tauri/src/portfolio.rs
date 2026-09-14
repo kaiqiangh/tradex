@@ -70,12 +70,7 @@ fn actual_snapshot(
             .iter()
             .find(|balance| account_currency.is_some_and(|currency| balance.asset == currency));
         let cash = cash_balance
-            .and_then(|balance| {
-                balance
-                    .total
-                    .as_deref()
-                    .or(Some(balance.available.as_str()))
-            })
+            .map(|balance| balance.available.as_str())
             .map(|value| {
                 value_from_parts(
                     Some(value),
@@ -89,7 +84,12 @@ fn actual_snapshot(
             })
             .transpose()?;
         let equity = cash_balance
-            .and_then(|balance| balance.total.as_deref())
+            .and_then(|balance| {
+                balance
+                    .total
+                    .as_deref()
+                    .or(Some(balance.available.as_str()))
+            })
             .map(|value| {
                 value_from_parts(
                     Some(value),
@@ -622,6 +622,15 @@ fn value_from_parts(
                 time_status,
             )),
         ),
+        (Some(_), None) => (
+            None,
+            Some(unavailable_fx(
+                "UNKNOWN",
+                base_currency,
+                fx_source,
+                time_status,
+            )),
+        ),
         _ => (None, None),
     };
     Ok(PortfolioValue {
@@ -1025,5 +1034,16 @@ mod tests {
         assert_eq!(snapshot.status, PortfolioStatus::Unavailable);
         assert!(snapshot.totals.equity.workspace_value.is_none());
         assert!(snapshot.fills.is_none());
+    }
+
+    #[test]
+    fn unknown_native_currency_keeps_an_unavailable_fx_route() {
+        let value =
+            value_from_parts(Some("12.5"), None, None, "USD", None, &time_status(), false).unwrap();
+        assert!(value.workspace_value.is_none());
+        assert_eq!(
+            value.fx_provenance.as_ref().unwrap().pair_path,
+            "UNKNOWN -> USD"
+        );
     }
 }
