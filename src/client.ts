@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -39,6 +39,8 @@ interface Inputs {
   'research.run': ResearchToolRequest;
   'data.source.catalog': WorkspaceQuery;
   'data.source.probe': DataSourceProbe;
+  'market.catalog': MarketCatalogQuery;
+  'market.get': MarketGetQuery;
 }
 interface Outputs {
   'model.get_gateway': GatewayState;
@@ -77,6 +79,8 @@ interface Outputs {
   'research.run': ResearchToolResult;
   'data.source.catalog': DataSourceCatalog;
   'data.source.probe': DataSourceCatalog;
+  'market.catalog': MarketCatalog;
+  'market.get': MarketDetail;
 }
 const definitions = {
   'model.get_gateway': ['WorkspaceQuery', 'GatewayState'],
@@ -115,6 +119,8 @@ const definitions = {
   'research.run': ['ResearchToolRequest', 'ResearchToolResult'],
   'data.source.catalog': ['WorkspaceQuery', 'DataSourceCatalog'],
   'data.source.probe': ['DataSourceProbe', 'DataSourceCatalog'],
+  'market.catalog': ['MarketCatalogQuery', 'MarketCatalog'],
+  'market.get': ['MarketGetQuery', 'MarketDetail'],
 } as const;
 
 export const browserIntegration = import.meta.env.MODE === 'integration';

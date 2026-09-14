@@ -40,6 +40,7 @@ tauri = { version = "=2.11.5", optional = true, features = [] }
 tauri-plugin-dialog = { version = "=2.7.3", optional = true }
 reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "native-tls-no-alpn"] }
 zeroize = "=1.9.0"
+duckdb = { version = "=1.10505.0", features = ["bundled"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"

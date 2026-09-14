@@ -96,6 +96,11 @@ export type TurnStatus = "RUNNING" | "COMPLETED" | "CANCELLED" | "INTERRUPTED" |
 export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketTier".
+ */
+export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Connect".
  */
 export type Connect =
@@ -152,6 +157,8 @@ export type ReplyData =
   | CapabilityDecision
   | ContextCatalog
   | DataSourceCatalog
+  | MarketCatalog
+  | MarketDetail
   | ResearchToolResult;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -173,6 +180,26 @@ export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
  * via the `definition` "DataSourceStatus".
  */
 export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AssetClass".
+ */
+export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketDataStatus".
+ */
+export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketEntitlement".
+ */
+export type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketFreshness".
+ */
+export type MarketFreshness = "HEALTHY" | "STALE" | "CLOCK_UNCERTAIN";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
@@ -197,6 +224,8 @@ export interface IpcSchema {
   empty: EmptyPayload;
   event: DomainEvent;
   gatewayMutation: GatewayMutation;
+  marketCatalogQuery: MarketCatalogQuery;
+  marketGetQuery: MarketGetQuery;
   modelQuery: ModelQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
@@ -701,6 +730,24 @@ export interface GatewayMutation {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketCatalogQuery".
+ */
+export interface MarketCatalogQuery {
+  query?: string;
+  tier: MarketTier;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketGetQuery".
+ */
+export interface MarketGetQuery {
+  instrumentId: string;
+  tier: MarketTier;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelQuery".
  */
 export interface ModelQuery {
@@ -1026,6 +1073,124 @@ export interface DataSourceEntry {
   status: DataSourceStatus;
   termsUrl: string;
   verifiedAt?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketCatalog".
+ */
+export interface MarketCatalog {
+  availabilityReason: string;
+  /**
+   * @maxItems 256
+   */
+  instruments: Instrument[];
+  query: string;
+  sourceId?: string;
+  status: MarketDataStatus;
+  tier: MarketTier;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Instrument".
+ */
+export interface Instrument {
+  assetClass: AssetClass;
+  base?: string;
+  currency: string;
+  displayName: string;
+  exchange?: string;
+  instrumentId: string;
+  /**
+   * @maxItems 8
+   */
+  providers:
+    | []
+    | [InstrumentProviderMapping]
+    | [InstrumentProviderMapping, InstrumentProviderMapping]
+    | [InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping]
+    | [InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ];
+  quote?: string;
+  symbol: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "InstrumentProviderMapping".
+ */
+export interface InstrumentProviderMapping {
+  providerId: string;
+  providerSymbol: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketDetail".
+ */
+export interface MarketDetail {
+  availabilityReason: string;
+  instrument: Instrument;
+  snapshot?: MarketSnapshot | null;
+  sourceId?: string;
+  status: MarketDataStatus;
+  tier: MarketTier;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketSnapshot".
+ */
+export interface MarketSnapshot {
+  ask?: string;
+  bid?: string;
+  instrumentId: string;
+  lastPrice?: string;
+  provenance: MarketSnapshotProvenance;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketSnapshotProvenance".
+ */
+export interface MarketSnapshotProvenance {
+  entitlement: MarketEntitlement;
+  freshness: MarketFreshness;
+  marketSnapshotId: string;
+  providerTimestamp: string;
+  receivedTimestamp: string;
+  source: string;
+  venue?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

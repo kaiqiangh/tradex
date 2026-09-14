@@ -9,6 +9,7 @@ import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
 import { RiskDefaults, draftFromPolicy, type RiskDraft } from './RiskDefaults.tsx';
 import { DataSources } from './DataSources.tsx';
+import { Markets } from './Markets.tsx';
 import { fromModelSnapshot, fromRiskSnapshot, fromThreadSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -606,10 +607,11 @@ export default function App() {
               </section>
             </>}
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}
-            {page !== 'New Thread' && page !== 'Threads' && page !== 'Settings' && page !== 'Accounts' && <>
+            {page === 'Markets' && workspace && <Markets workspaceId={workspace.workspaceId} />}
+            {page !== 'New Thread' && page !== 'Threads' && page !== 'Settings' && page !== 'Accounts' && page !== 'Markets' && <>
               <div className="page-heading"><h1>{page}</h1></div>
-              <section className="card empty-page"><h2>{page === 'Markets' ? 'Market data is not connected' : page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
-                <p>{page === 'Markets' ? 'Provider connections are not available in this build. No account or market data has been loaded.' : 'This workflow is not available in this build. Your local workspace is ready for the next setup steps.'}</p>
+              <section className="card empty-page"><h2>{page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
+                <p>This workflow is not available in this build. Your local workspace is ready for the next setup steps.</p>
                 <button onClick={() => navigate('Settings')}>Open settings</button>
               </section>
             </>}

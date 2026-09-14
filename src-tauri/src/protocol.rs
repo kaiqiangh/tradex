@@ -151,6 +151,8 @@ pub enum ReplyData {
     Capability(CapabilityDecision),
     ContextCatalog(ContextCatalog),
     DataSourceCatalog(DataSourceCatalog),
+    MarketCatalog(MarketCatalog),
+    MarketDetail(MarketDetail),
     ResearchResult(ResearchToolResult),
 }
 
@@ -212,6 +214,8 @@ pub struct IpcSchema {
     pub research_result: ResearchToolResult,
     pub data_source_query: DataSourceQuery,
     pub data_source_probe: DataSourceProbe,
+    pub market_catalog_query: MarketCatalogQuery,
+    pub market_get_query: MarketGetQuery,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -449,6 +453,151 @@ pub struct DataSourceCatalog {
     pub sources: Vec<DataSourceEntry>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MarketTier {
+    Census,
+    Warm,
+    Hot,
+    Cold,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MarketDataStatus {
+    Available,
+    Unavailable,
+    BlockedExternal,
+    Unverified,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MarketEntitlement {
+    Realtime,
+    Delayed,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MarketFreshness {
+    Healthy,
+    Stale,
+    ClockUncertain,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AssetClass {
+    Equity,
+    CryptoSpot,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InstrumentProviderMapping {
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_symbol: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Instrument {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub asset_class: AssetClass,
+    #[schemars(length(min = 1, max = 32))]
+    pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub base: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub quote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 16))]
+    pub exchange: Option<String>,
+    #[schemars(regex(pattern = "^[A-Z][A-Z0-9]{2,7}$"))]
+    pub currency: String,
+    #[schemars(length(min = 1, max = 160))]
+    pub display_name: String,
+    #[schemars(length(max = 8))]
+    pub providers: Vec<InstrumentProviderMapping>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketSnapshotProvenance {
+    #[schemars(length(min = 1, max = 128))]
+    pub market_snapshot_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub venue: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_timestamp: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub received_timestamp: String,
+    pub entitlement: MarketEntitlement,
+    pub freshness: MarketFreshness,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketSnapshot {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub provenance: MarketSnapshotProvenance,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub last_price: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub bid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub ask: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketCatalog {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(max = 120))]
+    pub query: String,
+    pub tier: MarketTier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub source_id: Option<String>,
+    pub status: MarketDataStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[schemars(length(max = 256))]
+    pub instruments: Vec<Instrument>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketDetail {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub instrument: Instrument,
+    pub tier: MarketTier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub source_id: Option<String>,
+    pub status: MarketDataStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<MarketSnapshot>,
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DataSourceQuery {
@@ -465,6 +614,27 @@ pub struct DataSourceProbe {
     pub source_id: String,
     #[schemars(length(min = 1, max = 256))]
     pub expected_state_version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketCatalogQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[serde(default)]
+    #[schemars(length(max = 120))]
+    pub query: String,
+    pub tier: MarketTier,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketGetQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub tier: MarketTier,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -830,6 +1000,21 @@ impl TradeXError {
                 "The data source probe could not be completed. No source data was changed.",
                 "retry_request",
                 "Retry probe",
+            ),
+            "MARKET_INSTRUMENT_INVALID" => (
+                "That instrument identifier is not a supported canonical TradeX ID.",
+                "reload_snapshot",
+                "Reload market catalog",
+            ),
+            "MARKET_INSTRUMENT_NOT_FOUND" => (
+                "The selected instrument is not in the current catalog.",
+                "reload_snapshot",
+                "Reload market catalog",
+            ),
+            "MARKET_HISTORY_LIMIT" => (
+                "The local historical cache reached its bounded storage limit.",
+                "retry_request",
+                "Retry after cleanup",
             ),
             "PROVIDER_ALREADY_CONNECTED" => (
                 "This account is already connected in this environment. Use the existing connection.",

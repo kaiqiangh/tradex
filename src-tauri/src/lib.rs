@@ -4,6 +4,7 @@ pub mod data_sources;
 pub mod gateway;
 #[cfg(target_os = "macos")]
 pub mod gateway_process;
+pub mod market;
 pub mod model;
 #[cfg(target_os = "macos")]
 pub mod model_credentials;
@@ -19,9 +20,10 @@ mod storage;
 use capability::CapabilityQuery;
 use protocol::{
     Aggregate, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload,
-    EventSink, MAX_SEQUENCE, OpenWorkspace, ResearchToolRequest, Result, RuntimeComponent,
-    RuntimeStatus, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
-    ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, OpenWorkspace,
+    ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, Subscribe, Thread, ThreadCreate,
+    ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError,
+    TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -332,6 +334,7 @@ impl ControlPlane {
                     Ok((json!(event.payload), Some(version)))
                 } else {
                     let mut store = Store::open(path, &input)?;
+                    market::ensure_history(&store.path)?;
                     store.mark_accounts_stale()?;
                     store.save_gateway(gateway::GatewayState::stopped(store.workspace_id()?))?;
                     let mut model = store.model_or_new()?;
@@ -604,6 +607,30 @@ impl ControlPlane {
                         snapshot.aggregate_id, snapshot.last_sequence
                     )),
                 ))
+            }
+            "market.catalog" => {
+                let input: MarketCatalogQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let source_id = match &input.tier {
+                    protocol::MarketTier::Cold => "OD-002",
+                    _ => "OD-001",
+                };
+                let sources = self.data_source_sources(&input.workspace_id);
+                let source = sources.iter().find(|entry| entry.source_id == source_id);
+                let catalog = market::catalog(&input, source)?;
+                Ok((json!(catalog), None))
+            }
+            "market.get" => {
+                let input: MarketGetQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let source_id = match &input.tier {
+                    protocol::MarketTier::Cold => "OD-002",
+                    _ => "OD-001",
+                };
+                let sources = self.data_source_sources(&input.workspace_id);
+                let source = sources.iter().find(|entry| entry.source_id == source_id);
+                let detail = market::detail(&input, source)?;
+                Ok((json!(detail), None))
             }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;

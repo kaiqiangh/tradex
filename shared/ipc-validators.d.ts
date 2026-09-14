@@ -8,6 +8,7 @@ declare const validators: {
   Accounts: (value: unknown) => boolean;
   AgentMode: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
+  AssetClass: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
   CapabilityDecision: (value: unknown) => boolean;
   CapabilityLevel: (value: unknown) => boolean;
@@ -38,7 +39,19 @@ declare const validators: {
   GatewayState: (value: unknown) => boolean;
   GatewayStatus: (value: unknown) => boolean;
   HardSafetyRule: (value: unknown) => boolean;
+  Instrument: (value: unknown) => boolean;
+  InstrumentProviderMapping: (value: unknown) => boolean;
   ItemStatus: (value: unknown) => boolean;
+  MarketCatalog: (value: unknown) => boolean;
+  MarketCatalogQuery: (value: unknown) => boolean;
+  MarketDataStatus: (value: unknown) => boolean;
+  MarketDetail: (value: unknown) => boolean;
+  MarketEntitlement: (value: unknown) => boolean;
+  MarketFreshness: (value: unknown) => boolean;
+  MarketGetQuery: (value: unknown) => boolean;
+  MarketSnapshot: (value: unknown) => boolean;
+  MarketSnapshotProvenance: (value: unknown) => boolean;
+  MarketTier: (value: unknown) => boolean;
   ModelAttempt: (value: unknown) => boolean;
   ModelAttemptKind: (value: unknown) => boolean;
   ModelAttemptOutcome: (value: unknown) => boolean;
