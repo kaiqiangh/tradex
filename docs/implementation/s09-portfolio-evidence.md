@@ -39,6 +39,7 @@ The focused portfolio checks include exact signed decimal addition/multiplicatio
 - canonical `equity:US:AAPL`, `crypto:BTC/USDT:spot`, `equity:US:MSFT` holdings plus an explicit `UNAVAILABLE` native balance, open orders and a fill;
 - EUR → USD, USDT → USD and USD → USD routes with source, path, rate, provider timestamp, TradeX received timestamp, freshness and quality;
 - visible `USDT is not USD` depeg warning and `Live risk: Blocked` reason.
+- Post-fix spot check at `dbbed1e` shows the unavailable native USDT balance is excluded from the fixture exposure total (`55712 USD`); the UI layout and console checks remain unchanged because this fix is Rust-only.
 
 Measured document widths were equal to the viewport at 1280, 768 and 390 pixels (`overflow: false`). The browser console contained no `warn` or `error` entries. The temporary tab was closed, the viewport override reset, and the Vite/Rust bridge process stopped after verification. The user-owned browser tab was not opened or modified.
 
