@@ -1,6 +1,6 @@
 # S06 / #24–#25 数据源与授权验收
 
-状态：**已实现，待票据关闭（2026-09-14）**。分支：`dev`。实现基线：`32aee84`（包含 `05d39c4` 与 `8247e06` 的研究 source fail-closed 修复）。Code-review 固定起点：`f172f81`。
+状态：**已验收（2026-09-14）**。分支：`dev`。实现基线：`32aee84`（包含 `05d39c4` 与 `8247e06` 的研究 source fail-closed 修复）；文档收口提交：`10fb933`。Code-review 固定起点：`f172f81`。
 
 ## 交付
 
@@ -37,6 +37,6 @@
 ## 双轴审查
 
 - **Standards：PASS** — `32aee84` 明确 Company Concept 来源、严格响应校验、研究 gate、workspace/source 隔离、进程缓存边界和生成 schema；未发现标准或 smell finding。
-- **Spec：待最终复审** — 实现与 S06 policy、probe、研究 gate、UI 与进程边界均已覆盖；复审结论写入票据关闭评论。
+- **Spec：PASS** — 独立复审确认 S06 policy、probe、研究 gate、UI 与进程边界均有实现和证据。
 
 S06 不提供真实行情、fundamentals/news/calendar/FX producer、付费订阅、key 编辑或任何 Live 授权；这些仍由后续 S07–S35 负责。下一前沿为 S07，当前不创建 dev→main PR。
