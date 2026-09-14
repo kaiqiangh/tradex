@@ -3,7 +3,7 @@
 验证日期：2026-09-14
 固定实现代码点：`90060eab99f26fe8218da4dc6666d6e061ee4314`（包含初始 market detail 边界 `813a75a00497d7746167c3876583f80e07b0193b`、权威门禁修复 `de7b5eee14c522bac374b81ddc4cf2b32fdd2165`）
 桌面 Clippy 修复点：`dc8e8c2e4b2efa59e98320f2ecdf297108d0e199`（`ReplyData::MarketDetail` 装箱；wire schema 未变化）
-证据记录提交点：ece04c5de3413aa13bf7437729ad9b701a31b4f3
+证据记录提交点：ce15da5774f5a30288e929b67331ba4ac2df2730
 浏览器地址：`http://127.0.0.1:1420/`（integration mode，隔离临时 workspace）
 
 ## Rust、协议与边界
