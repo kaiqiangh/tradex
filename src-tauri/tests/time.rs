@@ -42,6 +42,18 @@ fn time_commands_are_workspace_scoped_and_do_not_mutate_domain_state() {
         before
     );
 
+    control.resume();
+    let after_resume = command(
+        &mut control,
+        "time.status",
+        json!({"workspaceId":workspace_id}),
+    );
+    assert_eq!(after_resume["data"]["confidence"], "CLOCK_UNCERTAIN");
+    assert_eq!(
+        command(&mut control, "domain.snapshot", aggregate.clone()),
+        before
+    );
+
     let malformed = command(
         &mut control,
         "time.status",
