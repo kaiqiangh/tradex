@@ -19,7 +19,7 @@ pub fn get(
     time_status: &TimeStatus,
     fixture: bool,
 ) -> Result<PortfolioSnapshot> {
-    if !valid_workspace_id(workspace_id) || !valid_currency(base_currency) {
+    if !valid_workspace_id(workspace_id) || !valid_base_currency(base_currency) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     if time_status.workspace_id != workspace_id {
@@ -870,6 +870,10 @@ fn valid_currency(value: &str) -> bool {
             .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
 }
 
+fn valid_base_currency(value: &str) -> bool {
+    value.len() == 3 && value.bytes().all(|byte| byte.is_ascii_uppercase())
+}
+
 fn normalize_decimal(value: &str) -> Result<String> {
     crate::provider_io::decimal(&Value::String(value.into()))
 }
@@ -1074,6 +1078,12 @@ mod tests {
         let snapshot = get("w", "GBP", &[], None, &time_status(), true).unwrap();
         assert_eq!(snapshot.status, PortfolioStatus::Degraded);
         assert!(snapshot.totals.equity.workspace_value.is_none());
+    }
+
+    #[test]
+    fn invalid_base_currency_cannot_escape_snapshot_schema() {
+        let error = get("w", "USDT", &[], None, &time_status(), false).unwrap_err();
+        assert_eq!(error.code, "IPC_PAYLOAD_INVALID");
     }
 
     #[test]
