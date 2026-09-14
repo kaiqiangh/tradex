@@ -871,7 +871,7 @@ impl Store {
         let mut query = self
             .connection
             .prepare(
-                "SELECT watchlist_id,workspace_id,sequence,projection FROM watchlists WHERE workspace_id=?1 ORDER BY name COLLATE NOCASE,watchlist_id",
+                "SELECT watchlist_id,workspace_id,name,sequence,projection FROM watchlists WHERE workspace_id=?1 ORDER BY name COLLATE NOCASE,watchlist_id",
             )
             .map_err(storage_error)?;
         let rows = query
@@ -879,21 +879,23 @@ impl Store {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
                 ))
             })
             .map_err(storage_error)?;
         let mut lists = Vec::new();
         let mut max_sequence = 0_i64;
         for row in rows {
-            let (watchlist_id, row_workspace_id, sequence, projection) =
+            let (watchlist_id, row_workspace_id, row_name, sequence, projection) =
                 row.map_err(storage_error)?;
             max_sequence = max_sequence.max(sequence);
             lists.push(decode_watchlist(
                 &projection,
                 &watchlist_id,
                 &row_workspace_id,
+                &row_name,
                 sequence,
                 &workspace_id,
             )?);
@@ -1118,11 +1120,11 @@ fn load_watchlist_tx(
     workspace_id: &str,
     watchlist_id: &str,
 ) -> Result<Watchlist> {
-    let (row_workspace_id, sequence, projection): (String, i64, String) = tx
+    let (row_workspace_id, row_name, sequence, projection): (String, String, i64, String) = tx
         .query_row(
-            "SELECT workspace_id,sequence,projection FROM watchlists WHERE workspace_id=?1 AND watchlist_id=?2",
+            "SELECT workspace_id,name,sequence,projection FROM watchlists WHERE workspace_id=?1 AND watchlist_id=?2",
             params![workspace_id, watchlist_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
         .map_err(|error| {
             if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
@@ -1135,6 +1137,7 @@ fn load_watchlist_tx(
         &projection,
         watchlist_id,
         &row_workspace_id,
+        &row_name,
         sequence,
         workspace_id,
     )
@@ -1183,6 +1186,7 @@ fn decode_watchlist(
     projection: &str,
     row_id: &str,
     row_workspace_id: &str,
+    row_name: &str,
     sequence: i64,
     workspace_id: &str,
 ) -> Result<Watchlist> {
@@ -1193,6 +1197,7 @@ fn decode_watchlist(
         .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
     if watchlist.watchlist_id != row_id
         || watchlist.workspace_id != row_workspace_id
+        || watchlist.name != row_name
         || row_workspace_id != workspace_id
         || watchlist.state_version != format!("watchlist:{}:{}", row_id, sequence)
         || watchlist.name.trim() != watchlist.name

@@ -198,7 +198,8 @@ fn watchlists_are_versioned_ordered_idempotent_and_persistent() {
 #[test]
 fn watchlist_schema_rejects_unknown_fields_and_invalid_names() {
     let directory = tempfile::tempdir().unwrap();
-    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
     let opened = command(&mut control, "workspace.open", json!({}));
     let workspace_id = opened["data"]["workspaceId"].clone();
     let invalid = command(
@@ -213,6 +214,29 @@ fn watchlist_schema_rejects_unknown_fields_and_invalid_names() {
         json!({"workspaceId": workspace_id, "extra": true}),
     );
     assert_eq!(unknown["error"]["code"], "IPC_PAYLOAD_INVALID");
+
+    let created = command(
+        &mut control,
+        "watchlist.create",
+        json!({"workspaceId": workspace_id, "name": "Integrity check"}),
+    );
+    assert_eq!(created["ok"], true, "{created}");
+    drop(control);
+    let database = path.join("workspace.sqlite3");
+    let connection = rusqlite::Connection::open(database).unwrap();
+    connection
+        .execute("UPDATE watchlists SET name='Tampered column'", [])
+        .unwrap();
+    drop(connection);
+    let mut tampered = ControlPlane::new(path);
+    let reopened = command(&mut tampered, "workspace.open", json!({}));
+    assert_eq!(reopened["ok"], true, "{reopened}");
+    let listed = command(
+        &mut tampered,
+        "watchlist.list",
+        json!({"workspaceId": workspace_id}),
+    );
+    assert_eq!(listed["error"]["code"], "WORKSPACE_INTEGRITY_FAILED");
 }
 
 #[test]
