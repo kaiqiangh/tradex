@@ -180,7 +180,7 @@ pub enum ReplyData {
     ContextCatalog(ContextCatalog),
     DataSourceCatalog(DataSourceCatalog),
     MarketCatalog(MarketCatalog),
-    MarketDetail(MarketDetail),
+    MarketDetail(Box<MarketDetail>),
     Watchlist(Box<Watchlist>),
     Watchlists(Watchlists),
     ResearchResult(ResearchToolResult),
