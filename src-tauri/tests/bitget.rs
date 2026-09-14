@@ -159,6 +159,11 @@ fn live_lifecycle(vault: &impl CredentialVault) {
     assert_eq!(a["data"]["balances"][0]["restrictedAvailable"], "7");
     let orders = a["data"]["openOrders"].as_array().unwrap();
     assert_eq!(orders.len(), 103);
+    assert!(
+        orders
+            .iter()
+            .all(|order| order["instrumentId"] == "crypto:BTC/USDT:spot")
+    );
     assert_eq!(orders[100]["quantity"], "0.1234567890123456789");
     assert!(orders[100]["notional"].is_null());
     assert_eq!(orders[101]["kind"], "TPSL");

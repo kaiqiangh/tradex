@@ -65,6 +65,11 @@ fn lifecycle(vault: &impl CredentialVault) {
         );
         assert_eq!(a["data"]["positions"][0]["marketValue"], Value::Null);
         assert_eq!(a["data"]["openOrders"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            a["data"]["openOrders"][0]["instrumentId"],
+            "crypto:BTC/USDT:spot"
+        );
+        assert!(a["data"]["openOrders"][1]["instrumentId"].is_null());
         assert_ne!(
             a["data"]["openOrders"][0]["brokerOrderId"],
             a["data"]["openOrders"][1]["brokerOrderId"]

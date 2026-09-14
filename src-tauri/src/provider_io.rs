@@ -299,22 +299,26 @@ impl ProviderJob {
                 return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
             }
             if endpoint.is_bitget() {
-                return bitget::read(
+                let mut observation = bitget::read(
                     endpoint,
                     &values,
                     http,
                     &current,
                     self.account.data.as_ref(),
-                );
+                )?;
+                normalize_account_data(&mut observation.data, &self.account.provider_id);
+                return Ok(observation);
             }
             if endpoint.is_binance() {
-                return binance::read(
+                let mut observation = binance::read(
                     endpoint,
                     &values,
                     http,
                     &current,
                     self.account.data.as_ref(),
-                );
+                )?;
+                normalize_account_data(&mut observation.data, &self.account.provider_id);
+                return Ok(observation);
             }
             let mut auth = HeaderMap::new();
             if endpoint == ProviderEndpoint::AlpacaPaper {
