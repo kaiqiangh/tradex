@@ -1,14 +1,19 @@
 use crate::protocol::{
     AssetClass, DataSourceEntry, DataSourceStatus, Instrument, InstrumentProviderMapping,
-    MarketCatalog, MarketCatalogQuery, MarketDataStatus, MarketDetail, MarketEntitlement,
-    MarketFreshness, MarketGetQuery, MarketTier, Result, TradeXError,
+    MarketCatalog, MarketCatalogQuery, MarketDataStatus, MarketDetail, MarketGetQuery, MarketTier,
+    Result, TradeXError,
 };
+#[cfg(test)]
+use crate::protocol::{MarketEntitlement, MarketFreshness};
 use duckdb::Connection;
 use std::path::Path;
+#[cfg(test)]
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
+#[cfg(test)]
 const MAX_HISTORY_ROWS: usize = 100_000;
 
+#[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HistoricalBar {
     pub instrument_id: String,
@@ -58,7 +63,8 @@ pub(crate) fn ensure_history(path: &Path) -> Result<()> {
         .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))
 }
 
-fn insert_history(
+#[cfg(test)]
+pub(crate) fn insert_history(
     path: &Path,
     bar: &HistoricalBar,
     source: Option<&DataSourceEntry>,
@@ -110,7 +116,8 @@ fn insert_history(
     Ok(())
 }
 
-fn history_count(path: &Path) -> Result<u64> {
+#[cfg(test)]
+pub(crate) fn history_count(path: &Path) -> Result<u64> {
     ensure_history(path)?;
     let connection = Connection::open(path.join("market.duckdb"))
         .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
@@ -120,6 +127,7 @@ fn history_count(path: &Path) -> Result<u64> {
     u64::try_from(count).map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
 }
 
+#[cfg(test)]
 fn validate_bar(bar: &HistoricalBar) -> Result<()> {
     if !validate_instrument_id(&bar.instrument_id)
         || !instruments()
@@ -142,6 +150,7 @@ fn validate_bar(bar: &HistoricalBar) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn history_source_matches_instrument(instrument_id: &str, source_id: &str) -> bool {
     instruments()
         .into_iter()
@@ -156,6 +165,7 @@ fn valid_text(value: &str, max_len: usize) -> bool {
     !value.is_empty() && value.len() <= max_len && !value.chars().any(char::is_control)
 }
 
+#[cfg(test)]
 fn valid_identifier(value: &str, max_len: usize) -> bool {
     valid_text(value, max_len)
         && value.bytes().all(|byte| {
@@ -163,6 +173,7 @@ fn valid_identifier(value: &str, max_len: usize) -> bool {
         })
 }
 
+#[cfg(test)]
 fn valid_timestamp(value: &str, minute_boundary: bool) -> bool {
     if !valid_text(value, 64) {
         return false;
@@ -173,6 +184,7 @@ fn valid_timestamp(value: &str, minute_boundary: bool) -> bool {
     !minute_boundary || (timestamp.second() == 0 && timestamp.nanosecond() == 0)
 }
 
+#[cfg(test)]
 fn valid_decimal(value: &str) -> bool {
     let Ok(normalized) = crate::provider_io::decimal(&serde_json::Value::String(value.into()))
     else {
