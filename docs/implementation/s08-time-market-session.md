@@ -2,7 +2,7 @@
 
 日期：2026-09-14
 前置：S06 数据源授权目录、S07 canonical market/Watchlists
-状态：待拆票；S08 仅在该规范和实现票据完成后进入下一项
+状态：已拆为 #30（可信时间门禁）与 #31（市场时段、停牌与公司行为）；#30 已实现并待审查，#31 依赖 #30
 
 ## Problem Statement
 
@@ -79,4 +79,3 @@ TradeX 已能用 canonical instrument ID 浏览 Markets 和管理 Watchlists，�
 - S06 的 OD-005 状态仍是 BLOCKED_EXTERNAL；这份规范明确分离“状态契约/fixture 验证”和真实数据授权。
 - S07 的 MarketDetail 继续保留原有 snapshot optional 语义；新增 market state 不会把 unavailable source 变成 quote。
 - 完成 S08 后，必须记录精确 implementation SHA、证据 SHA、运行命令、未运行的外部验证，并把 C6/K6/QA-04 追踪状态更新为实现证据而不是 prototype PASS。
-
