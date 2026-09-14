@@ -2,6 +2,7 @@
 
 验证日期：2026-09-14
 固定实现代码点：`813a75a00497d7746167c3876583f80e07b0193b`
+桌面 Clippy 修复点：`dc8e8c2e4b2efa59e98320f2ecdf297108d0e199`（`ReplyData::MarketDetail` 装箱；wire schema 未变化）
 证据记录提交点：ece04c5de3413aa13bf7437729ad9b701a31b4f3
 浏览器地址：`http://127.0.0.1:1420/`（integration mode，隔离临时 workspace）
 
