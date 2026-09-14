@@ -13,7 +13,7 @@ TradeX 已能在 workspace 内保存 provider account，并在账户详情显示
 | ID | Requirement | Acceptance boundary |
 |---|---|---|
 | S09-R1 | Read-only cross-account portfolio snapshot | Workspace-scoped `portfolio.get` aggregates stored account observations without changing SQLite domain state, outbox, account/model/risk/thread versions or credentials. |
-| S09-R2 | Canonical identity and value layers | Each position/holding retains account/connection identity, canonical instrument or explicit asset identity, venue, native amount/currency, account-currency value and workspace-currency value where available. Missing provider fields remain unavailable, never zero. |
+| S09-R2 | Canonical identity and value layers | Each position/holding retains account/connection identity, adapter-resolved canonical instrument or explicit asset identity, optional provider-supplied venue, native amount/currency, account-currency value and workspace-currency value where available. Missing provider fields remain unavailable, never zero. |
 | S09-R3 | Workspace base currency | Snapshot always returns the persisted workspace `baseCurrency`; no EUR hard-code and no renderer-side conversion. |
 | S09-R4 | FX provenance | Every normalized value carries source, pair/path, provider timestamp, TradeX received timestamp, freshness and quality. OD-006 is the only current public FX source; its informational/reference nature remains visible. |
 | S09-R5 | Stablecoin/depeg handling | USDT is a distinct currency. A USDT route must expose its explicit path and quality/depeg warning; it cannot silently become USD or workspace currency. |
@@ -24,7 +24,7 @@ TradeX 已能在 workspace 内保存 provider account，并在账户详情显示
 
 ## Implementation Plan
 
-1. Add typed IPC `PortfolioQuery`, `PortfolioSnapshot`, bounded `PortfolioAccount`, `PortfolioHolding`, `PortfolioValue` and `FxProvenance`/freshness/quality enums. Generate schema and TypeScript types; reject unknown fields, invalid decimal strings, control characters, oversized arrays and foreign workspace IDs.
+1. Add typed IPC `PortfolioQuery`, `PortfolioSnapshot`, bounded `PortfolioAccount`, `PortfolioHolding`, `PortfolioOrder`, `PortfolioFill`, `PortfolioValue` and `FxProvenance`/freshness/quality enums. Rows carry observed time and account health; provider symbols are normalized to canonical IDs at the adapter boundary. Generate schema and TypeScript types; reject unknown fields, invalid decimal strings, control characters, oversized arrays and foreign workspace IDs.
 2. Add a read-only `portfolio.get` dispatcher path. It reads the current workspace and account projections plus OD-006 source observation and TimeService status. Production maps unavailable/stale account or FX fields to explicit typed states. An integration-only fixture path supplies bounded balances, positions, open orders, fills, P&L and a USDT→USD→workspace route without writing storage.
 3. Implement decimal-safe string aggregation for values that share a currency. Cross-currency values are produced only from a validated FX route; no binary floating point or implicit stablecoin parity. `liveRisk` remains blocked unless every dependent route is trusted and fresh.
 4. Add a Portfolio subview reachable from Accounts (Portfolio is context/account-driven and not a new permanent primary navigation item). Render base currency, totals, account/position rows and FX/stablecoin provenance with unavailable/degraded states and a deterministic quality warning action.
@@ -36,7 +36,7 @@ TradeX 已能在 workspace 内保存 provider account，并在账户详情显示
 |---|---|---|---|
 | `portfolio.get` | `{ workspaceId }` | `PortfolioSnapshot` | none |
 
-The output must keep native/account/workspace value layers separate. `FxProvenance` is attached to every conversion and the snapshot carries a summary status plus `liveRisk` eligibility/reason. The output is read-only and workspace-scoped.
+The output must keep native/account/workspace value layers separate. `FxProvenance` is attached to every conversion and the snapshot carries a summary status plus `liveRisk` eligibility/reason. Missing fields such as fills, cost basis, P&L, currency, venue or canonical identity remain explicit unavailable values; aggregation fails closed when a contributing native value cannot be normalized. The output is read-only and workspace-scoped.
 
 ## Evidence Boundary
 

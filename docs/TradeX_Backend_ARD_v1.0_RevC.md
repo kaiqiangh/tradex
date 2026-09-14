@@ -1699,6 +1699,7 @@ account.refresh
 account.arm
 account.disarm
 account.disable_all_live
+portfolio.get
 ```
 
 ### Data-source policy
@@ -2168,6 +2169,20 @@ interface MarketDetail {
 ~~~
 
 Equity state and action data use the OD-005 calendar/corporate-action gate; crypto venue state remains `UNKNOWN`/`UNAVAILABLE` until an authorized source is selected. No source status may be presented as `OPEN`, and no fixture marks DuckDB history as adjusted. A bounded observation seam supports deterministic regular/holiday/half-day/extended/halt and crypto maintenance/suspension/degraded fixtures for contract tests, while blocked or unavailable sources continue to render `UNKNOWN`/`UNAVAILABLE`. Payloads are bounded, canonical-instrument scoped, reject unknown/control-character fields and invalid RFC 3339 timestamps, and reject duplicate action IDs; corporate-action records are canonically ordered by effective time and action ID. The shared `market_execution_eligibility` seam consumes `TimeService::require_trusted` first, then requires an available source and known adjustment status before allowing `OPEN`/`EXTENDED_HOURS`, and returns deterministic `MARKET_CLOSED` or `INSTRUMENT_HALTED` remediation for blocked/closed/halted states; no order, approval, risk, reservation, or gateway command is implemented here.
+
+### 41.14 Read-only portfolio payloads (S09)
+
+Version 1 adds one workspace-scoped, read-only operation:
+
+| Command | Payload | Success data | Mutation/event behavior |
+|---|---|---|---|
+| `portfolio.get` | `{workspaceId}` | `PortfolioSnapshot` | none; it does not write SQLite, outbox, account/model/risk/thread versions or credentials, and emits no domain event |
+
+`PortfolioSnapshot` returns the persisted workspace `baseCurrency`, a TimeService `observedAt`, a typed `status` (`AVAILABLE`, `DEGRADED`, `UNAVAILABLE` or `BLOCKED_EXTERNAL`), a sanitized `availabilityReason`, `PortfolioTotals`, bounded account/holding/order rows, optional `fills`, bounded `fxRoutes`, and `liveRisk` with `eligible=false` for this read-only slice. The request rejects extra fields, control characters, foreign workspaces and collections over their schema limits.
+
+Every account/holding/order/fill observation carries the provider connection identity, its observation `observedAt` and the account `health`. Adapter normalization resolves provider symbols to canonical `instrumentId` values before the account projection reaches portfolio logic; an unknown mapping is represented by the explicit `asset: "UNAVAILABLE"` sentinel. `venue` is optional and is omitted unless the provider supplies venue evidence. A balance asset may remain an explicit native asset/currency identity.
+
+`PortfolioValue` keeps `nativeValue/nativeCurrency`, `accountValue/accountCurrency`, and `workspaceValue/workspaceCurrency` separate. A normalized value must carry `FxProvenance` with source, pair path, optional rate, provider timestamp, TradeX received timestamp, freshness, quality and an optional depeg warning. Missing currency, rate, fills, cost basis, realized/unrealized P&L or other provider fields are `null`/unavailable and never zero-filled. Aggregates fail closed: if any contributing native value lacks a trusted workspace conversion, the dependent workspace total is unavailable and the snapshot status remains degraded/blocked. `fillsCount` is optional for providers that do not expose fills. No portfolio payload grants arming, approval, reservation or gateway authority; later risk consumers must revalidate all account, market, time and FX gates.
 
 ## 42. Backend-to-Frontend Event Surface
 

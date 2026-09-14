@@ -1699,6 +1699,7 @@ account.refresh
 account.arm
 account.disarm
 account.disable_all_live
+portfolio.get
 ```
 
 ### Data-source policy
@@ -2168,6 +2169,20 @@ interface MarketDetail {
 ~~~
 
 Equity 状态和 action 数据使用 OD-005 calendar/corporate-action gate；在选择授权 source 前，crypto venue state 保持 `UNKNOWN`/`UNAVAILABLE`。任何 source 状态都不能展示成 `OPEN`，任何 fixture 都不能把 DuckDB history 标为已调整。有限 observation seam 为 contract tests 提供确定性的 regular/holiday/half-day/extended/halt 以及 crypto maintenance/suspension/degraded fixture；blocked 或 unavailable source 继续显示 `UNKNOWN`/`UNAVAILABLE`。Payload 有界、按 canonical instrument 归属，拒绝未知/控制字符字段和无效 RFC 3339 timestamp，并拒绝重复 action ID；corporate-action record 按 effective time 与 action ID 规范排序。共享 `market_execution_eligibility` seam 先消费 `TimeService::require_trusted`，再要求 source 可用且 adjustment status 已知，才允许 `OPEN`/`EXTENDED_HOURS`；对 source 阻断、CLOSED/HALTED 返回确定性的 `MARKET_CLOSED` 或 `INSTRUMENT_HALTED` remediation；本节不实现 order、approval、risk、reservation 或 gateway command。
+
+### 41.14 只读组合载荷（S09）
+
+版本 1 增加一个按 workspace 作用域的只读操作：
+
+| 命令 | 载荷 | 成功数据 | 写入/事件行为 |
+|---|---|---|---|
+| `portfolio.get` | `{workspaceId}` | `PortfolioSnapshot` | 无；不写入 SQLite、outbox、account/model/risk/thread 版本或凭据，也不产生 domain event |
+
+`PortfolioSnapshot` 返回持久化 workspace `baseCurrency`、TimeService `observedAt`、typed `status`（`AVAILABLE`、`DEGRADED`、`UNAVAILABLE` 或 `BLOCKED_EXTERNAL`）、清理后的 `availabilityReason`、`PortfolioTotals`、有界的账户/持仓/订单行、可选 `fills`、有界 `fxRoutes`，以及本只读切片中始终 `eligible=false` 的 `liveRisk`。请求拒绝额外字段、控制字符、外部 workspace 以及超出 schema 限制的集合。
+
+每条账户/持仓/订单/成交观察都携带 provider connection identity、该观察的 `observedAt` 和账户 `health`。适配器在账户投影进入组合逻辑前把 provider symbol 解析为 canonical `instrumentId`；未知映射使用明确的 `asset: "UNAVAILABLE"` sentinel。只有 provider 提供 venue 证据时才返回可选 `venue`。余额 asset 可以保留为明确的原生资产/币种 identity。
+
+`PortfolioValue` 分开保存 `nativeValue/nativeCurrency`、`accountValue/accountCurrency` 与 `workspaceValue/workspaceCurrency`。每个归一化值都必须带有 `FxProvenance`，包含 source、pair path、可选 rate、provider timestamp、TradeX received timestamp、freshness、quality 和可选 depeg warning。缺失币种、汇率、成交、成本基础、已实现/未实现 P&L 或其他 provider 字段必须为 `null`/unavailable，不能填零。聚合采用 fail-closed：任何参与的原生值缺少可信 workspace 转换时，依赖的 workspace 总额不可用，snapshot status 保持 degraded/blocked。provider 不提供成交时 `fillsCount` 为可选字段。组合载荷不授予 arming、approval、reservation 或 gateway 权限；后续 risk consumer 必须重新验证全部账户、市场、时间和 FX gate。
 
 ## 42. Backend-to-Frontend Event Surface
 
