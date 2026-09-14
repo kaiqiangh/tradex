@@ -561,7 +561,13 @@ Live approval views require the full provenance block when market data participa
 
 Settings / Account Health renders the workspace-scoped `time.status` result as a semantic status with wall-clock, monotonic reading, provider offset, observed timestamp, bounded reason, and a keyboard-accessible `time.revalidate` action whenever confidence is `CLOCK_UNCERTAIN` or `STALE`. The panel uses `role="status"` with `aria-live="polite"`, keeps focus visible, and preserves the same blocking reason at 768 px and 390 px. Renderer state cannot override the backend reading; Live eligibility remains unavailable until the Control Plane reports `TRUSTED`.
 
-### 13.4 FX/stablecoin provenance
+### 13.4 Market session and corporate actions
+
+`MarketDetail` renders the backend-owned `marketState`, `corporateActions`, and `adjustmentStatus` beside the existing source/snapshot panel. Session text covers `OPEN`, `CLOSED`, `EXTENDED_HOURS`, `HALTED`, `MAINTENANCE`, `SUSPENDED`, `DEGRADED`, and `UNKNOWN`; venue, source status, next boundaries, calendar version, provider time, observed time, and `timeConfidence` remain visible. Missing or blocked OD-005 data stays `UNKNOWN`/`UNAVAILABLE`, and no fixture is presented as a live session or adjusted history.
+
+The panel uses semantic headings, a `role="status"`/`aria-live="polite"` announcement for session changes, visible focus, keyboard-reachable source remediation, and text labels in addition to color. `MARKET_CLOSED` and `INSTRUMENT_HALTED` are rendered as deterministic blocking states; the renderer never computes execution eligibility. Corporate-action rows are bounded and display action type, description, effective/announced time, source, and adjustment status.
+
+### 13.5 FX/stablecoin provenance
 
 Portfolio normalization surfaces:
 

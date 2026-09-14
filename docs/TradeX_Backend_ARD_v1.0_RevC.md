@@ -2141,6 +2141,34 @@ interface TimeStatus {
 
 The Rust Control Plane compares UTC wall-clock and monotonic elapsed time using a documented 2,000 ms tolerance and bounds provider/server offset at 5,000 ms. Workspace open, process restart, and resume reset trust; the first status remains `CLOCK_UNCERTAIN` until an explicit `time.revalidate` establishes a valid baseline. Material wall-clock divergence, monotonic rollback, or an out-of-bound provider offset returns `CLOCK_UNCERTAIN` or `STALE`, with `CLOCK_SKEW` remediation `time_revalidate`. Time readings are process-scoped and never enter SQLite, DomainProjection, outbox, account, risk, approval, or thread state. Future freshness/TTL/approval/dispatch paths must consume `TimeService::require_trusted`; the renderer cannot supply a clock override.
 
+### 41.13 Market state and corporate-action payloads (S08)
+
+`market.get` remains a read-only canonical-instrument query and now carries typed market-session and corporate-action metadata:
+
+~~~ts
+type MarketSession = "OPEN" | "CLOSED" | "EXTENDED_HOURS" | "HALTED" | "MAINTENANCE" | "SUSPENDED" | "DEGRADED" | "UNKNOWN";
+type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
+type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
+interface MarketState {
+  session: MarketSession; venue: string; sourceId?: string;
+  sourceStatus: MarketDataStatus; nextOpen?: string; nextClose?: string;
+  calendarVersion?: string; providerTime?: string; observedAt: string;
+  timeConfidence: TimeConfidence; reason: string;
+}
+interface CorporateAction {
+  actionId: string; instrumentId: string; actionType: CorporateActionType;
+  effectiveAt: string; announcedAt?: string; sourceId?: string;
+  description: string; adjustmentStatus: AdjustmentStatus;
+}
+interface MarketDetail {
+  /* existing S07 fields remain unchanged */
+  marketState: MarketState; corporateActions: CorporateAction[];
+  adjustmentStatus: AdjustmentStatus;
+}
+~~~
+
+Equity state and action data use the OD-005 calendar/corporate-action gate; crypto venue state remains `UNKNOWN`/`UNAVAILABLE` until an authorized source is selected. No source status may be presented as `OPEN`, and no fixture marks DuckDB history as adjusted. Payloads are bounded, canonical-instrument scoped, reject unknown/control-character fields and invalid RFC 3339 timestamps, and reject duplicate action IDs. The shared `market_execution_eligibility` seam consumes `TimeService::require_trusted` first, then returns deterministic `MARKET_CLOSED` or `INSTRUMENT_HALTED` remediation for closed/halted states; no order, approval, risk, reservation, or gateway command is implemented here.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

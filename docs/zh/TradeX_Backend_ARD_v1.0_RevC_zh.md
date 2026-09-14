@@ -2141,6 +2141,34 @@ interface TimeStatus {
 
 Rust Control Plane 使用文档化的 2,000 ms 容差比较 UTC wall-clock 与 monotonic elapsed，并将 provider/server offset 限制在 5,000 ms。workspace open、进程重启和 resume 都会重置 trust；首次 status 在显式执行 `time.revalidate` 建立有效基准前保持 `CLOCK_UNCERTAIN`。wall-clock 重大偏离、monotonic 回退或超界 provider offset 返回 `CLOCK_UNCERTAIN` 或 `STALE`，并以 `CLOCK_SKEW`/`time_revalidate` 提供 remediation。时间读数只存在进程内，绝不写入 SQLite、DomainProjection、outbox、account、risk、approval 或 thread 状态。未来 freshness/TTL/approval/dispatch 路径必须消费 `TimeService::require_trusted`；renderer 不能传入时钟覆盖。
 
+### 41.13 Market state 与 corporate-action payload（S08）
+
+`market.get` 仍是只读 canonical-instrument query，并携带 typed 的 market-session 与 corporate-action metadata：
+
+~~~ts
+type MarketSession = "OPEN" | "CLOSED" | "EXTENDED_HOURS" | "HALTED" | "MAINTENANCE" | "SUSPENDED" | "DEGRADED" | "UNKNOWN";
+type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
+type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
+interface MarketState {
+  session: MarketSession; venue: string; sourceId?: string;
+  sourceStatus: MarketDataStatus; nextOpen?: string; nextClose?: string;
+  calendarVersion?: string; providerTime?: string; observedAt: string;
+  timeConfidence: TimeConfidence; reason: string;
+}
+interface CorporateAction {
+  actionId: string; instrumentId: string; actionType: CorporateActionType;
+  effectiveAt: string; announcedAt?: string; sourceId?: string;
+  description: string; adjustmentStatus: AdjustmentStatus;
+}
+interface MarketDetail {
+  /* S07 的既有字段保持不变 */
+  marketState: MarketState; corporateActions: CorporateAction[];
+  adjustmentStatus: AdjustmentStatus;
+}
+~~~
+
+Equity 状态和 action 数据使用 OD-005 calendar/corporate-action gate；在选择授权 source 前，crypto venue state 保持 `UNKNOWN`/`UNAVAILABLE`。任何 source 状态都不能展示成 `OPEN`，任何 fixture 都不能把 DuckDB history 标为已调整。Payload 有界、按 canonical instrument 归属，拒绝未知/控制字符字段和无效 RFC 3339 timestamp，并拒绝重复 action ID。共享 `market_execution_eligibility` seam 先消费 `TimeService::require_trusted`，再对 CLOSED/HALTED 返回确定性的 `MARKET_CLOSED` 或 `INSTRUMENT_HALTED` remediation；本节不实现 order、approval、risk、reservation 或 gateway command。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

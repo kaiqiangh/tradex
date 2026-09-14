@@ -561,7 +561,13 @@ interface MarketSnapshotProvenance {
 
 Settings / Account Health 展示 workspace-scoped 的 `time.status`，以语义状态呈现 wall-clock、monotonic reading、provider offset、observed timestamp、有限长度 reason；当 confidence 为 `CLOCK_UNCERTAIN` 或 `STALE` 时提供键盘可达的 `time.revalidate` 动作。面板使用 `role="status"` 与 `aria-live="polite"`，保留可见焦点，并在 768 px 与 390 px 保持同样的阻塞原因。renderer 不能覆盖后端读数；只有 Control Plane 报告 `TRUSTED` 后 Live eligibility 才能恢复。
 
-### 13.4 FX/stablecoin provenance
+### 13.4 Market session 与 corporate actions
+
+`MarketDetail` 在既有 source/snapshot panel 旁展示后端持有的 `marketState`、`corporateActions` 与 `adjustmentStatus`。session 文本覆盖 `OPEN`、`CLOSED`、`EXTENDED_HOURS`、`HALTED`、`MAINTENANCE`、`SUSPENDED`、`DEGRADED`、`UNKNOWN`；venue、source status、next boundary、calendar version、provider time、observed time 和 `timeConfidence` 保持可见。OD-005 缺失或 blocked 时维持 `UNKNOWN`/`UNAVAILABLE`，fixture 不得被呈现成实时 session 或已调整历史。
+
+面板使用语义 heading、`role="status"`/`aria-live="polite"` 宣布 session 变化，提供可见焦点、键盘可达的 source remediation，并在颜色之外使用文本标签。`MARKET_CLOSED` 与 `INSTRUMENT_HALTED` 作为确定性的 blocking state 展示；renderer 不计算 execution eligibility。Corporate-action 行有界，并展示 action type、description、effective/announced time、source 与 adjustment status。
+
+### 13.5 FX/stablecoin provenance
 
 跨账户归一化必须展示：
 
