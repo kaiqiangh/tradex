@@ -46,7 +46,7 @@ function MarketStatePanel({ state, adjustmentStatus, actions, onOpenDataSources 
     </section>
     <section className="market-actions-panel" aria-labelledby="corporate-actions-title">
       <div className="market-panel-heading"><div><p className="eyebrow">Corporate actions</p><h3 id="corporate-actions-title">History adjustment: {adjustmentLabel[adjustmentStatus]}</h3></div><span className="badge">{actions.length} recorded</span></div>
-      {actions.length ? <ul className="corporate-actions">{actions.map(action => <li key={action.actionId}><strong>{action.actionType.replaceAll('_', ' ')}</strong><span>{action.description}</span><small>Effective {action.effectiveAt}{action.announcedAt ? ` · Announced ${action.announcedAt}` : ''}{action.sourceId ? ` · Source ${action.sourceId}` : ''}</small></li>)}</ul> : <p className="muted">No authoritative corporate-action records are available. Historical data is not marked adjusted.</p>}
+      {actions.length ? <ul className="corporate-actions">{actions.map(action => <li key={action.actionId}><strong>{action.actionType.replaceAll('_', ' ')}</strong><span>{action.description}</span><small>Effective {action.effectiveAt}{action.announcedAt ? ` · Announced ${action.announcedAt}` : ''}{action.sourceId ? ` · Source ${action.sourceId}` : ''} · Adjustment {adjustmentLabel[action.adjustmentStatus]}</small></li>)}</ul> : <p className="muted">No authoritative corporate-action records are available. Historical data is not marked adjusted.</p>}
     </section>
   </>;
 }

@@ -654,8 +654,8 @@ impl ControlPlane {
                         sources.iter().find(|entry| entry.source_id == source_id)
                     });
                 let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
-                let time_confidence = self.time.status(&input.workspace_id)?.confidence;
-                let detail = market::detail(&input, source, calendar_source, time_confidence)?;
+                let time_status = self.time.status(&input.workspace_id)?;
+                let detail = market::detail(&input, source, calendar_source, &time_status)?;
                 Ok((json!(detail), None))
             }
             "watchlist.list" => {
