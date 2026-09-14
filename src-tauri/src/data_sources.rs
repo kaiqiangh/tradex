@@ -642,6 +642,12 @@ mod tests {
             "OD-006",
             "ECB EXR",
             "text/csv",
+            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nEXR.GBP.EUR.SP00.A,D,GBP,2026-09-13,1.2\n"
+        ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
             b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nEXR.D.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\nEXR.D.USD.EUR.SP00.A,D,USD,not-a-date,1.2\n"
         ));
     }
