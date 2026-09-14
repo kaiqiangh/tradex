@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { AdjustmentStatus, CorporateAction, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
+import { ErrorRecoveryPanel } from './ErrorRecoveryPanel.tsx';
 
 const statusLabel: Record<MarketDataStatus, string> = {
   AVAILABLE: 'Available',
@@ -39,8 +40,9 @@ function InstrumentRow({ instrument, selected, onSelect }: { instrument: Instrum
 function MarketStatePanel({ state, adjustmentStatus, actions, onOpenDataSources }: { state: MarketState; adjustmentStatus: AdjustmentStatus; actions: CorporateAction[]; onOpenDataSources: () => void }) {
   return <>
     <section className={`market-session market-session-${state.session.toLowerCase()}`} aria-labelledby="market-session-title" role="status" aria-live="polite">
-      <div className="market-panel-heading"><div><p className="eyebrow">Market session</p><h3 id="market-session-title">{sessionLabel[state.session]}</h3></div><span className="badge">{state.timeConfidence}</span></div>
+      <div className="market-panel-heading"><div><p className="eyebrow">Market session</p><h3 id="market-session-title" tabIndex={-1}>{sessionLabel[state.session]}</h3></div><span className="badge">{state.timeConfidence}</span></div>
       <p>{state.reason}</p>
+      <ErrorRecoveryPanel code={state.session === 'CLOSED' ? 'MARKET_CLOSED' : state.session === 'HALTED' ? 'INSTRUMENT_HALTED' : undefined} onAction={() => document.getElementById('market-session-title')?.focus()} />
       <dl className="market-state-details"><div><dt>Venue</dt><dd>{state.venue}</dd></div><div><dt>Source status</dt><dd>{statusLabel[state.sourceStatus]}</dd></div><div><dt>Next open</dt><dd>{state.nextOpen ?? 'Unavailable'}</dd></div><div><dt>Next close</dt><dd>{state.nextClose ?? 'Unavailable'}</dd></div><div><dt>Calendar version</dt><dd>{state.calendarVersion ?? 'Unavailable'}</dd></div><div><dt>Provider time</dt><dd>{state.providerTime ?? 'Unavailable'}</dd></div><div><dt>Observed</dt><dd>{state.observedAt}</dd></div></dl>
       {(state.sourceStatus === 'BLOCKED_EXTERNAL' || state.sourceStatus === 'UNAVAILABLE') && <button type="button" onClick={onOpenDataSources}>Review calendar source</button>}
     </section>

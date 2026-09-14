@@ -655,7 +655,15 @@ impl ControlPlane {
                     });
                 let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
                 let time_status = self.time.status(&input.workspace_id)?;
-                let detail = market::detail(&input, source, calendar_source, &time_status)?;
+                let fixture = cfg!(feature = "integration-test")
+                    && std::env::var_os("TRADEX_MARKET_FIXTURE").is_some();
+                let detail = market::detail_with_fixture(
+                    &input,
+                    source,
+                    calendar_source,
+                    &time_status,
+                    fixture,
+                )?;
                 Ok((json!(detail), None))
             }
             "watchlist.list" => {

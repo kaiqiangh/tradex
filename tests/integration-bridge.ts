@@ -13,7 +13,10 @@ export function integrationBridge(): Plugin {
     apply: 'serve',
     configureServer(server) {
       const directory = realpathSync(mkdtempSync(join(tmpdir(), 'tradex-browser-')));
-      const child = spawn(resolve('target/debug/tradex-ipc'), [join(directory, 'workspace')], { stdio: ['pipe', 'pipe', 'inherit'] });
+      const child = spawn(resolve('target/debug/tradex-ipc'), [join(directory, 'workspace')], {
+        stdio: ['pipe', 'pipe', 'inherit'],
+        env: { ...process.env, TRADEX_MARKET_FIXTURE: '1' },
+      });
       const clients = new Set<ServerResponse>();
       const pending = new Map<string, ServerResponse>();
       createInterface({ input: child.stdout }).on('line', line => {

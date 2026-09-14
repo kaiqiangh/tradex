@@ -1,10 +1,11 @@
+use crate::protocol::TimeConfidence;
 use crate::protocol::{
     AdjustmentStatus, AssetClass, CorporateAction, DataSourceEntry, DataSourceStatus, Instrument,
     InstrumentProviderMapping, MarketCatalog, MarketCatalogQuery, MarketDataStatus, MarketDetail,
     MarketGetQuery, MarketSession, MarketState, MarketTier, Result, TimeStatus, TradeXError,
 };
 #[cfg(test)]
-use crate::protocol::{MarketEntitlement, MarketFreshness, TimeConfidence};
+use crate::protocol::{MarketEntitlement, MarketFreshness};
 use duckdb::Connection;
 use std::path::Path;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -460,10 +461,125 @@ fn validate_market_state_observation(
         if state.source_id.as_deref() != calendar_source.map(|source| source.source_id.as_str()) {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
-    } else if state.source_id.is_some() {
+        if let Some(source) = calendar_source {
+            if source.status != DataSourceStatus::Available {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+            if state.source_status != MarketDataStatus::Available {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        } else if state.source_status != MarketDataStatus::Unverified {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+    } else if state.source_id.is_some() || state.source_status != MarketDataStatus::Unverified {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     Ok(())
+}
+
+fn fixture_state(
+    instrument: &Instrument,
+) -> Option<(MarketState, Vec<CorporateAction>, AdjustmentStatus)> {
+    let (session, venue, reason) = match instrument.instrument_id.as_str() {
+        "equity:US:AAPL" => (
+            MarketSession::Open,
+            "XNAS",
+            "S08 synthetic regular-session fixture; not a live calendar observation.",
+        ),
+        "equity:US:MSFT" => (
+            MarketSession::Closed,
+            "XNAS",
+            "S08 synthetic holiday-session fixture; not a live calendar observation.",
+        ),
+        "crypto:BTC/USDT:spot" => (
+            MarketSession::Maintenance,
+            "BINANCE",
+            "S08 synthetic venue-maintenance fixture; not a live venue observation.",
+        ),
+        "crypto:ETH/USDT:spot" => (
+            MarketSession::Degraded,
+            "BINANCE",
+            "S08 synthetic degraded-service fixture; not a live venue observation.",
+        ),
+        _ => return None,
+    };
+    let state = MarketState {
+        session,
+        venue: venue.into(),
+        source_id: None,
+        source_status: MarketDataStatus::Unverified,
+        next_open: Some("2026-09-15T13:30:00Z".into()),
+        next_close: Some("2026-09-15T20:00:00Z".into()),
+        calendar_version: Some("s08-fixture-v1".into()),
+        provider_time: Some("2026-09-14T00:00:00Z".into()),
+        observed_at: "2026-09-14T00:00:00Z".into(),
+        time_confidence: TimeConfidence::Trusted,
+        reason: reason.into(),
+    };
+    let actions = if instrument.asset_class == AssetClass::Equity {
+        vec![
+            CorporateAction {
+                action_id: "s08-aapl-split".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::Split,
+                effective_at: "2020-08-31T00:00:00Z".into(),
+                announced_at: Some("2020-07-30T00:00:00Z".into()),
+                source_id: None,
+                description: "Synthetic split contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+            CorporateAction {
+                action_id: "s08-aapl-dividend".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::Dividend,
+                effective_at: "2021-01-01T00:00:00Z".into(),
+                announced_at: Some("2020-12-01T00:00:00Z".into()),
+                source_id: None,
+                description: "Synthetic dividend contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+            CorporateAction {
+                action_id: "s08-aapl-symbol".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::SymbolChange,
+                effective_at: "2022-01-01T00:00:00Z".into(),
+                announced_at: Some("2021-12-01T00:00:00Z".into()),
+                source_id: None,
+                description: "Synthetic symbol-change contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+            CorporateAction {
+                action_id: "s08-aapl-delist".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::Delisting,
+                effective_at: "2024-01-01T00:00:00Z".into(),
+                announced_at: None,
+                source_id: None,
+                description: "Synthetic delisting contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+        ]
+    } else {
+        Vec::new()
+    };
+    Some((state, actions, AdjustmentStatus::Unknown))
+}
+
+fn market_state_from_fixture(
+    instrument: &Instrument,
+    time_status: &TimeStatus,
+) -> Result<(MarketState, Vec<CorporateAction>, AdjustmentStatus)> {
+    let Some((state, actions, adjustment_status)) = fixture_state(instrument) else {
+        return Err(TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"));
+    };
+    validate_market_state_observation(instrument, None, &state)?;
+    let (mut state, actions) = (
+        state,
+        canonical_corporate_actions(&instrument.instrument_id, actions)?,
+    );
+    state.observed_at = time_status.observed_at.clone();
+    state.time_confidence = time_status.confidence;
+    Ok((state, actions, adjustment_status))
 }
 
 fn validate_corporate_actions(instrument_id: &str, actions: &[CorporateAction]) -> Result<()> {
@@ -596,6 +712,16 @@ pub fn detail(
     calendar_source: Option<&DataSourceEntry>,
     time_status: &TimeStatus,
 ) -> Result<MarketDetail> {
+    detail_with_fixture(input, source, calendar_source, time_status, false)
+}
+
+pub fn detail_with_fixture(
+    input: &MarketGetQuery,
+    source: Option<&DataSourceEntry>,
+    calendar_source: Option<&DataSourceEntry>,
+    time_status: &TimeStatus,
+    fixture: bool,
+) -> Result<MarketDetail> {
     if !valid_text(&input.workspace_id, 128) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
@@ -609,9 +735,17 @@ pub fn detail(
     let source_id = source_id_for_instrument(&input.instrument_id, &input.tier);
     let source = source.filter(|entry| Some(entry.source_id.as_str()) == source_id);
     let (status, availability_reason) = source_gate(source, source_id);
-    let (market_state, adjustment_status) =
-        market_state_from_observation(&instrument, calendar_source, time_status, None)?;
-    let corporate_actions = canonical_corporate_actions(&input.instrument_id, Vec::new())?;
+    let (market_state, corporate_actions, adjustment_status) = if fixture {
+        market_state_from_fixture(&instrument, time_status)?
+    } else {
+        let (market_state, adjustment_status) =
+            market_state_from_observation(&instrument, calendar_source, time_status, None)?;
+        (
+            market_state,
+            canonical_corporate_actions(&input.instrument_id, Vec::new())?,
+            adjustment_status,
+        )
+    };
     Ok(MarketDetail {
         workspace_id: input.workspace_id.clone(),
         instrument,
@@ -727,6 +861,21 @@ mod tests {
         assert_eq!(detail.adjustment_status, AdjustmentStatus::Unavailable);
         assert!(detail.corporate_actions.is_empty());
 
+        let mut bypass = detail.market_state.clone();
+        bypass.session = MarketSession::Open;
+        bypass.source_status = MarketDataStatus::Available;
+        assert_eq!(
+            market_state_from_observation(
+                &detail.instrument,
+                Some(&calendar_source),
+                &time_status,
+                Some(&bypass),
+            )
+            .unwrap_err()
+            .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+
         let mut time = crate::time::TimeService::new();
         time.reset("w");
         assert_eq!(
@@ -781,7 +930,7 @@ mod tests {
                 session,
                 venue: "XNAS".into(),
                 source_id: Some("OD-005".into()),
-                source_status: MarketDataStatus::Unverified,
+                source_status: MarketDataStatus::Available,
                 next_open: Some("2026-09-15T13:30:00Z".into()),
                 next_close: Some("2026-09-15T20:00:00Z".into()),
                 calendar_version: Some("fixture-v1".into()),
@@ -826,6 +975,38 @@ mod tests {
             assert_eq!(state.session, session);
             assert_eq!(adjustment, AdjustmentStatus::Unknown);
         }
+    }
+
+    #[test]
+    fn integration_fixture_detail_exposes_actions_without_live_authority() {
+        let input = MarketGetQuery {
+            workspace_id: "w".into(),
+            instrument_id: "equity:US:AAPL".into(),
+            tier: MarketTier::Hot,
+        };
+        let source = blocked_source("OD-001");
+        let time_status = fixture_time_status();
+        let detail = detail_with_fixture(
+            &input,
+            Some(&source),
+            Some(&blocked_source("OD-005")),
+            &time_status,
+            true,
+        )
+        .unwrap();
+        assert_eq!(detail.status, MarketDataStatus::BlockedExternal);
+        assert_eq!(
+            detail.market_state.source_status,
+            MarketDataStatus::Unverified
+        );
+        assert_eq!(detail.market_state.session, MarketSession::Open);
+        assert_eq!(detail.corporate_actions.len(), 4);
+        assert!(
+            detail
+                .corporate_actions
+                .iter()
+                .all(|action| action.adjustment_status == AdjustmentStatus::Unknown)
+        );
     }
 
     #[test]

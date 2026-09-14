@@ -301,6 +301,10 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .error-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 16px; border-radius: 9px; margin-bottom: 20px; }
 .error-banner p { margin: 5px 0 0; font-size: 12px; }
 .error-banner button { flex-shrink: 0; }
+.error-recovery-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 12px 0; padding: 11px; border: 1px solid #fecaca; border-radius: 8px; background: #fff7f7; color: #991b1b; }
+.error-recovery-panel h3 { margin: 2px 0 0; font-size: 12px; }
+.error-recovery-panel p { margin: 4px 0 0; font-size: 11px; }
+.error-recovery-panel button { flex-shrink: 0; }
 .integration-notice { color: var(--muted); font-size: 11px; margin-bottom: 16px; }
 .mobile-nav { display: none; }
 .skip-link { position: fixed; left: 10px; top: -100px; background: white; color: var(--text); padding: 10px; z-index: 100; border-radius: 6px; }
@@ -328,7 +332,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
   .steps li { flex-direction: column; align-items: flex-start; font-size: 10px; gap: 6px; }
   .setup-form { padding: 20px; }
   .form-actions button { width: 100%; }
-  .model-notice, .error-banner { align-items: stretch; flex-direction: column; }
+  .model-notice, .error-banner, .error-recovery-panel { align-items: stretch; flex-direction: column; }
   .component-list li { align-items: flex-start; }
   .component-list .badge { white-space: normal; text-align: center; }
   .thread-welcome { padding-top: 12px; }
