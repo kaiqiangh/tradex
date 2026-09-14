@@ -140,26 +140,49 @@ fn watchlists_are_versioned_ordered_idempotent_and_persistent() {
         "MARKET_INSTRUMENT_NOT_FOUND"
     );
 
+    drop(control);
+    let mut reopened = ControlPlane::new(path.clone());
+    let reopened_workspace = command(&mut reopened, "workspace.open", json!({}));
+    assert_eq!(reopened_workspace["ok"], true, "{reopened_workspace}");
+    let persisted = command(
+        &mut reopened,
+        "watchlist.list",
+        json!({"workspaceId": workspace_id}),
+    );
+    assert_eq!(persisted["ok"], true, "{persisted}");
+    assert_eq!(persisted["data"]["watchlists"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        persisted["data"]["watchlists"][0]["name"],
+        "Core + Microsoft"
+    );
+    assert_eq!(
+        persisted["data"]["watchlists"][0]["items"][0]["instrumentId"],
+        "equity:US:MSFT"
+    );
+    let persisted_version = persisted["data"]["watchlists"][0]["stateVersion"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let deleted = command(
-        &mut control,
+        &mut reopened,
         "watchlist.delete",
-        json!({"workspaceId": workspace_id, "watchlistId": watchlist_id, "expectedStateVersion": renamed_version}),
+        json!({"workspaceId": workspace_id, "watchlistId": watchlist_id, "expectedStateVersion": persisted_version}),
     );
     assert_eq!(deleted["ok"], true, "{deleted}");
     assert!(deleted["data"]["watchlists"].as_array().unwrap().is_empty());
     let missing = command(
-        &mut control,
+        &mut reopened,
         "watchlist.delete",
-        json!({"workspaceId": workspace_id, "watchlistId": watchlist_id, "expectedStateVersion": renamed_version}),
+        json!({"workspaceId": workspace_id, "watchlistId": watchlist_id, "expectedStateVersion": persisted_version}),
     );
     assert_eq!(missing["error"]["code"], "WATCHLIST_NOT_FOUND");
-    drop(control);
+    drop(reopened);
 
-    let mut reopened = ControlPlane::new(path);
-    let reopened_workspace = command(&mut reopened, "workspace.open", json!({}));
+    let mut after_delete = ControlPlane::new(path);
+    let reopened_workspace = command(&mut after_delete, "workspace.open", json!({}));
     assert_eq!(reopened_workspace["ok"], true, "{reopened_workspace}");
     let reopened_lists = command(
-        &mut reopened,
+        &mut after_delete,
         "watchlist.list",
         json!({"workspaceId": workspace_id}),
     );
