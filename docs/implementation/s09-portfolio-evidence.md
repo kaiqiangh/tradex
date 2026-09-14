@@ -35,7 +35,7 @@ The focused portfolio checks include exact signed decimal addition/multiplicatio
 
 - USD workspace base currency and degraded portfolio status;
 - three fixture accounts (Trading 212 EUR, Binance USDT, Alpaca USD);
-- AAPL, BTC/USDT, MSFT and USDT holdings plus open orders and a fill;
+- canonical `equity:US:AAPL`, `crypto:BTC/USDT:spot`, `equity:US:MSFT` holdings plus an explicit `UNAVAILABLE` native balance, open orders and a fill;
 - EUR → USD, USDT → USD and USD → USD routes with source, path, rate, provider timestamp, TradeX received timestamp, freshness and quality;
 - visible `USDT is not USD` depeg warning and `Live risk: Blocked` reason.
 
