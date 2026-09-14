@@ -2,7 +2,8 @@
 
 日期：2026-09-14
 开发分支：`dev`
-最终实现提交：`188209b` (`fix: guard portfolio identity lengths`)
+最终实现提交：`6dda93b` (`fix: normalize all provider portfolio identities`)
+前置身份边界修复：`188209b` (`fix: guard portfolio identity lengths`)
 前置输出上限修复：`7d754b6` (`fix: bound portfolio snapshot output`)
 前置暴露修复：`dbbed1e` (`fix: exclude unavailable balances from exposure`)
 前置实现修复：`2ac732fc244b8866514707187e90b7bdc04738a9` (`fix: close portfolio provenance gaps`)
@@ -19,7 +20,7 @@
 
 ## Automated checks
 
-The following checks passed against the final implementation commit `188209b`; the later docs-only anchors record the corrected exposure spot check, output-boundary fix, and evidence pointers:
+The following checks passed against the final implementation commit `6dda93b`; the later docs-only anchors record the corrected exposure spot check, output-boundary fix, and evidence pointers:
 
 ```text
 npm run schema:check
@@ -42,7 +43,7 @@ The focused portfolio checks include exact signed decimal addition/multiplicatio
 - canonical `equity:US:AAPL`, `crypto:BTC/USDT:spot`, `equity:US:MSFT` holdings plus an explicit `UNAVAILABLE` native balance, open orders and a fill;
 - EUR → USD, USDT → USD and USD → USD routes with source, path, rate, provider timestamp, TradeX received timestamp, freshness and quality;
 - visible `USDT is not USD` depeg warning and `Live risk: Blocked` reason.
-- The isolated browser spot check at `dbbed1e` shows the unavailable native USDT balance is excluded from the fixture exposure total (`55712 USD`). The later `188209b` change adds production output and identity-boundary guards; it does not alter the fixture payload or UI rendering.
+- The isolated browser spot check at `dbbed1e` shows the unavailable native USDT balance is excluded from the fixture exposure total (`55712 USD`). The later `188209b` change adds production output and identity-boundary guards, and `6dda93b` applies the same canonical identity normalization to Binance/Bitget adapter returns; these changes do not alter the fixture payload or UI rendering.
 
 Measured document widths were equal to the viewport at 1280, 768 and 390 pixels (`overflow: false`). The browser console contained no `warn` or `error` entries. The temporary tab was closed, the viewport override reset, and the Vite/Rust bridge process stopped after verification. The user-owned browser tab was not opened or modified.
 
