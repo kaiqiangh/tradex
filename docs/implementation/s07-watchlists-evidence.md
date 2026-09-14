@@ -1,7 +1,7 @@
 # S07 #28 Watchlists CRUD 验收证据
 
 验证日期：2026-09-14  
-固定实现代码点：`e1d6fac835c93c95d78c536d7764cb637a6ec847`  
+固定实现代码点：`1e157ae`
 前端播报代码点：`318936a9888d5f1c8500352b488001b12d81f1cd`  
 浏览器地址：`http://127.0.0.1:1420/`（integration mode，隔离临时 workspace）
 
@@ -10,6 +10,7 @@
 - `npm run schema:check`：通过，watchlist 输入/输出、错误和 Rust / JSON Schema / TypeScript 一致。
 - `cargo test --test watchlists -- --nocapture`：3/3 通过。
   - `watchlists_are_versioned_ordered_idempotent_and_persistent` 覆盖空列表、create、大小写不敏感重名、canonical AAPL/MSFT 有序 add、重复 add/remove 幂等、stale remove 无变更、rename、未知 instrument、删除及删除后 not-found；删除前关闭并重开 workspace，确认重开的非空列表仍含 `equity:US:MSFT`。
+  - `watchlist_schema_rejects_unknown_fields_and_invalid_names` 还验证 Unicode `Ångström`/`ångström` 重名被拒绝，避免 SQLite ASCII-only `NOCASE` 漏洞。
   - `watchlist_schema_rejects_unknown_fields_and_invalid_names` 覆盖未知字段、控制字符名称，以及 SQLite 表 `name` 与 JSON projection 名称篡改时的 `WORKSPACE_INTEGRITY_FAILED`。
   - `schema_six_workspaces_migrate_watchlists_transactionally` 覆盖 schema 6→7 迁移和重开。
 - `cargo fmt --all`：通过；`git diff --check`：通过。
