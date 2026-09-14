@@ -2,7 +2,8 @@
 
 日期：2026-09-14
 开发分支：`dev`
-实现提交：`2ac732fc244b8866514707187e90b7bdc04738a9` (`fix: close portfolio provenance gaps`)
+最终实现提交：`b6735e3bea996dccc5f4fe61b822c9fcd568caa6` (`fix: clarify portfolio asset identity`)
+前置实现修复：`2ac732fc244b8866514707187e90b7bdc04738a9` (`fix: close portfolio provenance gaps`)
 
 ## Delivered slice
 
