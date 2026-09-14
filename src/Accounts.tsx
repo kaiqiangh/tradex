@@ -4,6 +4,7 @@ import type { AccountConnection } from '../shared/ipc-types.ts';
 import { CommandError, desktop, browserIntegration, explainError, request } from './client.ts';
 import { fromAccountSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
+import { Portfolio } from './Portfolio.tsx';
 
 function mutation(a: AccountConnection) { return { workspaceId: a.workspaceId, connectionId: a.connectionId, expectedStateVersion: a.stateVersion }; }
 function money(value: string | null | undefined, currency?: string | null) { return value == null ? 'Unavailable' : `${value}${currency ? ` ${currency}` : ' (currency unavailable)'}`; }
@@ -59,6 +60,7 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState('');
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const restoreFocus = useRef<HTMLElement | null>(null);
   const accounts = list.data?.accounts ?? [];
   const existingAccount = connectionSource === 'new' ? undefined : accounts.find(account => account.connectionId === connectionSource);
@@ -123,7 +125,8 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
         </>}
       </form>
     </section>}
-    <section aria-labelledby="connections-title"><h2 id="connections-title">Account connections</h2>
+    {!healthOnly && showPortfolio && <Portfolio workspaceId={workspaceId} />}
+    <section aria-labelledby="connections-title"><div className="section-heading"><div><h2 id="connections-title">Account connections</h2><p className="muted">Select an account to inspect its provider truth and health.</p></div>{!healthOnly && <button type="button" onClick={() => setShowPortfolio(value => !value)} aria-expanded={showPortfolio}>{showPortfolio ? 'Hide portfolio' : 'Open portfolio'}</button>}</div>
       {list.isLoading ? <p role="status">Loading local connections…</p> : !accounts.length ? <p>No external accounts are connected.</p> : <div className="account-list">{accounts.map(account => <button className="account-row" key={account.connectionId} aria-pressed={selectedId === account.connectionId} onClick={() => setSelectedId(account.connectionId)}><strong>{account.label}</strong><span>{account.providerId} · {account.environment}</span><span>{account.connectionState} · {account.health.connection}</span><span>Equity / balance: {account.data?.balances.map(balance => `${balance.asset} ${balance.total ?? balance.available}`).join(' · ') || 'Unavailable'}</span><span>Arming: {account.health.arming}</span><small>Last sync: {time(account.lastSuccessfulSync)}</small></button>)}</div>}
     </section>
     {selected.data && <AccountDetail key={selected.data.connectionId} account={selected.data} busy={busy} run={action => { void run(action); }} />}

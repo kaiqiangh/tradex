@@ -55,6 +55,9 @@
     "modelQuery": {
       "$ref": "#/$defs/ModelQuery"
     },
+    "portfolioQuery": {
+      "$ref": "#/$defs/PortfolioQuery"
+    },
     "providerConnect": {
       "$ref": "#/$defs/Connect"
     },
@@ -170,6 +173,7 @@
     "dataSourceProbe",
     "marketCatalogQuery",
     "marketGetQuery",
+    "portfolioQuery",
     "watchlistCreate",
     "watchlistRename",
     "watchlistDelete",
@@ -1250,6 +1254,75 @@
         "error"
       ]
     },
+    "FxFreshness": {
+      "type": "string",
+      "enum": [
+        "HEALTHY",
+        "STALE",
+        "UNAVAILABLE"
+      ]
+    },
+    "FxProvenance": {
+      "type": "object",
+      "properties": {
+        "depegWarning": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "freshness": {
+          "$ref": "#/$defs/FxFreshness"
+        },
+        "pairPath": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/FxQuality"
+        },
+        "rate": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "receivedTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "pairPath",
+        "receivedTimestamp",
+        "freshness",
+        "quality"
+      ]
+    },
+    "FxQuality": {
+      "type": "string",
+      "enum": [
+        "VERIFIED",
+        "DEGRADED",
+        "UNKNOWN",
+        "UNAVAILABLE"
+      ]
+    },
     "GatewayAction": {
       "type": "string",
       "enum": [
@@ -2302,6 +2375,491 @@
         "ipAllowListStatus"
       ]
     },
+    "PortfolioAccount": {
+      "type": "object",
+      "properties": {
+        "accountCurrency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "cash": {
+          "$ref": "#/$defs/PortfolioValue"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "connectionState": {
+          "$ref": "#/$defs/ConnectionState"
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "equity": {
+          "$ref": "#/$defs/PortfolioValue"
+        },
+        "fillsCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 10000,
+          "minimum": 0
+        },
+        "health": {
+          "$ref": "#/$defs/AccountHealth"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "openOrdersCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 10000,
+          "minimum": 0
+        },
+        "positionsCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 10000,
+          "minimum": 0
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "label",
+        "providerId",
+        "environment",
+        "connectionState",
+        "health",
+        "equity",
+        "cash",
+        "positionsCount",
+        "openOrdersCount",
+        "fillsCount"
+      ]
+    },
+    "PortfolioFill": {
+      "type": "object",
+      "properties": {
+        "accountLabel": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "fillId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "value": {
+          "$ref": "#/$defs/PortfolioValue"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "accountLabel",
+        "fillId",
+        "asset",
+        "quantity",
+        "value",
+        "observedAt"
+      ]
+    },
+    "PortfolioHolding": {
+      "type": "object",
+      "properties": {
+        "accountLabel": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "unrealizedPnl": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PortfolioValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/PortfolioValue"
+        },
+        "venue": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "accountLabel",
+        "providerId",
+        "environment",
+        "asset",
+        "value"
+      ]
+    },
+    "PortfolioLiveRisk": {
+      "type": "object",
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "reason"
+      ]
+    },
+    "PortfolioOrder": {
+      "type": "object",
+      "properties": {
+        "accountLabel": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "brokerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "notional": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "accountLabel",
+        "brokerOrderId",
+        "asset",
+        "side",
+        "status"
+      ]
+    },
+    "PortfolioQuery": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "PortfolioSnapshot": {
+      "type": "object",
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PortfolioAccount"
+          },
+          "maxItems": 256
+        },
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "baseCurrency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "fills": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/PortfolioFill"
+          },
+          "maxItems": 512
+        },
+        "fxRoutes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FxProvenance"
+          },
+          "maxItems": 128
+        },
+        "holdings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PortfolioHolding"
+          },
+          "maxItems": 512
+        },
+        "liveRisk": {
+          "$ref": "#/$defs/PortfolioLiveRisk"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "openOrders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PortfolioOrder"
+          },
+          "maxItems": 512
+        },
+        "status": {
+          "$ref": "#/$defs/PortfolioStatus"
+        },
+        "totals": {
+          "$ref": "#/$defs/PortfolioTotals"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "baseCurrency",
+        "observedAt",
+        "status",
+        "availabilityReason",
+        "totals",
+        "accounts",
+        "holdings",
+        "openOrders",
+        "fxRoutes",
+        "liveRisk"
+      ]
+    },
+    "PortfolioStatus": {
+      "type": "string",
+      "enum": [
+        "AVAILABLE",
+        "DEGRADED",
+        "UNAVAILABLE",
+        "BLOCKED_EXTERNAL"
+      ]
+    },
+    "PortfolioTotals": {
+      "type": "object",
+      "properties": {
+        "cash": {
+          "$ref": "#/$defs/PortfolioValue"
+        },
+        "equity": {
+          "$ref": "#/$defs/PortfolioValue"
+        },
+        "exposure": {
+          "$ref": "#/$defs/PortfolioValue"
+        },
+        "realizedPnl": {
+          "$ref": "#/$defs/PortfolioValue"
+        },
+        "unrealizedPnl": {
+          "$ref": "#/$defs/PortfolioValue"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "equity",
+        "cash",
+        "unrealizedPnl",
+        "realizedPnl",
+        "exposure"
+      ]
+    },
+    "PortfolioValue": {
+      "type": "object",
+      "properties": {
+        "accountCurrency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "accountValue": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "fxProvenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nativeCurrency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "nativeValue": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "workspaceValue": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceCurrency"
+      ]
+    },
     "Position": {
       "type": "object",
       "properties": {
@@ -2549,6 +3107,9 @@
         },
         {
           "$ref": "#/$defs/MarketDetail"
+        },
+        {
+          "$ref": "#/$defs/PortfolioSnapshot"
         },
         {
           "$ref": "#/$defs/Watchlist"

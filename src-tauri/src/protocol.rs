@@ -181,6 +181,7 @@ pub enum ReplyData {
     DataSourceCatalog(DataSourceCatalog),
     MarketCatalog(MarketCatalog),
     MarketDetail(Box<MarketDetail>),
+    Portfolio(Box<PortfolioSnapshot>),
     Watchlist(Box<Watchlist>),
     Watchlists(Watchlists),
     ResearchResult(ResearchToolResult),
@@ -247,6 +248,7 @@ pub struct IpcSchema {
     pub data_source_probe: DataSourceProbe,
     pub market_catalog_query: MarketCatalogQuery,
     pub market_get_query: MarketGetQuery,
+    pub portfolio_query: PortfolioQuery,
     pub watchlist_create: WatchlistCreate,
     pub watchlist_rename: WatchlistRename,
     pub watchlist_delete: WatchlistDelete,
@@ -757,6 +759,233 @@ pub struct MarketGetQuery {
     #[schemars(length(min = 1, max = 128))]
     pub instrument_id: String,
     pub tier: MarketTier,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PortfolioStatus {
+    Available,
+    Degraded,
+    Unavailable,
+    BlockedExternal,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxFreshness {
+    Healthy,
+    Stale,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxQuality {
+    Verified,
+    Degraded,
+    Unknown,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxProvenance {
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub pair_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub rate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_timestamp: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub received_timestamp: String,
+    pub freshness: FxFreshness,
+    pub quality: FxQuality,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub depeg_warning: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioValue {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub native_value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 16))]
+    pub native_currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub account_value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 16))]
+    pub account_currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub workspace_value: Option<String>,
+    #[schemars(length(min = 1, max = 16))]
+    pub workspace_currency: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fx_provenance: Option<FxProvenance>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioHolding {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub account_label: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 32))]
+    pub venue: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub asset: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quantity: Option<String>,
+    pub value: PortfolioValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unrealized_pnl: Option<PortfolioValue>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioOrder {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub account_label: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub asset: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub side: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub notional: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 16))]
+    pub currency: Option<String>,
+    #[schemars(length(min = 1, max = 32))]
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioFill {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub account_label: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub fill_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub asset: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quantity: String,
+    pub value: PortfolioValue,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioAccount {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub label: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
+    pub connection_state: ConnectionState,
+    pub health: AccountHealth,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 16))]
+    pub account_currency: Option<String>,
+    pub equity: PortfolioValue,
+    pub cash: PortfolioValue,
+    #[schemars(range(min = 0, max = 10000))]
+    pub positions_count: u32,
+    #[schemars(range(min = 0, max = 10000))]
+    pub open_orders_count: u32,
+    #[schemars(range(min = 0, max = 10000))]
+    pub fills_count: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioTotals {
+    pub equity: PortfolioValue,
+    pub cash: PortfolioValue,
+    pub unrealized_pnl: PortfolioValue,
+    pub realized_pnl: PortfolioValue,
+    pub exposure: PortfolioValue,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioLiveRisk {
+    pub eligible: bool,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortfolioSnapshot {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(regex(pattern = "^[A-Z]{3}$"))]
+    pub base_currency: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub status: PortfolioStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    pub totals: PortfolioTotals,
+    #[schemars(length(max = 256))]
+    pub accounts: Vec<PortfolioAccount>,
+    #[schemars(length(max = 512))]
+    pub holdings: Vec<PortfolioHolding>,
+    #[schemars(length(max = 512))]
+    pub open_orders: Vec<PortfolioOrder>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(max = 512))]
+    pub fills: Option<Vec<PortfolioFill>>,
+    #[schemars(length(max = 128))]
+    pub fx_routes: Vec<FxProvenance>,
+    pub live_risk: PortfolioLiveRisk,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

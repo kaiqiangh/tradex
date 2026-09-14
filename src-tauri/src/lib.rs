@@ -10,6 +10,7 @@ pub mod model;
 pub mod model_credentials;
 #[cfg(all(feature = "desktop", target_os = "macos"))]
 pub mod native_credentials;
+pub mod portfolio;
 pub mod protocol;
 pub mod provider_io;
 pub mod providers;
@@ -21,7 +22,7 @@ pub mod time;
 use capability::CapabilityQuery;
 use protocol::{
     Aggregate, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload,
-    EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, OpenWorkspace,
+    EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, OpenWorkspace, PortfolioQuery,
     ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, Subscribe, Thread, ThreadCreate,
     ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError,
     TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
@@ -665,6 +666,30 @@ impl ControlPlane {
                     fixture,
                 )?;
                 Ok((json!(detail), None))
+            }
+            "portfolio.get" => {
+                let input: PortfolioQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let workspace_snapshot = self.store.as_mut().unwrap().snapshot()?;
+                let base_currency = match workspace_snapshot.projection {
+                    DomainProjection::Workspace(workspace) => workspace.base_currency,
+                    _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+                };
+                let accounts = self.store.as_ref().unwrap().accounts()?;
+                let sources = self.data_source_sources(&input.workspace_id);
+                let fx_source = sources.iter().find(|entry| entry.source_id == "OD-006");
+                let time_status = self.time.status(&input.workspace_id)?;
+                let fixture = cfg!(feature = "integration-test")
+                    && std::env::var_os("TRADEX_PORTFOLIO_FIXTURE").is_some();
+                let snapshot = portfolio::get(
+                    &input.workspace_id,
+                    &base_currency,
+                    &accounts,
+                    fx_source,
+                    &time_status,
+                    fixture,
+                )?;
+                Ok((json!(snapshot), None))
             }
             "watchlist.list" => {
                 let input: WorkspaceQuery = payload(request.payload)?;

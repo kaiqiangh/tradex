@@ -352,6 +352,24 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
 
 .accounts-panel { display: grid; gap: 20px; min-width: 0; }
+.portfolio-panel { display: grid; gap: 16px; min-width: 0; }
+.portfolio-section, .portfolio-summary { padding: 20px; min-width: 0; }
+.section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.section-heading h2 { margin: 0; }
+.section-heading p { margin: 6px 0 0; }
+.portfolio-status-degraded { border-color: #f59e0b; }
+.portfolio-status-blocked_external, .portfolio-status-unavailable { border-color: #cbd5e1; }
+.portfolio-totals { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); margin: 20px 0; }
+.portfolio-totals div { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.portfolio-totals dt { color: var(--muted); font-size: 12px; }
+.portfolio-totals dd { margin: 6px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+.portfolio-provenance { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.portfolio-provenance-row { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.portfolio-provenance-row > div { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.portfolio-provenance-row small { color: var(--muted); }
+.portfolio-provenance-row dl { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); margin: 12px 0 0; }
+.portfolio-provenance-row dt { color: var(--muted); font-size: 11px; }
+.portfolio-provenance-row dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 12px; }
 .provider-config, .account-detail { padding: 20px; min-width: 0; }
 .provider-config form { max-width: 680px; }
 .account-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
@@ -375,7 +393,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .order-identity { display: block; max-width: 150px; white-space: normal; margin-top: 4px; font-size: 10px; color: #64748b; }
 .account-detail h3 { margin: 22px 0 12px; }
 .settings-section:has(.accounts-panel) { padding: 20px; }
-@media (max-width: 600px) { .provider-config, .account-detail { padding: 14px; } .account-actions { width: 100%; } }
+@media (max-width: 600px) { .provider-config, .account-detail, .portfolio-section, .portfolio-summary { padding: 14px; } .account-actions { width: 100%; } }
 
 .model-settings { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; overflow-wrap: anywhere; }
 .model-actions { display: flex; flex-wrap: wrap; gap: 8px; }

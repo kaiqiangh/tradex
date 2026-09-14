@@ -160,6 +160,7 @@ export type ReplyData =
   | DataSourceCatalog
   | MarketCatalog
   | MarketDetail
+  | PortfolioSnapshot
   | Watchlist
   | Watchlists
   | ResearchToolResult;
@@ -226,6 +227,21 @@ export type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
 export type MarketFreshness = "HEALTHY" | "STALE" | "CLOCK_UNCERTAIN";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxFreshness".
+ */
+export type FxFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxQuality".
+ */
+export type FxQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioStatus".
+ */
+export type PortfolioStatus = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
  */
 export type ModelAttemptKind = "SETUP" | "THREAD";
@@ -251,6 +267,7 @@ export interface IpcSchema {
   marketCatalogQuery: MarketCatalogQuery;
   marketGetQuery: MarketGetQuery;
   modelQuery: ModelQuery;
+  portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
   researchInvocation: ResearchToolInvocation;
@@ -780,6 +797,13 @@ export interface MarketGetQuery {
  * via the `definition` "ModelQuery".
  */
 export interface ModelQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioQuery".
+ */
+export interface PortfolioQuery {
   workspaceId: string;
 }
 /**
@@ -1421,6 +1445,149 @@ export interface MarketSnapshotProvenance {
   receivedTimestamp: string;
   source: string;
   venue?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioSnapshot".
+ */
+export interface PortfolioSnapshot {
+  /**
+   * @maxItems 256
+   */
+  accounts: PortfolioAccount[];
+  availabilityReason: string;
+  baseCurrency: string;
+  /**
+   * @maxItems 512
+   */
+  fills?: PortfolioFill[] | null;
+  /**
+   * @maxItems 128
+   */
+  fxRoutes: FxProvenance[];
+  /**
+   * @maxItems 512
+   */
+  holdings: PortfolioHolding[];
+  liveRisk: PortfolioLiveRisk;
+  observedAt: string;
+  /**
+   * @maxItems 512
+   */
+  openOrders: PortfolioOrder[];
+  status: PortfolioStatus;
+  totals: PortfolioTotals;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioAccount".
+ */
+export interface PortfolioAccount {
+  accountCurrency?: string | null;
+  cash: PortfolioValue;
+  connectionId: string;
+  connectionState: ConnectionState;
+  environment: string;
+  equity: PortfolioValue;
+  fillsCount: number;
+  health: AccountHealth;
+  label: string;
+  openOrdersCount: number;
+  positionsCount: number;
+  providerId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioValue".
+ */
+export interface PortfolioValue {
+  accountCurrency?: string | null;
+  accountValue?: string;
+  fxProvenance?: FxProvenance | null;
+  nativeCurrency?: string | null;
+  nativeValue?: string;
+  workspaceCurrency: string;
+  workspaceValue?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxProvenance".
+ */
+export interface FxProvenance {
+  depegWarning?: string | null;
+  freshness: FxFreshness;
+  pairPath: string;
+  providerTimestamp?: string;
+  quality: FxQuality;
+  rate?: string;
+  receivedTimestamp: string;
+  sourceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioFill".
+ */
+export interface PortfolioFill {
+  accountLabel: string;
+  asset: string;
+  connectionId: string;
+  fillId: string;
+  instrumentId?: string | null;
+  observedAt: string;
+  quantity: string;
+  value: PortfolioValue;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioHolding".
+ */
+export interface PortfolioHolding {
+  accountLabel: string;
+  asset: string;
+  connectionId: string;
+  environment: string;
+  instrumentId?: string | null;
+  providerId: string;
+  quantity?: string;
+  unrealizedPnl?: PortfolioValue | null;
+  value: PortfolioValue;
+  venue?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioLiveRisk".
+ */
+export interface PortfolioLiveRisk {
+  eligible: boolean;
+  reason: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioOrder".
+ */
+export interface PortfolioOrder {
+  accountLabel: string;
+  asset: string;
+  brokerOrderId: string;
+  connectionId: string;
+  currency?: string | null;
+  instrumentId?: string | null;
+  notional?: string;
+  quantity?: string;
+  side: string;
+  status: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PortfolioTotals".
+ */
+export interface PortfolioTotals {
+  cash: PortfolioValue;
+  equity: PortfolioValue;
+  exposure: PortfolioValue;
+  realizedPnl: PortfolioValue;
+  unrealizedPnl: PortfolioValue;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

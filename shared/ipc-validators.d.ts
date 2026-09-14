@@ -37,6 +37,9 @@ declare const validators: {
   EmptyPayload: (value: unknown) => boolean;
   ExecutionContext: (value: unknown) => boolean;
   FailureEnvelope: (value: unknown) => boolean;
+  FxFreshness: (value: unknown) => boolean;
+  FxProvenance: (value: unknown) => boolean;
+  FxQuality: (value: unknown) => boolean;
   GatewayAction: (value: unknown) => boolean;
   GatewayMutation: (value: unknown) => boolean;
   GatewayState: (value: unknown) => boolean;
@@ -71,6 +74,16 @@ declare const validators: {
   OpenOrder: (value: unknown) => boolean;
   OpenWorkspace: (value: unknown) => boolean;
   PermissionReview: (value: unknown) => boolean;
+  PortfolioAccount: (value: unknown) => boolean;
+  PortfolioFill: (value: unknown) => boolean;
+  PortfolioHolding: (value: unknown) => boolean;
+  PortfolioLiveRisk: (value: unknown) => boolean;
+  PortfolioOrder: (value: unknown) => boolean;
+  PortfolioQuery: (value: unknown) => boolean;
+  PortfolioSnapshot: (value: unknown) => boolean;
+  PortfolioStatus: (value: unknown) => boolean;
+  PortfolioTotals: (value: unknown) => boolean;
+  PortfolioValue: (value: unknown) => boolean;
   Position: (value: unknown) => boolean;
   ProviderCatalog: (value: unknown) => boolean;
   ProviderDefinition: (value: unknown) => boolean;
