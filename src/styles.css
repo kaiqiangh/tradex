@@ -239,6 +239,46 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .market-quote h3 { margin: 0; font-size: 12px; }
 .market-price { margin: 6px 0; font-size: 24px; font-weight: 750; }
 .market-provenance { margin-bottom: 0; }
+.watchlist-toolbar { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.watchlist-create-form { display: grid; gap: 7px; min-width: min(100%, 340px); font-size: 11px; font-weight: 700; }
+.watchlist-create-form > div, .watchlist-inline-form > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.watchlist-create-form input, .watchlist-inline-form input, .watchlist-add > input { min-width: 0; flex: 1; min-height: 38px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.watchlists-layout { display: grid; grid-template-columns: minmax(190px, .42fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.watchlist-library, .watchlist-detail { min-width: 0; }
+.watchlist-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.watchlist-detail > .watchlist-section-heading > .badge { min-width: 0; max-width: 45%; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+.watchlist-section-heading h2, .watchlist-section-heading h3 { margin: 0; font-size: 15px; }
+.watchlist-section-heading p { margin: 4px 0 0; font-size: 11px; }
+.watchlist-list { display: grid; gap: 8px; margin-top: 16px; }
+.watchlist-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; width: 100%; min-width: 0; padding: 11px; text-align: left; background: var(--surface); }
+.watchlist-row[aria-pressed="true"] { border-color: #93c5fd; background: var(--blue-light); }
+.watchlist-row > span { display: grid; gap: 3px; min-width: 0; }
+.watchlist-row strong, .watchlist-row small { overflow-wrap: anywhere; }
+.watchlist-row strong { font-size: 12px; }
+.watchlist-row small { color: var(--muted); font-size: 10px; }
+.watchlist-row .identity { max-width: 110px; text-align: right; }
+.watchlist-empty h3, .watchlist-detail-empty h2 { margin: 18px 0 7px; font-size: 14px; }
+.watchlist-empty p, .watchlist-detail-empty p { color: var(--muted); font-size: 12px; }
+.watchlist-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 18px 0; }
+.watchlist-actions .muted { font-size: 11px; }
+.watchlist-inline-form { display: grid; gap: 7px; flex: 1 1 360px; font-size: 11px; font-weight: 700; }
+.watchlist-members, .watchlist-add { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+.watchlist-members ol { display: grid; gap: 8px; margin: 14px 0 0; padding-left: 24px; }
+.watchlist-members li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.watchlist-members code, .watchlist-market-row code { min-width: 0; overflow-wrap: anywhere; font-size: 10px; }
+.watchlist-members button, .watchlist-market-row button { flex-shrink: 0; min-height: 30px; padding: 5px 8px; font-size: 10px; }
+.watchlist-empty-line { margin: 14px 0 0; color: var(--muted); font-size: 11px; }
+.watchlist-add > label { display: block; margin: 14px 0 7px; font-size: 11px; font-weight: 700; }
+.watchlist-add > input { display: block; width: 100%; }
+.watchlist-market-results { display: grid; gap: 8px; margin-top: 12px; }
+.watchlist-market-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.watchlist-market-row > span { display: grid; gap: 3px; min-width: 0; }
+.watchlist-market-row strong { font-size: 11px; }
+.watchlist-market-row small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.watchlist-inline-error, .watchlist-error { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; color: #991b1b; font-size: 11px; }
+.watchlist-inline-error p, .watchlist-error p { margin: 0; }
+.watchlist-error { margin-bottom: 18px; }
+.watchlist-actions .danger { color: #991b1b; border-color: #fecaca; background: #fff7f7; }
 .error-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 16px; border-radius: 9px; margin-bottom: 20px; }
 .error-banner p { margin: 5px 0 0; font-size: 12px; }
 .error-banner button { flex-shrink: 0; }
@@ -278,6 +318,13 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
   .market-search > div { flex-wrap: wrap; }
   .market-search input { flex-basis: 100%; }
   .market-search button { width: 100%; }
+  .watchlists-layout { grid-template-columns: minmax(0, 1fr); }
+  .watchlist-actions { align-items: stretch; }
+  .watchlist-actions > button, .watchlist-actions .danger { flex: 1; }
+  .watchlist-members li { align-items: flex-start; flex-direction: column; }
+  .watchlist-members li button { align-self: flex-end; }
+  .watchlist-create-form > div, .watchlist-inline-form > div { flex-direction: column; }
+  .watchlist-create-form > div button, .watchlist-inline-form > div button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
 

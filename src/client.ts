@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -41,6 +41,12 @@ interface Inputs {
   'data.source.probe': DataSourceProbe;
   'market.catalog': MarketCatalogQuery;
   'market.get': MarketGetQuery;
+  'watchlist.list': WorkspaceQuery;
+  'watchlist.create': WatchlistCreate;
+  'watchlist.rename': WatchlistRename;
+  'watchlist.delete': WatchlistDelete;
+  'watchlist.add': WatchlistInstrumentMutation;
+  'watchlist.remove': WatchlistInstrumentMutation;
 }
 interface Outputs {
   'model.get_gateway': GatewayState;
@@ -81,6 +87,12 @@ interface Outputs {
   'data.source.probe': DataSourceCatalog;
   'market.catalog': MarketCatalog;
   'market.get': MarketDetail;
+  'watchlist.list': Watchlists;
+  'watchlist.create': Watchlist;
+  'watchlist.rename': Watchlist;
+  'watchlist.delete': Watchlists;
+  'watchlist.add': Watchlist;
+  'watchlist.remove': Watchlist;
 }
 const definitions = {
   'model.get_gateway': ['WorkspaceQuery', 'GatewayState'],
@@ -121,6 +133,12 @@ const definitions = {
   'data.source.probe': ['DataSourceProbe', 'DataSourceCatalog'],
   'market.catalog': ['MarketCatalogQuery', 'MarketCatalog'],
   'market.get': ['MarketGetQuery', 'MarketDetail'],
+  'watchlist.list': ['WorkspaceQuery', 'Watchlists'],
+  'watchlist.create': ['WatchlistCreate', 'Watchlist'],
+  'watchlist.rename': ['WatchlistRename', 'Watchlist'],
+  'watchlist.delete': ['WatchlistDelete', 'Watchlists'],
+  'watchlist.add': ['WatchlistInstrumentMutation', 'Watchlist'],
+  'watchlist.remove': ['WatchlistInstrumentMutation', 'Watchlist'],
 } as const;
 
 export const browserIntegration = import.meta.env.MODE === 'integration';

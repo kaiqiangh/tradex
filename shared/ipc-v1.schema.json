@@ -109,6 +109,18 @@
     "verifyRoute": {
       "$ref": "#/$defs/VerifyRoute"
     },
+    "watchlistCreate": {
+      "$ref": "#/$defs/WatchlistCreate"
+    },
+    "watchlistDelete": {
+      "$ref": "#/$defs/WatchlistDelete"
+    },
+    "watchlistInstrumentMutation": {
+      "$ref": "#/$defs/WatchlistInstrumentMutation"
+    },
+    "watchlistRename": {
+      "$ref": "#/$defs/WatchlistRename"
+    },
     "workspaceOpen": {
       "$ref": "#/$defs/OpenWorkspace"
     },
@@ -153,7 +165,11 @@
     "dataSourceQuery",
     "dataSourceProbe",
     "marketCatalogQuery",
-    "marketGetQuery"
+    "marketGetQuery",
+    "watchlistCreate",
+    "watchlistRename",
+    "watchlistDelete",
+    "watchlistInstrumentMutation"
   ],
   "$defs": {
     "AccountConnection": {
@@ -2368,6 +2384,12 @@
           "$ref": "#/$defs/MarketDetail"
         },
         {
+          "$ref": "#/$defs/Watchlist"
+        },
+        {
+          "$ref": "#/$defs/Watchlists"
+        },
+        {
           "$ref": "#/$defs/ResearchToolResult"
         }
       ]
@@ -3802,6 +3824,198 @@
         "modelId"
       ]
     },
+    "Watchlist": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WatchlistItem"
+          },
+          "maxItems": 256
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "watchlistId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "watchlistId",
+        "workspaceId",
+        "name",
+        "stateVersion",
+        "items"
+      ]
+    },
+    "WatchlistCreate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "name"
+      ]
+    },
+    "WatchlistDelete": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "watchlistId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "watchlistId",
+        "expectedStateVersion"
+      ]
+    },
+    "WatchlistInstrumentMutation": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "watchlistId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "watchlistId",
+        "instrumentId",
+        "expectedStateVersion"
+      ]
+    },
+    "WatchlistItem": {
+      "type": "object",
+      "properties": {
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instrumentId"
+      ]
+    },
+    "WatchlistRename": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "watchlistId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "watchlistId",
+        "name",
+        "expectedStateVersion"
+      ]
+    },
+    "Watchlists": {
+      "type": "object",
+      "properties": {
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "watchlists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Watchlist"
+          },
+          "maxItems": 128
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "watchlists"
+      ]
+    },
     "Workspace": {
       "type": "object",
       "properties": {
@@ -3823,7 +4037,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 6,
+          "maximum": 7,
           "minimum": 1
         },
         "workspaceId": {

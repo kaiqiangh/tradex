@@ -9,16 +9,18 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
 use crate::gateway::GatewayState;
+use crate::market;
 use crate::model::ModelState;
 use crate::protocol::{
     DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result, Snapshot,
-    SubscriptionAck, Thread, ThreadList, ThreadSummary, TradeXError, Workspace,
+    SubscriptionAck, Thread, ThreadList, ThreadSummary, TradeXError, Watchlist, WatchlistItem,
+    Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-const SCHEMA_VERSION: u32 = 6;
+const SCHEMA_VERSION: u32 = 7;
 
 pub struct Store {
     connection: Connection,
@@ -155,6 +157,18 @@ impl Store {
             }
             if version < 6 {
                 tx.execute_batch("CREATE TABLE threads (thread_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, sequence INTEGER NOT NULL CHECK(sequence>=0), projection TEXT NOT NULL); CREATE INDEX threads_workspace_updated ON threads(workspace_id, sequence DESC); PRAGMA user_version=6;").map_err(storage_error)?;
+            }
+            if version < 7 {
+                tx.execute_batch("CREATE TABLE watchlists (
+                    watchlist_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    name TEXT NOT NULL COLLATE NOCASE,
+                    sequence INTEGER NOT NULL CHECK(sequence>0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,name)
+                );
+                CREATE INDEX watchlists_workspace_order ON watchlists(workspace_id,name COLLATE NOCASE,watchlist_id);
+                PRAGMA user_version=7;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -852,6 +866,215 @@ impl Store {
         Ok(event)
     }
 
+    pub fn watchlists(&self) -> Result<Watchlists> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare(
+                "SELECT watchlist_id,workspace_id,sequence,projection FROM watchlists WHERE workspace_id=?1 ORDER BY name COLLATE NOCASE,watchlist_id",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut lists = Vec::new();
+        let mut max_sequence = 0_i64;
+        for row in rows {
+            let (watchlist_id, row_workspace_id, sequence, projection) =
+                row.map_err(storage_error)?;
+            max_sequence = max_sequence.max(sequence);
+            lists.push(decode_watchlist(
+                &projection,
+                &watchlist_id,
+                &row_workspace_id,
+                sequence,
+                &workspace_id,
+            )?);
+        }
+        if max_sequence < 0 || max_sequence > MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(Watchlists {
+            workspace_id: workspace_id.clone(),
+            state_version: format!("watchlists:{}:{}", workspace_id, max_sequence),
+            watchlists: lists,
+        })
+    }
+
+    pub fn create_watchlist(&mut self, workspace_id: &str, name: &str) -> Result<Watchlist> {
+        let name = validate_watchlist_name(name)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        if tx
+            .query_row(
+                "SELECT 1 FROM watchlists WHERE workspace_id=?1 AND name=?2 LIMIT 1",
+                params![workspace_id, &name],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(storage_error)?
+            .is_some()
+        {
+            return Err(TradeXError::new("WATCHLIST_NAME_CONFLICT"));
+        }
+        let count: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM watchlists WHERE workspace_id=?1",
+                [workspace_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !(0..128).contains(&count) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let watchlist_id = Uuid::new_v4().to_string();
+        let sequence = 1_i64;
+        let watchlist = Watchlist {
+            watchlist_id: watchlist_id.clone(),
+            workspace_id: workspace_id.to_owned(),
+            name,
+            state_version: format!("watchlist:{}:{}", watchlist_id, sequence),
+            items: Vec::new(),
+        };
+        tx.execute(
+            "INSERT INTO watchlists(watchlist_id,workspace_id,name,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+            params![
+                &watchlist.watchlist_id,
+                &watchlist.workspace_id,
+                &watchlist.name,
+                sequence,
+                serde_json::to_string(&watchlist).map_err(storage_error)?,
+            ],
+        )
+        .map_err(|error| {
+            if error.to_string().contains("UNIQUE") {
+                TradeXError::new("WATCHLIST_NAME_CONFLICT")
+            } else {
+                storage_error(error)
+            }
+        })?;
+        tx.commit().map_err(storage_error)?;
+        Ok(watchlist)
+    }
+
+    pub fn rename_watchlist(
+        &mut self,
+        workspace_id: &str,
+        watchlist_id: &str,
+        name: &str,
+        expected_state_version: &str,
+    ) -> Result<Watchlist> {
+        let name = validate_watchlist_name(name)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let mut watchlist = load_watchlist_tx(&tx, workspace_id, watchlist_id)?;
+        if watchlist.state_version != expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if tx
+            .query_row(
+                "SELECT 1 FROM watchlists WHERE workspace_id=?1 AND name=?2 AND watchlist_id<>?3 LIMIT 1",
+                params![workspace_id, &name, watchlist_id],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(storage_error)?
+            .is_some()
+        {
+            return Err(TradeXError::new("WATCHLIST_NAME_CONFLICT"));
+        }
+        let sequence = next_watchlist_sequence(&tx, watchlist_id)?;
+        watchlist.name = name;
+        watchlist.state_version = format!("watchlist:{}:{}", watchlist_id, sequence);
+        update_watchlist_tx(&tx, &watchlist, sequence)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(watchlist)
+    }
+
+    pub fn delete_watchlist(
+        &mut self,
+        workspace_id: &str,
+        watchlist_id: &str,
+        expected_state_version: &str,
+    ) -> Result<Watchlists> {
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let watchlist = load_watchlist_tx(&tx, workspace_id, watchlist_id)?;
+        if watchlist.state_version != expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        tx.execute(
+            "DELETE FROM watchlists WHERE workspace_id=?1 AND watchlist_id=?2",
+            params![workspace_id, watchlist_id],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        self.watchlists()
+    }
+
+    pub fn mutate_watchlist_members(
+        &mut self,
+        workspace_id: &str,
+        watchlist_id: &str,
+        instrument_id: &str,
+        expected_state_version: &str,
+        add: bool,
+    ) -> Result<Watchlist> {
+        if !market::validate_instrument_id(instrument_id)
+            || !market::instruments()
+                .iter()
+                .any(|instrument| instrument.instrument_id == instrument_id)
+        {
+            return Err(TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let mut watchlist = load_watchlist_tx(&tx, workspace_id, watchlist_id)?;
+        if watchlist.state_version != expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let present = watchlist
+            .items
+            .iter()
+            .any(|item| item.instrument_id == instrument_id);
+        if present == add {
+            tx.commit().map_err(storage_error)?;
+            return Ok(watchlist);
+        }
+        if add {
+            if watchlist.items.len() >= 256 {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+            watchlist.items.push(WatchlistItem {
+                instrument_id: instrument_id.to_owned(),
+            });
+        } else {
+            watchlist
+                .items
+                .retain(|item| item.instrument_id != instrument_id);
+        }
+        let sequence = next_watchlist_sequence(&tx, watchlist_id)?;
+        watchlist.state_version = format!("watchlist:{}:{}", watchlist_id, sequence);
+        update_watchlist_tx(&tx, &watchlist, sequence)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(watchlist)
+    }
+
     pub fn mark_accounts_stale(&mut self) -> Result<()> {
         for mut account in self.accounts()? {
             if account.connection_state == ConnectionState::Disconnected
@@ -880,6 +1103,118 @@ impl Store {
         }
         Ok(())
     }
+}
+
+fn validate_watchlist_name(name: &str) -> Result<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() || trimmed.chars().count() > 80 || trimmed.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(trimmed.to_owned())
+}
+
+fn load_watchlist_tx(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+    watchlist_id: &str,
+) -> Result<Watchlist> {
+    let (row_workspace_id, sequence, projection): (String, i64, String) = tx
+        .query_row(
+            "SELECT workspace_id,sequence,projection FROM watchlists WHERE workspace_id=?1 AND watchlist_id=?2",
+            params![workspace_id, watchlist_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|error| {
+            if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("WATCHLIST_NOT_FOUND")
+            } else {
+                storage_error(error)
+            }
+        })?;
+    decode_watchlist(
+        &projection,
+        watchlist_id,
+        &row_workspace_id,
+        sequence,
+        workspace_id,
+    )
+}
+
+fn next_watchlist_sequence(tx: &rusqlite::Transaction<'_>, watchlist_id: &str) -> Result<i64> {
+    let previous: i64 = tx
+        .query_row(
+            "SELECT sequence FROM watchlists WHERE watchlist_id=?1",
+            [watchlist_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    if previous < 1 || previous >= MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    Ok(previous + 1)
+}
+
+fn update_watchlist_tx(
+    tx: &rusqlite::Transaction<'_>,
+    watchlist: &Watchlist,
+    sequence: i64,
+) -> Result<()> {
+    tx.execute(
+        "UPDATE watchlists SET name=?1,sequence=?2,projection=?3 WHERE workspace_id=?4 AND watchlist_id=?5",
+        params![
+            &watchlist.name,
+            sequence,
+            serde_json::to_string(watchlist).map_err(storage_error)?,
+            &watchlist.workspace_id,
+            &watchlist.watchlist_id,
+        ],
+    )
+    .map_err(|error| {
+        if error.to_string().contains("UNIQUE") {
+            TradeXError::new("WATCHLIST_NAME_CONFLICT")
+        } else {
+            storage_error(error)
+        }
+    })?;
+    Ok(())
+}
+
+fn decode_watchlist(
+    projection: &str,
+    row_id: &str,
+    row_workspace_id: &str,
+    sequence: i64,
+    workspace_id: &str,
+) -> Result<Watchlist> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let watchlist: Watchlist = serde_json::from_str(projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if watchlist.watchlist_id != row_id
+        || watchlist.workspace_id != row_workspace_id
+        || row_workspace_id != workspace_id
+        || watchlist.state_version != format!("watchlist:{}:{}", row_id, sequence)
+        || watchlist.name.trim() != watchlist.name
+        || watchlist.name.is_empty()
+        || watchlist.name.chars().count() > 80
+        || watchlist.name.chars().any(char::is_control)
+        || watchlist.items.len() > 256
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for item in &watchlist.items {
+        if !market::validate_instrument_id(&item.instrument_id)
+            || !market::instruments()
+                .iter()
+                .any(|instrument| instrument.instrument_id == item.instrument_id)
+            || !seen.insert(&item.instrument_id)
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+    }
+    Ok(watchlist)
 }
 
 fn read_workspace(connection: &Connection, path: &Path) -> Result<Workspace> {

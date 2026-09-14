@@ -159,6 +159,8 @@ export type ReplyData =
   | DataSourceCatalog
   | MarketCatalog
   | MarketDetail
+  | Watchlist
+  | Watchlists
   | ResearchToolResult;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -245,6 +247,10 @@ export interface IpcSchema {
   turnRetry: TurnRetry;
   turnStart: TurnStart;
   verifyRoute: VerifyRoute;
+  watchlistCreate: WatchlistCreate;
+  watchlistDelete: WatchlistDelete;
+  watchlistInstrumentMutation: WatchlistInstrumentMutation;
+  watchlistRename: WatchlistRename;
   workspaceOpen: OpenWorkspace;
   workspaceQuery: WorkspaceQuery;
   [k: string]: unknown;
@@ -1194,6 +1200,39 @@ export interface MarketSnapshotProvenance {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Watchlist".
+ */
+export interface Watchlist {
+  /**
+   * @maxItems 256
+   */
+  items: WatchlistItem[];
+  name: string;
+  stateVersion: string;
+  watchlistId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WatchlistItem".
+ */
+export interface WatchlistItem {
+  instrumentId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Watchlists".
+ */
+export interface Watchlists {
+  stateVersion: string;
+  /**
+   * @maxItems 128
+   */
+  watchlists: Watchlist[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FailureEnvelope".
  */
 export interface FailureEnvelope {
@@ -1360,6 +1399,43 @@ export interface VerifyRoute {
   modelId: string;
   provider: ModelProvider;
   thinkingType?: ThinkingType | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WatchlistCreate".
+ */
+export interface WatchlistCreate {
+  name: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WatchlistDelete".
+ */
+export interface WatchlistDelete {
+  expectedStateVersion: string;
+  watchlistId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WatchlistInstrumentMutation".
+ */
+export interface WatchlistInstrumentMutation {
+  expectedStateVersion: string;
+  instrumentId: string;
+  watchlistId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WatchlistRename".
+ */
+export interface WatchlistRename {
+  expectedStateVersion: string;
+  name: string;
+  watchlistId: string;
   workspaceId: string;
 }
 /**

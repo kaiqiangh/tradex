@@ -10,6 +10,7 @@ import { Models } from './Models.tsx';
 import { RiskDefaults, draftFromPolicy, type RiskDraft } from './RiskDefaults.tsx';
 import { DataSources } from './DataSources.tsx';
 import { Markets } from './Markets.tsx';
+import { Watchlists } from './Watchlists.tsx';
 import { fromModelSnapshot, fromRiskSnapshot, fromThreadSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -608,7 +609,8 @@ export default function App() {
             </>}
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}
             {page === 'Markets' && (workspace ? <Markets workspaceId={workspace.workspaceId} onOpenDataSources={() => { setSettingsTab('Data & Storage'); navigate('Settings'); }} /> : <><div className="page-heading"><h1>Markets</h1><p>Search canonical instruments and inspect source-backed market availability.</p></div><section className="card empty-page"><h2>Open a workspace to browse markets</h2><p>Market catalogs and source status are scoped to a local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
-            {page !== 'New Thread' && page !== 'Threads' && page !== 'Settings' && page !== 'Accounts' && page !== 'Markets' && <>
+            {page === 'Watchlists' && (workspace ? <Watchlists workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Watchlists</h1><p>Keep ordered canonical instruments in a local workspace.</p></div><section className="card empty-page"><h2>Open a workspace to manage watchlists</h2><p>Watchlists are stored in the selected local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
+            {(page === 'Strategies' || page === 'Artifacts') && <>
               <div className="page-heading"><h1>{page}</h1></div>
               <section className="card empty-page"><h2>{page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
                 <p>This workflow is not available in this build. Your local workspace is ready for the next setup steps.</p>

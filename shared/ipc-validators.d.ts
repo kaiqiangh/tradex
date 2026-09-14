@@ -115,6 +115,13 @@ declare const validators: {
   TurnStart: (value: unknown) => boolean;
   TurnStatus: (value: unknown) => boolean;
   VerifyRoute: (value: unknown) => boolean;
+  Watchlist: (value: unknown) => boolean;
+  WatchlistCreate: (value: unknown) => boolean;
+  WatchlistDelete: (value: unknown) => boolean;
+  WatchlistInstrumentMutation: (value: unknown) => boolean;
+  WatchlistItem: (value: unknown) => boolean;
+  WatchlistRename: (value: unknown) => boolean;
+  Watchlists: (value: unknown) => boolean;
   Workspace: (value: unknown) => boolean;
   WorkspaceQuery: (value: unknown) => boolean;
 };

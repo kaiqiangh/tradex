@@ -627,6 +627,66 @@ impl ControlPlane {
                 let detail = market::detail(&input, source)?;
                 Ok((json!(detail), None))
             }
+            "watchlist.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let lists = self.store.as_ref().unwrap().watchlists()?;
+                Ok((json!(lists), Some(lists.state_version)))
+            }
+            "watchlist.create" => {
+                let input: protocol::WatchlistCreate = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_watchlist_name(&input.name)?;
+                let watchlist = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .create_watchlist(&input.workspace_id, &input.name)?;
+                Ok((json!(watchlist), Some(watchlist.state_version)))
+            }
+            "watchlist.rename" => {
+                let input: protocol::WatchlistRename = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_watchlist_id(&input.watchlist_id)?;
+                validate_watchlist_name(&input.name)?;
+                validate_watchlist_expected(&input.expected_state_version)?;
+                let watchlist = self.store.as_mut().unwrap().rename_watchlist(
+                    &input.workspace_id,
+                    &input.watchlist_id,
+                    &input.name,
+                    &input.expected_state_version,
+                )?;
+                Ok((json!(watchlist), Some(watchlist.state_version)))
+            }
+            "watchlist.delete" => {
+                let input: protocol::WatchlistDelete = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_watchlist_id(&input.watchlist_id)?;
+                validate_watchlist_expected(&input.expected_state_version)?;
+                let lists = self.store.as_mut().unwrap().delete_watchlist(
+                    &input.workspace_id,
+                    &input.watchlist_id,
+                    &input.expected_state_version,
+                )?;
+                Ok((json!(lists), Some(lists.state_version)))
+            }
+            "watchlist.add" | "watchlist.remove" => {
+                let input: protocol::WatchlistInstrumentMutation = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_watchlist_id(&input.watchlist_id)?;
+                validate_watchlist_expected(&input.expected_state_version)?;
+                if !market::validate_instrument_id(&input.instrument_id) {
+                    return Err(TradeXError::new("MARKET_INSTRUMENT_INVALID"));
+                }
+                let watchlist = self.store.as_mut().unwrap().mutate_watchlist_members(
+                    &input.workspace_id,
+                    &input.watchlist_id,
+                    &input.instrument_id,
+                    &input.expected_state_version,
+                    request.command == "watchlist.add",
+                )?;
+                Ok((json!(watchlist), Some(watchlist.state_version)))
+            }
             "provider.list_definitions" => {
                 let _: EmptyPayload = payload(request.payload)?;
                 Ok((json!(catalog()), None))
@@ -2471,6 +2531,28 @@ impl ControlPlane {
 
 fn payload<T: DeserializeOwned>(value: Value) -> Result<T> {
     serde_json::from_value(value).map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))
+}
+
+fn validate_watchlist_id(id: &str) -> Result<()> {
+    if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_watchlist_name(name: &str) -> Result<()> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() || trimmed.chars().count() > 80 || trimmed.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_watchlist_expected(version: &str) -> Result<()> {
+    if version.is_empty() || version.len() > 256 || version.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
 }
 
 fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {

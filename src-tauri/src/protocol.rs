@@ -153,6 +153,8 @@ pub enum ReplyData {
     DataSourceCatalog(DataSourceCatalog),
     MarketCatalog(MarketCatalog),
     MarketDetail(MarketDetail),
+    Watchlist(Box<Watchlist>),
+    Watchlists(Watchlists),
     ResearchResult(ResearchToolResult),
 }
 
@@ -216,6 +218,10 @@ pub struct IpcSchema {
     pub data_source_probe: DataSourceProbe,
     pub market_catalog_query: MarketCatalogQuery,
     pub market_get_query: MarketGetQuery,
+    pub watchlist_create: WatchlistCreate,
+    pub watchlist_rename: WatchlistRename,
+    pub watchlist_delete: WatchlistDelete,
+    pub watchlist_instrument_mutation: WatchlistInstrumentMutation,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -228,7 +234,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 6))]
+    #[schemars(range(min = 1, max = 7))]
     pub storage_schema_version: u32,
 }
 
@@ -641,6 +647,85 @@ pub struct MarketGetQuery {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WatchlistItem {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Watchlist {
+    #[schemars(length(min = 1, max = 128))]
+    pub watchlist_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub name: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 256))]
+    pub items: Vec<WatchlistItem>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Watchlists {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 128))]
+    pub watchlists: Vec<Watchlist>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WatchlistCreate {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub name: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WatchlistRename {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub watchlist_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub name: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WatchlistDelete {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub watchlist_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WatchlistInstrumentMutation {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub watchlist_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TurnSnapshot {
     #[schemars(length(min = 1, max = 128))]
     pub turn_id: String,
@@ -1023,6 +1108,16 @@ impl TradeXError {
                 "reload_snapshot",
                 "Review data sources",
             ),
+            "WATCHLIST_NAME_CONFLICT" => (
+                "A watchlist with this name already exists in the workspace.",
+                "choose_watchlist_name",
+                "Choose another name",
+            ),
+            "WATCHLIST_NOT_FOUND" => (
+                "That watchlist is no longer available. Reload the watchlist library.",
+                "reload_snapshot",
+                "Reload watchlists",
+            ),
             "PROVIDER_ALREADY_CONNECTED" => (
                 "This account is already connected in this environment. Use the existing connection.",
                 "select_account",
@@ -1394,6 +1489,7 @@ impl TradeXError {
             } else if matches!(
                 code,
                 "IPC_AGGREGATE_NOT_FOUND"
+                    | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"
                     | "CLOCK_SKEW"
