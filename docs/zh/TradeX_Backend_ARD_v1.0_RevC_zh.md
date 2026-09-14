@@ -1680,6 +1680,8 @@ turn.retry
 ### Markets/accounts
 
 ```text
+market.catalog
+market.get
 market.snapshot
 market.history
 market.screen
@@ -2044,6 +2046,49 @@ interface DataSourceProbe { workspaceId: string; sourceId: string; expectedState
 ~~~
 
 初始策略将 Alpaca Market Data 映射到 OD-001/002，将 SEC EDGAR 映射到 OD-003/004 的基本面与 filings，将 Alpaca Calendar/Corporate Actions 映射到 OD-005，将 ECB EXR/SDMX 信息性参考汇率映射到 OD-006。通用新闻、完整跨市场事件、交易级盘中 FX 和稳定币 parity 保持 `BLOCKED_EXTERNAL`。公开 SEC/ECB 探测保留来源 URL、checked/observed 时间和脱敏 HTTP 结果，但绝不保留响应正文或凭据。未知 source ID 返回 `DATA_SOURCE_UNKNOWN`；过期 workspace 游标返回 `STATE_STALE / STATE_VERSION_CONFLICT`；两个命令都不写 SQLite、不改变 account/model/risk/thread 版本，也不启用 Live。探测观察按 workspace/source 保存在 Control Plane 进程内存中，同一进程的 renderer reload/remount 会保留；进程重启后恢复静态 `UNVERIFIED`/`BLOCKED_EXTERNAL` 并要求重新探测。source 状态不是 `AVAILABLE` 时，typed research 必须返回 sanitized unavailable，直到所属数据切片解除 gate。
+
+### 41.10 行情目录、详情与历史载荷（S07）
+
+S07 增加两个只读行情命令。它们在执行任何 provider adapter 之前解析规范化 instrument 身份，绝不把券商账户连接当作行情 entitlement。
+
+| Command | Payload | 成功 data |
+|---|---|---|
+| market.catalog | `{workspaceId: string, query?: string, tier?: MarketTier}` | `MarketCatalog` |
+| market.get | `{workspaceId: string, instrumentId: string, tier: MarketTier}` | `MarketDetail` |
+
+~~~ts
+type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
+type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
+type MarketFreshness = "HEALTHY" | "STALE" | "CLOCK_UNCERTAIN";
+interface InstrumentProviderMapping { providerId: string; providerSymbol: string; }
+interface Instrument {
+  instrumentId: string; assetClass: "EQUITY" | "CRYPTO_SPOT"; symbol: string;
+  base?: string; quote?: string; exchange?: string; currency: string;
+  displayName: string; providers: InstrumentProviderMapping[];
+}
+interface MarketSnapshotProvenance {
+  marketSnapshotId: string; source: string; venue?: string;
+  providerTimestamp: string; receivedTimestamp: string;
+  entitlement: MarketEntitlement; freshness: MarketFreshness;
+}
+interface MarketSnapshot {
+  instrumentId: string; provenance: MarketSnapshotProvenance;
+  lastPrice?: string; bid?: string; ask?: string;
+}
+interface MarketCatalog {
+  workspaceId: string; query: string; tier: MarketTier; sourceId?: string;
+  status: MarketDataStatus; availabilityReason: string; instruments: Instrument[];
+}
+interface MarketDetail {
+  workspaceId: string; instrument: Instrument; tier: MarketTier; sourceId?: string;
+  status: MarketDataStatus; availabilityReason: string; snapshot?: MarketSnapshot;
+}
+~~~
+
+`market.catalog` 省略 `tier` 时默认为 `CENSUS`；两个 payload 都拒绝未知字段、控制字符和超长值。Instrument ID 使用规范形式（`equity:US:AAPL` 或 `crypto:BTC/USDT:spot`），provider symbol 只存在于 adapter 映射中。Equity tier 选择 OD-001（Census/Warm/Hot）或 OD-002（Cold）。Crypto 映射为未来 Binance/Bitget adapter 保留，但 S06 授权目录目前没有选定 crypto source，因此 `market.get` 返回 `UNAVAILABLE`、不返回 source ID 和 snapshot。source 状态不是 `AVAILABLE` 时返回脱敏的状态/原因，绝不制造报价。
+
+行情历史是内部数据层操作，不是 renderer mutation。DuckDB 与 workspace SQLite 并列存放于 `market.duckdb`，保存按规范 instrument、分钟和 source 键控的有界 `ohlcv_1m` 行。只有 source ID 与 `AVAILABLE` 的 OD-001/OD-002 条目匹配时才接收行；OHLCV 是精确的非负 decimal 字符串，时间是 RFC 3339（interval start 必须落在整分钟），venue/source 是有界标识符。source 缺失、阻断或不匹配时在任何写入前返回 `MARKET_HISTORY_UNAVAILABLE`；不改变 SQLite 领域投影或 state version。重开 workspace 时按需创建表，不导入 synthetic 或 blocked history。
 
 ## 42. Backend-to-Frontend Event Surface
 

@@ -1453,7 +1453,8 @@
           "maxLength": 120
         },
         "tier": {
-          "$ref": "#/$defs/MarketTier"
+          "$ref": "#/$defs/MarketTier",
+          "default": "CENSUS"
         },
         "workspaceId": {
           "type": "string",
@@ -1463,8 +1464,7 @@
       },
       "additionalProperties": false,
       "required": [
-        "workspaceId",
-        "tier"
+        "workspaceId"
       ]
     },
     "MarketDataStatus": {

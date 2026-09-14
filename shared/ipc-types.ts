@@ -734,7 +734,7 @@ export interface GatewayMutation {
  */
 export interface MarketCatalogQuery {
   query?: string;
-  tier: MarketTier;
+  tier?: "CENSUS" | "WARM" | "HOT" | "COLD";
   workspaceId: string;
 }
 /**

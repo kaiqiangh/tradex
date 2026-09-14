@@ -623,12 +623,11 @@ impl ControlPlane {
             "market.get" => {
                 let input: MarketGetQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
-                let source_id = match &input.tier {
-                    protocol::MarketTier::Cold => "OD-002",
-                    _ => "OD-001",
-                };
                 let sources = self.data_source_sources(&input.workspace_id);
-                let source = sources.iter().find(|entry| entry.source_id == source_id);
+                let source = market::source_id_for_instrument(&input.instrument_id, &input.tier)
+                    .and_then(|source_id| {
+                        sources.iter().find(|entry| entry.source_id == source_id)
+                    });
                 let detail = market::detail(&input, source)?;
                 Ok((json!(detail), None))
             }

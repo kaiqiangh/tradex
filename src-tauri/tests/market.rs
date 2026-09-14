@@ -34,6 +34,13 @@ fn market_catalog_and_detail_preserve_identity_and_gate_entitlement() {
         catalog["data"]["instruments"][0]["instrumentId"],
         "equity:US:AAPL"
     );
+    let default_tier_catalog = command(
+        &mut control,
+        "market.catalog",
+        json!({"workspaceId":workspace_id,"query":"aapl"}),
+    );
+    assert_eq!(default_tier_catalog["ok"], true, "{default_tier_catalog}");
+    assert_eq!(default_tier_catalog["data"]["tier"], "CENSUS");
     let detail = command(
         &mut control,
         "market.get",
@@ -46,6 +53,15 @@ fn market_catalog_and_detail_preserve_identity_and_gate_entitlement() {
     );
     assert_eq!(detail["data"]["status"], "BLOCKED_EXTERNAL");
     assert!(detail["data"]["snapshot"].is_null());
+    let crypto_detail = command(
+        &mut control,
+        "market.get",
+        json!({"workspaceId":workspace_id,"instrumentId":"crypto:BTC/USDT:spot","tier":"HOT"}),
+    );
+    assert_eq!(crypto_detail["ok"], true, "{crypto_detail}");
+    assert_eq!(crypto_detail["data"]["status"], "UNAVAILABLE");
+    assert!(crypto_detail["data"]["sourceId"].is_null());
+    assert!(crypto_detail["data"]["snapshot"].is_null());
     let unknown = command(
         &mut control,
         "market.get",

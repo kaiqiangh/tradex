@@ -607,7 +607,7 @@ export default function App() {
               </section>
             </>}
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}
-            {page === 'Markets' && workspace && <Markets workspaceId={workspace.workspaceId} />}
+            {page === 'Markets' && (workspace ? <Markets workspaceId={workspace.workspaceId} onOpenDataSources={() => { setSettingsTab('Data & Storage'); navigate('Settings'); }} /> : <><div className="page-heading"><h1>Markets</h1><p>Search canonical instruments and inspect source-backed market availability.</p></div><section className="card empty-page"><h2>Open a workspace to browse markets</h2><p>Market catalogs and source status are scoped to a local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {page !== 'New Thread' && page !== 'Threads' && page !== 'Settings' && page !== 'Accounts' && page !== 'Markets' && <>
               <div className="page-heading"><h1>{page}</h1></div>
               <section className="card empty-page"><h2>{page === 'Watchlists' ? 'No watchlists' : page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>

@@ -17881,7 +17881,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
-			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.tier === void 0 && (missing0 = "tier")) {
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId")) {
 				validate195.errors = [{
 					instancePath,
 					schemaPath: "#/required",

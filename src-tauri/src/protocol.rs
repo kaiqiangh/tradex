@@ -453,9 +453,10 @@ pub struct DataSourceCatalog {
     pub sources: Vec<DataSourceEntry>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MarketTier {
+    #[default]
     Census,
     Warm,
     Hot,
@@ -624,6 +625,7 @@ pub struct MarketCatalogQuery {
     #[serde(default)]
     #[schemars(length(max = 120))]
     pub query: String,
+    #[serde(default)]
     pub tier: MarketTier,
 }
 
@@ -1016,6 +1018,11 @@ impl TradeXError {
                 "retry_request",
                 "Retry after cleanup",
             ),
+            "MARKET_HISTORY_UNAVAILABLE" => (
+                "The historical market source is unavailable or not entitled; no history was stored.",
+                "reload_snapshot",
+                "Review data sources",
+            ),
             "PROVIDER_ALREADY_CONNECTED" => (
                 "This account is already connected in this environment. Use the existing connection.",
                 "select_account",
@@ -1369,7 +1376,10 @@ impl TradeXError {
                 "POLICY_ERROR"
             } else if code == "PROVIDER_RATE_LIMITED" {
                 "RATE_LIMITED"
-            } else if matches!(code, "PROVIDER_UNAVAILABLE" | "DATA_SOURCE_PROBE_FAILED") {
+            } else if matches!(
+                code,
+                "PROVIDER_UNAVAILABLE" | "DATA_SOURCE_PROBE_FAILED" | "MARKET_HISTORY_UNAVAILABLE"
+            ) {
                 "NETWORK_ERROR"
             } else if matches!(
                 code,
@@ -1399,6 +1409,7 @@ impl TradeXError {
                 code,
                 "WORKSPACE_BUSY"
                     | "WORKSPACE_OPEN_FAILED"
+                    | "MARKET_HISTORY_UNAVAILABLE"
                     | "MODEL_UNAVAILABLE"
                     | "MODEL_OAUTH_EXPIRED"
                     | "MODEL_QUOTA_EXCEEDED"

@@ -1680,6 +1680,8 @@ turn.retry
 ### Markets/accounts
 
 ```text
+market.catalog
+market.get
 market.snapshot
 market.history
 market.screen
@@ -2044,6 +2046,49 @@ interface DataSourceProbe { workspaceId: string; sourceId: string; expectedState
 ~~~
 
 The initial policy maps Alpaca Market Data to OD-001/002, SEC EDGAR to fundamentals and filings in OD-003/004, Alpaca Calendar/Corporate Actions to OD-005, and ECB EXR/SDMX informational reference rates to OD-006. General news, complete cross-market events, execution-grade intraday FX and stablecoin parity remain `BLOCKED_EXTERNAL`. Public SEC/ECB probes retain the source URL, checked/observed timestamp and sanitized HTTP outcome but never response bodies or credentials. Unknown source IDs return `DATA_SOURCE_UNKNOWN`; stale workspace cursors return `STATE_STALE / STATE_VERSION_CONFLICT`; neither command writes SQLite state, changes account/model/risk/thread versions, or enables Live. Probe observations are process-scoped in-memory by workspace/source: renderer reload/remount within the same Control Plane retains them, while process restart resets entries to static `UNVERIFIED`/`BLOCKED_EXTERNAL` and requires a fresh probe. A source status other than `AVAILABLE` must produce a sanitized unavailable typed-research result until the owning data slice resolves the gate.
+
+### 41.10 Market catalog, detail and history payloads (S07)
+
+S07 adds two read-only market commands. They resolve canonical instrument identity before any provider adapter work and never treat a broker account connection as market-data entitlement.
+
+| Command | Payload | Success data |
+|---|---|---|
+| market.catalog | `{workspaceId: string, query?: string, tier?: MarketTier}` | `MarketCatalog` |
+| market.get | `{workspaceId: string, instrumentId: string, tier: MarketTier}` | `MarketDetail` |
+
+~~~ts
+type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
+type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
+type MarketFreshness = "HEALTHY" | "STALE" | "CLOCK_UNCERTAIN";
+interface InstrumentProviderMapping { providerId: string; providerSymbol: string; }
+interface Instrument {
+  instrumentId: string; assetClass: "EQUITY" | "CRYPTO_SPOT"; symbol: string;
+  base?: string; quote?: string; exchange?: string; currency: string;
+  displayName: string; providers: InstrumentProviderMapping[];
+}
+interface MarketSnapshotProvenance {
+  marketSnapshotId: string; source: string; venue?: string;
+  providerTimestamp: string; receivedTimestamp: string;
+  entitlement: MarketEntitlement; freshness: MarketFreshness;
+}
+interface MarketSnapshot {
+  instrumentId: string; provenance: MarketSnapshotProvenance;
+  lastPrice?: string; bid?: string; ask?: string;
+}
+interface MarketCatalog {
+  workspaceId: string; query: string; tier: MarketTier; sourceId?: string;
+  status: MarketDataStatus; availabilityReason: string; instruments: Instrument[];
+}
+interface MarketDetail {
+  workspaceId: string; instrument: Instrument; tier: MarketTier; sourceId?: string;
+  status: MarketDataStatus; availabilityReason: string; snapshot?: MarketSnapshot;
+}
+~~~
+
+`market.catalog` defaults an omitted `tier` to `CENSUS`; both payloads reject unknown fields, control characters and overlong values. Instrument IDs are canonical (`equity:US:AAPL` or `crypto:BTC/USDT:spot`); provider symbols remain adapter-only mappings. Equity tiers select OD-001 (Census/Warm/Hot) or OD-002 (Cold). Crypto mappings are retained for future Binance/Bitget adapters, but no crypto source is selected by the S06 authorization catalog yet, so `market.get` returns `UNAVAILABLE` with no source ID and no snapshot. A source status other than `AVAILABLE` returns a sanitized status/reason and never fabricates a quote.
+
+Market history is an internal data-layer operation, not a renderer mutation. DuckDB is stored beside the workspace SQLite database in `market.duckdb` and contains bounded `ohlcv_1m` rows keyed by canonical instrument, minute and source. A row is accepted only when its source ID matches an `AVAILABLE` OD-001/OD-002 entry; OHLCV values are exact non-negative decimal strings, timestamps are RFC 3339 (the interval start is on a minute boundary), and venue/source fields are bounded identifiers. Missing, blocked or mismatched sources return `MARKET_HISTORY_UNAVAILABLE` before any write; no SQLite domain projection or state version changes. Reopening a workspace recreates the table if needed and never imports synthetic or blocked history.
 
 ## 42. Backend-to-Frontend Event Surface
 

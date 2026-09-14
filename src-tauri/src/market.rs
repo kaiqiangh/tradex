@@ -5,6 +5,7 @@ use crate::protocol::{
 };
 use duckdb::Connection;
 use std::path::Path;
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 const MAX_HISTORY_ROWS: usize = 100_000;
 
@@ -57,8 +58,20 @@ pub fn ensure_history(path: &Path) -> Result<()> {
         .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))
 }
 
-pub fn insert_history(path: &Path, bar: &HistoricalBar) -> Result<()> {
+pub fn insert_history(
+    path: &Path,
+    bar: &HistoricalBar,
+    source: Option<&DataSourceEntry>,
+) -> Result<()> {
     validate_bar(bar)?;
+    if source
+        .filter(|entry| {
+            entry.source_id == bar.source && entry.status == DataSourceStatus::Available
+        })
+        .is_none()
+    {
+        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE"));
+    }
     ensure_history(path)?;
     let database = path.join("market.duckdb");
     let connection =
@@ -104,26 +117,50 @@ pub fn history_count(path: &Path) -> Result<u64> {
 
 fn validate_bar(bar: &HistoricalBar) -> Result<()> {
     if !validate_instrument_id(&bar.instrument_id)
-        || bar.interval_start.is_empty()
-        || bar.interval_start.len() > 64
-        || bar.provider_timestamp.is_empty()
-        || bar.provider_timestamp.len() > 64
-        || bar.received_timestamp.is_empty()
-        || bar.received_timestamp.len() > 64
-        || [
-            &bar.open,
-            &bar.high,
-            &bar.low,
-            &bar.close,
-            &bar.volume,
-            &bar.source,
-        ]
-        .iter()
-        .any(|value| value.is_empty() || value.len() > 128 || value.chars().any(char::is_control))
+        || !valid_timestamp(&bar.interval_start, true)
+        || !valid_timestamp(&bar.provider_timestamp, false)
+        || !valid_timestamp(&bar.received_timestamp, false)
+        || !matches!(bar.source.as_str(), "OD-001" | "OD-002")
+        || bar
+            .venue
+            .as_deref()
+            .is_some_and(|venue| !valid_identifier(venue, 32))
+        || [&bar.open, &bar.high, &bar.low, &bar.close, &bar.volume]
+            .iter()
+            .any(|value| !valid_decimal(value))
     {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     Ok(())
+}
+
+fn valid_text(value: &str, max_len: usize) -> bool {
+    !value.is_empty() && value.len() <= max_len && !value.chars().any(char::is_control)
+}
+
+fn valid_identifier(value: &str, max_len: usize) -> bool {
+    valid_text(value, max_len)
+        && value.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || b"._-".contains(&byte)
+        })
+}
+
+fn valid_timestamp(value: &str, minute_boundary: bool) -> bool {
+    if !valid_text(value, 64) {
+        return false;
+    }
+    let Ok(timestamp) = OffsetDateTime::parse(value, &Rfc3339) else {
+        return false;
+    };
+    !minute_boundary || (timestamp.second() == 0 && timestamp.nanosecond() == 0)
+}
+
+fn valid_decimal(value: &str) -> bool {
+    let Ok(normalized) = crate::provider_io::decimal(&serde_json::Value::String(value.into()))
+    else {
+        return false;
+    };
+    !normalized.starts_with('-')
 }
 
 pub fn instruments() -> Vec<Instrument> {
@@ -237,7 +274,24 @@ fn source_for_tier(tier: &MarketTier) -> &'static str {
     }
 }
 
-fn source_gate(source: Option<&DataSourceEntry>, source_id: &str) -> (MarketDataStatus, String) {
+pub fn source_id_for_instrument(instrument_id: &str, tier: &MarketTier) -> Option<&'static str> {
+    if instrument_id.starts_with("equity:US:") {
+        Some(source_for_tier(tier))
+    } else {
+        None
+    }
+}
+
+fn source_gate(
+    source: Option<&DataSourceEntry>,
+    source_id: Option<&str>,
+) -> (MarketDataStatus, String) {
+    let Some(source_id) = source_id else {
+        return (
+            MarketDataStatus::Unavailable,
+            "No crypto market-data source is selected in the S06 authorization catalog.".into(),
+        );
+    };
     let Some(source) = source else {
         return (
             MarketDataStatus::Unavailable,
@@ -272,7 +326,7 @@ pub fn catalog(
 ) -> Result<MarketCatalog> {
     validate_query(&input.workspace_id, &input.query)?;
     let source_id = source_for_tier(&input.tier);
-    let (status, availability_reason) = source_gate(source, source_id);
+    let (status, availability_reason) = source_gate(source, Some(source_id));
     let query = input.query.trim().to_ascii_lowercase();
     let instruments = instruments()
         .into_iter()
@@ -301,7 +355,7 @@ pub fn catalog(
 }
 
 pub fn detail(input: &MarketGetQuery, source: Option<&DataSourceEntry>) -> Result<MarketDetail> {
-    if input.workspace_id.is_empty() || input.workspace_id.len() > 128 {
+    if !valid_text(&input.workspace_id, 128) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     if !validate_instrument_id(&input.instrument_id) {
@@ -311,13 +365,14 @@ pub fn detail(input: &MarketGetQuery, source: Option<&DataSourceEntry>) -> Resul
         .into_iter()
         .find(|instrument| instrument.instrument_id == input.instrument_id)
         .ok_or_else(|| TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"))?;
-    let source_id = source_for_tier(&input.tier);
+    let source_id = source_id_for_instrument(&input.instrument_id, &input.tier);
+    let source = source.filter(|entry| Some(entry.source_id.as_str()) == source_id);
     let (status, availability_reason) = source_gate(source, source_id);
     Ok(MarketDetail {
         workspace_id: input.workspace_id.clone(),
         instrument,
         tier: input.tier.clone(),
-        source_id: Some(source_id.into()),
+        source_id: source_id.map(str::to_owned),
         status,
         availability_reason,
         snapshot: None,
@@ -325,12 +380,7 @@ pub fn detail(input: &MarketGetQuery, source: Option<&DataSourceEntry>) -> Resul
 }
 
 fn validate_query(workspace_id: &str, query: &str) -> Result<()> {
-    if workspace_id.is_empty()
-        || workspace_id.len() > 128
-        || workspace_id.chars().any(char::is_control)
-        || query.len() > 120
-        || query.chars().any(char::is_control)
-    {
+    if !valid_text(workspace_id, 128) || query.len() > 120 || query.chars().any(char::is_control) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     Ok(())
@@ -384,26 +434,68 @@ mod tests {
     fn duckdb_history_is_separate_and_reopens() {
         let dir = tempdir().unwrap();
         ensure_history(dir.path()).unwrap();
-        insert_history(
-            dir.path(),
-            &HistoricalBar {
-                instrument_id: "equity:US:AAPL".into(),
-                interval_start: "2026-09-14T00:00:00Z".into(),
-                open: "1.00".into(),
-                high: "2.00".into(),
-                low: "0.50".into(),
-                close: "1.50".into(),
-                volume: "10".into(),
-                source: "OD-002".into(),
-                venue: Some("XNAS".into()),
-                provider_timestamp: "2026-09-14T00:00:00Z".into(),
-                received_timestamp: "2026-09-14T00:00:01Z".into(),
-                entitlement: MarketEntitlement::Delayed,
-                freshness: MarketFreshness::Healthy,
-            },
-        )
-        .unwrap();
+        let blocked = blocked_source("OD-002");
+        assert_eq!(
+            insert_history(dir.path(), &history_bar(), Some(&blocked))
+                .unwrap_err()
+                .code,
+            "MARKET_HISTORY_UNAVAILABLE"
+        );
+        assert_eq!(history_count(dir.path()).unwrap(), 0);
+        let mut available = blocked_source("OD-002");
+        available.status = DataSourceStatus::Available;
+        available.configured = true;
+        insert_history(dir.path(), &history_bar(), Some(&available)).unwrap();
         assert_eq!(history_count(dir.path()).unwrap(), 1);
         assert!(dir.path().join("market.duckdb").exists());
+    }
+
+    #[test]
+    fn history_rejects_invalid_decimal_timestamp_and_venue() {
+        let dir = tempdir().unwrap();
+        let mut source = blocked_source("OD-002");
+        source.status = DataSourceStatus::Available;
+        let mut bar = history_bar();
+        bar.open = "1e3".into();
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+        bar = history_bar();
+        bar.interval_start = "2026-09-14T00:00:30Z".into();
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+        bar = history_bar();
+        bar.venue = Some("XNAS\n".into());
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+    }
+
+    fn history_bar() -> HistoricalBar {
+        HistoricalBar {
+            instrument_id: "equity:US:AAPL".into(),
+            interval_start: "2026-09-14T00:00:00Z".into(),
+            open: "1.00".into(),
+            high: "2.00".into(),
+            low: "0.50".into(),
+            close: "1.50".into(),
+            volume: "10".into(),
+            source: "OD-002".into(),
+            venue: Some("XNAS".into()),
+            provider_timestamp: "2026-09-14T00:00:00Z".into(),
+            received_timestamp: "2026-09-14T00:00:01Z".into(),
+            entitlement: MarketEntitlement::Delayed,
+            freshness: MarketFreshness::Healthy,
+        }
     }
 }
