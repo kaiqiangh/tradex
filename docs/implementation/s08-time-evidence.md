@@ -1,7 +1,8 @@
 # S08 #30 TimeService 与可信时间门禁验收证据
 
 验证日期：2026-09-14
-固定实现代码点：`6c3306c`
+固定实现代码点：`c659d2b0a9e766abd41a69ec2318df0033016fdf`
+证据记录提交点：`cf8e02edfd6ecc4514731f557fc8155545b3d022`
 浏览器地址：`http://127.0.0.1:1420/`（integration mode，隔离临时 workspace）
 
 ## Rust、协议与边界
