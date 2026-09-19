@@ -160,6 +160,34 @@ export async function checkThreadUI(tab, browser) {
     assert.equal(cryptoResult.data.payload.spotVenues[0].selected, true);
     assert.equal(cryptoResult.data.payload.spotVenues[0].spread, '10.00');
     assert.equal(cryptoResult.data.payload.spotVenues[0].quoteAge, '2s');
+    const equityResult = await isolatedCommand('research.run', {
+      workspaceId,
+      agentMode: 'RESEARCH',
+      executionContext: 'NONE_READ_ONLY',
+      attachedContexts: [{ kind: 'artifact', id: 'artifact-1', hash: `sha256:${'a'.repeat(64)}` }],
+      toolId: 'public_market_read',
+      focus: 'EQUITY',
+      query: 'AAPL',
+    });
+    assert.equal(equityResult.ok, true);
+    assert.equal(equityResult.data.payload.state, 'AVAILABLE');
+    assert.equal(equityResult.data.payload.fixtureLabel, 'SYNTHETIC_INTEGRATION_FIXTURE');
+    assert.equal(equityResult.data.payload.scenarios.length, 1);
+    assert.deepEqual(equityResult.data.payload.artifactRefs, ['artifact-1']);
+    assert.deepEqual(equityResult.data.payload.instrumentRefs, ['equity:US:AAPL']);
+    const accountCryptoResult = await isolatedCommand('research.run', {
+      workspaceId,
+      accountId: createdThread.linkedContexts.find(context => context.kind === 'account')?.id,
+      agentMode: 'RESEARCH',
+      executionContext: 'NONE_READ_ONLY',
+      attachedContexts: createdThread.linkedContexts,
+      toolId: 'account_read',
+      focus: 'CRYPTO_SPOT',
+      query: 'BTC/USDT',
+    });
+    assert.equal(accountCryptoResult.ok, true);
+    assert.equal(accountCryptoResult.data.payload.fixtureLabel, undefined);
+    assert.ok(accountCryptoResult.data.payload.spotVenues.every(venue => venue.bid === null && venue.ask === null && venue.spread === null && venue.depth === null && venue.quoteAge === null));
     const tamperedResult = { ...validResult.data, marker: 'tampered' };
     const tamperedPair = await isolatedCommand('turn.start', {
       workspaceId,
@@ -228,6 +256,16 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).last().selectOption('NONE_READ_ONLY');
     observed.push('Trade mode exposes only a disabled read-only proposal entry; switching back to Research clears the preview.');
 
+    await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).last().selectOption('RESEARCH');
+    await ui.getByRole('combobox', { name: 'Execution context', exact: true }).last().selectOption('NONE_READ_ONLY');
+    await ui.getByRole('combobox').last().selectOption('EQUITY');
+    await ui.getByRole('button', { name: 'Preview typed research result', exact: true }).click();
+    await ui.getByText('Typed result · AVAILABLE', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText('Synthetic fixture', { exact: true }).isVisible(), true);
+    assert.equal(await ui.getByRole('region', { name: 'Scenarios', exact: true }).isVisible(), true);
+    assert.equal(await ui.getByText('Fixture boundary:', { exact: false }).isVisible(), true);
+    observed.push('The equity focus renders the synthetic fixture label and bounded scenario card; artifact refs are verified through the bridge with a canonical context ID.');
+
     await ui.getByRole('button', { name: `Remove ${accountLabel}`, exact: true }).click();
     await ui.getByText('Capability: C0', { exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText('Context references: 0', { exact: true }).isVisible(), true);
@@ -261,14 +299,16 @@ export async function checkThreadUI(tab, browser) {
     assert.equal(await ui.getByRole('status', { name: 'Turn 3 status', exact: true }).innerText(), 'COMPLETED');
     observed.push('Thread history and its selected detail survive renderer/workspace reload.');
 
-    for (const width of [768, 390]) {
+    for (const width of [1280, 768, 390]) {
       await viewport.set({ width, height: 860 });
-      await tab.getAXState({ emit: false });
+      const ax = await tab.getAXState({ emit: false });
       const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
       assert.ok(size.scroll <= size.width, `Horizontal overflow at ${width}: ${JSON.stringify(size)}`);
       assert.equal(await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).isVisible(), true);
       assert.equal(await ui.getByText('Mode: RESEARCH', { exact: true }).isVisible(), true);
-      observed.push(`Thread identity, context and focusable history remain visible at ${width}px.`);
+      assert.equal(await ui.getByRole('status', { name: 'Focus: EQUITY', exact: true }).isVisible(), true);
+      assert.ok(JSON.stringify(ax).includes('Scenarios'), `Accessibility tree should expose the scenario section at ${width}px`);
+      observed.push(`Thread identity, context, typed status and focusable history remain visible at ${width}px.`);
     }
     assert.equal((await tab.dev.logs({ levels: ['error'], limit: 20 })).length, 0);
     return observed;

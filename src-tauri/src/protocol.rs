@@ -438,20 +438,20 @@ pub struct ResearchSpotVenue {
     pub state: ResearchResultState,
     #[serde(default)]
     pub selected: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "String", length(min = 1, max = 64))]
+    #[serde(default)]
+    #[schemars(length(min = 1, max = 64))]
     pub bid: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "String", length(min = 1, max = 64))]
+    #[serde(default)]
+    #[schemars(length(min = 1, max = 64))]
     pub ask: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "String", length(min = 1, max = 64))]
+    #[serde(default)]
+    #[schemars(length(min = 1, max = 64))]
     pub spread: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "String", length(min = 1, max = 64))]
+    #[serde(default)]
+    #[schemars(length(min = 1, max = 64))]
     pub depth: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "String", length(min = 1, max = 64))]
+    #[serde(default)]
+    #[schemars(length(min = 1, max = 64))]
     pub quote_age: Option<String>,
     pub provenance: ResearchProvenance,
     #[serde(default, skip_serializing_if = "Option::is_none")]

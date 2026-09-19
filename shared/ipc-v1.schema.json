@@ -3294,17 +3294,29 @@
       "type": "object",
       "properties": {
         "ask": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
           "maxLength": 64,
           "minLength": 1
         },
         "bid": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
           "maxLength": 64,
           "minLength": 1
         },
         "depth": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
           "maxLength": 64,
           "minLength": 1
         },
@@ -3320,7 +3332,11 @@
           "$ref": "#/$defs/ResearchProvenance"
         },
         "quoteAge": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
           "maxLength": 64,
           "minLength": 1
         },
@@ -3329,7 +3345,11 @@
           "default": false
         },
         "spread": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
           "maxLength": 64,
           "minLength": 1
         },

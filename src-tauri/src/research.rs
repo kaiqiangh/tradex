@@ -61,7 +61,7 @@ pub fn run_with_source(
         Some(entry) => {
             let expected = source_id_for_request(request);
             if expected != Some(entry.source_id.as_str())
-                && !is_crypto_fixture_source(request, entry)
+                && !is_research_fixture_source(request, entry)
             {
                 return Err(TradeXError::new("RESEARCH_RESULT_INVALID"));
             }
@@ -164,18 +164,20 @@ pub fn run_with_source(
     })
 }
 
-/// The browser/integration bridge may opt into a bounded synthetic crypto source. It is
+/// The browser/integration bridge may opt into a bounded synthetic market source. It is
 /// deliberately absent from the production source catalog and cannot be enabled without the
 /// integration feature, so a fixture never becomes provider evidence.
-pub fn crypto_fixture_source(request: &ResearchToolRequest) -> Option<DataSourceEntry> {
+pub fn research_fixture_source(request: &ResearchToolRequest) -> Option<DataSourceEntry> {
     (cfg!(feature = "integration-test")
         && std::env::var_os("TRADEX_RESEARCH_FIXTURE").is_some()
-        && matches!(request.focus, Some(ResearchFocus::CryptoSpot)))
+        && is_research_fixture_request(request))
     .then(|| DataSourceEntry {
         source_id: "control-plane:market".into(),
-        provider: "TradeX synthetic spot fixture".into(),
-        capabilities: vec!["synthetic crypto spot research".into()],
-        coverage: "Synthetic Binance and Bitget rows for integration verification only.".into(),
+        provider: "TradeX synthetic research fixture".into(),
+        capabilities: vec!["synthetic equity and crypto spot research".into()],
+        coverage:
+            "Synthetic equity scenarios and Binance/Bitget rows for integration verification only."
+                .into(),
         latency: "Fixed integration timestamp.".into(),
         entitlement: "No provider entitlement; fixture only.".into(),
         retention: "Not retained outside the test workspace.".into(),
@@ -191,14 +193,24 @@ pub fn crypto_fixture_source(request: &ResearchToolRequest) -> Option<DataSource
         status: DataSourceStatus::Available,
         configured: true,
         verified_at: Some("2026-09-14T00:00:00Z".into()),
-        availability_reason: "Synthetic source is enabled only by the integration bridge.".into(),
+        availability_reason:
+            "Synthetic source is enabled only by the integration bridge for public market reads."
+                .into(),
     })
 }
 
-fn is_crypto_fixture_source(request: &ResearchToolRequest, source: &DataSourceEntry) -> bool {
+fn is_research_fixture_request(request: &ResearchToolRequest) -> bool {
+    matches!(&request.tool_id, ResearchToolId::PublicMarketRead)
+        && matches!(
+            request.focus,
+            Some(ResearchFocus::Equity | ResearchFocus::CryptoSpot)
+        )
+}
+
+fn is_research_fixture_source(request: &ResearchToolRequest, source: &DataSourceEntry) -> bool {
     source.source_id == "control-plane:market"
         && source.status == DataSourceStatus::Available
-        && crypto_fixture_source(request).is_some()
+        && research_fixture_source(request).is_some()
 }
 
 fn spot_venues(
@@ -603,5 +615,57 @@ mod tests {
                 .unwrap()
                 .contains("order.submit")
         );
+    }
+
+    #[test]
+    fn fixture_source_is_scoped_to_public_market_equity_or_crypto() {
+        let equity = ResearchToolRequest {
+            workspace_id: "ws".into(),
+            agent_mode: AgentMode::Research,
+            execution_context: ExecutionContext::NoneReadOnly,
+            account_id: None,
+            focus: Some(ResearchFocus::Equity),
+            attached_contexts: vec![],
+            tool_id: ResearchToolId::PublicMarketRead,
+            query: "AAPL".into(),
+        };
+        let crypto = ResearchToolRequest {
+            focus: Some(ResearchFocus::CryptoSpot),
+            query: "BTC/USDT".into(),
+            ..equity.clone()
+        };
+        let account = ResearchToolRequest {
+            tool_id: ResearchToolId::AccountRead,
+            ..crypto.clone()
+        };
+        assert!(is_research_fixture_request(&equity));
+        assert!(is_research_fixture_request(&crypto));
+        assert!(!is_research_fixture_request(&account));
+    }
+
+    #[test]
+    fn unavailable_spot_values_serialize_as_null_not_zero() {
+        let provenance = ResearchProvenance {
+            source_id: "control-plane:market".into(),
+            provider: "TradeX Control Plane".into(),
+            status: DataSourceStatus::Unavailable,
+            provider_timestamp: None,
+            received_timestamp: "UNAVAILABLE".into(),
+            freshness: ResearchFreshness::Unavailable,
+            quality: ResearchQuality::Unavailable,
+            limitation: Some("No venue entitlement".into()),
+        };
+        let value = serde_json::to_value(spot_venues(
+            &provenance,
+            None,
+            false,
+            Some("No venue entitlement"),
+        ))
+        .unwrap();
+        let first = &value[0];
+        for field in ["bid", "ask", "spread", "depth", "quoteAge"] {
+            assert!(first[field].is_null(), "{field} must remain null");
+            assert_ne!(first[field], 0);
+        }
     }
 }

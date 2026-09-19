@@ -989,10 +989,10 @@ impl ControlPlane {
     ) -> Result<protocol::ResearchToolResult> {
         let sources = self.data_source_sources(&request.workspace_id);
         let source_id = research::source_id_for_request(request);
-        let fixture_source = research::crypto_fixture_source(request);
+        let fixture_source = research::research_fixture_source(request);
         let source = source_id
             .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
-        let source = source.or(fixture_source.as_ref());
+        let source = fixture_source.as_ref().or(source);
         if source_id.is_some() && source.is_none() {
             return Err(TradeXError::new("RESEARCH_RESULT_INVALID"));
         }

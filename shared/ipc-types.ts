@@ -963,14 +963,14 @@ export interface ResearchScenario {
  * via the `definition` "ResearchSpotVenue".
  */
 export interface ResearchSpotVenue {
-  ask?: string;
-  bid?: string;
-  depth?: string;
+  ask?: string | null;
+  bid?: string | null;
+  depth?: string | null;
   limitation?: string | null;
   provenance: ResearchProvenance;
-  quoteAge?: string;
+  quoteAge?: string | null;
   selected?: boolean;
-  spread?: string;
+  spread?: string | null;
   state: ResearchResultState;
   venue: ResearchSpotVenueId;
 }

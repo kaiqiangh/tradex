@@ -43,6 +43,23 @@ test('generated result schema rejects false success, mixed envelopes and foreign
   ]) assert.throws(() => decode('ResultEnvelope', invalid));
 });
 
+test('research venue schema keeps unavailable values nullable and rejects numeric zero', () => {
+  const venue = {
+    venue: 'BINANCE', state: 'UNAVAILABLE', selected: false,
+    bid: null, ask: null, spread: null, depth: null, quoteAge: null,
+    provenance: {
+      sourceId: 'control-plane:market', provider: 'TradeX Control Plane', status: 'UNAVAILABLE',
+      receivedTimestamp: 'UNAVAILABLE', freshness: 'UNAVAILABLE', quality: 'UNAVAILABLE',
+      limitation: 'No venue entitlement',
+    },
+    limitation: 'No venue entitlement',
+  };
+  assert.deepEqual(decode('ResearchSpotVenue', venue), venue);
+  for (const field of ['bid', 'ask', 'spread', 'depth', 'quoteAge']) {
+    assert.throws(() => decode('ResearchSpotVenue', { ...venue, [field]: 0 }));
+  }
+});
+
 test('model projection accepts both provider event types and rejects foreign aggregates', () => {
   const model = {
     workspaceId: 'workspace-one', stateVersion: 'model:workspace-one:1', updatedAt: '2026-09-06T01:00:00Z', attempts: [], currentRoute: null,

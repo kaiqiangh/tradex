@@ -13030,17 +13030,20 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"type": "object",
 		"properties": {
 			"ask": {
-				"type": "string",
+				"type": ["string", "null"],
+				"default": null,
 				"maxLength": 64,
 				"minLength": 1
 			},
 			"bid": {
-				"type": "string",
+				"type": ["string", "null"],
+				"default": null,
 				"maxLength": 64,
 				"minLength": 1
 			},
 			"depth": {
-				"type": "string",
+				"type": ["string", "null"],
+				"default": null,
 				"maxLength": 64,
 				"minLength": 1
 			},
@@ -13051,7 +13054,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			},
 			"provenance": { "$ref": "#/$defs/ResearchProvenance" },
 			"quoteAge": {
-				"type": "string",
+				"type": ["string", "null"],
+				"default": null,
 				"maxLength": 64,
 				"minLength": 1
 			},
@@ -13060,7 +13064,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				"default": false
 			},
 			"spread": {
-				"type": "string",
+				"type": ["string", "null"],
+				"default": null,
 				"maxLength": 64,
 				"minLength": 1
 			},
@@ -13112,6 +13117,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.ask !== void 0) {
 							let data0 = data.ask;
 							const _errs2 = errors;
+							if (typeof data0 !== "string" && data0 !== null) {
+								validate54.errors = [{
+									instancePath: instancePath + "/ask",
+									schemaPath: "#/properties/ask/type",
+									keyword: "type",
+									params: { type: schema99.properties.ask.type },
+									message: "must be string,null"
+								}];
+								return false;
+							}
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) > 64) {
@@ -13133,15 +13148,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									}
-								} else {
-									validate54.errors = [{
-										instancePath: instancePath + "/ask",
-										schemaPath: "#/properties/ask/type",
-										keyword: "type",
-										params: { type: "string" },
-										message: "must be string"
-									}];
-									return false;
 								}
 							}
 							var valid0 = _errs2 === errors;
@@ -13150,6 +13156,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.bid !== void 0) {
 								let data1 = data.bid;
 								const _errs4 = errors;
+								if (typeof data1 !== "string" && data1 !== null) {
+									validate54.errors = [{
+										instancePath: instancePath + "/bid",
+										schemaPath: "#/properties/bid/type",
+										keyword: "type",
+										params: { type: schema99.properties.bid.type },
+										message: "must be string,null"
+									}];
+									return false;
+								}
 								if (errors === _errs4) {
 									if (typeof data1 === "string") {
 										if (func1(data1) > 64) {
@@ -13171,15 +13187,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}];
 											return false;
 										}
-									} else {
-										validate54.errors = [{
-											instancePath: instancePath + "/bid",
-											schemaPath: "#/properties/bid/type",
-											keyword: "type",
-											params: { type: "string" },
-											message: "must be string"
-										}];
-										return false;
 									}
 								}
 								var valid0 = _errs4 === errors;
@@ -13188,6 +13195,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data.depth !== void 0) {
 									let data2 = data.depth;
 									const _errs6 = errors;
+									if (typeof data2 !== "string" && data2 !== null) {
+										validate54.errors = [{
+											instancePath: instancePath + "/depth",
+											schemaPath: "#/properties/depth/type",
+											keyword: "type",
+											params: { type: schema99.properties.depth.type },
+											message: "must be string,null"
+										}];
+										return false;
+									}
 									if (errors === _errs6) {
 										if (typeof data2 === "string") {
 											if (func1(data2) > 64) {
@@ -13209,15 +13226,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											}
-										} else {
-											validate54.errors = [{
-												instancePath: instancePath + "/depth",
-												schemaPath: "#/properties/depth/type",
-												keyword: "type",
-												params: { type: "string" },
-												message: "must be string"
-											}];
-											return false;
 										}
 									}
 									var valid0 = _errs6 === errors;
@@ -13280,6 +13288,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (data.quoteAge !== void 0) {
 												let data5 = data.quoteAge;
 												const _errs11 = errors;
+												if (typeof data5 !== "string" && data5 !== null) {
+													validate54.errors = [{
+														instancePath: instancePath + "/quoteAge",
+														schemaPath: "#/properties/quoteAge/type",
+														keyword: "type",
+														params: { type: schema99.properties.quoteAge.type },
+														message: "must be string,null"
+													}];
+													return false;
+												}
 												if (errors === _errs11) {
 													if (typeof data5 === "string") {
 														if (func1(data5) > 64) {
@@ -13301,15 +13319,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															}];
 															return false;
 														}
-													} else {
-														validate54.errors = [{
-															instancePath: instancePath + "/quoteAge",
-															schemaPath: "#/properties/quoteAge/type",
-															keyword: "type",
-															params: { type: "string" },
-															message: "must be string"
-														}];
-														return false;
 													}
 												}
 												var valid0 = _errs11 === errors;
@@ -13333,6 +13342,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (data.spread !== void 0) {
 														let data7 = data.spread;
 														const _errs15 = errors;
+														if (typeof data7 !== "string" && data7 !== null) {
+															validate54.errors = [{
+																instancePath: instancePath + "/spread",
+																schemaPath: "#/properties/spread/type",
+																keyword: "type",
+																params: { type: schema99.properties.spread.type },
+																message: "must be string,null"
+															}];
+															return false;
+														}
 														if (errors === _errs15) {
 															if (typeof data7 === "string") {
 																if (func1(data7) > 64) {
@@ -13354,15 +13373,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																}
-															} else {
-																validate54.errors = [{
-																	instancePath: instancePath + "/spread",
-																	schemaPath: "#/properties/spread/type",
-																	keyword: "type",
-																	params: { type: "string" },
-																	message: "must be string"
-																}];
-																return false;
 															}
 														}
 														var valid0 = _errs15 === errors;
@@ -40817,6 +40827,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						if (data.ask !== void 0) {
 							let data0 = data.ask;
 							const _errs2 = errors;
+							if (typeof data0 !== "string" && data0 !== null) {
+								validate344.errors = [{
+									instancePath: instancePath + "/ask",
+									schemaPath: "#/properties/ask/type",
+									keyword: "type",
+									params: { type: schema99.properties.ask.type },
+									message: "must be string,null"
+								}];
+								return false;
+							}
 							if (errors === _errs2) {
 								if (typeof data0 === "string") {
 									if (func1(data0) > 64) {
@@ -40838,15 +40858,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}];
 										return false;
 									}
-								} else {
-									validate344.errors = [{
-										instancePath: instancePath + "/ask",
-										schemaPath: "#/properties/ask/type",
-										keyword: "type",
-										params: { type: "string" },
-										message: "must be string"
-									}];
-									return false;
 								}
 							}
 							var valid0 = _errs2 === errors;
@@ -40855,6 +40866,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							if (data.bid !== void 0) {
 								let data1 = data.bid;
 								const _errs4 = errors;
+								if (typeof data1 !== "string" && data1 !== null) {
+									validate344.errors = [{
+										instancePath: instancePath + "/bid",
+										schemaPath: "#/properties/bid/type",
+										keyword: "type",
+										params: { type: schema99.properties.bid.type },
+										message: "must be string,null"
+									}];
+									return false;
+								}
 								if (errors === _errs4) {
 									if (typeof data1 === "string") {
 										if (func1(data1) > 64) {
@@ -40876,15 +40897,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}];
 											return false;
 										}
-									} else {
-										validate344.errors = [{
-											instancePath: instancePath + "/bid",
-											schemaPath: "#/properties/bid/type",
-											keyword: "type",
-											params: { type: "string" },
-											message: "must be string"
-										}];
-										return false;
 									}
 								}
 								var valid0 = _errs4 === errors;
@@ -40893,6 +40905,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (data.depth !== void 0) {
 									let data2 = data.depth;
 									const _errs6 = errors;
+									if (typeof data2 !== "string" && data2 !== null) {
+										validate344.errors = [{
+											instancePath: instancePath + "/depth",
+											schemaPath: "#/properties/depth/type",
+											keyword: "type",
+											params: { type: schema99.properties.depth.type },
+											message: "must be string,null"
+										}];
+										return false;
+									}
 									if (errors === _errs6) {
 										if (typeof data2 === "string") {
 											if (func1(data2) > 64) {
@@ -40914,15 +40936,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}];
 												return false;
 											}
-										} else {
-											validate344.errors = [{
-												instancePath: instancePath + "/depth",
-												schemaPath: "#/properties/depth/type",
-												keyword: "type",
-												params: { type: "string" },
-												message: "must be string"
-											}];
-											return false;
 										}
 									}
 									var valid0 = _errs6 === errors;
@@ -40985,6 +40998,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											if (data.quoteAge !== void 0) {
 												let data5 = data.quoteAge;
 												const _errs11 = errors;
+												if (typeof data5 !== "string" && data5 !== null) {
+													validate344.errors = [{
+														instancePath: instancePath + "/quoteAge",
+														schemaPath: "#/properties/quoteAge/type",
+														keyword: "type",
+														params: { type: schema99.properties.quoteAge.type },
+														message: "must be string,null"
+													}];
+													return false;
+												}
 												if (errors === _errs11) {
 													if (typeof data5 === "string") {
 														if (func1(data5) > 64) {
@@ -41006,15 +41029,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															}];
 															return false;
 														}
-													} else {
-														validate344.errors = [{
-															instancePath: instancePath + "/quoteAge",
-															schemaPath: "#/properties/quoteAge/type",
-															keyword: "type",
-															params: { type: "string" },
-															message: "must be string"
-														}];
-														return false;
 													}
 												}
 												var valid0 = _errs11 === errors;
@@ -41038,6 +41052,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													if (data.spread !== void 0) {
 														let data7 = data.spread;
 														const _errs15 = errors;
+														if (typeof data7 !== "string" && data7 !== null) {
+															validate344.errors = [{
+																instancePath: instancePath + "/spread",
+																schemaPath: "#/properties/spread/type",
+																keyword: "type",
+																params: { type: schema99.properties.spread.type },
+																message: "must be string,null"
+															}];
+															return false;
+														}
 														if (errors === _errs15) {
 															if (typeof data7 === "string") {
 																if (func1(data7) > 64) {
@@ -41059,15 +41083,6 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																}
-															} else {
-																validate344.errors = [{
-																	instancePath: instancePath + "/spread",
-																	schemaPath: "#/properties/spread/type",
-																	keyword: "type",
-																	params: { type: "string" },
-																	message: "must be string"
-																}];
-																return false;
 															}
 														}
 														var valid0 = _errs15 === errors;
