@@ -13,7 +13,7 @@ TradeX 已能在 workspace 内保存 provider account，并在账户详情显示
 | ID | Requirement | Acceptance boundary |
 |---|---|---|
 | S09-R1 | Read-only cross-account portfolio snapshot | Workspace-scoped `portfolio.get` aggregates stored account observations without changing SQLite domain state, outbox, account/model/risk/thread versions or credentials. |
-| S09-R2 | Canonical identity and value layers | Each position/holding retains account/connection identity, adapter-resolved canonical instrument or explicit asset identity, optional provider-supplied venue, native amount/currency, account-currency value and workspace-currency value where available. Missing provider fields remain unavailable, never zero. |
+| S09-R2 | Canonical identity and value layers | Each position/holding retains account/connection identity, an adapter-resolved canonical instrument or the explicit `UNAVAILABLE` asset sentinel when mapping is unknown, optional provider-supplied venue, native amount/currency, account-currency value and workspace-currency value where available. Provider symbols remain adapter-only. Missing provider fields remain unavailable, never zero. |
 | S09-R3 | Workspace base currency | Snapshot always returns the persisted workspace `baseCurrency`; no EUR hard-code and no renderer-side conversion. |
 | S09-R4 | FX provenance | Every normalized value carries source, pair/path, provider timestamp, TradeX received timestamp, freshness and quality. OD-006 is the only current public FX source; its informational/reference nature remains visible. |
 | S09-R5 | Stablecoin/depeg handling | USDT is a distinct currency. A USDT route must expose its explicit path and quality/depeg warning; it cannot silently become USD or workspace currency. |
