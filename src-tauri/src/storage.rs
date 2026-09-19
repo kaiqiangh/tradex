@@ -5,6 +5,15 @@ use std::{
     time::Duration,
 };
 
+#[cfg(unix)]
+use std::{
+    ffi::CString,
+    os::unix::{
+        ffi::OsStrExt,
+        io::{FromRawFd, RawFd},
+    },
+};
+
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use sha2::{Digest, Sha256};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -1397,30 +1406,8 @@ impl Store {
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(|| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
-        let temporary = parent.join(format!(".{}.{}.tmp", file_name, Uuid::new_v4()));
-        let write_result = (|| -> Result<()> {
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&temporary)
-                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
-            file.write_all(&encoded)
-                .and_then(|_| file.sync_all())
-                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
-            fs::hard_link(&temporary, &destination).map_err(|error| {
-                if error.kind() == ErrorKind::AlreadyExists {
-                    TradeXError::new("ARTIFACT_EXPORT_EXISTS")
-                } else {
-                    TradeXError::new("ARTIFACT_EXPORT_FAILED")
-                }
-            })?;
-            let _ = fs::remove_file(&temporary);
-            Ok(())
-        })();
-        if let Err(error) = write_result {
-            let _ = fs::remove_file(&temporary);
-            return Err(error);
-        }
+        let temporary_name = format!(".{}.{}.tmp", file_name, Uuid::new_v4());
+        write_export_file(parent, file_name, &temporary_name, &encoded)?;
         Ok(ArtifactExportResult {
             artifact_id: artifact.artifact_id,
             path: destination.to_string_lossy().into_owned(),
@@ -1896,6 +1883,10 @@ fn contains_sensitive_marker(value: &str) -> bool {
         "private_key:",
         "\"private_key\":",
         "\"authorization\":",
+        "\"accesstoken\":",
+        "\"refreshtoken\":",
+        "\"privatekey\":",
+        "\"clientsecret\":",
         "sk-",
         "ghp_",
     ]
@@ -1912,6 +1903,10 @@ fn json_contains_sensitive_key(value: &serde_json::Value) -> bool {
                     | "api_key"
                     | "apikey"
                     | "api-key"
+                    | "accesstoken"
+                    | "refreshtoken"
+                    | "privatekey"
+                    | "clientsecret"
                     | "secret"
                     | "password"
                     | "token"
@@ -2057,12 +2052,15 @@ fn artifact_export_destination(
         if !parent.is_dir() || has_unapproved_symlink_ancestor(parent) {
             return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
         }
+        let canonical_parent = parent
+            .canonicalize()
+            .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
         let requested_name = path
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(|| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
         let file_name = artifact_export_file_name(Some(requested_name), artifact_id)?;
-        return Ok(parent.join(file_name));
+        return Ok(canonical_parent.join(file_name));
     }
 
     let file_name = artifact_export_file_name(input.file_name.as_deref(), artifact_id)?;
@@ -2077,7 +2075,10 @@ fn artifact_export_destination(
     if !exports.is_dir() || has_unapproved_symlink_ancestor(&exports) {
         return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
     }
-    Ok(exports.join(file_name))
+    let canonical_exports = exports
+        .canonicalize()
+        .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
+    Ok(canonical_exports.join(file_name))
 }
 
 fn has_unapproved_symlink_ancestor(path: &Path) -> bool {
@@ -2100,6 +2101,151 @@ fn has_unapproved_symlink_ancestor(path: &Path) -> bool {
         }
     }
     false
+}
+
+fn write_export_file(
+    parent: &Path,
+    destination_name: &str,
+    temporary_name: &str,
+    encoded: &[u8],
+) -> Result<()> {
+    #[cfg(unix)]
+    {
+        let parent_fd = open_directory_nofollow(parent)
+            .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+        let result = write_export_at(parent_fd, destination_name, temporary_name, encoded);
+        unsafe {
+            libc::close(parent_fd);
+        }
+        result
+    }
+    #[cfg(not(unix))]
+    {
+        let temporary = parent.join(temporary_name);
+        let write_result = (|| -> Result<()> {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temporary)
+                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+            file.write_all(encoded)
+                .and_then(|_| file.sync_all())
+                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+            fs::hard_link(&temporary, parent.join(destination_name)).map_err(|error| {
+                if error.kind() == ErrorKind::AlreadyExists {
+                    TradeXError::new("ARTIFACT_EXPORT_EXISTS")
+                } else {
+                    TradeXError::new("ARTIFACT_EXPORT_FAILED")
+                }
+            })?;
+            let _ = fs::remove_file(&temporary);
+            Ok(())
+        })();
+        if write_result.is_err() {
+            let _ = fs::remove_file(temporary);
+        }
+        write_result
+    }
+}
+
+#[cfg(unix)]
+fn open_directory_nofollow(path: &Path) -> std::io::Result<RawFd> {
+    let root = CString::new("/").expect("static root path has no NUL");
+    let mut descriptor = unsafe {
+        libc::open(
+            root.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        )
+    };
+    if descriptor < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    for component in path.components() {
+        let Component::Normal(part) = component else {
+            continue;
+        };
+        let name = CString::new(part.as_bytes())
+            .map_err(|_| std::io::Error::from(ErrorKind::InvalidInput))?;
+        let next = unsafe {
+            libc::openat(
+                descriptor,
+                name.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            )
+        };
+        if next < 0 {
+            let error = std::io::Error::last_os_error();
+            unsafe {
+                libc::close(descriptor);
+            }
+            return Err(error);
+        }
+        unsafe {
+            libc::close(descriptor);
+        }
+        descriptor = next;
+    }
+    Ok(descriptor)
+}
+
+#[cfg(unix)]
+fn write_export_at(
+    parent_fd: RawFd,
+    destination_name: &str,
+    temporary_name: &str,
+    encoded: &[u8],
+) -> Result<()> {
+    let temporary = CString::new(temporary_name)
+        .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
+    let destination = CString::new(destination_name)
+        .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
+    let temporary_fd = unsafe {
+        libc::openat(
+            parent_fd,
+            temporary.as_ptr(),
+            libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            0o600,
+        )
+    };
+    if temporary_fd < 0 {
+        return Err(TradeXError::new("ARTIFACT_EXPORT_FAILED"));
+    }
+    let mut file = unsafe { File::from_raw_fd(temporary_fd) };
+    let write_result = file
+        .write_all(encoded)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"));
+    drop(file);
+    if let Err(error) = write_result {
+        unsafe {
+            libc::unlinkat(parent_fd, temporary.as_ptr(), 0);
+        }
+        return Err(error);
+    }
+    let linked = unsafe {
+        libc::linkat(
+            parent_fd,
+            temporary.as_ptr(),
+            parent_fd,
+            destination.as_ptr(),
+            0,
+        )
+    };
+    if linked != 0 {
+        let error = std::io::Error::last_os_error();
+        unsafe {
+            libc::unlinkat(parent_fd, temporary.as_ptr(), 0);
+        }
+        return if error.kind() == ErrorKind::AlreadyExists {
+            Err(TradeXError::new("ARTIFACT_EXPORT_EXISTS"))
+        } else {
+            Err(TradeXError::new("ARTIFACT_EXPORT_FAILED"))
+        };
+    }
+    unsafe {
+        libc::unlinkat(parent_fd, temporary.as_ptr(), 0);
+    }
+    Ok(())
 }
 
 fn read_workspace(connection: &Connection, path: &Path) -> Result<Workspace> {

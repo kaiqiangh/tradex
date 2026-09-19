@@ -287,4 +287,50 @@ fn schema_six_workspaces_migrate_watchlists_transactionally() {
     );
     assert_eq!(listed["ok"], true, "{listed}");
     assert!(listed["data"]["watchlists"].as_array().unwrap().is_empty());
+    let artifacts = command(
+        &mut migrated,
+        "artifact.list",
+        json!({"workspaceId": opened["data"]["workspaceId"]}),
+    );
+    assert_eq!(artifacts["ok"], true, "{artifacts}");
+    assert!(
+        artifacts["data"]["artifacts"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn schema_eight_workspaces_migrate_artifacts_table() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
+    let opened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+    drop(control);
+
+    let database = path.join("workspace.sqlite3");
+    let connection = rusqlite::Connection::open(&database).unwrap();
+    connection.execute("DROP TABLE artifacts", []).unwrap();
+    connection.pragma_update(None, "user_version", 8).unwrap();
+    drop(connection);
+
+    let mut migrated = ControlPlane::new(path);
+    let reopened = command(&mut migrated, "workspace.open", json!({}));
+    assert_eq!(reopened["ok"], true, "{reopened}");
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 9);
+    let artifacts = command(
+        &mut migrated,
+        "artifact.list",
+        json!({"workspaceId": workspace_id}),
+    );
+    assert_eq!(artifacts["ok"], true, "{artifacts}");
+    assert!(
+        artifacts["data"]["artifacts"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }

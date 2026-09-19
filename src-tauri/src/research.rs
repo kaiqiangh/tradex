@@ -621,6 +621,30 @@ mod tests {
     }
 
     #[test]
+    fn renderer_contexts_are_not_reinterpreted_as_producer_refs() {
+        let hash = |fill: char| format!("sha256:{}", fill.to_string().repeat(64));
+        let request = ResearchToolRequest {
+            workspace_id: "ws".into(),
+            agent_mode: AgentMode::Research,
+            execution_context: ExecutionContext::NoneReadOnly,
+            account_id: None,
+            focus: Some(ResearchFocus::Equity),
+            attached_contexts: vec![crate::protocol::ThreadContextRef {
+                kind: "backtest".into(),
+                id: "backtest-1".into(),
+                hash: hash('a'),
+            }],
+            tool_id: ResearchToolId::PublicMarketRead,
+            query: "AAPL".into(),
+        };
+        let result = run(&request, &decision()).unwrap();
+        assert_eq!(result.context_refs, request.attached_contexts);
+        assert!(result.payload.market_snapshot_refs.is_empty());
+        assert!(result.payload.dataset_refs.is_empty());
+        assert!(result.payload.order_refs.is_empty());
+    }
+
+    #[test]
     fn fixture_source_is_scoped_to_public_market_equity_or_crypto() {
         let equity = ResearchToolRequest {
             workspace_id: "ws".into(),

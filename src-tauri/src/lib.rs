@@ -3933,6 +3933,23 @@ mod thread_tests {
         let opened = control.dispatch(request("workspace.open", json!({})));
         assert_eq!(opened["ok"], true);
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        drop(control);
+        let migration_database =
+            rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+        migration_database
+            .execute("DROP TABLE artifacts", [])
+            .unwrap();
+        migration_database
+            .pragma_update(None, "user_version", 8)
+            .unwrap();
+        drop(migration_database);
+        let mut control = ControlPlane::new(workspace_path.clone());
+        let migrated_open = control.dispatch(request(
+            "workspace.open",
+            json!({"path": workspace_path.to_string_lossy()}),
+        ));
+        assert_eq!(migrated_open["ok"], true);
+        assert_eq!(migrated_open["data"]["storageSchemaVersion"], 9);
         let created = control.dispatch(request(
             "thread.create",
             json!({
@@ -4019,7 +4036,7 @@ mod thread_tests {
                     item_id: "secret-item".into(),
                     item_type: "message".into(),
                     status: protocol::ItemStatus::Completed,
-                    content: r#"{"apiKey":"abc"}"#.into(),
+                    content: r#"{"apiKey":"abc","accessToken":"x","refreshToken":"x","privateKey":"x","clientSecret":"x"}"#.into(),
                     source_id: None,
                     research_result: None,
                     started_at: now.clone(),

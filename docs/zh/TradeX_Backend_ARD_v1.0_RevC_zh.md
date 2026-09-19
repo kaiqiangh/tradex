@@ -2048,7 +2048,8 @@ interface ResearchToolPayload {
   state: ResearchResultState; reason: string; focus?: ResearchFocus;
   conclusion?: string; findings: ResearchFinding[]; scenarios: ResearchScenario[];
   evidence: ResearchProvenance[]; limitations: string[]; instrumentRefs: string[];
-  artifactRefs: string[]; spotVenues: ResearchSpotVenue[]; fixtureLabel?: string;
+  artifactRefs: string[]; marketSnapshotRefs?: string[]; datasetRefs?: string[];
+  orderRefs?: string[]; spotVenues: ResearchSpotVenue[]; fixtureLabel?: string;
 }
 interface ResearchToolRequest {
   workspaceId: string; agentMode: AgentMode; executionContext: ExecutionContext;
