@@ -267,7 +267,7 @@ pub fn instruments() -> Vec<Instrument> {
 }
 
 /// Resolves a provider symbol at the adapter boundary. Unknown mappings remain `None`; the
-/// portfolio retains the provider symbol as an explicit asset identity in that case.
+/// portfolio emits the explicit `UNAVAILABLE` asset sentinel in that case.
 pub fn canonical_instrument_id(provider_id: &str, provider_symbol: &str) -> Option<String> {
     instruments().into_iter().find_map(|instrument| {
         instrument

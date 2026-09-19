@@ -72,7 +72,25 @@ fn actual_snapshot(
             .saturating_add(data.positions.len())
             > MAX_PORTFOLIO_ROWS
             || open_orders.len().saturating_add(data.open_orders.len()) > MAX_PORTFOLIO_ROWS
-            || data.balances.iter().any(|balance| balance.asset.len() > 64)
+            || data
+                .balances
+                .iter()
+                .any(|balance| !valid_output_identity(&balance.asset, 64))
+            || data.positions.iter().any(|position| {
+                !valid_output_identity(&position.symbol, 64)
+                    || position
+                        .instrument_id
+                        .as_deref()
+                        .is_some_and(|id| !valid_output_identity(id, 128))
+            })
+            || data.open_orders.iter().any(|order| {
+                !valid_output_identity(&order.broker_order_id, 128)
+                    || !valid_output_identity(&order.symbol, 64)
+                    || order
+                        .instrument_id
+                        .as_deref()
+                        .is_some_and(|id| !valid_output_identity(id, 128))
+            })
         {
             return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
         }
@@ -185,7 +203,7 @@ fn actual_snapshot(
                 asset: order
                     .instrument_id
                     .clone()
-                    .unwrap_or_else(|| order.symbol.clone()),
+                    .unwrap_or_else(|| "UNAVAILABLE".into()),
                 side: order.side.clone(),
                 quantity: order.quantity.clone(),
                 notional: order.notional.clone(),
@@ -444,6 +462,10 @@ fn fixture_snapshot(
         .filter(|holding| holding.instrument_id.is_some())
         .map(|holding| holding.value.clone())
         .collect();
+    let unrealized_pnl_values: Vec<_> = holdings
+        .iter()
+        .filter_map(|holding| holding.unrealized_pnl.clone())
+        .collect();
     let degraded = fx_routes.iter().any(|route| {
         matches!(
             route.quality,
@@ -468,7 +490,7 @@ fn fixture_snapshot(
         totals: PortfolioTotals {
             equity: sum_values(&equity_values, base_currency, time_status)?,
             cash: sum_values(&cash_values, base_currency, time_status)?,
-            unrealized_pnl: fixture_value("3900", "USD", base_currency, time_status)?,
+            unrealized_pnl: sum_values(&unrealized_pnl_values, base_currency, time_status)?,
             realized_pnl: fixture_value("750", "USD", base_currency, time_status)?,
             exposure: sum_values(&exposure_values, base_currency, time_status)?,
         },
@@ -579,7 +601,7 @@ fn holding_from_position(
         asset: position
             .instrument_id
             .clone()
-            .unwrap_or_else(|| position.symbol.clone()),
+            .unwrap_or_else(|| "UNAVAILABLE".into()),
         quantity: Some(position.quantity.clone()),
         value: value.unwrap_or_else(|| unavailable_value(base_currency)),
         unrealized_pnl: None,
@@ -869,6 +891,10 @@ fn valid_base_currency(value: &str) -> bool {
     value.len() == 3 && value.bytes().all(|byte| byte.is_ascii_uppercase())
 }
 
+fn valid_output_identity(value: &str, max_len: usize) -> bool {
+    !value.is_empty() && value.len() <= max_len && !value.chars().any(char::is_control)
+}
+
 fn normalize_decimal(value: &str) -> Result<String> {
     crate::provider_io::decimal(&Value::String(value.into()))
 }
@@ -1065,6 +1091,10 @@ mod tests {
                 .iter()
                 .any(|route| route.pair_path == "USDT -> USD" && route.depeg_warning.is_some())
         );
+        assert_eq!(
+            snapshot.totals.unrealized_pnl.workspace_value.as_deref(),
+            Some("3867.6")
+        );
         assert!(!snapshot.live_risk.eligible);
     }
 
@@ -1139,7 +1169,7 @@ mod tests {
     }
 
     #[test]
-    fn unmapped_provider_symbols_remain_explicit_asset_identity() {
+    fn unmapped_provider_symbols_remain_unavailable() {
         let mut account = AccountConnection::new(
             "w".into(),
             "alpaca".into(),
@@ -1187,9 +1217,9 @@ mod tests {
             .iter()
             .find(|holding| holding.instrument_id.is_none())
             .unwrap();
-        assert_eq!(holding.asset, "UNKNOWN");
+        assert_eq!(holding.asset, "UNAVAILABLE");
         assert_eq!(snapshot.open_orders[0].instrument_id, None);
-        assert_eq!(snapshot.open_orders[0].asset, "UNKNOWN");
+        assert_eq!(snapshot.open_orders[0].asset, "UNAVAILABLE");
     }
 
     #[test]
@@ -1290,6 +1320,43 @@ mod tests {
             limitations: vec![],
         });
         let error = get("w", "USD", &[oversized_asset], None, &time_status(), false).unwrap_err();
+        assert_eq!(error.code, "PROVIDER_DATA_INCOMPLETE");
+
+        let mut oversized_position = AccountConnection::new(
+            "w".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "position".into(),
+        )
+        .unwrap();
+        oversized_position.connection_state = ConnectionState::Connected;
+        oversized_position.data = Some(AccountData {
+            remote_account_id: "remote".into(),
+            account_type: "PAPER".into(),
+            currency: Some("USD".into()),
+            balances: vec![],
+            positions: vec![Position {
+                symbol: "S".repeat(65),
+                instrument_id: None,
+                quantity: "1".into(),
+                market_value: None,
+                average_entry_price: None,
+                instrument_currency: None,
+                market_value_currency: None,
+            }],
+            open_orders: vec![],
+            capabilities: vec![],
+            limitations: vec![],
+        });
+        let error = get(
+            "w",
+            "USD",
+            &[oversized_position],
+            None,
+            &time_status(),
+            false,
+        )
+        .unwrap_err();
         assert_eq!(error.code, "PROVIDER_DATA_INCOMPLETE");
 
         let mut routed =
