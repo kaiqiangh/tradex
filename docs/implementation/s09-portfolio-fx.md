@@ -2,7 +2,7 @@
 
 日期：2026-09-14
 前置：S02 账户连接、S06 数据源目录、S07 canonical market、S08 TimeService/market gate
-状态：IMPLEMENTED_UNVERIFIED；只读组合/估值垂直切片已实现并完成隔离验证，真实 OD-006 交易级 FX、Live risk 消费和 S33 仍待后续。实现与证据见 [S09 验收](s09-portfolio-evidence.md)。
+状态：IMPLEMENTED_UNVERIFIED；只读组合/估值垂直切片已实现，前端/静态检查已通过，但当前 Rust schema、Rust 运行时和新浏览器验证因本机 Xcode license 保持 RUNTIME_PENDING；真实 OD-006 交易级 FX、Live risk 消费和 S33 仍待后续。实现与证据见 [S09 验收](s09-portfolio-evidence.md)。
 
 ## Problem Statement
 
