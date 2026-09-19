@@ -1,7 +1,7 @@
 # S12 研究产物保存、检索与可验证导出规范
 
-日期：2026-09-19  
-前置：S04 Thread/Turn/Item 持久化与不可变快照、S10 source-gated typed research 结果  
+日期：2026-09-19
+前置：S04 Thread/Turn/Item 持久化与不可变快照、S10 source-gated typed research 结果
 状态：SPEC（待拆票与实现）
 
 ## Problem Statement
