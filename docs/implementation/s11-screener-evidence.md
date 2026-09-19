@@ -13,7 +13,9 @@ The #38 slice adds a workspace-scoped SQLite screener library with `screener.lis
 - `cargo test -p tradex --all-targets -- --test-threads=1` — PASS; 89 library tests and all package integration targets, with only the repository's explicitly ignored native/provider checks skipped.
 - `cargo test --workspace --features integration-test -- --test-threads=1` — PASS; 95 library tests and all workspace integration targets, with only the repository's explicitly ignored native/provider checks skipped.
 - `cargo clippy -p tradex --all-targets -- -D warnings` — PASS.
-- `cargo fmt --all -- --check`, `git diff --check`, and `node --check tests/screener-ui.mjs` — PASS at the helper endpoint SHA; executing the helper against the browser remains unverified.
+- `cargo fmt --all -- --check`, `git diff --check`, and `node --check tests/screener-ui.mjs` — PASS.
+
+The complete automated command set above was rerun against final review-hardening SHA `87f8877052f66926d04588fa55af599a5ec5933b`; `3027c6a5754a6819e8a69e84280c0f4bf29f4cb0` and this evidence update only change documentation. Executing the helper against the browser remains unverified.
 
 The persistence integration test uses a temporary real SQLite workspace and covers first save, workspace-scoped listing, reopen, edited revision, stale update rejection, selected-only attach, duplicate selection rejection, canonical instrument validation, forged context hash rejection, and unchanged observable domain/runtime boundary state. The public IPC surface has no outbox, approval, arming, or credential read command; the test therefore compares the domain snapshot plus sanitized account, risk, Gateway, and model projections and documents that private/future boundaries have no mutation path in this slice.
 
