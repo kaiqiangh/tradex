@@ -2015,19 +2015,27 @@ interface ContextCatalogEmptyState {
 type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
 type ResearchResultState = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "FAILED";
 type ResearchFocus = "GENERAL" | "EQUITY" | "CRYPTO_SPOT";
+type ResearchSpotVenueId = "BINANCE" | "BITGET";
 type ResearchFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
 type ResearchQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
 interface ResearchToolDefinition { id: ResearchToolId; label: string; readOnly: boolean; description: string; }
 interface ResearchFinding { title: string; detail: string; } // title <=120，detail <=512
+interface ResearchScenario { title: string; detail: string; } // title <=120，detail <=512
 interface ResearchProvenance {
   sourceId: string; provider: string; status: DataSourceStatus;
   providerTimestamp?: string; receivedTimestamp: string;
   freshness: ResearchFreshness; quality: ResearchQuality; limitation?: string;
 }
+interface ResearchSpotVenue {
+  venue: ResearchSpotVenueId; state: ResearchResultState; selected: boolean;
+  bid?: string; ask?: string; spread?: string; depth?: string; quoteAge?: string;
+  provenance: ResearchProvenance; limitation?: string;
+}
 interface ResearchToolPayload {
   state: ResearchResultState; reason: string; focus?: ResearchFocus;
-  conclusion?: string; findings: ResearchFinding[]; evidence: ResearchProvenance[];
-  limitations: string[]; instrumentRefs: string[];
+  conclusion?: string; findings: ResearchFinding[]; scenarios: ResearchScenario[];
+  evidence: ResearchProvenance[]; limitations: string[]; instrumentRefs: string[];
+  artifactRefs: string[]; spotVenues: ResearchSpotVenue[]; fixtureLabel?: string;
 }
 interface ResearchToolRequest {
   workspaceId: string; agentMode: AgentMode; executionContext: ExecutionContext;
@@ -2043,6 +2051,8 @@ interface ResearchToolResult {
 ~~~
 
 `research.run` 是只读命令，在拥有 market/account/history 的 slice 接入 provider 前返回受 source gate 约束的 typed payload。focus、tool、mode、execution context、account、attached refs 和 query 都进入 request hash；query 文本有界并只参与 hash，不会回显到 result。旧的仅含 `state/reason` 的 S05 payload 仍可按默认字段解码。`turn.start` 只能成对提交 `ResearchToolInvocation` 和 result；Control Plane 从 Turn 输入重建完整 request，再次运行同一 registry 并逐字段比较，确认后才写入 `research_result` item 或启动 runtime。缺失、错配或篡改 pair 返回 `RESEARCH_RESULT_INVALID`，且不修改 projection。持久化 item 与非秘密 source/context refs、marker 一起保留完整的有界 typed result；runtime 只接收清洗后的 marker。broker credential、model secret 和 direct external LLM endpoint 不会跨越该边界。
+
+payload 的 `scenarios` 和 `artifactRefs` 是有界 typed 字段；`artifactRefs` 只能复制请求中已经附加的 canonical artifact context ID。`spotVenues` 仅允许 Binance 和 Bitget 条目，每条都带 typed state 和完整 provenance；来源不可用时 bid/ask/spread/depth/quoteAge 保持缺失，不得用零替代。集成 bridge 只有在 integration feature 和显式 fixture 环境变量同时启用时才可生成 synthetic venue 条目，结果必须显示 `fixtureLabel`；这不构成 provider entitlement 或实时事实。Trade 卡片只能提供只读 proposal 入口，不能调用 order、approval、arming、Gateway 或 live-risk 命令。
 
 ### 41.9 数据源目录与探测载荷（S06）
 

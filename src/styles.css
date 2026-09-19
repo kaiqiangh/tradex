@@ -105,8 +105,20 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-provenance dd { margin: 4px 0 0; font-size: 11px; overflow-wrap: anywhere; }
 .composer-context { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; }
 .research-preview { display: grid; gap: 8px; margin: 8px 0 12px; }
-.research-result { display: grid; gap: 4px; min-width: 0; padding: 9px; border: 1px solid #bfdbfe; border-radius: 8px; background: var(--blue-light); color: #1e40af; font-size: 11px; }
-.research-result span, .research-result small, .research-result code { overflow-wrap: anywhere; }
+.research-result { display: grid; gap: 8px; min-width: 0; padding: 9px; border: 1px solid #bfdbfe; border-radius: 8px; background: var(--blue-light); color: #1e40af; font-size: 11px; }
+.research-result-heading, .research-venue-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.research-result span, .research-result small, .research-result code, .research-result li, .research-result p { overflow-wrap: anywhere; }
+.research-result h4 { margin: 0 0 4px; font-size: 11px; color: #1e3a8a; }
+.research-result ul { margin: 0; padding-left: 17px; }
+.research-result li { margin: 3px 0; }
+.research-result-reason { margin: 0; }
+.research-result section { display: grid; gap: 4px; min-width: 0; }
+.research-result article { min-width: 0; padding: 7px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; }
+.research-spot { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.research-spot h4 { grid-column: 1 / -1; }
+.research-venue, .research-evidence { display: grid; gap: 3px; }
+.research-venue p, .research-evidence p { margin: 2px 0 0; }
+.research-trade-cta { display: grid; gap: 3px; justify-items: start; padding-top: 4px; border-top: 1px solid #bfdbfe; }
 .research-result code { font-size: 10px; }
 .context-picker { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 .context-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }

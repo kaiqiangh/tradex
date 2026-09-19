@@ -105,6 +105,11 @@ export type ResearchFocus = "GENERAL" | "EQUITY" | "CRYPTO_SPOT";
  */
 export type ResearchResultState = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "FAILED";
 /**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchSpotVenueId".
+ */
+export type ResearchSpotVenueId = "BINANCE" | "BITGET";
+/**
  * Data-plane tools are intentionally separate from financial authority IDs.
  *
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -777,6 +782,19 @@ export interface ResearchToolResult {
  * via the `definition` "ResearchToolPayload".
  */
 export interface ResearchToolPayload {
+  /**
+   * @maxItems 8
+   */
+  artifactRefs?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
   conclusion?: string | null;
   /**
    * @maxItems 8
@@ -845,6 +863,7 @@ export interface ResearchToolPayload {
         ResearchFinding,
         ResearchFinding
       ];
+  fixtureLabel?: string;
   focus?: ResearchFocus | null;
   /**
    * @maxItems 8
@@ -873,6 +892,40 @@ export interface ResearchToolPayload {
     | [string, string, string, string, string, string, string]
     | [string, string, string, string, string, string, string, string];
   reason: string;
+  /**
+   * @maxItems 8
+   */
+  scenarios?:
+    | []
+    | [ResearchScenario]
+    | [ResearchScenario, ResearchScenario]
+    | [ResearchScenario, ResearchScenario, ResearchScenario]
+    | [ResearchScenario, ResearchScenario, ResearchScenario, ResearchScenario]
+    | [ResearchScenario, ResearchScenario, ResearchScenario, ResearchScenario, ResearchScenario]
+    | [ResearchScenario, ResearchScenario, ResearchScenario, ResearchScenario, ResearchScenario, ResearchScenario]
+    | [
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario
+      ]
+    | [
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario,
+        ResearchScenario
+      ];
+  /**
+   * @maxItems 2
+   */
+  spotVenues?: [] | [ResearchSpotVenue] | [ResearchSpotVenue, ResearchSpotVenue];
   state: ResearchResultState;
 }
 /**
@@ -896,6 +949,30 @@ export interface ResearchProvenance {
 export interface ResearchFinding {
   detail: string;
   title: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchScenario".
+ */
+export interface ResearchScenario {
+  detail: string;
+  title: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchSpotVenue".
+ */
+export interface ResearchSpotVenue {
+  ask?: string;
+  bid?: string;
+  depth?: string;
+  limitation?: string | null;
+  provenance: ResearchProvenance;
+  quoteAge?: string;
+  selected?: boolean;
+  spread?: string;
+  state: ResearchResultState;
+  venue: ResearchSpotVenueId;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

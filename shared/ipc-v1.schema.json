@@ -3270,6 +3270,90 @@
         "FAILED"
       ]
     },
+    "ResearchScenario": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "detail"
+      ]
+    },
+    "ResearchSpotVenue": {
+      "type": "object",
+      "properties": {
+        "ask": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bid": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "depth": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "limitation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/ResearchProvenance"
+        },
+        "quoteAge": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "selected": {
+          "type": "boolean",
+          "default": false
+        },
+        "spread": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/ResearchResultState"
+        },
+        "venue": {
+          "$ref": "#/$defs/ResearchSpotVenueId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "venue",
+        "state",
+        "provenance"
+      ]
+    },
+    "ResearchSpotVenueId": {
+      "type": "string",
+      "enum": [
+        "BINANCE",
+        "BITGET"
+      ]
+    },
     "ResearchToolDefinition": {
       "type": "object",
       "properties": {
@@ -3338,6 +3422,16 @@
     "ResearchToolPayload": {
       "type": "object",
       "properties": {
+        "artifactRefs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
         "conclusion": {
           "type": [
             "string",
@@ -3361,6 +3455,11 @@
             "$ref": "#/$defs/ResearchFinding"
           },
           "maxItems": 8
+        },
+        "fixtureLabel": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
         },
         "focus": {
           "anyOf": [
@@ -3396,6 +3495,22 @@
           "type": "string",
           "maxLength": 256,
           "minLength": 1
+        },
+        "scenarios": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResearchScenario"
+          },
+          "maxItems": 8
+        },
+        "spotVenues": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResearchSpotVenue"
+          },
+          "maxItems": 2
         },
         "state": {
           "$ref": "#/$defs/ResearchResultState"

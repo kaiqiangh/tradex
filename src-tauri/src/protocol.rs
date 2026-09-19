@@ -371,6 +371,13 @@ pub enum ResearchFocus {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ResearchSpotVenueId {
+    Binance,
+    Bitget,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ResearchFreshness {
     Healthy,
     Stale,
@@ -389,6 +396,15 @@ pub enum ResearchQuality {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResearchFinding {
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub detail: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchScenario {
     #[schemars(length(min = 1, max = 120))]
     pub title: String,
     #[schemars(length(min = 1, max = 512))]
@@ -417,6 +433,34 @@ pub struct ResearchProvenance {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchSpotVenue {
+    pub venue: ResearchSpotVenueId,
+    pub state: ResearchResultState,
+    #[serde(default)]
+    pub selected: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub bid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub ask: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub spread: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub depth: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub quote_age: Option<String>,
+    pub provenance: ResearchProvenance,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 512))]
+    pub limitation: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResearchToolPayload {
     pub state: ResearchResultState,
     #[schemars(length(min = 1, max = 256))]
@@ -431,6 +475,9 @@ pub struct ResearchToolPayload {
     pub findings: Vec<ResearchFinding>,
     #[serde(default)]
     #[schemars(length(max = 8))]
+    pub scenarios: Vec<ResearchScenario>,
+    #[serde(default)]
+    #[schemars(length(max = 8))]
     pub evidence: Vec<ResearchProvenance>,
     #[serde(default)]
     #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
@@ -438,6 +485,15 @@ pub struct ResearchToolPayload {
     #[serde(default)]
     #[schemars(length(max = 8), inner(length(min = 1, max = 128)))]
     pub instrument_refs: Vec<String>,
+    #[serde(default)]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 128)))]
+    pub artifact_refs: Vec<String>,
+    #[serde(default)]
+    #[schemars(length(max = 2))]
+    pub spot_venues: Vec<ResearchSpotVenue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub fixture_label: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

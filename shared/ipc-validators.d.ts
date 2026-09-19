@@ -97,6 +97,9 @@ declare const validators: {
   ResearchProvenance: (value: unknown) => boolean;
   ResearchQuality: (value: unknown) => boolean;
   ResearchResultState: (value: unknown) => boolean;
+  ResearchScenario: (value: unknown) => boolean;
+  ResearchSpotVenue: (value: unknown) => boolean;
+  ResearchSpotVenueId: (value: unknown) => boolean;
   ResearchToolDefinition: (value: unknown) => boolean;
   ResearchToolId: (value: unknown) => boolean;
   ResearchToolInvocation: (value: unknown) => boolean;

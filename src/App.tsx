@@ -307,19 +307,32 @@ function routeAsThreadModel(route?: ModelRoute): ThreadModel | undefined {
   return route ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) } : undefined;
 }
 
-function ResearchResultCard({ result, persisted = false }: { result: ResearchToolResult; persisted?: boolean }) {
-  return <div className="research-result" aria-label={persisted ? 'Persisted typed research result' : undefined}>
-    <strong>Typed result · {result.payload.state}</strong>
-    {result.payload.focus && <span>Focus: {result.payload.focus}</span>}
-    <span>{result.payload.reason}</span>
-    {result.payload.conclusion && <p>{result.payload.conclusion}</p>}
-    {(result.payload.instrumentRefs ?? []).map(instrument => <span key={instrument}>Instrument: {instrument}</span>)}
-    {(result.payload.findings ?? []).map(finding => <span key={finding.title}><b>{finding.title}:</b> {finding.detail}</span>)}
-    {(result.payload.evidence ?? []).map(source => <div key={`${source.sourceId}:${source.receivedTimestamp}`}><small>Source: {source.sourceId} · {source.provider} · {source.status} · received {source.receivedTimestamp}{source.providerTimestamp ? ` · provider ${source.providerTimestamp}` : ''} · freshness {source.freshness} · quality {source.quality}</small>{source.limitation && <span>Source limit: {source.limitation}</span>}</div>)}
-    {(result.payload.limitations ?? []).map(limitation => <span key={limitation}>Limit: {limitation}</span>)}
+function ResearchResultCard({ result, persisted = false, agentMode }: { result: ResearchToolResult; persisted?: boolean; agentMode?: AgentMode }) {
+  const payload = result.payload;
+  const findings = payload.findings ?? [];
+  const scenarios = payload.scenarios ?? [];
+  const evidence = payload.evidence ?? [];
+  const limitations = payload.limitations ?? [];
+  const instrumentRefs = payload.instrumentRefs ?? [];
+  const artifactRefs = payload.artifactRefs ?? [];
+  const spotVenues = payload.spotVenues ?? [];
+  return <section className="research-result" aria-label={persisted ? 'Persisted typed research result' : 'Typed research result'}>
+    <div className="research-result-heading"><strong>Typed result · {payload.state}</strong>{payload.fixtureLabel && <span className="badge">Synthetic fixture</span>}</div>
+    {payload.focus && <span role="status">Focus: {payload.focus}</span>}
+    <p className="research-result-reason">{payload.reason}</p>
+    {payload.conclusion && <p>{payload.conclusion}</p>}
+    {instrumentRefs.length > 0 && <section aria-label="Canonical instruments"><h4>Canonical instruments</h4><ul>{instrumentRefs.map(instrument => <li key={instrument}><code>{instrument}</code></li>)}</ul></section>}
+    {findings.length > 0 && <section aria-label="Key findings"><h4>Key findings</h4><ul>{findings.map(finding => <li key={finding.title}><b>{finding.title}:</b> {finding.detail}</li>)}</ul></section>}
+    {scenarios.length > 0 && <section aria-label="Scenarios"><h4>Scenarios</h4><ul>{scenarios.map(scenario => <li key={scenario.title}><b>{scenario.title}:</b> {scenario.detail}</li>)}</ul></section>}
+    {artifactRefs.length > 0 && <section aria-label="Artifact references"><h4>Artifact references</h4><ul>{artifactRefs.map(artifact => <li key={artifact}><code>{artifact}</code></li>)}</ul></section>}
+    {payload.focus === 'CRYPTO_SPOT' && <section className="research-spot" aria-label="Crypto spot venue evidence"><h4>Venue evidence</h4>{spotVenues.length === 0 && <p>No venue evidence is available.</p>}{spotVenues.map(venue => <article className="research-venue" key={venue.venue}><div className="research-venue-heading"><strong>{venue.venue}</strong><span className="badge" role="status">{venue.state}{venue.selected ? ' · SELECTED' : ''}</span></div>{venue.bid && <span>Bid: {venue.bid}</span>}{venue.ask && <span>Ask: {venue.ask}</span>}{venue.spread && <span>Spread: {venue.spread}</span>}{venue.depth && <span>Depth: {venue.depth}</span>}{venue.quoteAge && <span>Quote age: {venue.quoteAge}</span>}<small>Source: {venue.provenance.sourceId} · {venue.provenance.provider} · {venue.provenance.status} · received {venue.provenance.receivedTimestamp} · freshness {venue.provenance.freshness} · quality {venue.provenance.quality}</small>{venue.limitation && <p>Limit: {venue.limitation}</p>}</article>)}</section>}
+    {evidence.length > 0 && <section aria-label="Evidence provenance"><h4>Evidence provenance</h4>{evidence.map(source => <article className="research-evidence" key={`${source.sourceId}:${source.receivedTimestamp}`}><small>Source: {source.sourceId} · {source.provider} · {source.status} · received {source.receivedTimestamp}{source.providerTimestamp ? ` · provider ${source.providerTimestamp}` : ''} · freshness {source.freshness} · quality {source.quality}</small>{source.limitation && <p>Limit: {source.limitation}</p>}</article>)}</section>}
+    {limitations.length > 0 && <section aria-label="Limitations"><h4>Limitations</h4><ul>{limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul></section>}
+    {agentMode === 'TRADE' && <div className="research-trade-cta"><button type="button" disabled>Review read-only proposal</button><small>Trade mode only; this card does not create or submit an order.</small></div>}
     <code data-research-marker>{result.marker}</code>
+    <small>Request hash: {result.requestHash}</small>
     <small>Context refs: {formatContextRefs(result.contextRefs)}</small>
-  </div>;
+  </section>;
 }
 
 function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: ModelState; runtime?: RuntimeStatus }) {
@@ -421,7 +434,7 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
       </div>
       <ContextPicker workspaceId={thread.workspaceId} pending={pendingContexts} onAttach={contexts => { setPendingContexts(contexts); setResearchPreview(undefined); }} mode={mode} />
       <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
-      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><label className="field">Research tool<select value={selectedResearchTool?.id ?? ''} onChange={event => { setResearchToolId(event.target.value as ResearchToolId); setResearchPreview(undefined); }} disabled={busy}>{capability.data?.researchTools.map(tool => <option key={tool.id} value={tool.id}>{tool.label}</option>)}</select></label><label className="field">Research focus<select value={researchFocus} onChange={event => { setResearchFocus(event.target.value as ResearchFocus); setResearchPreview(undefined); }} disabled={busy}><option value="GENERAL">General</option><option value="EQUITY">Equities</option><option value="CRYPTO_SPOT">Crypto spot</option></select></label><button type="button" onClick={() => void previewResearch()} disabled={!ready || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button>{researchPreview && <div role="status"><ResearchResultCard result={researchPreview.result} /></div>}</section>}
+      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><label className="field">Research tool<select value={selectedResearchTool?.id ?? ''} onChange={event => { setResearchToolId(event.target.value as ResearchToolId); setResearchPreview(undefined); }} disabled={busy}>{capability.data?.researchTools.map(tool => <option key={tool.id} value={tool.id}>{tool.label}</option>)}</select></label><label className="field">Research focus<select value={researchFocus} onChange={event => { setResearchFocus(event.target.value as ResearchFocus); setResearchPreview(undefined); }} disabled={busy}><option value="GENERAL">General</option><option value="EQUITY">Equities</option><option value="CRYPTO_SPOT">Crypto spot</option></select></label><button type="button" onClick={() => void previewResearch()} disabled={!ready || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button>{researchPreview && <div role="status"><ResearchResultCard result={researchPreview.result} agentMode={mode} /></div>}</section>}
       {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
       {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
       {error && <p className="error-text" role="alert">{error}</p>}
@@ -430,13 +443,13 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
   </section>;
 }
 
-function TimelineItem({ item, contextRefs }: { item: ThreadItem; contextRefs: ThreadContextRef[] }) {
+function TimelineItem({ item, contextRefs, agentMode }: { item: ThreadItem; contextRefs: ThreadContextRef[]; agentMode: AgentMode }) {
   const result = item.researchResult;
   return <article className={`timeline-item timeline-${item.status.toLowerCase()}`} data-item-status={item.status}>
     <div className="timeline-item-heading"><strong>{item.itemType.replaceAll('_', ' ')}</strong><span className="badge">{item.status}</span></div>
     {item.sourceId && <small className="timeline-item-provenance">Source: {item.sourceId} · Context refs: {formatContextRefs(contextRefs)}</small>}
     <p>{item.content || 'Waiting for stream content…'}</p>
-    {result && <ResearchResultCard result={result} persisted />}
+    {result && <ResearchResultCard result={result} persisted agentMode={agentMode} />}
   </article>;
 }
 
@@ -446,7 +459,7 @@ function TurnTimeline({ turn, index, busy, onCancel, onRetry }: { turn: ThreadTu
     <div className="turn-heading"><div><h3 id={`turn-${turn.turnId}`}>Turn {index + 1}</h3><small>{turn.snapshot.agentMode} · {turn.snapshot.executionContext}</small></div><div className="turn-heading-actions"><span className="badge" role="status" aria-label={`Turn ${index + 1} status`} aria-live="polite">{turn.status}</span>{turn.status === 'RUNNING' && <button type="button" onClick={onCancel} disabled={busy} aria-label={`Cancel Turn ${index + 1}`}>{busy ? 'Cancelling…' : 'Cancel'}</button>}{['FAILED', 'CANCELLED', 'INTERRUPTED'].includes(turn.status) && <button type="button" onClick={onRetry} disabled={busy} aria-label={`Retry Turn ${index + 1}`}>{busy ? 'Retrying…' : 'Retry'}</button>}</div></div>
     {turn.cancelRequestedAt && turn.status === 'RUNNING' && <p className="form-hint" role="status">Cancellation requested…</p>}
     <div className="turn-provenance"><span>Model: {turn.snapshot.model ? `${turn.snapshot.model.provider} · ${turn.snapshot.model.modelId}` : 'Unavailable'}</span><span>Account: {turn.snapshot.accountId ? `${turn.snapshot.accountId} · ${turn.snapshot.accountEnvironment ?? 'environment unavailable'}` : 'None'}</span><span>Capability: {turn.snapshot.capabilityLevel}</span><span>Context: {turn.snapshot.attachedContexts.length ? turn.snapshot.attachedContexts.map(context => `${context.kind}:${context.id}#${context.hash}`).join(', ') : 'None'}</span></div>
-    <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} item={item} contextRefs={turn.snapshot.attachedContexts} />)}</div>
+    <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} item={item} contextRefs={turn.snapshot.attachedContexts} agentMode={turn.snapshot.agentMode} />)}</div>
     {attempt && <p className="turn-attempt" data-provider-outcome={attempt.outcome}>Provider attempt: {attempt.provider} · {attempt.modelId} · {attempt.outcome}{attempt.errorCode ? ` · ${attempt.errorCode}` : ''}</p>}
   </article>;
 }
