@@ -1,8 +1,8 @@
 # S10 #34 source-gated typed research evidence
 
-日期：2026-09-19  
+日期：2026-09-19
 实现提交：`6eaa121`、`49c57ae`（typed result vertical slice）及本次审查修正
-范围：S10 第一条垂直切片；股票/现货 evidence cards 仍由 #35 负责。  
+范围：S10 第一条垂直切片；股票/现货 evidence cards 仍由 #35 负责。
 状态：**IMPLEMENTED_UNVERIFIED**（契约、Rust 负例和隔离 bridge 已通过；真实 provider facts、完整 UI 研究卡和 S33 回归仍未宣称完成）
 
 ## Delivered behavior

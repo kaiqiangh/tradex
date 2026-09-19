@@ -55,10 +55,10 @@ pub fn run_with_source(
     };
     let source_id = source
         .map(|entry| entry.source_id.clone())
-        .unwrap_or_else(|| default_source_id(&request.tool_id).into());
+        .unwrap_or_else(|| default_source_id(request).into());
     let reason = match source {
         Some(entry) => {
-            let expected = source_id_for(&request.tool_id);
+            let expected = source_id_for_request(request);
             if expected != Some(entry.source_id.as_str()) {
                 return Err(TradeXError::new("RESEARCH_RESULT_INVALID"));
             }
@@ -76,14 +76,17 @@ pub fn run_with_source(
     // Research results are re-derived during turn.start and must compare byte-for-byte.
     // A real received clock belongs to the future provider adapter; until then keep the
     // unavailable timestamp explicit and deterministic.
-    let received_timestamp = if fixture {
+    let state = result_state(source, fixture);
+    let fixture_allowed = fixture
+        && source.is_some_and(|entry| entry.status == DataSourceStatus::Available)
+        && state == ResearchResultState::Available;
+    let received_timestamp = if fixture_allowed {
         "2026-09-14T00:00:00Z"
     } else {
         "UNAVAILABLE"
     };
-    let state = result_state(source, fixture);
     let limitation = match source {
-        Some(entry) if entry.status == DataSourceStatus::Available && !fixture => Some(
+        Some(entry) if entry.status == DataSourceStatus::Available && !fixture_allowed => Some(
             "Source metadata is available, but no provider facts are configured for this adapter."
                 .into(),
         ),
@@ -92,11 +95,11 @@ pub fn run_with_source(
             Some("The Control Plane has no provider observation for this research tool.".into())
         }
     };
-    let conclusion = fixture.then(|| {
+    let conclusion = fixture_allowed.then(|| {
         "Integration fixture only: typed research data is available for contract verification."
             .into()
     });
-    let findings = if fixture {
+    let findings = if fixture_allowed {
         vec![ResearchFinding {
             title: "Fixture boundary".into(),
             detail: "This result is synthetic and cannot establish provider entitlement or execution authority.".into(),
@@ -107,8 +110,8 @@ pub fn run_with_source(
     let provenance = provenance(
         &source_id,
         source,
-        &received_timestamp,
-        fixture,
+        received_timestamp,
+        fixture_allowed,
         limitation.clone(),
     );
     Ok(ResearchToolResult {
@@ -146,13 +149,7 @@ fn result_state(source: Option<&DataSourceEntry>, fixture: bool) -> ResearchResu
         Some(DataSourceStatus::BlockedExternal)
         | Some(DataSourceStatus::Unverified)
         | Some(DataSourceStatus::Unavailable) => ResearchResultState::Unavailable,
-        None => {
-            if fixture {
-                ResearchResultState::Available
-            } else {
-                ResearchResultState::Unavailable
-            }
-        }
+        None => ResearchResultState::Unavailable,
     }
 }
 
@@ -209,7 +206,8 @@ fn provenance(
         source_id: source_id.into(),
         provider,
         status,
-        provider_timestamp: source.and_then(|entry| entry.observed_at.clone()),
+        // `observed_at` is a source-probe observation, not provider data time.
+        provider_timestamp: None,
         received_timestamp: received_timestamp.into(),
         freshness,
         quality,
@@ -225,8 +223,25 @@ pub fn source_id_for(tool: &ResearchToolId) -> Option<&'static str> {
     }
 }
 
-fn default_source_id(tool: &ResearchToolId) -> &'static str {
-    source_id_for(tool).unwrap_or(ACCOUNT_SOURCE_ID)
+pub fn source_id_for_request(request: &ResearchToolRequest) -> Option<&'static str> {
+    match (&request.tool_id, request.focus.as_ref()) {
+        (ResearchToolId::PublicMarketRead, Some(ResearchFocus::CryptoSpot)) => None,
+        _ => source_id_for(&request.tool_id),
+    }
+}
+
+fn default_source_id(request: &ResearchToolRequest) -> &'static str {
+    if matches!(
+        (&request.tool_id, request.focus.as_ref()),
+        (
+            ResearchToolId::PublicMarketRead,
+            Some(ResearchFocus::CryptoSpot)
+        )
+    ) {
+        "control-plane:market"
+    } else {
+        source_id_for(&request.tool_id).unwrap_or(ACCOUNT_SOURCE_ID)
+    }
 }
 
 fn status_name(status: &DataSourceStatus) -> &'static str {

@@ -988,7 +988,7 @@ impl ControlPlane {
         decision: &capability::CapabilityDecision,
     ) -> Result<protocol::ResearchToolResult> {
         let sources = self.data_source_sources(&request.workspace_id);
-        let source_id = research::source_id_for(&request.tool_id);
+        let source_id = research::source_id_for_request(request);
         let source = source_id
             .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
         if source_id.is_some() && source.is_none() {
@@ -1089,7 +1089,10 @@ impl ControlPlane {
                             }),
                         );
                     };
-                    (workspace.base_currency, accounts)
+                    (
+                        workspace.base_currency,
+                        scoped_research_accounts(request, accounts),
+                    )
                 };
                 let fx_source = sources.iter().find(|entry| entry.source_id == "OD-006");
                 let Ok(time_status) = self.time.status(&request.workspace_id) else {
@@ -2896,6 +2899,27 @@ fn link_user_item(turn: &mut ThreadTurn, source_id: &str) {
     }
 }
 
+fn scoped_research_accounts(
+    request: &protocol::ResearchToolRequest,
+    accounts: Vec<AccountConnection>,
+) -> Vec<AccountConnection> {
+    let mut authorized = HashSet::new();
+    if let Some(account_id) = request.account_id.as_deref() {
+        authorized.insert(account_id.to_owned());
+    }
+    authorized.extend(
+        request
+            .attached_contexts
+            .iter()
+            .filter(|context| context.kind == "account")
+            .map(|context| context.id.clone()),
+    );
+    accounts
+        .into_iter()
+        .filter(|account| authorized.contains(&account.connection_id))
+        .collect()
+}
+
 fn find_or_add_item<'a>(
     turn: &'a mut ThreadTurn,
     item_id: &str,
@@ -2957,6 +2981,47 @@ mod thread_tests {
             "command": command,
             "payload": payload,
         })
+    }
+
+    #[test]
+    fn account_research_scope_keeps_unselected_accounts_out() {
+        let first = AccountConnection::new(
+            "workspace".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "First".into(),
+        )
+        .unwrap();
+        let second = AccountConnection::new(
+            "workspace".into(),
+            "binance".into(),
+            "LIVE".into(),
+            "Second".into(),
+        )
+        .unwrap();
+        let mut request = protocol::ResearchToolRequest {
+            workspace_id: "workspace".into(),
+            agent_mode: protocol::AgentMode::Research,
+            execution_context: protocol::ExecutionContext::NoneReadOnly,
+            account_id: Some(first.connection_id.clone()),
+            focus: None,
+            attached_contexts: Vec::new(),
+            tool_id: ResearchToolId::AccountRead,
+            query: "portfolio".into(),
+        };
+        let scoped = scoped_research_accounts(&request, vec![first.clone(), second.clone()]);
+        assert_eq!(scoped.len(), 1);
+        assert_eq!(scoped[0].connection_id, first.connection_id);
+
+        request.account_id = None;
+        request.attached_contexts = vec![protocol::ThreadContextRef {
+            kind: "account".into(),
+            id: second.connection_id.clone(),
+            hash: "sha256:second".into(),
+        }];
+        let attached = scoped_research_accounts(&request, vec![first, second.clone()]);
+        assert_eq!(attached.len(), 1);
+        assert_eq!(attached[0].connection_id, second.connection_id);
     }
 
     #[test]
@@ -3216,6 +3281,25 @@ mod thread_tests {
             producer_result["data"]["payload"]["instrumentRefs"][0],
             "equity:US:AAPL"
         );
+        let crypto_result = control.dispatch(request(
+            "research.run",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "RESEARCH",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": [],
+                "toolId": "public_market_read",
+                "focus": "CRYPTO_SPOT",
+                "query": "BTC/USDT"
+            }),
+        ));
+        assert_eq!(crypto_result["ok"], true);
+        assert_eq!(crypto_result["data"]["sourceId"], "control-plane:market");
+        assert_eq!(
+            crypto_result["data"]["payload"]["instrumentRefs"][0],
+            "crypto:BTC/USDT:spot"
+        );
+        assert_ne!(crypto_result["data"]["sourceId"], "OD-001");
 
         let before = control.dispatch(request(
             "thread.get",
