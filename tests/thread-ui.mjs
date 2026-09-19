@@ -385,6 +385,13 @@ export async function checkThreadUI(tab, browser) {
     assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'View provenance');
     await ui.getByRole('button', { name: 'Export JSON', exact: true }).click();
     await ui.getByRole('status').filter({ hasText: 'Exported ' }).waitFor({ state: 'visible' });
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: 860 });
+      const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+      assert.ok(size.scroll <= size.width, `Artifact page overflow at ${width}px: ${JSON.stringify(size)}`);
+      assert.equal(await ui.getByRole('heading', { name: 'AAPL research artifact', exact: true }).isVisible(), true);
+    }
+    await viewport.set({ width: 1280, height: 860 });
     observed.push('A completed typed research item saves into the workspace artifact library; detail/provenance modal restores focus on Escape and explicit JSON export reports its local result.');
     await ui.getByRole('button', { name: 'Threads', exact: true }).click();
     await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
