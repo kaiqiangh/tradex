@@ -57,10 +57,6 @@ fn actual_snapshot(
             || !valid_output_identity(&account.provider_id, 32)
             || !valid_output_identity(&account.environment, 16)
             || account
-                .account_currency
-                .as_deref()
-                .is_some_and(|currency| !valid_output_identity(currency, 16))
-            || account
                 .data
                 .as_ref()
                 .and_then(|data| data.currency.as_deref())
