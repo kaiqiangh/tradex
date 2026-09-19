@@ -1792,6 +1792,24 @@ fn validate_artifact_content(content: &ArtifactContent) -> Result<()> {
     {
         return Err(TradeXError::new("ARTIFACT_REDACTION_FAILED"));
     }
+    if content.research_result.as_ref().is_some_and(|result| {
+        result.payload.market_snapshot_refs.len() > 8
+            || result.payload.dataset_refs.len() > 8
+            || result.payload.order_refs.len() > 8
+            || result
+                .payload
+                .market_snapshot_refs
+                .iter()
+                .chain(result.payload.dataset_refs.iter())
+                .chain(result.payload.order_refs.iter())
+                .any(|reference| {
+                    reference.is_empty()
+                        || reference.len() > 128
+                        || reference.chars().any(char::is_control)
+                })
+    }) {
+        return Err(TradeXError::new("ARTIFACT_SOURCE_INVALID"));
+    }
     Ok(())
 }
 
@@ -2036,11 +2054,7 @@ fn artifact_export_destination(
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
             .ok_or_else(|| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
-        if !parent.is_dir()
-            || fs::symlink_metadata(parent)
-                .map(|metadata| metadata.file_type().is_symlink())
-                .unwrap_or(false)
-        {
+        if !parent.is_dir() || has_unapproved_symlink_ancestor(parent) {
             return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
         }
         let requested_name = path
@@ -2060,10 +2074,32 @@ fn artifact_export_destination(
         return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
     }
     fs::create_dir_all(&exports).map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
-    if !exports.is_dir() {
+    if !exports.is_dir() || has_unapproved_symlink_ancestor(&exports) {
         return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
     }
     Ok(exports.join(file_name))
+}
+
+fn has_unapproved_symlink_ancestor(path: &Path) -> bool {
+    let mut current = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => current.push(prefix.as_os_str()),
+            Component::RootDir => current.push(Path::new("/")),
+            Component::Normal(part) => {
+                current.push(part);
+                if fs::symlink_metadata(&current)
+                    .map(|metadata| metadata.file_type().is_symlink())
+                    .unwrap_or(false)
+                    && !matches!(current.to_str(), Some("/var") | Some("/tmp"))
+                {
+                    return true;
+                }
+            }
+            Component::CurDir | Component::ParentDir => return true,
+        }
+    }
+    false
 }
 
 fn read_workspace(connection: &Connection, path: &Path) -> Result<Workspace> {

@@ -3973,6 +3973,15 @@
           "maxLength": 512,
           "minLength": 1
         },
+        "datasetRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
         "evidence": {
           "type": "array",
           "default": [],
@@ -4020,6 +4029,24 @@
           "items": {
             "type": "string",
             "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "marketSnapshotRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "orderRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
             "minLength": 1
           },
           "maxItems": 8

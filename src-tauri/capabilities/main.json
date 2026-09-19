@@ -3,5 +3,5 @@
   "identifier": "main",
   "description": "Local TradeX window and native workspace folder picker",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save"]
 }

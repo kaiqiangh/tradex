@@ -1152,18 +1152,18 @@ impl ControlPlane {
                 .as_ref()
                 .map(|result| result.payload.evidence.clone())
                 .unwrap_or_default(),
-            market_snapshot_hashes: artifact_context_hashes(
-                &turn.snapshot.attached_contexts,
-                &["market_snapshot", "market_snapshot_hash"],
-            ),
-            dataset_hashes: artifact_context_hashes(
-                &turn.snapshot.attached_contexts,
-                &["dataset", "backtest_dataset"],
-            ),
-            related_order_ids: artifact_context_hashes(
-                &turn.snapshot.attached_contexts,
-                &["order", "order_ref"],
-            ),
+            market_snapshot_hashes: research_result
+                .as_ref()
+                .map(|result| result.payload.market_snapshot_refs.clone())
+                .unwrap_or_default(),
+            dataset_hashes: research_result
+                .as_ref()
+                .map(|result| result.payload.dataset_refs.clone())
+                .unwrap_or_default(),
+            related_order_ids: research_result
+                .as_ref()
+                .map(|result| result.payload.order_refs.clone())
+                .unwrap_or_default(),
         };
         let artifact = Artifact {
             artifact_id: String::new(),
@@ -2991,14 +2991,6 @@ fn validate_artifact_id(id: &str) -> Result<()> {
     Ok(())
 }
 
-fn artifact_context_hashes(contexts: &[protocol::ThreadContextRef], kinds: &[&str]) -> Vec<String> {
-    contexts
-        .iter()
-        .filter(|context| kinds.contains(&context.kind.as_str()))
-        .map(|context| context.hash.clone())
-        .collect()
-}
-
 fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {
     if input.workspace_id.is_empty()
         || input.workspace_id.len() > 128
@@ -3987,6 +3979,9 @@ mod thread_tests {
                 limitations: Vec::new(),
                 instrument_refs: vec!["EQUITY:US:AAPL".into()],
                 artifact_refs: Vec::new(),
+                market_snapshot_refs: vec![format!("sha256:{}", "c".repeat(64))],
+                dataset_refs: vec![format!("sha256:{}", "d".repeat(64))],
+                order_refs: vec!["order-1".into()],
                 spot_venues: Vec::new(),
                 fixture_label: None,
             },
@@ -4006,23 +4001,7 @@ mod thread_tests {
                     model_id: "gpt-5.6-sol".into(),
                     thinking_type: None,
                 }),
-                attached_contexts: vec![
-                    protocol::ThreadContextRef {
-                        kind: "market_snapshot".into(),
-                        id: "snapshot-1".into(),
-                        hash: "sha256:market".into(),
-                    },
-                    protocol::ThreadContextRef {
-                        kind: "dataset".into(),
-                        id: "dataset-1".into(),
-                        hash: "sha256:dataset".into(),
-                    },
-                    protocol::ThreadContextRef {
-                        kind: "order".into(),
-                        id: "order-1".into(),
-                        hash: "order-1".into(),
-                    },
-                ],
+                attached_contexts: Vec::new(),
                 started_at: now.clone(),
             },
             items: vec![
@@ -4123,11 +4102,11 @@ mod thread_tests {
         );
         assert_eq!(
             detail["data"]["provenance"]["marketSnapshotHashes"][0],
-            "sha256:market"
+            format!("sha256:{}", "c".repeat(64))
         );
         assert_eq!(
             detail["data"]["provenance"]["datasetHashes"][0],
-            "sha256:dataset"
+            format!("sha256:{}", "d".repeat(64))
         );
         assert_eq!(
             detail["data"]["provenance"]["relatedOrderIds"][0],
@@ -4210,6 +4189,23 @@ mod thread_tests {
             ));
             assert_eq!(symlink_export["ok"], false);
             assert_eq!(symlink_export["error"]["code"], "ARTIFACT_EXPORT_EXISTS");
+            let real_directory = directory.path().join("real-export-directory");
+            std::fs::create_dir(&real_directory).unwrap();
+            let symlink_directory = directory.path().join("linked-export-directory");
+            symlink(&real_directory, &symlink_directory).unwrap();
+            let ancestor_export = control.dispatch(request(
+                "artifact.export",
+                json!({
+                    "workspaceId": workspace_id,
+                    "artifactId": artifact_id,
+                    "destinationPath": symlink_directory.join("ancestor.json")
+                }),
+            ));
+            assert_eq!(ancestor_export["ok"], false);
+            assert_eq!(
+                ancestor_export["error"]["code"],
+                "ARTIFACT_EXPORT_PATH_INVALID"
+            );
         }
         drop(control);
 

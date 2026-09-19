@@ -501,6 +501,15 @@ pub struct ResearchToolPayload {
     #[serde(default)]
     #[schemars(length(max = 8), inner(length(min = 1, max = 128)))]
     pub artifact_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 128)))]
+    pub market_snapshot_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 128)))]
+    pub dataset_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 128)))]
+    pub order_refs: Vec<String>,
     #[serde(default)]
     #[schemars(length(max = 2))]
     pub spot_venues: Vec<ResearchSpotVenue>,

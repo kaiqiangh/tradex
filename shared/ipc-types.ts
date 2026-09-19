@@ -888,6 +888,19 @@ export interface ResearchToolPayload {
   /**
    * @maxItems 8
    */
+  datasetRefs?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  /**
+   * @maxItems 8
+   */
   evidence?:
     | []
     | [ResearchProvenance]
@@ -971,6 +984,32 @@ export interface ResearchToolPayload {
    * @maxItems 8
    */
   limitations?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  /**
+   * @maxItems 8
+   */
+  marketSnapshotRefs?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  /**
+   * @maxItems 8
+   */
+  orderRefs?:
     | []
     | [string]
     | [string, string]
