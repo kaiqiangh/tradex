@@ -2,7 +2,9 @@
 
 日期：2026-09-19
 开发分支：`dev`
-最终实现提交：`739f380` (`fix: validate portfolio account identities`)
+状态：**VERIFIED（#32 垂直验收完成）**。生产 OD-006 交易级授权、后续 Live risk consumers 和 S33 全量回归仍保留在外部边界。
+最终实现提交：`e645089` (`fix: remove stale portfolio account field`)
+前置实现提交：`739f380` (`fix: validate portfolio account identities`)
 前置 fixture/输出修复：`7e613e4` (`fix: harden S09 portfolio output and fixture totals`)
 前置审查修复：`1d81509` (`fix: close S09 portfolio review findings`)
 前置 provider identity 修复：`6dda93b` (`fix: normalize all provider portfolio identities`)
@@ -24,35 +26,35 @@
 
 ## Automated checks
 
-The following source and frontend checks passed against implementation commit `739f380`:
+The following source, protocol and frontend checks passed against implementation commit `e645089`:
 
 ```text
 npm run build
 npm run test:unit                 # 4 passed
 node --check tests/portfolio-ui.mjs
+cargo test --manifest-path src-tauri/Cargo.toml # 77 unit + 40 integration passed; 5 explicit native/gateway tests ignored
 cargo fmt --all -- --check
 git diff --check
 python3 scripts/check_requirements.py
+npm run schema:check
 ```
 
-`npm run schema:check` and focused/full Cargo tests were attempted after the implementation changes, but the local toolchain stopped before compilation assertions because the Xcode and Apple SDK license is not accepted (exit status 69). They are therefore not counted as passing checks.
+The Xcode and Apple SDK license was accepted before the runtime rerun; schema generation and Cargo compilation/tests completed successfully.
 
 The focused portfolio checks include exact signed decimal addition/multiplication, deterministic fixture routes and USDT depeg warning, decimal P&L aggregation, empty production behavior, malformed payload rejection, workspace scoping, unavailable native currency provenance, fail-closed aggregation, output identity bounds and a before/after domain snapshot equality assertion.
 
 ## Browser evidence
 
-The earlier isolated browser spot check at `6dda93b` was run with a temporary in-app browser tab, but it is historical: later implementation commits changed fixture P&L and production identity validation. It showed:
+The current isolated Rust-backed browser run at `e645089` used a fresh temporary workspace and verified:
 
 - USD workspace base currency and degraded portfolio status;
 - three fixture accounts (Trading 212 EUR, Binance USDT, Alpaca USD);
 - canonical `equity:US:AAPL`, `crypto:BTC/USDT:spot`, `equity:US:MSFT` holdings plus an explicit `UNAVAILABLE` native balance, open orders and a fill;
 - EUR → USD, USDT → USD and USD → USD routes with source, path, rate, provider timestamp, TradeX received timestamp, freshness and quality;
 - visible `USDT is not USD` depeg warning and `Live risk: Blocked` reason.
-- The historical isolated browser spot check at `6dda93b` showed the unavailable native USDT balance was excluded from the fixture exposure total (`55712 USD`). It exercised the three fixture accounts, Accounts → Open portfolio, canonical identities, provenance and responsive layout; no user-owned tab was opened or modified.
+- The current run measured document widths equal to the viewport at 768 and 390 pixels, with no page overflow and no `warn` or `error` console entries. It exercised Accounts → Open portfolio, canonical identities, provenance, blocked Live risk and the corrected `3867.6 USD` P&L. The viewport override was reset after verification; the temporary workspace was isolated and no user-owned account or credential was opened or modified.
 
-Current executable browser coverage is `tests/portfolio-ui.mjs`, including the corrected `3867.6 USD` P&L, `UNAVAILABLE` identity sentinel, provenance/depeg warning, blocked Live risk, keyboard navigation, 1280/768/390 layouts and warning/error console assertions. It remains `RUNTIME_PENDING` until the Rust integration bridge can be rebuilt after the local Xcode license is accepted; no current browser PASS is claimed.
-
-The historical run measured document widths equal to the viewport at 1280, 768 and 390 pixels (`overflow: false`) and had no `warn` or `error` console entries. The temporary tab was closed, the viewport override reset, and the Vite/Rust bridge process stopped after verification. The user-owned browser tab was not opened or modified.
+The executable browser coverage remains in `tests/portfolio-ui.mjs`; it now has current Rust-backed runtime evidence rather than `RUNTIME_PENDING`.
 
 ## Evidence boundary
 
