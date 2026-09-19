@@ -186,6 +186,8 @@ pub enum ReplyData {
     Watchlists(Watchlists),
     ResearchResult(ResearchToolResult),
     ScreenerResult(ScreenerResult),
+    ScreenerLibrary(ScreenerLibrary),
+    ScreenerAttachment(ScreenerAttachment),
 }
 
 #[derive(JsonSchema)]
@@ -250,6 +252,9 @@ pub struct IpcSchema {
     pub market_catalog_query: MarketCatalogQuery,
     pub market_get_query: MarketGetQuery,
     pub screener_request: ScreenerRequest,
+    pub screener_save: ScreenerSave,
+    pub screener_update: ScreenerUpdate,
+    pub screener_attach: ScreenerAttach,
     pub portfolio_query: PortfolioQuery,
     pub watchlist_create: WatchlistCreate,
     pub watchlist_rename: WatchlistRename,
@@ -267,7 +272,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 7))]
+    #[schemars(range(min = 1, max = 8))]
     pub storage_schema_version: u32,
 }
 
@@ -755,6 +760,101 @@ pub struct ScreenerResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 64))]
     pub fixture_label: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerDefinition {
+    #[schemars(length(min = 1, max = 4_000))]
+    pub natural_language: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<ResearchFocus>,
+    pub filter_spec: FilterSpec,
+    pub rank_spec: RankSpec,
+    #[schemars(with = "String", length(min = 1, max = 80))]
+    pub revision: String,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SavedScreener {
+    #[schemars(length(min = 1, max = 128))]
+    pub screener_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub name: String,
+    pub definition: ScreenerDefinition,
+    pub state: ScreenerResultState,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerLibrary {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 128))]
+    pub screeners: Vec<SavedScreener>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerSave {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub name: String,
+    pub definition: ScreenerDefinition,
+    pub state: ScreenerResultState,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerUpdate {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub screener_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub name: String,
+    pub definition: ScreenerDefinition,
+    pub state: ScreenerResultState,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerAttach {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(with = "String", length(min = 1, max = 80))]
+    pub revision: String,
+    #[schemars(length(min = 1, max = 32), inner(length(min = 1, max = 128)))]
+    pub selected_instrument_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerAttachment {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(with = "String", length(min = 1, max = 80))]
+    pub revision: String,
+    #[schemars(length(max = 32))]
+    pub context_refs: Vec<ThreadContextRef>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

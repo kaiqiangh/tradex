@@ -48,7 +48,7 @@ S11 已能把自然语言转换为可审阅的 `FilterSpec`/`RankSpec` 并运行
 
 ```text
 screener.list({ workspaceId }) -> ScreenerLibrary
-screener.save({ workspaceId, name, definition, expectedStateVersion? }) -> ScreenerLibrary
+screener.save({ workspaceId, name, definition, state, expectedStateVersion }) -> ScreenerLibrary
 screener.update({ workspaceId, screenerId, name, definition, expectedStateVersion }) -> ScreenerLibrary
 screener.attach({ workspaceId, revision, selectedInstrumentIds }) -> ScreenerAttachment
 ```

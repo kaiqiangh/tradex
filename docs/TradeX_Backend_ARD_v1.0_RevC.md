@@ -1687,6 +1687,10 @@ market.get
 market.snapshot
 market.history
 market.screen
+screener.list
+screener.save
+screener.update
+screener.attach
 watchlist.list
 watchlist.create
 watchlist.rename
@@ -2212,15 +2216,22 @@ Every account/holding/order/fill observation carries the provider connection ide
 
 ### 41.15 Read-only natural-language screener payloads (S11)
 
-Version 1 adds one source-gated, read-only market operation:
+Version 1 adds the source-gated `market.screen` operation plus a workspace-scoped reviewed-definition projection and a canonical attachment operation:
 
 | Command | Payload | Success data | Mutation/event behavior |
 |---|---|---|---|
 | `market.screen` | `{workspaceId, operation, naturalLanguage, focus?, filterSpec?, rankSpec?, revision?, limit?}` | `ScreenerResult` | none; no provider call, SQLite write, DuckDB write, domain event or execution authority |
+| `screener.list` | `{workspaceId}` | `ScreenerLibrary` | read-only SQLite projection query; no domain event, provider call or execution authority |
+| `screener.save` / `screener.update` | `{workspaceId, name, definition, state, expectedStateVersion[, screenerId]}` | `ScreenerLibrary` | atomic workspace-scoped SQLite projection write only; no outbox/domain event, DuckDB/provider/account/risk/approval/arming/Gateway/credential mutation |
+| `screener.attach` | `{workspaceId, revision, selectedInstrumentIds[]}` | `ScreenerAttachment` | no persistence or provider call; returns only selected canonical `ThreadContextRef` values |
 
 `operation` is `PARSE` or `RUN`. `PARSE` converts bounded natural language into a typed `FilterSpec`, `RankSpec`, and deterministic `sha256:` revision. The renderer must show the parsed conditions before `RUN`; edits require a new revision. `RUN` rejects missing or stale revisions and returns `COMPLETED`, `EMPTY`, `BLOCKED_EXTERNAL` or `FAILED` with bounded candidate rows, exact canonical instrument IDs, feature values, source IDs, provider/received timestamps, freshness, quality, and limitations. `RUN` never silently drops unsupported predicates: the typed result is `FAILED` with `SCREENER_FILTER_UNSUPPORTED`.
 
-The first implementation supports US equities, US large-cap technology and crypto spot universes, revenue growth, estimate revision, RSI and price-change predicates, and quality/revision-strength/momentum ranking. Real provider adapters remain source-gated by OD-001/OD-003 and return `BLOCKED_EXTERNAL` until entitlement and an adapter are configured. The integration-only `SYNTHETIC_SCREENER_FIXTURE` is deterministic and cannot establish provider entitlement, quote authority or Live execution. The operation is read-only and does not persist a saved filter; persistence and candidate attachment remain a later slice.
+The first implementation supports US equities, US large-cap technology and crypto spot universes, revenue growth, estimate revision, RSI and price-change predicates, and quality/revision-strength/momentum ranking. Real provider adapters remain source-gated by OD-001/OD-003 and return `BLOCKED_EXTERNAL` until entitlement and an adapter are configured. The integration-only `SYNTHETIC_SCREENER_FIXTURE` is deterministic and cannot establish provider entitlement, quote authority or Live execution.
+
+`ScreenerLibrary` stores only bounded reviewed definitions (`naturalLanguage`, `FilterSpec`, `RankSpec`, `revision`, `limit`, state and timestamps) under the active workspace. Names are unique per workspace; unknown workspace, duplicate name, bounds, revision mismatch and stale `expectedStateVersion` fail closed. Reopening a definition restores inputs only and never restores Live authority or provider payloads. Editing creates a new revision and invalidates the previous result.
+
+`screener.attach` accepts only explicitly selected canonical instrument IDs, validates their current market catalog membership and returns workspace-bound `ThreadContextRef` values. The renderer may pass them to `thread.create.linkedContexts` or the next `turn.start`; both paths revalidate the refs. Unselected candidates, complete universes, provider payloads, credentials and natural-language context are not attached, and no Turn is started automatically.
 
 ## 42. Backend-to-Frontend Event Surface
 

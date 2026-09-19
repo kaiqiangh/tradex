@@ -679,6 +679,59 @@ impl ControlPlane {
                 let result = screener::screen(&input, &sources, &time_status.observed_at, fixture)?;
                 Ok((json!(result), None))
             }
+            "screener.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let library = self.store.as_ref().unwrap().screeners()?;
+                Ok((json!(library), Some(library.state_version)))
+            }
+            "screener.save" => {
+                let input: protocol::ScreenerSave = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let library = self.store.as_mut().unwrap().save_screener(&input)?;
+                Ok((json!(library), Some(library.state_version)))
+            }
+            "screener.update" => {
+                let input: protocol::ScreenerUpdate = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_screener_id(&input.screener_id)?;
+                let library = self.store.as_mut().unwrap().update_screener(&input)?;
+                Ok((json!(library), Some(library.state_version)))
+            }
+            "screener.attach" => {
+                let input: protocol::ScreenerAttach = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                screener::validate_revision(&input.revision)?;
+                if input.selected_instrument_ids.is_empty()
+                    || input.selected_instrument_ids.len() > 32
+                {
+                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+                }
+                let mut seen = HashSet::new();
+                let mut context_refs = Vec::with_capacity(input.selected_instrument_ids.len());
+                for instrument_id in &input.selected_instrument_ids {
+                    if !seen.insert(instrument_id) {
+                        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+                    }
+                    if !market::validate_instrument_id(instrument_id)
+                        || !market::instruments()
+                            .iter()
+                            .any(|instrument| instrument.instrument_id == *instrument_id)
+                    {
+                        return Err(TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"));
+                    }
+                    context_refs.push(capability::instrument_context_ref(
+                        &input.workspace_id,
+                        instrument_id,
+                    ));
+                }
+                let attachment = protocol::ScreenerAttachment {
+                    workspace_id: input.workspace_id,
+                    revision: input.revision,
+                    context_refs,
+                };
+                Ok((json!(attachment), None))
+            }
             "portfolio.get" => {
                 let input: PortfolioQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -2802,6 +2855,13 @@ fn validate_watchlist_name(name: &str) -> Result<()> {
 
 fn validate_watchlist_expected(version: &str) -> Result<()> {
     if version.is_empty() || version.len() > 256 || version.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_screener_id(id: &str) -> Result<()> {
+    if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     Ok(())

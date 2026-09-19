@@ -12,15 +12,16 @@ use crate::gateway::GatewayState;
 use crate::market;
 use crate::model::ModelState;
 use crate::protocol::{
-    DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result, Snapshot,
-    SubscriptionAck, Thread, ThreadList, ThreadSummary, TradeXError, Watchlist, WatchlistItem,
-    Watchlists, Workspace,
+    DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result, SavedScreener,
+    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, SubscriptionAck,
+    Thread, ThreadList, ThreadSummary, TradeXError, Watchlist, WatchlistItem, Watchlists,
+    Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-const SCHEMA_VERSION: u32 = 7;
+pub(crate) const SCHEMA_VERSION: u32 = 8;
 
 pub struct Store {
     connection: Connection,
@@ -169,6 +170,18 @@ impl Store {
                 );
                 CREATE INDEX watchlists_workspace_order ON watchlists(workspace_id,name COLLATE NOCASE,watchlist_id);
                 PRAGMA user_version=7;").map_err(storage_error)?;
+            }
+            if version < 8 {
+                tx.execute_batch("CREATE TABLE screeners (
+                    screener_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    name TEXT NOT NULL COLLATE NOCASE,
+                    sequence INTEGER NOT NULL CHECK(sequence>0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,name)
+                );
+                CREATE INDEX screeners_workspace_order ON screeners(workspace_id,name COLLATE NOCASE,screener_id);
+                PRAGMA user_version=8;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1059,6 +1072,151 @@ impl Store {
         Ok(watchlist)
     }
 
+    pub fn screeners(&self) -> Result<ScreenerLibrary> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare(
+                "SELECT screener_id,workspace_id,name,sequence,projection FROM screeners WHERE workspace_id=?1 ORDER BY name COLLATE NOCASE,screener_id",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut screeners = Vec::new();
+        let mut max_sequence = 0_i64;
+        for row in rows {
+            let (screener_id, row_workspace_id, row_name, sequence, projection) =
+                row.map_err(storage_error)?;
+            max_sequence = max_sequence.max(sequence);
+            screeners.push(decode_screener(
+                &projection,
+                &screener_id,
+                &row_workspace_id,
+                &row_name,
+                sequence,
+                &workspace_id,
+            )?);
+        }
+        if max_sequence < 0 || max_sequence > MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(ScreenerLibrary {
+            workspace_id: workspace_id.clone(),
+            state_version: format!("screeners:{workspace_id}:{max_sequence}"),
+            screeners,
+        })
+    }
+
+    pub fn save_screener(&mut self, input: &ScreenerSave) -> Result<ScreenerLibrary> {
+        validate_screener_name(&input.name)?;
+        validate_screener_state(&input.state)?;
+        crate::screener::validate_definition(&input.definition)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        validate_screener_state_version(&tx, &input.workspace_id, &input.expected_state_version)?;
+        if screener_name_conflict(&tx, &input.workspace_id, &input.name, None)? {
+            return Err(TradeXError::new("SCREENER_NAME_CONFLICT"));
+        }
+        let count: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM screeners WHERE workspace_id=?1",
+                [&input.workspace_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !(0..128).contains(&count) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let sequence = next_screener_sequence(&tx, &input.workspace_id)?;
+        let now = timestamp()?;
+        let screener_id = Uuid::new_v4().to_string();
+        let screener = SavedScreener {
+            screener_id: screener_id.clone(),
+            workspace_id: input.workspace_id.clone(),
+            name: input.name.trim().to_owned(),
+            definition: input.definition.clone(),
+            state: input.state,
+            created_at: now.clone(),
+            updated_at: now,
+            state_version: format!("screener:{screener_id}:{sequence}"),
+        };
+        tx.execute(
+            "INSERT INTO screeners(screener_id,workspace_id,name,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+            params![
+                &screener.screener_id,
+                &screener.workspace_id,
+                &screener.name,
+                sequence,
+                serde_json::to_string(&screener).map_err(storage_error)?,
+            ],
+        )
+        .map_err(|error| {
+            if error.to_string().contains("UNIQUE") {
+                TradeXError::new("SCREENER_NAME_CONFLICT")
+            } else {
+                storage_error(error)
+            }
+        })?;
+        tx.commit().map_err(storage_error)?;
+        self.screeners()
+    }
+
+    pub fn update_screener(&mut self, input: &ScreenerUpdate) -> Result<ScreenerLibrary> {
+        validate_screener_name(&input.name)?;
+        validate_screener_state(&input.state)?;
+        crate::screener::validate_definition(&input.definition)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        validate_screener_state_version(&tx, &input.workspace_id, &input.expected_state_version)?;
+        let mut screener = load_screener_tx(&tx, &input.workspace_id, &input.screener_id)?;
+        if screener_name_conflict(
+            &tx,
+            &input.workspace_id,
+            &input.name,
+            Some(&input.screener_id),
+        )? {
+            return Err(TradeXError::new("SCREENER_NAME_CONFLICT"));
+        }
+        let sequence = next_screener_sequence(&tx, &input.workspace_id)?;
+        screener.name = input.name.trim().to_owned();
+        screener.definition = input.definition.clone();
+        screener.state = input.state;
+        screener.updated_at = timestamp()?;
+        screener.state_version = format!("screener:{}:{sequence}", screener.screener_id);
+        tx.execute(
+            "UPDATE screeners SET name=?1,sequence=?2,projection=?3 WHERE workspace_id=?4 AND screener_id=?5",
+            params![
+                &screener.name,
+                sequence,
+                serde_json::to_string(&screener).map_err(storage_error)?,
+                &screener.workspace_id,
+                &screener.screener_id,
+            ],
+        )
+        .map_err(|error| {
+            if error.to_string().contains("UNIQUE") {
+                TradeXError::new("SCREENER_NAME_CONFLICT")
+            } else {
+                storage_error(error)
+            }
+        })?;
+        tx.commit().map_err(storage_error)?;
+        self.screeners()
+    }
+
     pub fn mark_accounts_stale(&mut self) -> Result<()> {
         for mut account in self.accounts()? {
             if account.connection_state == ConnectionState::Disconnected
@@ -1230,6 +1388,155 @@ fn decode_watchlist(
         }
     }
     Ok(watchlist)
+}
+
+fn validate_screener_name(name: &str) -> Result<()> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() || trimmed.chars().count() > 80 || trimmed.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_screener_state(state: &ScreenerResultState) -> Result<()> {
+    if matches!(state, ScreenerResultState::Running) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn screener_name_conflict(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+    name: &str,
+    excluded_id: Option<&str>,
+) -> Result<bool> {
+    let folded = name.to_lowercase();
+    let mut query = tx
+        .prepare("SELECT screener_id,name FROM screeners WHERE workspace_id=?1")
+        .map_err(storage_error)?;
+    let rows = query
+        .query_map([workspace_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(storage_error)?;
+    for row in rows {
+        let (screener_id, existing_name) = row.map_err(storage_error)?;
+        if excluded_id == Some(screener_id.as_str()) {
+            continue;
+        }
+        if existing_name.to_lowercase() == folded {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn current_screener_state_version(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+) -> Result<String> {
+    let max_sequence: Option<i64> = tx
+        .query_row(
+            "SELECT MAX(sequence) FROM screeners WHERE workspace_id=?1",
+            [workspace_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let max_sequence = max_sequence.unwrap_or(0);
+    if !(0..=MAX_SEQUENCE as i64).contains(&max_sequence) {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(format!("screeners:{workspace_id}:{max_sequence}"))
+}
+
+fn validate_screener_state_version(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+    expected: &str,
+) -> Result<()> {
+    if expected.is_empty() || expected.len() > 256 || expected.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    if current_screener_state_version(tx, workspace_id)? != expected {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    Ok(())
+}
+
+fn next_screener_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
+    let max_sequence: Option<i64> = tx
+        .query_row(
+            "SELECT MAX(sequence) FROM screeners WHERE workspace_id=?1",
+            [workspace_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let max_sequence = max_sequence.unwrap_or(0);
+    if !(0..MAX_SEQUENCE as i64).contains(&max_sequence) {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    Ok(max_sequence + 1)
+}
+
+fn load_screener_tx(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+    screener_id: &str,
+) -> Result<SavedScreener> {
+    let (row_workspace_id, row_name, sequence, projection): (String, String, i64, String) = tx
+        .query_row(
+            "SELECT workspace_id,name,sequence,projection FROM screeners WHERE workspace_id=?1 AND screener_id=?2",
+            params![workspace_id, screener_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .map_err(|error| {
+            if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("SCREENER_NOT_FOUND")
+            } else {
+                storage_error(error)
+            }
+        })?;
+    decode_screener(
+        &projection,
+        screener_id,
+        &row_workspace_id,
+        &row_name,
+        sequence,
+        workspace_id,
+    )
+}
+
+fn decode_screener(
+    projection: &str,
+    row_id: &str,
+    row_workspace_id: &str,
+    row_name: &str,
+    sequence: i64,
+    workspace_id: &str,
+) -> Result<SavedScreener> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let screener: SavedScreener = serde_json::from_str(projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if screener.screener_id != row_id
+        || screener.workspace_id != row_workspace_id
+        || screener.name != row_name
+        || row_workspace_id != workspace_id
+        || screener.state_version != format!("screener:{row_id}:{sequence}")
+        || screener.name.trim() != screener.name
+        || screener.name.is_empty()
+        || screener.name.chars().count() > 80
+        || screener.name.chars().any(char::is_control)
+        || screener.created_at.is_empty()
+        || screener.updated_at.is_empty()
+        || matches!(screener.state, ScreenerResultState::Running)
+        || crate::screener::validate_definition(&screener.definition).is_err()
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(screener)
 }
 
 fn read_workspace(connection: &Connection, path: &Path) -> Result<Workspace> {

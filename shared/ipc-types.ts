@@ -189,7 +189,9 @@ export type ReplyData =
   | Watchlist
   | Watchlists
   | ResearchToolResult
-  | ScreenerResult;
+  | ScreenerResult
+  | ScreenerLibrary
+  | ScreenerAttachment;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeConfidence".
@@ -338,7 +340,10 @@ export interface IpcSchema {
   result: ResultEnvelope;
   riskQuery: RiskQuery;
   saveRiskPolicy: SaveRiskPolicy;
+  screenerAttach: ScreenerAttach;
   screenerRequest: ScreenerRequest;
+  screenerSave: ScreenerSave;
+  screenerUpdate: ScreenerUpdate;
   setDefaultModel: SetDefaultModel;
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
@@ -2103,6 +2108,56 @@ export interface RankSpec {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerLibrary".
+ */
+export interface ScreenerLibrary {
+  /**
+   * @maxItems 128
+   */
+  screeners: SavedScreener[];
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SavedScreener".
+ */
+export interface SavedScreener {
+  createdAt: string;
+  definition: ScreenerDefinition;
+  name: string;
+  screenerId: string;
+  state: ScreenerResultState;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerDefinition".
+ */
+export interface ScreenerDefinition {
+  filterSpec: FilterSpec;
+  focus?: ResearchFocus | null;
+  limit: number;
+  naturalLanguage: string;
+  rankSpec: RankSpec;
+  revision: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerAttachment".
+ */
+export interface ScreenerAttachment {
+  /**
+   * @maxItems 32
+   */
+  contextRefs: ThreadContextRef[];
+  revision: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FailureEnvelope".
  */
 export interface FailureEnvelope {
@@ -2154,6 +2209,19 @@ export interface RiskPolicyInput {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerAttach".
+ */
+export interface ScreenerAttach {
+  revision: string;
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  selectedInstrumentIds: [string, ...string[]];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ScreenerRequest".
  */
 export interface ScreenerRequest {
@@ -2164,6 +2232,29 @@ export interface ScreenerRequest {
   operation: ScreenerOperation;
   rankSpec?: RankSpec | null;
   revision?: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerSave".
+ */
+export interface ScreenerSave {
+  definition: ScreenerDefinition;
+  expectedStateVersion: string;
+  name: string;
+  state: ScreenerResultState;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerUpdate".
+ */
+export interface ScreenerUpdate {
+  definition: ScreenerDefinition;
+  expectedStateVersion: string;
+  name: string;
+  screenerId: string;
+  state: ScreenerResultState;
   workspaceId: string;
 }
 /**

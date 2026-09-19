@@ -1,3 +1,4 @@
+use crate::market;
 use crate::protocol::{AgentMode, ExecutionContext, Result, ThreadContextRef, TradeXError};
 use crate::providers::{AccountConnection, ConnectionState};
 use schemars::JsonSchema;
@@ -239,6 +240,19 @@ pub fn validate_catalog_refs(
             return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
         }
     }
+    for context in contexts
+        .iter()
+        .filter(|context| context.kind == "instrument")
+    {
+        if !market::validate_instrument_id(&context.id)
+            || !market::instruments()
+                .iter()
+                .any(|instrument| instrument.instrument_id == context.id)
+            || instrument_context_ref(workspace_id, &context.id).hash != context.hash
+        {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        }
+    }
     Ok(())
 }
 
@@ -255,6 +269,16 @@ pub fn account_context_ref(account: &AccountConnection) -> ThreadContextRef {
     ThreadContextRef {
         kind: "account".into(),
         id: account.connection_id.clone(),
+        hash: format!("sha256:{}", hex::encode(digest)),
+    }
+}
+
+pub fn instrument_context_ref(workspace_id: &str, instrument_id: &str) -> ThreadContextRef {
+    let material = format!("{workspace_id}\0{instrument_id}");
+    let digest = Sha256::digest(material.as_bytes());
+    ThreadContextRef {
+        kind: "instrument".into(),
+        id: instrument_id.into(),
         hash: format!("sha256:{}", hex::encode(digest)),
     }
 }

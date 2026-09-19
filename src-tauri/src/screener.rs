@@ -1,9 +1,9 @@
 use crate::protocol::{
     DataSourceEntry, DataSourceStatus, FilterSpec, RankSpec, ResearchFreshness, ResearchQuality,
-    Result, ScreenerCandidate, ScreenerDirection, ScreenerFeature, ScreenerFeatureField,
-    ScreenerOperation, ScreenerOperator, ScreenerPredicate, ScreenerPredicateField,
-    ScreenerProvenance, ScreenerRankField, ScreenerRequest, ScreenerResult, ScreenerResultState,
-    ScreenerUniverse, TradeXError,
+    Result, ScreenerCandidate, ScreenerDefinition, ScreenerDirection, ScreenerFeature,
+    ScreenerFeatureField, ScreenerOperation, ScreenerOperator, ScreenerPredicate,
+    ScreenerPredicateField, ScreenerProvenance, ScreenerRankField, ScreenerRequest, ScreenerResult,
+    ScreenerResultState, ScreenerUniverse, TradeXError,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -96,6 +96,55 @@ pub fn screen(
         limitations: vec![FIXTURE_LIMITATION.into()],
         fixture_label: Some("SYNTHETIC_SCREENER_FIXTURE".into()),
     })
+}
+
+pub fn validate_definition(definition: &ScreenerDefinition) -> Result<()> {
+    if definition.natural_language.trim().is_empty()
+        || definition.natural_language.chars().count() > 4_000
+        || definition.natural_language.chars().any(char::is_control)
+        || !(1..=50).contains(&definition.limit)
+        || !valid_revision(&definition.revision)
+    {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    validate_filter(&definition.filter_spec)?;
+    let request = ScreenerRequest {
+        workspace_id: "saved-definition".into(),
+        operation: ScreenerOperation::Parse,
+        natural_language: definition.natural_language.clone(),
+        focus: definition.focus.clone(),
+        filter_spec: Some(definition.filter_spec.clone()),
+        rank_spec: Some(definition.rank_spec.clone()),
+        revision: None,
+        limit: Some(definition.limit),
+    };
+    let expected = revision_for(
+        &request,
+        &definition.filter_spec,
+        &definition.rank_spec,
+        definition.limit,
+    )?;
+    if expected != definition.revision {
+        return Err(TradeXError::new("SCREENER_REVISION_STALE"));
+    }
+    Ok(())
+}
+
+pub fn validate_revision(revision: &str) -> Result<()> {
+    if !valid_revision(revision) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn valid_revision(revision: &str) -> bool {
+    let Some(digest) = revision.strip_prefix("sha256:") else {
+        return false;
+    };
+    digest.len() == 64
+        && digest
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn validate_request(request: &ScreenerRequest) -> Result<()> {

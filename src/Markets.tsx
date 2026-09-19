@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { AdjustmentStatus, CorporateAction, FilterSpec, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState, RankSpec, ScreenerDirection, ScreenerFeature, ScreenerFeatureField, ScreenerOperator, ScreenerPredicateField, ScreenerResult, ScreenerUniverse } from '../shared/ipc-types.ts';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AdjustmentStatus, CorporateAction, FilterSpec, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState, RankSpec, ScreenerAttachment, ScreenerDefinition, ScreenerDirection, ScreenerFeature, ScreenerFeatureField, ScreenerLibrary, ScreenerOperator, ScreenerPredicateField, ScreenerResult, ScreenerResultState, ScreenerUniverse, ThreadContextRef } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
 import { ErrorRecoveryPanel } from './ErrorRecoveryPanel.tsx';
 
@@ -81,19 +81,30 @@ function featureValue(candidate: NonNullable<ScreenerResult['candidates']>[numbe
   return (candidate.features ?? []).find((feature: ScreenerFeature) => feature.field === field)?.value ?? 'Unavailable';
 }
 
-function ScreenerBuilder({ workspaceId, onBack, onOpenInstrument }: { workspaceId: string; onBack: () => void; onOpenInstrument: (instrumentId: string) => void }) {
+type ScreenerAttachTarget = 'new' | 'current';
+
+function ScreenerBuilder({ workspaceId, onBack, onOpenInstrument, onAttachContexts, hasCurrentThread }: { workspaceId: string; onBack: () => void; onOpenInstrument: (instrumentId: string) => void; onAttachContexts: (contexts: ThreadContextRef[], target: ScreenerAttachTarget) => void; hasCurrentThread: boolean }) {
+  const queryClient = useQueryClient();
+  const library = useQuery({ queryKey: ['screeners', workspaceId], queryFn: () => request('screener.list', { workspaceId }), retry: false });
   const [naturalLanguage, setNaturalLanguage] = useState('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
   const [spec, setSpec] = useState<FilterSpec>();
   const [rankSpec, setRankSpec] = useState<RankSpec>();
   const [revision, setRevision] = useState<string>();
   const [limit, setLimit] = useState(10);
   const [result, setResult] = useState<ScreenerResult>();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedSavedId, setSelectedSavedId] = useState<string>();
+  const [saveName, setSaveName] = useState('');
+  const [attachTarget, setAttachTarget] = useState<ScreenerAttachTarget>('new');
   const [phase, setPhase] = useState<'idle' | 'parsing' | 'running'>('idle');
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [attachBusy, setAttachBusy] = useState(false);
   const [stale, setStale] = useState(false);
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
 
   const parse = async (edited = false) => {
-    setPhase('parsing'); setError(undefined); setResult(undefined);
+    setPhase('parsing'); setError(undefined); setNotice(undefined); setResult(undefined); setSelectedIds([]);
     try {
       const response = await request('market.screen', {
         workspaceId, operation: 'PARSE', naturalLanguage, focus: 'EQUITY',
@@ -109,7 +120,7 @@ function ScreenerBuilder({ workspaceId, onBack, onOpenInstrument }: { workspaceI
 
   const run = async () => {
     if (!spec || !rankSpec || !revision || stale) return;
-    setPhase('running'); setError(undefined); setResult(undefined);
+    setPhase('running'); setError(undefined); setNotice(undefined); setResult(undefined); setSelectedIds([]);
     try {
       const response = await request('market.screen', {
         workspaceId, operation: 'RUN', naturalLanguage, focus: 'EQUITY', filterSpec: spec, rankSpec, revision, limit,
@@ -118,20 +129,65 @@ function ScreenerBuilder({ workspaceId, onBack, onOpenInstrument }: { workspaceI
     } catch (cause) { setPhase('idle'); setError(explainError(cause)); }
   };
 
-  const editSpec = (next: FilterSpec) => { setSpec(next); setRevision(undefined); setStale(true); setResult(undefined); };
-  const editRank = (next: RankSpec) => { setRankSpec(next); setRevision(undefined); setStale(true); setResult(undefined); };
+  const editSpec = (next: FilterSpec) => { setSpec(next); setRevision(undefined); setStale(true); setResult(undefined); setSelectedIds([]); };
+  const editRank = (next: RankSpec) => { setRankSpec(next); setRevision(undefined); setStale(true); setResult(undefined); setSelectedIds([]); };
+  const reopen = (saved: ScreenerLibrary['screeners'][number]) => {
+    setNaturalLanguage(saved.definition.naturalLanguage);
+    setSpec(saved.definition.filterSpec);
+    setRankSpec(saved.definition.rankSpec);
+    setRevision(saved.definition.revision);
+    setLimit(saved.definition.limit);
+    setSelectedSavedId(saved.screenerId);
+    setSaveName(saved.name);
+    setResult(undefined);
+    setSelectedIds([]);
+    setStale(false);
+    setError(undefined);
+    setNotice(`Reopened ${saved.name}; run it again to obtain current source-gated results.`);
+  };
+  const save = async () => {
+    if (!spec || !rankSpec || !revision || stale || !library.data || !saveName.trim() || saveBusy) return;
+    const definition: ScreenerDefinition = { naturalLanguage, focus: 'EQUITY', filterSpec: spec, rankSpec, revision, limit };
+    const state: ScreenerResultState = result?.state ?? 'PARSED';
+    setSaveBusy(true); setError(undefined); setNotice(undefined);
+    try {
+      const response = selectedSavedId
+        ? await request('screener.update', { workspaceId, screenerId: selectedSavedId, name: saveName.trim(), definition, state, expectedStateVersion: library.data.stateVersion })
+        : await request('screener.save', { workspaceId, name: saveName.trim(), definition, state, expectedStateVersion: library.data.stateVersion });
+      queryClient.setQueryData(['screeners', workspaceId], response);
+      const saved = response.screeners.find(item => selectedSavedId ? item.screenerId === selectedSavedId : item.name === saveName.trim());
+      if (saved) { setSelectedSavedId(saved.screenerId); setSaveName(saved.name); }
+      setNotice(`${selectedSavedId ? 'Updated' : 'Saved'} screener ${saved?.name ?? saveName.trim()}.`);
+    } catch (cause) { setError(explainError(cause)); }
+    finally { setSaveBusy(false); }
+  };
+  const attach = async () => {
+    if (!result?.revision || selectedIds.length === 0 || attachBusy) return;
+    setAttachBusy(true); setError(undefined); setNotice(undefined);
+    try {
+      const selectedInstrumentIds = [selectedIds[0], ...selectedIds.slice(1)] as [string, ...string[]];
+      const response: ScreenerAttachment = await request('screener.attach', { workspaceId, revision: result.revision, selectedInstrumentIds });
+      onAttachContexts(response.contextRefs, attachTarget);
+      setNotice(`Attached ${response.contextRefs.length} selected candidate${response.contextRefs.length === 1 ? '' : 's'} to ${attachTarget === 'new' ? 'a new Thread' : 'the current Thread next Turn'}.`);
+      setSelectedIds([]);
+    } catch (cause) { setError(explainError(cause)); }
+    finally { setAttachBusy(false); }
+  };
   const stage = result ? 5 : phase === 'running' ? 4 : phase === 'parsing' ? 2 : spec ? 3 : 1;
   return <section className="card screener-builder" aria-labelledby="screener-title">
     <div className="market-detail-heading"><div><p className="eyebrow">Market screener</p><h2 id="screener-title">Natural-language filter</h2><p className="muted">Parse first, review the typed conditions, then run the read-only candidate query.</p></div><button type="button" onClick={onBack}>Back to explorer</button></div>
+    <section className="screener-library" aria-labelledby="screener-library-title"><div className="market-panel-heading"><div><p className="eyebrow">Saved definitions</p><h3 id="screener-library-title">Screener library</h3></div>{library.data && <span className="badge">{library.data.screeners.length} saved</span>}</div>{library.isPending && <p role="status">Loading saved screeners…</p>}{library.isError && <p className="error-text" role="alert">Saved screeners are unavailable.</p>}{library.data?.screeners.length ? <div className="screener-library-list" role="list" aria-label="Saved screeners">{library.data.screeners.map(saved => <article key={saved.screenerId} role="listitem" className={saved.screenerId === selectedSavedId ? 'selected' : ''}><button type="button" onClick={() => reopen(saved)}><strong>{saved.name}</strong><span className="badge">{saved.state.replaceAll('_', ' ')}</span><small>{saved.definition.revision}</small></button></article>)}</div> : library.data && <p className="muted">No saved screeners yet.</p>}</section>
     <ol className="screener-stages" aria-label="Screener stages"><li className={stage === 1 ? 'active' : ''}>1. Describe</li><li className={stage === 2 ? 'active' : ''}>2. Parse</li><li className={stage === 3 ? 'active' : ''}>3. Inspect</li><li className={stage === 4 ? 'active' : ''}>4. Run</li><li className={stage === 5 ? 'active' : ''}>5. Results</li></ol>
-    <form className="screener-query" onSubmit={event => { event.preventDefault(); void parse(); }}><label htmlFor="screener-natural-language">Describe the market</label><textarea id="screener-natural-language" value={naturalLanguage} onChange={event => { setNaturalLanguage(event.target.value); setRevision(undefined); setStale(true); setResult(undefined); }} maxLength={4000} rows={4} /><div className="screener-actions"><button className="primary" type="submit" disabled={phase !== 'idle' || !naturalLanguage.trim()}>Parse conditions</button>{phase === 'parsing' && <span role="status">Parsing…</span>}</div></form>
-    {spec && rankSpec && <section className="screener-inspection" aria-labelledby="screener-inspection-title"><div className="market-panel-heading"><div><p className="eyebrow">Review before run</p><h3 id="screener-inspection-title">FilterSpec and RankSpec</h3></div>{revision && <span className="badge">Revision ready</span>}</div><label htmlFor="screener-universe">Universe</label><select id="screener-universe" value={spec.universe} onChange={event => editSpec({ ...spec, universe: event.target.value as ScreenerUniverse })}>{Object.entries(screenerUniverseLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><div className="screener-predicates"><span className="market-facet-label">Conditions</span>{(spec.predicates ?? []).map((predicate, index) => <div className="screener-predicate" key={`${predicate.field}-${index}`}><select aria-label={`Condition ${index + 1} field`} value={predicate.field} onChange={event => { const predicates = [...(spec.predicates ?? [])]; predicates[index] = { ...predicate, field: event.target.value as ScreenerPredicateField }; editSpec({ ...spec, predicates: predicates as FilterSpec['predicates'] }); }}>{Object.entries(screenerFieldLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><select aria-label={`Condition ${index + 1} operator`} value={predicate.operator} onChange={event => { const predicates = [...(spec.predicates ?? [])]; predicates[index] = { ...predicate, operator: event.target.value as ScreenerOperator }; editSpec({ ...spec, predicates: predicates as FilterSpec['predicates'] }); }}>{Object.entries(screenerOperatorLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><input aria-label={`Condition ${index + 1} threshold`} value={predicate.threshold} onChange={event => { const predicates = [...(spec.predicates ?? [])]; predicates[index] = { ...predicate, threshold: event.target.value }; editSpec({ ...spec, predicates: predicates as FilterSpec['predicates'] }); }} maxLength={64} /></div>)}</div><div className="screener-rank"><label htmlFor="screener-rank-field">Rank by</label><select id="screener-rank-field" value={rankSpec.field} onChange={event => editRank({ ...rankSpec, field: event.target.value as RankSpec['field'] })}>{Object.entries(screenerRankLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><select aria-label="Rank direction" value={rankSpec.direction} onChange={event => editRank({ ...rankSpec, direction: event.target.value as ScreenerDirection })}><option value="DESC">Highest first</option><option value="ASC">Lowest first</option></select><label htmlFor="screener-limit">Limit</label><input id="screener-limit" type="number" min={1} max={50} value={limit} onChange={event => { setLimit(Math.max(1, Math.min(50, Number(event.target.value) || 1))); setRevision(undefined); setStale(true); setResult(undefined); }} /></div><div className="screener-actions"><button type="button" onClick={() => void parse(true)} disabled={phase !== 'idle'}>Recalculate revision</button><button className="primary" type="button" onClick={() => void run()} disabled={phase !== 'idle' || stale || !revision}>Run screen</button>{stale && <span role="status">Conditions changed; recalculate the revision before running.</span>}{phase === 'running' && <span role="status">Running…</span>}</div></section>}
+    <form className="screener-query" onSubmit={event => { event.preventDefault(); void parse(); }}><label htmlFor="screener-natural-language">Describe the market</label><textarea id="screener-natural-language" value={naturalLanguage} onChange={event => { setNaturalLanguage(event.target.value); setRevision(undefined); setStale(true); setResult(undefined); setSelectedIds([]); }} maxLength={4000} rows={4} /><div className="screener-actions"><button className="primary" type="submit" disabled={phase !== 'idle' || !naturalLanguage.trim()}>Parse conditions</button>{phase === 'parsing' && <span role="status">Parsing…</span>}</div></form>
+    {spec && rankSpec && <section className="screener-inspection" aria-labelledby="screener-inspection-title"><div className="market-panel-heading"><div><p className="eyebrow">Review before run</p><h3 id="screener-inspection-title">FilterSpec and RankSpec</h3></div>{revision && <span className="badge">Revision ready</span>}</div><label htmlFor="screener-universe">Universe</label><select id="screener-universe" value={spec.universe} onChange={event => editSpec({ ...spec, universe: event.target.value as ScreenerUniverse })}>{Object.entries(screenerUniverseLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><div className="screener-predicates"><span className="market-facet-label">Conditions</span>{(spec.predicates ?? []).map((predicate, index) => <div className="screener-predicate" key={`${predicate.field}-${index}`}><select aria-label={`Condition ${index + 1} field`} value={predicate.field} onChange={event => { const predicates = [...(spec.predicates ?? [])]; predicates[index] = { ...predicate, field: event.target.value as ScreenerPredicateField }; editSpec({ ...spec, predicates: predicates as FilterSpec['predicates'] }); }}>{Object.entries(screenerFieldLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><select aria-label={`Condition ${index + 1} operator`} value={predicate.operator} onChange={event => { const predicates = [...(spec.predicates ?? [])]; predicates[index] = { ...predicate, operator: event.target.value as ScreenerOperator }; editSpec({ ...spec, predicates: predicates as FilterSpec['predicates'] }); }}>{Object.entries(screenerOperatorLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><input aria-label={`Condition ${index + 1} threshold`} value={predicate.threshold} onChange={event => { const predicates = [...(spec.predicates ?? [])]; predicates[index] = { ...predicate, threshold: event.target.value }; editSpec({ ...spec, predicates: predicates as FilterSpec['predicates'] }); }} maxLength={64} /></div>)}</div><div className="screener-rank"><label htmlFor="screener-rank-field">Rank by</label><select id="screener-rank-field" value={rankSpec.field} onChange={event => editRank({ ...rankSpec, field: event.target.value as RankSpec['field'] })}>{Object.entries(screenerRankLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><select aria-label="Rank direction" value={rankSpec.direction} onChange={event => editRank({ ...rankSpec, direction: event.target.value as ScreenerDirection })}><option value="DESC">Highest first</option><option value="ASC">Lowest first</option></select><label htmlFor="screener-limit">Limit</label><input id="screener-limit" type="number" min={1} max={50} value={limit} onChange={event => { setLimit(Math.max(1, Math.min(50, Number(event.target.value) || 1))); setRevision(undefined); setStale(true); setResult(undefined); setSelectedIds([]); }} /></div><div className="screener-actions"><button type="button" onClick={() => void parse(true)} disabled={phase !== 'idle'}>Recalculate revision</button><button className="primary" type="button" onClick={() => void run()} disabled={phase !== 'idle' || stale || !revision}>Run screen</button>{stale && <span role="status">Conditions changed; recalculate the revision before running.</span>}{phase === 'running' && <span role="status">Running…</span>}</div></section>}
+    {spec && rankSpec && revision && !stale && library.data && <div className="screener-save"><label htmlFor="screener-name">Save name<input id="screener-name" value={saveName} onChange={event => setSaveName(event.target.value)} maxLength={80} placeholder="e.g. Growth leaders" /></label><button type="button" className="primary" onClick={() => void save()} disabled={saveBusy || !saveName.trim() || library.isPending}>{saveBusy ? 'Saving…' : selectedSavedId ? 'Save changes' : 'Save screener'}</button></div>}
+    {notice && <p className="form-hint" role="status">{notice}</p>}
     {error && <p className="error-banner" role="alert">{error}</p>}
-    {result && <section className={`screener-results screener-results-${result.state.toLowerCase()}`} aria-live="polite" aria-labelledby="screener-results-title"><div className="market-panel-heading"><div><p className="eyebrow">Screen result</p><h3 id="screener-results-title">{result.state.replaceAll('_', ' ')}</h3></div><span className="badge">{result.candidateCount} candidates</span></div><p>{result.availabilityReason}</p><p className="muted">Conditions: {(result.appliedConditions ?? []).join(' · ')}</p>{result.limitations?.map(limitation => <p className="muted" key={limitation}>{limitation}</p>)}{result.fixtureLabel && <p className="muted">Fixture: {result.fixtureLabel}</p>}{result.candidates?.length ? <div className="screener-candidates" role="list" aria-label="Screener candidates">{result.candidates.map(candidate => <article className="screener-candidate" role="listitem" key={candidate.instrumentId}><button type="button" className="screener-candidate-button" aria-label={`Open ${candidate.instrumentId} market detail`} onClick={() => onOpenInstrument(candidate.instrumentId)}><div><strong>{candidate.rank}. {candidate.symbol}</strong><small className="identity">{candidate.instrumentId}</small></div><div className="screener-feature-list"><span>Quality {featureValue(candidate, 'QUALITY')}</span><span>Revision {featureValue(candidate, 'REVISION_STRENGTH')}</span><span>Momentum {featureValue(candidate, 'MOMENTUM')}</span></div><small>Source {candidate.provenance.sourceId} · Provider {candidate.provenance.providerTimestamp ?? 'Unavailable'} · Received {candidate.provenance.receivedTimestamp} · {candidate.provenance.freshness} · {candidate.provenance.quality} · {candidate.limitation}</small></button></article>)}</div> : <p className="muted">No candidates matched the reviewed conditions.</p>}<button type="button" onClick={() => void (result.state === 'FAILED' ? parse() : run())}>Retry screen</button></section>}
+    {result && <section className={`screener-results screener-results-${result.state.toLowerCase()}`} aria-live="polite" aria-labelledby="screener-results-title"><div className="market-panel-heading"><div><p className="eyebrow">Screen result</p><h3 id="screener-results-title">{result.state.replaceAll('_', ' ')}</h3></div><span className="badge">{result.candidateCount} candidates</span></div><p>{result.availabilityReason}</p><p className="muted">Conditions: {(result.appliedConditions ?? []).join(' · ')}</p>{result.limitations?.map(limitation => <p className="muted" key={limitation}>{limitation}</p>)}{result.fixtureLabel && <p className="muted">Fixture: {result.fixtureLabel}</p>}{result.candidates?.length ? <div className="screener-candidates" role="list" aria-label="Screener candidates">{result.candidates.map(candidate => <article className="screener-candidate" role="listitem" key={candidate.instrumentId}><label className="screener-candidate-select"><input type="checkbox" aria-label={`Select ${candidate.instrumentId}`} checked={selectedIds.includes(candidate.instrumentId)} onChange={() => setSelectedIds(current => current.includes(candidate.instrumentId) ? current.filter(id => id !== candidate.instrumentId) : [...current, candidate.instrumentId])} /><span>Select</span></label><button type="button" className="screener-candidate-button" aria-label={`Open ${candidate.instrumentId} market detail`} onClick={() => onOpenInstrument(candidate.instrumentId)}><div><strong>{candidate.rank}. {candidate.symbol}</strong><small className="identity">{candidate.instrumentId}</small></div><div className="screener-feature-list"><span>Quality {featureValue(candidate, 'QUALITY')}</span><span>Revision {featureValue(candidate, 'REVISION_STRENGTH')}</span><span>Momentum {featureValue(candidate, 'MOMENTUM')}</span></div><small>Source {candidate.provenance.sourceId} · Provider {candidate.provenance.providerTimestamp ?? 'Unavailable'} · Received {candidate.provenance.receivedTimestamp} · {candidate.provenance.freshness} · {candidate.provenance.quality} · {candidate.limitation}</small></button></article>)}</div> : <p className="muted">No candidates matched the reviewed conditions.</p>}{result.candidates?.length ? <div className="screener-attach"><label htmlFor="screener-attach-target">Attach selected to<select id="screener-attach-target" value={attachTarget} onChange={event => setAttachTarget(event.target.value as ScreenerAttachTarget)}><option value="new">New Thread</option><option value="current" disabled={!hasCurrentThread}>Current Thread next Turn{hasCurrentThread ? '' : ' (select a Thread first)'}</option></select></label><button type="button" className="primary" onClick={() => void attach()} disabled={attachBusy || selectedIds.length === 0 || !result.revision}>{attachBusy ? 'Attaching…' : `Attach selected (${selectedIds.length})`}</button></div> : null}<button type="button" onClick={() => void (result.state === 'FAILED' ? parse() : run())} disabled={phase !== 'idle'}>Retry screen</button></section>}
   </section>;
 }
 
-export function Markets({ workspaceId, onOpenDataSources }: { workspaceId: string; onOpenDataSources: () => void }) {
+export function Markets({ workspaceId, onOpenDataSources, onAttachContexts, hasCurrentThread }: { workspaceId: string; onOpenDataSources: () => void; onAttachContexts: (contexts: ThreadContextRef[], target: ScreenerAttachTarget) => void; hasCurrentThread: boolean }) {
   const [term, setTerm] = useState('');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>();
@@ -149,7 +205,7 @@ export function Markets({ workspaceId, onOpenDataSources }: { workspaceId: strin
   const venueFacets = [...new Set(instruments.map(instrument => instrument.exchange ?? 'Provider venue'))];
   return <>
     <div className="page-heading"><div><h1>Markets</h1><p>Search canonical instruments and inspect source-backed market availability.</p></div><button type="button" onClick={() => setScreenerOpen(value => !value)}>{screenerOpen ? 'Close screener' : 'Open screener'}</button></div>
-    {screenerOpen && <ScreenerBuilder workspaceId={workspaceId} onBack={() => setScreenerOpen(false)} onOpenInstrument={instrumentId => { setScreenerOpen(false); setSelectedId(instrumentId); }} />}
+    {screenerOpen && <ScreenerBuilder workspaceId={workspaceId} hasCurrentThread={hasCurrentThread} onAttachContexts={onAttachContexts} onBack={() => setScreenerOpen(false)} onOpenInstrument={instrumentId => { setScreenerOpen(false); setSelectedId(instrumentId); }} />}
     {screenerOpen ? null : <>
     <section className="card market-explorer" aria-labelledby="market-explorer-title">
       <div className="market-explorer-heading"><div><h2 id="market-explorer-title">Market Explorer</h2><p className="muted">Census search is coarse and on demand. Select a result to use the Hot detail path.</p></div>{catalog.data && <span className={`badge market-status-badge market-status-${catalog.data.status.toLowerCase()}`}>{statusLabel[catalog.data.status]}</span>}</div>

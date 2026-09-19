@@ -1687,6 +1687,10 @@ market.get
 market.snapshot
 market.history
 market.screen
+screener.list
+screener.save
+screener.update
+screener.attach
 watchlist.list
 watchlist.create
 watchlist.rename
@@ -2212,15 +2216,22 @@ Equity 状态和 action 数据使用 OD-005 calendar/corporate-action gate；在
 
 ### 41.15 只读自然语言筛选器载荷（S11）
 
-版本 1 增加一个受 source gate 约束的只读市场操作：
+版本 1 增加受 source gate 约束的 `market.screen` 操作、按 workspace 作用域的已审阅定义 projection，以及 canonical 附加操作：
 
 | 命令 | 载荷 | 成功数据 | 写入/事件行为 |
 |---|---|---|---|
 | `market.screen` | `{workspaceId, operation, naturalLanguage, focus?, filterSpec?, rankSpec?, revision?, limit?}` | `ScreenerResult` | 无；不调用 provider、不写 SQLite/DuckDB、不产生 domain event，也不授予 execution authority |
+| `screener.list` | `{workspaceId}` | `ScreenerLibrary` | 只读查询 SQLite projection；不产生 domain event、不调用 provider、不授予 execution authority |
+| `screener.save` / `screener.update` | `{workspaceId, name, definition, state, expectedStateVersion[, screenerId]}` | `ScreenerLibrary` | 仅原子写入 workspace SQLite projection；不写 outbox/domain event，也不修改 DuckDB/provider/account/risk/approval/arming/Gateway/credentials |
+| `screener.attach` | `{workspaceId, revision, selectedInstrumentIds[]}` | `ScreenerAttachment` | 不持久化、不调用 provider；只返回所选 canonical `ThreadContextRef` |
 
 `operation` 为 `PARSE` 或 `RUN`。`PARSE` 把有界自然语言转换为 typed `FilterSpec`、`RankSpec` 和确定性的 `sha256:` revision。Renderer 必须在 `RUN` 前显示已解析条件；编辑后必须生成新 revision。`RUN` 拒绝缺失或过期 revision，并返回带有界候选行、精确 canonical instrument ID、feature 值、source ID、provider/received timestamp、freshness、quality 和 limitation 的 `COMPLETED`、`EMPTY`、`BLOCKED_EXTERNAL` 或 `FAILED` 结果。`RUN` 不得静默丢弃不支持的 predicate：typed result 必须以 `SCREENER_FILTER_UNSUPPORTED` 失败。
 
-首个实现支持 US equities、US large-cap technology 和 crypto spot universe，支持 revenue growth、estimate revision、RSI、price change predicate，以及 quality/revision-strength/momentum 排序。真实 provider adapter 仍受 OD-001/OD-003 source gate 约束，在 entitlement 和 adapter 配置完成前返回 `BLOCKED_EXTERNAL`。仅 integration 使用的 `SYNTHETIC_SCREENER_FIXTURE` 是确定性的，不能证明 provider entitlement、quote authority 或 Live execution。该操作只读，不持久化保存的筛选器；持久化和附加候选项留待后续切片。
+首个实现支持 US equities、US large-cap technology 和 crypto spot universe，支持 revenue growth、estimate revision、RSI、price change predicate，以及 quality/revision-strength/momentum 排序。真实 provider adapter 仍受 OD-001/OD-003 source gate 约束，在 entitlement 和 adapter 配置完成前返回 `BLOCKED_EXTERNAL`。仅 integration 使用的 `SYNTHETIC_SCREENER_FIXTURE` 是确定性的，不能证明 provider entitlement、quote authority 或 Live execution。
+
+`ScreenerLibrary` 只在当前 workspace 保存有界的已审阅定义（`naturalLanguage`、`FilterSpec`、`RankSpec`、`revision`、`limit`、状态和时间戳）。每个 workspace 内名称唯一；未知 workspace、重名、越界、revision 不匹配和陈旧 `expectedStateVersion` 都 fail closed。重开只恢复输入，不恢复 Live authority 或 provider payload；编辑生成新 revision 并使旧结果失效。
+
+`screener.attach` 只接受用户明确选择的 canonical instrument ID，重新验证它们仍属于当前 market catalog，并返回 workspace-bound `ThreadContextRef`。Renderer 可以把这些 ref 传给 `thread.create.linkedContexts` 或下一次 `turn.start`，两条路径都会重新验证。未选候选、完整 universe、provider payload、credentials 和自然语言上下文不会被附加，也不会自动启动 Turn。
 
 ## 42. Backend-to-Frontend Event Surface
 

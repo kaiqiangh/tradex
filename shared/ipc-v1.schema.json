@@ -82,8 +82,17 @@
     "saveRiskPolicy": {
       "$ref": "#/$defs/SaveRiskPolicy"
     },
+    "screenerAttach": {
+      "$ref": "#/$defs/ScreenerAttach"
+    },
     "screenerRequest": {
       "$ref": "#/$defs/ScreenerRequest"
+    },
+    "screenerSave": {
+      "$ref": "#/$defs/ScreenerSave"
+    },
+    "screenerUpdate": {
+      "$ref": "#/$defs/ScreenerUpdate"
     },
     "setDefaultModel": {
       "$ref": "#/$defs/SetDefaultModel"
@@ -177,6 +186,9 @@
     "marketCatalogQuery",
     "marketGetQuery",
     "screenerRequest",
+    "screenerSave",
+    "screenerUpdate",
+    "screenerAttach",
     "portfolioQuery",
     "watchlistCreate",
     "watchlistRename",
@@ -3204,6 +3216,12 @@
         },
         {
           "$ref": "#/$defs/ScreenerResult"
+        },
+        {
+          "$ref": "#/$defs/ScreenerLibrary"
+        },
+        {
+          "$ref": "#/$defs/ScreenerAttachment"
         }
       ]
     },
@@ -3957,6 +3975,117 @@
         "policy"
       ]
     },
+    "SavedScreener": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "definition": {
+          "$ref": "#/$defs/ScreenerDefinition"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "screenerId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/ScreenerResultState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "screenerId",
+        "workspaceId",
+        "name",
+        "definition",
+        "state",
+        "createdAt",
+        "updatedAt",
+        "stateVersion"
+      ]
+    },
+    "ScreenerAttach": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "selectedInstrumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "revision",
+        "selectedInstrumentIds"
+      ]
+    },
+    "ScreenerAttachment": {
+      "type": "object",
+      "properties": {
+        "contextRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
+        "revision": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "revision",
+        "contextRefs"
+      ]
+    },
     "ScreenerCandidate": {
       "type": "object",
       "properties": {
@@ -4004,6 +4133,51 @@
         "provenance"
       ]
     },
+    "ScreenerDefinition": {
+      "type": "object",
+      "properties": {
+        "filterSpec": {
+          "$ref": "#/$defs/FilterSpec"
+        },
+        "focus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 50,
+          "minimum": 1
+        },
+        "naturalLanguage": {
+          "type": "string",
+          "maxLength": 4000,
+          "minLength": 1
+        },
+        "rankSpec": {
+          "$ref": "#/$defs/RankSpec"
+        },
+        "revision": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "naturalLanguage",
+        "filterSpec",
+        "rankSpec",
+        "revision",
+        "limit"
+      ]
+    },
     "ScreenerDirection": {
       "type": "string",
       "enum": [
@@ -4039,6 +4213,34 @@
         "QUALITY",
         "REVISION_STRENGTH",
         "MOMENTUM"
+      ]
+    },
+    "ScreenerLibrary": {
+      "type": "object",
+      "properties": {
+        "screeners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SavedScreener"
+          },
+          "maxItems": 128
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "screeners"
       ]
     },
     "ScreenerOperation": {
@@ -4338,12 +4540,86 @@
         "FAILED"
       ]
     },
+    "ScreenerSave": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "$ref": "#/$defs/ScreenerDefinition"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/ScreenerResultState"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "name",
+        "definition",
+        "state",
+        "expectedStateVersion"
+      ]
+    },
     "ScreenerUniverse": {
       "type": "string",
       "enum": [
         "US_EQUITIES",
         "US_LARGE_CAP_TECHNOLOGY",
         "CRYPTO_SPOT"
+      ]
+    },
+    "ScreenerUpdate": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "$ref": "#/$defs/ScreenerDefinition"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "screenerId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/ScreenerResultState"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "screenerId",
+        "name",
+        "definition",
+        "state",
+        "expectedStateVersion"
       ]
     },
     "SetDefaultModel": {
@@ -5620,7 +5896,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 7,
+          "maximum": 8,
           "minimum": 1
         },
         "workspaceId": {

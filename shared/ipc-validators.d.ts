@@ -116,10 +116,15 @@ declare const validators: {
   RuntimeComponent: (value: unknown) => boolean;
   RuntimeStatus: (value: unknown) => boolean;
   SaveRiskPolicy: (value: unknown) => boolean;
+  SavedScreener: (value: unknown) => boolean;
+  ScreenerAttach: (value: unknown) => boolean;
+  ScreenerAttachment: (value: unknown) => boolean;
   ScreenerCandidate: (value: unknown) => boolean;
+  ScreenerDefinition: (value: unknown) => boolean;
   ScreenerDirection: (value: unknown) => boolean;
   ScreenerFeature: (value: unknown) => boolean;
   ScreenerFeatureField: (value: unknown) => boolean;
+  ScreenerLibrary: (value: unknown) => boolean;
   ScreenerOperation: (value: unknown) => boolean;
   ScreenerOperator: (value: unknown) => boolean;
   ScreenerPredicate: (value: unknown) => boolean;
@@ -129,7 +134,9 @@ declare const validators: {
   ScreenerRequest: (value: unknown) => boolean;
   ScreenerResult: (value: unknown) => boolean;
   ScreenerResultState: (value: unknown) => boolean;
+  ScreenerSave: (value: unknown) => boolean;
   ScreenerUniverse: (value: unknown) => boolean;
+  ScreenerUpdate: (value: unknown) => boolean;
   SetDefaultModel: (value: unknown) => boolean;
   SetFallbackPolicy: (value: unknown) => boolean;
   SetOnboardingStep: (value: unknown) => boolean;

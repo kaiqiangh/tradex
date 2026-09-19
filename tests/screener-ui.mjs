@@ -34,7 +34,33 @@ export async function checkScreenerUI(tab, browser) {
     assert.ok(wideSize.scroll <= wideSize.width, `Screener page overflow at 1280px: ${JSON.stringify(wideSize)}`);
     observed.push('PARSE exposes FilterSpec/RankSpec, edits invalidate Run until revision recalculation, and fixture RUN renders canonical candidate/provenance evidence.');
 
-    await threshold.fill('1');
+    await ui.getByLabel('Save name', { exact: true }).fill('Growth leaders');
+    await ui.getByRole('button', { name: 'Save screener', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Saved screener Growth leaders.' }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByRole('button', { name: /Growth leaders/ }).count() > 0, true);
+    await ui.getByRole('button', { name: /Growth leaders/ }).first().press('Enter');
+    assert.equal(await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).count(), 0);
+    assert.equal(await ui.getByLabel('Describe the market', { exact: true }).inputValue(), 'US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
+    await threshold.fill('0.18');
+    await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Save changes', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Updated screener Growth leaders.' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByLabel('Select equity:US:AAPL', { exact: true }).check();
+    await ui.getByRole('button', { name: 'Attach selected (1)', exact: true }).press('Enter');
+    await ui.getByText('Context references: 1', { exact: true }).waitFor({ state: 'visible' });
+    observed.push('Saved definitions reopen reviewed inputs only; updates create a new revision and selected-only attach seeds one canonical context into a new Thread.');
+
+    await ui.getByRole('button', { name: 'Markets', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Markets', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Open screener', exact: true }).press('Enter');
+    const reopenedQuery = ui.getByLabel('Describe the market', { exact: true });
+    await reopenedQuery.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
+    await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'FilterSpec and RankSpec', exact: true }).waitFor({ state: 'visible' });
+    const reopenedThreshold = ui.getByLabel('Condition 1 threshold', { exact: true });
+    await reopenedThreshold.fill('1');
     assert.equal(await ui.getByRole('button', { name: 'Run screen', exact: true }).isEnabled(), false);
     assert.match(await ui.getByRole('status').innerText(), /Conditions changed/);
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
@@ -44,7 +70,7 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'EMPTY', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.evaluate(() => document.querySelector('#screener-natural-language')?.value), 'US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
-    await threshold.fill('0.20');
+    await reopenedThreshold.fill('0.20');
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
     await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });

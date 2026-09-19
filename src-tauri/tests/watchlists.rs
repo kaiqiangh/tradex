@@ -271,13 +271,14 @@ fn schema_six_workspaces_migrate_watchlists_transactionally() {
     let database = path.join("workspace.sqlite3");
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection.execute("DROP TABLE watchlists", []).unwrap();
+    connection.execute("DROP TABLE screeners", []).unwrap();
     connection.pragma_update(None, "user_version", 6).unwrap();
     drop(connection);
 
     let mut migrated = ControlPlane::new(path);
     let opened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(opened["ok"], true, "{opened}");
-    assert_eq!(opened["data"]["storageSchemaVersion"], 7);
+    assert_eq!(opened["data"]["storageSchemaVersion"], 8);
     let listed = command(
         &mut migrated,
         "watchlist.list",
