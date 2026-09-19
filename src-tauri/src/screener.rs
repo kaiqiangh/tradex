@@ -435,6 +435,67 @@ fn unsupported_universe_reason(text: &str) -> Option<String> {
         (large_cap && !technology)
             .then(|| "Unsupported universe: large-cap without technology scope.".into())
     })
+    .or_else(|| {
+        const ALLOWED_SCOPE_WORDS: &[&str] = &[
+            "find",
+            "show",
+            "screen",
+            "list",
+            "all",
+            "the",
+            "us",
+            "large",
+            "cap",
+            "technology",
+            "tech",
+            "stocks",
+            "stock",
+            "equities",
+            "equity",
+            "companies",
+            "company",
+            "crypto",
+            "spot",
+            "assets",
+            "asset",
+            "market",
+            "top",
+            "in",
+            "from",
+            "of",
+        ];
+        let boundary = [
+            " with ",
+            " where ",
+            " that ",
+            " whose ",
+            " rsi ",
+            " revenue ",
+            " growth ",
+            " estimate ",
+            " revision ",
+            " price ",
+            " momentum ",
+            " rank by ",
+            " sort by ",
+            " order by ",
+            ",",
+            ";",
+        ]
+        .iter()
+        .filter_map(|marker| normalized.find(marker))
+        .min()
+        .unwrap_or(normalized.len());
+        let scope = &normalized[..boundary];
+        scope
+            .split(|character: char| !character.is_ascii_alphanumeric())
+            .find(|token| {
+                !token.is_empty()
+                    && !ALLOWED_SCOPE_WORDS.contains(token)
+                    && !token.chars().all(|character| character.is_ascii_digit())
+            })
+            .map(|token| format!("Unsupported universe qualifier: {token}."))
+    })
 }
 
 fn contains_word(text: &str, word: &str) -> bool {
@@ -1097,6 +1158,8 @@ mod tests {
             "Find biotechnology stocks with RSI below 70.",
             "Find health-care stocks with RSI below 70.",
             "Find semiconductor stocks with RSI below 70.",
+            "Find semiconductors stocks with RSI below 70.",
+            "Find software stocks with RSI below 70.",
         ] {
             request.natural_language = universe.into();
             let unsupported = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
