@@ -2013,20 +2013,36 @@ An available attached account context adds read-only `account_read` capability f
 
 ~~~ts
 type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
+type ResearchResultState = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "FAILED";
+type ResearchFocus = "GENERAL" | "EQUITY" | "CRYPTO_SPOT";
+type ResearchFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
+type ResearchQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
 interface ResearchToolDefinition { id: ResearchToolId; label: string; readOnly: boolean; description: string; }
+interface ResearchFinding { title: string; detail: string; } // title <=120, detail <=512
+interface ResearchProvenance {
+  sourceId: string; provider: string; status: DataSourceStatus;
+  providerTimestamp?: string; receivedTimestamp: string;
+  freshness: ResearchFreshness; quality: ResearchQuality; limitation?: string;
+}
+interface ResearchToolPayload {
+  state: ResearchResultState; reason: string; focus?: ResearchFocus;
+  conclusion?: string; findings: ResearchFinding[]; evidence: ResearchProvenance[];
+  limitations: string[]; instrumentRefs: string[];
+}
 interface ResearchToolRequest {
   workspaceId: string; agentMode: AgentMode; executionContext: ExecutionContext;
-  accountId?: string; attachedContexts: ThreadContextRef[];
+  accountId?: string; focus?: ResearchFocus; attachedContexts: ThreadContextRef[];
   toolId: ResearchToolId; query: string;
 }
+interface ResearchToolInvocation { toolId: ResearchToolId; focus?: ResearchFocus; query: string; }
 interface ResearchToolResult {
   resultId: string; toolId: ResearchToolId; sourceId: string; accountId?: string;
   requestHash: string; marker: string; contextRefs: ThreadContextRef[];
-  payload: { state: "UNAVAILABLE"; reason: string };
+  payload: ResearchToolPayload;
 }
 ~~~
 
-`research.run` is read-only and returns an explicit unavailable payload until the owning market/account/history slices connect providers. Query text is bounded and hashed but never echoed into the result. `turn.start` may submit a `ResearchToolInvocation` only together with its result; the Control Plane reconstructs the full request from the Turn inputs, reruns the same registry function, and compares every result field before writing a `research_result` item or starting runtime. Missing, mismatched, or tampered pairs return `RESEARCH_RESULT_INVALID` without projection mutation. The persisted item keeps the non-secret source/context refs and marker; runtime receives only the sanitized marker. No broker credentials, model secrets, or direct external LLM endpoint cross this seam.
+`research.run` is read-only and returns a source-gated typed payload until the owning market/account/history slices connect providers. Focus, tool, mode, execution context, account, attached refs and query all enter the request hash; query text is bounded and hashed but never echoed into the result. The legacy S05 payload containing only `state/reason` remains decodable through defaults. `turn.start` may submit a `ResearchToolInvocation` only together with its result; the Control Plane reconstructs the full request from the Turn inputs, reruns the same registry function, and compares every result field before writing a `research_result` item or starting runtime. Missing, mismatched, or tampered pairs return `RESEARCH_RESULT_INVALID` without projection mutation. The persisted item keeps the complete bounded typed result together with non-secret source/context refs and marker; runtime receives only the sanitized marker. No broker credentials, model secrets, or direct external LLM endpoint cross this seam.
 
 ### 41.9 Data-source catalog and probe payloads (S06)
 

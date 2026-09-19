@@ -2013,20 +2013,36 @@ interface ContextCatalogEmptyState {
 
 ~~~ts
 type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
+type ResearchResultState = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "FAILED";
+type ResearchFocus = "GENERAL" | "EQUITY" | "CRYPTO_SPOT";
+type ResearchFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
+type ResearchQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
 interface ResearchToolDefinition { id: ResearchToolId; label: string; readOnly: boolean; description: string; }
+interface ResearchFinding { title: string; detail: string; } // title <=120，detail <=512
+interface ResearchProvenance {
+  sourceId: string; provider: string; status: DataSourceStatus;
+  providerTimestamp?: string; receivedTimestamp: string;
+  freshness: ResearchFreshness; quality: ResearchQuality; limitation?: string;
+}
+interface ResearchToolPayload {
+  state: ResearchResultState; reason: string; focus?: ResearchFocus;
+  conclusion?: string; findings: ResearchFinding[]; evidence: ResearchProvenance[];
+  limitations: string[]; instrumentRefs: string[];
+}
 interface ResearchToolRequest {
   workspaceId: string; agentMode: AgentMode; executionContext: ExecutionContext;
-  accountId?: string; attachedContexts: ThreadContextRef[];
+  accountId?: string; focus?: ResearchFocus; attachedContexts: ThreadContextRef[];
   toolId: ResearchToolId; query: string;
 }
+interface ResearchToolInvocation { toolId: ResearchToolId; focus?: ResearchFocus; query: string; }
 interface ResearchToolResult {
   resultId: string; toolId: ResearchToolId; sourceId: string; accountId?: string;
   requestHash: string; marker: string; contextRefs: ThreadContextRef[];
-  payload: { state: "UNAVAILABLE"; reason: string };
+  payload: ResearchToolPayload;
 }
 ~~~
 
-`research.run` 是只读命令，在拥有 market/account/history 的 slice 接入 provider 前返回明确的 unavailable payload。query 文本有界并只参与 hash，不会回显到 result。`turn.start` 只能成对提交 `ResearchToolInvocation` 和 result；Control Plane 从 Turn 输入重建完整 request，再次运行同一 registry 并逐字段比较，确认后才写入 `research_result` item 或启动 runtime。缺失、错配或篡改 pair 返回 `RESEARCH_RESULT_INVALID`，且不修改 projection。持久化 item 保留非秘密 source/context refs 与 marker；runtime 只接收清洗后的 marker。broker credential、model secret 和 direct external LLM endpoint 不会跨越该边界。
+`research.run` 是只读命令，在拥有 market/account/history 的 slice 接入 provider 前返回受 source gate 约束的 typed payload。focus、tool、mode、execution context、account、attached refs 和 query 都进入 request hash；query 文本有界并只参与 hash，不会回显到 result。旧的仅含 `state/reason` 的 S05 payload 仍可按默认字段解码。`turn.start` 只能成对提交 `ResearchToolInvocation` 和 result；Control Plane 从 Turn 输入重建完整 request，再次运行同一 registry 并逐字段比较，确认后才写入 `research_result` item 或启动 runtime。缺失、错配或篡改 pair 返回 `RESEARCH_RESULT_INVALID`，且不修改 projection。持久化 item 与非秘密 source/context refs、marker 一起保留完整的有界 typed result；runtime 只接收清洗后的 marker。broker credential、model secret 和 direct external LLM endpoint 不会跨越该边界。
 
 ### 41.9 数据源目录与探测载荷（S06）
 

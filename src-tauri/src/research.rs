@@ -127,22 +127,56 @@ pub fn run_with_source(
             findings,
             evidence: vec![provenance],
             limitations: limitation.into_iter().collect(),
+            instrument_refs: Vec::new(),
         },
     })
 }
 
 fn result_state(source: Option<&DataSourceEntry>, fixture: bool) -> ResearchResultState {
-    if fixture {
-        return ResearchResultState::Available;
-    }
     match source.map(|entry| &entry.status) {
-        Some(DataSourceStatus::Available) | Some(DataSourceStatus::Unverified) => {
-            ResearchResultState::Degraded
+        // Backend ARD §41.9 keeps every non-AVAILABLE source as a sanitized
+        // unavailable result, including integration fixtures.
+        Some(DataSourceStatus::Available) => {
+            if fixture {
+                ResearchResultState::Available
+            } else {
+                ResearchResultState::Degraded
+            }
         }
-        // Backend ARD §41.9 keeps non-AVAILABLE sources as sanitized unavailable
-        // results; the evidence entry still preserves BLOCKED_EXTERNAL provenance.
-        Some(DataSourceStatus::BlockedExternal) => ResearchResultState::Unavailable,
-        Some(DataSourceStatus::Unavailable) | None => ResearchResultState::Unavailable,
+        Some(DataSourceStatus::BlockedExternal)
+        | Some(DataSourceStatus::Unverified)
+        | Some(DataSourceStatus::Unavailable) => ResearchResultState::Unavailable,
+        None => {
+            if fixture {
+                ResearchResultState::Available
+            } else {
+                ResearchResultState::Unavailable
+            }
+        }
+    }
+}
+
+pub fn enrich_result(
+    result: &mut ResearchToolResult,
+    instrument_refs: Vec<String>,
+    finding: Option<ResearchFinding>,
+) {
+    result.payload.instrument_refs = instrument_refs
+        .into_iter()
+        .filter(|value| {
+            !value.is_empty()
+                && value.chars().count() <= 128
+                && !value.chars().any(char::is_control)
+        })
+        .take(8)
+        .collect();
+    if let Some(finding) = finding
+        && result.payload.findings.len() < 8
+        && !finding.title.is_empty()
+        && finding.title.chars().count() <= 120
+        && finding.detail.chars().count() <= 512
+    {
+        result.payload.findings.push(finding);
     }
 }
 
@@ -360,5 +394,20 @@ mod tests {
         let general_hash = request_hash(&general).unwrap();
         general.focus = Some(ResearchFocus::Equity);
         assert_ne!(general_hash, request_hash(&general).unwrap());
+    }
+
+    #[test]
+    fn every_non_available_source_is_unavailable_even_for_fixtures() {
+        let mut source = crate::data_sources::entries().into_iter().next().unwrap();
+        source.status = DataSourceStatus::Unverified;
+        assert_eq!(
+            result_state(Some(&source), true),
+            ResearchResultState::Unavailable
+        );
+        source.status = DataSourceStatus::BlockedExternal;
+        assert_eq!(
+            result_state(Some(&source), true),
+            ResearchResultState::Unavailable
+        );
     }
 }

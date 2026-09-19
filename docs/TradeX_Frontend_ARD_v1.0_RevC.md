@@ -348,9 +348,9 @@ An available attached account context exposes read-only account tools for Ask, R
 
 ### 7.8 Typed research registry and result preview
 
-The capability summary must render the separate `researchTools` data-plane registry. It contains only the read-only IDs `public_market_read`, `account_read`, and `historical_simulation`; financial authority IDs in `allowedTools` are not research tools. The Composer may call `research.run` for an authorized ID and show the structured unavailable payload, source ID, canonical context refs and marker. Query text remains untrusted and is never rendered into the result payload.
+The capability summary must render the separate `researchTools` data-plane registry. It contains only the read-only IDs `public_market_read`, `account_read`, and `historical_simulation`; financial authority IDs in `allowedTools` are not research tools. The Composer provides a selector for the authorized research tool and a focus selector (`GENERAL`, `EQUITY`, `CRYPTO_SPOT`), then may call `research.run` to show the typed state, conclusion, canonical instrument refs, findings, source/provider timestamps, freshness, quality, limitations and marker. Query text remains untrusted and is never rendered into the result payload.
 
-Before Send, the Composer may attach a `ResearchToolInvocation` and its `ResearchToolResult`. `turn.start` revalidates the pair at the trusted boundary; a missing or tampered pair is surfaced as `RESEARCH_RESULT_INVALID` and leaves the Thread unchanged. A valid result renders as a `research_result` timeline item and its marker is visible in the final Turn output. Preview state is ephemeral and is cleared when mode, execution context, account or attached refs change.
+Before Send, the Composer may attach a `ResearchToolInvocation` and its `ResearchToolResult`. `turn.start` revalidates the pair at the trusted boundary; a missing or tampered pair is surfaced as `RESEARCH_RESULT_INVALID` and leaves the Thread unchanged. A valid result renders as a `research_result` timeline item and its complete bounded typed result is persisted with the item so reloads retain the evidence card; the marker is visible in the final Turn output. Preview state is ephemeral and is cleared when the selected tool, focus, mode, execution context, account or attached refs change.
 
 ---
 

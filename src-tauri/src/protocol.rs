@@ -433,8 +433,11 @@ pub struct ResearchToolPayload {
     #[schemars(length(max = 8))]
     pub evidence: Vec<ResearchProvenance>,
     #[serde(default)]
-    #[schemars(length(max = 8))]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
     pub limitations: Vec<String>,
+    #[serde(default)]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 128)))]
+    pub instrument_refs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1184,6 +1187,8 @@ pub struct ThreadItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub source_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub research_result: Option<ResearchToolResult>,
     pub started_at: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<String>,

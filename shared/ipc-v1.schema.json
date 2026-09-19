@@ -3372,11 +3372,23 @@
             }
           ]
         },
+        "instrumentRefs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
         "limitations": {
           "type": "array",
           "default": [],
           "items": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
           },
           "maxItems": 8
         },
@@ -4208,6 +4220,16 @@
           "type": "string",
           "maxLength": 64,
           "minLength": 1
+        },
+        "researchResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchToolResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "sourceId": {
           "type": [

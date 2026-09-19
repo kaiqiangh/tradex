@@ -19,13 +19,13 @@ pub mod risk;
 mod storage;
 pub mod time;
 
-use capability::CapabilityQuery;
+use capability::{CapabilityQuery, ResearchToolId};
 use protocol::{
     Aggregate, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload,
-    EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, OpenWorkspace, PortfolioQuery,
-    ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, Subscribe, Thread, ThreadCreate,
-    ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError,
-    TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace,
+    PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus,
+    Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery,
+    ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -983,7 +983,7 @@ impl ControlPlane {
     }
 
     fn run_research(
-        &self,
+        &mut self,
         request: &protocol::ResearchToolRequest,
         decision: &capability::CapabilityDecision,
     ) -> Result<protocol::ResearchToolResult> {
@@ -994,7 +994,144 @@ impl ControlPlane {
         if source_id.is_some() && source.is_none() {
             return Err(TradeXError::new("RESEARCH_RESULT_INVALID"));
         }
-        research::run_with_source(request, decision, source)
+        let mut result = research::run_with_source(request, decision, source)?;
+        let (instrument_refs, finding) = self.research_producer_summary(request, &sources);
+        research::enrich_result(&mut result, instrument_refs, finding);
+        Ok(result)
+    }
+
+    fn research_producer_summary(
+        &mut self,
+        request: &protocol::ResearchToolRequest,
+        sources: &[protocol::DataSourceEntry],
+    ) -> (Vec<String>, Option<ResearchFinding>) {
+        match request.tool_id {
+            ResearchToolId::PublicMarketRead => {
+                let tier = match request.focus {
+                    Some(protocol::ResearchFocus::CryptoSpot) => MarketTier::Hot,
+                    _ => MarketTier::Census,
+                };
+                let query = request.query.chars().take(120).collect::<String>();
+                let Ok(catalog) = market::catalog(
+                    &MarketCatalogQuery {
+                        workspace_id: request.workspace_id.clone(),
+                        query,
+                        tier,
+                    },
+                    sources,
+                ) else {
+                    return (
+                        Vec::new(),
+                        Some(ResearchFinding {
+                            title: "Market producer".into(),
+                            detail: "The canonical market producer rejected the bounded query.".into(),
+                        }),
+                    );
+                };
+                let refs = catalog
+                    .instruments
+                    .iter()
+                    .map(|instrument| instrument.instrument_id.clone())
+                    .take(8)
+                    .collect::<Vec<_>>();
+                let detail = if refs.is_empty() {
+                    "The canonical market producer returned no instrument references.".into()
+                } else {
+                    format!(
+                        "The canonical market producer returned {} instrument reference(s).",
+                        refs.len()
+                    )
+                };
+                (
+                    refs,
+                    Some(ResearchFinding {
+                        title: "Market producer".into(),
+                        detail,
+                    }),
+                )
+            }
+            ResearchToolId::AccountRead => {
+                let (base_currency, accounts) = {
+                    let Some(store) = self.store.as_mut() else {
+                        return (
+                            Vec::new(),
+                            Some(ResearchFinding {
+                                title: "Portfolio producer".into(),
+                                detail: "The workspace store is unavailable.".into(),
+                            }),
+                        );
+                    };
+                    let Ok(workspace_snapshot) = store.snapshot() else {
+                        return (
+                            Vec::new(),
+                            Some(ResearchFinding {
+                                title: "Portfolio producer".into(),
+                                detail: "The workspace snapshot is unavailable.".into(),
+                            }),
+                        );
+                    };
+                    let DomainProjection::Workspace(workspace) = workspace_snapshot.projection
+                    else {
+                        return (
+                            Vec::new(),
+                            Some(ResearchFinding {
+                                title: "Portfolio producer".into(),
+                                detail: "The workspace projection is invalid.".into(),
+                            }),
+                        );
+                    };
+                    let Ok(accounts) = store.accounts() else {
+                        return (
+                            Vec::new(),
+                            Some(ResearchFinding {
+                                title: "Portfolio producer".into(),
+                                detail: "The account catalog is unavailable.".into(),
+                            }),
+                        );
+                    };
+                    (workspace.base_currency, accounts)
+                };
+                let fx_source = sources.iter().find(|entry| entry.source_id == "OD-006");
+                let Ok(time_status) = self.time.status(&request.workspace_id) else {
+                    return (
+                        Vec::new(),
+                        Some(ResearchFinding {
+                            title: "Portfolio producer".into(),
+                            detail: "The time observation is unavailable.".into(),
+                        }),
+                    );
+                };
+                let detail = match portfolio::get(
+                    &request.workspace_id,
+                    &base_currency,
+                    &accounts,
+                    fx_source,
+                    &time_status,
+                    false,
+                ) {
+                    Ok(snapshot) => format!(
+                        "The portfolio producer reported {:?} with {} account row(s).",
+                        snapshot.status,
+                        snapshot.accounts.len()
+                    ),
+                    Err(_) => "The portfolio producer returned an unavailable observation.".into(),
+                };
+                (
+                    Vec::new(),
+                    Some(ResearchFinding {
+                        title: "Portfolio producer".into(),
+                        detail,
+                    }),
+                )
+            }
+            ResearchToolId::HistoricalSimulation => (
+                Vec::new(),
+                Some(ResearchFinding {
+                    title: "Simulation producer".into(),
+                    detail: "Historical simulation remains unavailable until its provider slice is connected.".into(),
+                }),
+            ),
+        }
     }
 
     fn context_catalog(&self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
@@ -1171,6 +1308,7 @@ impl ControlPlane {
                     status: protocol::ItemStatus::Completed,
                     content: input.message.clone(),
                     source_id: None,
+                    research_result: None,
                     started_at: now.clone(),
                     completed_at: Some(now.clone()),
                 }];
@@ -1192,6 +1330,7 @@ impl ControlPlane {
                         status: protocol::ItemStatus::Completed,
                         content,
                         source_id: Some(result.source_id.clone()),
+                        research_result: Some(result.clone()),
                         started_at: now.clone(),
                         completed_at: Some(now.clone()),
                     });
@@ -1545,6 +1684,7 @@ impl ControlPlane {
                 status: protocol::ItemStatus::Failed,
                 content: error.message.clone(),
                 source_id: None,
+                research_result: None,
                 started_at: turn.completed_at.clone().unwrap_or_default(),
                 completed_at: turn.completed_at.clone(),
             });
@@ -1693,6 +1833,7 @@ impl ControlPlane {
                             status: protocol::ItemStatus::Started,
                             content: String::new(),
                             source_id: None,
+                            research_result: None,
                             started_at: storage::timestamp()?,
                             completed_at: None,
                         });
@@ -1774,6 +1915,7 @@ impl ControlPlane {
                 status: protocol::ItemStatus::Failed,
                 content: error.message.clone(),
                 source_id: None,
+                research_result: None,
                 started_at: turn.completed_at.clone().unwrap_or_default(),
                 completed_at: turn.completed_at.clone(),
             });
@@ -2766,6 +2908,7 @@ fn find_or_add_item<'a>(
             status: protocol::ItemStatus::Started,
             content: String::new(),
             source_id: Some(item_id.to_owned()),
+            research_result: None,
             started_at: storage::timestamp()?,
             completed_at: None,
         });
@@ -3057,6 +3200,22 @@ mod thread_tests {
                 .unwrap()
                 .contains("order.submit")
         );
+        let producer_result = control.dispatch(request(
+            "research.run",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": [],
+                "toolId": "public_market_read",
+                "query": "AAPL"
+            }),
+        ));
+        assert_eq!(producer_result["ok"], true);
+        assert_eq!(
+            producer_result["data"]["payload"]["instrumentRefs"][0],
+            "equity:US:AAPL"
+        );
 
         let before = control.dispatch(request(
             "thread.get",
@@ -3156,6 +3315,13 @@ mod thread_tests {
             items
                 .iter()
                 .any(|item| item["itemType"] == "research_result")
+        );
+        assert_eq!(
+            items
+                .iter()
+                .find(|item| item["itemType"] == "research_result")
+                .and_then(|item| item["researchResult"]["marker"].as_str()),
+            result["data"]["marker"].as_str()
         );
         assert!(items.iter().any(|item| {
             item["itemType"] == "agent_message"

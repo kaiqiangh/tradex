@@ -81,6 +81,38 @@ export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "
 export type ThreadStatus = "ACTIVE" | "ARCHIVED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchFreshness".
+ */
+export type ResearchFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchQuality".
+ */
+export type ResearchQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceStatus".
+ */
+export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchFocus".
+ */
+export type ResearchFocus = "GENERAL" | "EQUITY" | "CRYPTO_SPOT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchResultState".
+ */
+export type ResearchResultState = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "FAILED";
+/**
+ * Data-plane tools are intentionally separate from financial authority IDs.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolId".
+ */
+export type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ItemStatus".
  */
 export type ItemStatus = "STARTED" | "STREAMING" | "COMPLETED" | "FAILED";
@@ -118,38 +150,6 @@ export type Connect =
       step: "confirm";
       workspaceId: string;
     };
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchFocus".
- */
-export type ResearchFocus = "GENERAL" | "EQUITY" | "CRYPTO_SPOT";
-/**
- * Data-plane tools are intentionally separate from financial authority IDs.
- *
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchToolId".
- */
-export type ResearchToolId = "public_market_read" | "account_read" | "historical_simulation";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchFreshness".
- */
-export type ResearchFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchQuality".
- */
-export type ResearchQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceStatus".
- */
-export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchResultState".
- */
-export type ResearchResultState = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "FAILED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ResultEnvelope".
@@ -750,9 +750,152 @@ export interface ThreadItem {
   content: string;
   itemId: string;
   itemType: string;
+  researchResult?: ResearchToolResult | null;
   sourceId?: string | null;
   startedAt: string;
   status: ItemStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolResult".
+ */
+export interface ResearchToolResult {
+  accountId?: string;
+  /**
+   * @maxItems 32
+   */
+  contextRefs: ThreadContextRef[];
+  marker: string;
+  payload: ResearchToolPayload;
+  requestHash: string;
+  resultId: string;
+  sourceId: string;
+  toolId: ResearchToolId;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchToolPayload".
+ */
+export interface ResearchToolPayload {
+  conclusion?: string | null;
+  /**
+   * @maxItems 8
+   */
+  evidence?:
+    | []
+    | [ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance, ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ];
+  /**
+   * @maxItems 8
+   */
+  findings?:
+    | []
+    | [ResearchFinding]
+    | [ResearchFinding, ResearchFinding]
+    | [ResearchFinding, ResearchFinding, ResearchFinding]
+    | [ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding]
+    | [ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding]
+    | [ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding]
+    | [
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding
+      ]
+    | [
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding,
+        ResearchFinding
+      ];
+  focus?: ResearchFocus | null;
+  /**
+   * @maxItems 8
+   */
+  instrumentRefs?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  /**
+   * @maxItems 8
+   */
+  limitations?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  reason: string;
+  state: ResearchResultState;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchProvenance".
+ */
+export interface ResearchProvenance {
+  freshness: ResearchFreshness;
+  limitation?: string | null;
+  provider: string;
+  providerTimestamp?: string;
+  quality: ResearchQuality;
+  receivedTimestamp: string;
+  sourceId: string;
+  status: DataSourceStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResearchFinding".
+ */
+export interface ResearchFinding {
+  detail: string;
+  title: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -856,135 +999,6 @@ export interface ResearchToolRequest {
   query: string;
   toolId: ResearchToolId;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchToolResult".
- */
-export interface ResearchToolResult {
-  accountId?: string;
-  /**
-   * @maxItems 32
-   */
-  contextRefs: ThreadContextRef[];
-  marker: string;
-  payload: ResearchToolPayload;
-  requestHash: string;
-  resultId: string;
-  sourceId: string;
-  toolId: ResearchToolId;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchToolPayload".
- */
-export interface ResearchToolPayload {
-  conclusion?: string | null;
-  /**
-   * @maxItems 8
-   */
-  evidence?:
-    | []
-    | [ResearchProvenance]
-    | [ResearchProvenance, ResearchProvenance]
-    | [ResearchProvenance, ResearchProvenance, ResearchProvenance]
-    | [ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance]
-    | [ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance]
-    | [
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance
-      ]
-    | [
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance
-      ]
-    | [
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance,
-        ResearchProvenance
-      ];
-  /**
-   * @maxItems 8
-   */
-  findings?:
-    | []
-    | [ResearchFinding]
-    | [ResearchFinding, ResearchFinding]
-    | [ResearchFinding, ResearchFinding, ResearchFinding]
-    | [ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding]
-    | [ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding]
-    | [ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding, ResearchFinding]
-    | [
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding
-      ]
-    | [
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding,
-        ResearchFinding
-      ];
-  focus?: ResearchFocus | null;
-  /**
-   * @maxItems 8
-   */
-  limitations?:
-    | []
-    | [string]
-    | [string, string]
-    | [string, string, string]
-    | [string, string, string, string]
-    | [string, string, string, string, string]
-    | [string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string, string];
-  reason: string;
-  state: ResearchResultState;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchProvenance".
- */
-export interface ResearchProvenance {
-  freshness: ResearchFreshness;
-  limitation?: string | null;
-  provider: string;
-  providerTimestamp?: string;
-  quality: ResearchQuality;
-  receivedTimestamp: string;
-  sourceId: string;
-  status: DataSourceStatus;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ResearchFinding".
- */
-export interface ResearchFinding {
-  detail: string;
-  title: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
