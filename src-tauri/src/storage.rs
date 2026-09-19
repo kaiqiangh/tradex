@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File, OpenOptions},
-    io::Write,
-    path::{Path, PathBuf},
+    io::{ErrorKind, Write},
+    path::{Component, Path, PathBuf},
     time::Duration,
 };
 
@@ -1369,22 +1369,8 @@ impl Store {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
         let artifact = self.artifact(&input.artifact_id)?;
-        let file_name =
-            artifact_export_file_name(input.file_name.as_deref(), &artifact.artifact_id)?;
-        let exports = self.path.join("exports");
-        if fs::symlink_metadata(&exports)
-            .map(|metadata| metadata.file_type().is_symlink())
-            .unwrap_or(false)
-        {
-            return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
-        }
-        fs::create_dir_all(&exports).map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
-        let destination = exports.join(&file_name);
-        if destination.exists()
-            || fs::symlink_metadata(&destination)
-                .map(|metadata| metadata.file_type().is_symlink())
-                .unwrap_or(false)
-        {
+        let destination = artifact_export_destination(&self.path, input, &artifact.artifact_id)?;
+        if fs::symlink_metadata(&destination).is_ok() {
             return Err(TradeXError::new("ARTIFACT_EXPORT_EXISTS"));
         }
         let manifest = serde_json::json!({
@@ -1404,7 +1390,14 @@ impl Store {
         if encoded.is_empty() || encoded.len() > 10_000_000 {
             return Err(TradeXError::new("ARTIFACT_EXPORT_FAILED"));
         }
-        let temporary = exports.join(format!(".{}.{}.tmp", file_name, Uuid::new_v4()));
+        let parent = destination
+            .parent()
+            .ok_or_else(|| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
+        let file_name = destination
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
+        let temporary = parent.join(format!(".{}.{}.tmp", file_name, Uuid::new_v4()));
         let write_result = (|| -> Result<()> {
             let mut file = OpenOptions::new()
                 .write(true)
@@ -1414,8 +1407,14 @@ impl Store {
             file.write_all(&encoded)
                 .and_then(|_| file.sync_all())
                 .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
-            fs::rename(&temporary, &destination)
-                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+            fs::hard_link(&temporary, &destination).map_err(|error| {
+                if error.kind() == ErrorKind::AlreadyExists {
+                    TradeXError::new("ARTIFACT_EXPORT_EXISTS")
+                } else {
+                    TradeXError::new("ARTIFACT_EXPORT_FAILED")
+                }
+            })?;
+            let _ = fs::remove_file(&temporary);
             Ok(())
         })();
         if let Err(error) = write_result {
@@ -1840,19 +1839,75 @@ fn validate_artifact_provenance(
 
 fn contains_sensitive_marker(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
+    if serde_json::from_str::<serde_json::Value>(value)
+        .ok()
+        .is_some_and(|value| json_contains_sensitive_key(&value))
+    {
+        return true;
+    }
     [
         "authorization:",
+        "authorization=",
         "bearer ",
         "api_key=",
         "api-key=",
+        "api_key:",
+        "api-key:",
+        "api key=",
+        "api key:",
+        "apikey=",
+        "apikey:",
+        "\"apikey\":",
+        "\"api_key\":",
         "secret=",
+        "secret:",
+        "\"secret\":",
         "password=",
+        "password:",
+        "\"password\":",
         "token=",
+        "token:",
+        "\"token\":",
+        "access_token=",
+        "access_token:",
+        "\"access_token\":",
+        "refresh_token=",
+        "refresh_token:",
+        "\"refresh_token\":",
+        "private_key=",
+        "private_key:",
+        "\"private_key\":",
+        "\"authorization\":",
         "sk-",
         "ghp_",
     ]
     .iter()
     .any(|marker| lower.contains(marker))
+}
+
+fn json_contains_sensitive_key(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Object(object) => object.iter().any(|(key, value)| {
+            matches!(
+                key.to_ascii_lowercase().as_str(),
+                "authorization"
+                    | "api_key"
+                    | "apikey"
+                    | "api-key"
+                    | "secret"
+                    | "password"
+                    | "token"
+                    | "access_token"
+                    | "refresh_token"
+                    | "private_key"
+                    | "client_secret"
+                    | "credential"
+                    | "credentials"
+            ) || json_contains_sensitive_key(value)
+        }),
+        serde_json::Value::Array(values) => values.iter().any(json_contains_sensitive_key),
+        _ => false,
+    }
 }
 
 fn next_artifact_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
@@ -1954,6 +2009,61 @@ fn artifact_export_file_name(file_name: Option<&str>, artifact_id: &str) -> Resu
         }
         Ok(with_extension)
     }
+}
+
+fn artifact_export_destination(
+    workspace_path: &Path,
+    input: &ArtifactExport,
+    artifact_id: &str,
+) -> Result<PathBuf> {
+    if input.file_name.is_some() && input.destination_path.is_some() {
+        return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+    }
+    if let Some(raw_path) = input.destination_path.as_deref() {
+        let raw_path = raw_path.trim();
+        let path = PathBuf::from(raw_path);
+        if raw_path.is_empty()
+            || raw_path.len() > 4096
+            || raw_path.chars().any(char::is_control)
+            || !path.is_absolute()
+            || path
+                .components()
+                .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+        {
+            return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+        }
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .ok_or_else(|| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
+        if !parent.is_dir()
+            || fs::symlink_metadata(parent)
+                .map(|metadata| metadata.file_type().is_symlink())
+                .unwrap_or(false)
+        {
+            return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+        }
+        let requested_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"))?;
+        let file_name = artifact_export_file_name(Some(requested_name), artifact_id)?;
+        return Ok(parent.join(file_name));
+    }
+
+    let file_name = artifact_export_file_name(input.file_name.as_deref(), artifact_id)?;
+    let exports = workspace_path.join("exports");
+    if fs::symlink_metadata(&exports)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+    }
+    fs::create_dir_all(&exports).map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+    if !exports.is_dir() {
+        return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+    }
+    Ok(exports.join(file_name))
 }
 
 fn read_workspace(connection: &Connection, path: &Path) -> Result<Workspace> {

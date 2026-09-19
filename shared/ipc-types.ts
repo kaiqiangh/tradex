@@ -405,6 +405,7 @@ export interface Aggregate {
  */
 export interface ArtifactExport {
   artifactId: string;
+  destinationPath?: string;
   fileName?: string;
   workspaceId: string;
 }

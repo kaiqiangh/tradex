@@ -1769,6 +1769,13 @@ pub struct ArtifactExport {
     )]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub file_name: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "String", length(min = 1, max = 4096))]
+    pub destination_path: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

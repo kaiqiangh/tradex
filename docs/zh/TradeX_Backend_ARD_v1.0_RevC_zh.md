@@ -2251,7 +2251,7 @@ Equity 状态和 action 数据使用 OD-005 calendar/corporate-action gate；在
 | `artifact.save` | `{workspaceId, threadId, turnId, itemId, kind, title}` | `Artifact` | 仅在 SQLite 写入有界脱敏 projection；不写 outbox/domain event，不修改 account/model/risk/approval/arming/reservation/Gateway/credentials |
 | `artifact.list` | `{workspaceId}` | `ArtifactLibrary` | 仅按 workspace 查询 SQLite projection |
 | `artifact.get` | `{workspaceId, artifactId}` | `Artifact` | 仅按 workspace 查询 projection；保存的 Turn snapshot 是权威来源 |
-| `artifact.export` | `{workspaceId, artifactId, fileName?}` | `ArtifactExportResult` | 在 workspace `exports/` 目录执行显式本地原子 JSON 导出；不上传云端、不生成分享链接 |
+| `artifact.export` | `{workspaceId, artifactId, fileName?, destinationPath?}` | `ArtifactExportResult` | 在 workspace `exports/` 目录或原生选择的本地路径执行显式本地原子 JSON 导出；不上传云端、不生成分享链接 |
 
 `artifact.save` 会重新读取持久化 Thread，并要求当前 workspace 中的 Turn 和 Item 均已完成。此切片生成的 `Artifact` 不可变，包含有界文本/typed research 字段和 `ArtifactProvenance`：workspace/Thread/Turn/Item ID、不可变 `TurnSnapshot`、追加式 provider attempts、research tool/result/source provenance，以及可选的 market snapshot、dataset 和 order 引用。每个产物使用版本 `1`、规范 `sha256:` 内容 hash 和 opaque ID；重复保存会创建新的 identity。
 

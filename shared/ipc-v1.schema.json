@@ -576,6 +576,11 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "destinationPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
         "fileName": {
           "type": "string",
           "maxLength": 128,

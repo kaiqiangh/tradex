@@ -1152,9 +1152,18 @@ impl ControlPlane {
                 .as_ref()
                 .map(|result| result.payload.evidence.clone())
                 .unwrap_or_default(),
-            market_snapshot_hashes: Vec::new(),
-            dataset_hashes: Vec::new(),
-            related_order_ids: Vec::new(),
+            market_snapshot_hashes: artifact_context_hashes(
+                &turn.snapshot.attached_contexts,
+                &["market_snapshot", "market_snapshot_hash"],
+            ),
+            dataset_hashes: artifact_context_hashes(
+                &turn.snapshot.attached_contexts,
+                &["dataset", "backtest_dataset"],
+            ),
+            related_order_ids: artifact_context_hashes(
+                &turn.snapshot.attached_contexts,
+                &["order", "order_ref"],
+            ),
         };
         let artifact = Artifact {
             artifact_id: String::new(),
@@ -2982,6 +2991,14 @@ fn validate_artifact_id(id: &str) -> Result<()> {
     Ok(())
 }
 
+fn artifact_context_hashes(contexts: &[protocol::ThreadContextRef], kinds: &[&str]) -> Vec<String> {
+    contexts
+        .iter()
+        .filter(|context| kinds.contains(&context.kind.as_str()))
+        .map(|context| context.hash.clone())
+        .collect()
+}
+
 fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {
     if input.workspace_id.is_empty()
         || input.workspace_id.len() > 128
@@ -3989,19 +4006,57 @@ mod thread_tests {
                     model_id: "gpt-5.6-sol".into(),
                     thinking_type: None,
                 }),
-                attached_contexts: Vec::new(),
+                attached_contexts: vec![
+                    protocol::ThreadContextRef {
+                        kind: "market_snapshot".into(),
+                        id: "snapshot-1".into(),
+                        hash: "sha256:market".into(),
+                    },
+                    protocol::ThreadContextRef {
+                        kind: "dataset".into(),
+                        id: "dataset-1".into(),
+                        hash: "sha256:dataset".into(),
+                    },
+                    protocol::ThreadContextRef {
+                        kind: "order".into(),
+                        id: "order-1".into(),
+                        hash: "order-1".into(),
+                    },
+                ],
                 started_at: now.clone(),
             },
-            items: vec![ThreadItem {
-                item_id: "research-result-1".into(),
-                item_type: "research_result".into(),
-                status: protocol::ItemStatus::Completed,
-                content: "A bounded source-backed conclusion.".into(),
-                source_id: Some("OD-001".into()),
-                research_result: Some(result),
-                started_at: now.clone(),
-                completed_at: Some(now.clone()),
-            }],
+            items: vec![
+                ThreadItem {
+                    item_id: "research-result-1".into(),
+                    item_type: "research_result".into(),
+                    status: protocol::ItemStatus::Completed,
+                    content: "A bounded source-backed conclusion.".into(),
+                    source_id: Some("OD-001".into()),
+                    research_result: Some(result),
+                    started_at: now.clone(),
+                    completed_at: Some(now.clone()),
+                },
+                ThreadItem {
+                    item_id: "secret-item".into(),
+                    item_type: "message".into(),
+                    status: protocol::ItemStatus::Completed,
+                    content: r#"{"apiKey":"abc"}"#.into(),
+                    source_id: None,
+                    research_result: None,
+                    started_at: now.clone(),
+                    completed_at: Some(now.clone()),
+                },
+                ThreadItem {
+                    item_id: "incomplete-item".into(),
+                    item_type: "message".into(),
+                    status: protocol::ItemStatus::Started,
+                    content: "Not complete".into(),
+                    source_id: None,
+                    research_result: None,
+                    started_at: now.clone(),
+                    completed_at: None,
+                },
+            ],
             provider_attempts: vec![ThreadProviderAttempt {
                 attempt_id: "attempt-1".into(),
                 provider: "CHATGPT".into(),
@@ -4066,6 +4121,44 @@ mod thread_tests {
             detail["data"]["provenance"]["providerAttempts"][0]["modelId"],
             "gpt-5.6-sol"
         );
+        assert_eq!(
+            detail["data"]["provenance"]["marketSnapshotHashes"][0],
+            "sha256:market"
+        );
+        assert_eq!(
+            detail["data"]["provenance"]["datasetHashes"][0],
+            "sha256:dataset"
+        );
+        assert_eq!(
+            detail["data"]["provenance"]["relatedOrderIds"][0],
+            "order-1"
+        );
+        let secret = control.dispatch(request(
+            "artifact.save",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "turnId": turn_id,
+                "itemId": "secret-item",
+                "kind": "DECISION",
+                "title": "Should reject secret"
+            }),
+        ));
+        assert_eq!(secret["ok"], false);
+        assert_eq!(secret["error"]["code"], "ARTIFACT_REDACTION_FAILED");
+        let incomplete = control.dispatch(request(
+            "artifact.save",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "turnId": turn_id,
+                "itemId": "incomplete-item",
+                "kind": "DECISION",
+                "title": "Should reject incomplete"
+            }),
+        ));
+        assert_eq!(incomplete["ok"], false);
+        assert_eq!(incomplete["error"]["code"], "ARTIFACT_SOURCE_INVALID");
         let exported = control.dispatch(request(
             "artifact.export",
             json!({"workspaceId": workspace_id, "artifactId": artifact_id, "fileName": "aapl-thesis.json"}),
@@ -4085,6 +4178,39 @@ mod thread_tests {
                 .state_version,
             before_risk
         );
+        let chosen_path = directory.path().join("chosen-artifact.json");
+        let chosen = control.dispatch(request(
+            "artifact.export",
+            json!({"workspaceId": workspace_id, "artifactId": artifact_id, "destinationPath": chosen_path}),
+        ));
+        assert_eq!(chosen["ok"], true);
+        let collision = control.dispatch(request(
+            "artifact.export",
+            json!({"workspaceId": workspace_id, "artifactId": artifact_id, "destinationPath": chosen_path}),
+        ));
+        assert_eq!(collision["ok"], false);
+        assert_eq!(collision["error"]["code"], "ARTIFACT_EXPORT_EXISTS");
+        let invalid_path = control.dispatch(request(
+            "artifact.export",
+            json!({"workspaceId": workspace_id, "artifactId": artifact_id, "destinationPath": "relative.json"}),
+        ));
+        assert_eq!(invalid_path["ok"], false);
+        assert_eq!(
+            invalid_path["error"]["code"],
+            "ARTIFACT_EXPORT_PATH_INVALID"
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let symlink_path = directory.path().join("artifact-link.json");
+            symlink(&chosen_path, &symlink_path).unwrap();
+            let symlink_export = control.dispatch(request(
+                "artifact.export",
+                json!({"workspaceId": workspace_id, "artifactId": artifact_id, "destinationPath": symlink_path}),
+            ));
+            assert_eq!(symlink_export["ok"], false);
+            assert_eq!(symlink_export["error"]["code"], "ARTIFACT_EXPORT_EXISTS");
+        }
         drop(control);
 
         let mut reopened = ControlPlane::new(workspace_path.clone());
@@ -4101,6 +4227,31 @@ mod thread_tests {
         assert_eq!(
             reopened_list["data"]["artifacts"].as_array().unwrap().len(),
             1
+        );
+        drop(reopened);
+        let database =
+            rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "UPDATE artifacts SET projection='{}' WHERE artifact_id=?1",
+                [&artifact_id],
+            )
+            .unwrap();
+        drop(database);
+        let mut corrupt = ControlPlane::new(workspace_path.clone());
+        let corrupt_open = corrupt.dispatch(request(
+            "workspace.open",
+            json!({"path": workspace_path.to_string_lossy()}),
+        ));
+        assert_eq!(corrupt_open["ok"], true);
+        let corrupt_detail = corrupt.dispatch(request(
+            "artifact.get",
+            json!({"workspaceId": workspace_id, "artifactId": artifact_id}),
+        ));
+        assert_eq!(corrupt_detail["ok"], false);
+        assert_eq!(
+            corrupt_detail["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
         );
     }
 }

@@ -46,7 +46,7 @@ TradeX 已经能够把研究结果作为带来源的 `research_result` timeline 
 - Content projection 只保留 bounded textual/typed research fields（结论、findings、scenarios、evidence、limitations、instrument/artifact refs 和 marker）。敏感凭据、原始 provider response、Authorization headers、Keychain bytes、完整账户余额/订单 payload 和未验证的自由格式命令不会进入 projection 或 export。
 - 为保持 Backend ARD §41–42 单一 wire contract，新增命令和 payload/result 类型必须同时加入 Rust protocol、JSON Schema、生成的 TypeScript validators/client definitions，并拒绝未知字段、跨 workspace ID、超长字符串/数组和不支持的 kind。
 - Artifact identity 使用 opaque ID、单调版本和 canonical content hash；同一来源重复保存创建新的 artifact identity，历史记录不就地改写。读取/导出使用 workspace 与 artifact version 校验，失败不产生部分文件。
-- 导出在临时文件中完成后原子 rename；路径越界、符号链接、无法写入、hash 不匹配或 redaction 失败均 fail closed 并清理临时文件。导出动作需要显式用户点击，不由页面加载或 Enter 隐式触发。
+- 导出在目标目录的临时文件中完成后以不可覆盖的原子链接创建目标文件；路径越界、符号链接、无法写入、hash 不匹配或 redaction 失败均 fail closed 并清理临时文件。导出动作需要显式用户点击，不由页面加载或 Enter 隐式触发。
 - UI 实现 Artifacts library、detail 和 ProvenanceModal，复用现有 AppShell、thread/context identity 和语义状态模式。详情中的 Thread/Turn/Item/context 全部使用保存快照；当前模式、账户、模型选择变化不影响历史展示。
 - 最高验证 seam 为真实桌面 UI → 版本化 Rust command dispatcher → 临时 SQLite/filesystem → 重新打开后的 UI。浏览器 fixture 只能辅助键盘/布局断言，不能证明持久化、来源真实性或真实 provider entitlement。
 

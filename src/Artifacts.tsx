@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { save as saveFile } from '@tauri-apps/plugin-dialog';
 import type { Artifact, ArtifactKind, ArtifactProvenance, ArtifactSummary, ResearchToolResult, ThreadItem, ThreadTurn } from '../shared/ipc-types.ts';
-import { explainError, request } from './client.ts';
+import { desktop, explainError, request } from './client.ts';
 
 function ArtifactSourceList({ result }: { result?: ResearchToolResult | null }) {
   if (!result) return <p className="muted">No typed research result was attached.</p>;
@@ -21,7 +22,16 @@ function ProvenanceModal({ provenance, onClose }: { provenance: ArtifactProvenan
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { onClose(); return; }
+      if (event.key !== 'Tab') return;
+      const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKeyDown);
     return () => { window.removeEventListener('keydown', onKeyDown); if (previous?.isConnected) previous.focus(); };
   }, [onClose]);
@@ -42,6 +52,8 @@ function ProvenanceModal({ provenance, onClose }: { provenance: ArtifactProvenan
         <div><dt>Execution context</dt><dd>{provenance.turnSnapshot.executionContext}</dd></div>
         <div><dt>Account</dt><dd>{provenance.turnSnapshot.accountId ?? 'None'}{provenance.turnSnapshot.accountEnvironment ? ` · ${provenance.turnSnapshot.accountEnvironment}` : ''}</dd></div>
         <div><dt>Model</dt><dd>{provenance.turnSnapshot.model ? `${provenance.turnSnapshot.model.provider} · ${provenance.turnSnapshot.model.modelId}` : 'Unavailable'}</dd></div>
+        <div><dt>Capability</dt><dd>{provenance.turnSnapshot.capabilityLevel}</dd></div>
+        <div><dt>Started</dt><dd><time dateTime={provenance.turnSnapshot.startedAt}>{provenance.turnSnapshot.startedAt}</time></dd></div>
         <div><dt>Attached context</dt><dd>{provenance.turnSnapshot.attachedContexts.length ? provenance.turnSnapshot.attachedContexts.map(context => `${context.kind}:${context.id}#${context.hash}`).join(', ') : 'None'}</dd></div>
       </dl>
       <h3>Provider attempts</h3>
@@ -74,7 +86,14 @@ function ArtifactDetail({ workspaceId, artifactId }: { workspaceId: string; arti
   const exportArtifact = async () => {
     setExportStatus(undefined); setExportError(undefined);
     try {
-      const result = await request('artifact.export', { workspaceId, artifactId });
+      let destinationPath: string | undefined;
+      if (desktop) {
+        const defaultName = (artifact.title.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 100) || 'artifact') + '.json';
+        const selected = await saveFile({ defaultPath: defaultName, filters: [{ name: 'JSON', extensions: ['json'] }] });
+        if (selected === null) return;
+        destinationPath = selected;
+      }
+      const result = await request('artifact.export', { workspaceId, artifactId, ...(destinationPath ? { destinationPath } : {}) });
       setExportStatus(`Exported ${result.bytes} bytes to ${result.path}`);
       await queryClient.invalidateQueries({ queryKey: ['artifacts', workspaceId] });
     } catch (error) { setExportError(explainError(error)); }
