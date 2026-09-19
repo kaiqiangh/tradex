@@ -2,7 +2,7 @@
 
 日期：2026-09-19  
 前置：S11 #37 source-gated `market.screen` parse/run 已完成实现；S07 canonical market/ThreadContextRef、S10 typed research  
-状态：SPEC；本规范对应 GitHub #38，保存、重开和候选附加仍需实现与验证
+状态：IMPLEMENTED；本规范对应 GitHub #38，实现、审查与验证记录见 `s11-screener-evidence.md`
 
 ## Problem Statement
 

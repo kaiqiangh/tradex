@@ -505,8 +505,8 @@ function ThreadDetail({ threadId, model, runtime, initialContexts = [], onContex
   </section>;
 }
 
-function ThreadsPage({ workspaceId, model, runtime, selectedThreadId, onSelect, onCreated, initialContexts = [], onContextsConsumed }: { workspaceId: string; model?: ModelState; runtime?: RuntimeStatus; selectedThreadId?: string; onSelect: (threadId: string) => void; onCreated: (thread: Thread) => void; initialContexts?: ThreadContextRef[]; onContextsConsumed?: () => void }) {
-  return <><div className="page-heading"><h1>Threads</h1><p>Local history restores each Thread's own defaults and context.</p></div><div className="threads-layout"><section className="card threads-list-card"><h2>History</h2><ThreadHistory workspaceId={workspaceId} selectedThreadId={selectedThreadId} onSelect={onSelect} /></section><section className="threads-main"><ThreadComposer workspaceId={workspaceId} model={model} onCreated={onCreated} initialContexts={initialContexts} />{selectedThreadId && <ThreadDetail threadId={selectedThreadId} model={model} runtime={runtime} initialContexts={initialContexts} onContextsConsumed={onContextsConsumed} />}</section></div></>;
+function ThreadsPage({ workspaceId, model, runtime, selectedThreadId, onSelect, onCreated, newThreadContexts = [], selectedThreadContexts = [], onContextsConsumed }: { workspaceId: string; model?: ModelState; runtime?: RuntimeStatus; selectedThreadId?: string; onSelect: (threadId: string) => void; onCreated: (thread: Thread) => void; newThreadContexts?: ThreadContextRef[]; selectedThreadContexts?: ThreadContextRef[]; onContextsConsumed?: () => void }) {
+  return <><div className="page-heading"><h1>Threads</h1><p>Local history restores each Thread's own defaults and context.</p></div><div className="threads-layout"><section className="card threads-list-card"><h2>History</h2><ThreadHistory workspaceId={workspaceId} selectedThreadId={selectedThreadId} onSelect={onSelect} /></section><section className="threads-main"><ThreadComposer workspaceId={workspaceId} model={model} onCreated={onCreated} initialContexts={newThreadContexts} />{selectedThreadId && <ThreadDetail threadId={selectedThreadId} model={model} runtime={runtime} initialContexts={selectedThreadContexts} onContextsConsumed={onContextsConsumed} />}</section></div></>;
 }
 
 function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPolicyState }) {
@@ -623,7 +623,8 @@ function Onboarding({ workspace, risk, model, modelError, reloadModel, runtime, 
 export default function App() {
   const [page, setPage] = useState<Page>('New Thread');
   const [selectedThreadId, setSelectedThreadId] = useState<string>();
-  const [screenerContexts, setScreenerContexts] = useState<ThreadContextRef[]>([]);
+  const [newThreadScreenerContexts, setNewThreadScreenerContexts] = useState<ThreadContextRef[]>([]);
+  const [currentThreadScreenerContexts, setCurrentThreadScreenerContexts] = useState<{ threadId: string; contexts: ThreadContextRef[] }>();
   const [setup, setSetup] = useState(false);
   const [workspacePicker, setWorkspacePicker] = useState(false);
   const [settingsTab, setSettingsTab] = useState('Providers & Models');
@@ -638,19 +639,26 @@ export default function App() {
   const modelReady = modelState.ready;
   const projectionError = riskProjection.error ?? modelProjection.error;
   const reloadProjections = () => { void riskProjection.reload(); void modelProjection.reload(); };
-  useEffect(() => { setSelectedThreadId(undefined); setScreenerContexts([]); }, [workspace?.workspaceId]);
+  useEffect(() => { setSelectedThreadId(undefined); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(undefined); }, [workspace?.workspaceId]);
   const navigate = (destination: Page) => {
     setPage(destination); setSetup(false); setWorkspacePicker(false);
     if (destination === 'New Thread') setSelectedThreadId(undefined);
     document.querySelectorAll('details[open]').forEach(details => details.removeAttribute('open'));
   };
-  const selectThread = (threadId: string) => { setSelectedThreadId(threadId); setPage('Threads'); setSetup(false); setWorkspacePicker(false); };
-  const createdThread = (thread: Thread) => { setScreenerContexts([]); setSelectedThreadId(thread.threadId); setPage('Threads'); };
+  const selectThread = (threadId: string) => { setSelectedThreadId(threadId); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(previous => previous?.threadId === threadId ? previous : undefined); setPage('Threads'); setSetup(false); setWorkspacePicker(false); };
+  const createdThread = (thread: Thread) => { setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(undefined); setSelectedThreadId(thread.threadId); setPage('Threads'); };
   const attachScreenerContexts = (contexts: ThreadContextRef[], target: 'new' | 'current') => {
-    setScreenerContexts(contexts);
     setSetup(false); setWorkspacePicker(false);
-    if (target === 'current' && selectedThreadId) setPage('Threads');
-    else { setSelectedThreadId(undefined); setPage('New Thread'); }
+    if (target === 'current' && selectedThreadId) {
+      setCurrentThreadScreenerContexts({ threadId: selectedThreadId, contexts });
+      setNewThreadScreenerContexts([]);
+      setPage('Threads');
+    } else {
+      setNewThreadScreenerContexts(contexts);
+      setCurrentThreadScreenerContexts(undefined);
+      setSelectedThreadId(undefined);
+      setPage('New Thread');
+    }
   };
   const submit = async (options: OpenWorkspace) => {
     try { await state.opening.mutateAsync(options); setSelectedThreadId(undefined); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
@@ -683,11 +691,11 @@ export default function App() {
           <div className="workspace-layout"><section className="content">
             {page === 'New Thread' && <>
               <div className="thread-welcome"><h1>What would you like to research?</h1><p>Ask a question, explore an opportunity, or review your portfolio.</p></div>
-              {workspace && <ThreadComposer workspaceId={workspace.workspaceId} model={model} onCreated={createdThread} initialContexts={screenerContexts} />}
+              {workspace && <ThreadComposer workspaceId={workspace.workspaceId} model={model} onCreated={createdThread} initialContexts={newThreadScreenerContexts} />}
               <div className="notice model-notice"><div><strong>{modelReady ? 'Agent turns unavailable' : defaultModelRoute ? 'Model gateway unavailable' : 'Connect a model provider'}</strong><p>{modelState.reason}</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
               <div className="empty-activity"><h2>Thread activity</h2><p>No agent turns have started in this workspace.</p></div>
             </>}
-            {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} runtime={state.runtime.data} selectedThreadId={selectedThreadId} onSelect={selectThread} onCreated={createdThread} initialContexts={screenerContexts} onContextsConsumed={() => setScreenerContexts([])} />}
+            {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} runtime={state.runtime.data} selectedThreadId={selectedThreadId} onSelect={selectThread} onCreated={createdThread} newThreadContexts={newThreadScreenerContexts} selectedThreadContexts={currentThreadScreenerContexts?.threadId === selectedThreadId ? currentThreadScreenerContexts?.contexts ?? [] : []} onContextsConsumed={() => setCurrentThreadScreenerContexts(undefined)} />}
             {page === 'Settings' && <>
               <div className="page-heading"><h1>Settings</h1><p>Manage your local workspace and connected services.</p></div>
               <div className="settings-tabs" role="group" aria-label="Settings sections">{['Providers & Models', 'Risk & Limits', 'Data & Storage', 'Account Health', 'Appearance', 'About'].map(tab =>

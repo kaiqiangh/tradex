@@ -1248,11 +1248,15 @@ impl Store {
 }
 
 fn validate_watchlist_name(name: &str) -> Result<String> {
+    Ok(validate_bounded_name(name)?.to_owned())
+}
+
+fn validate_bounded_name(name: &str) -> Result<&str> {
     let trimmed = name.trim();
     if trimmed.is_empty() || trimmed.chars().count() > 80 || trimmed.chars().any(char::is_control) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
-    Ok(trimmed.to_owned())
+    Ok(trimmed)
 }
 
 fn watchlist_name_conflict(
@@ -1391,10 +1395,7 @@ fn decode_watchlist(
 }
 
 fn validate_screener_name(name: &str) -> Result<()> {
-    let trimmed = name.trim();
-    if trimmed.is_empty() || trimmed.chars().count() > 80 || trimmed.chars().any(char::is_control) {
-        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
-    }
+    validate_bounded_name(name)?;
     Ok(())
 }
 

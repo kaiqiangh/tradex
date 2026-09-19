@@ -10,6 +10,23 @@ fn command(control: &mut ControlPlane, name: &str, payload: Value) -> Value {
     }))
 }
 
+fn boundary_state(control: &mut ControlPlane, workspace_id: &str) -> Value {
+    // The public IPC surface has no outbox, approval, arming, or credential read
+    // command. Domain snapshots plus these sanitized projections are the complete
+    // observable boundary for this read-only slice; the screener commands do not
+    // have a path to mutate the private credential store or those future domains.
+    json!({
+        "domain": command(control, "domain.snapshot", json!({
+            "aggregateType": "workspace",
+            "aggregateId": workspace_id
+        })),
+        "accounts": command(control, "account.list", json!({"workspaceId": workspace_id})),
+        "risk": command(control, "risk.get_policy", json!({"workspaceId": workspace_id})),
+        "gateway": command(control, "model.get_gateway", json!({"workspaceId": workspace_id})),
+        "model": command(control, "model.get", json!({"workspaceId": workspace_id}))
+    })
+}
+
 fn parse(control: &mut ControlPlane, workspace_id: &str, natural_language: &str) -> Value {
     command(
         control,
@@ -55,8 +72,7 @@ fn screener_library_is_workspace_scoped_versioned_and_reopenable() {
             .unwrap()
             .ends_with(":0")
     );
-    let aggregate = json!({"aggregateType":"workspace","aggregateId":workspace_id});
-    let domain_before = command(&mut control, "domain.snapshot", aggregate.clone());
+    let boundary_before = boundary_state(&mut control, workspace_id);
 
     let natural_language = "US large-cap technology stocks with revenue growth above 15% and positive estimate revisions.";
     let parsed = parse(&mut control, workspace_id, natural_language);
@@ -74,9 +90,9 @@ fn screener_library_is_workspace_scoped_versioned_and_reopenable() {
     );
     assert_eq!(saved["ok"], true, "{saved}");
     assert_eq!(
-        command(&mut control, "domain.snapshot", aggregate.clone()),
-        domain_before,
-        "screener projection writes must not mutate the domain aggregate"
+        boundary_state(&mut control, workspace_id),
+        boundary_before,
+        "screener projection writes must not mutate financial/runtime boundaries"
     );
     assert_eq!(saved["data"]["screeners"].as_array().unwrap().len(), 1);
     let saved_version = saved["data"]["stateVersion"].as_str().unwrap().to_owned();
@@ -148,8 +164,7 @@ fn screener_attach_returns_only_selected_canonical_contexts() {
     let mut control = ControlPlane::new(directory.path().join("workspace"));
     let opened = command(&mut control, "workspace.open", json!({}));
     let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
-    let aggregate = json!({"aggregateType":"workspace","aggregateId":workspace_id});
-    let domain_before = command(&mut control, "domain.snapshot", aggregate.clone());
+    let boundary_before = boundary_state(&mut control, workspace_id);
     let revision = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     let attached = command(
         &mut control,
@@ -165,9 +180,9 @@ fn screener_attach_returns_only_selected_canonical_contexts() {
     assert_eq!(attached["data"]["contextRefs"][0]["kind"], "instrument");
     assert_eq!(attached["data"]["contextRefs"][0]["id"], "equity:US:AAPL");
     assert_eq!(
-        command(&mut control, "domain.snapshot", aggregate.clone()),
-        domain_before,
-        "screener attachment must not mutate the domain aggregate"
+        boundary_state(&mut control, workspace_id),
+        boundary_before,
+        "screener attachment must not mutate financial/runtime boundaries"
     );
     let contexts = attached["data"]["contextRefs"].clone();
     let capability = command(
