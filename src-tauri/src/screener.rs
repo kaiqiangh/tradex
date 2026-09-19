@@ -262,10 +262,9 @@ fn add_predicate(
     else {
         return Ok(None);
     };
-    if text[index + keyword.len()..]
-        .split([',', ';'])
-        .next()
-        .is_some_and(|clause| keywords.iter().any(|candidate| clause.contains(candidate)))
+    if keywords
+        .iter()
+        .any(|candidate| text[index + keyword.len()..].contains(candidate))
     {
         return Ok(Some(format!(
             "Multiple {field:?} conditions are unsupported."
@@ -1201,6 +1200,14 @@ mod tests {
         let repeated_field = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(repeated_field.state, ScreenerResultState::Failed);
         assert!(repeated_field.availability_reason.contains("Multiple"));
+        request.natural_language = "Find stocks with RSI below 70, RSI above 30.".into();
+        let comma_repeated_field = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(comma_repeated_field.state, ScreenerResultState::Failed);
+        assert!(
+            comma_repeated_field
+                .availability_reason
+                .contains("Multiple")
+        );
         request.natural_language = "RSI fewer than 70".into();
         let fewer = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(
