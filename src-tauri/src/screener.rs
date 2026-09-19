@@ -255,13 +255,22 @@ fn add_predicate(
     percent: bool,
     predicates: &mut Vec<ScreenerPredicate>,
 ) -> Result<Option<String>> {
-    let Some(index) = keywords
+    let Some((keyword, index)) = keywords
         .iter()
-        .filter_map(|keyword| text.find(keyword))
-        .min()
+        .filter_map(|keyword| text.find(keyword).map(|index| (*keyword, index)))
+        .min_by_key(|(_, index)| *index)
     else {
         return Ok(None);
     };
+    if text[index + keyword.len()..]
+        .split([',', ';'])
+        .next()
+        .is_some_and(|clause| keywords.iter().any(|candidate| clause.contains(candidate)))
+    {
+        return Ok(Some(format!(
+            "Multiple {field:?} conditions are unsupported."
+        )));
+    }
     let suffix = &text[index..text.len().min(index + 96)];
     let clause = suffix.split([',', ';']).next().unwrap_or_default();
     if let Some(operator) = unsupported_operator(clause) {
@@ -556,8 +565,25 @@ fn numeric_after(text: &str) -> Option<String> {
 }
 
 fn operator_before(text: &str, index: usize) -> ScreenerOperator {
-    let before = &text[index.saturating_sub(36)..index];
-    let after = text[index..].split([',', ';']).next().unwrap_or_default();
+    let start = [" and ", " or ", ",", ";"]
+        .iter()
+        .filter_map(|marker| {
+            text[..index]
+                .rfind(marker)
+                .map(|position| position + marker.len())
+        })
+        .max()
+        .unwrap_or(0);
+    let clause = &text[start..];
+    let end = [" and ", " or ", ",", ";"]
+        .iter()
+        .filter_map(|marker| clause.find(marker))
+        .min()
+        .unwrap_or(clause.len());
+    let clause = &clause[..end];
+    let field_offset = index - start;
+    let before = &clause[..field_offset];
+    let after = &clause[field_offset..];
     if before.contains("<=")
         || after.contains("<=")
         || before.contains("at most")
@@ -1162,6 +1188,19 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported filter field")
         );
+        request.natural_language =
+            "Find stocks with RSI below 70 and price change above 0%.".into();
+        let split_conditions = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(split_conditions.state, ScreenerResultState::Parsed);
+        let predicates = split_conditions.filter_spec.unwrap().predicates;
+        assert_eq!(predicates.len(), 2);
+        assert_eq!(predicates[0].operator, ScreenerOperator::LessThan);
+        assert_eq!(predicates[1].operator, ScreenerOperator::GreaterThan);
+        request.natural_language =
+            "Find stocks with revenue growth above 15% and revenue growth below 50%.".into();
+        let repeated_field = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(repeated_field.state, ScreenerResultState::Failed);
+        assert!(repeated_field.availability_reason.contains("Multiple"));
         request.natural_language = "RSI fewer than 70".into();
         let fewer = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(
