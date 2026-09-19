@@ -332,40 +332,45 @@ fn unsupported_operator(text: &str) -> Option<&'static str> {
 }
 
 fn unsupported_filter_reason(text: &str) -> Option<String> {
-    if let Some((field, operator)) = text.split([',', ';']).find_map(|clause| {
-        let clause = clause.trim();
-        let has_supported_field = [
-            "revenue growth",
-            "growth",
-            "estimate revision",
-            "revisions",
-            "rsi",
-            "price change",
-            "momentum",
-        ]
-        .iter()
-        .any(|field| clause.contains(field));
-        if has_explicit_operator(clause) && !has_supported_field {
-            let operator = [
-                "above",
-                "below",
-                "over",
-                "under",
-                "greater",
-                "less",
-                "at least",
-                "at most",
-                "more than",
-                "fewer than",
+    if let Some((field, operator)) = text
+        .split([',', ';'])
+        .flat_map(|clause| clause.split(" and "))
+        .flat_map(|clause| clause.split(" or "))
+        .find_map(|clause| {
+            let clause = clause.trim();
+            let has_supported_field = [
+                "revenue growth",
+                "growth",
+                "estimate revision",
+                "revisions",
+                "rsi",
+                "price change",
+                "momentum",
             ]
             .iter()
-            .find(|operator| clause.contains(**operator))
-            .copied()
-            .unwrap_or("comparison");
-            return Some((clause, operator));
-        }
-        None
-    }) {
+            .any(|field| clause.contains(field));
+            if has_explicit_operator(clause) && !has_supported_field {
+                let operator = [
+                    "above",
+                    "below",
+                    "over",
+                    "under",
+                    "greater",
+                    "less",
+                    "at least",
+                    "at most",
+                    "more than",
+                    "fewer than",
+                ]
+                .iter()
+                .find(|operator| clause.contains(**operator))
+                .copied()
+                .unwrap_or("comparison");
+                return Some((clause, operator));
+            }
+            None
+        })
+    {
         return Some(format!(
             "Unsupported filter field in clause '{field}' ({operator})."
         ));
@@ -463,6 +468,31 @@ fn unsupported_universe_reason(text: &str) -> Option<String> {
             "in",
             "from",
             "of",
+            "rsi",
+            "revenue",
+            "growth",
+            "estimate",
+            "estimates",
+            "revision",
+            "revisions",
+            "price",
+            "change",
+            "momentum",
+            "above",
+            "below",
+            "over",
+            "under",
+            "greater",
+            "less",
+            "more",
+            "than",
+            "fewer",
+            "least",
+            "most",
+            "positive",
+            "negative",
+            "near",
+            "around",
         ];
         let boundary = [
             " with ",
@@ -1120,6 +1150,15 @@ mod tests {
         let field_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert!(
             field_failure
+                .availability_reason
+                .contains("Unsupported filter field")
+        );
+        request.natural_language =
+            "Find US stocks with RSI below 70 and EV/EBITDA below 10.".into();
+        let conjunction_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(conjunction_failure.state, ScreenerResultState::Failed);
+        assert!(
+            conjunction_failure
                 .availability_reason
                 .contains("Unsupported filter field")
         );
