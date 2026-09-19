@@ -262,9 +262,15 @@ fn add_predicate(
     else {
         return Ok(None);
     };
+    let remaining = &text[index + keyword.len()..];
+    let filter_end = ["rank by", "sort by", "order by"]
+        .iter()
+        .filter_map(|marker| remaining.find(marker))
+        .min()
+        .unwrap_or(remaining.len());
     if keywords
         .iter()
-        .any(|candidate| text[index + keyword.len()..].contains(candidate))
+        .any(|candidate| remaining[..filter_end].contains(candidate))
     {
         return Ok(Some(format!(
             "Multiple {field:?} conditions are unsupported."
@@ -1195,6 +1201,10 @@ mod tests {
         assert_eq!(predicates.len(), 2);
         assert_eq!(predicates[0].operator, ScreenerOperator::LessThan);
         assert_eq!(predicates[1].operator, ScreenerOperator::GreaterThan);
+        request.natural_language =
+            "Find stocks with price change above 0%, rank by momentum.".into();
+        let filter_and_rank = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(filter_and_rank.state, ScreenerResultState::Parsed);
         request.natural_language =
             "Find stocks with revenue growth above 15% and revenue growth below 50%.".into();
         let repeated_field = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
