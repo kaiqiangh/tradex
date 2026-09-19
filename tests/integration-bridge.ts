@@ -28,6 +28,8 @@ export function integrationBridge(): Plugin {
       let blockedWorkspaceId: string | undefined;
       let screenerBlocked = false;
       const blockedBootstrapRequestId = randomUUID();
+      let resolveBlockedBootstrap!: () => void;
+      const blockedBootstrapReady = new Promise<void>(resolve => { resolveBlockedBootstrap = resolve; });
       const clients = new Set<ServerResponse>();
       const pending = new Map<string, ServerResponse>();
       const blockedPending = new Map<string, { response: ServerResponse; command: string }>();
@@ -54,6 +56,7 @@ export function integrationBridge(): Plugin {
         if (frame.kind !== 'result') return;
         if (frame.result.requestId === blockedBootstrapRequestId && frame.result.ok) {
           blockedWorkspaceId = frame.result.data.workspaceId;
+          resolveBlockedBootstrap();
           return;
         }
         const pendingResult = blockedPending.get(frame.result.requestId);
@@ -108,6 +111,13 @@ export function integrationBridge(): Plugin {
             }
             const payload = JSON.parse(Buffer.concat(parts).toString());
             if (typeof payload.enabled !== 'boolean') { response.writeHead(400); response.end(); return; }
+            if (payload.enabled) {
+              await Promise.race([
+                blockedBootstrapReady,
+                new Promise(resolve => setTimeout(resolve, 3000)),
+              ]);
+              if (!blockedWorkspaceId) { response.writeHead(503); response.end(); return; }
+            }
             screenerBlocked = payload.enabled;
             response.writeHead(204); response.end();
           } catch { response.writeHead(400); response.end(); }
@@ -122,7 +132,7 @@ export function integrationBridge(): Plugin {
             parts.push(chunk);
           }
           const envelope = JSON.parse(Buffer.concat(parts).toString());
-          if (typeof envelope.requestId !== 'string' || pending.has(envelope.requestId)) { response.writeHead(400); response.end(); return; }
+          if (typeof envelope.requestId !== 'string' || pending.has(envelope.requestId) || blockedPending.has(envelope.requestId)) { response.writeHead(400); response.end(); return; }
           // The QA bridge owns only its fresh temporary tree, never a real user workspace.
           if (envelope.command === 'workspace.open' && envelope.payload?.path) {
             const path = resolve(envelope.payload.path);

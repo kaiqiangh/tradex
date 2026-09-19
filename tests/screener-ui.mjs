@@ -69,23 +69,24 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByRole('heading', { name: 'FAILED', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.evaluate(() => document.querySelector('#screener-natural-language')?.value), 'Find stocks with P/E below 20.');
     observed.push('Retry preserves the reviewed input and unsupported filters return a field-level failure.');
-    const blockedMode = await fetch('http://127.0.0.1:1420/__integration/screener-mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: true }),
-    });
-    assert.equal(blockedMode.status, 204);
-    await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
-    await ui.getByRole('heading', { name: 'BLOCKED EXTERNAL', exact: true }).waitFor({ state: 'visible' });
-    const blockedResult = ui.locator('.screener-results');
-    assert.match(await blockedResult.innerText(), /no network request was made|source(s) unavailable or unverified/i);
-    assert.equal(await ui.locator('.screener-candidate').count(), 0);
-    const fixtureMode = await fetch('http://127.0.0.1:1420/__integration/screener-mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: false }),
-    });
-    assert.equal(fixtureMode.status, 204);
+    const setScreenerMode = async enabled => {
+      const mode = await fetch('http://127.0.0.1:1420/__integration/screener-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      assert.equal(mode.status, 204);
+    };
+    await setScreenerMode(true);
+    try {
+      await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'BLOCKED EXTERNAL', exact: true }).waitFor({ state: 'visible' });
+      const blockedResult = ui.locator('.screener-results');
+      assert.match(await blockedResult.innerText(), /no network request was made|source(s) unavailable or unverified/i);
+      assert.equal(await ui.locator('.screener-candidate').count(), 0);
+    } finally {
+      await setScreenerMode(false);
+    }
     observed.push('The rendered non-fixture Rust-backed path announces BLOCKED EXTERNAL with no candidates; the helper also asserts natural-language focus.');
     await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');

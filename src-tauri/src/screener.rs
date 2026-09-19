@@ -138,9 +138,9 @@ fn validate_filter(spec: &FilterSpec) -> Result<()> {
 
 fn parse(request: &ScreenerRequest, received_timestamp: &str) -> Result<ScreenerResult> {
     let text = request.natural_language.to_lowercase();
-    let universe = if text.contains("crypto") || text.contains("spot") {
+    let universe = if contains_word(&text, "crypto") || contains_word(&text, "spot") {
         ScreenerUniverse::CryptoSpot
-    } else if text.contains("technology") || text.contains("tech") {
+    } else if contains_word(&text, "technology") || contains_word(&text, "tech") {
         ScreenerUniverse::UsLargeCapTechnology
     } else {
         ScreenerUniverse::UsEquities
@@ -408,11 +408,25 @@ fn unsupported_universe_reason(text: &str) -> Option<String> {
         ("foreign exchange", "foreign-exchange"),
         ("futures", "futures"),
         ("options", "options"),
+        ("biotech", "biotech"),
+        ("healthcare", "healthcare"),
+        ("health care", "healthcare"),
+        ("financial", "financials"),
+        ("finance", "financials"),
+        ("banking", "banking"),
+        ("energy", "energy"),
+        ("utilities", "utilities"),
+        ("industrials", "industrials"),
+        ("industrial", "industrials"),
     ]
     .iter()
     .find_map(|(term, label)| {
-        text.contains(term)
-            .then(|| format!("Unsupported universe: {label}."))
+        if term.contains(' ') || term.contains('-') {
+            text.contains(term)
+        } else {
+            contains_word(text, term)
+        }
+        .then(|| format!("Unsupported universe: {label}."))
     })
     .or_else(|| {
         let large_cap = text.contains("large-cap") || text.contains("large cap");
@@ -420,6 +434,11 @@ fn unsupported_universe_reason(text: &str) -> Option<String> {
         (large_cap && !technology)
             .then(|| "Unsupported universe: large-cap without technology scope.".into())
     })
+}
+
+fn contains_word(text: &str, word: &str) -> bool {
+    text.split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|token| token == word)
 }
 
 fn numeric_after(text: &str) -> Option<String> {
@@ -485,7 +504,7 @@ fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<S
         .iter()
         .find_map(|keyword| text.find(keyword).map(|index| &text[index..]))
         .map(|clause| clause.split([',', ';']).next().unwrap_or(clause));
-    let (field, reason) = if let Some(clause) = rank_clause {
+    let (field, mut reason) = if let Some(clause) = rank_clause {
         if clause.contains("momentum") || clause.contains("price change") {
             (ScreenerRankField::Momentum, None)
         } else if clause.contains("revision") {
@@ -505,7 +524,18 @@ fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<S
     } else {
         (ScreenerRankField::Quality, None)
     };
-    let direction = if text.contains("ascending")
+    let direction = if let Some(clause) = rank_clause {
+        reason = reason.or_else(|| unsupported_rank_direction(clause));
+        if clause.contains("ascending")
+            || clause.contains("lowest")
+            || clause.contains("smallest")
+            || clause.contains(" asc")
+        {
+            ScreenerDirection::Asc
+        } else {
+            ScreenerDirection::Desc
+        }
+    } else if text.contains("ascending")
         || text.contains("lowest")
         || text.contains("smallest")
         || text.contains(" asc")
@@ -515,6 +545,20 @@ fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<S
         ScreenerDirection::Desc
     };
     (field, direction, reason)
+}
+
+fn unsupported_rank_direction(clause: &str) -> Option<String> {
+    [
+        "randomly",
+        "random",
+        "shuffle",
+        "arbitrary",
+        "arbitrarily",
+        "balanced",
+    ]
+    .iter()
+    .find(|term| clause.contains(**term))
+    .map(|term| format!("Unsupported rank direction '{term}'."))
 }
 
 fn parse_limit(text: &str) -> (Option<u32>, Option<String>) {
@@ -1034,6 +1078,18 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported universe")
         );
+        request.natural_language = "Find biotech stocks with RSI below 70.".into();
+        let biotech = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(biotech.state, ScreenerResultState::Failed);
+        assert!(biotech.availability_reason.contains("Unsupported universe"));
+        request.natural_language = "Find healthcare stocks with RSI below 70.".into();
+        let healthcare = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(healthcare.state, ScreenerResultState::Failed);
+        assert!(
+            healthcare
+                .availability_reason
+                .contains("Unsupported universe")
+        );
         request.natural_language = "Find stocks with RSI below 70, rank by valuation.".into();
         let valuation = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(valuation.state, ScreenerResultState::Failed);
@@ -1041,6 +1097,15 @@ mod tests {
             valuation
                 .availability_reason
                 .contains("Unsupported rank field")
+        );
+        request.natural_language =
+            "Find stocks with RSI below 70, rank by quality randomly.".into();
+        let random_direction = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(random_direction.state, ScreenerResultState::Failed);
+        assert!(
+            random_direction
+                .availability_reason
+                .contains("Unsupported rank direction")
         );
         request.natural_language = "Find stocks with RSI below 70, top 100.".into();
         let over_limit = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
