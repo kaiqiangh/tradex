@@ -24,6 +24,8 @@ export async function checkScreenerUI(tab, browser) {
     const result = ui.locator('.screener-results');
     assert.match(await result.innerText(), /AAPL/);
     assert.match(await result.innerText(), /FX-SCREENER/);
+    assert.match(await result.innerText(), /Provider 2026-09-14T00:00:00Z/);
+    assert.match(await result.innerText(), /Received 2026-09-14T00:00:00Z/);
     assert.match(await result.innerText(), /SYNTHETIC_SCREENER_FIXTURE|Synthetic screener fixture/);
     observed.push('PARSE exposes FilterSpec/RankSpec, edits invalidate Run until revision recalculation, and fixture RUN renders canonical candidate/provenance evidence.');
 
@@ -35,6 +37,21 @@ export async function checkScreenerUI(tab, browser) {
       assert.equal(await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).isVisible(), true);
     }
     observed.push('Screener remains visible at 768px/390px without page overflow.');
+    await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
+    await query.fill('Find stocks with P/E below 20.');
+    await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
+    assert.match(await ui.getByRole('alert').innerText(), /Unsupported filter field/);
+    observed.push('Retry preserves the reviewed input and unsupported filters return a field-level failure.');
+    await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
+    await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Open equity:US:AAPL market detail', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Apple Inc.', exact: true }).waitFor({ state: 'visible' });
+    assert.match(await ui.locator('.market-detail').innerText(), /equity:US:AAPL/);
+    observed.push('Candidate rows open the canonical Market detail while preserving the exact instrument ID.');
     assert.equal((await tab.dev.logs({ levels: ['warn', 'error'], limit: 20 })).length, 0);
     return observed;
   } finally { await viewport.reset(); }

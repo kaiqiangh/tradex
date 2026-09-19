@@ -293,6 +293,8 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .screener-results-blocked_external, .screener-results-failed { border-top-color: #fde68a; }
 .screener-candidates { display: grid; gap: 8px; min-width: 0; }
 .screener-candidate { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.screener-candidate-button { display: grid; gap: 8px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.screener-candidate-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 .screener-candidate > div:first-child { display: grid; gap: 3px; }
 .screener-candidate small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .screener-feature-list { display: flex; gap: 6px; flex-wrap: wrap; }

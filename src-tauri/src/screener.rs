@@ -25,6 +25,9 @@ pub fn screen(
     if request.operation == ScreenerOperation::Parse {
         return Ok(parsed);
     }
+    if parsed.state != ScreenerResultState::Parsed {
+        return Ok(parsed);
+    }
     let Some(filter_spec) = request.filter_spec.as_ref() else {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     };
@@ -143,38 +146,48 @@ fn parse(request: &ScreenerRequest, received_timestamp: &str) -> Result<Screener
         ScreenerUniverse::UsEquities
     };
     let mut predicates = Vec::new();
-    add_predicate(
+    let mut unsupported_reason = None;
+    if let Some(reason) = add_predicate(
         &text,
         &["revenue growth", "growth"],
         ScreenerPredicateField::RevenueGrowth,
         "0.15",
         true,
         &mut predicates,
-    )?;
-    add_predicate(
+    )? {
+        unsupported_reason = Some(reason);
+    }
+    if let Some(reason) = add_predicate(
         &text,
         &["estimate revision", "estimate revisions", "revisions"],
         ScreenerPredicateField::EstimateRevision,
         "0",
         true,
         &mut predicates,
-    )?;
-    add_predicate(
+    )? {
+        unsupported_reason.get_or_insert(reason);
+    }
+    if let Some(reason) = add_predicate(
         &text,
         &["rsi"],
         ScreenerPredicateField::Rsi,
         "70",
         false,
         &mut predicates,
-    )?;
-    add_predicate(
+    )? {
+        unsupported_reason.get_or_insert(reason);
+    }
+    if let Some(reason) = add_predicate(
         &text,
         &["price change", "momentum"],
         ScreenerPredicateField::PriceChange,
         "0",
         true,
         &mut predicates,
-    )?;
+    )? {
+        unsupported_reason.get_or_insert(reason);
+    }
+    unsupported_reason = unsupported_reason.or_else(|| unsupported_filter_reason(&text));
     let (rank_field, direction) = rank_from_text(&text);
     let rank_spec = RankSpec {
         field: rank_field,
@@ -189,19 +202,23 @@ fn parse(request: &ScreenerRequest, received_timestamp: &str) -> Result<Screener
     validate_filter(&filter_spec)?;
     let rank_spec = request.rank_spec.clone().unwrap_or(rank_spec);
     let limit = request.limit.unwrap_or(limit);
-    let (state, reason, limitations) = if filter_spec.predicates.is_empty() {
-        (
+    let (state, reason, limitations) = match unsupported_reason {
+        Some(reason) => (
+            ScreenerResultState::Failed,
+            reason.clone(),
+            vec![format!("SCREENER_FILTER_UNSUPPORTED: {reason}")],
+        ),
+        None if filter_spec.predicates.is_empty() => (
             ScreenerResultState::Failed,
             "No supported screener predicate was found in the request.".into(),
             vec!["SCREENER_FILTER_UNSUPPORTED".into()],
-        )
-    } else {
-        (
+        ),
+        None => (
             ScreenerResultState::Parsed,
             "Natural-language conditions were parsed into a bounded FilterSpec and RankSpec."
                 .into(),
             Vec::new(),
-        )
+        ),
     };
     let revision = revision_for(request, &filter_spec, &rank_spec, limit)?;
     Ok(ScreenerResult {
@@ -232,16 +249,22 @@ fn add_predicate(
     default: &str,
     percent: bool,
     predicates: &mut Vec<ScreenerPredicate>,
-) -> Result<()> {
+) -> Result<Option<String>> {
     let Some(index) = keywords
         .iter()
         .filter_map(|keyword| text.find(keyword))
         .min()
     else {
-        return Ok(());
+        return Ok(None);
     };
     let suffix = &text[index..text.len().min(index + 96)];
-    let raw = numeric_after(suffix).unwrap_or_else(|| default.to_owned());
+    let raw = match numeric_after(suffix) {
+        Some(value) => value,
+        None if has_explicit_operator(suffix.split([',', ';']).next().unwrap_or_default()) => {
+            return Ok(Some(format!("Missing threshold for {field:?}.")));
+        }
+        None => default.to_owned(),
+    };
     let threshold = if percent || raw.ends_with('%') {
         percent_to_decimal(raw.trim_end_matches('%'))?
     } else {
@@ -252,7 +275,84 @@ fn add_predicate(
         operator: operator_before(text, index),
         threshold,
     });
-    Ok(())
+    Ok(None)
+}
+
+fn has_explicit_operator(text: &str) -> bool {
+    [
+        "above",
+        "below",
+        "over",
+        "under",
+        "greater",
+        "less",
+        "at least",
+        "at most",
+        "more than",
+        "fewer than",
+        ">",
+        "<",
+    ]
+    .iter()
+    .any(|operator| text.contains(operator))
+}
+
+fn unsupported_filter_reason(text: &str) -> Option<String> {
+    if let Some((field, operator)) = text.split([',', ';']).find_map(|clause| {
+        let clause = clause.trim();
+        let has_supported_field = [
+            "revenue growth",
+            "growth",
+            "estimate revision",
+            "revisions",
+            "rsi",
+            "price change",
+            "momentum",
+        ]
+        .iter()
+        .any(|field| clause.contains(field));
+        if has_explicit_operator(clause) && !has_supported_field {
+            let operator = [
+                "above",
+                "below",
+                "over",
+                "under",
+                "greater",
+                "less",
+                "at least",
+                "at most",
+                "more than",
+                "fewer than",
+            ]
+            .iter()
+            .find(|operator| clause.contains(**operator))
+            .copied()
+            .unwrap_or("comparison");
+            return Some((clause, operator));
+        }
+        None
+    }) {
+        return Some(format!(
+            "Unsupported filter field in clause '{field}' ({operator})."
+        ));
+    }
+    [
+        ("p/e", "price-to-earnings"),
+        ("pe ratio", "price-to-earnings"),
+        ("price/earnings", "price-to-earnings"),
+        ("price to earnings", "price-to-earnings"),
+        ("market cap", "market capitalization"),
+        ("market capitalization", "market capitalization"),
+        ("dividend", "dividend"),
+        ("volatility", "volatility"),
+        ("volume", "volume"),
+        ("sector", "sector"),
+    ]
+    .iter()
+    .find_map(|(term, label)| {
+        text.contains(term)
+            .then(|| format!("Unsupported filter field: {label}."))
+    })
 }
 
 fn numeric_after(text: &str) -> Option<String> {
@@ -781,11 +881,33 @@ mod tests {
     fn unsupported_language_is_explicit() {
         let mut request = request(ScreenerOperation::Parse);
         request.natural_language = "find unusual companies".into();
-        assert_eq!(
-            screen(&request, &[], FIXTURE_TIMESTAMP, false)
-                .unwrap()
-                .state,
-            ScreenerResultState::Failed
+        let parsed = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(parsed.state, ScreenerResultState::Failed);
+        assert!(
+            parsed
+                .limitations
+                .iter()
+                .any(|value| value.contains("SCREENER_FILTER_UNSUPPORTED"))
         );
+        request.natural_language = "Find stocks with P/E below 20.".into();
+        let field_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert!(
+            field_failure
+                .availability_reason
+                .contains("Unsupported filter field")
+        );
+    }
+
+    #[test]
+    fn run_cannot_bypass_failed_parse() {
+        let mut run = request(ScreenerOperation::Run);
+        run.natural_language = "find unusual companies".into();
+        let parsed = screen(&run, &[], FIXTURE_TIMESTAMP, true).unwrap();
+        run.filter_spec = parsed.filter_spec;
+        run.rank_spec = parsed.rank_spec;
+        run.revision = parsed.revision;
+        let result = screen(&run, &[], FIXTURE_TIMESTAMP, true).unwrap();
+        assert_eq!(result.state, ScreenerResultState::Failed);
+        assert!(result.candidates.is_empty());
     }
 }
