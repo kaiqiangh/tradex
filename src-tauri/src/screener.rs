@@ -258,9 +258,15 @@ fn add_predicate(
         return Ok(None);
     };
     let suffix = &text[index..text.len().min(index + 96)];
+    let clause = suffix.split([',', ';']).next().unwrap_or_default();
+    if let Some(operator) = unsupported_operator(clause) {
+        return Ok(Some(format!(
+            "Unsupported operator '{operator}' for {field:?}."
+        )));
+    }
     let raw = match numeric_after(suffix) {
         Some(value) => value,
-        None if has_explicit_operator(suffix.split([',', ';']).next().unwrap_or_default()) => {
+        None if has_explicit_operator(clause) => {
             return Ok(Some(format!("Missing threshold for {field:?}.")));
         }
         None => default.to_owned(),
@@ -295,6 +301,20 @@ fn has_explicit_operator(text: &str) -> bool {
     ]
     .iter()
     .any(|operator| text.contains(operator))
+}
+
+fn unsupported_operator(text: &str) -> Option<&'static str> {
+    [
+        "around",
+        "approximately",
+        "roughly",
+        "between",
+        "equal",
+        "not",
+    ]
+    .iter()
+    .find(|operator| text.contains(**operator))
+    .copied()
 }
 
 fn unsupported_filter_reason(text: &str) -> Option<String> {
@@ -383,10 +403,12 @@ fn operator_before(text: &str, index: usize) -> ScreenerOperator {
     if before.contains("below")
         || before.contains("under")
         || before.contains("less")
+        || before.contains("fewer than")
         || before.contains('<')
         || after.contains("below")
         || after.contains("under")
         || after.contains("less")
+        || after.contains("fewer than")
         || after.contains('<')
     {
         ScreenerOperator::LessThan
@@ -896,6 +918,15 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported filter field")
         );
+        request.natural_language = "RSI fewer than 70".into();
+        let fewer = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(
+            fewer.filter_spec.unwrap().predicates[0].operator,
+            ScreenerOperator::LessThan
+        );
+        request.natural_language = "RSI around 70".into();
+        let around = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert!(around.availability_reason.contains("Unsupported operator"));
     }
 
     #[test]

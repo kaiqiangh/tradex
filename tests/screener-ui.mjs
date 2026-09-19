@@ -27,7 +27,26 @@ export async function checkScreenerUI(tab, browser) {
     assert.match(await result.innerText(), /Provider 2026-09-14T00:00:00Z/);
     assert.match(await result.innerText(), /Received 2026-09-14T00:00:00Z/);
     assert.match(await result.innerText(), /SYNTHETIC_SCREENER_FIXTURE|Synthetic screener fixture/);
+    assert.equal(await result.getAttribute('aria-live'), 'polite');
+    const wideSize = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+    assert.ok(wideSize.scroll <= wideSize.width, `Screener page overflow at 1280px: ${JSON.stringify(wideSize)}`);
     observed.push('PARSE exposes FilterSpec/RankSpec, edits invalidate Run until revision recalculation, and fixture RUN renders canonical candidate/provenance evidence.');
+
+    await threshold.fill('1');
+    assert.equal(await ui.getByRole('button', { name: 'Run screen', exact: true }).isEnabled(), false);
+    assert.match(await ui.getByRole('status').innerText(), /Conditions changed/);
+    await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'EMPTY', exact: true }).waitFor({ state: 'visible' });
+    assert.match(await ui.locator('.screener-results').innerText(), /0 candidates|No candidates matched/);
+    await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'EMPTY', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.evaluate(() => document.querySelector('#screener-natural-language')?.value), 'US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
+    await threshold.fill('0.20');
+    await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
+    observed.push('Stale edits, EMPTY state, aria-live result announcements and retry input preservation are asserted.');
 
     for (const width of [768, 390]) {
       await viewport.set({ width, height: 900 });
@@ -42,6 +61,11 @@ export async function checkScreenerUI(tab, browser) {
     await query.fill('Find stocks with P/E below 20.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
     assert.match(await ui.getByRole('alert').innerText(), /Unsupported filter field/);
+    await ui.getByRole('heading', { name: 'FAILED', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.locator('.screener-results').getAttribute('aria-live'), 'polite');
+    await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'FAILED', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.evaluate(() => document.querySelector('#screener-natural-language')?.value), 'Find stocks with P/E below 20.');
     observed.push('Retry preserves the reviewed input and unsupported filters return a field-level failure.');
     await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
