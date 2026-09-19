@@ -1,5 +1,6 @@
 // Browser QA calls the same Rust dispatcher over inherited stdio. Never included in a desktop build.
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
@@ -24,9 +25,12 @@ export function integrationBridge(): Plugin {
         stdio: ['pipe', 'pipe', 'inherit'],
         env: blockedEnv,
       });
+      let blockedWorkspaceId: string | undefined;
+      let screenerBlocked = false;
+      const blockedBootstrapRequestId = randomUUID();
       const clients = new Set<ServerResponse>();
       const pending = new Map<string, ServerResponse>();
-      const blockedPending = new Map<string, ServerResponse>();
+      const blockedPending = new Map<string, { response: ServerResponse; command: string }>();
       createInterface({ input: child.stdout }).on('line', line => {
         const frame = JSON.parse(line);
         if (frame.kind === 'event') {
@@ -48,17 +52,34 @@ export function integrationBridge(): Plugin {
       createInterface({ input: blockedChild.stdout }).on('line', line => {
         const frame = JSON.parse(line);
         if (frame.kind !== 'result') return;
-        const response = blockedPending.get(frame.result.requestId);
-        if (response) { response.end(JSON.stringify(frame.result)); blockedPending.delete(frame.result.requestId); }
+        if (frame.result.requestId === blockedBootstrapRequestId && frame.result.ok) {
+          blockedWorkspaceId = frame.result.data.workspaceId;
+          return;
+        }
+        const pendingResult = blockedPending.get(frame.result.requestId);
+        if (pendingResult) {
+          if (pendingResult.command === 'workspace.open' && frame.result.ok) blockedWorkspaceId = frame.result.data.workspaceId;
+          pendingResult.response.end(JSON.stringify(frame.result));
+          blockedPending.delete(frame.result.requestId);
+        }
       });
       blockedChild.on('exit', () => {
-        for (const response of blockedPending.values()) { response.writeHead(503); response.end(); }
+        for (const { response } of blockedPending.values()) { response.writeHead(503); response.end(); }
         blockedPending.clear();
       });
+      const cleanup = (path: string) => () => rmSync(path, { recursive: true, force: true });
+      child.once('exit', cleanup(directory));
+      child.once('error', cleanup(directory));
+      blockedChild.once('exit', cleanup(blockedDirectory));
+      blockedChild.once('error', cleanup(blockedDirectory));
+      blockedChild.stdin.write(JSON.stringify({
+        requestId: blockedBootstrapRequestId,
+        schemaVersion: 1,
+        command: 'workspace.open',
+        payload: {},
+      }) + '\n');
       server.httpServer?.once('close', () => {
-        child.once('exit', () => rmSync(directory, { recursive: true, force: true }));
         child.kill();
-        blockedChild.once('exit', () => rmSync(blockedDirectory, { recursive: true, force: true }));
         blockedChild.kill();
       });
       server.middlewares.use('/__integration', async (request, response) => {
@@ -77,25 +98,19 @@ export function integrationBridge(): Plugin {
           request.on('close', () => clients.delete(response));
           return;
         }
-        if (request.url === '/blocked-command' && request.method === 'POST') {
+        if (request.url === '/screener-mode' && request.method === 'POST') {
           try {
             const parts: Buffer[] = []; let size = 0;
             for await (const chunk of request) {
               size += chunk.length;
-              if (size > 60_000) { response.writeHead(413); response.end(); return; }
+              if (size > 100) { response.writeHead(413); response.end(); return; }
               parts.push(chunk);
             }
-            const envelope = JSON.parse(Buffer.concat(parts).toString());
-            if (typeof envelope.requestId !== 'string' || blockedPending.has(envelope.requestId)
-              || !['workspace.open', 'market.screen'].includes(envelope.command)) {
-              response.writeHead(400); response.end(); return;
-            }
-            response.setHeader('Content-Type', 'application/json');
-            response.setHeader('Cache-Control', 'no-store');
-            blockedPending.set(envelope.requestId, response);
-            response.on('close', () => blockedPending.delete(envelope.requestId));
-            blockedChild.stdin.write(JSON.stringify(envelope) + '\n');
-          } catch { if (!response.headersSent) response.writeHead(400); response.end(); }
+            const payload = JSON.parse(Buffer.concat(parts).toString());
+            if (typeof payload.enabled !== 'boolean') { response.writeHead(400); response.end(); return; }
+            screenerBlocked = payload.enabled;
+            response.writeHead(204); response.end();
+          } catch { response.writeHead(400); response.end(); }
           return;
         }
         if (request.url !== '/command' || request.method !== 'POST') { response.writeHead(404); response.end(); return; }
@@ -112,6 +127,16 @@ export function integrationBridge(): Plugin {
           if (envelope.command === 'workspace.open' && envelope.payload?.path) {
             const path = resolve(envelope.payload.path);
             if (!path.startsWith(directory + sep)) { response.writeHead(403); response.end(); return; }
+          }
+          if (screenerBlocked && envelope.command === 'market.screen') {
+            if (!blockedWorkspaceId) { response.writeHead(503); response.end(); return; }
+            envelope.payload = { ...envelope.payload, workspaceId: blockedWorkspaceId };
+            response.setHeader('Content-Type', 'application/json');
+            response.setHeader('Cache-Control', 'no-store');
+            blockedPending.set(envelope.requestId, { response, command: envelope.command });
+            response.on('close', () => blockedPending.delete(envelope.requestId));
+            blockedChild.stdin.write(JSON.stringify(envelope) + '\n');
+            return;
           }
           response.setHeader('Content-Type', 'application/json');
           response.setHeader('Cache-Control', 'no-store');

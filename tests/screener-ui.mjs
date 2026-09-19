@@ -1,19 +1,5 @@
 // Run with a Codex browser tab against `npm run dev:browser` after checkWorkspaceUI.
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
-
-async function blockedCommand(command, payload) {
-  const requestId = randomUUID();
-  const response = await fetch('http://127.0.0.1:1420/__integration/blocked-command', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requestId, schemaVersion: 1, command, payload }),
-  });
-  assert.equal(response.status, 200, `${command} blocked transport should stay available`);
-  const result = await response.json();
-  assert.equal(result.requestId, requestId, `${command} blocked response should match its request`);
-  return result;
-}
 
 export async function checkScreenerUI(tab, browser) {
   const ui = tab.playwright;
@@ -83,31 +69,24 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByRole('heading', { name: 'FAILED', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.evaluate(() => document.querySelector('#screener-natural-language')?.value), 'Find stocks with P/E below 20.');
     observed.push('Retry preserves the reviewed input and unsupported filters return a field-level failure.');
-    const blockedWorkspace = await blockedCommand('workspace.open', {});
-    assert.equal(blockedWorkspace.ok, true, JSON.stringify(blockedWorkspace));
-    const blockedWorkspaceId = blockedWorkspace.data.workspaceId;
-    const blockedNaturalLanguage = 'US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.';
-    const blockedParsed = await blockedCommand('market.screen', {
-      workspaceId: blockedWorkspaceId,
-      operation: 'PARSE',
-      naturalLanguage: blockedNaturalLanguage,
-      focus: 'EQUITY',
+    const blockedMode = await fetch('http://127.0.0.1:1420/__integration/screener-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: true }),
     });
-    assert.equal(blockedParsed.ok, true, JSON.stringify(blockedParsed));
-    const blockedRun = await blockedCommand('market.screen', {
-      workspaceId: blockedWorkspaceId,
-      operation: 'RUN',
-      naturalLanguage: blockedNaturalLanguage,
-      focus: 'EQUITY',
-      filterSpec: blockedParsed.data.filterSpec,
-      rankSpec: blockedParsed.data.rankSpec,
-      revision: blockedParsed.data.revision,
-      limit: 10,
+    assert.equal(blockedMode.status, 204);
+    await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'BLOCKED EXTERNAL', exact: true }).waitFor({ state: 'visible' });
+    const blockedResult = ui.locator('.screener-results');
+    assert.match(await blockedResult.innerText(), /no network request was made|source(s) unavailable or unverified/i);
+    assert.equal(await ui.locator('.screener-candidate').count(), 0);
+    const fixtureMode = await fetch('http://127.0.0.1:1420/__integration/screener-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: false }),
     });
-    assert.equal(blockedRun.ok, true, JSON.stringify(blockedRun));
-    assert.equal(blockedRun.data.state, 'BLOCKED_EXTERNAL');
-    assert.equal(blockedRun.data.candidates.length, 0);
-    observed.push('A separate Rust-backed non-fixture bridge returns BLOCKED_EXTERNAL with no candidates; the UI path asserts natural-language focus.');
+    assert.equal(fixtureMode.status, 204);
+    observed.push('The rendered non-fixture Rust-backed path announces BLOCKED EXTERNAL with no candidates; the helper also asserts natural-language focus.');
     await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
