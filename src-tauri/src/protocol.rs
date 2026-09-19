@@ -354,7 +354,65 @@ pub struct ThreadContextRef {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ResearchResultState {
+    Available,
+    Degraded,
     Unavailable,
+    BlockedExternal,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ResearchFocus {
+    General,
+    Equity,
+    CryptoSpot,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ResearchFreshness {
+    Healthy,
+    Stale,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ResearchQuality {
+    Verified,
+    Degraded,
+    Unknown,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchFinding {
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub detail: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchProvenance {
+    #[schemars(length(min = 1, max = 128))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 160))]
+    pub provider: String,
+    pub status: DataSourceStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_timestamp: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub received_timestamp: String,
+    pub freshness: ResearchFreshness,
+    pub quality: ResearchQuality,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 512))]
+    pub limitation: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -363,6 +421,20 @@ pub struct ResearchToolPayload {
     pub state: ResearchResultState,
     #[schemars(length(min = 1, max = 256))]
     pub reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<ResearchFocus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 512))]
+    pub conclusion: Option<String>,
+    #[serde(default)]
+    #[schemars(length(max = 8))]
+    pub findings: Vec<ResearchFinding>,
+    #[serde(default)]
+    #[schemars(length(max = 8))]
+    pub evidence: Vec<ResearchProvenance>,
+    #[serde(default)]
+    #[schemars(length(max = 8))]
+    pub limitations: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -379,6 +451,8 @@ pub struct ResearchToolRequest {
     )]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub account_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<ResearchFocus>,
     #[schemars(length(max = 32))]
     pub attached_contexts: Vec<ThreadContextRef>,
     pub tool_id: ResearchToolId,
@@ -390,6 +464,8 @@ pub struct ResearchToolRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResearchToolInvocation {
     pub tool_id: ResearchToolId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<ResearchFocus>,
     #[schemars(length(min = 1, max = 100_000))]
     pub query: String,
 }

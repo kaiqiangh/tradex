@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createPortal } from 'react-dom';
-import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TimeStatus, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
+import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchFocus, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TimeStatus, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { Models } from './Models.tsx';
@@ -315,6 +315,7 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
   const [mode, setMode] = useState<AgentMode>(thread.defaultAgentMode);
   const [execution, setExecution] = useState<ExecutionContext>(thread.defaultExecutionContext);
   const [accountId, setAccountId] = useState(thread.accountId ?? '');
+  const [researchFocus, setResearchFocus] = useState<ResearchFocus>('GENERAL');
   const [pendingContexts, setPendingContexts] = useState<ThreadContextRef[]>(thread.linkedContexts);
   const [researchPreview, setResearchPreview] = useState<{ invocation: ResearchToolInvocation; result: ResearchToolResult }>();
   const [researchBusy, setResearchBusy] = useState(false);
@@ -324,13 +325,14 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
     setMode(thread.defaultAgentMode);
     setExecution(thread.defaultExecutionContext);
     setAccountId(thread.accountId ?? '');
+    setResearchFocus('GENERAL');
     setPendingContexts(thread.linkedContexts);
     setResearchPreview(undefined);
     setError(undefined);
   }, [thread.threadId, thread.stateVersion]);
   useEffect(() => {
     setResearchPreview(undefined);
-  }, [mode, execution, accountId, pendingContexts]);
+  }, [mode, execution, accountId, pendingContexts, researchFocus]);
   const selectedModel = thread.model ?? routeAsThreadModel(verifiedDefaultRoute(model));
   const capability = useQuery({
     queryKey: ['agent-capability', thread.workspaceId, mode, execution, accountId, pendingContexts],
@@ -350,12 +352,13 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
     const query = message.trim() || 'Preview typed research context';
     setResearchBusy(true); setError(undefined);
     try {
-      const invocation: ResearchToolInvocation = { toolId: definition.id, query };
+      const invocation: ResearchToolInvocation = { toolId: definition.id, focus: researchFocus, query };
       const result = await request('research.run', {
         workspaceId: thread.workspaceId,
         agentMode: mode,
         executionContext: execution,
         ...(accountId ? { accountId } : {}),
+        focus: researchFocus,
         attachedContexts: pendingContexts,
         toolId: invocation.toolId,
         query: invocation.query,
@@ -399,7 +402,7 @@ function TurnComposer({ thread, model, runtime }: { thread: Thread; model?: Mode
       </div>
       <ContextPicker workspaceId={thread.workspaceId} pending={pendingContexts} onAttach={contexts => { setPendingContexts(contexts); setResearchPreview(undefined); }} mode={mode} />
       <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
-      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><button type="button" onClick={() => void previewResearch()} disabled={!ready || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button>{researchPreview && <div className="research-result" role="status"><strong>Typed result · {researchPreview.result.payload.state}</strong><span>{researchPreview.result.payload.reason}</span><code data-research-marker>{researchPreview.result.marker}</code><small>Source: {researchPreview.result.sourceId} · Context refs: {formatContextRefs(researchPreview.result.contextRefs)}</small></div>}</section>}
+      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><label className="field">Research focus<select value={researchFocus} onChange={event => { setResearchFocus(event.target.value as ResearchFocus); setResearchPreview(undefined); }} disabled={busy}><option value="GENERAL">General</option><option value="EQUITY">Equities</option><option value="CRYPTO_SPOT">Crypto spot</option></select></label><button type="button" onClick={() => void previewResearch()} disabled={!ready || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button>{researchPreview && <div className="research-result" role="status"><strong>Typed result · {researchPreview.result.payload.state}</strong><span>{researchPreview.result.payload.reason}</span>{researchPreview.result.payload.conclusion && <p>{researchPreview.result.payload.conclusion}</p>}{(researchPreview.result.payload.findings ?? []).map(finding => <span key={finding.title}><b>{finding.title}:</b> {finding.detail}</span>)}{(researchPreview.result.payload.evidence ?? []).map(source => <small key={`${source.sourceId}:${source.receivedTimestamp}`}>Source: {source.sourceId} · {source.provider} · {source.status} · received {source.receivedTimestamp}</small>)}{(researchPreview.result.payload.limitations ?? []).map(limitation => <span key={limitation}>Limit: {limitation}</span>)}<code data-research-marker>{researchPreview.result.marker}</code><small>Context refs: {formatContextRefs(researchPreview.result.contextRefs)}</small></div>}</section>}
       {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
       {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
       {error && <p className="error-text" role="alert">{error}</p>}

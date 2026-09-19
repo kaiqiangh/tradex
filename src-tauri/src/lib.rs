@@ -1175,14 +1175,22 @@ impl ControlPlane {
                     completed_at: Some(now.clone()),
                 }];
                 if let Some(result) = &research_result {
+                    let mut content = result
+                        .payload
+                        .conclusion
+                        .clone()
+                        .unwrap_or_else(|| result.payload.reason.clone());
+                    if !result.payload.limitations.is_empty() {
+                        content.push_str("\nLimitations: ");
+                        content.push_str(&result.payload.limitations.join("; "));
+                    }
+                    content.push_str("\nResult marker: ");
+                    content.push_str(&result.marker);
                     items.push(ThreadItem {
                         item_id: result.result_id.clone(),
                         item_type: "research_result".into(),
                         status: protocol::ItemStatus::Completed,
-                        content: format!(
-                            "{}\nResult marker: {}",
-                            result.payload.reason, result.marker
-                        ),
+                        content,
                         source_id: Some(result.source_id.clone()),
                         started_at: now.clone(),
                         completed_at: Some(now.clone()),
@@ -3022,6 +3030,7 @@ mod thread_tests {
         ));
         assert_eq!(result["ok"], true);
         assert_eq!(result["data"]["sourceId"], "OD-001");
+        assert_eq!(result["data"]["payload"]["state"], "UNAVAILABLE");
         assert!(
             result["data"]["payload"]["reason"]
                 .as_str()
@@ -3033,6 +3042,14 @@ mod thread_tests {
                 .as_str()
                 .unwrap()
                 .starts_with("research:v1:sha256:")
+        );
+        assert_eq!(
+            result["data"]["payload"]["evidence"][0]["sourceId"],
+            "OD-001"
+        );
+        assert_eq!(
+            result["data"]["payload"]["evidence"][0]["receivedTimestamp"],
+            "UNAVAILABLE"
         );
         assert!(
             !result["data"]["payload"]["reason"]

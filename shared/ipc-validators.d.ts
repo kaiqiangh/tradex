@@ -91,6 +91,11 @@ declare const validators: {
   ProviderSelection: (value: unknown) => boolean;
   Remediation: (value: unknown) => boolean;
   ReplyData: (value: unknown) => boolean;
+  ResearchFinding: (value: unknown) => boolean;
+  ResearchFocus: (value: unknown) => boolean;
+  ResearchFreshness: (value: unknown) => boolean;
+  ResearchProvenance: (value: unknown) => boolean;
+  ResearchQuality: (value: unknown) => boolean;
   ResearchResultState: (value: unknown) => boolean;
   ResearchToolDefinition: (value: unknown) => boolean;
   ResearchToolId: (value: unknown) => boolean;

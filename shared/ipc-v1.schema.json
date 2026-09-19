@@ -3164,10 +3164,110 @@
         }
       ]
     },
+    "ResearchFinding": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "detail"
+      ]
+    },
+    "ResearchFocus": {
+      "type": "string",
+      "enum": [
+        "GENERAL",
+        "EQUITY",
+        "CRYPTO_SPOT"
+      ]
+    },
+    "ResearchFreshness": {
+      "type": "string",
+      "enum": [
+        "HEALTHY",
+        "STALE",
+        "UNAVAILABLE"
+      ]
+    },
+    "ResearchProvenance": {
+      "type": "object",
+      "properties": {
+        "freshness": {
+          "$ref": "#/$defs/ResearchFreshness"
+        },
+        "limitation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "maxLength": 160,
+          "minLength": 1
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/ResearchQuality"
+        },
+        "receivedTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "provider",
+        "status",
+        "receivedTimestamp",
+        "freshness",
+        "quality"
+      ]
+    },
+    "ResearchQuality": {
+      "type": "string",
+      "enum": [
+        "VERIFIED",
+        "DEGRADED",
+        "UNKNOWN",
+        "UNAVAILABLE"
+      ]
+    },
     "ResearchResultState": {
       "type": "string",
       "enum": [
-        "UNAVAILABLE"
+        "AVAILABLE",
+        "DEGRADED",
+        "UNAVAILABLE",
+        "BLOCKED_EXTERNAL",
+        "FAILED"
       ]
     },
     "ResearchToolDefinition": {
@@ -3210,6 +3310,16 @@
     "ResearchToolInvocation": {
       "type": "object",
       "properties": {
+        "focus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "query": {
           "type": "string",
           "maxLength": 100000,
@@ -3228,6 +3338,48 @@
     "ResearchToolPayload": {
       "type": "object",
       "properties": {
+        "conclusion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResearchProvenance"
+          },
+          "maxItems": 8
+        },
+        "findings": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResearchFinding"
+          },
+          "maxItems": 8
+        },
+        "focus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8
+        },
         "reason": {
           "type": "string",
           "maxLength": 256,
@@ -3263,6 +3415,16 @@
         },
         "executionContext": {
           "$ref": "#/$defs/ExecutionContext"
+        },
+        "focus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "query": {
           "type": "string",
