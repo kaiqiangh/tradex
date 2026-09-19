@@ -265,7 +265,10 @@ fn add_predicate(
         )));
     }
     let raw = match numeric_after(suffix) {
-        Some(value) => value,
+        Some(value) if has_explicit_operator(clause) => value,
+        Some(_) => {
+            return Ok(Some(format!("Unsupported operator for {field:?}.")));
+        }
         None if has_explicit_operator(clause) => {
             return Ok(Some(format!("Missing threshold for {field:?}.")));
         }
@@ -304,10 +307,16 @@ fn has_explicit_operator(text: &str) -> bool {
 }
 
 fn unsupported_operator(text: &str) -> Option<&'static str> {
+    if text.contains('=') && !text.contains(">=") && !text.contains("<=") {
+        return Some("=");
+    }
     [
         "around",
         "approximately",
         "roughly",
+        "near",
+        "close to",
+        "about",
         "between",
         "equal",
         "not",
@@ -400,7 +409,19 @@ fn numeric_after(text: &str) -> Option<String> {
 fn operator_before(text: &str, index: usize) -> ScreenerOperator {
     let before = &text[index.saturating_sub(36)..index];
     let after = text[index..].split([',', ';']).next().unwrap_or_default();
-    if before.contains("below")
+    if before.contains("<=")
+        || after.contains("<=")
+        || before.contains("at most")
+        || after.contains("at most")
+    {
+        ScreenerOperator::LessOrEqual
+    } else if before.contains(">=")
+        || after.contains(">=")
+        || before.contains("at least")
+        || after.contains("at least")
+    {
+        ScreenerOperator::GreaterOrEqual
+    } else if before.contains("below")
         || before.contains("under")
         || before.contains("less")
         || before.contains("fewer than")
@@ -412,19 +433,9 @@ fn operator_before(text: &str, index: usize) -> ScreenerOperator {
         || after.contains('<')
     {
         ScreenerOperator::LessThan
-    } else if before.contains("at least")
-        || before.contains("or more")
-        || before.contains(">=")
-        || after.contains("at least")
-        || after.contains("or more")
-        || after.contains(">=")
-    {
+    } else if before.contains("or more") || after.contains("or more") {
         ScreenerOperator::GreaterOrEqual
-    } else if before.contains("at most")
-        || before.contains("or less")
-        || after.contains("at most")
-        || after.contains("or less")
-    {
+    } else if before.contains("or less") || after.contains("or less") {
         ScreenerOperator::LessOrEqual
     } else {
         ScreenerOperator::GreaterThan
@@ -927,6 +938,15 @@ mod tests {
         request.natural_language = "RSI around 70".into();
         let around = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert!(around.availability_reason.contains("Unsupported operator"));
+        request.natural_language = "RSI <= 70".into();
+        let less_or_equal = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(
+            less_or_equal.filter_spec.unwrap().predicates[0].operator,
+            ScreenerOperator::LessOrEqual
+        );
+        request.natural_language = "RSI near 70".into();
+        let near = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert!(near.availability_reason.contains("Unsupported operator"));
     }
 
     #[test]
