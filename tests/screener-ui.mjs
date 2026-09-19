@@ -77,9 +77,12 @@ export async function checkScreenerUI(tab, browser) {
       });
       assert.equal(mode.status, 204);
     };
+    await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
+    await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'FilterSpec and RankSpec', exact: true }).waitFor({ state: 'visible' });
     await setScreenerMode(true);
     try {
-      await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
+      await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'BLOCKED EXTERNAL', exact: true }).waitFor({ state: 'visible' });
       const blockedResult = ui.locator('.screener-results');
       assert.match(await blockedResult.innerText(), /no network request was made|source(s) unavailable or unverified/i);

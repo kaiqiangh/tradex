@@ -26,6 +26,7 @@ export function integrationBridge(): Plugin {
         env: blockedEnv,
       });
       let blockedWorkspaceId: string | undefined;
+      let blockedChildAvailable = true;
       let screenerBlocked = false;
       const blockedBootstrapRequestId = randomUUID();
       let resolveBlockedBootstrap!: () => void;
@@ -67,8 +68,14 @@ export function integrationBridge(): Plugin {
         }
       });
       blockedChild.on('exit', () => {
+        blockedChildAvailable = false;
+        blockedWorkspaceId = undefined;
         for (const { response } of blockedPending.values()) { response.writeHead(503); response.end(); }
         blockedPending.clear();
+      });
+      blockedChild.on('error', () => {
+        blockedChildAvailable = false;
+        blockedWorkspaceId = undefined;
       });
       const cleanup = (path: string) => () => rmSync(path, { recursive: true, force: true });
       child.once('exit', cleanup(directory));
@@ -116,7 +123,7 @@ export function integrationBridge(): Plugin {
                 blockedBootstrapReady,
                 new Promise(resolve => setTimeout(resolve, 3000)),
               ]);
-              if (!blockedWorkspaceId) { response.writeHead(503); response.end(); return; }
+              if (!blockedChildAvailable || !blockedWorkspaceId) { response.writeHead(503); response.end(); return; }
             }
             screenerBlocked = payload.enabled;
             response.writeHead(204); response.end();
@@ -139,7 +146,7 @@ export function integrationBridge(): Plugin {
             if (!path.startsWith(directory + sep)) { response.writeHead(403); response.end(); return; }
           }
           if (screenerBlocked && envelope.command === 'market.screen') {
-            if (!blockedWorkspaceId) { response.writeHead(503); response.end(); return; }
+            if (!blockedChildAvailable || !blockedWorkspaceId) { response.writeHead(503); response.end(); return; }
             envelope.payload = { ...envelope.payload, workspaceId: blockedWorkspaceId };
             response.setHeader('Content-Type', 'application/json');
             response.setHeader('Cache-Control', 'no-store');

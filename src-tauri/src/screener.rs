@@ -390,12 +390,10 @@ fn unsupported_filter_reason(text: &str) -> Option<String> {
 }
 
 fn unsupported_universe_reason(text: &str) -> Option<String> {
+    let normalized = text.replace(['-', '_'], " ");
     [
-        ("small-cap", "small-cap"),
         ("small cap", "small-cap"),
-        ("mid-cap", "mid-cap"),
         ("mid cap", "mid-cap"),
-        ("micro-cap", "micro-cap"),
         ("micro cap", "micro-cap"),
         ("european", "European"),
         ("europe", "European"),
@@ -418,19 +416,22 @@ fn unsupported_universe_reason(text: &str) -> Option<String> {
         ("utilities", "utilities"),
         ("industrials", "industrials"),
         ("industrial", "industrials"),
+        ("semiconductor", "semiconductor"),
+        ("biotechnology", "biotechnology"),
     ]
     .iter()
     .find_map(|(term, label)| {
-        if term.contains(' ') || term.contains('-') {
-            text.contains(term)
+        if term.contains(' ') {
+            normalized.contains(term)
         } else {
-            contains_word(text, term)
+            contains_word(&normalized, term)
         }
         .then(|| format!("Unsupported universe: {label}."))
     })
     .or_else(|| {
-        let large_cap = text.contains("large-cap") || text.contains("large cap");
-        let technology = text.contains("technology") || text.contains("tech");
+        let large_cap = normalized.contains("large cap");
+        let technology =
+            contains_word(&normalized, "technology") || contains_word(&normalized, "tech");
         (large_cap && !technology)
             .then(|| "Unsupported universe: large-cap without technology scope.".into())
     })
@@ -548,17 +549,30 @@ fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<S
 }
 
 fn unsupported_rank_direction(clause: &str) -> Option<String> {
-    [
-        "randomly",
-        "random",
-        "shuffle",
-        "arbitrary",
-        "arbitrarily",
-        "balanced",
-    ]
-    .iter()
-    .find(|term| clause.contains(**term))
-    .map(|term| format!("Unsupported rank direction '{term}'."))
+    const ALLOWED: &[&str] = &[
+        "rank",
+        "by",
+        "sort",
+        "order",
+        "quality",
+        "momentum",
+        "price",
+        "change",
+        "revision",
+        "strength",
+        "ascending",
+        "lowest",
+        "smallest",
+        "asc",
+        "descending",
+        "highest",
+        "largest",
+        "desc",
+    ];
+    clause
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .find(|token| !token.is_empty() && !ALLOWED.contains(token))
+        .map(|term| format!("Unsupported rank direction '{term}'."))
 }
 
 fn parse_limit(text: &str) -> (Option<u32>, Option<String>) {
@@ -1078,18 +1092,21 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported universe")
         );
-        request.natural_language = "Find biotech stocks with RSI below 70.".into();
-        let biotech = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
-        assert_eq!(biotech.state, ScreenerResultState::Failed);
-        assert!(biotech.availability_reason.contains("Unsupported universe"));
-        request.natural_language = "Find healthcare stocks with RSI below 70.".into();
-        let healthcare = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
-        assert_eq!(healthcare.state, ScreenerResultState::Failed);
-        assert!(
-            healthcare
-                .availability_reason
-                .contains("Unsupported universe")
-        );
+        for universe in [
+            "Find biotech stocks with RSI below 70.",
+            "Find biotechnology stocks with RSI below 70.",
+            "Find health-care stocks with RSI below 70.",
+            "Find semiconductor stocks with RSI below 70.",
+        ] {
+            request.natural_language = universe.into();
+            let unsupported = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(unsupported.state, ScreenerResultState::Failed);
+            assert!(
+                unsupported
+                    .availability_reason
+                    .contains("Unsupported universe")
+            );
+        }
         request.natural_language = "Find stocks with RSI below 70, rank by valuation.".into();
         let valuation = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(valuation.state, ScreenerResultState::Failed);
@@ -1104,6 +1121,15 @@ mod tests {
         assert_eq!(random_direction.state, ScreenerResultState::Failed);
         assert!(
             random_direction
+                .availability_reason
+                .contains("Unsupported rank direction")
+        );
+        request.natural_language =
+            "Find stocks with RSI below 70, rank by quality backwards.".into();
+        let backwards_direction = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(backwards_direction.state, ScreenerResultState::Failed);
+        assert!(
+            backwards_direction
                 .availability_reason
                 .contains("Unsupported rank direction")
         );
