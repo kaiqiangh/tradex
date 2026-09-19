@@ -187,13 +187,18 @@ fn parse(request: &ScreenerRequest, received_timestamp: &str) -> Result<Screener
     )? {
         unsupported_reason.get_or_insert(reason);
     }
-    unsupported_reason = unsupported_reason.or_else(|| unsupported_filter_reason(&text));
-    let (rank_field, direction) = rank_from_text(&text);
+    unsupported_reason = unsupported_reason
+        .or_else(|| unsupported_universe_reason(&text))
+        .or_else(|| unsupported_filter_reason(&text));
+    let (rank_field, direction, rank_reason) = rank_from_text(&text);
+    unsupported_reason = unsupported_reason.or(rank_reason);
     let rank_spec = RankSpec {
         field: rank_field,
         direction,
     };
-    let limit = parse_limit(&text).unwrap_or(10);
+    let (parsed_limit, limit_reason) = parse_limit(&text);
+    unsupported_reason = unsupported_reason.or(limit_reason);
+    let limit = parsed_limit.unwrap_or(10);
     let parsed_filter_spec = FilterSpec {
         universe,
         predicates,
@@ -384,6 +389,22 @@ fn unsupported_filter_reason(text: &str) -> Option<String> {
     })
 }
 
+fn unsupported_universe_reason(text: &str) -> Option<String> {
+    [
+        ("small-cap", "small-cap"),
+        ("small cap", "small-cap"),
+        ("mid-cap", "mid-cap"),
+        ("mid cap", "mid-cap"),
+        ("micro-cap", "micro-cap"),
+        ("micro cap", "micro-cap"),
+    ]
+    .iter()
+    .find_map(|(term, label)| {
+        text.contains(term)
+            .then(|| format!("Unsupported universe: {label}."))
+    })
+}
+
 fn numeric_after(text: &str) -> Option<String> {
     let mut started = false;
     let mut value = String::new();
@@ -442,13 +463,30 @@ fn operator_before(text: &str, index: usize) -> ScreenerOperator {
     }
 }
 
-fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection) {
-    let field = if text.contains("momentum") || text.contains("price change") {
-        ScreenerRankField::Momentum
+fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<String>) {
+    let rank_clause = ["rank by", "sort by", "order by"]
+        .iter()
+        .find_map(|keyword| text.find(keyword).map(|index| &text[index..]))
+        .map(|clause| clause.split([',', ';']).next().unwrap_or(clause));
+    let (field, reason) = if let Some(clause) = rank_clause {
+        if clause.contains("momentum") || clause.contains("price change") {
+            (ScreenerRankField::Momentum, None)
+        } else if clause.contains("revision") {
+            (ScreenerRankField::RevisionStrength, None)
+        } else if clause.contains("quality") {
+            (ScreenerRankField::Quality, None)
+        } else {
+            (
+                ScreenerRankField::Quality,
+                Some(format!("Unsupported rank field in clause '{clause}'.")),
+            )
+        }
+    } else if text.contains("momentum") || text.contains("price change") {
+        (ScreenerRankField::Momentum, None)
     } else if text.contains("revision") {
-        ScreenerRankField::RevisionStrength
+        (ScreenerRankField::RevisionStrength, None)
     } else {
-        ScreenerRankField::Quality
+        (ScreenerRankField::Quality, None)
     };
     let direction = if text.contains("ascending")
         || text.contains("lowest")
@@ -459,16 +497,32 @@ fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection) {
     } else {
         ScreenerDirection::Desc
     };
-    (field, direction)
+    (field, direction, reason)
 }
 
-fn parse_limit(text: &str) -> Option<u32> {
-    let index = text.find("top ")?;
+fn parse_limit(text: &str) -> (Option<u32>, Option<String>) {
+    let Some(index) = text.find("top ") else {
+        return (None, None);
+    };
     let number = text[index + 4..]
         .chars()
         .take_while(char::is_ascii_digit)
         .collect::<String>();
-    number.parse().ok().filter(|value| (1..=50).contains(value))
+    if number.is_empty() {
+        return (None, Some("Missing screener limit after 'top'.".into()));
+    }
+    let Ok(value) = number.parse::<u32>() else {
+        return (None, Some("Invalid screener limit.".into()));
+    };
+    if !(1..=50).contains(&value) {
+        return (
+            None,
+            Some(format!(
+                "Screener limit {value} is outside the supported range 1–50."
+            )),
+        );
+    }
+    (Some(value), None)
 }
 
 fn percent_to_decimal(value: &str) -> Result<String> {
@@ -947,6 +1001,30 @@ mod tests {
         request.natural_language = "RSI near 70".into();
         let near = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert!(near.availability_reason.contains("Unsupported operator"));
+        request.natural_language = "Find small-cap technology stocks with RSI below 70.".into();
+        let small_cap = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(small_cap.state, ScreenerResultState::Failed);
+        assert!(
+            small_cap
+                .availability_reason
+                .contains("Unsupported universe")
+        );
+        request.natural_language = "Find stocks with RSI below 70, rank by valuation.".into();
+        let valuation = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(valuation.state, ScreenerResultState::Failed);
+        assert!(
+            valuation
+                .availability_reason
+                .contains("Unsupported rank field")
+        );
+        request.natural_language = "Find stocks with RSI below 70, top 100.".into();
+        let over_limit = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(over_limit.state, ScreenerResultState::Failed);
+        assert!(
+            over_limit
+                .availability_reason
+                .contains("outside the supported range")
+        );
     }
 
     #[test]
