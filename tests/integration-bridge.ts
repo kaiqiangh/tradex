@@ -17,8 +17,16 @@ export function integrationBridge(): Plugin {
         stdio: ['pipe', 'pipe', 'inherit'],
         env: { ...process.env, TRADEX_MARKET_FIXTURE: '1', TRADEX_PORTFOLIO_FIXTURE: '1', TRADEX_RESEARCH_FIXTURE: '1', TRADEX_SCREENER_FIXTURE: '1' },
       });
+      const blockedDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'tradex-browser-blocked-')));
+      const blockedEnv = { ...process.env };
+      delete blockedEnv.TRADEX_SCREENER_FIXTURE;
+      const blockedChild = spawn(resolve('target/debug/tradex-ipc'), [join(blockedDirectory, 'workspace')], {
+        stdio: ['pipe', 'pipe', 'inherit'],
+        env: blockedEnv,
+      });
       const clients = new Set<ServerResponse>();
       const pending = new Map<string, ServerResponse>();
+      const blockedPending = new Map<string, ServerResponse>();
       createInterface({ input: child.stdout }).on('line', line => {
         const frame = JSON.parse(line);
         if (frame.kind === 'event') {
@@ -37,9 +45,21 @@ export function integrationBridge(): Plugin {
         for (const response of clients) response.end();
         clients.clear();
       });
+      createInterface({ input: blockedChild.stdout }).on('line', line => {
+        const frame = JSON.parse(line);
+        if (frame.kind !== 'result') return;
+        const response = blockedPending.get(frame.result.requestId);
+        if (response) { response.end(JSON.stringify(frame.result)); blockedPending.delete(frame.result.requestId); }
+      });
+      blockedChild.on('exit', () => {
+        for (const response of blockedPending.values()) { response.writeHead(503); response.end(); }
+        blockedPending.clear();
+      });
       server.httpServer?.once('close', () => {
         child.once('exit', () => rmSync(directory, { recursive: true, force: true }));
         child.kill();
+        blockedChild.once('exit', () => rmSync(blockedDirectory, { recursive: true, force: true }));
+        blockedChild.kill();
       });
       server.middlewares.use('/__integration', async (request, response) => {
         const origin = request.headers.origin;
@@ -55,6 +75,27 @@ export function integrationBridge(): Plugin {
           response.write(': connected\n\n');
           clients.add(response);
           request.on('close', () => clients.delete(response));
+          return;
+        }
+        if (request.url === '/blocked-command' && request.method === 'POST') {
+          try {
+            const parts: Buffer[] = []; let size = 0;
+            for await (const chunk of request) {
+              size += chunk.length;
+              if (size > 60_000) { response.writeHead(413); response.end(); return; }
+              parts.push(chunk);
+            }
+            const envelope = JSON.parse(Buffer.concat(parts).toString());
+            if (typeof envelope.requestId !== 'string' || blockedPending.has(envelope.requestId)
+              || !['workspace.open', 'market.screen'].includes(envelope.command)) {
+              response.writeHead(400); response.end(); return;
+            }
+            response.setHeader('Content-Type', 'application/json');
+            response.setHeader('Cache-Control', 'no-store');
+            blockedPending.set(envelope.requestId, response);
+            response.on('close', () => blockedPending.delete(envelope.requestId));
+            blockedChild.stdin.write(JSON.stringify(envelope) + '\n');
+          } catch { if (!response.headersSent) response.writeHead(400); response.end(); }
           return;
         }
         if (request.url !== '/command' || request.method !== 'POST') { response.writeHead(404); response.end(); return; }
