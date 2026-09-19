@@ -641,11 +641,15 @@ fn parse_limit(text: &str) -> (Option<u32>, Option<String>) {
         return (None, None);
     };
     let number = text[index + 4..]
-        .chars()
-        .take_while(char::is_ascii_digit)
-        .collect::<String>();
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_end_matches([',', ';', '.']);
     if number.is_empty() {
         return (None, Some("Missing screener limit after 'top'.".into()));
+    }
+    if !number.chars().all(|character| character.is_ascii_digit()) {
+        return (None, Some("Invalid screener limit.".into()));
     }
     let Ok(value) = number.parse::<u32>() else {
         return (None, Some("Invalid screener limit.".into()));
@@ -1160,6 +1164,7 @@ mod tests {
             "Find semiconductor stocks with RSI below 70.",
             "Find semiconductors stocks with RSI below 70.",
             "Find software stocks with RSI below 70.",
+            "Find Japanese stocks with RSI below 70.",
         ] {
             request.natural_language = universe.into();
             let unsupported = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
@@ -1195,6 +1200,14 @@ mod tests {
             backwards_direction
                 .availability_reason
                 .contains("Unsupported rank direction")
+        );
+        request.natural_language = "Find stocks with RSI below 70, top 10.5.".into();
+        let malformed_limit = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(malformed_limit.state, ScreenerResultState::Failed);
+        assert!(
+            malformed_limit
+                .availability_reason
+                .contains("Invalid screener limit")
         );
         request.natural_language = "Find stocks with RSI below 70, top 100.".into();
         let over_limit = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
