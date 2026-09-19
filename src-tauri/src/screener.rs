@@ -502,7 +502,7 @@ fn unsupported_operator(text: &str) -> Option<&'static str> {
 }
 
 fn unsupported_filter_reason(text: &str) -> Option<String> {
-    if text.chars().any(|character| !character.is_ascii()) {
+    if !text.is_ascii() {
         return Some("Unsupported non-ASCII screener language.".into());
     }
     let tokens = text
@@ -549,10 +549,10 @@ fn unsupported_filter_reason(text: &str) -> Option<String> {
         }
     }
     for marker in ["rank by", "sort by", "order by"] {
-        if let Some(index) = find_keyword(text, marker) {
-            if let Some(token) = unsupported_predicate_context(text, index) {
-                return Some(format!("Unsupported rank context '{token}'."));
-            }
+        if let Some(index) = find_keyword(text, marker)
+            && let Some(token) = unsupported_predicate_context(text, index)
+        {
+            return Some(format!("Unsupported rank context '{token}'."));
         }
     }
     if let Some((field, operator)) = text
@@ -903,7 +903,7 @@ fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<S
 }
 
 fn unsupported_rank_direction(clause: &str) -> Option<String> {
-    if clause.chars().any(|character| !character.is_ascii()) {
+    if !clause.is_ascii() {
         return Some("Unsupported non-ASCII rank language.".into());
     }
     const ALLOWED: &[&str] = &[
