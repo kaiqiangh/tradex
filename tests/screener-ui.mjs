@@ -1,6 +1,11 @@
 // Run with a Codex browser tab against `npm run dev:browser` after checkWorkspaceUI.
 import assert from 'node:assert/strict';
 
+async function assertComposerContextTargets(ui, currentCount) {
+  assert.equal(await ui.locator('.thread-composer .composer-footer').getByText('Context references: 0', { exact: true }).isVisible(), true);
+  assert.equal(await ui.locator('.turn-composer .composer-footer').getByText(`Context references: ${currentCount}`, { exact: true }).isVisible(), true);
+}
+
 export async function checkScreenerUI(tab, browser) {
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
@@ -52,8 +57,7 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByText('Context references: 1', { exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Create Thread', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
-    assert.equal(await ui.locator('.thread-composer .composer-footer').getByText('Context references: 0', { exact: true }).isVisible(), true);
-    assert.equal(await ui.locator('.turn-composer .composer-footer').getByText('Context references: 1', { exact: true }).isVisible(), true);
+    await assertComposerContextTargets(ui, 1);
     observed.push('Saved definitions reopen reviewed inputs only; updates create a new revision, new Thread attach seeds one canonical context, and the new-thread composer does not inherit current-thread pending context.');
 
     await ui.getByRole('button', { name: 'Markets', exact: true }).press('Enter');
@@ -143,8 +147,7 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByLabel('Attach selected to', { exact: true }).selectOption('current');
     await ui.getByRole('button', { name: 'Attach selected (1)', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
-    assert.equal(await ui.locator('.thread-composer .composer-footer').getByText('Context references: 0', { exact: true }).isVisible(), true);
-    assert.equal(await ui.locator('.turn-composer .composer-footer').getByText('Context references: 2', { exact: true }).isVisible(), true);
+    await assertComposerContextTargets(ui, 2);
     observed.push('Current Thread next Turn attach routes a distinct selected canonical context into the selected Turn composer, preserves the linked Thread context, and leaves the new-thread composer empty.');
     assert.equal((await tab.dev.logs({ levels: ['warn', 'error'], limit: 20 })).length, 0);
     return observed;

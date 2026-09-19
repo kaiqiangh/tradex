@@ -1433,10 +1433,7 @@ fn screener_name_conflict(
     Ok(false)
 }
 
-fn current_screener_state_version(
-    tx: &rusqlite::Transaction<'_>,
-    workspace_id: &str,
-) -> Result<String> {
+fn max_screener_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
     let max_sequence: Option<i64> = tx
         .query_row(
             "SELECT MAX(sequence) FROM screeners WHERE workspace_id=?1",
@@ -1444,7 +1441,14 @@ fn current_screener_state_version(
             |row| row.get(0),
         )
         .map_err(storage_error)?;
-    let max_sequence = max_sequence.unwrap_or(0);
+    Ok(max_sequence.unwrap_or(0))
+}
+
+fn current_screener_state_version(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+) -> Result<String> {
+    let max_sequence = max_screener_sequence(tx, workspace_id)?;
     if !(0..=MAX_SEQUENCE as i64).contains(&max_sequence) {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
@@ -1466,14 +1470,7 @@ fn validate_screener_state_version(
 }
 
 fn next_screener_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
-    let max_sequence: Option<i64> = tx
-        .query_row(
-            "SELECT MAX(sequence) FROM screeners WHERE workspace_id=?1",
-            [workspace_id],
-            |row| row.get(0),
-        )
-        .map_err(storage_error)?;
-    let max_sequence = max_sequence.unwrap_or(0);
+    let max_sequence = max_screener_sequence(tx, workspace_id)?;
     if !(0..MAX_SEQUENCE as i64).contains(&max_sequence) {
         return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
     }
