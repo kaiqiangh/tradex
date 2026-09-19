@@ -2,7 +2,7 @@
 
 日期：2026-09-19
 前置：S04 Thread/Turn/Item 持久化与不可变快照、S10 source-gated typed research 结果
-状态：SPEC（待拆票与实现）
+状态：IMPLEMENTED_UNVERIFIED（实现完成；原生/CUA/provider 运行时证据待补）
 
 ## Problem Statement
 
