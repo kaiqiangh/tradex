@@ -7,10 +7,10 @@ export async function checkPortfolioUI(tab, browser) {
   const observed = [];
   try {
     await viewport.set({ width: 1280, height: 900 });
-    await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
+    await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     const openPortfolio = ui.getByRole('button', { name: 'Open portfolio', exact: true });
-    if (await openPortfolio.count()) await openPortfolio.click();
+    if (await openPortfolio.count()) await openPortfolio.press('Enter');
     await ui.getByRole('heading', { name: 'Workspace valuation', exact: true }).waitFor({ state: 'visible' });
 
     const summary = ui.locator('.portfolio-summary');

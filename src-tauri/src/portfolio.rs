@@ -51,6 +51,23 @@ fn actual_snapshot(
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
+    if accounts.iter().any(|account| {
+        !valid_output_identity(&account.connection_id, 128)
+            || !valid_output_identity(&account.label, 120)
+            || !valid_output_identity(&account.provider_id, 32)
+            || !valid_output_identity(&account.environment, 16)
+            || account
+                .account_currency
+                .as_deref()
+                .is_some_and(|currency| !valid_output_identity(currency, 16))
+            || account
+                .data
+                .as_ref()
+                .and_then(|data| data.currency.as_deref())
+                .is_some_and(|currency| !valid_output_identity(currency, 16))
+    }) {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
     let mut portfolio_accounts = Vec::with_capacity(accounts.len());
     let mut holdings = Vec::new();
     let mut open_orders = Vec::new();
@@ -1352,6 +1369,25 @@ mod tests {
             "w",
             "USD",
             &[oversized_position],
+            None,
+            &time_status(),
+            false,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "PROVIDER_DATA_INCOMPLETE");
+
+        let mut oversized_account = AccountConnection::new(
+            "w".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "account".into(),
+        )
+        .unwrap();
+        oversized_account.label = "L".repeat(121);
+        let error = get(
+            "w",
+            "USD",
+            &[oversized_account],
             None,
             &time_status(),
             false,
