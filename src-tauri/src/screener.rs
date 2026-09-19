@@ -255,9 +255,14 @@ fn add_predicate(
     percent: bool,
     predicates: &mut Vec<ScreenerPredicate>,
 ) -> Result<Option<String>> {
+    let rank_start = ["rank by", "sort by", "order by"]
+        .iter()
+        .filter_map(|marker| text.find(marker))
+        .min();
     let Some((keyword, index)) = keywords
         .iter()
         .filter_map(|keyword| text.find(keyword).map(|index| (*keyword, index)))
+        .filter(|(_, index)| rank_start.map(|start| *index < start).unwrap_or(true))
         .min_by_key(|(_, index)| *index)
     else {
         return Ok(None);
@@ -277,13 +282,22 @@ fn add_predicate(
         )));
     }
     let suffix = &text[index..text.len().min(index + 96)];
-    let clause = suffix.split([',', ';']).next().unwrap_or_default();
+    let clause = suffix
+        .split([',', ';'])
+        .next()
+        .unwrap_or_default()
+        .split(" and ")
+        .next()
+        .unwrap_or_default()
+        .split(" or ")
+        .next()
+        .unwrap_or_default();
     if let Some(operator) = unsupported_operator(clause) {
         return Ok(Some(format!(
             "Unsupported operator '{operator}' for {field:?}."
         )));
     }
-    let raw = match numeric_after(suffix) {
+    let raw = match numeric_after(clause) {
         Some(value) if has_explicit_operator(clause) => value,
         Some(_) => {
             return Ok(Some(format!("Unsupported operator for {field:?}.")));
@@ -363,23 +377,68 @@ fn unsupported_filter_reason(text: &str) -> Option<String> {
             ]
             .iter()
             .any(|field| clause.contains(field));
-            if has_explicit_operator(clause) && !has_supported_field {
-                let operator = [
-                    "above",
-                    "below",
-                    "over",
-                    "under",
-                    "greater",
-                    "less",
-                    "at least",
-                    "at most",
-                    "more than",
-                    "fewer than",
-                ]
-                .iter()
-                .find(|operator| clause.contains(**operator))
-                .copied()
-                .unwrap_or("comparison");
+            let rank_or_limit = clause.contains("rank by")
+                || clause.contains("sort by")
+                || clause.contains("order by")
+                || clause.starts_with("top ");
+            let generic_prefix = clause
+                .split(|character: char| !character.is_ascii_alphanumeric())
+                .filter(|token| !token.is_empty())
+                .all(|token| {
+                    [
+                        "find",
+                        "show",
+                        "screen",
+                        "list",
+                        "all",
+                        "the",
+                        "us",
+                        "large",
+                        "cap",
+                        "technology",
+                        "tech",
+                        "stocks",
+                        "stock",
+                        "equities",
+                        "equity",
+                        "companies",
+                        "company",
+                        "crypto",
+                        "spot",
+                        "assets",
+                        "asset",
+                        "market",
+                        "in",
+                        "from",
+                        "of",
+                        "with",
+                        "where",
+                        "that",
+                        "whose",
+                    ]
+                    .contains(&token)
+                });
+            if !has_supported_field && !rank_or_limit && !generic_prefix {
+                let operator = if has_explicit_operator(clause) {
+                    [
+                        "above",
+                        "below",
+                        "over",
+                        "under",
+                        "greater",
+                        "less",
+                        "at least",
+                        "at most",
+                        "more than",
+                        "fewer than",
+                    ]
+                    .iter()
+                    .find(|operator| clause.contains(**operator))
+                    .copied()
+                    .unwrap_or("comparison")
+                } else {
+                    "condition"
+                };
                 return Some((clause, operator));
             }
             None
@@ -1193,6 +1252,14 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported filter field")
         );
+        request.natural_language = "Find stocks with RSI below 70 and EV/EBITDA 10.".into();
+        let missing_operator_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(missing_operator_failure.state, ScreenerResultState::Failed);
+        assert!(
+            missing_operator_failure
+                .availability_reason
+                .contains("Unsupported filter field")
+        );
         request.natural_language =
             "Find stocks with RSI below 70 and price change above 0%.".into();
         let split_conditions = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
@@ -1205,6 +1272,18 @@ mod tests {
             "Find stocks with price change above 0%, rank by momentum.".into();
         let filter_and_rank = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(filter_and_rank.state, ScreenerResultState::Parsed);
+        request.natural_language = "Find stocks with RSI below 70, rank by momentum.".into();
+        let rank_only = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(rank_only.state, ScreenerResultState::Parsed);
+        assert_eq!(rank_only.filter_spec.unwrap().predicates.len(), 1);
+        request.natural_language = "Find stocks with RSI below and price change above 0%.".into();
+        let missing_threshold = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(missing_threshold.state, ScreenerResultState::Failed);
+        assert!(
+            missing_threshold
+                .availability_reason
+                .contains("Missing threshold")
+        );
         request.natural_language =
             "Find stocks with revenue growth above 15% and revenue growth below 50%.".into();
         let repeated_field = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
