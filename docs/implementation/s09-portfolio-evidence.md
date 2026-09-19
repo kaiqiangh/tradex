@@ -32,7 +32,7 @@ The following source, protocol and frontend checks passed against implementation
 npm run build
 npm run test:unit                 # 4 passed
 node --check tests/portfolio-ui.mjs
-cargo test --manifest-path src-tauri/Cargo.toml # 77 unit + 40 integration passed; 5 explicit native/gateway tests ignored
+cargo test --manifest-path src-tauri/Cargo.toml # 77 unit + 40 integration passed; 6 explicit native/gateway tests ignored
 cargo fmt --all -- --check
 git diff --check
 python3 scripts/check_requirements.py
