@@ -185,6 +185,7 @@ pub enum ReplyData {
     Watchlist(Box<Watchlist>),
     Watchlists(Watchlists),
     ResearchResult(ResearchToolResult),
+    ScreenerResult(ScreenerResult),
 }
 
 #[derive(JsonSchema)]
@@ -248,6 +249,7 @@ pub struct IpcSchema {
     pub data_source_probe: DataSourceProbe,
     pub market_catalog_query: MarketCatalogQuery,
     pub market_get_query: MarketGetQuery,
+    pub screener_request: ScreenerRequest,
     pub portfolio_query: PortfolioQuery,
     pub watchlist_create: WatchlistCreate,
     pub watchlist_rename: WatchlistRename,
@@ -551,6 +553,208 @@ pub struct ResearchToolResult {
     #[schemars(length(max = 32))]
     pub context_refs: Vec<ThreadContextRef>,
     pub payload: ResearchToolPayload,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerOperation {
+    Parse,
+    Run,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerResultState {
+    Parsed,
+    Running,
+    Empty,
+    Completed,
+    BlockedExternal,
+    Failed,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerUniverse {
+    UsEquities,
+    UsLargeCapTechnology,
+    CryptoSpot,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerPredicateField {
+    RevenueGrowth,
+    EstimateRevision,
+    Rsi,
+    PriceChange,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerOperator {
+    GreaterThan,
+    GreaterOrEqual,
+    LessThan,
+    LessOrEqual,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerPredicate {
+    pub field: ScreenerPredicateField,
+    pub operator: ScreenerOperator,
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub threshold: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FilterSpec {
+    pub universe: ScreenerUniverse,
+    #[serde(default)]
+    #[schemars(length(max = 8))]
+    pub predicates: Vec<ScreenerPredicate>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerRankField {
+    Quality,
+    RevisionStrength,
+    Momentum,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerDirection {
+    Asc,
+    Desc,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RankSpec {
+    pub field: ScreenerRankField,
+    pub direction: ScreenerDirection,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScreenerFeatureField {
+    RevenueGrowth,
+    EstimateRevision,
+    Rsi,
+    PriceChange,
+    Quality,
+    RevisionStrength,
+    Momentum,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerFeature {
+    pub field: ScreenerFeatureField,
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerProvenance {
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_timestamp: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub received_timestamp: String,
+    pub freshness: ResearchFreshness,
+    pub quality: ResearchQuality,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerCandidate {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub symbol: String,
+    #[schemars(range(min = 1, max = 50))]
+    pub rank: u32,
+    #[serde(default)]
+    #[schemars(length(max = 8))]
+    pub features: Vec<ScreenerFeature>,
+    pub provenance: ScreenerProvenance,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 512))]
+    pub limitation: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub operation: ScreenerOperation,
+    #[schemars(length(min = 1, max = 4_000))]
+    pub natural_language: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<ResearchFocus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_spec: Option<FilterSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank_spec: Option<RankSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 80))]
+    pub revision: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenerResult {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub operation: ScreenerOperation,
+    pub state: ScreenerResultState,
+    #[schemars(length(min = 1, max = 4_000))]
+    pub natural_language: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<ResearchFocus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_spec: Option<FilterSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank_spec: Option<RankSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 80))]
+    pub revision: Option<String>,
+    #[serde(default)]
+    #[schemars(length(max = 16), inner(length(min = 1, max = 256)))]
+    pub applied_conditions: Vec<String>,
+    #[serde(default)]
+    #[schemars(length(max = 50))]
+    pub candidates: Vec<ScreenerCandidate>,
+    #[schemars(range(min = 0, max = 50))]
+    pub candidate_count: u32,
+    #[serde(default)]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 32)))]
+    pub source_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_timestamp: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub received_timestamp: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[serde(default)]
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
+    pub limitations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub fixture_label: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1825,6 +2029,21 @@ impl TradeXError {
                 "The typed research result is missing or no longer matches this Turn.",
                 "retry_request",
                 "Refresh research result",
+            ),
+            "SCREENER_REVISION_STALE" => (
+                "The reviewed screener conditions changed. Parse them again before running.",
+                "retry_request",
+                "Recalculate screener",
+            ),
+            "SCREENER_FILTER_UNSUPPORTED" => (
+                "This screener contains a condition that TradeX cannot verify yet.",
+                "retry_request",
+                "Review screener",
+            ),
+            "SCREENER_REVISION_FAILED" => (
+                "The screener revision could not be created. Review the conditions and retry.",
+                "retry_request",
+                "Retry screener",
             ),
             "TURN_ACCOUNT_REQUIRED" => (
                 "Select the account that belongs to this execution context.",

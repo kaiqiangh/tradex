@@ -37,6 +37,7 @@ declare const validators: {
   EmptyPayload: (value: unknown) => boolean;
   ExecutionContext: (value: unknown) => boolean;
   FailureEnvelope: (value: unknown) => boolean;
+  FilterSpec: (value: unknown) => boolean;
   FxFreshness: (value: unknown) => boolean;
   FxProvenance: (value: unknown) => boolean;
   FxQuality: (value: unknown) => boolean;
@@ -89,6 +90,7 @@ declare const validators: {
   ProviderDefinition: (value: unknown) => boolean;
   ProviderField: (value: unknown) => boolean;
   ProviderSelection: (value: unknown) => boolean;
+  RankSpec: (value: unknown) => boolean;
   Remediation: (value: unknown) => boolean;
   ReplyData: (value: unknown) => boolean;
   ResearchFinding: (value: unknown) => boolean;
@@ -114,6 +116,20 @@ declare const validators: {
   RuntimeComponent: (value: unknown) => boolean;
   RuntimeStatus: (value: unknown) => boolean;
   SaveRiskPolicy: (value: unknown) => boolean;
+  ScreenerCandidate: (value: unknown) => boolean;
+  ScreenerDirection: (value: unknown) => boolean;
+  ScreenerFeature: (value: unknown) => boolean;
+  ScreenerFeatureField: (value: unknown) => boolean;
+  ScreenerOperation: (value: unknown) => boolean;
+  ScreenerOperator: (value: unknown) => boolean;
+  ScreenerPredicate: (value: unknown) => boolean;
+  ScreenerPredicateField: (value: unknown) => boolean;
+  ScreenerProvenance: (value: unknown) => boolean;
+  ScreenerRankField: (value: unknown) => boolean;
+  ScreenerRequest: (value: unknown) => boolean;
+  ScreenerResult: (value: unknown) => boolean;
+  ScreenerResultState: (value: unknown) => boolean;
+  ScreenerUniverse: (value: unknown) => boolean;
   SetDefaultModel: (value: unknown) => boolean;
   SetFallbackPolicy: (value: unknown) => boolean;
   SetOnboardingStep: (value: unknown) => boolean;

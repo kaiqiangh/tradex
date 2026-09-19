@@ -16,6 +16,7 @@ pub mod provider_io;
 pub mod providers;
 pub mod research;
 pub mod risk;
+pub mod screener;
 mod storage;
 pub mod time;
 
@@ -24,8 +25,9 @@ use protocol::{
     Aggregate, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload,
     EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace,
     PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus,
-    Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery,
-    ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    ScreenerRequest, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
+    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry,
+    TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -666,6 +668,16 @@ impl ControlPlane {
                     fixture,
                 )?;
                 Ok((json!(detail), None))
+            }
+            "market.screen" => {
+                let input: ScreenerRequest = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let sources = self.data_source_sources(&input.workspace_id);
+                let time_status = self.time.status(&input.workspace_id)?;
+                let fixture = cfg!(feature = "integration-test")
+                    && std::env::var_os("TRADEX_SCREENER_FIXTURE").is_some();
+                let result = screener::screen(&input, &sources, &time_status.observed_at, fixture)?;
+                Ok((json!(result), None))
             }
             "portfolio.get" => {
                 let input: PortfolioQuery = payload(request.payload)?;

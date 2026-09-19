@@ -188,7 +188,8 @@ export type ReplyData =
   | PortfolioSnapshot
   | Watchlist
   | Watchlists
-  | ResearchToolResult;
+  | ResearchToolResult
+  | ScreenerResult;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeConfidence".
@@ -262,6 +263,47 @@ export type FxQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
 export type PortfolioStatus = "AVAILABLE" | "DEGRADED" | "UNAVAILABLE" | "BLOCKED_EXTERNAL";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerFeatureField".
+ */
+export type ScreenerFeatureField =
+  "REVENUE_GROWTH" | "ESTIMATE_REVISION" | "RSI" | "PRICE_CHANGE" | "QUALITY" | "REVISION_STRENGTH" | "MOMENTUM";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerPredicateField".
+ */
+export type ScreenerPredicateField = "REVENUE_GROWTH" | "ESTIMATE_REVISION" | "RSI" | "PRICE_CHANGE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerOperator".
+ */
+export type ScreenerOperator = "GREATER_THAN" | "GREATER_OR_EQUAL" | "LESS_THAN" | "LESS_OR_EQUAL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerUniverse".
+ */
+export type ScreenerUniverse = "US_EQUITIES" | "US_LARGE_CAP_TECHNOLOGY" | "CRYPTO_SPOT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerOperation".
+ */
+export type ScreenerOperation = "PARSE" | "RUN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerDirection".
+ */
+export type ScreenerDirection = "ASC" | "DESC";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerRankField".
+ */
+export type ScreenerRankField = "QUALITY" | "REVISION_STRENGTH" | "MOMENTUM";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerResultState".
+ */
+export type ScreenerResultState = "PARSED" | "RUNNING" | "EMPTY" | "COMPLETED" | "BLOCKED_EXTERNAL" | "FAILED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
  */
 export type ModelAttemptKind = "SETUP" | "THREAD";
@@ -296,6 +338,7 @@ export interface IpcSchema {
   result: ResultEnvelope;
   riskQuery: RiskQuery;
   saveRiskPolicy: SaveRiskPolicy;
+  screenerRequest: ScreenerRequest;
   setDefaultModel: SetDefaultModel;
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
@@ -1843,6 +1886,223 @@ export interface Watchlists {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerResult".
+ */
+export interface ScreenerResult {
+  /**
+   * @maxItems 16
+   */
+  appliedConditions?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  availabilityReason: string;
+  candidateCount: number;
+  /**
+   * @maxItems 50
+   */
+  candidates?: ScreenerCandidate[];
+  filterSpec?: FilterSpec | null;
+  fixtureLabel?: string;
+  focus?: ResearchFocus | null;
+  /**
+   * @maxItems 8
+   */
+  limitations?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  naturalLanguage: string;
+  operation: ScreenerOperation;
+  providerTimestamp?: string;
+  rankSpec?: RankSpec | null;
+  receivedTimestamp: string;
+  revision?: string;
+  /**
+   * @maxItems 8
+   */
+  sourceIds?:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  state: ScreenerResultState;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerCandidate".
+ */
+export interface ScreenerCandidate {
+  /**
+   * @maxItems 8
+   */
+  features?:
+    | []
+    | [ScreenerFeature]
+    | [ScreenerFeature, ScreenerFeature]
+    | [ScreenerFeature, ScreenerFeature, ScreenerFeature]
+    | [ScreenerFeature, ScreenerFeature, ScreenerFeature, ScreenerFeature]
+    | [ScreenerFeature, ScreenerFeature, ScreenerFeature, ScreenerFeature, ScreenerFeature]
+    | [ScreenerFeature, ScreenerFeature, ScreenerFeature, ScreenerFeature, ScreenerFeature, ScreenerFeature]
+    | [
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature
+      ]
+    | [
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature,
+        ScreenerFeature
+      ];
+  instrumentId: string;
+  limitation?: string | null;
+  provenance: ScreenerProvenance;
+  rank: number;
+  symbol: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerFeature".
+ */
+export interface ScreenerFeature {
+  field: ScreenerFeatureField;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerProvenance".
+ */
+export interface ScreenerProvenance {
+  freshness: ResearchFreshness;
+  providerTimestamp?: string;
+  quality: ResearchQuality;
+  receivedTimestamp: string;
+  sourceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FilterSpec".
+ */
+export interface FilterSpec {
+  /**
+   * @maxItems 8
+   */
+  predicates?:
+    | []
+    | [ScreenerPredicate]
+    | [ScreenerPredicate, ScreenerPredicate]
+    | [ScreenerPredicate, ScreenerPredicate, ScreenerPredicate]
+    | [ScreenerPredicate, ScreenerPredicate, ScreenerPredicate, ScreenerPredicate]
+    | [ScreenerPredicate, ScreenerPredicate, ScreenerPredicate, ScreenerPredicate, ScreenerPredicate]
+    | [ScreenerPredicate, ScreenerPredicate, ScreenerPredicate, ScreenerPredicate, ScreenerPredicate, ScreenerPredicate]
+    | [
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate
+      ]
+    | [
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate,
+        ScreenerPredicate
+      ];
+  universe: ScreenerUniverse;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerPredicate".
+ */
+export interface ScreenerPredicate {
+  field: ScreenerPredicateField;
+  operator: ScreenerOperator;
+  threshold: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RankSpec".
+ */
+export interface RankSpec {
+  direction: ScreenerDirection;
+  field: ScreenerRankField;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FailureEnvelope".
  */
 export interface FailureEnvelope {
@@ -1891,6 +2151,20 @@ export interface RiskPolicyInput {
   maxOrderNotional: string | null;
   maxSingleInstrumentExposurePercent: string | null;
   staleQuoteThresholdSeconds: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ScreenerRequest".
+ */
+export interface ScreenerRequest {
+  filterSpec?: FilterSpec | null;
+  focus?: ResearchFocus | null;
+  limit?: number | null;
+  naturalLanguage: string;
+  operation: ScreenerOperation;
+  rankSpec?: RankSpec | null;
+  revision?: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

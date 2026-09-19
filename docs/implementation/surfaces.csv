@@ -15,8 +15,8 @@ B7,Research Result — Equities,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,390,"
 B8,Research Result — Crypto,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,399,"S10,S33",NOT_STARTED,
 B9,Immutable Turn Provenance,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,407,"S04,S12,S33",IMPLEMENTED_UNVERIFIED,#18/#19 freeze mode/context/account/environment/model/provider/context IDs and hashes and preserve them across retry: docs/implementation/s04-cancel-retry-evidence.md; S12 artifact export and S33 remain pending
 C1,Market Explorer,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,422,"S07,S33",IMPLEMENTED_UNVERIFIED,"S07 #27 evidence: docs/implementation/s07-market-evidence.md at fd5e0a2089fb70063561c09f5faafac04a496e33; S33 cross-page regression remains pending"
-C2,Natural-language Screener Builder,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,430,"S11,S33",NOT_STARTED,
-C3,Screener Result,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,440,"S11,S33",NOT_STARTED,
+C2,Natural-language Screener Builder,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,430,"S11,S33",IMPLEMENTED_UNVERIFIED,docs/implementation/s11-screener-evidence.md
+C3,Screener Result,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,440,"S11,S33",IMPLEMENTED_UNVERIFIED,docs/implementation/s11-screener-evidence.md
 C4,Equity Instrument Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,444,"S07,S08,S33",IMPLEMENTED_UNVERIFIED,"S07 #27 evidence: docs/implementation/s07-market-evidence.md at fd5e0a2089fb70063561c09f5faafac04a496e33; S08 #31 evidence: docs/implementation/s08-market-evidence.md at ece04c5de3413aa13bf7437729ad9b701a31b4f3; implementation de7b5eee14c522bac374b81ddc4cf2b32fdd2165 (includes 813a75a00497d7746167c3876583f80e07b0193b and clippy fix dc8e8c2e4b2efa59e98320f2ecdf297108d0e199); S33 regression remains pending"
 C5,Crypto Instrument Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,454,"S07,S08,S33",IMPLEMENTED_UNVERIFIED,"S07 #27 crypto venue-state evidence: docs/implementation/s07-market-evidence.md at fd5e0a2089fb70063561c09f5faafac04a496e33; S08 #31 evidence: docs/implementation/s08-market-evidence.md at ece04c5de3413aa13bf7437729ad9b701a31b4f3; implementation de7b5eee14c522bac374b81ddc4cf2b32fdd2165 (includes 813a75a00497d7746167c3876583f80e07b0193b and clippy fix dc8e8c2e4b2efa59e98320f2ecdf297108d0e199); S33 cross-page regression remains pending"
 C6,Market Session / Corporate Actions,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,462,"S08,S33",IMPLEMENTED_UNVERIFIED,"S08 #31 evidence: docs/implementation/s08-market-evidence.md at ece04c5de3413aa13bf7437729ad9b701a31b4f3; implementation de7b5eee14c522bac374b81ddc4cf2b32fdd2165 (includes 813a75a00497d7746167c3876583f80e07b0193b and clippy fix dc8e8c2e4b2efa59e98320f2ecdf297108d0e199); S33 full regression remains pending"
@@ -76,7 +76,7 @@ QA-04,Execution eligibility and approval expiry,docs/TradeX_Prototype_QA_Report_
 QA-05,Global disarm and dispatch interruption,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,72,"S21,S23,S24,S27,S33",NOT_STARTED,
 QA-06,Immutable historical provenance,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,83,"S04,S12,S33",NOT_STARTED,
 QA-07,Draft editing and proposal regeneration,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,94,"S13,S22,S33",NOT_STARTED,
-QA-08,"Screener, picker and instrument selection",docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,105,"S05,S07,S11,S33",NOT_STARTED,
+QA-08,"Screener, picker and instrument selection",docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,105,"S05,S07,S11,S33",IMPLEMENTED_UNVERIFIED,docs/implementation/s11-screener-evidence.md
 QA-09,Backtest entry and frozen run inputs,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,116,"S14,S15,S33",NOT_STARTED,
 QA-10,Model setup and remediation,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,127,"S03,S04,S27,S33",NOT_STARTED,
 QA-11,Keyboard and modal focus,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,138,"S33,S33",NOT_STARTED,

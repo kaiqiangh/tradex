@@ -2210,6 +2210,18 @@ Every account/holding/order/fill observation carries the provider connection ide
 
 `PortfolioValue` keeps `nativeValue/nativeCurrency`, `accountValue/accountCurrency`, and `workspaceValue/workspaceCurrency` separate. A normalized value must carry `FxProvenance` with source, pair path, optional rate, provider timestamp, TradeX received timestamp, freshness, quality and an optional depeg warning. Missing currency, rate, fills, cost basis, realized/unrealized P&L or other provider fields are `null`/unavailable and never zero-filled. Aggregates fail closed: if any contributing native value lacks a trusted workspace conversion, the dependent workspace total is unavailable and the snapshot status remains degraded/blocked. `fillsCount` is optional for providers that do not expose fills. No portfolio payload grants arming, approval, reservation or gateway authority; later risk consumers must revalidate all account, market, time and FX gates.
 
+### 41.15 Read-only natural-language screener payloads (S11)
+
+Version 1 adds one source-gated, read-only market operation:
+
+| Command | Payload | Success data | Mutation/event behavior |
+|---|---|---|---|
+| `market.screen` | `{workspaceId, operation, naturalLanguage, focus?, filterSpec?, rankSpec?, revision?, limit?}` | `ScreenerResult` | none; no provider call, SQLite write, DuckDB write, domain event or execution authority |
+
+`operation` is `PARSE` or `RUN`. `PARSE` converts bounded natural language into a typed `FilterSpec`, `RankSpec`, and deterministic `sha256:` revision. The renderer must show the parsed conditions before `RUN`; edits require a new revision. `RUN` rejects missing or stale revisions and returns `COMPLETED`, `EMPTY`, `BLOCKED_EXTERNAL` or `FAILED` with bounded candidate rows, exact canonical instrument IDs, feature values, source IDs, provider/received timestamps, freshness, quality, and limitations. `RUN` never silently drops unsupported predicates: the typed result is `FAILED` with `SCREENER_FILTER_UNSUPPORTED`.
+
+The first implementation supports US equities, US large-cap technology and crypto spot universes, revenue growth, estimate revision, RSI and price-change predicates, and quality/revision-strength/momentum ranking. Real provider adapters remain source-gated by OD-001/OD-003 and return `BLOCKED_EXTERNAL` until entitlement and an adapter are configured. The integration-only `SYNTHETIC_SCREENER_FIXTURE` is deterministic and cannot establish provider entitlement, quote authority or Live execution. The operation is read-only and does not persist a saved filter; persistence and candidate attachment remain a later slice.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

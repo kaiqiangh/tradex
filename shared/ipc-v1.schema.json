@@ -82,6 +82,9 @@
     "saveRiskPolicy": {
       "$ref": "#/$defs/SaveRiskPolicy"
     },
+    "screenerRequest": {
+      "$ref": "#/$defs/ScreenerRequest"
+    },
     "setDefaultModel": {
       "$ref": "#/$defs/SetDefaultModel"
     },
@@ -173,6 +176,7 @@
     "dataSourceProbe",
     "marketCatalogQuery",
     "marketGetQuery",
+    "screenerRequest",
     "portfolioQuery",
     "watchlistCreate",
     "watchlistRename",
@@ -1252,6 +1256,26 @@
         "schemaVersion",
         "ok",
         "error"
+      ]
+    },
+    "FilterSpec": {
+      "type": "object",
+      "properties": {
+        "predicates": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ScreenerPredicate"
+          },
+          "maxItems": 8
+        },
+        "universe": {
+          "$ref": "#/$defs/ScreenerUniverse"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "universe"
       ]
     },
     "FxFreshness": {
@@ -3071,6 +3095,22 @@
         "environment"
       ]
     },
+    "RankSpec": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "$ref": "#/$defs/ScreenerDirection"
+        },
+        "field": {
+          "$ref": "#/$defs/ScreenerRankField"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "direction"
+      ]
+    },
     "Remediation": {
       "type": "object",
       "properties": {
@@ -3161,6 +3201,9 @@
         },
         {
           "$ref": "#/$defs/ResearchToolResult"
+        },
+        {
+          "$ref": "#/$defs/ScreenerResult"
         }
       ]
     },
@@ -3912,6 +3955,395 @@
         "workspaceId",
         "expectedStateVersion",
         "policy"
+      ]
+    },
+    "ScreenerCandidate": {
+      "type": "object",
+      "properties": {
+        "features": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ScreenerFeature"
+          },
+          "maxItems": 8
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "limitation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/ScreenerProvenance"
+        },
+        "rank": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 50,
+          "minimum": 1
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instrumentId",
+        "symbol",
+        "rank",
+        "provenance"
+      ]
+    },
+    "ScreenerDirection": {
+      "type": "string",
+      "enum": [
+        "ASC",
+        "DESC"
+      ]
+    },
+    "ScreenerFeature": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/ScreenerFeatureField"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "value"
+      ]
+    },
+    "ScreenerFeatureField": {
+      "type": "string",
+      "enum": [
+        "REVENUE_GROWTH",
+        "ESTIMATE_REVISION",
+        "RSI",
+        "PRICE_CHANGE",
+        "QUALITY",
+        "REVISION_STRENGTH",
+        "MOMENTUM"
+      ]
+    },
+    "ScreenerOperation": {
+      "type": "string",
+      "enum": [
+        "PARSE",
+        "RUN"
+      ]
+    },
+    "ScreenerOperator": {
+      "type": "string",
+      "enum": [
+        "GREATER_THAN",
+        "GREATER_OR_EQUAL",
+        "LESS_THAN",
+        "LESS_OR_EQUAL"
+      ]
+    },
+    "ScreenerPredicate": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/ScreenerPredicateField"
+        },
+        "operator": {
+          "$ref": "#/$defs/ScreenerOperator"
+        },
+        "threshold": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "operator",
+        "threshold"
+      ]
+    },
+    "ScreenerPredicateField": {
+      "type": "string",
+      "enum": [
+        "REVENUE_GROWTH",
+        "ESTIMATE_REVISION",
+        "RSI",
+        "PRICE_CHANGE"
+      ]
+    },
+    "ScreenerProvenance": {
+      "type": "object",
+      "properties": {
+        "freshness": {
+          "$ref": "#/$defs/ResearchFreshness"
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/ResearchQuality"
+        },
+        "receivedTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "receivedTimestamp",
+        "freshness",
+        "quality"
+      ]
+    },
+    "ScreenerRankField": {
+      "type": "string",
+      "enum": [
+        "QUALITY",
+        "REVISION_STRENGTH",
+        "MOMENTUM"
+      ]
+    },
+    "ScreenerRequest": {
+      "type": "object",
+      "properties": {
+        "filterSpec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilterSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "focus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "maximum": 50,
+          "minimum": 1
+        },
+        "naturalLanguage": {
+          "type": "string",
+          "maxLength": 4000,
+          "minLength": 1
+        },
+        "operation": {
+          "$ref": "#/$defs/ScreenerOperation"
+        },
+        "rankSpec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RankSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "operation",
+        "naturalLanguage"
+      ]
+    },
+    "ScreenerResult": {
+      "type": "object",
+      "properties": {
+        "appliedConditions": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "maxItems": 16
+        },
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "candidateCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 50,
+          "minimum": 0
+        },
+        "candidates": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ScreenerCandidate"
+          },
+          "maxItems": 50
+        },
+        "filterSpec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilterSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fixtureLabel": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "focus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "naturalLanguage": {
+          "type": "string",
+          "maxLength": 4000,
+          "minLength": 1
+        },
+        "operation": {
+          "$ref": "#/$defs/ScreenerOperation"
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "rankSpec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RankSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receivedTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "sourceIds": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "state": {
+          "$ref": "#/$defs/ScreenerResultState"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "operation",
+        "state",
+        "naturalLanguage",
+        "candidateCount",
+        "receivedTimestamp",
+        "availabilityReason"
+      ]
+    },
+    "ScreenerResultState": {
+      "type": "string",
+      "enum": [
+        "PARSED",
+        "RUNNING",
+        "EMPTY",
+        "COMPLETED",
+        "BLOCKED_EXTERNAL",
+        "FAILED"
+      ]
+    },
+    "ScreenerUniverse": {
+      "type": "string",
+      "enum": [
+        "US_EQUITIES",
+        "US_LARGE_CAP_TECHNOLOGY",
+        "CRYPTO_SPOT"
       ]
     },
     "SetDefaultModel": {

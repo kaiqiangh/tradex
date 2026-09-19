@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus } from '../shared/ipc-types.ts';
+import type { ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -43,6 +43,7 @@ interface Inputs {
   'data.source.probe': DataSourceProbe;
   'market.catalog': MarketCatalogQuery;
   'market.get': MarketGetQuery;
+  'market.screen': ScreenerRequest;
   'portfolio.get': PortfolioQuery;
   'watchlist.list': WorkspaceQuery;
   'watchlist.create': WatchlistCreate;
@@ -92,6 +93,7 @@ interface Outputs {
   'data.source.probe': DataSourceCatalog;
   'market.catalog': MarketCatalog;
   'market.get': MarketDetail;
+  'market.screen': ScreenerResult;
   'portfolio.get': PortfolioSnapshot;
   'watchlist.list': Watchlists;
   'watchlist.create': Watchlist;
@@ -141,6 +143,7 @@ const definitions = {
   'data.source.probe': ['DataSourceProbe', 'DataSourceCatalog'],
   'market.catalog': ['MarketCatalogQuery', 'MarketCatalog'],
   'market.get': ['MarketGetQuery', 'MarketDetail'],
+  'market.screen': ['ScreenerRequest', 'ScreenerResult'],
   'portfolio.get': ['PortfolioQuery', 'PortfolioSnapshot'],
   'watchlist.list': ['WorkspaceQuery', 'Watchlists'],
   'watchlist.create': ['WatchlistCreate', 'Watchlist'],
