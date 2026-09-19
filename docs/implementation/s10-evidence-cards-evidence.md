@@ -23,7 +23,7 @@
 | `cargo clippy --workspace --all-targets --features integration-test -- -D warnings` | PASS |
 | `cargo fmt --all -- --check`、`git diff --check`、`node --check tests/thread-ui.mjs` | PASS |
 | Rust-backed bridge `research.run` | PASS — EQUITY 返回 `AVAILABLE` + `equity:US:AAPL` + scenario + `artifact-1`；CRYPTO_SPOT 返回 Binance/Bitget；`account_read + CRYPTO_SPOT` 无 fixture label 且五个 quote 字段为 `null` |
-| CUA 浏览器 `http://127.0.0.1:1420/` | PASS（目标路径）— 股票/现货卡片、`SYNTHETIC_INTEGRATION_FIXTURE` label、artifact ref、scenario、Trade disabled CTA；card/marker 键盘焦点与 picker Tab/Shift+Tab 已验证；此前 1280/768/390 的 `scrollWidth` 为 1265/753/375，目标路径 warn/error 日志为空。完整 helper 在取消竞态处停止：fake runtime 在点击 Cancel 前完成 Turn 2，因此不把该次 helper 运行宣称为全绿 |
+| CUA 浏览器 `http://127.0.0.1:1420/` | PASS — 完整 `checkThreadUI` 通过：股票/现货卡片、`SYNTHETIC_INTEGRATION_FIXTURE` label、artifact ref、scenario、Trade disabled CTA；card/marker 键盘焦点、picker Tab/Shift+Tab、Turn 4 发送后 reload 持久化、warn/error 日志和 1280/768/390 视口均通过；fixture label 换行修复了 390px 横向溢出 |
 
 浏览器运行使用 `npm run dev:browser` 的 Rust stdio/SQLite 临时 workspace 与明确的 provider/research fixture；没有读取或写入用户 ChatGPT OAuth、DeepSeek key 或 broker credential。fixture label 仅证明契约和 UI 线路，不证明真实 Binance/Bitget entitlement、实时行情或 provider 事实。真实模型/native Keychain、provider entitlement 和完整 S33 回归仍待独立验证，因此本票保持 `IMPLEMENTED_UNVERIFIED`，GitHub #35 保持 OPEN。
 

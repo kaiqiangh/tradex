@@ -67,8 +67,14 @@ test('research payload schema rejects unbounded scenarios, artifact refs and ven
   };
   assert.deepEqual(decode('ResearchToolPayload', payload), payload);
   assert.throws(() => decode('ResearchToolPayload', { ...payload, scenarios: Array.from({ length: 9 }, () => ({ title: 'x', detail: 'y' })) }));
+  assert.throws(() => decode('ResearchToolPayload', { ...payload, scenarios: [{ title: 'x'.repeat(121), detail: 'y' }] }));
+  assert.throws(() => decode('ResearchToolPayload', { ...payload, scenarios: [{ title: 'x', detail: 'y'.repeat(513) }] }));
   assert.throws(() => decode('ResearchToolPayload', { ...payload, artifactRefs: Array.from({ length: 9 }, (_, index) => `artifact-${index}`) }));
+  assert.throws(() => decode('ResearchToolPayload', { ...payload, artifactRefs: ['x'.repeat(129)] }));
   assert.throws(() => decode('ResearchToolPayload', { ...payload, spotVenues: Array.from({ length: 3 }, () => ({ venue: 'BINANCE', state: 'UNAVAILABLE', provenance: { sourceId: 'control-plane:market', provider: 'TradeX', status: 'UNAVAILABLE', receivedTimestamp: 'UNAVAILABLE', freshness: 'UNAVAILABLE', quality: 'UNAVAILABLE' } })) }));
+  for (const field of ['bid', 'ask', 'spread', 'depth', 'quoteAge']) {
+    assert.throws(() => decode('ResearchToolPayload', { ...payload, spotVenues: [{ venue: 'BINANCE', state: 'UNAVAILABLE', [field]: 'x'.repeat(65), provenance: { sourceId: 'control-plane:market', provider: 'TradeX', status: 'UNAVAILABLE', receivedTimestamp: 'UNAVAILABLE', freshness: 'UNAVAILABLE', quality: 'UNAVAILABLE' } }] }));
+  }
 });
 
 test('model projection accepts both provider event types and rejects foreign aggregates', () => {

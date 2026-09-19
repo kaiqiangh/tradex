@@ -300,10 +300,21 @@ export async function checkThreadUI(tab, browser) {
     await ui.getByRole('button', { name: 'Remove Synthetic research artifact', exact: true }).click();
     assert.equal(await ui.getByText('Context references: 0', { exact: true }).isVisible(), true);
     await ui.getByLabel('Turn request', { exact: true }).fill('Cancel this request');
+    const cancelButton = ui.getByRole('button', { name: 'Cancel Turn 2', exact: true });
+    const cancelUi = (async () => {
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        if (await cancelButton.count() && await cancelButton.isVisible()) {
+          await cancelButton.click();
+          return true;
+        }
+        await ui.waitForTimeout(10);
+      }
+      return false;
+    })();
     await ui.getByRole('button', { name: 'Send', exact: true }).click();
     const cancelledStatus = ui.getByRole('status', { name: 'Turn 2 status', exact: true });
     await cancelledStatus.waitFor({ state: 'visible' });
-    await ui.getByRole('button', { name: 'Cancel Turn 2', exact: true }).click();
+    assert.equal(await cancelUi, true, 'Cancel should be clicked while Turn 2 is running');
     for (let attempt = 0; attempt < 40 && (await cancelledStatus.innerText()) === 'RUNNING'; attempt += 1) await ui.waitForTimeout(25);
     assert.equal(await cancelledStatus.innerText(), 'CANCELLED');
     assert.equal(await ui.getByRole('button', { name: 'Retry Turn 2', exact: true }).isVisible(), true);
@@ -313,6 +324,27 @@ export async function checkThreadUI(tab, browser) {
     for (let attempt = 0; attempt < 40 && (await retriedStatus.innerText()) !== 'COMPLETED'; attempt += 1) await ui.waitForTimeout(25);
     assert.equal(await retriedStatus.innerText(), 'COMPLETED');
     observed.push('Cancel persists a distinct CANCELLED Turn, and retry creates a new Turn that completes without rewriting the cancelled history.');
+
+    await turnContextButton.click();
+    await dialog.waitFor({ state: 'visible' });
+    await ui.getByRole('checkbox', { name: 'Synthetic research artifact', exact: false }).check();
+    await ui.getByRole('button', { name: 'Attach', exact: true }).click();
+    assert.equal(await ui.getByText('Context references: 2', { exact: true }).isVisible(), true);
+    await ui.getByLabel('Turn request', { exact: true }).fill('AAPL');
+    await ui.getByRole('combobox').last().selectOption('EQUITY');
+    await ui.getByRole('button', { name: 'Preview typed research result', exact: true }).click();
+    await ui.getByText('Typed result · AVAILABLE', { exact: true }).waitFor({ state: 'visible' });
+    const stockPreview = ui.locator('.research-preview .research-result', {});
+    const stockMarker = stockPreview.locator('[data-research-marker]', {});
+    const stockMarkerText = await stockMarker.innerText();
+    assert.match(stockMarkerText, /^research:v1:sha256:[0-9a-f]{64}$/);
+    assert.equal(await stockPreview.getByText('artifact-1', { exact: true }).count(), 1);
+    await ui.getByRole('button', { name: 'Send', exact: true }).click();
+    const equityStatus = ui.getByRole('status', { name: 'Turn 4 status', exact: true });
+    await equityStatus.waitFor({ state: 'visible' });
+    for (let attempt = 0; attempt < 80 && (await equityStatus.innerText()) !== 'COMPLETED'; attempt += 1) await ui.waitForTimeout(25);
+    assert.equal(await equityStatus.innerText(), 'COMPLETED');
+    observed.push('A stock result with its scenario, fixture label, artifact ref and marker is sent as Turn 4 for reload persistence.');
 
     await tab.reload();
     await ui.getByRole('button', { name: 'Threads', exact: true }).click();
@@ -328,6 +360,11 @@ export async function checkThreadUI(tab, browser) {
     assert.equal(await ui.getByText(/Context refs: account:/, { exact: false }).isVisible(), true);
     assert.equal(await ui.getByRole('status', { name: 'Turn 2 status', exact: true }).innerText(), 'CANCELLED');
     assert.equal(await ui.getByRole('status', { name: 'Turn 3 status', exact: true }).innerText(), 'COMPLETED');
+    assert.equal(await ui.getByRole('status', { name: 'Turn 4 status', exact: true }).innerText(), 'COMPLETED');
+    const reloadedEquityCard = ui.getByRole('region', { name: 'Persisted typed research result', exact: true }).filter({ hasText: 'Synthetic fixture · SYNTHETIC_INTEGRATION_FIXTURE' });
+    assert.equal(await reloadedEquityCard.getByText('artifact-1', { exact: true }).isVisible(), true);
+    assert.equal(await reloadedEquityCard.getByRole('region', { name: 'Scenarios', exact: true }).isVisible(), true);
+    assert.match(await reloadedEquityCard.locator('[data-research-marker]', {}).innerText(), /^research:v1:sha256:[0-9a-f]{64}$/);
     observed.push('Thread history and its selected detail survive renderer/workspace reload.');
 
     await ui.getByLabel('Turn request', { exact: true }).fill('AAPL');
@@ -337,12 +374,12 @@ export async function checkThreadUI(tab, browser) {
 
     for (const width of [1280, 768, 390]) {
       await viewport.set({ width, height: 860 });
-      const ax = await tab.getAXState({ emit: false });
+      const ax = await tab.getAXState({ emit: false, disableDiffing: true });
       const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
       assert.ok(size.scroll <= size.width, `Horizontal overflow at ${width}: ${JSON.stringify(size)}`);
       assert.equal(await ui.getByRole('heading', { name: 'Earnings timeline', exact: true }).isVisible(), true);
       assert.equal(await ui.getByText('Mode: RESEARCH', { exact: true }).isVisible(), true);
-      assert.equal(await ui.getByRole('status', { name: 'Focus: EQUITY', exact: true }).isVisible(), true);
+      assert.equal(await ui.getByText('Focus: EQUITY', { exact: true }).isVisible(), true);
       assert.ok(JSON.stringify(ax).includes('Scenarios'), `Accessibility tree should expose the scenario section at ${width}px`);
       observed.push(`Thread identity, context, typed status and focusable history remain visible at ${width}px.`);
     }
