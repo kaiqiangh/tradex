@@ -149,7 +149,7 @@ fn parse(request: &ScreenerRequest, received_timestamp: &str) -> Result<Screener
     let mut unsupported_reason = None;
     if let Some(reason) = add_predicate(
         &text,
-        &["revenue growth", "growth"],
+        &["revenue growth"],
         ScreenerPredicateField::RevenueGrowth,
         "0.15",
         true,
@@ -257,32 +257,31 @@ fn add_predicate(
 ) -> Result<Option<String>> {
     let rank_start = ["rank by", "sort by", "order by"]
         .iter()
-        .filter_map(|marker| text.find(marker))
+        .filter_map(|marker| find_keyword(text, marker))
         .min();
     let Some((keyword, index)) = keywords
         .iter()
-        .filter_map(|keyword| text.find(keyword).map(|index| (*keyword, index)))
+        .filter_map(|keyword| find_keyword(text, keyword).map(|index| (*keyword, index)))
         .filter(|(_, index)| rank_start.map(|start| *index < start).unwrap_or(true))
-        .min_by_key(|(_, index)| *index)
+        .min_by_key(|(keyword, index)| (*index, usize::MAX - keyword.len()))
     else {
         return Ok(None);
     };
     let remaining = &text[index + keyword.len()..];
     let filter_end = ["rank by", "sort by", "order by"]
         .iter()
-        .filter_map(|marker| remaining.find(marker))
+        .filter_map(|marker| find_keyword(remaining, marker))
         .min()
         .unwrap_or(remaining.len());
     if keywords
         .iter()
-        .any(|candidate| remaining[..filter_end].contains(candidate))
+        .any(|candidate| find_keyword(&remaining[..filter_end], candidate).is_some())
     {
         return Ok(Some(format!(
             "Multiple {field:?} conditions are unsupported."
         )));
     }
-    let suffix = &text[index..text.len().min(index + 96)];
-    let clause = suffix
+    let clause = text[index..index + keyword.len() + filter_end]
         .split([',', ';'])
         .next()
         .unwrap_or_default()
@@ -292,9 +291,31 @@ fn add_predicate(
         .split(" or ")
         .next()
         .unwrap_or_default();
+    let negative_context = predicate_context(text, index)
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|token| token == "negative");
+    if let Some(token) = unsupported_predicate_context(text, index) {
+        return Ok(Some(format!(
+            "Unsupported predicate context '{token}' for {field:?}."
+        )));
+    }
     if let Some(operator) = unsupported_operator(clause) {
         return Ok(Some(format!(
             "Unsupported operator '{operator}' for {field:?}."
+        )));
+    }
+    if let Some(token) = clause
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .find(|token| !supported_predicate_token(token))
+    {
+        return Ok(Some(format!(
+            "Unsupported predicate token '{token}' for {field:?}."
+        )));
+    }
+    if numeric_literal_count(clause) > 1 {
+        return Ok(Some(format!(
+            "Multiple thresholds are unsupported for {field:?}."
         )));
     }
     let raw = match numeric_after(clause) {
@@ -305,6 +326,7 @@ fn add_predicate(
         None if has_explicit_operator(clause) => {
             return Ok(Some(format!("Missing threshold for {field:?}.")));
         }
+        None if negative_context => "0".to_owned(),
         None => default.to_owned(),
     };
     let threshold = if percent || raw.ends_with('%') {
@@ -318,6 +340,126 @@ fn add_predicate(
         threshold,
     });
     Ok(None)
+}
+
+fn supported_predicate_token(token: &str) -> bool {
+    token.chars().all(|character| character.is_ascii_digit())
+        || [
+            "revenue",
+            "growth",
+            "estimate",
+            "estimates",
+            "revision",
+            "revisions",
+            "rsi",
+            "price",
+            "change",
+            "momentum",
+            "above",
+            "below",
+            "over",
+            "under",
+            "greater",
+            "less",
+            "at",
+            "least",
+            "most",
+            "more",
+            "than",
+            "fewer",
+            "positive",
+            "negative",
+        ]
+        .contains(&token)
+}
+
+fn supported_query_context_token(token: &str) -> bool {
+    const ALLOWED: &[&str] = &[
+        "find",
+        "show",
+        "screen",
+        "list",
+        "all",
+        "the",
+        "us",
+        "large",
+        "cap",
+        "technology",
+        "tech",
+        "stocks",
+        "stock",
+        "equities",
+        "equity",
+        "companies",
+        "company",
+        "crypto",
+        "spot",
+        "assets",
+        "asset",
+        "market",
+        "in",
+        "from",
+        "of",
+        "with",
+        "where",
+        "that",
+        "whose",
+        "and",
+        "positive",
+        "negative",
+    ];
+    ALLOWED.contains(&token) || supported_predicate_token(token)
+}
+
+fn unsupported_predicate_context(text: &str, index: usize) -> Option<&str> {
+    predicate_context(text, index)
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .find(|token| !supported_query_context_token(token))
+}
+
+fn predicate_context(text: &str, index: usize) -> &str {
+    let prefix = &text[..index];
+    let start = [" with ", " where ", " that ", " whose ", " and ", ",", ";"]
+        .iter()
+        .filter_map(|marker| prefix.find(marker).map(|position| position + marker.len()))
+        .max()
+        .unwrap_or(0);
+    &prefix[start..]
+}
+
+fn numeric_literal_count(text: &str) -> usize {
+    let mut count = 0;
+    let mut in_number = false;
+    for character in text.chars() {
+        if character.is_ascii_digit() {
+            if !in_number {
+                count += 1;
+                in_number = true;
+            }
+        } else if in_number && matches!(character, '.' | '-' | '%') {
+            continue;
+        } else {
+            in_number = false;
+        }
+    }
+    count
+}
+
+fn find_keyword(text: &str, keyword: &str) -> Option<usize> {
+    let mut offset = 0;
+    while let Some(relative) = text[offset..].find(keyword) {
+        let index = offset + relative;
+        let before = text[..index].chars().next_back();
+        let after = text[index + keyword.len()..].chars().next();
+        if before.is_none_or(|character| !character.is_ascii_alphanumeric())
+            && after.is_none_or(|character| !character.is_ascii_alphanumeric())
+        {
+            return Some(index);
+        }
+        offset = index + keyword.len();
+    }
+    None
 }
 
 fn has_explicit_operator(text: &str) -> bool {
@@ -360,15 +502,68 @@ fn unsupported_operator(text: &str) -> Option<&'static str> {
 }
 
 fn unsupported_filter_reason(text: &str) -> Option<String> {
+    if text.chars().any(|character| !character.is_ascii()) {
+        return Some("Unsupported non-ASCII screener language.".into());
+    }
+    let tokens = text
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    if matches!(tokens.last(), Some(&"and" | &"or")) {
+        return Some("Unsupported dangling conjunction.".into());
+    }
+    if tokens
+        .windows(2)
+        .any(|pair| matches!(pair[0], "and" | "or") && matches!(pair[1], "and" | "or"))
+    {
+        return Some("Unsupported repeated conjunction.".into());
+    }
+    if contains_word(text, "or") {
+        return Some("Unsupported conjunction 'or'.".into());
+    }
+    for connector in ["plus", "while", "but", "yet", "nor", "without", "then"] {
+        if contains_word(text, connector) {
+            return Some(format!("Unsupported conjunction '{connector}'."));
+        }
+    }
+    if text.contains('&') {
+        return Some("Unsupported conjunction '&'.".into());
+    }
+    let first_supported_field = [
+        "revenue growth",
+        "estimate revision",
+        "revisions",
+        "rsi",
+        "price change",
+        "momentum",
+    ]
+    .iter()
+    .filter_map(|field| find_keyword(text, field))
+    .min();
+    if let Some(index) = first_supported_field {
+        let predicate_tail = &text[index..];
+        for connector in ["where", "whose", "with", "also", "alongside"] {
+            if contains_word(predicate_tail, connector) {
+                return Some(format!("Unsupported conjunction '{connector}'."));
+            }
+        }
+    }
+    for marker in ["rank by", "sort by", "order by"] {
+        if let Some(index) = find_keyword(text, marker) {
+            if let Some(token) = unsupported_predicate_context(text, index) {
+                return Some(format!("Unsupported rank context '{token}'."));
+            }
+        }
+    }
     if let Some((field, operator)) = text
         .split([',', ';'])
         .flat_map(|clause| clause.split(" and "))
         .flat_map(|clause| clause.split(" or "))
+        .filter(|clause| !clause.trim().is_empty())
         .find_map(|clause| {
             let clause = clause.trim();
             let has_supported_field = [
                 "revenue growth",
-                "growth",
                 "estimate revision",
                 "revisions",
                 "rsi",
@@ -376,49 +571,12 @@ fn unsupported_filter_reason(text: &str) -> Option<String> {
                 "momentum",
             ]
             .iter()
-            .any(|field| clause.contains(field));
-            let rank_or_limit = clause.contains("rank by")
-                || clause.contains("sort by")
-                || clause.contains("order by")
-                || clause.starts_with("top ");
-            let generic_prefix = clause
-                .split(|character: char| !character.is_ascii_alphanumeric())
-                .filter(|token| !token.is_empty())
-                .all(|token| {
-                    [
-                        "find",
-                        "show",
-                        "screen",
-                        "list",
-                        "all",
-                        "the",
-                        "us",
-                        "large",
-                        "cap",
-                        "technology",
-                        "tech",
-                        "stocks",
-                        "stock",
-                        "equities",
-                        "equity",
-                        "companies",
-                        "company",
-                        "crypto",
-                        "spot",
-                        "assets",
-                        "asset",
-                        "market",
-                        "in",
-                        "from",
-                        "of",
-                        "with",
-                        "where",
-                        "that",
-                        "whose",
-                    ]
-                    .contains(&token)
-                });
-            if !has_supported_field && !rank_or_limit && !generic_prefix {
+            .any(|field| find_keyword(clause, field).is_some());
+            let rank_or_limit = ["rank by", "sort by", "order by"]
+                .iter()
+                .any(|marker| find_keyword(clause, marker).is_some())
+                || clause.trim_start().starts_with("top ");
+            if !has_supported_field && !rank_or_limit {
                 let operator = if has_explicit_operator(clause) {
                     [
                         "above",
@@ -453,6 +611,8 @@ fn unsupported_filter_reason(text: &str) -> Option<String> {
         ("pe ratio", "price-to-earnings"),
         ("price/earnings", "price-to-earnings"),
         ("price to earnings", "price-to-earnings"),
+        ("ev/ebitda", "enterprise-value-to-ebitda"),
+        ("enterprise value", "enterprise value"),
         ("market cap", "market capitalization"),
         ("market capitalization", "market capitalization"),
         ("dividend", "dividend"),
@@ -469,6 +629,21 @@ fn unsupported_filter_reason(text: &str) -> Option<String> {
 
 fn unsupported_universe_reason(text: &str) -> Option<String> {
     let normalized = text.replace(['-', '_'], " ");
+    let crypto_scope = contains_word(&normalized, "crypto") || contains_word(&normalized, "spot");
+    let equity_scope = [
+        "us",
+        "stock",
+        "stocks",
+        "equity",
+        "equities",
+        "technology",
+        "tech",
+    ]
+    .iter()
+    .any(|word| contains_word(&normalized, word));
+    if crypto_scope && equity_scope {
+        return Some("Conflicting universe scopes are unsupported.".into());
+    }
     [
         ("small cap", "small-cap"),
         ("mid cap", "mid-cap"),
@@ -664,18 +839,16 @@ fn operator_before(text: &str, index: usize) -> ScreenerOperator {
         || before.contains("under")
         || before.contains("less")
         || before.contains("fewer than")
+        || before.contains("negative")
         || before.contains('<')
         || after.contains("below")
         || after.contains("under")
         || after.contains("less")
         || after.contains("fewer than")
+        || after.contains("negative")
         || after.contains('<')
     {
         ScreenerOperator::LessThan
-    } else if before.contains("or more") || after.contains("or more") {
-        ScreenerOperator::GreaterOrEqual
-    } else if before.contains("or less") || after.contains("or less") {
-        ScreenerOperator::LessOrEqual
     } else {
         ScreenerOperator::GreaterThan
     }
@@ -684,7 +857,7 @@ fn operator_before(text: &str, index: usize) -> ScreenerOperator {
 fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<String>) {
     let rank_clause = ["rank by", "sort by", "order by"]
         .iter()
-        .find_map(|keyword| text.find(keyword).map(|index| &text[index..]))
+        .find_map(|keyword| find_keyword(text, keyword).map(|index| &text[index..]))
         .map(|clause| clause.split([',', ';']).next().unwrap_or(clause));
     let (field, mut reason) = if let Some(clause) = rank_clause {
         if clause.contains("momentum") || clause.contains("price change") {
@@ -730,6 +903,9 @@ fn rank_from_text(text: &str) -> (ScreenerRankField, ScreenerDirection, Option<S
 }
 
 fn unsupported_rank_direction(clause: &str) -> Option<String> {
+    if clause.chars().any(|character| !character.is_ascii()) {
+        return Some("Unsupported non-ASCII rank language.".into());
+    }
     const ALLOWED: &[&str] = &[
         "rank",
         "by",
@@ -757,16 +933,21 @@ fn unsupported_rank_direction(clause: &str) -> Option<String> {
 }
 
 fn parse_limit(text: &str) -> (Option<u32>, Option<String>) {
-    let Some(index) = text.find("top ") else {
+    let Some(index) = find_keyword(text, "top") else {
         return (None, None);
     };
-    let number = text[index + 4..]
-        .split_whitespace()
+    let clause = text[index + "top".len()..]
+        .split([',', ';'])
         .next()
         .unwrap_or("")
-        .trim_end_matches([',', ';', '.']);
+        .trim();
+    let mut tokens = clause.split_whitespace();
+    let number = tokens.next().unwrap_or("").trim_end_matches('.');
     if number.is_empty() {
         return (None, Some("Missing screener limit after 'top'.".into()));
+    }
+    if tokens.next().is_some() {
+        return (None, Some("Invalid screener limit.".into()));
     }
     if !number.chars().all(|character| character.is_ascii_digit()) {
         return (None, Some("Invalid screener limit.".into()));
@@ -1243,6 +1424,53 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported filter field")
         );
+        for alias in [
+            "Find US stocks with earnings growth above 10%.",
+            "Find US stocks with profit growth above 10%.",
+            "Find US stocks with customer growth above 10%.",
+        ] {
+            request.natural_language = alias.into();
+            let alias_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(alias_failure.state, ScreenerResultState::Failed);
+        }
+        request.natural_language = "Find stocks with RSI below 70 free cash flow above 10%.".into();
+        let inline_unknown = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(inline_unknown.state, ScreenerResultState::Failed);
+        for malformed_field in [
+            "Find US stocks with prevenue growth above 10%.",
+            "Find US stocks with nonrevenue growth above 10%.",
+            "Find US stocks with xprice change above 10%.",
+            "Find US stocks with previsions above 10%.",
+            "Find US stocks with crsi below 70.",
+            "Find US stocks with foo revenue growth above 10%.",
+            "Find US stocks with non-revenue growth above 10%.",
+        ] {
+            request.natural_language = malformed_field.into();
+            let malformed_field_result = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(malformed_field_result.state, ScreenerResultState::Failed);
+        }
+        for non_ascii in [
+            "Find stocks with RSI below 70收益",
+            "收益 revenue growth above 10%",
+        ] {
+            request.natural_language = non_ascii.into();
+            let non_ascii_result = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(non_ascii_result.state, ScreenerResultState::Failed);
+        }
+        request.natural_language = format!(
+            "Find stocks with RSI below 70{}free cash flow above 10%.",
+            " ".repeat(96)
+        );
+        let distant_unknown = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(distant_unknown.state, ScreenerResultState::Failed);
+        for extra_number in [
+            "Find stocks with RSI below 70 80.",
+            "Find stocks with RSI below 70% 80%.",
+        ] {
+            request.natural_language = extra_number.into();
+            let extra_number_result = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(extra_number_result.state, ScreenerResultState::Failed);
+        }
         request.natural_language =
             "Find US stocks with RSI below 70 and EV/EBITDA below 10.".into();
         let conjunction_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
@@ -1252,6 +1480,54 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported filter field")
         );
+        request.natural_language = "Find US stocks with spot price change above 0%.".into();
+        let conflicting_universe = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(conflicting_universe.state, ScreenerResultState::Failed);
+        assert!(
+            conflicting_universe
+                .availability_reason
+                .contains("universe")
+        );
+        request.natural_language =
+            "Find US stocks with RSI below 70 or price change above 0%.".into();
+        let or_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(or_failure.state, ScreenerResultState::Failed);
+        assert!(or_failure.availability_reason.contains("Unsupported"));
+        for connector in ["plus", "while", "but", "yet", "nor", "without"] {
+            request.natural_language =
+                format!("Find US stocks with RSI below 70 {connector} EV/EBITDA below 10.");
+            let connector_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(connector_failure.state, ScreenerResultState::Failed);
+            assert!(
+                connector_failure
+                    .availability_reason
+                    .contains("Unsupported")
+            );
+        }
+        for connector in ["where", "whose", "with", "also", "alongside"] {
+            request.natural_language =
+                format!("Find US stocks with RSI below 70 {connector} EV/EBITDA below 10.");
+            let residual_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(residual_failure.state, ScreenerResultState::Failed);
+            assert!(residual_failure.availability_reason.contains("Unsupported"));
+        }
+        for malformed in [
+            "Find stocks with RSI below 70 and.",
+            "Find stocks with RSI below 70 and and price change above 0%.",
+            "Find stocks with RSI below 70 or and price change above 0%.",
+            "Find stocks with RSI below 70 and/or price change above 0%.",
+            "Find stocks with RSI below 70 and?",
+            "Find stocks with RSI below 70,but price change above 0%.",
+        ] {
+            request.natural_language = malformed.into();
+            let malformed_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(malformed_failure.state, ScreenerResultState::Failed);
+            assert!(
+                malformed_failure
+                    .availability_reason
+                    .contains("Unsupported")
+            );
+        }
         request.natural_language = "Find stocks with RSI below 70 and EV/EBITDA 10.".into();
         let missing_operator_failure = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(missing_operator_failure.state, ScreenerResultState::Failed);
@@ -1276,6 +1552,10 @@ mod tests {
         let rank_only = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(rank_only.state, ScreenerResultState::Parsed);
         assert_eq!(rank_only.filter_spec.unwrap().predicates.len(), 1);
+        request.natural_language = "Find stocks with RSI below 70 rank by quality.".into();
+        let rank_without_comma = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(rank_without_comma.state, ScreenerResultState::Parsed);
+        assert_eq!(rank_without_comma.filter_spec.unwrap().predicates.len(), 1);
         request.natural_language = "Find stocks with RSI below and price change above 0%.".into();
         let missing_threshold = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(missing_threshold.state, ScreenerResultState::Failed);
@@ -1297,12 +1577,50 @@ mod tests {
                 .availability_reason
                 .contains("Multiple")
         );
+        request.natural_language = "Find stocks with RSI below 70 and company stock.".into();
+        let trailing_unknown = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(trailing_unknown.state, ScreenerResultState::Failed);
+        assert!(
+            trailing_unknown
+                .availability_reason
+                .contains("Unsupported filter field")
+        );
         request.natural_language = "RSI fewer than 70".into();
         let fewer = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(
             fewer.filter_spec.unwrap().predicates[0].operator,
             ScreenerOperator::LessThan
         );
+        request.natural_language = "negative estimate revisions".into();
+        let negative_revisions = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(negative_revisions.state, ScreenerResultState::Parsed);
+        assert_eq!(
+            negative_revisions.filter_spec.unwrap().predicates[0].operator,
+            ScreenerOperator::LessThan
+        );
+        request.natural_language = "negative price change".into();
+        let negative_price_change = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(negative_price_change.state, ScreenerResultState::Parsed);
+        assert_eq!(
+            negative_price_change.filter_spec.unwrap().predicates[0].operator,
+            ScreenerOperator::LessThan
+        );
+        request.natural_language = "negative revenue growth".into();
+        let negative_revenue = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(negative_revenue.state, ScreenerResultState::Parsed);
+        assert_eq!(
+            negative_revenue.filter_spec.unwrap().predicates[0].threshold,
+            "0"
+        );
+        for leading_query in [
+            "Find RSI below 70",
+            "Find revenue growth above 15%",
+            "Find estimate revisions above 0%",
+        ] {
+            request.natural_language = leading_query.into();
+            let leading_query_result = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(leading_query_result.state, ScreenerResultState::Parsed);
+        }
         request.natural_language = "RSI around 70".into();
         let around = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert!(around.availability_reason.contains("Unsupported operator"));
@@ -1375,6 +1693,16 @@ mod tests {
                 .availability_reason
                 .contains("Unsupported rank direction")
         );
+        for malformed_rank in [
+            "Find stocks with RSI below 70, rank by quality 随机.",
+            "Find stocks with RSI below 70, rank by quality random extra.",
+            "Find stocks with RSI below 70, xrank by quality.",
+            "Find stocks with RSI below 70 foo rank by quality.",
+        ] {
+            request.natural_language = malformed_rank.into();
+            let malformed_rank_result = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(malformed_rank_result.state, ScreenerResultState::Failed);
+        }
         request.natural_language = "Find stocks with RSI below 70, top 10.5.".into();
         let malformed_limit = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(malformed_limit.state, ScreenerResultState::Failed);
@@ -1383,6 +1711,14 @@ mod tests {
                 .availability_reason
                 .contains("Invalid screener limit")
         );
+        for malformed_limit_text in [
+            "Find stocks with RSI below 70, top 10 foo.",
+            "Find stocks with RSI below 70, top 10 随机.",
+        ] {
+            request.natural_language = malformed_limit_text.into();
+            let malformed_limit_result = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+            assert_eq!(malformed_limit_result.state, ScreenerResultState::Failed);
+        }
         request.natural_language = "Find stocks with RSI below 70, top 100.".into();
         let over_limit = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
         assert_eq!(over_limit.state, ScreenerResultState::Failed);
