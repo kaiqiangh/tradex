@@ -1,6 +1,6 @@
 # S11 screener evidence
 
-Implementation baseline: `e1f2a8eb3fbd8a7b408bee5098267cc3cdb05de5` on `dev`; the follow-up hardening commit contains the review fixes recorded below. GitHub #38 remains OPEN until the user closes the ticket after review. The preceding S11 parse/run implementation is covered by the earlier commits listed in the issue history.
+Spec start SHA: `e288898b6ca5b4938dec401069168281e725f0a3`; implementation completion SHA: `6a27b3b5ca6462f54fd7390d02566306181f0e49` on `dev`. The completion SHA contains the target-isolation, boundary-evidence, and validation fixes from review; this evidence amendment is documentation-only. GitHub #38 remains OPEN until the user closes the ticket after review. The preceding S11 parse/run implementation is covered by the earlier commits listed in the issue history.
 
 The #38 slice adds a workspace-scoped SQLite screener library with `screener.list`, `screener.save`, and `screener.update`, including bounded reviewed inputs, canonical revision recalculation, reopen persistence, and optimistic state-version checks. `screener.attach` accepts only explicitly selected canonical instrument IDs and returns workspace-bound `ThreadContextRef` values. The Rust dispatcher, generated JSON Schema/TypeScript contract, frontend Markets flow, Backend ARD §41.15, and the Chinese contract notes are updated together.
 
@@ -11,7 +11,7 @@ The #38 slice adds a workspace-scoped SQLite screener library with `screener.lis
 - `npm run build` — PASS; Vite emits the existing large-client chunk warning.
 - `npm run test:unit` — PASS, 6 tests.
 - `cargo test -p tradex --all-targets -- --test-threads=1` — PASS; 89 library tests and all package integration targets, with only the repository's explicitly ignored native/provider checks skipped.
-- `cargo test --workspace --features integration-test -- --test-threads=1` — run for the final handoff; record the exact result in the issue resolution.
+- `cargo test --workspace --features integration-test -- --test-threads=1` — PASS; 95 library tests and all workspace integration targets, with only the repository's explicitly ignored native/provider checks skipped.
 - `cargo clippy -p tradex --all-targets -- -D warnings` — PASS.
 - `cargo fmt --all -- --check`, `git diff --check`, and `node --check tests/screener-ui.mjs` — PASS.
 

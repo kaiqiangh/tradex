@@ -50,7 +50,11 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByLabel('Select equity:US:AAPL', { exact: true }).check();
     await ui.getByRole('button', { name: 'Attach selected (1)', exact: true }).press('Enter');
     await ui.getByText('Context references: 1', { exact: true }).waitFor({ state: 'visible' });
-    observed.push('Saved definitions reopen reviewed inputs only; updates create a new revision and selected-only attach seeds one canonical context into a new Thread.');
+    await ui.getByRole('button', { name: 'Create Thread', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.locator('.thread-composer .composer-footer').getByText('Context references: 0', { exact: true }).isVisible(), true);
+    assert.equal(await ui.locator('.turn-composer .composer-footer').getByText('Context references: 1', { exact: true }).isVisible(), true);
+    observed.push('Saved definitions reopen reviewed inputs only; updates create a new revision, new Thread attach seeds one canonical context, and the new-thread composer does not inherit current-thread pending context.');
 
     await ui.getByRole('button', { name: 'Markets', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Markets', exact: true }).waitFor({ state: 'visible' });
@@ -74,6 +78,17 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
     await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByLabel('Select equity:US:AAPL', { exact: true }).check();
+    await ui.getByLabel('Attach selected to', { exact: true }).selectOption('current');
+    await ui.getByRole('button', { name: 'Attach selected (1)', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.locator('.thread-composer .composer-footer').getByText('Context references: 0', { exact: true }).isVisible(), true);
+    assert.equal(await ui.locator('.turn-composer .composer-footer').getByText('Context references: 1', { exact: true }).isVisible(), true);
+    observed.push('Current Thread next Turn attach routes one selected canonical context only to the selected Turn composer and leaves the new-thread composer empty.');
+
+    await ui.getByRole('button', { name: 'Markets', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Markets', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Open screener', exact: true }).press('Enter');
     observed.push('Stale edits, EMPTY state, aria-live result announcements and retry input preservation are asserted.');
 
     for (const width of [768, 390]) {
