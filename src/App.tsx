@@ -11,6 +11,7 @@ import { RiskDefaults, draftFromPolicy, type RiskDraft } from './RiskDefaults.ts
 import { DataSources } from './DataSources.tsx';
 import { Markets } from './Markets.tsx';
 import { Watchlists } from './Watchlists.tsx';
+import { ArtifactsPage, SaveArtifactAction } from './Artifacts.tsx';
 import { fromModelSnapshot, fromRiskSnapshot, fromThreadSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -454,23 +455,24 @@ function TurnComposer({ thread, model, runtime, initialContexts = [], onContexts
   </section>;
 }
 
-function TimelineItem({ item, contextRefs, agentMode }: { item: ThreadItem; contextRefs: ThreadContextRef[]; agentMode: AgentMode }) {
+function TimelineItem({ workspaceId, threadId, turn, item, contextRefs, agentMode }: { workspaceId: string; threadId: string; turn: ThreadTurn; item: ThreadItem; contextRefs: ThreadContextRef[]; agentMode: AgentMode }) {
   const result = item.researchResult;
   return <article className={`timeline-item timeline-${item.status.toLowerCase()}`} data-item-status={item.status}>
     <div className="timeline-item-heading"><strong>{item.itemType.replaceAll('_', ' ')}</strong><span className="badge">{item.status}</span></div>
     {item.sourceId && <small className="timeline-item-provenance">Source: {item.sourceId} · Context refs: {formatContextRefs(contextRefs)}</small>}
     <p>{item.content || 'Waiting for stream content…'}</p>
     {result && <ResearchResultCard result={result} persisted agentMode={agentMode} />}
+    <div className="timeline-item-actions"><SaveArtifactAction workspaceId={workspaceId} thread={{ threadId }} turn={turn} item={item} /></div>
   </article>;
 }
 
-function TurnTimeline({ turn, index, busy, onCancel, onRetry }: { turn: ThreadTurn; index: number; busy: boolean; onCancel: () => void; onRetry: () => void }) {
+function TurnTimeline({ workspaceId, threadId, turn, index, busy, onCancel, onRetry }: { workspaceId: string; threadId: string; turn: ThreadTurn; index: number; busy: boolean; onCancel: () => void; onRetry: () => void }) {
   const attempt = turn.providerAttempts[turn.providerAttempts.length - 1];
   return <article className="turn-timeline" aria-labelledby={`turn-${turn.turnId}`}>
     <div className="turn-heading"><div><h3 id={`turn-${turn.turnId}`}>Turn {index + 1}</h3><small>{turn.snapshot.agentMode} · {turn.snapshot.executionContext}</small></div><div className="turn-heading-actions"><span className="badge" role="status" aria-label={`Turn ${index + 1} status`} aria-live="polite">{turn.status}</span>{turn.status === 'RUNNING' && <button type="button" onClick={onCancel} disabled={busy} aria-label={`Cancel Turn ${index + 1}`}>{busy ? 'Cancelling…' : 'Cancel'}</button>}{['FAILED', 'CANCELLED', 'INTERRUPTED'].includes(turn.status) && <button type="button" onClick={onRetry} disabled={busy} aria-label={`Retry Turn ${index + 1}`}>{busy ? 'Retrying…' : 'Retry'}</button>}</div></div>
     {turn.cancelRequestedAt && turn.status === 'RUNNING' && <p className="form-hint" role="status">Cancellation requested…</p>}
     <div className="turn-provenance"><span>Model: {turn.snapshot.model ? `${turn.snapshot.model.provider} · ${turn.snapshot.model.modelId}` : 'Unavailable'}</span><span>Account: {turn.snapshot.accountId ? `${turn.snapshot.accountId} · ${turn.snapshot.accountEnvironment ?? 'environment unavailable'}` : 'None'}</span><span>Capability: {turn.snapshot.capabilityLevel}</span><span>Context: {turn.snapshot.attachedContexts.length ? turn.snapshot.attachedContexts.map(context => `${context.kind}:${context.id}#${context.hash}`).join(', ') : 'None'}</span></div>
-    <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} item={item} contextRefs={turn.snapshot.attachedContexts} agentMode={turn.snapshot.agentMode} />)}</div>
+    <div className="timeline-items">{turn.items.map(item => <TimelineItem key={item.itemId} workspaceId={workspaceId} threadId={threadId} turn={turn} item={item} contextRefs={turn.snapshot.attachedContexts} agentMode={turn.snapshot.agentMode} />)}</div>
     {attempt && <p className="turn-attempt" data-provider-outcome={attempt.outcome}>Provider attempt: {attempt.provider} · {attempt.modelId} · {attempt.outcome}{attempt.errorCode ? ` · ${attempt.errorCode}` : ''}</p>}
   </article>;
 }
@@ -501,7 +503,7 @@ function ThreadDetail({ threadId, model, runtime, initialContexts = [], onContex
     <dl className="thread-provenance"><div><dt>Created</dt><dd><time dateTime={thread.createdAt}>{new Date(thread.createdAt).toLocaleString()}</time></dd></div><div><dt>Updated</dt><dd><time dateTime={thread.updatedAt}>{new Date(thread.updatedAt).toLocaleString()}</time></dd></div><div><dt>Context references</dt><dd>{thread.linkedContexts.length ? thread.linkedContexts.map(context => `${context.kind}:${context.id}`).join(', ') : 'None'}</dd></div></dl>
     <TurnComposer thread={thread} model={model} runtime={runtime} initialContexts={initialContexts} onContextsConsumed={onContextsConsumed} />
     {actionError && <p className="error-text" role="alert">{actionError}</p>}
-    {thread.turns?.length ? <section className="thread-timeline" aria-label="Turn timeline">{thread.turns.map((turn, index) => <TurnTimeline key={turn.turnId} turn={turn} index={index} busy={actionTurnId === turn.turnId} onCancel={() => void act(turn, 'turn.cancel')} onRetry={() => void act(turn, 'turn.retry')} />)}</section> : <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send a request to begin the read-only timeline.</p></div>}
+    {thread.turns?.length ? <section className="thread-timeline" aria-label="Turn timeline">{thread.turns.map((turn, index) => <TurnTimeline key={turn.turnId} workspaceId={thread.workspaceId} threadId={thread.threadId} turn={turn} index={index} busy={actionTurnId === turn.turnId} onCancel={() => void act(turn, 'turn.cancel')} onRetry={() => void act(turn, 'turn.retry')} />)}</section> : <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send a request to begin the read-only timeline.</p></div>}
   </section>;
 }
 
@@ -715,9 +717,10 @@ export default function App() {
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}
             {page === 'Markets' && (workspace ? <Markets workspaceId={workspace.workspaceId} hasCurrentThread={Boolean(selectedThreadId)} onAttachContexts={attachScreenerContexts} onOpenDataSources={() => { setSettingsTab('Data & Storage'); navigate('Settings'); }} /> : <><div className="page-heading"><h1>Markets</h1><p>Search canonical instruments and inspect source-backed market availability.</p></div><section className="card empty-page"><h2>Open a workspace to browse markets</h2><p>Market catalogs and source status are scoped to a local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {page === 'Watchlists' && (workspace ? <Watchlists workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Watchlists</h1><p>Keep ordered canonical instruments in a local workspace.</p></div><section className="card empty-page"><h2>Open a workspace to manage watchlists</h2><p>Watchlists are stored in the selected local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
-            {(page === 'Strategies' || page === 'Artifacts') && <>
+            {page === 'Artifacts' && (workspace ? <ArtifactsPage workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Artifacts</h1><p>Saved research and decision provenance.</p></div><section className="card empty-page"><h2>Open a workspace to view artifacts</h2><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
+            {page === 'Strategies' && <>
               <div className="page-heading"><h1>{page}</h1></div>
-              <section className="card empty-page"><h2>{page === 'Strategies' ? 'No saved strategies' : 'No artifacts'}</h2>
+              <section className="card empty-page"><h2>No saved strategies</h2>
                 <p>This workflow is not available in this build. Your local workspace is ready for the next setup steps.</p>
                 <button onClick={() => navigate('Settings')}>Open settings</button>
               </section>

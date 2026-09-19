@@ -22,10 +22,11 @@ pub mod time;
 
 use capability::{CapabilityQuery, ResearchToolId};
 use protocol::{
-    Aggregate, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload,
-    EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace,
-    PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus,
-    ScreenerRequest, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
+    Aggregate, Artifact, ArtifactContent, ArtifactExport, ArtifactProvenance, ArtifactQuery,
+    ArtifactSave, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection,
+    EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier,
+    OpenWorkspace, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent,
+    RuntimeStatus, ScreenerRequest, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
     ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry,
     TurnSnapshot, TurnStart,
 };
@@ -732,6 +733,31 @@ impl ControlPlane {
                 };
                 Ok((json!(attachment), None))
             }
+            "artifact.save" => {
+                let input: ArtifactSave = payload(request.payload)?;
+                let artifact = self.save_artifact(input)?;
+                Ok((json!(artifact), Some(artifact.state_version.clone())))
+            }
+            "artifact.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let library = self.store.as_ref().unwrap().artifacts()?;
+                Ok((json!(library), Some(library.state_version)))
+            }
+            "artifact.get" => {
+                let input: ArtifactQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_artifact_id(&input.artifact_id)?;
+                let artifact = self.store.as_ref().unwrap().artifact(&input.artifact_id)?;
+                Ok((json!(artifact), Some(artifact.state_version.clone())))
+            }
+            "artifact.export" => {
+                let input: ArtifactExport = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_artifact_id(&input.artifact_id)?;
+                let result = self.store.as_ref().unwrap().export_artifact(&input)?;
+                Ok((json!(result), None))
+            }
             "portfolio.get" => {
                 let input: PortfolioQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -1065,6 +1091,88 @@ impl ControlPlane {
         let (instrument_refs, finding) = self.research_producer_summary(request, &sources);
         research::enrich_result(&mut result, instrument_refs, finding);
         Ok(result)
+    }
+
+    fn save_artifact(&mut self, input: ArtifactSave) -> Result<Artifact> {
+        self.require_workspace(&input.workspace_id)?;
+        validate_artifact_id(&input.thread_id)?;
+        validate_artifact_id(&input.turn_id)?;
+        validate_artifact_id(&input.item_id)?;
+        if input.title.trim().is_empty()
+            || input.title.trim().chars().count() > 120
+            || input.title.chars().any(char::is_control)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+        let turn = thread
+            .turns
+            .iter()
+            .find(|turn| turn.turn_id == input.turn_id)
+            .ok_or_else(|| TradeXError::new("ARTIFACT_SOURCE_INVALID"))?;
+        if turn.status != protocol::TurnStatus::Completed {
+            return Err(TradeXError::new("ARTIFACT_SOURCE_INVALID"));
+        }
+        let item = turn
+            .items
+            .iter()
+            .find(|item| item.item_id == input.item_id)
+            .ok_or_else(|| TradeXError::new("ARTIFACT_SOURCE_INVALID"))?;
+        if item.status != protocol::ItemStatus::Completed {
+            return Err(TradeXError::new("ARTIFACT_SOURCE_INVALID"));
+        }
+        let research_result = item.research_result.clone();
+        let text = if item.content.trim().is_empty() {
+            research_result
+                .as_ref()
+                .and_then(|result| result.payload.conclusion.clone())
+                .unwrap_or_else(|| {
+                    research_result
+                        .as_ref()
+                        .map(|result| result.payload.reason.clone())
+                        .unwrap_or_else(|| "Saved TradeX artifact".into())
+                })
+        } else {
+            item.content.clone()
+        };
+        let provenance = ArtifactProvenance {
+            workspace_id: input.workspace_id.clone(),
+            thread_id: thread.thread_id.clone(),
+            turn_id: turn.turn_id.clone(),
+            item_id: item.item_id.clone(),
+            turn_snapshot: turn.snapshot.clone(),
+            provider_attempts: turn.provider_attempts.clone(),
+            research_tool_id: research_result
+                .as_ref()
+                .map(|result| result.tool_id.clone()),
+            research_result_id: research_result
+                .as_ref()
+                .map(|result| result.result_id.clone()),
+            sources: research_result
+                .as_ref()
+                .map(|result| result.payload.evidence.clone())
+                .unwrap_or_default(),
+            market_snapshot_hashes: Vec::new(),
+            dataset_hashes: Vec::new(),
+            related_order_ids: Vec::new(),
+        };
+        let artifact = Artifact {
+            artifact_id: String::new(),
+            workspace_id: input.workspace_id,
+            kind: input.kind,
+            title: input.title.trim().to_owned(),
+            version: 0,
+            content_hash: String::new(),
+            state_version: String::new(),
+            created_at: String::new(),
+            updated_at: String::new(),
+            content: ArtifactContent {
+                text,
+                research_result,
+            },
+            provenance,
+        };
+        self.store.as_mut().unwrap().save_artifact(artifact)
     }
 
     fn research_producer_summary(
@@ -2867,6 +2975,13 @@ fn validate_screener_id(id: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_artifact_id(id: &str) -> Result<()> {
+    if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
 fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {
     if input.workspace_id.is_empty()
         || input.workspace_id.len() > 128
@@ -3800,6 +3915,193 @@ mod thread_tests {
         ));
         assert_eq!(invalid_thread["ok"], false);
         assert_eq!(invalid_thread["error"]["code"], "TURN_CONTEXT_INVALID");
+    }
+    #[test]
+    fn artifact_round_trip_preserves_provenance_and_exports_safely() {
+        let directory = tempfile::tempdir().unwrap();
+        let workspace_path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(workspace_path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        assert_eq!(opened["ok"], true);
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let created = control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": "Artifact source",
+                "defaultAgentMode": "RESEARCH",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "linkedContexts": []
+            }),
+        ));
+        assert_eq!(created["ok"], true);
+        let thread_id = created["data"]["threadId"].as_str().unwrap().to_owned();
+        let mut thread = control.store.as_ref().unwrap().thread(&thread_id).unwrap();
+        let now = storage::timestamp().unwrap();
+        let turn_id = uuid::Uuid::new_v4().to_string();
+        let result = protocol::ResearchToolResult {
+            result_id: "research-result-1".into(),
+            tool_id: ResearchToolId::PublicMarketRead,
+            source_id: "OD-001".into(),
+            account_id: None,
+            request_hash: format!("sha256:{}", "a".repeat(64)),
+            marker: format!("research:v1:sha256:{}", "b".repeat(64)),
+            context_refs: Vec::new(),
+            payload: protocol::ResearchToolPayload {
+                state: protocol::ResearchResultState::Available,
+                reason: "Source-backed result".into(),
+                focus: Some(protocol::ResearchFocus::Equity),
+                conclusion: Some("A bounded source-backed conclusion.".into()),
+                findings: vec![protocol::ResearchFinding {
+                    title: "Finding".into(),
+                    detail: "The source returned a canonical instrument.".into(),
+                }],
+                scenarios: Vec::new(),
+                evidence: vec![protocol::ResearchProvenance {
+                    source_id: "OD-001".into(),
+                    provider: "Fixture source".into(),
+                    status: protocol::DataSourceStatus::Available,
+                    provider_timestamp: Some(now.clone()),
+                    received_timestamp: now.clone(),
+                    freshness: protocol::ResearchFreshness::Healthy,
+                    quality: protocol::ResearchQuality::Verified,
+                    limitation: None,
+                }],
+                limitations: Vec::new(),
+                instrument_refs: vec!["EQUITY:US:AAPL".into()],
+                artifact_refs: Vec::new(),
+                spot_venues: Vec::new(),
+                fixture_label: None,
+            },
+        };
+        thread.turns.push(ThreadTurn {
+            turn_id: turn_id.clone(),
+            status: protocol::TurnStatus::Completed,
+            snapshot: TurnSnapshot {
+                turn_id: turn_id.clone(),
+                agent_mode: protocol::AgentMode::Research,
+                execution_context: protocol::ExecutionContext::NoneReadOnly,
+                account_id: None,
+                account_environment: None,
+                capability_level: "C1".into(),
+                model: Some(ThreadModel {
+                    provider: "CHATGPT".into(),
+                    model_id: "gpt-5.6-sol".into(),
+                    thinking_type: None,
+                }),
+                attached_contexts: Vec::new(),
+                started_at: now.clone(),
+            },
+            items: vec![ThreadItem {
+                item_id: "research-result-1".into(),
+                item_type: "research_result".into(),
+                status: protocol::ItemStatus::Completed,
+                content: "A bounded source-backed conclusion.".into(),
+                source_id: Some("OD-001".into()),
+                research_result: Some(result),
+                started_at: now.clone(),
+                completed_at: Some(now.clone()),
+            }],
+            provider_attempts: vec![ThreadProviderAttempt {
+                attempt_id: "attempt-1".into(),
+                provider: "CHATGPT".into(),
+                model_id: "gpt-5.6-sol".into(),
+                started_at: now.clone(),
+                ended_at: Some(now.clone()),
+                outcome: "SUCCEEDED".into(),
+                error_code: None,
+            }],
+            started_at: now.clone(),
+            completed_at: Some(now),
+            cancel_requested_at: None,
+        });
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(thread, "thread.updated")
+            .unwrap();
+        let before_risk = control
+            .store
+            .as_ref()
+            .unwrap()
+            .risk()
+            .unwrap()
+            .state_version;
+        let saved = control.dispatch(request(
+            "artifact.save",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "turnId": turn_id,
+                "itemId": "research-result-1",
+                "kind": "RESEARCH",
+                "title": "AAPL research thesis"
+            }),
+        ));
+        assert_eq!(saved["ok"], true);
+        let artifact_id = saved["data"]["artifactId"].as_str().unwrap().to_owned();
+        assert!(
+            saved["data"]["contentHash"]
+                .as_str()
+                .unwrap()
+                .starts_with("sha256:")
+        );
+        let listed = control.dispatch(request(
+            "artifact.list",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(listed["ok"], true);
+        assert_eq!(listed["data"]["artifacts"].as_array().unwrap().len(), 1);
+        let detail = control.dispatch(request(
+            "artifact.get",
+            json!({"workspaceId": workspace_id, "artifactId": artifact_id}),
+        ));
+        assert_eq!(detail["ok"], true);
+        assert_eq!(
+            detail["data"]["provenance"]["turnSnapshot"]["agentMode"],
+            "RESEARCH"
+        );
+        assert_eq!(
+            detail["data"]["provenance"]["providerAttempts"][0]["modelId"],
+            "gpt-5.6-sol"
+        );
+        let exported = control.dispatch(request(
+            "artifact.export",
+            json!({"workspaceId": workspace_id, "artifactId": artifact_id, "fileName": "aapl-thesis.json"}),
+        ));
+        assert_eq!(exported["ok"], true);
+        let export_path = exported["data"]["path"].as_str().unwrap();
+        let export_text = std::fs::read_to_string(export_path).unwrap();
+        assert!(export_text.contains("AAPL research thesis"));
+        assert!(!export_text.contains("sk-"));
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .risk()
+                .unwrap()
+                .state_version,
+            before_risk
+        );
+        drop(control);
+
+        let mut reopened = ControlPlane::new(workspace_path.clone());
+        let reopened_open = reopened.dispatch(request(
+            "workspace.open",
+            json!({"path": workspace_path.to_string_lossy()}),
+        ));
+        assert_eq!(reopened_open["ok"], true);
+        let reopened_list = reopened.dispatch(request(
+            "artifact.list",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(reopened_list["ok"], true);
+        assert_eq!(
+            reopened_list["data"]["artifacts"].as_array().unwrap().len(),
+            1
+        );
     }
 }
 

@@ -367,6 +367,28 @@ export async function checkThreadUI(tab, browser) {
     assert.match(await reloadedEquityCard.locator('[data-research-marker]', {}).innerText(), /^research:v1:sha256:[0-9a-f]{64}$/);
     observed.push('Thread history and its selected detail survive renderer/workspace reload.');
 
+    const saveArtifact = ui.getByRole('button', { name: 'Save as artifact', exact: true }).first();
+    await saveArtifact.click();
+    await ui.getByRole('textbox', { name: 'Artifact title', exact: true }).fill('AAPL research artifact');
+    await ui.getByRole('button', { name: 'Save artifact', exact: true }).click();
+    await ui.getByRole('status').filter({ hasText: 'Artifact saved' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Artifacts', exact: true }).click();
+    await ui.getByRole('heading', { name: 'Artifacts', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: /AAPL research artifact/ }).click();
+    await ui.getByRole('heading', { name: 'AAPL research artifact', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'View provenance', exact: true }).click();
+    const provenance = ui.getByRole('dialog', { name: 'Artifact provenance', exact: true });
+    await provenance.waitFor({ state: 'visible' });
+    assert.equal(await ui.evaluate(() => document.querySelector('.app-shell')?.hasAttribute('inert')), true);
+    await provenance.press('Escape');
+    assert.equal(await ui.getByRole('dialog', { name: 'Artifact provenance', exact: true }).count(), 0);
+    assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'View provenance');
+    await ui.getByRole('button', { name: 'Export JSON', exact: true }).click();
+    await ui.getByRole('status').filter({ hasText: 'Exported ' }).waitFor({ state: 'visible' });
+    observed.push('A completed typed research item saves into the workspace artifact library; detail/provenance modal restores focus on Escape and explicit JSON export reports its local result.');
+    await ui.getByRole('button', { name: 'Threads', exact: true }).click();
+    await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
+
     await ui.getByLabel('Turn request', { exact: true }).fill('AAPL');
     await ui.getByRole('combobox').last().selectOption('EQUITY');
     await ui.getByRole('button', { name: 'Preview typed research result', exact: true }).click();

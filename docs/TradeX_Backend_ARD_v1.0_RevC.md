@@ -1756,6 +1756,15 @@ backtest.get
 backtest.compare
 ```
 
+### Artifacts
+
+```text
+artifact.save
+artifact.list
+artifact.get
+artifact.export
+```
+
 Every command has explicit schema versioning and sanitized errors.
 
 ---
@@ -2232,6 +2241,21 @@ The first implementation supports US equities, US large-cap technology and crypt
 `ScreenerLibrary` stores only bounded reviewed definitions (`naturalLanguage`, `FilterSpec`, `RankSpec`, `revision`, `limit`, state and timestamps) under the active workspace. Names are unique per workspace; unknown workspace, duplicate name, bounds, revision mismatch and stale `expectedStateVersion` fail closed. Reopening a definition restores inputs only and never restores Live authority or provider payloads. Editing creates a new revision and invalidates the previous result.
 
 `screener.attach` accepts only explicitly selected canonical instrument IDs, validates their current market catalog membership and returns workspace-bound `ThreadContextRef` values. The renderer may pass them to `thread.create.linkedContexts` or the next `turn.start`; both paths revalidate the refs. Unselected candidates, complete universes, provider payloads, credentials and natural-language context are not attached, and no Turn is started automatically.
+
+### 41.16 Research artifact payloads (S12)
+
+Version 1 adds a workspace-scoped, read-only-to-financial-state artifact projection and an explicit local export:
+
+| Command | Payload | Success data | Mutation/event behavior |
+|---|---|---|---|
+| `artifact.save` | `{workspaceId, threadId, turnId, itemId, kind, title}` | `Artifact` | bounded sanitized projection write in SQLite only; no outbox/domain event, account/model/risk/approval/arming/reservation/Gateway/credential mutation |
+| `artifact.list` | `{workspaceId}` | `ArtifactLibrary` | workspace-scoped SQLite projection query only |
+| `artifact.get` | `{workspaceId, artifactId}` | `Artifact` | workspace-scoped projection query only; the saved Turn snapshot is authoritative |
+| `artifact.export` | `{workspaceId, artifactId, fileName?}` | `ArtifactExportResult` | explicit local atomic JSON export under the workspace `exports/` directory; no cloud upload or share link |
+
+`artifact.save` re-reads the persisted Thread and requires a completed Turn and completed Item in the active workspace. The resulting `Artifact` is immutable in this slice and contains only bounded text/typed research fields plus `ArtifactProvenance`: workspace/Thread/Turn/Item IDs, immutable `TurnSnapshot`, append-only provider attempts, research tool/result/source provenance and optional market snapshot, dataset and order references. Each artifact has version `1`, a canonical `sha256:` content hash and an opaque ID; repeated saves create new identities.
+
+The projection rejects unknown or cross-workspace references, unsupported kinds, over-limit collections, control characters and sensitive markers. It never stores broker credentials, model keys, Keychain bytes, Authorization headers, raw provider responses or complete account/order payloads. `artifact.export` writes a manifest containing schema version, artifact/version/hash, export time and provenance references together with the sanitized artifact JSON. It rejects path traversal, symlinked destinations, existing files, redaction failures and partial writes; the returned manifest hash and content hash support later integrity checks. Artifact operations do not grant execution authority and do not change financial state.
 
 ## 42. Backend-to-Frontend Event Surface
 

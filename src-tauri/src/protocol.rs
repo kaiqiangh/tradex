@@ -188,6 +188,9 @@ pub enum ReplyData {
     ScreenerResult(ScreenerResult),
     ScreenerLibrary(ScreenerLibrary),
     ScreenerAttachment(ScreenerAttachment),
+    Artifact(Box<Artifact>),
+    ArtifactLibrary(ArtifactLibrary),
+    ArtifactExport(ArtifactExportResult),
 }
 
 #[derive(JsonSchema)]
@@ -255,6 +258,9 @@ pub struct IpcSchema {
     pub screener_save: ScreenerSave,
     pub screener_update: ScreenerUpdate,
     pub screener_attach: ScreenerAttach,
+    pub artifact_save: ArtifactSave,
+    pub artifact_query: ArtifactQuery,
+    pub artifact_export: ArtifactExport,
     pub portfolio_query: PortfolioQuery,
     pub watchlist_create: WatchlistCreate,
     pub watchlist_rename: WatchlistRename,
@@ -272,7 +278,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 8))]
+    #[schemars(range(min = 1, max = 9))]
     pub storage_schema_version: u32,
 }
 
@@ -1618,6 +1624,168 @@ pub struct Thread {
     pub turns: Vec<ThreadTurn>,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ArtifactKind {
+    Research,
+    Decision,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactContent {
+    #[schemars(length(min = 1, max = 32_768))]
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub research_result: Option<ResearchToolResult>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactProvenance {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub turn_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub item_id: String,
+    pub turn_snapshot: TurnSnapshot,
+    #[schemars(length(max = 16))]
+    pub provider_attempts: Vec<ThreadProviderAttempt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub research_tool_id: Option<ResearchToolId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub research_result_id: Option<String>,
+    #[schemars(length(max = 16))]
+    pub sources: Vec<ResearchProvenance>,
+    #[schemars(length(max = 16), inner(length(min = 1, max = 128)))]
+    pub market_snapshot_hashes: Vec<String>,
+    #[schemars(length(max = 16), inner(length(min = 1, max = 128)))]
+    pub dataset_hashes: Vec<String>,
+    #[schemars(length(max = 16), inner(length(min = 1, max = 128)))]
+    pub related_order_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Artifact {
+    #[schemars(length(min = 1, max = 128))]
+    pub artifact_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub kind: ArtifactKind,
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+    #[schemars(range(min = 1, max = 100))]
+    pub version: u32,
+    #[schemars(length(min = 1, max = 80))]
+    pub content_hash: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    pub content: ArtifactContent,
+    pub provenance: ArtifactProvenance,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactSummary {
+    #[schemars(length(min = 1, max = 128))]
+    pub artifact_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub kind: ArtifactKind,
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub content_hash: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub turn_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub item_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactLibrary {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 256))]
+    pub artifacts: Vec<ArtifactSummary>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactSave {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub turn_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub item_id: String,
+    pub kind: ArtifactKind,
+    #[schemars(length(min = 1, max = 120))]
+    pub title: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub artifact_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactExport {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub artifact_id: String,
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub file_name: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactExportResult {
+    #[schemars(length(min = 1, max = 128))]
+    pub artifact_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub path: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub content_hash: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub manifest_hash: String,
+    #[schemars(range(min = 1, max = 10_000_000))]
+    pub bytes: u64,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ThreadSummary {
@@ -2130,6 +2298,36 @@ impl TradeXError {
                 "retry_request",
                 "Refresh research result",
             ),
+            "ARTIFACT_NOT_FOUND" => (
+                "That artifact is not available in the active workspace.",
+                "reload_snapshot",
+                "Reload artifacts",
+            ),
+            "ARTIFACT_SOURCE_INVALID" => (
+                "The selected completed Thread Item is not a valid artifact source.",
+                "reload_snapshot",
+                "Choose another source",
+            ),
+            "ARTIFACT_REDACTION_FAILED" => (
+                "The artifact contains unsupported sensitive content and was not saved.",
+                "retry_request",
+                "Review content",
+            ),
+            "ARTIFACT_EXPORT_PATH_INVALID" => (
+                "Choose a safe local JSON filename inside the TradeX exports folder.",
+                "retry_request",
+                "Choose another filename",
+            ),
+            "ARTIFACT_EXPORT_EXISTS" => (
+                "That export filename already exists. Choose another filename.",
+                "retry_request",
+                "Choose another filename",
+            ),
+            "ARTIFACT_EXPORT_FAILED" => (
+                "The artifact could not be exported; no partial file was kept.",
+                "retry_request",
+                "Retry export",
+            ),
             "SCREENER_REVISION_STALE" => (
                 "The reviewed screener conditions changed. Parse them again before running.",
                 "retry_request",
@@ -2308,6 +2506,7 @@ impl TradeXError {
             } else if matches!(
                 code,
                 "IPC_AGGREGATE_NOT_FOUND"
+                    | "ARTIFACT_NOT_FOUND"
                     | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"
@@ -2341,6 +2540,7 @@ impl TradeXError {
                     | "CODEX_FRAME_INVALID"
                     | "CODEX_UPSTREAM_ERROR"
                     | "CODEX_TURN_CANCELLED"
+                    | "ARTIFACT_EXPORT_FAILED"
             ),
             blocking: true,
             remediation_actions: vec![Remediation {

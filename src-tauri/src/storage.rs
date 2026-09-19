@@ -1,10 +1,12 @@
 use std::{
     fs::{self, File, OpenOptions},
+    io::Write,
     path::{Path, PathBuf},
     time::Duration,
 };
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
+use sha2::{Digest, Sha256};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
@@ -12,16 +14,17 @@ use crate::gateway::GatewayState;
 use crate::market;
 use crate::model::ModelState;
 use crate::protocol::{
-    DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result, SavedScreener,
-    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, SubscriptionAck,
-    Thread, ThreadList, ThreadSummary, TradeXError, Watchlist, WatchlistItem, Watchlists,
-    Workspace,
+    Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
+    ArtifactSummary, DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result,
+    SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
+    SubscriptionAck, Thread, ThreadList, ThreadSummary, TradeXError, Watchlist, WatchlistItem,
+    Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 8;
+pub(crate) const SCHEMA_VERSION: u32 = 9;
 
 pub struct Store {
     connection: Connection,
@@ -182,6 +185,18 @@ impl Store {
                 );
                 CREATE INDEX screeners_workspace_order ON screeners(workspace_id,name COLLATE NOCASE,screener_id);
                 PRAGMA user_version=8;").map_err(storage_error)?;
+            }
+            if version < 9 {
+                tx.execute_batch("CREATE TABLE artifacts (
+                    artifact_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence>0),
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX artifacts_workspace_order ON artifacts(workspace_id,sequence DESC,artifact_id);
+                PRAGMA user_version=9;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1217,6 +1232,205 @@ impl Store {
         self.screeners()
     }
 
+    pub fn artifacts(&self) -> Result<ArtifactLibrary> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare(
+                "SELECT artifact_id,workspace_id,kind,title,sequence,projection FROM artifacts WHERE workspace_id=?1 ORDER BY sequence DESC,artifact_id",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut artifacts = Vec::new();
+        let mut max_sequence = 0_i64;
+        for row in rows {
+            let (artifact_id, row_workspace_id, kind, title, sequence, projection) =
+                row.map_err(storage_error)?;
+            max_sequence = max_sequence.max(sequence);
+            let artifact = decode_artifact(
+                &projection,
+                &artifact_id,
+                &row_workspace_id,
+                &kind,
+                &title,
+                sequence,
+                &workspace_id,
+            )?;
+            artifacts.push(ArtifactSummary {
+                artifact_id: artifact.artifact_id,
+                workspace_id: artifact.workspace_id,
+                kind: artifact.kind,
+                title: artifact.title,
+                content_hash: artifact.content_hash,
+                state_version: artifact.state_version,
+                created_at: artifact.created_at,
+                updated_at: artifact.updated_at,
+                thread_id: artifact.provenance.thread_id,
+                turn_id: artifact.provenance.turn_id,
+                item_id: artifact.provenance.item_id,
+            });
+        }
+        if !(0..=MAX_SEQUENCE as i64).contains(&max_sequence) || artifacts.len() > 256 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(ArtifactLibrary {
+            workspace_id: workspace_id.clone(),
+            state_version: format!("artifacts:{workspace_id}:{max_sequence}"),
+            artifacts,
+        })
+    }
+
+    pub fn artifact(&self, artifact_id: &str) -> Result<Artifact> {
+        let workspace_id = self.workspace_id()?;
+        let (row_workspace_id, kind, title, sequence, projection): (String, String, String, i64, String) = self
+            .connection
+            .query_row(
+                "SELECT workspace_id,kind,title,sequence,projection FROM artifacts WHERE workspace_id=?1 AND artifact_id=?2",
+                params![workspace_id, artifact_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ARTIFACT_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        decode_artifact(
+            &projection,
+            artifact_id,
+            &row_workspace_id,
+            &kind,
+            &title,
+            sequence,
+            &workspace_id,
+        )
+    }
+
+    pub fn save_artifact(&mut self, mut artifact: Artifact) -> Result<Artifact> {
+        let workspace_id = self.workspace_id()?;
+        if artifact.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_artifact_title(&artifact.title)?;
+        validate_artifact_content(&artifact.content)?;
+        validate_artifact_provenance(&artifact.provenance, &workspace_id)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let count: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM artifacts WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !(0..256).contains(&count) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let sequence = next_artifact_sequence(&tx, &workspace_id)?;
+        artifact.artifact_id = Uuid::new_v4().to_string();
+        artifact.version = 1;
+        artifact.created_at = timestamp()?;
+        artifact.updated_at = artifact.created_at.clone();
+        artifact.state_version = format!("artifact:{}:{sequence}", artifact.artifact_id);
+        artifact.content_hash = artifact_hash(&artifact)?;
+        tx.execute(
+            "INSERT INTO artifacts(artifact_id,workspace_id,kind,title,sequence,projection) VALUES(?1,?2,?3,?4,?5,?6)",
+            params![
+                &artifact.artifact_id,
+                &artifact.workspace_id,
+                artifact_kind_name(artifact.kind),
+                &artifact.title,
+                sequence,
+                serde_json::to_string(&artifact).map_err(storage_error)?,
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(artifact)
+    }
+
+    pub fn export_artifact(&self, input: &ArtifactExport) -> Result<ArtifactExportResult> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let artifact = self.artifact(&input.artifact_id)?;
+        let file_name =
+            artifact_export_file_name(input.file_name.as_deref(), &artifact.artifact_id)?;
+        let exports = self.path.join("exports");
+        if fs::symlink_metadata(&exports)
+            .map(|metadata| metadata.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+        }
+        fs::create_dir_all(&exports).map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+        let destination = exports.join(&file_name);
+        if destination.exists()
+            || fs::symlink_metadata(&destination)
+                .map(|metadata| metadata.file_type().is_symlink())
+                .unwrap_or(false)
+        {
+            return Err(TradeXError::new("ARTIFACT_EXPORT_EXISTS"));
+        }
+        let manifest = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactId": &artifact.artifact_id,
+            "artifactVersion": artifact.version,
+            "contentHash": &artifact.content_hash,
+            "exportedAt": timestamp()?,
+            "provenance": &artifact.provenance,
+        });
+        let manifest_hash = hash_bytes(&serde_json::to_vec(&manifest).map_err(storage_error)?);
+        let document = serde_json::json!({
+            "manifest": manifest,
+            "artifact": artifact,
+        });
+        let encoded = serde_json::to_vec_pretty(&document).map_err(storage_error)?;
+        if encoded.is_empty() || encoded.len() > 10_000_000 {
+            return Err(TradeXError::new("ARTIFACT_EXPORT_FAILED"));
+        }
+        let temporary = exports.join(format!(".{}.{}.tmp", file_name, Uuid::new_v4()));
+        let write_result = (|| -> Result<()> {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temporary)
+                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+            file.write_all(&encoded)
+                .and_then(|_| file.sync_all())
+                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+            fs::rename(&temporary, &destination)
+                .map_err(|_| TradeXError::new("ARTIFACT_EXPORT_FAILED"))?;
+            Ok(())
+        })();
+        if let Err(error) = write_result {
+            let _ = fs::remove_file(&temporary);
+            return Err(error);
+        }
+        Ok(ArtifactExportResult {
+            artifact_id: artifact.artifact_id,
+            path: destination.to_string_lossy().into_owned(),
+            content_hash: artifact.content_hash,
+            manifest_hash,
+            bytes: encoded.len() as u64,
+        })
+    }
+
     pub fn mark_accounts_stale(&mut self) -> Result<()> {
         for mut account in self.accounts()? {
             if account.connection_state == ConnectionState::Disconnected
@@ -1535,6 +1749,211 @@ fn decode_screener(
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
     Ok(screener)
+}
+
+fn artifact_kind_name(kind: ArtifactKind) -> &'static str {
+    match kind {
+        ArtifactKind::Research => "RESEARCH",
+        ArtifactKind::Decision => "DECISION",
+    }
+}
+
+fn validate_artifact_title(title: &str) -> Result<()> {
+    let trimmed = title.trim();
+    if trimmed.is_empty() || trimmed.chars().count() > 120 || trimmed.chars().any(char::is_control)
+    {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    if contains_sensitive_marker(trimmed) {
+        return Err(TradeXError::new("ARTIFACT_REDACTION_FAILED"));
+    }
+    Ok(())
+}
+
+fn validate_artifact_content(content: &ArtifactContent) -> Result<()> {
+    if content.text.is_empty()
+        || content.text.chars().count() > 32_768
+        || content.text.chars().any(|character| character == '\0')
+        || contains_sensitive_marker(&content.text)
+    {
+        return Err(TradeXError::new("ARTIFACT_REDACTION_FAILED"));
+    }
+    if content
+        .research_result
+        .as_ref()
+        .is_some_and(|result| result.marker.is_empty() || result.marker.len() > 96)
+    {
+        return Err(TradeXError::new("ARTIFACT_REDACTION_FAILED"));
+    }
+    if content
+        .research_result
+        .as_ref()
+        .and_then(|result| serde_json::to_string(result).ok())
+        .is_some_and(|encoded| contains_sensitive_marker(&encoded))
+    {
+        return Err(TradeXError::new("ARTIFACT_REDACTION_FAILED"));
+    }
+    Ok(())
+}
+
+fn validate_artifact_provenance(
+    provenance: &crate::protocol::ArtifactProvenance,
+    workspace_id: &str,
+) -> Result<()> {
+    if provenance.workspace_id != workspace_id
+        || provenance.thread_id.is_empty()
+        || provenance.turn_id.is_empty()
+        || provenance.item_id.is_empty()
+        || provenance.thread_id.len() > 128
+        || provenance.turn_id.len() > 128
+        || provenance.item_id.len() > 128
+        || provenance.thread_id.chars().any(char::is_control)
+        || provenance.turn_id.chars().any(char::is_control)
+        || provenance.item_id.chars().any(char::is_control)
+        || provenance.provider_attempts.len() > 16
+        || provenance.sources.len() > 16
+        || provenance.market_snapshot_hashes.len() > 16
+        || provenance.dataset_hashes.len() > 16
+        || provenance.related_order_ids.len() > 16
+        || provenance
+            .market_snapshot_hashes
+            .iter()
+            .chain(provenance.dataset_hashes.iter())
+            .chain(provenance.related_order_ids.iter())
+            .any(|value| {
+                value.is_empty() || value.len() > 128 || value.chars().any(char::is_control)
+            })
+    {
+        return Err(TradeXError::new("ARTIFACT_SOURCE_INVALID"));
+    }
+    if provenance.turn_id != provenance.turn_snapshot.turn_id {
+        return Err(TradeXError::new("ARTIFACT_SOURCE_INVALID"));
+    }
+    if serde_json::to_string(provenance)
+        .ok()
+        .is_some_and(|encoded| contains_sensitive_marker(&encoded))
+    {
+        return Err(TradeXError::new("ARTIFACT_REDACTION_FAILED"));
+    }
+    Ok(())
+}
+
+fn contains_sensitive_marker(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    [
+        "authorization:",
+        "bearer ",
+        "api_key=",
+        "api-key=",
+        "secret=",
+        "password=",
+        "token=",
+        "sk-",
+        "ghp_",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
+fn next_artifact_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
+    let max_sequence: Option<i64> = tx
+        .query_row(
+            "SELECT MAX(sequence) FROM artifacts WHERE workspace_id=?1",
+            [workspace_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let max_sequence = max_sequence.unwrap_or(0);
+    if !(0..MAX_SEQUENCE as i64).contains(&max_sequence) {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    Ok(max_sequence + 1)
+}
+
+fn decode_artifact(
+    projection: &str,
+    row_id: &str,
+    row_workspace_id: &str,
+    row_kind: &str,
+    row_title: &str,
+    sequence: i64,
+    workspace_id: &str,
+) -> Result<Artifact> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let artifact: Artifact = serde_json::from_str(projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if artifact.artifact_id != row_id
+        || artifact.workspace_id != row_workspace_id
+        || row_workspace_id != workspace_id
+        || artifact.kind != parse_artifact_kind(row_kind)?
+        || artifact.title != row_title
+        || artifact.state_version != format!("artifact:{row_id}:{sequence}")
+        || artifact.version != 1
+        || artifact.content_hash != artifact_hash(&artifact)?
+        || validate_artifact_title(&artifact.title).is_err()
+        || validate_artifact_content(&artifact.content).is_err()
+        || validate_artifact_provenance(&artifact.provenance, workspace_id).is_err()
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(artifact)
+}
+
+fn parse_artifact_kind(value: &str) -> Result<ArtifactKind> {
+    match value {
+        "RESEARCH" => Ok(ArtifactKind::Research),
+        "DECISION" => Ok(ArtifactKind::Decision),
+        _ => Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+    }
+}
+
+fn artifact_hash(artifact: &Artifact) -> Result<String> {
+    let input = serde_json::json!({
+        "kind": artifact.kind,
+        "title": &artifact.title,
+        "content": &artifact.content,
+        "provenance": &artifact.provenance,
+    });
+    Ok(hash_bytes(
+        &serde_json::to_vec(&input).map_err(storage_error)?,
+    ))
+}
+
+fn hash_bytes(bytes: &[u8]) -> String {
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
+fn artifact_export_file_name(file_name: Option<&str>, artifact_id: &str) -> Result<String> {
+    let value = file_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("{artifact_id}.json"));
+    if value.len() > 128
+        || value == "."
+        || value == ".."
+        || value.chars().any(|character| {
+            character.is_control()
+                || matches!(character, '/' | '\\')
+                || !(character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_'))
+        })
+    {
+        return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+    }
+    if value.ends_with('.') {
+        return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+    }
+    if value.ends_with(".json") {
+        Ok(value)
+    } else {
+        let with_extension = format!("{value}.json");
+        if with_extension.len() > 128 {
+            return Err(TradeXError::new("ARTIFACT_EXPORT_PATH_INVALID"));
+        }
+        Ok(with_extension)
+    }
 }
 
 fn read_workspace(connection: &Connection, path: &Path) -> Result<Workspace> {

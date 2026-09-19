@@ -13,6 +13,15 @@
     "aggregate": {
       "$ref": "#/$defs/Aggregate"
     },
+    "artifactExport": {
+      "$ref": "#/$defs/ArtifactExport"
+    },
+    "artifactQuery": {
+      "$ref": "#/$defs/ArtifactQuery"
+    },
+    "artifactSave": {
+      "$ref": "#/$defs/ArtifactSave"
+    },
     "capabilityQuery": {
       "$ref": "#/$defs/CapabilityQuery"
     },
@@ -189,6 +198,9 @@
     "screenerSave",
     "screenerUpdate",
     "screenerAttach",
+    "artifactSave",
+    "artifactQuery",
+    "artifactExport",
     "portfolioQuery",
     "watchlistCreate",
     "watchlistRename",
@@ -461,6 +473,432 @@
       "required": [
         "aggregateType",
         "aggregateId"
+      ]
+    },
+    "Artifact": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "content": {
+          "$ref": "#/$defs/ArtifactContent"
+        },
+        "contentHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ArtifactProvenance"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "workspaceId",
+        "kind",
+        "title",
+        "version",
+        "contentHash",
+        "stateVersion",
+        "createdAt",
+        "updatedAt",
+        "content",
+        "provenance"
+      ]
+    },
+    "ArtifactContent": {
+      "type": "object",
+      "properties": {
+        "researchResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchToolResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 32768,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ]
+    },
+    "ArtifactExport": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "fileName": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "artifactId"
+      ]
+    },
+    "ArtifactExportResult": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 10000000,
+          "minimum": 1
+        },
+        "contentHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "manifestHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "path",
+        "contentHash",
+        "manifestHash",
+        "bytes"
+      ]
+    },
+    "ArtifactKind": {
+      "type": "string",
+      "enum": [
+        "RESEARCH",
+        "DECISION"
+      ]
+    },
+    "ArtifactLibrary": {
+      "type": "object",
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactSummary"
+          },
+          "maxItems": 256
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "artifacts"
+      ]
+    },
+    "ArtifactProvenance": {
+      "type": "object",
+      "properties": {
+        "datasetHashes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 16
+        },
+        "itemId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "marketSnapshotHashes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 16
+        },
+        "providerAttempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ThreadProviderAttempt"
+          },
+          "maxItems": 16
+        },
+        "relatedOrderIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 16
+        },
+        "researchResultId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "researchToolId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchToolId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResearchProvenance"
+          },
+          "maxItems": 16
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "turnId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "turnSnapshot": {
+          "$ref": "#/$defs/TurnSnapshot"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "threadId",
+        "turnId",
+        "itemId",
+        "turnSnapshot",
+        "providerAttempts",
+        "sources",
+        "marketSnapshotHashes",
+        "datasetHashes",
+        "relatedOrderIds"
+      ]
+    },
+    "ArtifactQuery": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "artifactId"
+      ]
+    },
+    "ArtifactSave": {
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "turnId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "threadId",
+        "turnId",
+        "itemId",
+        "kind",
+        "title"
+      ]
+    },
+    "ArtifactSummary": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "contentHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "itemId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "turnId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "workspaceId",
+        "kind",
+        "title",
+        "contentHash",
+        "stateVersion",
+        "createdAt",
+        "updatedAt",
+        "threadId",
+        "turnId",
+        "itemId"
       ]
     },
     "AssetClass": {
@@ -3222,6 +3660,15 @@
         },
         {
           "$ref": "#/$defs/ScreenerAttachment"
+        },
+        {
+          "$ref": "#/$defs/Artifact"
+        },
+        {
+          "$ref": "#/$defs/ArtifactLibrary"
+        },
+        {
+          "$ref": "#/$defs/ArtifactExportResult"
         }
       ]
     },
@@ -5896,7 +6343,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 8,
+          "maximum": 9,
           "minimum": 1
         },
         "workspaceId": {

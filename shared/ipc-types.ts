@@ -2,6 +2,11 @@
 
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactKind".
+ */
+export type ArtifactKind = "RESEARCH" | "DECISION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AgentMode".
  */
 export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
@@ -191,7 +196,10 @@ export type ReplyData =
   | ResearchToolResult
   | ScreenerResult
   | ScreenerLibrary
-  | ScreenerAttachment;
+  | ScreenerAttachment
+  | Artifact
+  | ArtifactLibrary
+  | ArtifactExportResult;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeConfidence".
@@ -317,6 +325,9 @@ export interface IpcSchema {
   accountMutation: AccountMutation;
   accountQuery: AccountQuery;
   aggregate: Aggregate;
+  artifactExport: ArtifactExport;
+  artifactQuery: ArtifactQuery;
+  artifactSave: ArtifactSave;
   capabilityQuery: CapabilityQuery;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
@@ -387,6 +398,35 @@ export interface AccountQuery {
 export interface Aggregate {
   aggregateId: string;
   aggregateType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactExport".
+ */
+export interface ArtifactExport {
+  artifactId: string;
+  fileName?: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactQuery".
+ */
+export interface ArtifactQuery {
+  artifactId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactSave".
+ */
+export interface ArtifactSave {
+  itemId: string;
+  kind: ArtifactKind;
+  threadId: string;
+  title: string;
+  turnId: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2155,6 +2195,558 @@ export interface ScreenerAttachment {
   contextRefs: ThreadContextRef[];
   revision: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Artifact".
+ */
+export interface Artifact {
+  artifactId: string;
+  content: ArtifactContent;
+  contentHash: string;
+  createdAt: string;
+  kind: ArtifactKind;
+  provenance: ArtifactProvenance;
+  stateVersion: string;
+  title: string;
+  updatedAt: string;
+  version: number;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactContent".
+ */
+export interface ArtifactContent {
+  researchResult?: ResearchToolResult | null;
+  text: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactProvenance".
+ */
+export interface ArtifactProvenance {
+  /**
+   * @maxItems 16
+   */
+  datasetHashes:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  itemId: string;
+  /**
+   * @maxItems 16
+   */
+  marketSnapshotHashes:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  /**
+   * @maxItems 16
+   */
+  providerAttempts:
+    | []
+    | [ThreadProviderAttempt]
+    | [ThreadProviderAttempt, ThreadProviderAttempt]
+    | [ThreadProviderAttempt, ThreadProviderAttempt, ThreadProviderAttempt]
+    | [ThreadProviderAttempt, ThreadProviderAttempt, ThreadProviderAttempt, ThreadProviderAttempt]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ]
+    | [
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt,
+        ThreadProviderAttempt
+      ];
+  /**
+   * @maxItems 16
+   */
+  relatedOrderIds:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  researchResultId?: string | null;
+  researchToolId?: ResearchToolId | null;
+  /**
+   * @maxItems 16
+   */
+  sources:
+    | []
+    | [ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance, ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance]
+    | [ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance, ResearchProvenance]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ]
+    | [
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance,
+        ResearchProvenance
+      ];
+  threadId: string;
+  turnId: string;
+  turnSnapshot: TurnSnapshot;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactLibrary".
+ */
+export interface ArtifactLibrary {
+  /**
+   * @maxItems 256
+   */
+  artifacts: ArtifactSummary[];
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactSummary".
+ */
+export interface ArtifactSummary {
+  artifactId: string;
+  contentHash: string;
+  createdAt: string;
+  itemId: string;
+  kind: ArtifactKind;
+  stateVersion: string;
+  threadId: string;
+  title: string;
+  turnId: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ArtifactExportResult".
+ */
+export interface ArtifactExportResult {
+  artifactId: string;
+  bytes: number;
+  contentHash: string;
+  manifestHash: string;
+  path: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

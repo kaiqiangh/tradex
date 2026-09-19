@@ -9,6 +9,16 @@ declare const validators: {
   AdjustmentStatus: (value: unknown) => boolean;
   AgentMode: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
+  Artifact: (value: unknown) => boolean;
+  ArtifactContent: (value: unknown) => boolean;
+  ArtifactExport: (value: unknown) => boolean;
+  ArtifactExportResult: (value: unknown) => boolean;
+  ArtifactKind: (value: unknown) => boolean;
+  ArtifactLibrary: (value: unknown) => boolean;
+  ArtifactProvenance: (value: unknown) => boolean;
+  ArtifactQuery: (value: unknown) => boolean;
+  ArtifactSave: (value: unknown) => boolean;
+  ArtifactSummary: (value: unknown) => boolean;
   AssetClass: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
   CapabilityDecision: (value: unknown) => boolean;
