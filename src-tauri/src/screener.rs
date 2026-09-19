@@ -397,11 +397,28 @@ fn unsupported_universe_reason(text: &str) -> Option<String> {
         ("mid cap", "mid-cap"),
         ("micro-cap", "micro-cap"),
         ("micro cap", "micro-cap"),
+        ("european", "European"),
+        ("europe", "European"),
+        ("asia", "Asian"),
+        ("asian", "Asian"),
+        ("international", "international"),
+        ("global", "global"),
+        ("emerging market", "emerging-market"),
+        ("forex", "forex"),
+        ("foreign exchange", "foreign-exchange"),
+        ("futures", "futures"),
+        ("options", "options"),
     ]
     .iter()
     .find_map(|(term, label)| {
         text.contains(term)
             .then(|| format!("Unsupported universe: {label}."))
+    })
+    .or_else(|| {
+        let large_cap = text.contains("large-cap") || text.contains("large cap");
+        let technology = text.contains("technology") || text.contains("tech");
+        (large_cap && !technology)
+            .then(|| "Unsupported universe: large-cap without technology scope.".into())
     })
 }
 
@@ -1006,6 +1023,14 @@ mod tests {
         assert_eq!(small_cap.state, ScreenerResultState::Failed);
         assert!(
             small_cap
+                .availability_reason
+                .contains("Unsupported universe")
+        );
+        request.natural_language = "Find European technology stocks with RSI below 70.".into();
+        let european = screen(&request, &[], FIXTURE_TIMESTAMP, false).unwrap();
+        assert_eq!(european.state, ScreenerResultState::Failed);
+        assert!(
+            european
                 .availability_reason
                 .contains("Unsupported universe")
         );
