@@ -42,4 +42,11 @@ fn portfolio_read_is_workspace_scoped_and_does_not_mutate_state() {
         json!({"workspaceId":workspace_id,"baseCurrency":"EUR"}),
     );
     assert_eq!(malformed["error"]["code"], "IPC_PAYLOAD_INVALID");
+
+    let control_character = command(
+        &mut control,
+        "portfolio.get",
+        json!({"workspaceId":format!("{workspace_id}\n")}),
+    );
+    assert_eq!(control_character["error"]["code"], "IPC_PAYLOAD_INVALID");
 }

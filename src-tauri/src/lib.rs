@@ -2672,7 +2672,13 @@ fn merge_data_source_observation(
 }
 
 fn validate_aggregate(kind: &str, id: &str) -> Result<()> {
-    if kind.is_empty() || kind.len() > 64 || id.is_empty() || id.len() > 128 {
+    if kind.is_empty()
+        || kind.len() > 64
+        || kind.chars().any(char::is_control)
+        || id.is_empty()
+        || id.len() > 128
+        || id.chars().any(char::is_control)
+    {
         Err(TradeXError::new("IPC_PAYLOAD_INVALID"))
     } else {
         Ok(())

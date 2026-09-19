@@ -98,12 +98,7 @@ fn actual_snapshot(
             })
             .transpose()?;
         let equity = cash_balance
-            .and_then(|balance| {
-                balance
-                    .total
-                    .as_deref()
-                    .or(Some(balance.available.as_str()))
-            })
+            .and_then(|balance| balance.total.as_deref())
             .map(|value| {
                 value_from_parts(
                     Some(value),
@@ -190,7 +185,7 @@ fn actual_snapshot(
                 asset: order
                     .instrument_id
                     .clone()
-                    .unwrap_or_else(|| "UNAVAILABLE".into()),
+                    .unwrap_or_else(|| order.symbol.clone()),
                 side: order.side.clone(),
                 quantity: order.quantity.clone(),
                 notional: order.notional.clone(),
@@ -584,7 +579,7 @@ fn holding_from_position(
         asset: position
             .instrument_id
             .clone()
-            .unwrap_or_else(|| "UNAVAILABLE".into()),
+            .unwrap_or_else(|| position.symbol.clone()),
         quantity: Some(position.quantity.clone()),
         value: value.unwrap_or_else(|| unavailable_value(base_currency)),
         unrealized_pnl: None,
@@ -1102,6 +1097,99 @@ mod tests {
         assert_eq!(snapshot.status, PortfolioStatus::Unavailable);
         assert!(snapshot.totals.equity.workspace_value.is_none());
         assert!(snapshot.fills.is_none());
+    }
+
+    #[test]
+    fn missing_equity_total_stays_unavailable() {
+        let mut account = AccountConnection::new(
+            "w".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "cash-only".into(),
+        )
+        .unwrap();
+        account.connection_state = ConnectionState::Connected;
+        account.data = Some(AccountData {
+            remote_account_id: "remote".into(),
+            account_type: "PAPER".into(),
+            currency: Some("USD".into()),
+            balances: vec![Balance {
+                asset: "USD".into(),
+                available: "10".into(),
+                total: None,
+                reserved: None,
+                in_pies: None,
+                locked: None,
+                restricted_available: None,
+            }],
+            positions: vec![],
+            open_orders: vec![],
+            capabilities: vec![],
+            limitations: vec![],
+        });
+
+        let snapshot = get("w", "USD", &[account], None, &time_status(), false).unwrap();
+        assert_eq!(
+            snapshot.accounts[0].cash.workspace_value.as_deref(),
+            Some("10")
+        );
+        assert!(snapshot.accounts[0].equity.workspace_value.is_none());
+        assert!(snapshot.totals.equity.workspace_value.is_none());
+        assert_eq!(snapshot.totals.cash.workspace_value.as_deref(), Some("10"));
+    }
+
+    #[test]
+    fn unmapped_provider_symbols_remain_explicit_asset_identity() {
+        let mut account = AccountConnection::new(
+            "w".into(),
+            "alpaca".into(),
+            "PAPER".into(),
+            "unmapped".into(),
+        )
+        .unwrap();
+        account.connection_state = ConnectionState::Connected;
+        account.data = Some(AccountData {
+            remote_account_id: "remote".into(),
+            account_type: "PAPER".into(),
+            currency: Some("USD".into()),
+            balances: vec![],
+            positions: vec![Position {
+                symbol: "UNKNOWN".into(),
+                instrument_id: None,
+                quantity: "1".into(),
+                market_value: Some("10".into()),
+                average_entry_price: None,
+                instrument_currency: Some("USD".into()),
+                market_value_currency: None,
+            }],
+            open_orders: vec![crate::providers::OpenOrder {
+                broker_order_id: "order-unknown".into(),
+                symbol: "UNKNOWN".into(),
+                instrument_id: None,
+                side: "BUY".into(),
+                quantity: Some("1".into()),
+                notional: Some("10".into()),
+                filled_quantity: None,
+                filled_value: None,
+                currency: Some("USD".into()),
+                status: "NEW".into(),
+                limit_price: None,
+                kind: None,
+                trigger_price: None,
+            }],
+            capabilities: vec![],
+            limitations: vec![],
+        });
+
+        let snapshot = get("w", "USD", &[account], None, &time_status(), false).unwrap();
+        let holding = snapshot
+            .holdings
+            .iter()
+            .find(|holding| holding.instrument_id.is_none())
+            .unwrap();
+        assert_eq!(holding.asset, "UNKNOWN");
+        assert_eq!(snapshot.open_orders[0].instrument_id, None);
+        assert_eq!(snapshot.open_orders[0].asset, "UNKNOWN");
     }
 
     #[test]
