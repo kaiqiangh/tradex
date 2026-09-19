@@ -60,6 +60,17 @@ test('research venue schema keeps unavailable values nullable and rejects numeri
   }
 });
 
+test('research payload schema rejects unbounded scenarios, artifact refs and venue rows', () => {
+  const payload = {
+    state: 'UNAVAILABLE', reason: 'No provider observation', focus: 'EQUITY', conclusion: null,
+    findings: [], scenarios: [], evidence: [], limitations: [], instrumentRefs: [], artifactRefs: [], spotVenues: [],
+  };
+  assert.deepEqual(decode('ResearchToolPayload', payload), payload);
+  assert.throws(() => decode('ResearchToolPayload', { ...payload, scenarios: Array.from({ length: 9 }, () => ({ title: 'x', detail: 'y' })) }));
+  assert.throws(() => decode('ResearchToolPayload', { ...payload, artifactRefs: Array.from({ length: 9 }, (_, index) => `artifact-${index}`) }));
+  assert.throws(() => decode('ResearchToolPayload', { ...payload, spotVenues: Array.from({ length: 3 }, () => ({ venue: 'BINANCE', state: 'UNAVAILABLE', provenance: { sourceId: 'control-plane:market', provider: 'TradeX', status: 'UNAVAILABLE', receivedTimestamp: 'UNAVAILABLE', freshness: 'UNAVAILABLE', quality: 'UNAVAILABLE' } })) }));
+});
+
 test('model projection accepts both provider event types and rejects foreign aggregates', () => {
   const model = {
     workspaceId: 'workspace-one', stateVersion: 'model:workspace-one:1', updatedAt: '2026-09-06T01:00:00Z', attempts: [], currentRoute: null,

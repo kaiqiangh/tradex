@@ -316,8 +316,8 @@ function ResearchResultCard({ result, persisted = false, agentMode }: { result: 
   const instrumentRefs = payload.instrumentRefs ?? [];
   const artifactRefs = payload.artifactRefs ?? [];
   const spotVenues = payload.spotVenues ?? [];
-  return <section className="research-result" aria-label={persisted ? 'Persisted typed research result' : 'Typed research result'}>
-    <div className="research-result-heading"><strong>Typed result · {payload.state}</strong>{payload.fixtureLabel && <span className="badge">Synthetic fixture</span>}</div>
+  return <section className="research-result" tabIndex={0} aria-label={persisted ? 'Persisted typed research result' : 'Typed research result'}>
+    <div className="research-result-heading"><strong>Typed result · {payload.state}</strong>{payload.fixtureLabel && <span className="badge">Synthetic fixture · {payload.fixtureLabel}</span>}</div>
     {payload.focus && <span role="status">Focus: {payload.focus}</span>}
     <p className="research-result-reason">{payload.reason}</p>
     {payload.conclusion && <p>{payload.conclusion}</p>}
@@ -329,7 +329,7 @@ function ResearchResultCard({ result, persisted = false, agentMode }: { result: 
     {evidence.length > 0 && <section aria-label="Evidence provenance"><h4>Evidence provenance</h4>{evidence.map(source => <article className="research-evidence" key={`${source.sourceId}:${source.receivedTimestamp}`}><small>Source: {source.sourceId} · {source.provider} · {source.status} · received {source.receivedTimestamp}{source.providerTimestamp ? ` · provider ${source.providerTimestamp}` : ''} · freshness {source.freshness} · quality {source.quality}</small>{source.limitation && <p>Limit: {source.limitation}</p>}</article>)}</section>}
     {limitations.length > 0 && <section aria-label="Limitations"><h4>Limitations</h4><ul>{limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul></section>}
     {agentMode === 'TRADE' && <div className="research-trade-cta"><button type="button" disabled>Review read-only proposal</button><small>Trade mode only; this card does not create or submit an order.</small></div>}
-    <code data-research-marker>{result.marker}</code>
+    <code data-research-marker tabIndex={0} aria-label="Research result marker">{result.marker}</code>
     <small>Request hash: {result.requestHash}</small>
     <small>Context refs: {formatContextRefs(result.contextRefs)}</small>
   </section>;

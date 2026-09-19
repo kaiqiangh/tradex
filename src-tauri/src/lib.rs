@@ -1142,7 +1142,28 @@ impl ControlPlane {
     fn context_catalog(&self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
         self.require_workspace(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
-        capability::context_catalog(&accounts)
+        let mut catalog = capability::context_catalog(&accounts)?;
+        if cfg!(feature = "integration-test")
+            && std::env::var_os("TRADEX_RESEARCH_FIXTURE").is_some()
+        {
+            catalog
+                .empty_states
+                .retain(|state| state.kind != "artifact");
+            catalog.entries.push(capability::ContextCatalogEntry {
+                context_ref: protocol::ThreadContextRef {
+                    kind: "artifact".into(),
+                    id: "artifact-1".into(),
+                    hash: format!("sha256:{}", "a".repeat(64)),
+                },
+                label: "Synthetic research artifact".into(),
+                provider_id: None,
+                environment: None,
+                read_only: true,
+                available: true,
+                availability_reason: None,
+            });
+        }
+        Ok(catalog)
     }
 
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {
