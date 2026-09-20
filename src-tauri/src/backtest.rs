@@ -441,7 +441,7 @@ pub fn validate_result(result: &BacktestResult, run: &BacktestRun) -> Result<(),
         &result.metrics.profit_factor,
         &result.metrics.turnover,
     ] {
-        normalize_decimal(value, false).map_err(|_| invalid())?;
+        normalize_result_decimal(value).map_err(|_| invalid())?;
     }
     if result.manifest.dataset_hash != fixture_dataset_hash()
         || !valid_hash(&result.manifest.dataset_hash)
@@ -468,12 +468,24 @@ pub fn validate_result(result: &BacktestResult, run: &BacktestRun) -> Result<(),
                 || normalize_decimal(&trade.gross_value, true).is_err()
                 || normalize_decimal(&trade.commission, false).is_err()
                 || normalize_decimal(&trade.slippage, false).is_err()
-                || normalize_decimal(&trade.realized_pnl, false).is_err()
+                || normalize_result_decimal(&trade.realized_pnl).is_err()
         })
     {
         return Err(invalid());
     }
     Ok(())
+}
+
+fn normalize_result_decimal(value: &str) -> Result<String, TradeXError> {
+    let normalized = crate::provider_io::decimal(&Value::String(value.to_owned()))
+        .map_err(|_| TradeXError::new("BACKTEST_RESULT_INVALID"))?;
+    let fraction_digits = normalized
+        .split_once('.')
+        .map_or(0, |(_, fraction)| fraction.len());
+    if fraction_digits > 18 {
+        return Err(TradeXError::new("BACKTEST_RESULT_INVALID"));
+    }
+    Ok(normalized)
 }
 
 fn manifest_hash(manifest: &BacktestManifest) -> Result<String, TradeXError> {
