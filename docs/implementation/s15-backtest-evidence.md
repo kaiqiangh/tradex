@@ -5,6 +5,7 @@
 #48 实现 SHA：`d5af7ba49f7e4c6bf5cf039dd293bd62a2562961`（`dev`）
 #49 实现 SHA：`11d7406`（`dev`）
 #49 结果完整性修复 SHA：`6cd0af7`（`dev`）
+#49 signed-metric validation SHA：`9655290`（`dev`）
 
 ## 本票范围
 
