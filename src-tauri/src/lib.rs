@@ -18,6 +18,7 @@ pub mod research;
 pub mod risk;
 pub mod screener;
 mod storage;
+pub mod strategy;
 pub mod time;
 
 use capability::{CapabilityQuery, ResearchToolId};
@@ -26,7 +27,8 @@ use protocol::{
     ArtifactSave, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection,
     EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier,
     OpenWorkspace, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent,
-    RuntimeStatus, ScreenerRequest, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
+    RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyQuery, StrategyRun, StrategyRunRequest,
+    StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
     ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry,
     TurnSnapshot, TurnStart,
 };
@@ -625,6 +627,36 @@ impl ControlPlane {
                 let input: WorkspaceQuery = payload(request.payload)?;
                 Ok((json!(self.context_catalog(&input)?), None))
             }
+            "strategy.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let library = self.store.as_ref().unwrap().strategies()?;
+                Ok((json!(library), Some(library.state_version)))
+            }
+            "strategy.get" => {
+                let input: StrategyQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let version = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .strategy_version(&input.strategy_version_id)?;
+                Ok((json!(version), Some(version.state_version.clone())))
+            }
+            "strategy.save_version" => {
+                let input: StrategySave = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let version = self.store.as_mut().unwrap().save_strategy_version(&input)?;
+                Ok((json!(version), Some(version.state_version.clone())))
+            }
+            "strategy.run" => {
+                let input: StrategyRunRequest = payload(request.payload)?;
+                self.run_strategy(input)
+            }
+            "strategy.cancel" => {
+                let input: StrategyCancel = payload(request.payload)?;
+                self.cancel_strategy(input)
+            }
             "data.source.catalog" => {
                 let input: DataSourceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -1153,12 +1185,14 @@ impl ControlPlane {
         self.require_workspace(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
         let artifacts = self.store.as_ref().unwrap().artifacts()?.artifacts;
+        let strategies = self.store.as_ref().unwrap().strategies()?.versions;
         let allow_synthetic_artifact = capability::synthetic_research_fixture_enabled();
-        capability::validate_catalog_refs_with_artifacts(
+        capability::validate_catalog_refs_with_artifacts_and_strategies(
             &input.workspace_id,
             &input.attached_contexts,
             &accounts,
             &artifacts,
+            &strategies,
             allow_synthetic_artifact,
         )?;
         let account = input
@@ -1431,6 +1465,27 @@ impl ControlPlane {
         self.require_workspace(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
         let mut catalog = capability::context_catalog(&accounts)?;
+        let strategies = self.store.as_ref().unwrap().strategies()?;
+        if !strategies.versions.is_empty() {
+            catalog
+                .empty_states
+                .retain(|state| state.kind != "strategy");
+            for version in strategies.versions.iter().take(256) {
+                catalog.entries.push(capability::ContextCatalogEntry {
+                    context_ref: protocol::ThreadContextRef {
+                        kind: "strategy".into(),
+                        id: version.strategy_version_id.clone(),
+                        hash: version.source_hash.clone(),
+                    },
+                    label: format!("{} · v{}", version.definition.name, version.revision),
+                    provider_id: None,
+                    environment: None,
+                    read_only: true,
+                    available: true,
+                    availability_reason: None,
+                });
+            }
+        }
         if capability::synthetic_research_fixture_enabled() {
             catalog
                 .empty_states
@@ -1446,6 +1501,119 @@ impl ControlPlane {
             });
         }
         Ok(catalog)
+    }
+
+    fn run_strategy(&mut self, input: StrategyRunRequest) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        strategy::validate_run_request(&input)?;
+        let version = self
+            .store
+            .as_ref()
+            .unwrap()
+            .strategy_version(&input.strategy_version_id)?;
+        if let Some(expected) = input.expected_strategy_hash.as_deref()
+            && expected != version.source_hash
+        {
+            return Err(TradeXError::new("STRATEGY_HASH_MISMATCH"));
+        }
+        let parameters = if input.parameters.is_empty() {
+            version.definition.parameters.clone()
+        } else {
+            let allowed: HashSet<&str> = version
+                .definition
+                .parameters
+                .iter()
+                .map(|parameter| parameter.name.as_str())
+                .collect();
+            if input
+                .parameters
+                .iter()
+                .any(|parameter| !allowed.contains(parameter.name.as_str()))
+            {
+                return Err(TradeXError::new("STRATEGY_PARAMETER_INVALID"));
+            }
+            input.parameters.clone()
+        };
+        let time = self.time.status(&input.workspace_id)?;
+        let fixture = strategy::fixture_enabled();
+        if time.confidence != protocol::TimeConfidence::Trusted && !fixture {
+            return Err(TradeXError::new("STRATEGY_TIME_UNTRUSTED"));
+        }
+        let request_hash = strategy::run_identity_hash(&version, &input, &parameters)?;
+        let run_id = uuid::Uuid::new_v4().to_string();
+        let now = storage::timestamp()?;
+        let fixture_label = fixture.then(|| "TRADEX_STRATEGY_FIXTURE".to_owned());
+        let mut run = StrategyRun {
+            run_id,
+            workspace_id: input.workspace_id.clone(),
+            strategy_version_id: version.strategy_version_id.clone(),
+            strategy_hash: version.source_hash.clone(),
+            instrument_id: input.instrument_id.clone(),
+            dataset_id: input.dataset_id.clone(),
+            start_at: input.start_at.clone(),
+            end_at: input.end_at.clone(),
+            parameters,
+            state: StrategyRunState::Queued,
+            signal: None,
+            failure: None,
+            request_hash,
+            fixture_label,
+            created_at: now.clone(),
+            updated_at: now,
+            state_version: String::new(),
+        };
+        run = self.store.as_mut().unwrap().save_strategy_run(run)?;
+        run.state = StrategyRunState::Running;
+        run = self.store.as_mut().unwrap().save_strategy_run(run)?;
+        let outcome = strategy::execute(&version, &input, &run.parameters, &time.observed_at)
+            .unwrap_or_else(|error| {
+                strategy::RunOutcome::Failed(protocol::StrategyFailure {
+                    code: error.code,
+                    reason: error.message,
+                    remediation: vec!["retry_strategy_run".into()],
+                })
+            });
+        match outcome {
+            strategy::RunOutcome::Completed(signal) => {
+                run.state = StrategyRunState::Completed;
+                run.signal = Some(signal);
+            }
+            strategy::RunOutcome::Failed(failure) => {
+                run.state = StrategyRunState::Failed;
+                run.failure = Some(failure);
+            }
+            strategy::RunOutcome::Cancelled(failure) => {
+                run.state = StrategyRunState::Cancelled;
+                run.failure = Some(failure);
+            }
+        }
+        run = self.store.as_mut().unwrap().save_strategy_run(run)?;
+        Ok((json!(run), Some(run.state_version.clone())))
+    }
+
+    fn cancel_strategy(&mut self, input: StrategyCancel) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.run_id.is_empty()
+            || input.run_id.len() > 128
+            || input.run_id.chars().any(char::is_control)
+        {
+            return Err(TradeXError::new("STRATEGY_RUN_INVALID"));
+        }
+        let mut run = self.store.as_ref().unwrap().strategy_run(&input.run_id)?;
+        if !matches!(
+            run.state,
+            StrategyRunState::Queued | StrategyRunState::Running
+        ) {
+            return Err(TradeXError::new("STRATEGY_RUN_NOT_CANCELLABLE"));
+        }
+        run.state = StrategyRunState::Cancelled;
+        run.failure = Some(protocol::StrategyFailure {
+            code: "STRATEGY_CANCELLED".into(),
+            reason: "The strategy run was cancelled by the user.".into(),
+            remediation: vec!["retry_strategy_run".into()],
+        });
+        run = self.store.as_mut().unwrap().save_strategy_run(run)?;
+        Ok((json!(run), Some(run.state_version.clone())))
     }
 
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {
@@ -4584,7 +4752,10 @@ mod thread_tests {
             json!({"path": workspace_path.to_string_lossy()}),
         ));
         assert_eq!(migrated_open["ok"], true);
-        assert_eq!(migrated_open["data"]["storageSchemaVersion"], 11);
+        assert_eq!(
+            migrated_open["data"]["storageSchemaVersion"],
+            storage::SCHEMA_VERSION
+        );
         let created = control.dispatch(request(
             "thread.create",
             json!({

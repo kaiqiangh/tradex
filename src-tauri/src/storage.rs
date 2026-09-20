@@ -30,15 +30,16 @@ use crate::protocol::{
     OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
     OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
     OrderProposalSummary, OrderType, ProposalReferenceStatus, Result, SavedScreener,
-    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, SubscriptionAck,
-    Thread, ThreadList, ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem,
-    Watchlists, Workspace,
+    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, StrategyLibrary,
+    StrategyRun, StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread,
+    ThreadList, ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem, Watchlists,
+    Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 11;
+pub(crate) const SCHEMA_VERSION: u32 = 12;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -314,6 +315,26 @@ impl Store {
                 );
                 CREATE INDEX order_proposal_events_workspace_order ON order_proposal_events(workspace_id,proposal_id,sequence);
                 PRAGMA user_version=11;").map_err(storage_error)?;
+            }
+            if version < 12 {
+                tx.execute_batch("CREATE TABLE IF NOT EXISTS strategy_versions (
+                    strategy_version_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    strategy_id TEXT NOT NULL,
+                    revision INTEGER NOT NULL CHECK(revision > 0),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,strategy_id,revision)
+                );
+                CREATE INDEX IF NOT EXISTS strategy_versions_workspace_order ON strategy_versions(workspace_id,sequence DESC,strategy_id,revision DESC);
+                CREATE TABLE IF NOT EXISTS strategy_runs (
+                    run_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS strategy_runs_workspace_order ON strategy_runs(workspace_id,sequence DESC,run_id);
+                PRAGMA user_version=12;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1347,6 +1368,254 @@ impl Store {
         })?;
         tx.commit().map_err(storage_error)?;
         self.screeners()
+    }
+
+    pub fn strategies(&self) -> Result<StrategyLibrary> {
+        let workspace_id = self.workspace_id()?;
+        let mut versions_query = self
+            .connection
+            .prepare("SELECT strategy_version_id,workspace_id,strategy_id,revision,sequence,projection FROM strategy_versions WHERE workspace_id=?1 ORDER BY strategy_id,revision DESC")
+            .map_err(storage_error)?;
+        let rows = versions_query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut versions = Vec::new();
+        let mut max_sequence = 0_i64;
+        for row in rows {
+            let (id, row_workspace, strategy_id, revision, sequence, projection) =
+                row.map_err(storage_error)?;
+            max_sequence = max_sequence.max(sequence);
+            let version: StrategyVersion =
+                serde_json::from_str(&projection).map_err(storage_error)?;
+            if version.strategy_version_id != id
+                || version.workspace_id != row_workspace
+                || version.strategy_id != strategy_id
+                || version.revision != u64::try_from(revision).map_err(storage_error)?
+                || version.state_version != format!("strategy-version:{id}:{sequence}")
+                || row_workspace != workspace_id
+                || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            crate::strategy::validate_definition(&version.definition)?;
+            if crate::strategy::canonical_version_hash(&version.definition)? != version.source_hash
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            versions.push(version);
+        }
+        let mut runs_query = self
+            .connection
+            .prepare("SELECT run_id,workspace_id,sequence,projection FROM strategy_runs WHERE workspace_id=?1 ORDER BY sequence DESC,run_id")
+            .map_err(storage_error)?;
+        let rows = runs_query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut runs = Vec::new();
+        for row in rows {
+            let (id, row_workspace, sequence, projection) = row.map_err(storage_error)?;
+            max_sequence = max_sequence.max(sequence);
+            let run: StrategyRun = serde_json::from_str(&projection).map_err(storage_error)?;
+            if run.run_id != id
+                || run.workspace_id != row_workspace
+                || row_workspace != workspace_id
+                || run.state_version != format!("strategy-run:{id}:{sequence}")
+                || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            runs.push(StrategyRunSummary {
+                run_id: run.run_id,
+                strategy_version_id: run.strategy_version_id,
+                state: run.state,
+                updated_at: run.updated_at,
+                failure_code: run.failure.map(|failure| failure.code),
+            });
+        }
+        if versions.len() > 256
+            || runs.len() > 256
+            || !(0..=MAX_SEQUENCE as i64).contains(&max_sequence)
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(StrategyLibrary {
+            workspace_id: workspace_id.clone(),
+            state_version: format!("strategies:{workspace_id}:{max_sequence}"),
+            versions,
+            runs,
+        })
+    }
+
+    pub fn strategy_version(&self, id: &str) -> Result<StrategyVersion> {
+        let workspace_id = self.workspace_id()?;
+        let (row_workspace, strategy_id, revision, sequence, projection): (String, String, i64, i64, String) = self
+            .connection
+            .query_row(
+                "SELECT workspace_id,strategy_id,revision,sequence,projection FROM strategy_versions WHERE strategy_version_id=?1",
+                [id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .map_err(|_| TradeXError::new("STRATEGY_VERSION_NOT_FOUND"))?;
+        let version: StrategyVersion = serde_json::from_str(&projection).map_err(storage_error)?;
+        if row_workspace != workspace_id
+            || version.workspace_id != workspace_id
+            || version.strategy_version_id != id
+            || version.strategy_id != strategy_id
+            || version.revision != u64::try_from(revision).map_err(storage_error)?
+            || version.state_version != format!("strategy-version:{id}:{sequence}")
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        crate::strategy::validate_definition(&version.definition)?;
+        if crate::strategy::canonical_version_hash(&version.definition)? != version.source_hash {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(version)
+    }
+
+    pub fn save_strategy_version(&mut self, input: &StrategySave) -> Result<StrategyVersion> {
+        if input.workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        crate::strategy::validate_definition(&input.definition)?;
+        if input
+            .strategy_id
+            .as_deref()
+            .is_some_and(|id| id.is_empty() || id.len() > 128 || id.chars().any(char::is_control))
+        {
+            return Err(TradeXError::new("STRATEGY_VERSION_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let strategy_id = input
+            .strategy_id
+            .clone()
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+        let revision: i64 = tx
+            .query_row(
+                "SELECT COALESCE(MAX(revision),0)+1 FROM strategy_versions WHERE workspace_id=?1 AND strategy_id=?2",
+                params![&input.workspace_id, &strategy_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !(1..=MAX_SEQUENCE as i64).contains(&revision) {
+            return Err(TradeXError::new("STRATEGY_VERSION_LIMIT"));
+        }
+        let count: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM strategy_versions WHERE workspace_id=?1",
+                [&input.workspace_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !(0..256).contains(&count) {
+            return Err(TradeXError::new("STRATEGY_VERSION_LIMIT"));
+        }
+        let sequence = next_strategy_sequence(&tx, &input.workspace_id)?;
+        let version_id = Uuid::new_v4().to_string();
+        let created_at = timestamp()?;
+        let version = StrategyVersion {
+            strategy_version_id: version_id.clone(),
+            strategy_id,
+            workspace_id: input.workspace_id.clone(),
+            revision: u64::try_from(revision).map_err(storage_error)?,
+            definition: input.definition.clone(),
+            source_hash: crate::strategy::canonical_version_hash(&input.definition)?,
+            created_at,
+            state_version: format!("strategy-version:{version_id}:{sequence}"),
+        };
+        tx.execute(
+            "INSERT INTO strategy_versions(strategy_version_id,workspace_id,strategy_id,revision,sequence,projection) VALUES(?1,?2,?3,?4,?5,?6)",
+            params![
+                &version.strategy_version_id,
+                &version.workspace_id,
+                &version.strategy_id,
+                version.revision as i64,
+                sequence,
+                serde_json::to_string(&version).map_err(storage_error)?,
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(version)
+    }
+
+    pub fn strategy_run(&self, id: &str) -> Result<StrategyRun> {
+        let workspace_id = self.workspace_id()?;
+        let (row_workspace, sequence, projection): (String, i64, String) = self
+            .connection
+            .query_row(
+                "SELECT workspace_id,sequence,projection FROM strategy_runs WHERE run_id=?1",
+                [id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| TradeXError::new("STRATEGY_RUN_NOT_FOUND"))?;
+        let run: StrategyRun = serde_json::from_str(&projection).map_err(storage_error)?;
+        if row_workspace != workspace_id
+            || run.workspace_id != workspace_id
+            || run.run_id != id
+            || run.state_version != format!("strategy-run:{id}:{sequence}")
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(run)
+    }
+
+    pub fn save_strategy_run(&mut self, mut run: StrategyRun) -> Result<StrategyRun> {
+        if run.workspace_id != self.workspace_id()? || run.run_id.is_empty() {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let existing_workspace: Option<String> = tx
+            .query_row(
+                "SELECT workspace_id FROM strategy_runs WHERE run_id=?1",
+                [&run.run_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if existing_workspace
+            .as_deref()
+            .is_some_and(|workspace| workspace != run.workspace_id)
+        {
+            return Err(TradeXError::new("STRATEGY_RUN_NOT_FOUND"));
+        }
+        let sequence = next_strategy_sequence(&tx, &run.workspace_id)?;
+        run.updated_at = timestamp()?;
+        run.state_version = format!("strategy-run:{}:{sequence}", run.run_id);
+        tx.execute(
+            "INSERT INTO strategy_runs(run_id,workspace_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(run_id) DO UPDATE SET workspace_id=excluded.workspace_id,sequence=excluded.sequence,projection=excluded.projection",
+            params![
+                &run.run_id,
+                &run.workspace_id,
+                sequence,
+                serde_json::to_string(&run).map_err(storage_error)?,
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(run)
     }
 
     pub fn order_drafts(&self) -> Result<OrderDraftLibrary> {
@@ -3379,6 +3648,21 @@ fn next_artifact_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) ->
         return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
     }
     Ok(max_sequence + 1)
+}
+
+fn next_strategy_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
+    let previous: i64 = tx
+        .query_row(
+            "SELECT MAX(sequence) FROM (SELECT sequence FROM strategy_versions WHERE workspace_id=?1 UNION ALL SELECT sequence FROM strategy_runs WHERE workspace_id=?1)",
+            [workspace_id],
+            |row| row.get::<_, Option<i64>>(0),
+        )
+        .map_err(storage_error)?
+        .unwrap_or(0);
+    if !(0..MAX_SEQUENCE as i64).contains(&previous) {
+        return Err(TradeXError::new("STRATEGY_VERSION_LIMIT"));
+    }
+    Ok(previous + 1)
 }
 
 fn decode_artifact(

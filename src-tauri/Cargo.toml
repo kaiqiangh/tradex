@@ -22,6 +22,10 @@ required-features = ["desktop"]
 name = "tradex-ipc"
 path = "src/bin/ipc.rs"
 
+[[bin]]
+name = "strategy-worker"
+path = "src/bin/strategy-worker.rs"
+
 [build-dependencies]
 tauri-build = { version = "=2.6.3", features = [] }
 

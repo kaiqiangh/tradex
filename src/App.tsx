@@ -13,6 +13,7 @@ import { Markets } from './Markets.tsx';
 import { Watchlists } from './Watchlists.tsx';
 import { ArtifactsPage, SaveArtifactAction } from './Artifacts.tsx';
 import { OrderDrafts } from './OrderDrafts.tsx';
+import { Strategies } from './Strategies.tsx';
 import { fromModelSnapshot, fromRiskSnapshot, fromThreadSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -790,13 +791,7 @@ export default function App() {
             {page === 'Watchlists' && (workspace ? <Watchlists workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Watchlists</h1><p>Keep ordered canonical instruments in a local workspace.</p></div><section className="card empty-page"><h2>Open a workspace to manage watchlists</h2><p>Watchlists are stored in the selected local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {page === 'Order Drafts' && (workspace ? <OrderDrafts workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Order Drafts</h1><p>Save versioned order drafts in a local workspace.</p></div><section className="card empty-page"><h2>Open a workspace to manage order drafts</h2><p>Order drafts are workspace scoped and never submit orders.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {page === 'Artifacts' && (workspace ? <ArtifactsPage workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Artifacts</h1><p>Saved research and decision provenance.</p></div><section className="card empty-page"><h2>Open a workspace to view artifacts</h2><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
-            {page === 'Strategies' && <>
-              <div className="page-heading"><h1>{page}</h1></div>
-              <section className="card empty-page"><h2>No saved strategies</h2>
-                <p>This workflow is not available in this build. Your local workspace is ready for the next setup steps.</p>
-                <button onClick={() => navigate('Settings')}>Open settings</button>
-              </section>
-            </>}
+            {page === 'Strategies' && (workspace ? <Strategies workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Strategies</h1><p>Save immutable versions and inspect signal-only sandbox runs.</p></div><section className="card empty-page"><h2>Open a workspace to manage strategies</h2><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
           </section>{workspace && <WorkspaceDetails workspace={workspace} />}</div>}
       </main>
     </div>

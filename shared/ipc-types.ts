@@ -249,7 +249,10 @@ export type ReplyData =
   | OrderProposalRefreshResult
   | Artifact
   | ArtifactLibrary
-  | ArtifactExportResult;
+  | ArtifactExportResult
+  | StrategyLibrary
+  | StrategyVersion
+  | StrategyRun;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeConfidence".
@@ -359,6 +362,21 @@ export type ScreenerRankField = "QUALITY" | "REVISION_STRENGTH" | "MOMENTUM";
 export type ScreenerResultState = "PARSED" | "RUNNING" | "EMPTY" | "COMPLETED" | "BLOCKED_EXTERNAL" | "FAILED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyRunState".
+ */
+export type StrategyRunState = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyDirection".
+ */
+export type StrategyDirection = "BUY" | "SELL" | "HOLD";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyFixtureScenario".
+ */
+export type StrategyFixtureScenario = "SUCCESS" | "FAILURE" | "CANCELLED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
  */
 export type ModelAttemptKind = "SETUP" | "THREAD";
@@ -413,6 +431,16 @@ export interface IpcSchema {
   setDefaultModel: SetDefaultModel;
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
+  strategyCancel: StrategyCancel;
+  strategyDefinition: StrategyDefinition;
+  strategyFailure: StrategyFailure;
+  strategyLibrary: StrategyLibrary;
+  strategyQuery: StrategyQuery;
+  strategyRun: StrategyRun;
+  strategyRunRequest: StrategyRunRequest;
+  strategySave: StrategySave;
+  strategySignal: StrategySignal;
+  strategyVersion: StrategyVersion;
   subscribe: Subscribe;
   threadCreate: ThreadCreate;
   threadQuery: ThreadQuery;
@@ -3027,6 +3055,120 @@ export interface ArtifactExportResult {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyLibrary".
+ */
+export interface StrategyLibrary {
+  /**
+   * @maxItems 256
+   */
+  runs: StrategyRunSummary[];
+  stateVersion: string;
+  /**
+   * @maxItems 256
+   */
+  versions: StrategyVersion[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyRunSummary".
+ */
+export interface StrategyRunSummary {
+  failureCode?: string | null;
+  runId: string;
+  state: StrategyRunState;
+  strategyVersionId: string;
+  updatedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyVersion".
+ */
+export interface StrategyVersion {
+  createdAt: string;
+  definition: StrategyDefinition;
+  revision: number;
+  sourceHash: string;
+  stateVersion: string;
+  strategyId: string;
+  strategyVersionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyDefinition".
+ */
+export interface StrategyDefinition {
+  language: string;
+  name: string;
+  /**
+   * @maxItems 32
+   */
+  parameters?: StrategyParameter[];
+  runtime: string;
+  source: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyParameter".
+ */
+export interface StrategyParameter {
+  name: string;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyRun".
+ */
+export interface StrategyRun {
+  createdAt: string;
+  datasetId: string;
+  endAt: string;
+  failure?: StrategyFailure | null;
+  fixtureLabel?: string | null;
+  instrumentId: string;
+  /**
+   * @maxItems 32
+   */
+  parameters?: StrategyParameter[];
+  requestHash: string;
+  runId: string;
+  signal?: StrategySignal | null;
+  startAt: string;
+  state: StrategyRunState;
+  stateVersion: string;
+  strategyHash: string;
+  strategyVersionId: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyFailure".
+ */
+export interface StrategyFailure {
+  code: string;
+  reason: string;
+  /**
+   * @maxItems 4
+   */
+  remediation?: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategySignal".
+ */
+export interface StrategySignal {
+  datasetId: string;
+  desiredExposure: string;
+  direction: StrategyDirection;
+  instrumentId: string;
+  observedAt: string;
+  strategyHash: string;
+  strategyVersionId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FailureEnvelope".
  */
 export interface FailureEnvelope {
@@ -3154,6 +3296,49 @@ export interface SetFallbackPolicy {
 export interface SetOnboardingStep {
   expectedStateVersion: string;
   step: number;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyCancel".
+ */
+export interface StrategyCancel {
+  runId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyQuery".
+ */
+export interface StrategyQuery {
+  strategyVersionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyRunRequest".
+ */
+export interface StrategyRunRequest {
+  datasetId: string;
+  endAt: string;
+  expectedStrategyHash?: string | null;
+  fixtureScenario?: StrategyFixtureScenario | null;
+  instrumentId: string;
+  /**
+   * @maxItems 32
+   */
+  parameters?: StrategyParameter[];
+  startAt: string;
+  strategyVersionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategySave".
+ */
+export interface StrategySave {
+  definition: StrategyDefinition;
+  strategyId?: string | null;
   workspaceId: string;
 }
 /**

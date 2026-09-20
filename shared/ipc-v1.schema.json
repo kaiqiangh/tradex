@@ -142,6 +142,36 @@
     "setOnboardingStep": {
       "$ref": "#/$defs/SetOnboardingStep"
     },
+    "strategyCancel": {
+      "$ref": "#/$defs/StrategyCancel"
+    },
+    "strategyDefinition": {
+      "$ref": "#/$defs/StrategyDefinition"
+    },
+    "strategyFailure": {
+      "$ref": "#/$defs/StrategyFailure"
+    },
+    "strategyLibrary": {
+      "$ref": "#/$defs/StrategyLibrary"
+    },
+    "strategyQuery": {
+      "$ref": "#/$defs/StrategyQuery"
+    },
+    "strategyRun": {
+      "$ref": "#/$defs/StrategyRun"
+    },
+    "strategyRunRequest": {
+      "$ref": "#/$defs/StrategyRunRequest"
+    },
+    "strategySave": {
+      "$ref": "#/$defs/StrategySave"
+    },
+    "strategySignal": {
+      "$ref": "#/$defs/StrategySignal"
+    },
+    "strategyVersion": {
+      "$ref": "#/$defs/StrategyVersion"
+    },
     "subscribe": {
       "$ref": "#/$defs/Subscribe"
     },
@@ -242,6 +272,16 @@
     "artifactQuery",
     "artifactExport",
     "portfolioQuery",
+    "strategyDefinition",
+    "strategyVersion",
+    "strategySave",
+    "strategyQuery",
+    "strategyRunRequest",
+    "strategyCancel",
+    "strategyLibrary",
+    "strategyRun",
+    "strategySignal",
+    "strategyFailure",
     "watchlistCreate",
     "watchlistRename",
     "watchlistDelete",
@@ -4394,6 +4434,15 @@
         },
         {
           "$ref": "#/$defs/ArtifactExportResult"
+        },
+        {
+          "$ref": "#/$defs/StrategyLibrary"
+        },
+        {
+          "$ref": "#/$defs/StrategyVersion"
+        },
+        {
+          "$ref": "#/$defs/StrategyRun"
         }
       ]
     },
@@ -5946,6 +5995,552 @@
         "aggregateId",
         "projection",
         "lastSequence"
+      ]
+    },
+    "StrategyCancel": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "runId"
+      ]
+    },
+    "StrategyDefinition": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StrategyParameter"
+          },
+          "maxItems": 32
+        },
+        "runtime": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 100000,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "source",
+        "language",
+        "runtime"
+      ]
+    },
+    "StrategyDirection": {
+      "type": "string",
+      "enum": [
+        "BUY",
+        "SELL",
+        "HOLD"
+      ]
+    },
+    "StrategyFailure": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "remediation": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason"
+      ]
+    },
+    "StrategyFixtureScenario": {
+      "type": "string",
+      "enum": [
+        "SUCCESS",
+        "FAILURE",
+        "CANCELLED"
+      ]
+    },
+    "StrategyLibrary": {
+      "type": "object",
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrategyRunSummary"
+          },
+          "maxItems": 256
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "versions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrategyVersion"
+          },
+          "maxItems": 256
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "versions",
+        "runs"
+      ]
+    },
+    "StrategyParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "StrategyQuery": {
+      "type": "object",
+      "properties": {
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "strategyVersionId"
+      ]
+    },
+    "StrategyRun": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "datasetId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "endAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StrategyFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fixtureLabel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StrategyParameter"
+          },
+          "maxItems": 32
+        },
+        "requestHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "signal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StrategySignal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "startAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/StrategyRunState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "strategyHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "workspaceId",
+        "strategyVersionId",
+        "strategyHash",
+        "instrumentId",
+        "datasetId",
+        "startAt",
+        "endAt",
+        "state",
+        "requestHash",
+        "createdAt",
+        "updatedAt",
+        "stateVersion"
+      ]
+    },
+    "StrategyRunRequest": {
+      "type": "object",
+      "properties": {
+        "datasetId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "endAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "expectedStrategyHash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "fixtureScenario": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StrategyFixtureScenario"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StrategyParameter"
+          },
+          "maxItems": 32
+        },
+        "startAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "strategyVersionId",
+        "instrumentId",
+        "datasetId",
+        "startAt",
+        "endAt"
+      ]
+    },
+    "StrategyRunState": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "StrategyRunSummary": {
+      "type": "object",
+      "properties": {
+        "failureCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/StrategyRunState"
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "strategyVersionId",
+        "state",
+        "updatedAt"
+      ]
+    },
+    "StrategySave": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "$ref": "#/$defs/StrategyDefinition"
+        },
+        "strategyId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "definition"
+      ]
+    },
+    "StrategySignal": {
+      "type": "object",
+      "properties": {
+        "datasetId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "desiredExposure": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "direction": {
+          "$ref": "#/$defs/StrategyDirection"
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "strategyHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instrumentId",
+        "direction",
+        "desiredExposure",
+        "observedAt",
+        "strategyVersionId",
+        "strategyHash",
+        "datasetId"
+      ]
+    },
+    "StrategyVersion": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "definition": {
+          "$ref": "#/$defs/StrategyDefinition"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "sourceHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "strategyId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "strategyVersionId",
+        "strategyId",
+        "workspaceId",
+        "revision",
+        "definition",
+        "sourceHash",
+        "createdAt",
+        "stateVersion"
       ]
     },
     "Subscribe": {

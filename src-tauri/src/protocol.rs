@@ -196,6 +196,9 @@ pub enum ReplyData {
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
     ArtifactExport(ArtifactExportResult),
+    StrategyLibrary(StrategyLibrary),
+    StrategyVersion(Box<StrategyVersion>),
+    StrategyRun(Box<StrategyRun>),
 }
 
 #[derive(JsonSchema)]
@@ -277,6 +280,16 @@ pub struct IpcSchema {
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
     pub portfolio_query: PortfolioQuery,
+    pub strategy_definition: StrategyDefinition,
+    pub strategy_version: StrategyVersion,
+    pub strategy_save: StrategySave,
+    pub strategy_query: StrategyQuery,
+    pub strategy_run_request: StrategyRunRequest,
+    pub strategy_cancel: StrategyCancel,
+    pub strategy_library: StrategyLibrary,
+    pub strategy_run: StrategyRun,
+    pub strategy_signal: StrategySignal,
+    pub strategy_failure: StrategyFailure,
     pub watchlist_create: WatchlistCreate,
     pub watchlist_rename: WatchlistRename,
     pub watchlist_delete: WatchlistDelete,
@@ -885,6 +898,228 @@ pub struct ScreenerAttachment {
     pub revision: String,
     #[schemars(length(max = 32))]
     pub context_refs: Vec<ThreadContextRef>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyRunState {
+    Queued,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyDirection {
+    Buy,
+    Sell,
+    Hold,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyFixtureScenario {
+    Success,
+    Failure,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyParameter {
+    #[schemars(length(min = 1, max = 64))]
+    pub name: String,
+    #[schemars(length(max = 256))]
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyDefinition {
+    #[schemars(length(min = 1, max = 120))]
+    pub name: String,
+    #[schemars(length(min = 1, max = 100_000))]
+    pub source: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub language: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub runtime: String,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub parameters: Vec<StrategyParameter>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyVersion {
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub revision: u64,
+    pub definition: StrategyDefinition,
+    #[schemars(length(min = 1, max = 80))]
+    pub source_hash: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategySignal {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub direction: StrategyDirection,
+    #[schemars(length(min = 1, max = 64))]
+    pub desired_exposure: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub strategy_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub dataset_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyFailure {
+    #[schemars(length(min = 1, max = 64))]
+    pub code: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+    #[serde(default)]
+    #[schemars(length(max = 4), inner(length(min = 1, max = 256)))]
+    pub remediation: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyRun {
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub strategy_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub dataset_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub start_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub end_at: String,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub parameters: Vec<StrategyParameter>,
+    pub state: StrategyRunState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signal: Option<StrategySignal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<StrategyFailure>,
+    #[schemars(length(min = 1, max = 80))]
+    pub request_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub fixture_label: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyRunSummary {
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    pub state: StrategyRunState,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyLibrary {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 256))]
+    pub versions: Vec<StrategyVersion>,
+    #[schemars(length(max = 256))]
+    pub runs: Vec<StrategyRunSummary>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategySave {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_id: Option<String>,
+    pub definition: StrategyDefinition,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyRunRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 80))]
+    pub expected_strategy_hash: Option<String>,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub dataset_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub start_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub end_at: String,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub parameters: Vec<StrategyParameter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixture_scenario: Option<StrategyFixtureScenario>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyCancel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2737,6 +2972,61 @@ impl TradeXError {
                 "retry_request",
                 "Retry export",
             ),
+            "STRATEGY_DEFINITION_INVALID" => (
+                "The strategy definition is outside the bounded sandbox contract.",
+                "edit_strategy",
+                "Review strategy",
+            ),
+            "STRATEGY_PARAMETER_INVALID" => (
+                "Strategy parameters must be unique, bounded and declared by the saved version.",
+                "edit_strategy",
+                "Review parameters",
+            ),
+            "STRATEGY_VERSION_INVALID" | "STRATEGY_VERSION_LIMIT" => (
+                "The strategy version could not be saved. Review the bounded version fields.",
+                "edit_strategy",
+                "Review strategy",
+            ),
+            "STRATEGY_VERSION_NOT_FOUND" => (
+                "That immutable strategy version is no longer available in this workspace.",
+                "reload_snapshot",
+                "Reload strategies",
+            ),
+            "STRATEGY_HASH_MISMATCH" => (
+                "The selected strategy version hash changed. Reload it before running.",
+                "reload_snapshot",
+                "Reload strategy",
+            ),
+            "STRATEGY_RUN_INVALID" => (
+                "The strategy run inputs do not match the bounded run contract.",
+                "review_strategy_run",
+                "Review run inputs",
+            ),
+            "STRATEGY_DATASET_NOT_FOUND" => (
+                "The selected historical dataset is not a canonical TradeX reference.",
+                "select_dataset",
+                "Choose a dataset",
+            ),
+            "STRATEGY_TIME_UNTRUSTED" => (
+                "TradeX time is not trusted, so this strategy run is blocked.",
+                "time_revalidate",
+                "Revalidate time",
+            ),
+            "STRATEGY_RUN_NOT_FOUND" => (
+                "That strategy run is no longer available in this workspace.",
+                "reload_snapshot",
+                "Reload runs",
+            ),
+            "STRATEGY_RUN_NOT_CANCELLABLE" => (
+                "This strategy run has already finished and cannot be cancelled.",
+                "reload_snapshot",
+                "Reload run",
+            ),
+            "STRATEGY_WORKER_FAILED" => (
+                "The restricted strategy worker failed safely without exposing provider secrets.",
+                "retry_strategy_run",
+                "Retry strategy run",
+            ),
             "SCREENER_REVISION_STALE" => (
                 "The reviewed screener conditions changed. Parse them again before running.",
                 "retry_request",
@@ -2886,6 +3176,10 @@ impl TradeXError {
                     | "CODEX_TURN_CANCELLED"
             ) {
                 "RUNTIME_ERROR"
+            } else if code == "STRATEGY_TIME_UNTRUSTED" {
+                "STATE_STALE"
+            } else if code == "STRATEGY_WORKER_FAILED" {
+                "RUNTIME_ERROR"
             } else if code.starts_with("MODEL_")
                 || code == "PROVIDER_AUTH_FAILED"
                 || code.starts_with("CREDENTIAL_")
@@ -2952,6 +3246,7 @@ impl TradeXError {
                     | "CODEX_FRAME_INVALID"
                     | "CODEX_UPSTREAM_ERROR"
                     | "CODEX_TURN_CANCELLED"
+                    | "STRATEGY_WORKER_FAILED"
                     | "ARTIFACT_EXPORT_FAILED"
             ),
             blocking: true,

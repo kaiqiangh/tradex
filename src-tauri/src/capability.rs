@@ -1,6 +1,7 @@
 use crate::market;
 use crate::protocol::{
-    AgentMode, ArtifactSummary, ExecutionContext, Result, ThreadContextRef, TradeXError,
+    AgentMode, ArtifactSummary, ExecutionContext, Result, StrategyVersion, ThreadContextRef,
+    TradeXError,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use schemars::JsonSchema;
@@ -252,6 +253,24 @@ pub fn validate_catalog_refs_with_artifacts(
     artifacts: &[ArtifactSummary],
     allow_synthetic_artifact: bool,
 ) -> Result<()> {
+    validate_catalog_refs_with_artifacts_and_strategies(
+        workspace_id,
+        contexts,
+        accounts,
+        artifacts,
+        &[],
+        allow_synthetic_artifact,
+    )
+}
+
+pub fn validate_catalog_refs_with_artifacts_and_strategies(
+    workspace_id: &str,
+    contexts: &[ThreadContextRef],
+    accounts: &[AccountConnection],
+    artifacts: &[ArtifactSummary],
+    strategies: &[StrategyVersion],
+    allow_synthetic_artifact: bool,
+) -> Result<()> {
     validate_contexts(contexts)?;
     for context in contexts.iter().filter(|context| context.kind == "account") {
         let Some(account) = accounts
@@ -292,6 +311,20 @@ pub fn validate_catalog_refs_with_artifacts(
             return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
         };
         if artifact.workspace_id != workspace_id || artifact.content_hash != context.hash {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        }
+    }
+    for context in contexts.iter().filter(|context| context.kind == "strategy") {
+        let Some(version) = strategies
+            .iter()
+            .find(|version| version.strategy_version_id == context.id)
+        else {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        };
+        if version.workspace_id != workspace_id
+            || version.source_hash != context.hash
+            || crate::strategy::canonical_version_hash(&version.definition)? != version.source_hash
+        {
             return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
         }
     }
