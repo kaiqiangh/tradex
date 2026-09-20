@@ -74,15 +74,11 @@ pub fn run_with_source(
         }
         None => base_reason.to_owned(),
     };
-    let fixture =
-        cfg!(feature = "integration-test") && std::env::var_os("TRADEX_RESEARCH_FIXTURE").is_some();
+    let fixture_allowed = source.is_some_and(|entry| is_research_fixture_source(request, entry));
     // Research results are re-derived during turn.start and must compare byte-for-byte.
     // A real received clock belongs to the future provider adapter; until then keep the
     // unavailable timestamp explicit and deterministic.
-    let state = result_state(source, fixture);
-    let fixture_allowed = fixture
-        && source.is_some_and(|entry| entry.status == DataSourceStatus::Available)
-        && state == ResearchResultState::Available;
+    let state = result_state(source, fixture_allowed);
     let received_timestamp = if fixture_allowed {
         "2026-09-14T00:00:00Z"
     } else {
@@ -227,7 +223,7 @@ fn spot_venues(
     } else {
         match source.map(|entry| &entry.status) {
             Some(DataSourceStatus::BlockedExternal) => ResearchResultState::BlockedExternal,
-            Some(DataSourceStatus::Available) => ResearchResultState::Degraded,
+            Some(DataSourceStatus::Available) => ResearchResultState::Unavailable,
             Some(DataSourceStatus::Unverified) | Some(DataSourceStatus::Unavailable) | None => {
                 ResearchResultState::Unavailable
             }
@@ -274,15 +270,15 @@ fn spot_venues(
     .collect()
 }
 
-fn result_state(source: Option<&DataSourceEntry>, fixture: bool) -> ResearchResultState {
+fn result_state(source: Option<&DataSourceEntry>, fixture_allowed: bool) -> ResearchResultState {
     match source.map(|entry| &entry.status) {
         // Backend ARD §41.9 keeps every non-AVAILABLE source as a sanitized
         // unavailable result, including integration fixtures.
         Some(DataSourceStatus::Available) => {
-            if fixture {
+            if fixture_allowed {
                 ResearchResultState::Available
             } else {
-                ResearchResultState::Degraded
+                ResearchResultState::Unavailable
             }
         }
         Some(DataSourceStatus::BlockedExternal)
@@ -563,6 +559,34 @@ mod tests {
             result_state(Some(&source), true),
             ResearchResultState::Unavailable
         );
+    }
+
+    #[test]
+    fn available_catalog_source_without_matching_fixture_stays_unavailable() {
+        let source = crate::data_sources::entries()
+            .into_iter()
+            .find(|entry| entry.source_id == "OD-001")
+            .unwrap();
+        for focus in [
+            None,
+            Some(ResearchFocus::General),
+            Some(ResearchFocus::Equity),
+        ] {
+            let request = ResearchToolRequest {
+                workspace_id: "ws".into(),
+                agent_mode: AgentMode::Research,
+                execution_context: ExecutionContext::NoneReadOnly,
+                account_id: None,
+                focus,
+                attached_contexts: vec![],
+                tool_id: ResearchToolId::PublicMarketRead,
+                query: "AAPL".into(),
+            };
+            let result = run_with_source(&request, &decision(), Some(&source)).unwrap();
+            assert_eq!(result.payload.state, ResearchResultState::Unavailable);
+            assert!(result.payload.conclusion.is_none());
+            assert!(result.payload.fixture_label.is_none());
+        }
     }
 
     #[test]
