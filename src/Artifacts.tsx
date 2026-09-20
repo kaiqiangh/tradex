@@ -16,7 +16,7 @@ function ArtifactSourceList({ result }: { result?: ResearchToolResult | null }) 
   </>;
 }
 
-function ProvenanceModal({ provenance, onClose }: { provenance: ArtifactProvenance; onClose: () => void }) {
+function ProvenanceModal({ provenance, onClose, returnFocusRef }: { provenance: ArtifactProvenance; onClose: () => void; returnFocusRef: { current: HTMLElement | null } }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -33,8 +33,12 @@ function ProvenanceModal({ provenance, onClose }: { provenance: ArtifactProvenan
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => { window.removeEventListener('keydown', onKeyDown); if (previous?.isConnected) previous.focus(); };
-  }, [onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      const target = returnFocusRef.current ?? previous;
+      queueMicrotask(() => { if (target?.isConnected) target.focus(); });
+    };
+  }, [onClose, returnFocusRef]);
   useEffect(() => {
     const shell = document.querySelector<HTMLElement>('.app-shell');
     if (!shell) return;
@@ -77,6 +81,7 @@ function ArtifactRow({ artifact, selected, onSelect }: { artifact: ArtifactSumma
 function ArtifactDetail({ workspaceId, artifactId }: { workspaceId: string; artifactId: string }) {
   const queryClient = useQueryClient();
   const [provenanceOpen, setProvenanceOpen] = useState(false);
+  const provenanceTriggerRef = useRef<HTMLButtonElement>(null);
   const [exportStatus, setExportStatus] = useState<string>();
   const [exportError, setExportError] = useState<string>();
   const detail = useQuery({ queryKey: ['artifact', workspaceId, artifactId], queryFn: () => request('artifact.get', { workspaceId, artifactId }) });
@@ -100,12 +105,12 @@ function ArtifactDetail({ workspaceId, artifactId }: { workspaceId: string; arti
   };
   return <section className="card artifact-detail" aria-labelledby="artifact-detail-title">
     <div className="account-heading"><div><h2 id="artifact-detail-title">{artifact.title}</h2><p className="muted">{artifact.kind} · version {artifact.version}</p></div><span className="badge">Saved locally</span></div>
-    <div className="artifact-actions"><button type="button" onClick={() => setProvenanceOpen(true)}>View provenance</button><button type="button" className="primary" onClick={() => void exportArtifact()}>Export JSON</button></div>
+    <div className="artifact-actions"><button ref={provenanceTriggerRef} type="button" onClick={() => setProvenanceOpen(true)}>View provenance</button><button type="button" className="primary" onClick={() => void exportArtifact()}>Export JSON</button></div>
     <dl className="artifact-meta"><div><dt>Content hash</dt><dd className="identity">{artifact.contentHash}</dd></div><div><dt>Created</dt><dd><time dateTime={artifact.createdAt}>{new Date(artifact.createdAt).toLocaleString()}</time></dd></div><div><dt>Source Item</dt><dd className="identity">{artifact.provenance.itemId}</dd></div></dl>
     <article className="artifact-content"><h3>Saved content</h3><p>{artifact.content.text}</p><ArtifactSourceList result={artifact.content.researchResult} /></article>
     {exportStatus && <p className="notice" role="status" aria-live="polite">{exportStatus}</p>}
     {exportError && <p className="error-text" role="alert">{exportError}</p>}
-    {provenanceOpen && <ProvenanceModal provenance={artifact.provenance} onClose={() => setProvenanceOpen(false)} />}
+    {provenanceOpen && <ProvenanceModal provenance={artifact.provenance} onClose={() => setProvenanceOpen(false)} returnFocusRef={provenanceTriggerRef} />}
   </section>;
 }
 
