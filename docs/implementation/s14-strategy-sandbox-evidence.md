@@ -27,5 +27,5 @@
 ## 未证明/后续边界
 
 - 当前 worker seam 证明固定进程/协议/能力边界，生产路径在真实 Python 引擎接入前返回 `STRATEGY_RUNTIME_UNAVAILABLE`；未证明真实 Python 引擎、数值库和任意策略语义，也未证明未来 runtime 的 OS 级 filesystem/network sandbox，这是 S15/runtime hardening 的后续证据。
-- 已完成当前浏览器 shell 的 390/768/1280 client/scroll 宽度检查和 console warn/error 检查；桌面原生窗口回归仍需在 Wayfinder 验证环境继续跑。
+- 当前 Strategies 页面仍是主导航入口，尚未从 Research/Backtest context 驱动进入；浏览器脚本只覆盖保存、成功 fixture、signal-only、窄屏无溢出和 aria-live，失败/取消/重试/键盘焦点路径仍需浏览器回归证据。已完成当前浏览器 shell 的 390/768/1280 client/scroll 宽度检查和 console warn/error 检查；桌面原生窗口回归仍需在 Wayfinder 验证环境继续跑。
 - integration fixture、worker 名称和本地脚本不构成真实外部数据、交易或 Live authority 证据。
