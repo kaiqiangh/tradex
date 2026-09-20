@@ -29,6 +29,13 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByText('Enter an instrument.', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByLabel('Instrument', { exact: false }).getAttribute('aria-invalid'), 'true');
   await threadInstrument.fill('equity:US:AAPL');
+  await threadBacktestScenario.selectOption('SUCCESS');
+  await threadBacktestRun.press('Enter');
+  await ui.getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Completed result · historical simulation', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('0.015', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Reproducibility manifest', { exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve|Provider/ }).count(), 0);
   await threadBacktestScenario.selectOption('FAILURE');
   await threadBacktestRun.press('Enter');
   await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });

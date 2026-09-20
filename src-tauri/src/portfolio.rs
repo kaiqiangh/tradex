@@ -912,7 +912,7 @@ fn normalize_decimal(value: &str) -> Result<String> {
     crate::provider_io::decimal(&Value::String(value.into()))
 }
 
-fn decimal_add(left: &str, right: &str) -> Result<String> {
+pub(crate) fn decimal_add(left: &str, right: &str) -> Result<String> {
     let (left_negative, left_digits, left_scale) = decimal_parts(left)?;
     let (right_negative, right_digits, right_scale) = decimal_parts(right)?;
     let scale = left_scale.max(right_scale);

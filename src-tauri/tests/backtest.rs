@@ -1,5 +1,8 @@
 use serde_json::{Value, json};
+use std::sync::{Mutex, OnceLock};
 use tradex::ControlPlane;
+
+static FIXTURE_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn command(control: &mut ControlPlane, name: &str, payload: Value) -> Value {
     control.dispatch(json!({
@@ -38,6 +41,10 @@ fn request(workspace_id: &str, version_id: &str) -> Value {
 
 #[test]
 fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
+    let _fixture_env_lock = FIXTURE_ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap();
     unsafe {
         std::env::remove_var("TRADEX_BACKTEST_FIXTURE");
     }
@@ -283,4 +290,113 @@ fn backtest_rejects_invalid_numeric_interval_and_date_values() {
         "MARKET_HISTORY_UNAVAILABLE"
     );
     assert_eq!(coverage_error["error"]["field"], "startAt");
+}
+
+#[cfg(feature = "integration-test")]
+#[test]
+fn completed_backtest_persists_deterministic_result_and_typed_guards() {
+    let _fixture_env_lock = FIXTURE_ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap();
+    unsafe {
+        std::env::set_var("TRADEX_BACKTEST_FIXTURE", "1");
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let workspace_path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(workspace_path.clone());
+    let opened = command(&mut control, "workspace.open", json!({}));
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+    let saved = command(
+        &mut control,
+        "strategy.save_version",
+        json!({"workspaceId": workspace_id, "definition": definition("Momentum", "return 1")}),
+    );
+    let version_id = saved["data"]["strategyVersionId"].as_str().unwrap();
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId": workspace_id}),
+        )["ok"],
+        true
+    );
+
+    let mut success_request = request(workspace_id, version_id);
+    success_request["fixtureScenario"] = json!("SUCCESS");
+    let first = command(&mut control, "backtest.run", success_request.clone());
+    assert_eq!(first["ok"], true, "{first}");
+    assert_eq!(first["data"]["state"], "COMPLETED", "{first}");
+    assert_eq!(first["data"]["result"]["historicalSimulation"], true);
+    assert_eq!(first["data"]["result"]["metrics"]["return"], "0.015");
+    assert_eq!(first["data"]["result"]["metrics"]["sharpe"], "1.5");
+    assert_eq!(first["data"]["result"]["metrics"]["sortino"], "2");
+    assert_eq!(first["data"]["result"]["metrics"]["maxDrawdown"], "0.005");
+    assert_eq!(first["data"]["result"]["metrics"]["winRate"], "1");
+    assert_eq!(first["data"]["result"]["metrics"]["profitFactor"], "2");
+    assert_eq!(first["data"]["result"]["metrics"]["turnover"], "0.01");
+    assert_eq!(first["data"]["result"]["metrics"]["tradeCount"], 1);
+    assert_eq!(
+        first["data"]["result"]["equityCurve"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        first["data"]["result"]["trades"].as_array().unwrap().len(),
+        1
+    );
+    assert_eq!(
+        first["data"]["result"]["manifest"]["guardChecks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        6
+    );
+    assert!(
+        first["data"]["result"]["resultHash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:")
+    );
+
+    let second = command(&mut control, "backtest.run", success_request);
+    assert_eq!(second["data"]["state"], "COMPLETED", "{second}");
+    assert_eq!(second["data"]["requestHash"], first["data"]["requestHash"]);
+    assert_eq!(second["data"]["result"], first["data"]["result"]);
+    assert_ne!(second["data"]["runId"], first["data"]["runId"]);
+
+    let mut guard_request = request(workspace_id, version_id);
+    guard_request["fixtureScenario"] = json!("DATA_GAP");
+    let guard = command(&mut control, "backtest.run", guard_request);
+    assert_eq!(guard["data"]["state"], "FAILED", "{guard}");
+    assert_eq!(guard["data"]["failure"]["code"], "BACKTEST_DATA_GAP");
+
+    let run_id = first["data"]["runId"].as_str().unwrap();
+    let database = rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+    let mut projection: Value = database
+        .query_row(
+            "SELECT projection FROM backtest_runs WHERE run_id=?1",
+            [run_id],
+            |row| row.get::<_, String>(0),
+        )
+        .map(|value| serde_json::from_str(&value).unwrap())
+        .unwrap();
+    projection["result"]["metrics"]["return"] = json!("0.016");
+    database
+        .execute(
+            "UPDATE backtest_runs SET projection=?1 WHERE run_id=?2",
+            rusqlite::params![serde_json::to_string(&projection).unwrap(), run_id],
+        )
+        .unwrap();
+    drop(database);
+    assert_eq!(
+        command(
+            &mut control,
+            "backtest.get",
+            json!({"workspaceId": workspace_id, "runId": run_id}),
+        )["error"]["code"],
+        "WORKSPACE_INTEGRITY_FAILED"
+    );
 }

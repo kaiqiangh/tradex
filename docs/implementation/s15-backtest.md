@@ -2,7 +2,7 @@
 
 日期：2026-09-20  
 前置：S08 TimeService/market calendar、S14 不可变 StrategyVersion 与受限 worker
-状态：#48 已实现；#49/#50 待实现
+状态：#48/#49 已实现；#50（compare 与双入口收口）待实现
 
 ## Problem Statement
 

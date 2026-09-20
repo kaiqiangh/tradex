@@ -293,6 +293,12 @@ pub struct IpcSchema {
     pub strategy_signal: StrategySignal,
     pub strategy_failure: StrategyFailure,
     pub backtest_failure: BacktestFailure,
+    pub backtest_guard_check: BacktestGuardCheck,
+    pub backtest_manifest: BacktestManifest,
+    pub backtest_metrics: BacktestMetrics,
+    pub equity_point: EquityPoint,
+    pub trade_record: TradeRecord,
+    pub backtest_result: BacktestResult,
     pub backtest_run: BacktestRun,
     pub backtest_run_query: BacktestRunQuery,
     pub backtest_run_request: BacktestRunRequest,
@@ -1155,8 +1161,16 @@ pub enum BacktestRunState {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BacktestFixtureScenario {
+    Success,
     Failure,
     Cancelled,
+    Lookahead,
+    Survivorship,
+    Split,
+    Dividend,
+    Timezone,
+    DataGap,
+    DatasetHashMismatch,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1169,6 +1183,143 @@ pub struct BacktestFailure {
     #[serde(default)]
     #[schemars(length(max = 4), inner(length(min = 1, max = 256)))]
     pub remediation: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BacktestGuardState {
+    Passed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestGuardCheck {
+    #[schemars(length(min = 1, max = 64))]
+    pub name: String,
+    pub state: BacktestGuardState,
+    #[schemars(length(min = 1, max = 256))]
+    pub detail: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestManifest {
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version: String,
+    #[schemars(length(min = 71, max = 71))]
+    pub strategy_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub dataset_id: String,
+    #[schemars(length(min = 71, max = 71))]
+    pub dataset_hash: String,
+    #[schemars(length(min = 1, max = 160))]
+    pub data_provider: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub retrieved_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub start_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub end_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub adjustment_method: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub timezone: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub market_calendar_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub commission_model: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub commission: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub slippage_model: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub slippage: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub starting_cash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub seed: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub engine_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub runtime_version: String,
+    #[schemars(length(min = 6, max = 6), inner(length(min = 1, max = 256)))]
+    pub guard_checks: Vec<BacktestGuardCheck>,
+    #[schemars(length(min = 71, max = 71))]
+    pub manifest_hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestMetrics {
+    #[serde(rename = "return")]
+    #[schemars(length(min = 1, max = 128))]
+    pub return_pct: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub sharpe: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub sortino: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub max_drawdown: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub win_rate: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub profit_factor: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub turnover: String,
+    #[schemars(range(min = 0, max = 100_000))]
+    pub trade_count: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EquityPoint {
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub equity: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub drawdown: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TradeRecord {
+    #[schemars(length(min = 1, max = 128))]
+    pub trade_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub side: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub quantity: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub price: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub gross_value: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub commission: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub slippage: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub realized_pnl: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestResult {
+    pub metrics: BacktestMetrics,
+    #[schemars(length(min = 1, max = 5_000), inner())]
+    pub equity_curve: Vec<EquityPoint>,
+    #[schemars(length(max = 5_000), inner())]
+    pub trades: Vec<TradeRecord>,
+    pub manifest: BacktestManifest,
+    pub historical_simulation: bool,
+    #[schemars(length(min = 1, max = 8), inner(length(min = 1, max = 256)))]
+    pub limitations: Vec<String>,
+    #[schemars(length(min = 71, max = 71))]
+    pub result_hash: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1209,6 +1360,8 @@ pub struct BacktestRun {
     pub state: BacktestRunState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure: Option<BacktestFailure>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<BacktestResult>,
     #[schemars(length(min = 1, max = 80))]
     pub request_hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3228,6 +3381,21 @@ impl TradeXError {
                 "The backtest runtime failed closed without producing synthetic results.",
                 "retry_backtest_run",
                 "Retry backtest",
+            ),
+            "BACKTEST_RESULT_INVALID" | "BACKTEST_DATASET_HASH_MISMATCH" => (
+                "The backtest result or approved dataset identity could not be validated safely.",
+                "retry_backtest_run",
+                "Retry backtest",
+            ),
+            "BACKTEST_LOOKAHEAD_DETECTED"
+            | "BACKTEST_SURVIVORSHIP_BIAS"
+            | "BACKTEST_SPLIT_UNVERIFIED"
+            | "BACKTEST_DIVIDEND_UNVERIFIED"
+            | "BACKTEST_TIMEZONE_MISMATCH"
+            | "BACKTEST_DATA_GAP" => (
+                "The backtest data guard rejected this historical input.",
+                "review_backtest",
+                "Review backtest data",
             ),
             "BACKTEST_CANCELLED" => (
                 "The backtest was cancelled before completion.",

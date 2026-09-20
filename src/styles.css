@@ -473,6 +473,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .table-scroll table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .table-scroll th, .table-scroll td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
 .table-scroll th { background: #f8fafc; font-weight: 600; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .order-identity { display: block; max-width: 150px; white-space: normal; margin-top: 4px; font-size: 10px; color: #64748b; }
 .account-detail h3 { margin: 22px 0 12px; }
 .settings-section:has(.accounts-panel) { padding: 20px; }

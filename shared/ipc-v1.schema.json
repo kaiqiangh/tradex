@@ -28,6 +28,18 @@
     "backtestFailure": {
       "$ref": "#/$defs/BacktestFailure"
     },
+    "backtestGuardCheck": {
+      "$ref": "#/$defs/BacktestGuardCheck"
+    },
+    "backtestManifest": {
+      "$ref": "#/$defs/BacktestManifest"
+    },
+    "backtestMetrics": {
+      "$ref": "#/$defs/BacktestMetrics"
+    },
+    "backtestResult": {
+      "$ref": "#/$defs/BacktestResult"
+    },
     "backtestRun": {
       "$ref": "#/$defs/BacktestRun"
     },
@@ -63,6 +75,9 @@
     },
     "empty": {
       "$ref": "#/$defs/EmptyPayload"
+    },
+    "equityPoint": {
+      "$ref": "#/$defs/EquityPoint"
     },
     "event": {
       "$ref": "#/$defs/DomainEvent"
@@ -202,6 +217,9 @@
     "timeStatus": {
       "$ref": "#/$defs/TimeStatus"
     },
+    "tradeRecord": {
+      "$ref": "#/$defs/TradeRecord"
+    },
     "turnCancel": {
       "$ref": "#/$defs/TurnCancel"
     },
@@ -302,6 +320,12 @@
     "strategySignal",
     "strategyFailure",
     "backtestFailure",
+    "backtestGuardCheck",
+    "backtestManifest",
+    "backtestMetrics",
+    "equityPoint",
+    "tradeRecord",
+    "backtestResult",
     "backtestRun",
     "backtestRunQuery",
     "backtestRunRequest",
@@ -1076,8 +1100,294 @@
     "BacktestFixtureScenario": {
       "type": "string",
       "enum": [
+        "SUCCESS",
         "FAILURE",
-        "CANCELLED"
+        "CANCELLED",
+        "LOOKAHEAD",
+        "SURVIVORSHIP",
+        "SPLIT",
+        "DIVIDEND",
+        "TIMEZONE",
+        "DATA_GAP",
+        "DATASET_HASH_MISMATCH"
+      ]
+    },
+    "BacktestGuardCheck": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/BacktestGuardState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "state",
+        "detail"
+      ]
+    },
+    "BacktestGuardState": {
+      "type": "string",
+      "enum": [
+        "PASSED"
+      ]
+    },
+    "BacktestManifest": {
+      "type": "object",
+      "properties": {
+        "adjustmentMethod": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "commission": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "commissionModel": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "dataProvider": {
+          "type": "string",
+          "maxLength": 160,
+          "minLength": 1
+        },
+        "datasetHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "datasetId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "endAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "engineVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "guardChecks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BacktestGuardCheck"
+          },
+          "maxItems": 6,
+          "minItems": 6
+        },
+        "manifestHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "marketCalendarVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "retrievedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "runtimeVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "seed": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "slippage": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "slippageModel": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "startAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startingCash": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "strategyHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "strategyVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "timezone": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "strategyVersion",
+        "strategyHash",
+        "datasetId",
+        "datasetHash",
+        "dataProvider",
+        "retrievedAt",
+        "startAt",
+        "endAt",
+        "adjustmentMethod",
+        "timezone",
+        "marketCalendarVersion",
+        "commissionModel",
+        "commission",
+        "slippageModel",
+        "slippage",
+        "startingCash",
+        "seed",
+        "engineVersion",
+        "runtimeVersion",
+        "guardChecks",
+        "manifestHash"
+      ]
+    },
+    "BacktestMetrics": {
+      "type": "object",
+      "properties": {
+        "maxDrawdown": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "profitFactor": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "return": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sharpe": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sortino": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "tradeCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100000,
+          "minimum": 0
+        },
+        "turnover": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "winRate": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "return",
+        "sharpe",
+        "sortino",
+        "maxDrawdown",
+        "winRate",
+        "profitFactor",
+        "turnover",
+        "tradeCount"
+      ]
+    },
+    "BacktestResult": {
+      "type": "object",
+      "properties": {
+        "equityCurve": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EquityPoint"
+          },
+          "maxItems": 5000,
+          "minItems": 1
+        },
+        "historicalSimulation": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "maxItems": 8,
+          "minItems": 1
+        },
+        "manifest": {
+          "$ref": "#/$defs/BacktestManifest"
+        },
+        "metrics": {
+          "$ref": "#/$defs/BacktestMetrics"
+        },
+        "resultHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "trades": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TradeRecord"
+          },
+          "maxItems": 5000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "metrics",
+        "equityCurve",
+        "trades",
+        "manifest",
+        "historicalSimulation",
+        "limitations",
+        "resultHash"
       ]
     },
     "BacktestRun": {
@@ -1156,6 +1466,16 @@
           "type": "string",
           "maxLength": 80,
           "minLength": 1
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BacktestResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "runId": {
           "type": "string",
@@ -2114,6 +2434,32 @@
     "EmptyPayload": {
       "type": "object",
       "additionalProperties": false
+    },
+    "EquityPoint": {
+      "type": "object",
+      "properties": {
+        "drawdown": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "equity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "observedAt",
+        "equity",
+        "drawdown"
+      ]
     },
     "ExecutionContext": {
       "type": "string",
@@ -7587,6 +7933,74 @@
         "historical_simulation",
         "paper_demo_testnet_execution",
         "live_order_proposal"
+      ]
+    },
+    "TradeRecord": {
+      "type": "object",
+      "properties": {
+        "commission": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "grossValue": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "price": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "realizedPnl": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "slippage": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "tradeId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tradeId",
+        "instrumentId",
+        "side",
+        "quantity",
+        "price",
+        "grossValue",
+        "commission",
+        "slippage",
+        "realizedPnl",
+        "observedAt"
       ]
     },
     "TradeXError": {

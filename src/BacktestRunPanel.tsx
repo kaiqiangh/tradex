@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BacktestFixtureScenario, BacktestRun, BacktestRunRequest, StrategyVersion } from '../shared/ipc-types.ts';
+import type { BacktestFixtureScenario, BacktestResult, BacktestRun, BacktestRunRequest, StrategyVersion } from '../shared/ipc-types.ts';
 import { browserIntegration, CommandError, explainError, request } from './client.ts';
 
 const activeStates = ['QUEUED', 'RUNNING'];
@@ -29,6 +29,29 @@ function FrozenConfiguration({ run, titleId }: { run: BacktestRun; titleId: stri
       <div><dt>Portfolio seed</dt><dd>{run.portfolioSeed ?? 'None'}</dd></div>
       <div><dt>Parameters</dt><dd>{run.parameters?.length ? run.parameters.map(parameter => `${parameter.name}=${parameter.value}`).join(', ') : 'Saved defaults'}</dd></div>
     </dl>
+  </section>;
+}
+
+function BacktestResultView({ result, titleId }: { result: BacktestResult; titleId: string }) {
+  return <section aria-labelledby={titleId}>
+    <h3 id={titleId}>Completed result · historical simulation</h3>
+    <dl>
+      <div><dt>Return</dt><dd>{result.metrics.return}</dd></div>
+      <div><dt>Sharpe</dt><dd>{result.metrics.sharpe}</dd></div>
+      <div><dt>Sortino</dt><dd>{result.metrics.sortino}</dd></div>
+      <div><dt>Max drawdown</dt><dd>{result.metrics.maxDrawdown}</dd></div>
+      <div><dt>Win rate</dt><dd>{result.metrics.winRate}</dd></div>
+      <div><dt>Profit factor</dt><dd>{result.metrics.profitFactor}</dd></div>
+      <div><dt>Turnover</dt><dd>{result.metrics.turnover}</dd></div>
+      <div><dt>Trades</dt><dd>{result.metrics.tradeCount}</dd></div>
+    </dl>
+    <p className="form-hint">Historical simulation only. This result cannot place trades or call a provider.</p>
+    <h4>Equity curve</h4>
+    <div className="table-scroll"><table><caption className="sr-only">Backtest equity curve</caption><thead><tr><th scope="col">Observed</th><th scope="col">Equity</th><th scope="col">Drawdown</th></tr></thead><tbody>{result.equityCurve.map(point => <tr key={`${point.observedAt}-${point.equity}`}><td>{point.observedAt}</td><td>{point.equity}</td><td>{point.drawdown}</td></tr>)}</tbody></table></div>
+    <h4>Trade list</h4>
+    <div className="table-scroll"><table><caption className="sr-only">Backtest trades</caption><thead><tr><th scope="col">Time</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">P&amp;L</th></tr></thead><tbody>{result.trades.map(trade => <tr key={trade.tradeId}><td>{trade.observedAt}</td><td>{trade.side}</td><td>{trade.quantity}</td><td>{trade.price}</td><td>{trade.realizedPnl}</td></tr>)}</tbody></table></div>
+    <details><summary>Reproducibility manifest</summary><dl>{Object.entries(result.manifest).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{Array.isArray(value) ? value.map(item => `${item.name}:${item.state}`).join(' · ') : String(value)}</dd></div>)}</dl></details>
+    <ul>{result.limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul>
   </section>;
 }
 
@@ -208,7 +231,7 @@ export function BacktestRunPanel({
       <label className="field">Commission<input inputMode="decimal" value={commission} aria-invalid={Boolean(fieldErrors.commission)} aria-describedby={fieldErrors.commission ? errorId('commission') : undefined} onChange={event => setCommission(event.target.value)} />{fieldMessage('commission')}</label>
       <label className="field">Slippage<input inputMode="decimal" value={slippage} aria-invalid={Boolean(fieldErrors.slippage)} aria-describedby={fieldErrors.slippage ? errorId('slippage') : undefined} onChange={event => setSlippage(event.target.value)} />{fieldMessage('slippage')}</label>
       <label className="field">Portfolio seed<input value={portfolioSeed} aria-invalid={Boolean(fieldErrors.portfolioSeed)} aria-describedby={fieldErrors.portfolioSeed ? errorId('portfolioSeed') : undefined} onChange={event => setPortfolioSeed(event.target.value)} placeholder="Optional" />{fieldMessage('portfolioSeed')}</label>
-      {browserIntegration && <label className="field">Backtest integration scenario<select aria-label="Backtest integration scenario" value={fixtureScenario} onChange={event => setFixtureScenario(event.target.value as BacktestFixtureScenario)}><option value="FAILURE">Failure</option><option value="CANCELLED">Cancelled</option></select></label>}
+      {browserIntegration && <label className="field">Backtest integration scenario<select aria-label="Backtest integration scenario" value={fixtureScenario} onChange={event => setFixtureScenario(event.target.value as BacktestFixtureScenario)}><option value="FAILURE">Failure</option><option value="SUCCESS">Success</option><option value="CANCELLED">Cancelled</option><option value="LOOKAHEAD">Look-ahead guard</option><option value="SURVIVORSHIP">Survivorship guard</option><option value="SPLIT">Split guard</option><option value="DIVIDEND">Dividend guard</option><option value="TIMEZONE">Timezone guard</option><option value="DATA_GAP">Data gap guard</option><option value="DATASET_HASH_MISMATCH">Dataset hash guard</option></select></label>}
     </div>
     <div className="form-actions">
       <button type="button" className="primary" disabled={busy || !selected} onFocus={event => { actionRef.current = event.currentTarget; }} onClick={event => { actionRef.current = event.currentTarget; void execute(); }}>Run backtest</button>
@@ -216,7 +239,7 @@ export function BacktestRunPanel({
       <button ref={retryRef} type="button" disabled={busy || !lastRequest || !queriedRun || activeStates.includes(queriedRun.state)} onFocus={event => { actionRef.current = event.currentTarget; }} onClick={event => { actionRef.current = event.currentTarget; void execute(lastRequest); }}>Retry backtest</button>
     </div>
     {error && <p className="error-text" role="alert">{error}</p>}
-    {queriedRun && <div className="strategy-result" aria-live="polite"><strong>{queriedRun.state}</strong><span>Run {queriedRun.runId}</span><span>Config {queriedRun.requestHash}</span><FrozenConfiguration run={queriedRun} titleId={`backtest-frozen-title-${panelId}`} />{queriedRun.failure && <><p role="alert">{queriedRun.failure.code}: {queriedRun.failure.reason}</p>{queriedRun.failure.remediation?.length ? <ul><li>{queriedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{queriedRun.fixtureLabel && <p className="form-hint">Integration fixture: {queriedRun.fixtureLabel}</p>}</div>}
+    {queriedRun && <div className="strategy-result" aria-live="polite"><strong>{queriedRun.state}</strong><span>Run {queriedRun.runId}</span><span>Config {queriedRun.requestHash}</span><FrozenConfiguration run={queriedRun} titleId={`backtest-frozen-title-${panelId}`} />{queriedRun.result && <BacktestResultView result={queriedRun.result} titleId={`backtest-result-title-${panelId}`} />}{queriedRun.failure && <><p role="alert">{queriedRun.failure.code}: {queriedRun.failure.reason}</p>{queriedRun.failure.remediation?.length ? <ul><li>{queriedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{queriedRun.fixtureLabel && <p className="form-hint">Integration fixture: {queriedRun.fixtureLabel}</p>}</div>}
     {!selected && <p className="form-hint">Select a saved version before running a backtest.</p>}
   </section>;
 }

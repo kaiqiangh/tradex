@@ -23,6 +23,11 @@ declare const validators: {
   BacktestCancel: (value: unknown) => boolean;
   BacktestFailure: (value: unknown) => boolean;
   BacktestFixtureScenario: (value: unknown) => boolean;
+  BacktestGuardCheck: (value: unknown) => boolean;
+  BacktestGuardState: (value: unknown) => boolean;
+  BacktestManifest: (value: unknown) => boolean;
+  BacktestMetrics: (value: unknown) => boolean;
+  BacktestResult: (value: unknown) => boolean;
   BacktestRun: (value: unknown) => boolean;
   BacktestRunQuery: (value: unknown) => boolean;
   BacktestRunRequest: (value: unknown) => boolean;
@@ -52,6 +57,7 @@ declare const validators: {
   DomainEvent: (value: unknown) => boolean;
   DomainProjection: (value: unknown) => boolean;
   EmptyPayload: (value: unknown) => boolean;
+  EquityPoint: (value: unknown) => boolean;
   ExecutionContext: (value: unknown) => boolean;
   FailureEnvelope: (value: unknown) => boolean;
   FilterSpec: (value: unknown) => boolean;
@@ -215,6 +221,7 @@ declare const validators: {
   TimeInForce: (value: unknown) => boolean;
   TimeStatus: (value: unknown) => boolean;
   ToolId: (value: unknown) => boolean;
+  TradeRecord: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;
   TurnCancel: (value: unknown) => boolean;
   TurnRetry: (value: unknown) => boolean;

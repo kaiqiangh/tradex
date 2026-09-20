@@ -1833,18 +1833,74 @@ interface BacktestRunRequest {
   slippage: string; // normalized non-negative decimal
   portfolioSeed?: string;
   parameters?: StrategyParameter[]; // omitted means the saved version parameters
-  fixtureScenario?: "FAILURE" | "CANCELLED"; // integration-test fixture only; never production
+  fixtureScenario?: "SUCCESS" | "FAILURE" | "CANCELLED" | "LOOKAHEAD" | "SURVIVORSHIP" | "SPLIT" | "DIVIDEND" | "TIMEZONE" | "DATA_GAP" | "DATASET_HASH_MISMATCH"; // integration-test fixture only; never production
 }
 interface BacktestCancel {
   workspaceId: string;
   runId: string;
   expectedStateVersion: string;
 }
+interface BacktestManifest {
+  strategyVersion: string;
+  strategyHash: string;
+  datasetId: string;
+  datasetHash: string;
+  dataProvider: string;
+  retrievedAt: string;
+  startAt: string;
+  endAt: string;
+  adjustmentMethod: string;
+  timezone: string;
+  marketCalendarVersion: string;
+  commissionModel: string;
+  commission: string;
+  slippageModel: string;
+  slippage: string;
+  startingCash: string;
+  seed: string;
+  engineVersion: string;
+  runtimeVersion: string;
+  guardChecks: Array<{name: string; state: "PASSED"; detail: string}>; // look-ahead, survivorship, split, dividend, timezone, gaps
+  manifestHash: string;
+}
+interface BacktestResult {
+  metrics: {
+    return: string;
+    sharpe: string;
+    sortino: string;
+    maxDrawdown: string;
+    winRate: string;
+    profitFactor: string;
+    turnover: string;
+    tradeCount: number;
+  };
+  equityCurve: Array<{observedAt: string; equity: string; drawdown: string}>;
+  trades: Array<{
+    tradeId: string;
+    instrumentId: string;
+    side: string;
+    quantity: string;
+    price: string;
+    grossValue: string;
+    commission: string;
+    slippage: string;
+    realizedPnl: string;
+    observedAt: string;
+  }>;
+  manifest: BacktestManifest;
+  historicalSimulation: true;
+  limitations: string[];
+  resultHash: string;
+}
+interface BacktestRun {
+  // frozen configuration and lifecycle fields omitted here for brevity
+  result?: BacktestResult; // required when state is COMPLETED; absent for other states
+}
 ```
 
 When `parameters` is omitted or an empty array is supplied, the backend uses the saved strategy version's parameters. `fixtureScenario` is accepted only by the integration-test fixture and is never a production runtime control.
 
-`backtest.get` accepts `{workspaceId, runId}` and returns the complete frozen configuration, `runId`, `requestHash`, `state`, failure/remediation when applicable, and the opaque `stateVersion`. The stable request identity is the SHA-256 of the canonical strategy/version/hash, instrument, dataset, date range, timezone representation, bar interval, normalized costs, starting cash, portfolio seed, parameters, and engine version; observation time is metadata and is excluded from identity. Run IDs are unique per attempt, so a retry keeps the same request identity while creating a new run identity.
+`backtest.get` accepts `{workspaceId, runId}` and returns the complete frozen configuration, `runId`, `requestHash`, `state`, failure/remediation when applicable, and the opaque `stateVersion`. A `COMPLETED` response includes a hash-checked `BacktestResult` with the full metric set, equity curve, trade list, six data guard checks, limitations and reproducibility manifest. Missing fields, tampered hashes, mismatched strategy/dataset identity or a non-historical result fail closed. The stable request identity is the SHA-256 of the canonical strategy/version/hash, dataset hash, instrument, dataset, date range, timezone, calendar/adjustment assumptions, bar interval, normalized costs, starting cash, portfolio seed, parameters, runtime and engine versions; observation time is metadata and is excluded from identity. Run IDs are unique per attempt, so a retry keeps the same request identity while creating a new run identity.
 
 The persisted state machine is `QUEUED -> RUNNING -> COMPLETED|FAILED|CANCELLED` (a queued run may fail or cancel before running). Every transition is an immediate SQLite transaction with a state-version compare-and-swap. A stale cancel token returns `STATE_STALE / STATE_VERSION_CONFLICT` without mutation; a missing token fails the version-1 payload schema before dispatch. Terminal projections are immutable. Reopening a workspace reconciles queued/running runs to typed `CANCELLED` state. Backtest workers never place broker orders or invoke execution accounts.
 

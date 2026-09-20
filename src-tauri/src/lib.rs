@@ -267,7 +267,7 @@ impl BacktestSupervisor {
                 }
                 return;
             }
-            let outcome = backtest::execute(&prepared.input, Some(&cancel));
+            let outcome = backtest::execute(&prepared.input, &prepared.run, Some(&cancel));
             if let Ok(mut control) = engine.lock() {
                 let _ = control.finish_backtest(&prepared, outcome);
             }
@@ -1982,6 +1982,7 @@ impl ControlPlane {
             observed_at: time.observed_at,
             state: BacktestRunState::Queued,
             failure: None,
+            result: None,
             request_hash,
             fixture_label,
             created_at: now.clone(),
@@ -2019,13 +2020,20 @@ impl ControlPlane {
             return Ok(run);
         }
         match outcome {
+            backtest::RunOutcome::Completed(result) => {
+                run.state = BacktestRunState::Completed;
+                run.failure = None;
+                run.result = Some(*result);
+            }
             backtest::RunOutcome::Failed(failure) => {
                 run.state = BacktestRunState::Failed;
                 run.failure = Some(failure);
+                run.result = None;
             }
             backtest::RunOutcome::Cancelled(failure) => {
                 run.state = BacktestRunState::Cancelled;
                 run.failure = Some(failure);
+                run.result = None;
             }
         }
         self.store.as_mut().unwrap().save_backtest_run(run)
@@ -2037,7 +2045,7 @@ impl ControlPlane {
         if run.state == BacktestRunState::Cancelled {
             return Ok((json!(run), Some(run.state_version.clone())));
         }
-        let outcome = backtest::execute(&prepared.input, None);
+        let outcome = backtest::execute(&prepared.input, &prepared.run, None);
         let run = self.finish_backtest(&prepared, outcome)?;
         Ok((json!(run), Some(run.state_version.clone())))
     }

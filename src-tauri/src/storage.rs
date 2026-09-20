@@ -1884,12 +1884,17 @@ impl Store {
         }
         match run.state {
             BacktestRunState::Queued | BacktestRunState::Running => {
-                if run.failure.is_some() {
+                if run.failure.is_some() || run.result.is_some() {
                     return Err(invalid());
                 }
             }
             BacktestRunState::Completed => {
-                if run.failure.is_some() {
+                if run.failure.is_some()
+                    || run
+                        .result
+                        .as_ref()
+                        .is_none_or(|result| crate::backtest::validate_result(result, run).is_err())
+                {
                     return Err(invalid());
                 }
             }
@@ -1897,7 +1902,8 @@ impl Store {
                 let Some(failure) = run.failure.as_ref() else {
                     return Err(invalid());
                 };
-                if crate::backtest::validate_failure(failure).is_err()
+                if run.result.is_some()
+                    || crate::backtest::validate_failure(failure).is_err()
                     || (run.state == BacktestRunState::Cancelled
                         && failure.code != "BACKTEST_CANCELLED")
                 {

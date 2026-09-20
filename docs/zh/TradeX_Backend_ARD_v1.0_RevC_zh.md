@@ -1833,18 +1833,74 @@ interface BacktestRunRequest {
   slippage: string; // 规范化非负 decimal
   portfolioSeed?: string;
   parameters?: StrategyParameter[]; // 省略时使用已保存版本的参数
-  fixtureScenario?: "FAILURE" | "CANCELLED"; // 仅集成测试 fixture；生产环境禁止
+  fixtureScenario?: "SUCCESS" | "FAILURE" | "CANCELLED" | "LOOKAHEAD" | "SURVIVORSHIP" | "SPLIT" | "DIVIDEND" | "TIMEZONE" | "DATA_GAP" | "DATASET_HASH_MISMATCH"; // 仅集成测试 fixture；生产环境禁止
 }
 interface BacktestCancel {
   workspaceId: string;
   runId: string;
   expectedStateVersion: string;
 }
+interface BacktestManifest {
+  strategyVersion: string;
+  strategyHash: string;
+  datasetId: string;
+  datasetHash: string;
+  dataProvider: string;
+  retrievedAt: string;
+  startAt: string;
+  endAt: string;
+  adjustmentMethod: string;
+  timezone: string;
+  marketCalendarVersion: string;
+  commissionModel: string;
+  commission: string;
+  slippageModel: string;
+  slippage: string;
+  startingCash: string;
+  seed: string;
+  engineVersion: string;
+  runtimeVersion: string;
+  guardChecks: Array<{name: string; state: "PASSED"; detail: string}>; // look-ahead、survivorship、split、dividend、timezone、缺口
+  manifestHash: string;
+}
+interface BacktestResult {
+  metrics: {
+    return: string;
+    sharpe: string;
+    sortino: string;
+    maxDrawdown: string;
+    winRate: string;
+    profitFactor: string;
+    turnover: string;
+    tradeCount: number;
+  };
+  equityCurve: Array<{observedAt: string; equity: string; drawdown: string}>;
+  trades: Array<{
+    tradeId: string;
+    instrumentId: string;
+    side: string;
+    quantity: string;
+    price: string;
+    grossValue: string;
+    commission: string;
+    slippage: string;
+    realizedPnl: string;
+    observedAt: string;
+  }>;
+  manifest: BacktestManifest;
+  historicalSimulation: true;
+  limitations: string[];
+  resultHash: string;
+}
+interface BacktestRun {
+  // 冻结配置和生命周期字段在此省略
+  result?: BacktestResult; // state=COMPLETED 时必需；其他状态不得存在
+}
 ```
 
 省略 `parameters` 或传入空数组时，后端使用已保存 strategy version 的参数。`fixtureScenario` 仅由集成测试 fixture 接受，生产运行时不得使用。
 
-`backtest.get` 接受 `{workspaceId, runId}`，返回完整冻结配置、`runId`、`requestHash`、`state`、适用时的 failure/remediation 以及不透明 `stateVersion`。稳定 request identity 是 strategy/version/hash、instrument、dataset、日期范围、时区表示、bar interval、规范化成本、starting cash、portfolio seed、parameters 和 engine version 的 canonical SHA-256；观测时间是 metadata，不参与 identity。同一配置的 retry 保持 request identity，但每次产生新的 run identity。
+`backtest.get` 接受 `{workspaceId, runId}`，返回完整冻结配置、`runId`、`requestHash`、`state`、适用时的 failure/remediation 以及不透明 `stateVersion`。`COMPLETED` 响应包含经过 hash 校验的 `BacktestResult`，涵盖完整指标集、equity curve、trade list、六项数据 guard、限制说明和可复现 manifest。字段缺失、hash 被篡改、strategy/dataset identity 不匹配或结果不是历史模拟时必须 fail closed。稳定 request identity 是 strategy/version/hash、dataset hash、instrument、dataset、日期范围、时区、calendar/adjustment 假设、bar interval、规范化成本、starting cash、portfolio seed、parameters、runtime 和 engine version 的 canonical SHA-256；观测时间是 metadata，不参与 identity。同一配置的 retry 保持 request identity，但每次产生新的 run identity。
 
 持久化状态机为 `QUEUED -> RUNNING -> COMPLETED|FAILED|CANCELLED`（QUEUED 可在启动前 FAILED 或 CANCELLED）。每次迁移都在 SQLite immediate transaction 中执行并进行 state-version compare-and-swap。过期的 cancel token 返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态；缺失 token 会在派发前被版本 1 payload schema 拒绝。terminal projection 不可变。重新打开 workspace 时，QUEUED/RUNNING run 会被对账为带类型的 `CANCELLED`。回测 worker 永不提交券商订单，也不调用 execution account。
 
