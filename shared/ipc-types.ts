@@ -607,6 +607,10 @@ export interface BacktestManifest {
   ];
   manifestHash: string;
   marketCalendarVersion: string;
+  /**
+   * @maxItems 32
+   */
+  parameters: StrategyParameter[];
   retrievedAt: string;
   runtimeVersion: string;
   seed: string;
@@ -617,6 +621,14 @@ export interface BacktestManifest {
   strategyHash: string;
   strategyVersion: string;
   timezone: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyParameter".
+ */
+export interface StrategyParameter {
+  name: string;
+  value: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -720,14 +732,6 @@ export interface BacktestRun {
   strategyVersionId: string;
   updatedAt: string;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "StrategyParameter".
- */
-export interface StrategyParameter {
-  name: string;
-  value: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

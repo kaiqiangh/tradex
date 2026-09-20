@@ -297,6 +297,7 @@ fn fixture_result(
             .portfolio_seed
             .clone()
             .unwrap_or_else(|| "default".into()),
+        parameters: request.parameters.clone(),
         engine_version: ENGINE_VERSION.into(),
         runtime_version: "fixture-runtime-v1".into(),
         guard_checks: fixture_guard_checks(),
@@ -403,6 +404,7 @@ pub fn validate_result(result: &BacktestResult, run: &BacktestRun) -> Result<(),
         || result.manifest.slippage != run.slippage
         || result.manifest.engine_version != ENGINE_VERSION
         || result.manifest.seed != run.portfolio_seed.as_deref().unwrap_or("default")
+        || result.manifest.parameters != run.parameters
         || result.manifest.guard_checks.len() != 6
     {
         return Err(invalid());

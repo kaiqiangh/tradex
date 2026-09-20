@@ -27,7 +27,7 @@ var require_ucs2length = /* @__PURE__ */ __commonJSMin(((exports) => {
 //#region shared/ipc-validators-input.cjs
 var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.AccountConnection = validate300;
-	var schema93 = {
+	var schema94 = {
 		"type": "object",
 		"properties": {
 			"connectionId": {
@@ -68,7 +68,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"permissions"
 		]
 	};
-	var schema94 = {
+	var schema95 = {
 		"type": "string",
 		"enum": [
 			"CONNECTING",
@@ -78,7 +78,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"DISCONNECTED"
 		]
 	};
-	var schema100 = {
+	var schema101 = {
 		"type": "object",
 		"properties": {
 			"acknowledged": { "type": "boolean" },
@@ -116,7 +116,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	var func53 = Object.prototype.hasOwnProperty;
 	var func1 = require_ucs2length().default;
-	var schema95 = {
+	var schema96 = {
 		"type": "object",
 		"properties": {
 			"accountType": { "type": "string" },
@@ -154,7 +154,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"limitations"
 		]
 	};
-	var schema96 = {
+	var schema97 = {
 		"type": "object",
 		"properties": {
 			"asset": { "type": "string" },
@@ -168,7 +168,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"additionalProperties": false,
 		"required": ["asset", "available"]
 	};
-	var schema97 = {
+	var schema98 = {
 		"type": "object",
 		"properties": {
 			"brokerOrderId": { "type": "string" },
@@ -205,7 +205,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"status"
 		]
 	};
-	var schema98 = {
+	var schema99 = {
 		"type": "object",
 		"properties": {
 			"averageEntryPrice": { "type": ["string", "null"] },
@@ -327,7 +327,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/balances/" + i0 + "/inPies",
 															schemaPath: "#/$defs/Balance/properties/inPies/type",
 															keyword: "type",
-															params: { type: schema96.properties.inPies.type },
+															params: { type: schema97.properties.inPies.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -342,7 +342,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/balances/" + i0 + "/locked",
 																schemaPath: "#/$defs/Balance/properties/locked/type",
 																keyword: "type",
-																params: { type: schema96.properties.locked.type },
+																params: { type: schema97.properties.locked.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -357,7 +357,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/balances/" + i0 + "/reserved",
 																	schemaPath: "#/$defs/Balance/properties/reserved/type",
 																	keyword: "type",
-																	params: { type: schema96.properties.reserved.type },
+																	params: { type: schema97.properties.reserved.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -372,7 +372,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/balances/" + i0 + "/restrictedAvailable",
 																		schemaPath: "#/$defs/Balance/properties/restrictedAvailable/type",
 																		keyword: "type",
-																		params: { type: schema96.properties.restrictedAvailable.type },
+																		params: { type: schema97.properties.restrictedAvailable.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -387,7 +387,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/balances/" + i0 + "/total",
 																			schemaPath: "#/$defs/Balance/properties/total/type",
 																			keyword: "type",
-																			params: { type: schema96.properties.total.type },
+																			params: { type: schema97.properties.total.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -459,7 +459,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/currency",
 										schemaPath: "#/properties/currency/type",
 										keyword: "type",
-										params: { type: schema95.properties.currency.type },
+										params: { type: schema96.properties.currency.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -512,7 +512,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else {
-														for (const key2 in data16) if (!func53.call(schema97.properties, key2)) {
+														for (const key2 in data16) if (!func53.call(schema98.properties, key2)) {
 															validate57.errors = [{
 																instancePath: instancePath + "/openOrders/" + i3,
 																schemaPath: "#/$defs/OpenOrder/additionalProperties",
@@ -543,7 +543,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/openOrders/" + i3 + "/currency",
 																		schemaPath: "#/$defs/OpenOrder/properties/currency/type",
 																		keyword: "type",
-																		params: { type: schema97.properties.currency.type },
+																		params: { type: schema98.properties.currency.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -558,7 +558,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/openOrders/" + i3 + "/filledQuantity",
 																			schemaPath: "#/$defs/OpenOrder/properties/filledQuantity/type",
 																			keyword: "type",
-																			params: { type: schema97.properties.filledQuantity.type },
+																			params: { type: schema98.properties.filledQuantity.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -573,7 +573,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/openOrders/" + i3 + "/filledValue",
 																				schemaPath: "#/$defs/OpenOrder/properties/filledValue/type",
 																				keyword: "type",
-																				params: { type: schema97.properties.filledValue.type },
+																				params: { type: schema98.properties.filledValue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -588,7 +588,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/openOrders/" + i3 + "/instrumentId",
 																					schemaPath: "#/$defs/OpenOrder/properties/instrumentId/type",
 																					keyword: "type",
-																					params: { type: schema97.properties.instrumentId.type },
+																					params: { type: schema98.properties.instrumentId.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -624,7 +624,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																						schemaPath: "#/$defs/OpenOrder/properties/kind/type",
 																						keyword: "type",
-																						params: { type: schema97.properties.kind.type },
+																						params: { type: schema98.properties.kind.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -634,7 +634,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																						schemaPath: "#/$defs/OpenOrder/properties/kind/enum",
 																						keyword: "enum",
-																						params: { allowedValues: schema97.properties.kind.enum },
+																						params: { allowedValues: schema98.properties.kind.enum },
 																						message: "must be equal to one of the allowed values"
 																					}];
 																					return false;
@@ -649,7 +649,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/openOrders/" + i3 + "/limitPrice",
 																							schemaPath: "#/$defs/OpenOrder/properties/limitPrice/type",
 																							keyword: "type",
-																							params: { type: schema97.properties.limitPrice.type },
+																							params: { type: schema98.properties.limitPrice.type },
 																							message: "must be string,null"
 																						}];
 																						return false;
@@ -664,7 +664,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/openOrders/" + i3 + "/notional",
 																								schemaPath: "#/$defs/OpenOrder/properties/notional/type",
 																								keyword: "type",
-																								params: { type: schema97.properties.notional.type },
+																								params: { type: schema98.properties.notional.type },
 																								message: "must be string,null"
 																							}];
 																							return false;
@@ -679,7 +679,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									instancePath: instancePath + "/openOrders/" + i3 + "/quantity",
 																									schemaPath: "#/$defs/OpenOrder/properties/quantity/type",
 																									keyword: "type",
-																									params: { type: schema97.properties.quantity.type },
+																									params: { type: schema98.properties.quantity.type },
 																									message: "must be string,null"
 																								}];
 																								return false;
@@ -736,7 +736,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													instancePath: instancePath + "/openOrders/" + i3 + "/triggerPrice",
 																													schemaPath: "#/$defs/OpenOrder/properties/triggerPrice/type",
 																													keyword: "type",
-																													params: { type: schema97.properties.triggerPrice.type },
+																													params: { type: schema98.properties.triggerPrice.type },
 																													message: "must be string,null"
 																												}];
 																												return false;
@@ -815,7 +815,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/positions/" + i4 + "/averageEntryPrice",
 																		schemaPath: "#/$defs/Position/properties/averageEntryPrice/type",
 																		keyword: "type",
-																		params: { type: schema98.properties.averageEntryPrice.type },
+																		params: { type: schema99.properties.averageEntryPrice.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -830,7 +830,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/positions/" + i4 + "/instrumentCurrency",
 																			schemaPath: "#/$defs/Position/properties/instrumentCurrency/type",
 																			keyword: "type",
-																			params: { type: schema98.properties.instrumentCurrency.type },
+																			params: { type: schema99.properties.instrumentCurrency.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -845,7 +845,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/positions/" + i4 + "/instrumentId",
 																				schemaPath: "#/$defs/Position/properties/instrumentId/type",
 																				keyword: "type",
-																				params: { type: schema98.properties.instrumentId.type },
+																				params: { type: schema99.properties.instrumentId.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -881,7 +881,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/positions/" + i4 + "/marketValue",
 																					schemaPath: "#/$defs/Position/properties/marketValue/type",
 																					keyword: "type",
-																					params: { type: schema98.properties.marketValue.type },
+																					params: { type: schema99.properties.marketValue.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -896,7 +896,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/positions/" + i4 + "/marketValueCurrency",
 																						schemaPath: "#/$defs/Position/properties/marketValueCurrency/type",
 																						keyword: "type",
-																						params: { type: schema98.properties.marketValueCurrency.type },
+																						params: { type: schema99.properties.marketValueCurrency.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -1021,7 +1021,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema93.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema94.properties, key0)) {
 						validate300.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -1079,7 +1079,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/connectionState",
 										schemaPath: "#/$defs/ConnectionState/enum",
 										keyword: "enum",
-										params: { allowedValues: schema94.enum },
+										params: { allowedValues: schema95.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -1366,7 +1366,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/lastSuccessfulSync",
 																schemaPath: "#/properties/lastSuccessfulSync/type",
 																keyword: "type",
-																params: { type: schema93.properties.lastSuccessfulSync.type },
+																params: { type: schema94.properties.lastSuccessfulSync.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -1493,7 +1493,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									instancePath: instancePath + "/permissions/ipAllowList",
 																									schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 																									keyword: "type",
-																									params: { type: schema100.properties.ipAllowList.type },
+																									params: { type: schema101.properties.ipAllowList.type },
 																									message: "must be array,null"
 																								}];
 																								return false;
@@ -1553,7 +1553,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											instancePath: instancePath + "/permissions/scope",
 																											schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 																											keyword: "enum",
-																											params: { allowedValues: schema100.properties.scope.enum },
+																											params: { allowedValues: schema101.properties.scope.enum },
 																											message: "must be equal to one of the allowed values"
 																										}];
 																										return false;
@@ -1841,7 +1841,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/balances/" + i0 + "/inPies",
 															schemaPath: "#/$defs/Balance/properties/inPies/type",
 															keyword: "type",
-															params: { type: schema96.properties.inPies.type },
+															params: { type: schema97.properties.inPies.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -1856,7 +1856,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/balances/" + i0 + "/locked",
 																schemaPath: "#/$defs/Balance/properties/locked/type",
 																keyword: "type",
-																params: { type: schema96.properties.locked.type },
+																params: { type: schema97.properties.locked.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -1871,7 +1871,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/balances/" + i0 + "/reserved",
 																	schemaPath: "#/$defs/Balance/properties/reserved/type",
 																	keyword: "type",
-																	params: { type: schema96.properties.reserved.type },
+																	params: { type: schema97.properties.reserved.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -1886,7 +1886,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/balances/" + i0 + "/restrictedAvailable",
 																		schemaPath: "#/$defs/Balance/properties/restrictedAvailable/type",
 																		keyword: "type",
-																		params: { type: schema96.properties.restrictedAvailable.type },
+																		params: { type: schema97.properties.restrictedAvailable.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -1901,7 +1901,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/balances/" + i0 + "/total",
 																			schemaPath: "#/$defs/Balance/properties/total/type",
 																			keyword: "type",
-																			params: { type: schema96.properties.total.type },
+																			params: { type: schema97.properties.total.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -1973,7 +1973,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/currency",
 										schemaPath: "#/properties/currency/type",
 										keyword: "type",
-										params: { type: schema95.properties.currency.type },
+										params: { type: schema96.properties.currency.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -2026,7 +2026,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else {
-														for (const key2 in data16) if (!func53.call(schema97.properties, key2)) {
+														for (const key2 in data16) if (!func53.call(schema98.properties, key2)) {
 															validate302.errors = [{
 																instancePath: instancePath + "/openOrders/" + i3,
 																schemaPath: "#/$defs/OpenOrder/additionalProperties",
@@ -2057,7 +2057,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/openOrders/" + i3 + "/currency",
 																		schemaPath: "#/$defs/OpenOrder/properties/currency/type",
 																		keyword: "type",
-																		params: { type: schema97.properties.currency.type },
+																		params: { type: schema98.properties.currency.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -2072,7 +2072,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/openOrders/" + i3 + "/filledQuantity",
 																			schemaPath: "#/$defs/OpenOrder/properties/filledQuantity/type",
 																			keyword: "type",
-																			params: { type: schema97.properties.filledQuantity.type },
+																			params: { type: schema98.properties.filledQuantity.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -2087,7 +2087,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/openOrders/" + i3 + "/filledValue",
 																				schemaPath: "#/$defs/OpenOrder/properties/filledValue/type",
 																				keyword: "type",
-																				params: { type: schema97.properties.filledValue.type },
+																				params: { type: schema98.properties.filledValue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -2102,7 +2102,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/openOrders/" + i3 + "/instrumentId",
 																					schemaPath: "#/$defs/OpenOrder/properties/instrumentId/type",
 																					keyword: "type",
-																					params: { type: schema97.properties.instrumentId.type },
+																					params: { type: schema98.properties.instrumentId.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -2138,7 +2138,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																						schemaPath: "#/$defs/OpenOrder/properties/kind/type",
 																						keyword: "type",
-																						params: { type: schema97.properties.kind.type },
+																						params: { type: schema98.properties.kind.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -2148,7 +2148,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/openOrders/" + i3 + "/kind",
 																						schemaPath: "#/$defs/OpenOrder/properties/kind/enum",
 																						keyword: "enum",
-																						params: { allowedValues: schema97.properties.kind.enum },
+																						params: { allowedValues: schema98.properties.kind.enum },
 																						message: "must be equal to one of the allowed values"
 																					}];
 																					return false;
@@ -2163,7 +2163,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/openOrders/" + i3 + "/limitPrice",
 																							schemaPath: "#/$defs/OpenOrder/properties/limitPrice/type",
 																							keyword: "type",
-																							params: { type: schema97.properties.limitPrice.type },
+																							params: { type: schema98.properties.limitPrice.type },
 																							message: "must be string,null"
 																						}];
 																						return false;
@@ -2178,7 +2178,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/openOrders/" + i3 + "/notional",
 																								schemaPath: "#/$defs/OpenOrder/properties/notional/type",
 																								keyword: "type",
-																								params: { type: schema97.properties.notional.type },
+																								params: { type: schema98.properties.notional.type },
 																								message: "must be string,null"
 																							}];
 																							return false;
@@ -2193,7 +2193,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									instancePath: instancePath + "/openOrders/" + i3 + "/quantity",
 																									schemaPath: "#/$defs/OpenOrder/properties/quantity/type",
 																									keyword: "type",
-																									params: { type: schema97.properties.quantity.type },
+																									params: { type: schema98.properties.quantity.type },
 																									message: "must be string,null"
 																								}];
 																								return false;
@@ -2250,7 +2250,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													instancePath: instancePath + "/openOrders/" + i3 + "/triggerPrice",
 																													schemaPath: "#/$defs/OpenOrder/properties/triggerPrice/type",
 																													keyword: "type",
-																													params: { type: schema97.properties.triggerPrice.type },
+																													params: { type: schema98.properties.triggerPrice.type },
 																													message: "must be string,null"
 																												}];
 																												return false;
@@ -2329,7 +2329,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/positions/" + i4 + "/averageEntryPrice",
 																		schemaPath: "#/$defs/Position/properties/averageEntryPrice/type",
 																		keyword: "type",
-																		params: { type: schema98.properties.averageEntryPrice.type },
+																		params: { type: schema99.properties.averageEntryPrice.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -2344,7 +2344,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/positions/" + i4 + "/instrumentCurrency",
 																			schemaPath: "#/$defs/Position/properties/instrumentCurrency/type",
 																			keyword: "type",
-																			params: { type: schema98.properties.instrumentCurrency.type },
+																			params: { type: schema99.properties.instrumentCurrency.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -2359,7 +2359,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/positions/" + i4 + "/instrumentId",
 																				schemaPath: "#/$defs/Position/properties/instrumentId/type",
 																				keyword: "type",
-																				params: { type: schema98.properties.instrumentId.type },
+																				params: { type: schema99.properties.instrumentId.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -2395,7 +2395,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/positions/" + i4 + "/marketValue",
 																					schemaPath: "#/$defs/Position/properties/marketValue/type",
 																					keyword: "type",
-																					params: { type: schema98.properties.marketValue.type },
+																					params: { type: schema99.properties.marketValue.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -2410,7 +2410,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/positions/" + i4 + "/marketValueCurrency",
 																						schemaPath: "#/$defs/Position/properties/marketValueCurrency/type",
 																						keyword: "type",
-																						params: { type: schema98.properties.marketValueCurrency.type },
+																						params: { type: schema99.properties.marketValueCurrency.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -2971,7 +2971,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema93.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema94.properties, key0)) {
 						validate56.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -3029,7 +3029,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/connectionState",
 										schemaPath: "#/$defs/ConnectionState/enum",
 										keyword: "enum",
-										params: { allowedValues: schema94.enum },
+										params: { allowedValues: schema95.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -3316,7 +3316,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/lastSuccessfulSync",
 																schemaPath: "#/properties/lastSuccessfulSync/type",
 																keyword: "type",
-																params: { type: schema93.properties.lastSuccessfulSync.type },
+																params: { type: schema94.properties.lastSuccessfulSync.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -3443,7 +3443,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									instancePath: instancePath + "/permissions/ipAllowList",
 																									schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 																									keyword: "type",
-																									params: { type: schema100.properties.ipAllowList.type },
+																									params: { type: schema101.properties.ipAllowList.type },
 																									message: "must be array,null"
 																								}];
 																								return false;
@@ -3503,7 +3503,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											instancePath: instancePath + "/permissions/scope",
 																											schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 																											keyword: "enum",
-																											params: { allowedValues: schema100.properties.scope.enum },
+																											params: { allowedValues: schema101.properties.scope.enum },
 																											message: "must be equal to one of the allowed values"
 																										}];
 																										return false;
@@ -3770,7 +3770,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.AdjustmentStatus = validate308;
-	var schema222 = {
+	var schema223 = {
 		"type": "string",
 		"enum": [
 			"ADJUSTED",
@@ -3799,7 +3799,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema222.enum },
+				params: { allowedValues: schema223.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -3812,7 +3812,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.AgentMode = validate309;
-	var schema58 = {
+	var schema59 = {
 		"type": "string",
 		"enum": [
 			"ASK",
@@ -3841,7 +3841,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema58.enum },
+				params: { allowedValues: schema59.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -3971,7 +3971,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.Artifact = validate311;
-	var schema281 = {
+	var schema282 = {
 		"type": "object",
 		"properties": {
 			"artifactId": {
@@ -4038,7 +4038,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"type": "string",
 		"enum": ["RESEARCH", "DECISION"]
 	};
-	var schema126 = {
+	var schema127 = {
 		"description": "Data-plane tools are intentionally separate from financial authority IDs.",
 		"type": "string",
 		"enum": [
@@ -4047,7 +4047,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"historical_simulation"
 		]
 	};
-	var schema114 = {
+	var schema115 = {
 		"type": "object",
 		"properties": {
 			"artifactRefs": {
@@ -4152,7 +4152,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"additionalProperties": false,
 		"required": ["state", "reason"]
 	};
-	var schema120 = {
+	var schema121 = {
 		"type": "string",
 		"enum": [
 			"GENERAL",
@@ -4160,7 +4160,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"CRYPTO_SPOT"
 		]
 	};
-	var schema123 = {
+	var schema124 = {
 		"type": "string",
 		"enum": [
 			"AVAILABLE",
@@ -4170,7 +4170,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FAILED"
 		]
 	};
-	var schema115 = {
+	var schema116 = {
 		"type": "object",
 		"properties": {
 			"freshness": { "$ref": "#/$defs/ResearchFreshness" },
@@ -4212,7 +4212,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"quality"
 		]
 	};
-	var schema116 = {
+	var schema117 = {
 		"type": "string",
 		"enum": [
 			"HEALTHY",
@@ -4220,7 +4220,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"UNAVAILABLE"
 		]
 	};
-	var schema117 = {
+	var schema118 = {
 		"type": "string",
 		"enum": [
 			"VERIFIED",
@@ -4229,7 +4229,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"UNAVAILABLE"
 		]
 	};
-	var schema118 = {
+	var schema119 = {
 		"type": "string",
 		"enum": [
 			"AVAILABLE",
@@ -4282,7 +4282,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/freshness",
 							schemaPath: "#/$defs/ResearchFreshness/enum",
 							keyword: "enum",
-							params: { allowedValues: schema116.enum },
+							params: { allowedValues: schema117.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -4297,7 +4297,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/limitation",
 								schemaPath: "#/properties/limitation/type",
 								keyword: "type",
-								params: { type: schema115.properties.limitation.type },
+								params: { type: schema116.properties.limitation.type },
 								message: "must be string,null"
 							}];
 							return false;
@@ -4413,7 +4413,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/quality",
 											schemaPath: "#/$defs/ResearchQuality/enum",
 											keyword: "enum",
-											params: { allowedValues: schema117.enum },
+											params: { allowedValues: schema118.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -4508,7 +4508,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/DataSourceStatus/enum",
 														keyword: "enum",
-														params: { allowedValues: schema118.enum },
+														params: { allowedValues: schema119.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -4541,7 +4541,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema122 = {
+	var schema123 = {
 		"type": "object",
 		"properties": {
 			"ask": {
@@ -4594,7 +4594,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"provenance"
 		]
 	};
-	var schema124 = {
+	var schema125 = {
 		"type": "string",
 		"enum": ["BINANCE", "BITGET"]
 	};
@@ -4618,7 +4618,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema122.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema123.properties, key0)) {
 						validate69.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -4637,7 +4637,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/ask",
 									schemaPath: "#/properties/ask/type",
 									keyword: "type",
-									params: { type: schema122.properties.ask.type },
+									params: { type: schema123.properties.ask.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -4676,7 +4676,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/bid",
 										schemaPath: "#/properties/bid/type",
 										keyword: "type",
-										params: { type: schema122.properties.bid.type },
+										params: { type: schema123.properties.bid.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -4715,7 +4715,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/depth",
 											schemaPath: "#/properties/depth/type",
 											keyword: "type",
-											params: { type: schema122.properties.depth.type },
+											params: { type: schema123.properties.depth.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -4754,7 +4754,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/limitation",
 												schemaPath: "#/properties/limitation/type",
 												keyword: "type",
-												params: { type: schema122.properties.limitation.type },
+												params: { type: schema123.properties.limitation.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -4808,7 +4808,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/quoteAge",
 														schemaPath: "#/properties/quoteAge/type",
 														keyword: "type",
-														params: { type: schema122.properties.quoteAge.type },
+														params: { type: schema123.properties.quoteAge.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -4862,7 +4862,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/spread",
 																schemaPath: "#/properties/spread/type",
 																keyword: "type",
-																params: { type: schema122.properties.spread.type },
+																params: { type: schema123.properties.spread.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -4911,7 +4911,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/state",
 																	schemaPath: "#/$defs/ResearchResultState/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema123.enum },
+																	params: { allowedValues: schema124.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -4937,7 +4937,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/venue",
 																		schemaPath: "#/$defs/ResearchSpotVenueId/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema124.enum },
+																		params: { allowedValues: schema125.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -4994,7 +4994,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema114.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema115.properties, key0)) {
 						validate66.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -5081,7 +5081,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/conclusion",
 										schemaPath: "#/properties/conclusion/type",
 										keyword: "type",
-										params: { type: schema114.properties.conclusion.type },
+										params: { type: schema115.properties.conclusion.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -5436,7 +5436,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/focus",
 															schemaPath: "#/$defs/ResearchFocus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema120.enum },
+															params: { allowedValues: schema121.enum },
 															message: "must be equal to one of the allowed values"
 														};
 														if (vErrors === null) vErrors = [err1];
@@ -6006,7 +6006,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/state",
 																							schemaPath: "#/$defs/ResearchResultState/enum",
 																							keyword: "enum",
-																							params: { allowedValues: schema123.enum },
+																							params: { allowedValues: schema124.enum },
 																							message: "must be equal to one of the allowed values"
 																						}];
 																						return false;
@@ -6491,7 +6491,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/toolId",
 																schemaPath: "#/$defs/ResearchToolId/enum",
 																keyword: "enum",
-																params: { allowedValues: schema126.enum },
+																params: { allowedValues: schema127.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -6672,7 +6672,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema284 = {
+	var schema285 = {
 		"type": "object",
 		"properties": {
 			"datasetHashes": {
@@ -6754,7 +6754,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"relatedOrderIds"
 		]
 	};
-	var schema128 = {
+	var schema129 = {
 		"type": "object",
 		"properties": {
 			"attemptId": {
@@ -6794,7 +6794,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"outcome"
 		]
 	};
-	var schema129 = {
+	var schema130 = {
 		"type": "object",
 		"properties": {
 			"accountEnvironment": {
@@ -6836,7 +6836,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"startedAt"
 		]
 	};
-	var schema60 = {
+	var schema61 = {
 		"type": "string",
 		"enum": [
 			"NONE_READ_ONLY",
@@ -6851,7 +6851,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"BITGET_LIVE"
 		]
 	};
-	var schema108 = {
+	var schema109 = {
 		"type": "object",
 		"properties": {
 			"modelId": {
@@ -6893,7 +6893,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema129.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema130.properties, key0)) {
 						validate75.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -6912,7 +6912,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountEnvironment",
 									schemaPath: "#/properties/accountEnvironment/type",
 									keyword: "type",
-									params: { type: schema129.properties.accountEnvironment.type },
+									params: { type: schema130.properties.accountEnvironment.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -6951,7 +6951,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/accountId",
 										schemaPath: "#/properties/accountId/type",
 										keyword: "type",
-										params: { type: schema129.properties.accountId.type },
+										params: { type: schema130.properties.accountId.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -7000,7 +7000,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/agentMode",
 											schemaPath: "#/$defs/AgentMode/enum",
 											keyword: "enum",
-											params: { allowedValues: schema58.enum },
+											params: { allowedValues: schema59.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -7242,7 +7242,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/executionContext",
 														schemaPath: "#/$defs/ExecutionContext/enum",
 														keyword: "enum",
-														params: { allowedValues: schema60.enum },
+														params: { allowedValues: schema61.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -7382,7 +7382,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/model/thinkingType",
 																						schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
 																						keyword: "type",
-																						params: { type: schema108.properties.thinkingType.type },
+																						params: { type: schema109.properties.thinkingType.type },
 																						message: "must be string,null"
 																					};
 																					if (vErrors === null) vErrors = [err8];
@@ -7576,7 +7576,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema284.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema285.properties, key0)) {
 						validate237.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -7851,7 +7851,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/providerAttempts/" + i2 + "/endedAt",
 																						schemaPath: "#/$defs/ThreadProviderAttempt/properties/endedAt/type",
 																						keyword: "type",
-																						params: { type: schema128.properties.endedAt.type },
+																						params: { type: schema129.properties.endedAt.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -7867,7 +7867,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/providerAttempts/" + i2 + "/errorCode",
 																							schemaPath: "#/$defs/ThreadProviderAttempt/properties/errorCode/type",
 																							keyword: "type",
-																							params: { type: schema128.properties.errorCode.type },
+																							params: { type: schema129.properties.errorCode.type },
 																							message: "must be string,null"
 																						}];
 																						return false;
@@ -8138,7 +8138,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/researchResultId",
 														schemaPath: "#/properties/researchResultId/type",
 														keyword: "type",
-														params: { type: schema284.properties.researchResultId.type },
+														params: { type: schema285.properties.researchResultId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -8192,7 +8192,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/researchToolId",
 															schemaPath: "#/$defs/ResearchToolId/enum",
 															keyword: "enum",
-															params: { allowedValues: schema126.enum },
+															params: { allowedValues: schema127.enum },
 															message: "must be equal to one of the allowed values"
 														};
 														if (vErrors === null) vErrors = [err1];
@@ -8464,7 +8464,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema281.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema282.properties, key0)) {
 						validate311.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -9474,7 +9474,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ArtifactLibrary = validate319;
-	var schema288 = {
+	var schema289 = {
 		"type": "object",
 		"properties": {
 			"artifactId": {
@@ -9561,7 +9561,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema288.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema289.properties, key0)) {
 					validate243.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -10169,7 +10169,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema284.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema285.properties, key0)) {
 						validate321.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -10444,7 +10444,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/providerAttempts/" + i2 + "/endedAt",
 																						schemaPath: "#/$defs/ThreadProviderAttempt/properties/endedAt/type",
 																						keyword: "type",
-																						params: { type: schema128.properties.endedAt.type },
+																						params: { type: schema129.properties.endedAt.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -10460,7 +10460,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/providerAttempts/" + i2 + "/errorCode",
 																							schemaPath: "#/$defs/ThreadProviderAttempt/properties/errorCode/type",
 																							keyword: "type",
-																							params: { type: schema128.properties.errorCode.type },
+																							params: { type: schema129.properties.errorCode.type },
 																							message: "must be string,null"
 																						}];
 																						return false;
@@ -10731,7 +10731,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/researchResultId",
 														schemaPath: "#/properties/researchResultId/type",
 														keyword: "type",
-														params: { type: schema284.properties.researchResultId.type },
+														params: { type: schema285.properties.researchResultId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -10785,7 +10785,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/researchToolId",
 															schemaPath: "#/$defs/ResearchToolId/enum",
 															keyword: "enum",
-															params: { allowedValues: schema126.enum },
+															params: { allowedValues: schema127.enum },
 															message: "must be equal to one of the allowed values"
 														};
 														if (vErrors === null) vErrors = [err1];
@@ -11423,7 +11423,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema288.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema289.properties, key0)) {
 					validate326.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -11837,7 +11837,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.AssetClass = validate327;
-	var schema217 = {
+	var schema218 = {
 		"type": "string",
 		"enum": ["EQUITY", "CRYPTO_SPOT"]
 	};
@@ -11861,7 +11861,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema217.enum },
+				params: { allowedValues: schema218.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -12206,7 +12206,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.BacktestFixtureScenario = validate330;
-	var schema55 = {
+	var schema56 = {
 		"type": "string",
 		"enum": [
 			"SUCCESS",
@@ -12241,7 +12241,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema55.enum },
+				params: { allowedValues: schema56.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -12493,6 +12493,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				"maxLength": 128,
 				"minLength": 1
 			},
+			"parameters": {
+				"type": "array",
+				"items": { "$ref": "#/$defs/StrategyParameter" },
+				"maxItems": 32
+			},
 			"retrievedAt": {
 				"type": "string",
 				"maxLength": 64,
@@ -12563,6 +12568,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"slippage",
 			"startingCash",
 			"seed",
+			"parameters",
 			"engineVersion",
 			"runtimeVersion",
 			"guardChecks",
@@ -12720,7 +12726,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
-				if (data.strategyVersion === void 0 && (missing0 = "strategyVersion") || data.strategyHash === void 0 && (missing0 = "strategyHash") || data.datasetId === void 0 && (missing0 = "datasetId") || data.datasetHash === void 0 && (missing0 = "datasetHash") || data.dataProvider === void 0 && (missing0 = "dataProvider") || data.retrievedAt === void 0 && (missing0 = "retrievedAt") || data.startAt === void 0 && (missing0 = "startAt") || data.endAt === void 0 && (missing0 = "endAt") || data.adjustmentMethod === void 0 && (missing0 = "adjustmentMethod") || data.timezone === void 0 && (missing0 = "timezone") || data.marketCalendarVersion === void 0 && (missing0 = "marketCalendarVersion") || data.commissionModel === void 0 && (missing0 = "commissionModel") || data.commission === void 0 && (missing0 = "commission") || data.slippageModel === void 0 && (missing0 = "slippageModel") || data.slippage === void 0 && (missing0 = "slippage") || data.startingCash === void 0 && (missing0 = "startingCash") || data.seed === void 0 && (missing0 = "seed") || data.engineVersion === void 0 && (missing0 = "engineVersion") || data.runtimeVersion === void 0 && (missing0 = "runtimeVersion") || data.guardChecks === void 0 && (missing0 = "guardChecks") || data.manifestHash === void 0 && (missing0 = "manifestHash")) {
+				if (data.strategyVersion === void 0 && (missing0 = "strategyVersion") || data.strategyHash === void 0 && (missing0 = "strategyHash") || data.datasetId === void 0 && (missing0 = "datasetId") || data.datasetHash === void 0 && (missing0 = "datasetHash") || data.dataProvider === void 0 && (missing0 = "dataProvider") || data.retrievedAt === void 0 && (missing0 = "retrievedAt") || data.startAt === void 0 && (missing0 = "startAt") || data.endAt === void 0 && (missing0 = "endAt") || data.adjustmentMethod === void 0 && (missing0 = "adjustmentMethod") || data.timezone === void 0 && (missing0 = "timezone") || data.marketCalendarVersion === void 0 && (missing0 = "marketCalendarVersion") || data.commissionModel === void 0 && (missing0 = "commissionModel") || data.commission === void 0 && (missing0 = "commission") || data.slippageModel === void 0 && (missing0 = "slippageModel") || data.slippage === void 0 && (missing0 = "slippage") || data.startingCash === void 0 && (missing0 = "startingCash") || data.seed === void 0 && (missing0 = "seed") || data.parameters === void 0 && (missing0 = "parameters") || data.engineVersion === void 0 && (missing0 = "engineVersion") || data.runtimeVersion === void 0 && (missing0 = "runtimeVersion") || data.guardChecks === void 0 && (missing0 = "guardChecks") || data.manifestHash === void 0 && (missing0 = "manifestHash")) {
 					validate333.errors = [{
 						instancePath,
 						schemaPath: "#/required",
@@ -13176,366 +13182,68 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	var valid0 = _errs23 === errors;
 																} else var valid0 = true;
 																if (valid0) {
-																	if (data.retrievedAt !== void 0) {
-																		let data12 = data.retrievedAt;
+																	if (data.parameters !== void 0) {
+																		let data12 = data.parameters;
 																		const _errs25 = errors;
 																		if (errors === _errs25) {
-																			if (typeof data12 === "string") {
-																				if (func1(data12) > 64) {
+																			if (Array.isArray(data12)) {
+																				if (data12.length > 32) {
 																					validate333.errors = [{
-																						instancePath: instancePath + "/retrievedAt",
-																						schemaPath: "#/properties/retrievedAt/maxLength",
-																						keyword: "maxLength",
-																						params: { limit: 64 },
-																						message: "must NOT have more than 64 characters"
+																						instancePath: instancePath + "/parameters",
+																						schemaPath: "#/properties/parameters/maxItems",
+																						keyword: "maxItems",
+																						params: { limit: 32 },
+																						message: "must NOT have more than 32 items"
 																					}];
 																					return false;
-																				} else if (func1(data12) < 1) {
-																					validate333.errors = [{
-																						instancePath: instancePath + "/retrievedAt",
-																						schemaPath: "#/properties/retrievedAt/minLength",
-																						keyword: "minLength",
-																						params: { limit: 1 },
-																						message: "must NOT have fewer than 1 characters"
-																					}];
-																					return false;
-																				}
-																			} else {
-																				validate333.errors = [{
-																					instancePath: instancePath + "/retrievedAt",
-																					schemaPath: "#/properties/retrievedAt/type",
-																					keyword: "type",
-																					params: { type: "string" },
-																					message: "must be string"
-																				}];
-																				return false;
-																			}
-																		}
-																		var valid0 = _errs25 === errors;
-																	} else var valid0 = true;
-																	if (valid0) {
-																		if (data.runtimeVersion !== void 0) {
-																			let data13 = data.runtimeVersion;
-																			const _errs27 = errors;
-																			if (errors === _errs27) {
-																				if (typeof data13 === "string") {
-																					if (func1(data13) > 128) {
-																						validate333.errors = [{
-																							instancePath: instancePath + "/runtimeVersion",
-																							schemaPath: "#/properties/runtimeVersion/maxLength",
-																							keyword: "maxLength",
-																							params: { limit: 128 },
-																							message: "must NOT have more than 128 characters"
-																						}];
-																						return false;
-																					} else if (func1(data13) < 1) {
-																						validate333.errors = [{
-																							instancePath: instancePath + "/runtimeVersion",
-																							schemaPath: "#/properties/runtimeVersion/minLength",
-																							keyword: "minLength",
-																							params: { limit: 1 },
-																							message: "must NOT have fewer than 1 characters"
-																						}];
-																						return false;
-																					}
 																				} else {
-																					validate333.errors = [{
-																						instancePath: instancePath + "/runtimeVersion",
-																						schemaPath: "#/properties/runtimeVersion/type",
-																						keyword: "type",
-																						params: { type: "string" },
-																						message: "must be string"
-																					}];
-																					return false;
-																				}
-																			}
-																			var valid0 = _errs27 === errors;
-																		} else var valid0 = true;
-																		if (valid0) {
-																			if (data.seed !== void 0) {
-																				let data14 = data.seed;
-																				const _errs29 = errors;
-																				if (errors === _errs29) {
-																					if (typeof data14 === "string") {
-																						if (func1(data14) > 128) {
-																							validate333.errors = [{
-																								instancePath: instancePath + "/seed",
-																								schemaPath: "#/properties/seed/maxLength",
-																								keyword: "maxLength",
-																								params: { limit: 128 },
-																								message: "must NOT have more than 128 characters"
-																							}];
-																							return false;
-																						} else if (func1(data14) < 1) {
-																							validate333.errors = [{
-																								instancePath: instancePath + "/seed",
-																								schemaPath: "#/properties/seed/minLength",
-																								keyword: "minLength",
-																								params: { limit: 1 },
-																								message: "must NOT have fewer than 1 characters"
-																							}];
-																							return false;
-																						}
-																					} else {
-																						validate333.errors = [{
-																							instancePath: instancePath + "/seed",
-																							schemaPath: "#/properties/seed/type",
-																							keyword: "type",
-																							params: { type: "string" },
-																							message: "must be string"
-																						}];
-																						return false;
-																					}
-																				}
-																				var valid0 = _errs29 === errors;
-																			} else var valid0 = true;
-																			if (valid0) {
-																				if (data.slippage !== void 0) {
-																					let data15 = data.slippage;
-																					const _errs31 = errors;
-																					if (errors === _errs31) {
-																						if (typeof data15 === "string") {
-																							if (func1(data15) > 128) {
-																								validate333.errors = [{
-																									instancePath: instancePath + "/slippage",
-																									schemaPath: "#/properties/slippage/maxLength",
-																									keyword: "maxLength",
-																									params: { limit: 128 },
-																									message: "must NOT have more than 128 characters"
-																								}];
-																								return false;
-																							} else if (func1(data15) < 1) {
-																								validate333.errors = [{
-																									instancePath: instancePath + "/slippage",
-																									schemaPath: "#/properties/slippage/minLength",
-																									keyword: "minLength",
-																									params: { limit: 1 },
-																									message: "must NOT have fewer than 1 characters"
-																								}];
-																								return false;
-																							}
-																						} else {
-																							validate333.errors = [{
-																								instancePath: instancePath + "/slippage",
-																								schemaPath: "#/properties/slippage/type",
-																								keyword: "type",
-																								params: { type: "string" },
-																								message: "must be string"
-																							}];
-																							return false;
-																						}
-																					}
-																					var valid0 = _errs31 === errors;
-																				} else var valid0 = true;
-																				if (valid0) {
-																					if (data.slippageModel !== void 0) {
-																						let data16 = data.slippageModel;
-																						const _errs33 = errors;
-																						if (errors === _errs33) {
-																							if (typeof data16 === "string") {
-																								if (func1(data16) > 128) {
+																					const len1 = data12.length;
+																					for (let i1 = 0; i1 < len1; i1++) {
+																						let data13 = data12[i1];
+																						const _errs27 = errors;
+																						if (errors === errors) {
+																							if (data13 && typeof data13 == "object" && !Array.isArray(data13)) {
+																								let missing1;
+																								if (data13.name === void 0 && (missing1 = "name") || data13.value === void 0 && (missing1 = "value")) {
 																									validate333.errors = [{
-																										instancePath: instancePath + "/slippageModel",
-																										schemaPath: "#/properties/slippageModel/maxLength",
-																										keyword: "maxLength",
-																										params: { limit: 128 },
-																										message: "must NOT have more than 128 characters"
+																										instancePath: instancePath + "/parameters/" + i1,
+																										schemaPath: "#/$defs/StrategyParameter/required",
+																										keyword: "required",
+																										params: { missingProperty: missing1 },
+																										message: "must have required property '" + missing1 + "'"
 																									}];
 																									return false;
-																								} else if (func1(data16) < 1) {
-																									validate333.errors = [{
-																										instancePath: instancePath + "/slippageModel",
-																										schemaPath: "#/properties/slippageModel/minLength",
-																										keyword: "minLength",
-																										params: { limit: 1 },
-																										message: "must NOT have fewer than 1 characters"
-																									}];
-																									return false;
-																								}
-																							} else {
-																								validate333.errors = [{
-																									instancePath: instancePath + "/slippageModel",
-																									schemaPath: "#/properties/slippageModel/type",
-																									keyword: "type",
-																									params: { type: "string" },
-																									message: "must be string"
-																								}];
-																								return false;
-																							}
-																						}
-																						var valid0 = _errs33 === errors;
-																					} else var valid0 = true;
-																					if (valid0) {
-																						if (data.startAt !== void 0) {
-																							let data17 = data.startAt;
-																							const _errs35 = errors;
-																							if (errors === _errs35) {
-																								if (typeof data17 === "string") {
-																									if (func1(data17) > 64) {
-																										validate333.errors = [{
-																											instancePath: instancePath + "/startAt",
-																											schemaPath: "#/properties/startAt/maxLength",
-																											keyword: "maxLength",
-																											params: { limit: 64 },
-																											message: "must NOT have more than 64 characters"
-																										}];
-																										return false;
-																									} else if (func1(data17) < 1) {
-																										validate333.errors = [{
-																											instancePath: instancePath + "/startAt",
-																											schemaPath: "#/properties/startAt/minLength",
-																											keyword: "minLength",
-																											params: { limit: 1 },
-																											message: "must NOT have fewer than 1 characters"
-																										}];
-																										return false;
-																									}
 																								} else {
-																									validate333.errors = [{
-																										instancePath: instancePath + "/startAt",
-																										schemaPath: "#/properties/startAt/type",
-																										keyword: "type",
-																										params: { type: "string" },
-																										message: "must be string"
-																									}];
-																									return false;
-																								}
-																							}
-																							var valid0 = _errs35 === errors;
-																						} else var valid0 = true;
-																						if (valid0) {
-																							if (data.startingCash !== void 0) {
-																								let data18 = data.startingCash;
-																								const _errs37 = errors;
-																								if (errors === _errs37) {
-																									if (typeof data18 === "string") {
-																										if (func1(data18) > 128) {
-																											validate333.errors = [{
-																												instancePath: instancePath + "/startingCash",
-																												schemaPath: "#/properties/startingCash/maxLength",
-																												keyword: "maxLength",
-																												params: { limit: 128 },
-																												message: "must NOT have more than 128 characters"
-																											}];
-																											return false;
-																										} else if (func1(data18) < 1) {
-																											validate333.errors = [{
-																												instancePath: instancePath + "/startingCash",
-																												schemaPath: "#/properties/startingCash/minLength",
-																												keyword: "minLength",
-																												params: { limit: 1 },
-																												message: "must NOT have fewer than 1 characters"
-																											}];
-																											return false;
-																										}
-																									} else {
+																									const _errs30 = errors;
+																									for (const key1 in data13) if (!(key1 === "name" || key1 === "value")) {
 																										validate333.errors = [{
-																											instancePath: instancePath + "/startingCash",
-																											schemaPath: "#/properties/startingCash/type",
-																											keyword: "type",
-																											params: { type: "string" },
-																											message: "must be string"
+																											instancePath: instancePath + "/parameters/" + i1,
+																											schemaPath: "#/$defs/StrategyParameter/additionalProperties",
+																											keyword: "additionalProperties",
+																											params: { additionalProperty: key1 },
+																											message: "must NOT have additional properties"
 																										}];
 																										return false;
 																									}
-																								}
-																								var valid0 = _errs37 === errors;
-																							} else var valid0 = true;
-																							if (valid0) {
-																								if (data.strategyHash !== void 0) {
-																									let data19 = data.strategyHash;
-																									const _errs39 = errors;
-																									if (errors === _errs39) {
-																										if (typeof data19 === "string") {
-																											if (func1(data19) > 71) {
-																												validate333.errors = [{
-																													instancePath: instancePath + "/strategyHash",
-																													schemaPath: "#/properties/strategyHash/maxLength",
-																													keyword: "maxLength",
-																													params: { limit: 71 },
-																													message: "must NOT have more than 71 characters"
-																												}];
-																												return false;
-																											} else if (func1(data19) < 71) {
-																												validate333.errors = [{
-																													instancePath: instancePath + "/strategyHash",
-																													schemaPath: "#/properties/strategyHash/minLength",
-																													keyword: "minLength",
-																													params: { limit: 71 },
-																													message: "must NOT have fewer than 71 characters"
-																												}];
-																												return false;
-																											}
-																										} else {
-																											validate333.errors = [{
-																												instancePath: instancePath + "/strategyHash",
-																												schemaPath: "#/properties/strategyHash/type",
-																												keyword: "type",
-																												params: { type: "string" },
-																												message: "must be string"
-																											}];
-																											return false;
-																										}
-																									}
-																									var valid0 = _errs39 === errors;
-																								} else var valid0 = true;
-																								if (valid0) {
-																									if (data.strategyVersion !== void 0) {
-																										let data20 = data.strategyVersion;
-																										const _errs41 = errors;
-																										if (errors === _errs41) {
-																											if (typeof data20 === "string") {
-																												if (func1(data20) > 128) {
-																													validate333.errors = [{
-																														instancePath: instancePath + "/strategyVersion",
-																														schemaPath: "#/properties/strategyVersion/maxLength",
-																														keyword: "maxLength",
-																														params: { limit: 128 },
-																														message: "must NOT have more than 128 characters"
-																													}];
-																													return false;
-																												} else if (func1(data20) < 1) {
-																													validate333.errors = [{
-																														instancePath: instancePath + "/strategyVersion",
-																														schemaPath: "#/properties/strategyVersion/minLength",
-																														keyword: "minLength",
-																														params: { limit: 1 },
-																														message: "must NOT have fewer than 1 characters"
-																													}];
-																													return false;
-																												}
-																											} else {
-																												validate333.errors = [{
-																													instancePath: instancePath + "/strategyVersion",
-																													schemaPath: "#/properties/strategyVersion/type",
-																													keyword: "type",
-																													params: { type: "string" },
-																													message: "must be string"
-																												}];
-																												return false;
-																											}
-																										}
-																										var valid0 = _errs41 === errors;
-																									} else var valid0 = true;
-																									if (valid0) {
-																										if (data.timezone !== void 0) {
-																											let data21 = data.timezone;
-																											const _errs43 = errors;
-																											if (errors === _errs43) {
-																												if (typeof data21 === "string") {
-																													if (func1(data21) > 64) {
+																									if (_errs30 === errors) {
+																										if (data13.name !== void 0) {
+																											let data14 = data13.name;
+																											const _errs31 = errors;
+																											if (errors === _errs31) {
+																												if (typeof data14 === "string") {
+																													if (func1(data14) > 64) {
 																														validate333.errors = [{
-																															instancePath: instancePath + "/timezone",
-																															schemaPath: "#/properties/timezone/maxLength",
+																															instancePath: instancePath + "/parameters/" + i1 + "/name",
+																															schemaPath: "#/$defs/StrategyParameter/properties/name/maxLength",
 																															keyword: "maxLength",
 																															params: { limit: 64 },
 																															message: "must NOT have more than 64 characters"
 																														}];
 																														return false;
-																													} else if (func1(data21) < 1) {
+																													} else if (func1(data14) < 1) {
 																														validate333.errors = [{
-																															instancePath: instancePath + "/timezone",
-																															schemaPath: "#/properties/timezone/minLength",
+																															instancePath: instancePath + "/parameters/" + i1 + "/name",
+																															schemaPath: "#/$defs/StrategyParameter/properties/name/minLength",
 																															keyword: "minLength",
 																															params: { limit: 1 },
 																															message: "must NOT have fewer than 1 characters"
@@ -13544,8 +13252,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													}
 																												} else {
 																													validate333.errors = [{
-																														instancePath: instancePath + "/timezone",
-																														schemaPath: "#/properties/timezone/type",
+																														instancePath: instancePath + "/parameters/" + i1 + "/name",
+																														schemaPath: "#/$defs/StrategyParameter/properties/name/type",
 																														keyword: "type",
 																														params: { type: "string" },
 																														message: "must be string"
@@ -13553,8 +13261,448 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													return false;
 																												}
 																											}
-																											var valid0 = _errs43 === errors;
+																											var valid4 = _errs31 === errors;
+																										} else var valid4 = true;
+																										if (valid4) {
+																											if (data13.value !== void 0) {
+																												let data15 = data13.value;
+																												const _errs33 = errors;
+																												if (errors === _errs33) {
+																													if (typeof data15 === "string") {
+																														if (func1(data15) > 256) {
+																															validate333.errors = [{
+																																instancePath: instancePath + "/parameters/" + i1 + "/value",
+																																schemaPath: "#/$defs/StrategyParameter/properties/value/maxLength",
+																																keyword: "maxLength",
+																																params: { limit: 256 },
+																																message: "must NOT have more than 256 characters"
+																															}];
+																															return false;
+																														}
+																													} else {
+																														validate333.errors = [{
+																															instancePath: instancePath + "/parameters/" + i1 + "/value",
+																															schemaPath: "#/$defs/StrategyParameter/properties/value/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
+																													}
+																												}
+																												var valid4 = _errs33 === errors;
+																											} else var valid4 = true;
+																										}
+																									}
+																								}
+																							} else {
+																								validate333.errors = [{
+																									instancePath: instancePath + "/parameters/" + i1,
+																									schemaPath: "#/$defs/StrategyParameter/type",
+																									keyword: "type",
+																									params: { type: "object" },
+																									message: "must be object"
+																								}];
+																								return false;
+																							}
+																						}
+																						if (!(_errs27 === errors)) break;
+																					}
+																				}
+																			} else {
+																				validate333.errors = [{
+																					instancePath: instancePath + "/parameters",
+																					schemaPath: "#/properties/parameters/type",
+																					keyword: "type",
+																					params: { type: "array" },
+																					message: "must be array"
+																				}];
+																				return false;
+																			}
+																		}
+																		var valid0 = _errs25 === errors;
+																	} else var valid0 = true;
+																	if (valid0) {
+																		if (data.retrievedAt !== void 0) {
+																			let data16 = data.retrievedAt;
+																			const _errs35 = errors;
+																			if (errors === _errs35) {
+																				if (typeof data16 === "string") {
+																					if (func1(data16) > 64) {
+																						validate333.errors = [{
+																							instancePath: instancePath + "/retrievedAt",
+																							schemaPath: "#/properties/retrievedAt/maxLength",
+																							keyword: "maxLength",
+																							params: { limit: 64 },
+																							message: "must NOT have more than 64 characters"
+																						}];
+																						return false;
+																					} else if (func1(data16) < 1) {
+																						validate333.errors = [{
+																							instancePath: instancePath + "/retrievedAt",
+																							schemaPath: "#/properties/retrievedAt/minLength",
+																							keyword: "minLength",
+																							params: { limit: 1 },
+																							message: "must NOT have fewer than 1 characters"
+																						}];
+																						return false;
+																					}
+																				} else {
+																					validate333.errors = [{
+																						instancePath: instancePath + "/retrievedAt",
+																						schemaPath: "#/properties/retrievedAt/type",
+																						keyword: "type",
+																						params: { type: "string" },
+																						message: "must be string"
+																					}];
+																					return false;
+																				}
+																			}
+																			var valid0 = _errs35 === errors;
+																		} else var valid0 = true;
+																		if (valid0) {
+																			if (data.runtimeVersion !== void 0) {
+																				let data17 = data.runtimeVersion;
+																				const _errs37 = errors;
+																				if (errors === _errs37) {
+																					if (typeof data17 === "string") {
+																						if (func1(data17) > 128) {
+																							validate333.errors = [{
+																								instancePath: instancePath + "/runtimeVersion",
+																								schemaPath: "#/properties/runtimeVersion/maxLength",
+																								keyword: "maxLength",
+																								params: { limit: 128 },
+																								message: "must NOT have more than 128 characters"
+																							}];
+																							return false;
+																						} else if (func1(data17) < 1) {
+																							validate333.errors = [{
+																								instancePath: instancePath + "/runtimeVersion",
+																								schemaPath: "#/properties/runtimeVersion/minLength",
+																								keyword: "minLength",
+																								params: { limit: 1 },
+																								message: "must NOT have fewer than 1 characters"
+																							}];
+																							return false;
+																						}
+																					} else {
+																						validate333.errors = [{
+																							instancePath: instancePath + "/runtimeVersion",
+																							schemaPath: "#/properties/runtimeVersion/type",
+																							keyword: "type",
+																							params: { type: "string" },
+																							message: "must be string"
+																						}];
+																						return false;
+																					}
+																				}
+																				var valid0 = _errs37 === errors;
+																			} else var valid0 = true;
+																			if (valid0) {
+																				if (data.seed !== void 0) {
+																					let data18 = data.seed;
+																					const _errs39 = errors;
+																					if (errors === _errs39) {
+																						if (typeof data18 === "string") {
+																							if (func1(data18) > 128) {
+																								validate333.errors = [{
+																									instancePath: instancePath + "/seed",
+																									schemaPath: "#/properties/seed/maxLength",
+																									keyword: "maxLength",
+																									params: { limit: 128 },
+																									message: "must NOT have more than 128 characters"
+																								}];
+																								return false;
+																							} else if (func1(data18) < 1) {
+																								validate333.errors = [{
+																									instancePath: instancePath + "/seed",
+																									schemaPath: "#/properties/seed/minLength",
+																									keyword: "minLength",
+																									params: { limit: 1 },
+																									message: "must NOT have fewer than 1 characters"
+																								}];
+																								return false;
+																							}
+																						} else {
+																							validate333.errors = [{
+																								instancePath: instancePath + "/seed",
+																								schemaPath: "#/properties/seed/type",
+																								keyword: "type",
+																								params: { type: "string" },
+																								message: "must be string"
+																							}];
+																							return false;
+																						}
+																					}
+																					var valid0 = _errs39 === errors;
+																				} else var valid0 = true;
+																				if (valid0) {
+																					if (data.slippage !== void 0) {
+																						let data19 = data.slippage;
+																						const _errs41 = errors;
+																						if (errors === _errs41) {
+																							if (typeof data19 === "string") {
+																								if (func1(data19) > 128) {
+																									validate333.errors = [{
+																										instancePath: instancePath + "/slippage",
+																										schemaPath: "#/properties/slippage/maxLength",
+																										keyword: "maxLength",
+																										params: { limit: 128 },
+																										message: "must NOT have more than 128 characters"
+																									}];
+																									return false;
+																								} else if (func1(data19) < 1) {
+																									validate333.errors = [{
+																										instancePath: instancePath + "/slippage",
+																										schemaPath: "#/properties/slippage/minLength",
+																										keyword: "minLength",
+																										params: { limit: 1 },
+																										message: "must NOT have fewer than 1 characters"
+																									}];
+																									return false;
+																								}
+																							} else {
+																								validate333.errors = [{
+																									instancePath: instancePath + "/slippage",
+																									schemaPath: "#/properties/slippage/type",
+																									keyword: "type",
+																									params: { type: "string" },
+																									message: "must be string"
+																								}];
+																								return false;
+																							}
+																						}
+																						var valid0 = _errs41 === errors;
+																					} else var valid0 = true;
+																					if (valid0) {
+																						if (data.slippageModel !== void 0) {
+																							let data20 = data.slippageModel;
+																							const _errs43 = errors;
+																							if (errors === _errs43) {
+																								if (typeof data20 === "string") {
+																									if (func1(data20) > 128) {
+																										validate333.errors = [{
+																											instancePath: instancePath + "/slippageModel",
+																											schemaPath: "#/properties/slippageModel/maxLength",
+																											keyword: "maxLength",
+																											params: { limit: 128 },
+																											message: "must NOT have more than 128 characters"
+																										}];
+																										return false;
+																									} else if (func1(data20) < 1) {
+																										validate333.errors = [{
+																											instancePath: instancePath + "/slippageModel",
+																											schemaPath: "#/properties/slippageModel/minLength",
+																											keyword: "minLength",
+																											params: { limit: 1 },
+																											message: "must NOT have fewer than 1 characters"
+																										}];
+																										return false;
+																									}
+																								} else {
+																									validate333.errors = [{
+																										instancePath: instancePath + "/slippageModel",
+																										schemaPath: "#/properties/slippageModel/type",
+																										keyword: "type",
+																										params: { type: "string" },
+																										message: "must be string"
+																									}];
+																									return false;
+																								}
+																							}
+																							var valid0 = _errs43 === errors;
+																						} else var valid0 = true;
+																						if (valid0) {
+																							if (data.startAt !== void 0) {
+																								let data21 = data.startAt;
+																								const _errs45 = errors;
+																								if (errors === _errs45) {
+																									if (typeof data21 === "string") {
+																										if (func1(data21) > 64) {
+																											validate333.errors = [{
+																												instancePath: instancePath + "/startAt",
+																												schemaPath: "#/properties/startAt/maxLength",
+																												keyword: "maxLength",
+																												params: { limit: 64 },
+																												message: "must NOT have more than 64 characters"
+																											}];
+																											return false;
+																										} else if (func1(data21) < 1) {
+																											validate333.errors = [{
+																												instancePath: instancePath + "/startAt",
+																												schemaPath: "#/properties/startAt/minLength",
+																												keyword: "minLength",
+																												params: { limit: 1 },
+																												message: "must NOT have fewer than 1 characters"
+																											}];
+																											return false;
+																										}
+																									} else {
+																										validate333.errors = [{
+																											instancePath: instancePath + "/startAt",
+																											schemaPath: "#/properties/startAt/type",
+																											keyword: "type",
+																											params: { type: "string" },
+																											message: "must be string"
+																										}];
+																										return false;
+																									}
+																								}
+																								var valid0 = _errs45 === errors;
+																							} else var valid0 = true;
+																							if (valid0) {
+																								if (data.startingCash !== void 0) {
+																									let data22 = data.startingCash;
+																									const _errs47 = errors;
+																									if (errors === _errs47) {
+																										if (typeof data22 === "string") {
+																											if (func1(data22) > 128) {
+																												validate333.errors = [{
+																													instancePath: instancePath + "/startingCash",
+																													schemaPath: "#/properties/startingCash/maxLength",
+																													keyword: "maxLength",
+																													params: { limit: 128 },
+																													message: "must NOT have more than 128 characters"
+																												}];
+																												return false;
+																											} else if (func1(data22) < 1) {
+																												validate333.errors = [{
+																													instancePath: instancePath + "/startingCash",
+																													schemaPath: "#/properties/startingCash/minLength",
+																													keyword: "minLength",
+																													params: { limit: 1 },
+																													message: "must NOT have fewer than 1 characters"
+																												}];
+																												return false;
+																											}
+																										} else {
+																											validate333.errors = [{
+																												instancePath: instancePath + "/startingCash",
+																												schemaPath: "#/properties/startingCash/type",
+																												keyword: "type",
+																												params: { type: "string" },
+																												message: "must be string"
+																											}];
+																											return false;
+																										}
+																									}
+																									var valid0 = _errs47 === errors;
+																								} else var valid0 = true;
+																								if (valid0) {
+																									if (data.strategyHash !== void 0) {
+																										let data23 = data.strategyHash;
+																										const _errs49 = errors;
+																										if (errors === _errs49) {
+																											if (typeof data23 === "string") {
+																												if (func1(data23) > 71) {
+																													validate333.errors = [{
+																														instancePath: instancePath + "/strategyHash",
+																														schemaPath: "#/properties/strategyHash/maxLength",
+																														keyword: "maxLength",
+																														params: { limit: 71 },
+																														message: "must NOT have more than 71 characters"
+																													}];
+																													return false;
+																												} else if (func1(data23) < 71) {
+																													validate333.errors = [{
+																														instancePath: instancePath + "/strategyHash",
+																														schemaPath: "#/properties/strategyHash/minLength",
+																														keyword: "minLength",
+																														params: { limit: 71 },
+																														message: "must NOT have fewer than 71 characters"
+																													}];
+																													return false;
+																												}
+																											} else {
+																												validate333.errors = [{
+																													instancePath: instancePath + "/strategyHash",
+																													schemaPath: "#/properties/strategyHash/type",
+																													keyword: "type",
+																													params: { type: "string" },
+																													message: "must be string"
+																												}];
+																												return false;
+																											}
+																										}
+																										var valid0 = _errs49 === errors;
+																									} else var valid0 = true;
+																									if (valid0) {
+																										if (data.strategyVersion !== void 0) {
+																											let data24 = data.strategyVersion;
+																											const _errs51 = errors;
+																											if (errors === _errs51) {
+																												if (typeof data24 === "string") {
+																													if (func1(data24) > 128) {
+																														validate333.errors = [{
+																															instancePath: instancePath + "/strategyVersion",
+																															schemaPath: "#/properties/strategyVersion/maxLength",
+																															keyword: "maxLength",
+																															params: { limit: 128 },
+																															message: "must NOT have more than 128 characters"
+																														}];
+																														return false;
+																													} else if (func1(data24) < 1) {
+																														validate333.errors = [{
+																															instancePath: instancePath + "/strategyVersion",
+																															schemaPath: "#/properties/strategyVersion/minLength",
+																															keyword: "minLength",
+																															params: { limit: 1 },
+																															message: "must NOT have fewer than 1 characters"
+																														}];
+																														return false;
+																													}
+																												} else {
+																													validate333.errors = [{
+																														instancePath: instancePath + "/strategyVersion",
+																														schemaPath: "#/properties/strategyVersion/type",
+																														keyword: "type",
+																														params: { type: "string" },
+																														message: "must be string"
+																													}];
+																													return false;
+																												}
+																											}
+																											var valid0 = _errs51 === errors;
 																										} else var valid0 = true;
+																										if (valid0) {
+																											if (data.timezone !== void 0) {
+																												let data25 = data.timezone;
+																												const _errs53 = errors;
+																												if (errors === _errs53) {
+																													if (typeof data25 === "string") {
+																														if (func1(data25) > 64) {
+																															validate333.errors = [{
+																																instancePath: instancePath + "/timezone",
+																																schemaPath: "#/properties/timezone/maxLength",
+																																keyword: "maxLength",
+																																params: { limit: 64 },
+																																message: "must NOT have more than 64 characters"
+																															}];
+																															return false;
+																														} else if (func1(data25) < 1) {
+																															validate333.errors = [{
+																																instancePath: instancePath + "/timezone",
+																																schemaPath: "#/properties/timezone/minLength",
+																																keyword: "minLength",
+																																params: { limit: 1 },
+																																message: "must NOT have fewer than 1 characters"
+																															}];
+																															return false;
+																														}
+																													} else {
+																														validate333.errors = [{
+																															instancePath: instancePath + "/timezone",
+																															schemaPath: "#/properties/timezone/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
+																													}
+																												}
+																												var valid0 = _errs53 === errors;
+																											} else var valid0 = true;
+																										}
 																									}
 																								}
 																							}
@@ -13937,7 +14085,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.BacktestResult = validate336;
-	var schema48 = {
+	var schema49 = {
 		"type": "object",
 		"properties": {
 			"commission": {
@@ -14014,7 +14162,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		if (errors === 0) {
 			if (data && typeof data == "object" && !Array.isArray(data)) {
 				let missing0;
-				if (data.strategyVersion === void 0 && (missing0 = "strategyVersion") || data.strategyHash === void 0 && (missing0 = "strategyHash") || data.datasetId === void 0 && (missing0 = "datasetId") || data.datasetHash === void 0 && (missing0 = "datasetHash") || data.dataProvider === void 0 && (missing0 = "dataProvider") || data.retrievedAt === void 0 && (missing0 = "retrievedAt") || data.startAt === void 0 && (missing0 = "startAt") || data.endAt === void 0 && (missing0 = "endAt") || data.adjustmentMethod === void 0 && (missing0 = "adjustmentMethod") || data.timezone === void 0 && (missing0 = "timezone") || data.marketCalendarVersion === void 0 && (missing0 = "marketCalendarVersion") || data.commissionModel === void 0 && (missing0 = "commissionModel") || data.commission === void 0 && (missing0 = "commission") || data.slippageModel === void 0 && (missing0 = "slippageModel") || data.slippage === void 0 && (missing0 = "slippage") || data.startingCash === void 0 && (missing0 = "startingCash") || data.seed === void 0 && (missing0 = "seed") || data.engineVersion === void 0 && (missing0 = "engineVersion") || data.runtimeVersion === void 0 && (missing0 = "runtimeVersion") || data.guardChecks === void 0 && (missing0 = "guardChecks") || data.manifestHash === void 0 && (missing0 = "manifestHash")) {
+				if (data.strategyVersion === void 0 && (missing0 = "strategyVersion") || data.strategyHash === void 0 && (missing0 = "strategyHash") || data.datasetId === void 0 && (missing0 = "datasetId") || data.datasetHash === void 0 && (missing0 = "datasetHash") || data.dataProvider === void 0 && (missing0 = "dataProvider") || data.retrievedAt === void 0 && (missing0 = "retrievedAt") || data.startAt === void 0 && (missing0 = "startAt") || data.endAt === void 0 && (missing0 = "endAt") || data.adjustmentMethod === void 0 && (missing0 = "adjustmentMethod") || data.timezone === void 0 && (missing0 = "timezone") || data.marketCalendarVersion === void 0 && (missing0 = "marketCalendarVersion") || data.commissionModel === void 0 && (missing0 = "commissionModel") || data.commission === void 0 && (missing0 = "commission") || data.slippageModel === void 0 && (missing0 = "slippageModel") || data.slippage === void 0 && (missing0 = "slippage") || data.startingCash === void 0 && (missing0 = "startingCash") || data.seed === void 0 && (missing0 = "seed") || data.parameters === void 0 && (missing0 = "parameters") || data.engineVersion === void 0 && (missing0 = "engineVersion") || data.runtimeVersion === void 0 && (missing0 = "runtimeVersion") || data.guardChecks === void 0 && (missing0 = "guardChecks") || data.manifestHash === void 0 && (missing0 = "manifestHash")) {
 					validate25.errors = [{
 						instancePath,
 						schemaPath: "#/required",
@@ -14470,366 +14618,68 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	var valid0 = _errs23 === errors;
 																} else var valid0 = true;
 																if (valid0) {
-																	if (data.retrievedAt !== void 0) {
-																		let data12 = data.retrievedAt;
+																	if (data.parameters !== void 0) {
+																		let data12 = data.parameters;
 																		const _errs25 = errors;
 																		if (errors === _errs25) {
-																			if (typeof data12 === "string") {
-																				if (func1(data12) > 64) {
+																			if (Array.isArray(data12)) {
+																				if (data12.length > 32) {
 																					validate25.errors = [{
-																						instancePath: instancePath + "/retrievedAt",
-																						schemaPath: "#/properties/retrievedAt/maxLength",
-																						keyword: "maxLength",
-																						params: { limit: 64 },
-																						message: "must NOT have more than 64 characters"
+																						instancePath: instancePath + "/parameters",
+																						schemaPath: "#/properties/parameters/maxItems",
+																						keyword: "maxItems",
+																						params: { limit: 32 },
+																						message: "must NOT have more than 32 items"
 																					}];
 																					return false;
-																				} else if (func1(data12) < 1) {
-																					validate25.errors = [{
-																						instancePath: instancePath + "/retrievedAt",
-																						schemaPath: "#/properties/retrievedAt/minLength",
-																						keyword: "minLength",
-																						params: { limit: 1 },
-																						message: "must NOT have fewer than 1 characters"
-																					}];
-																					return false;
-																				}
-																			} else {
-																				validate25.errors = [{
-																					instancePath: instancePath + "/retrievedAt",
-																					schemaPath: "#/properties/retrievedAt/type",
-																					keyword: "type",
-																					params: { type: "string" },
-																					message: "must be string"
-																				}];
-																				return false;
-																			}
-																		}
-																		var valid0 = _errs25 === errors;
-																	} else var valid0 = true;
-																	if (valid0) {
-																		if (data.runtimeVersion !== void 0) {
-																			let data13 = data.runtimeVersion;
-																			const _errs27 = errors;
-																			if (errors === _errs27) {
-																				if (typeof data13 === "string") {
-																					if (func1(data13) > 128) {
-																						validate25.errors = [{
-																							instancePath: instancePath + "/runtimeVersion",
-																							schemaPath: "#/properties/runtimeVersion/maxLength",
-																							keyword: "maxLength",
-																							params: { limit: 128 },
-																							message: "must NOT have more than 128 characters"
-																						}];
-																						return false;
-																					} else if (func1(data13) < 1) {
-																						validate25.errors = [{
-																							instancePath: instancePath + "/runtimeVersion",
-																							schemaPath: "#/properties/runtimeVersion/minLength",
-																							keyword: "minLength",
-																							params: { limit: 1 },
-																							message: "must NOT have fewer than 1 characters"
-																						}];
-																						return false;
-																					}
 																				} else {
-																					validate25.errors = [{
-																						instancePath: instancePath + "/runtimeVersion",
-																						schemaPath: "#/properties/runtimeVersion/type",
-																						keyword: "type",
-																						params: { type: "string" },
-																						message: "must be string"
-																					}];
-																					return false;
-																				}
-																			}
-																			var valid0 = _errs27 === errors;
-																		} else var valid0 = true;
-																		if (valid0) {
-																			if (data.seed !== void 0) {
-																				let data14 = data.seed;
-																				const _errs29 = errors;
-																				if (errors === _errs29) {
-																					if (typeof data14 === "string") {
-																						if (func1(data14) > 128) {
-																							validate25.errors = [{
-																								instancePath: instancePath + "/seed",
-																								schemaPath: "#/properties/seed/maxLength",
-																								keyword: "maxLength",
-																								params: { limit: 128 },
-																								message: "must NOT have more than 128 characters"
-																							}];
-																							return false;
-																						} else if (func1(data14) < 1) {
-																							validate25.errors = [{
-																								instancePath: instancePath + "/seed",
-																								schemaPath: "#/properties/seed/minLength",
-																								keyword: "minLength",
-																								params: { limit: 1 },
-																								message: "must NOT have fewer than 1 characters"
-																							}];
-																							return false;
-																						}
-																					} else {
-																						validate25.errors = [{
-																							instancePath: instancePath + "/seed",
-																							schemaPath: "#/properties/seed/type",
-																							keyword: "type",
-																							params: { type: "string" },
-																							message: "must be string"
-																						}];
-																						return false;
-																					}
-																				}
-																				var valid0 = _errs29 === errors;
-																			} else var valid0 = true;
-																			if (valid0) {
-																				if (data.slippage !== void 0) {
-																					let data15 = data.slippage;
-																					const _errs31 = errors;
-																					if (errors === _errs31) {
-																						if (typeof data15 === "string") {
-																							if (func1(data15) > 128) {
-																								validate25.errors = [{
-																									instancePath: instancePath + "/slippage",
-																									schemaPath: "#/properties/slippage/maxLength",
-																									keyword: "maxLength",
-																									params: { limit: 128 },
-																									message: "must NOT have more than 128 characters"
-																								}];
-																								return false;
-																							} else if (func1(data15) < 1) {
-																								validate25.errors = [{
-																									instancePath: instancePath + "/slippage",
-																									schemaPath: "#/properties/slippage/minLength",
-																									keyword: "minLength",
-																									params: { limit: 1 },
-																									message: "must NOT have fewer than 1 characters"
-																								}];
-																								return false;
-																							}
-																						} else {
-																							validate25.errors = [{
-																								instancePath: instancePath + "/slippage",
-																								schemaPath: "#/properties/slippage/type",
-																								keyword: "type",
-																								params: { type: "string" },
-																								message: "must be string"
-																							}];
-																							return false;
-																						}
-																					}
-																					var valid0 = _errs31 === errors;
-																				} else var valid0 = true;
-																				if (valid0) {
-																					if (data.slippageModel !== void 0) {
-																						let data16 = data.slippageModel;
-																						const _errs33 = errors;
-																						if (errors === _errs33) {
-																							if (typeof data16 === "string") {
-																								if (func1(data16) > 128) {
+																					const len1 = data12.length;
+																					for (let i1 = 0; i1 < len1; i1++) {
+																						let data13 = data12[i1];
+																						const _errs27 = errors;
+																						if (errors === errors) {
+																							if (data13 && typeof data13 == "object" && !Array.isArray(data13)) {
+																								let missing1;
+																								if (data13.name === void 0 && (missing1 = "name") || data13.value === void 0 && (missing1 = "value")) {
 																									validate25.errors = [{
-																										instancePath: instancePath + "/slippageModel",
-																										schemaPath: "#/properties/slippageModel/maxLength",
-																										keyword: "maxLength",
-																										params: { limit: 128 },
-																										message: "must NOT have more than 128 characters"
+																										instancePath: instancePath + "/parameters/" + i1,
+																										schemaPath: "#/$defs/StrategyParameter/required",
+																										keyword: "required",
+																										params: { missingProperty: missing1 },
+																										message: "must have required property '" + missing1 + "'"
 																									}];
 																									return false;
-																								} else if (func1(data16) < 1) {
-																									validate25.errors = [{
-																										instancePath: instancePath + "/slippageModel",
-																										schemaPath: "#/properties/slippageModel/minLength",
-																										keyword: "minLength",
-																										params: { limit: 1 },
-																										message: "must NOT have fewer than 1 characters"
-																									}];
-																									return false;
-																								}
-																							} else {
-																								validate25.errors = [{
-																									instancePath: instancePath + "/slippageModel",
-																									schemaPath: "#/properties/slippageModel/type",
-																									keyword: "type",
-																									params: { type: "string" },
-																									message: "must be string"
-																								}];
-																								return false;
-																							}
-																						}
-																						var valid0 = _errs33 === errors;
-																					} else var valid0 = true;
-																					if (valid0) {
-																						if (data.startAt !== void 0) {
-																							let data17 = data.startAt;
-																							const _errs35 = errors;
-																							if (errors === _errs35) {
-																								if (typeof data17 === "string") {
-																									if (func1(data17) > 64) {
-																										validate25.errors = [{
-																											instancePath: instancePath + "/startAt",
-																											schemaPath: "#/properties/startAt/maxLength",
-																											keyword: "maxLength",
-																											params: { limit: 64 },
-																											message: "must NOT have more than 64 characters"
-																										}];
-																										return false;
-																									} else if (func1(data17) < 1) {
-																										validate25.errors = [{
-																											instancePath: instancePath + "/startAt",
-																											schemaPath: "#/properties/startAt/minLength",
-																											keyword: "minLength",
-																											params: { limit: 1 },
-																											message: "must NOT have fewer than 1 characters"
-																										}];
-																										return false;
-																									}
 																								} else {
-																									validate25.errors = [{
-																										instancePath: instancePath + "/startAt",
-																										schemaPath: "#/properties/startAt/type",
-																										keyword: "type",
-																										params: { type: "string" },
-																										message: "must be string"
-																									}];
-																									return false;
-																								}
-																							}
-																							var valid0 = _errs35 === errors;
-																						} else var valid0 = true;
-																						if (valid0) {
-																							if (data.startingCash !== void 0) {
-																								let data18 = data.startingCash;
-																								const _errs37 = errors;
-																								if (errors === _errs37) {
-																									if (typeof data18 === "string") {
-																										if (func1(data18) > 128) {
-																											validate25.errors = [{
-																												instancePath: instancePath + "/startingCash",
-																												schemaPath: "#/properties/startingCash/maxLength",
-																												keyword: "maxLength",
-																												params: { limit: 128 },
-																												message: "must NOT have more than 128 characters"
-																											}];
-																											return false;
-																										} else if (func1(data18) < 1) {
-																											validate25.errors = [{
-																												instancePath: instancePath + "/startingCash",
-																												schemaPath: "#/properties/startingCash/minLength",
-																												keyword: "minLength",
-																												params: { limit: 1 },
-																												message: "must NOT have fewer than 1 characters"
-																											}];
-																											return false;
-																										}
-																									} else {
+																									const _errs30 = errors;
+																									for (const key1 in data13) if (!(key1 === "name" || key1 === "value")) {
 																										validate25.errors = [{
-																											instancePath: instancePath + "/startingCash",
-																											schemaPath: "#/properties/startingCash/type",
-																											keyword: "type",
-																											params: { type: "string" },
-																											message: "must be string"
+																											instancePath: instancePath + "/parameters/" + i1,
+																											schemaPath: "#/$defs/StrategyParameter/additionalProperties",
+																											keyword: "additionalProperties",
+																											params: { additionalProperty: key1 },
+																											message: "must NOT have additional properties"
 																										}];
 																										return false;
 																									}
-																								}
-																								var valid0 = _errs37 === errors;
-																							} else var valid0 = true;
-																							if (valid0) {
-																								if (data.strategyHash !== void 0) {
-																									let data19 = data.strategyHash;
-																									const _errs39 = errors;
-																									if (errors === _errs39) {
-																										if (typeof data19 === "string") {
-																											if (func1(data19) > 71) {
-																												validate25.errors = [{
-																													instancePath: instancePath + "/strategyHash",
-																													schemaPath: "#/properties/strategyHash/maxLength",
-																													keyword: "maxLength",
-																													params: { limit: 71 },
-																													message: "must NOT have more than 71 characters"
-																												}];
-																												return false;
-																											} else if (func1(data19) < 71) {
-																												validate25.errors = [{
-																													instancePath: instancePath + "/strategyHash",
-																													schemaPath: "#/properties/strategyHash/minLength",
-																													keyword: "minLength",
-																													params: { limit: 71 },
-																													message: "must NOT have fewer than 71 characters"
-																												}];
-																												return false;
-																											}
-																										} else {
-																											validate25.errors = [{
-																												instancePath: instancePath + "/strategyHash",
-																												schemaPath: "#/properties/strategyHash/type",
-																												keyword: "type",
-																												params: { type: "string" },
-																												message: "must be string"
-																											}];
-																											return false;
-																										}
-																									}
-																									var valid0 = _errs39 === errors;
-																								} else var valid0 = true;
-																								if (valid0) {
-																									if (data.strategyVersion !== void 0) {
-																										let data20 = data.strategyVersion;
-																										const _errs41 = errors;
-																										if (errors === _errs41) {
-																											if (typeof data20 === "string") {
-																												if (func1(data20) > 128) {
-																													validate25.errors = [{
-																														instancePath: instancePath + "/strategyVersion",
-																														schemaPath: "#/properties/strategyVersion/maxLength",
-																														keyword: "maxLength",
-																														params: { limit: 128 },
-																														message: "must NOT have more than 128 characters"
-																													}];
-																													return false;
-																												} else if (func1(data20) < 1) {
-																													validate25.errors = [{
-																														instancePath: instancePath + "/strategyVersion",
-																														schemaPath: "#/properties/strategyVersion/minLength",
-																														keyword: "minLength",
-																														params: { limit: 1 },
-																														message: "must NOT have fewer than 1 characters"
-																													}];
-																													return false;
-																												}
-																											} else {
-																												validate25.errors = [{
-																													instancePath: instancePath + "/strategyVersion",
-																													schemaPath: "#/properties/strategyVersion/type",
-																													keyword: "type",
-																													params: { type: "string" },
-																													message: "must be string"
-																												}];
-																												return false;
-																											}
-																										}
-																										var valid0 = _errs41 === errors;
-																									} else var valid0 = true;
-																									if (valid0) {
-																										if (data.timezone !== void 0) {
-																											let data21 = data.timezone;
-																											const _errs43 = errors;
-																											if (errors === _errs43) {
-																												if (typeof data21 === "string") {
-																													if (func1(data21) > 64) {
+																									if (_errs30 === errors) {
+																										if (data13.name !== void 0) {
+																											let data14 = data13.name;
+																											const _errs31 = errors;
+																											if (errors === _errs31) {
+																												if (typeof data14 === "string") {
+																													if (func1(data14) > 64) {
 																														validate25.errors = [{
-																															instancePath: instancePath + "/timezone",
-																															schemaPath: "#/properties/timezone/maxLength",
+																															instancePath: instancePath + "/parameters/" + i1 + "/name",
+																															schemaPath: "#/$defs/StrategyParameter/properties/name/maxLength",
 																															keyword: "maxLength",
 																															params: { limit: 64 },
 																															message: "must NOT have more than 64 characters"
 																														}];
 																														return false;
-																													} else if (func1(data21) < 1) {
+																													} else if (func1(data14) < 1) {
 																														validate25.errors = [{
-																															instancePath: instancePath + "/timezone",
-																															schemaPath: "#/properties/timezone/minLength",
+																															instancePath: instancePath + "/parameters/" + i1 + "/name",
+																															schemaPath: "#/$defs/StrategyParameter/properties/name/minLength",
 																															keyword: "minLength",
 																															params: { limit: 1 },
 																															message: "must NOT have fewer than 1 characters"
@@ -14838,8 +14688,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													}
 																												} else {
 																													validate25.errors = [{
-																														instancePath: instancePath + "/timezone",
-																														schemaPath: "#/properties/timezone/type",
+																														instancePath: instancePath + "/parameters/" + i1 + "/name",
+																														schemaPath: "#/$defs/StrategyParameter/properties/name/type",
 																														keyword: "type",
 																														params: { type: "string" },
 																														message: "must be string"
@@ -14847,8 +14697,448 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													return false;
 																												}
 																											}
-																											var valid0 = _errs43 === errors;
+																											var valid4 = _errs31 === errors;
+																										} else var valid4 = true;
+																										if (valid4) {
+																											if (data13.value !== void 0) {
+																												let data15 = data13.value;
+																												const _errs33 = errors;
+																												if (errors === _errs33) {
+																													if (typeof data15 === "string") {
+																														if (func1(data15) > 256) {
+																															validate25.errors = [{
+																																instancePath: instancePath + "/parameters/" + i1 + "/value",
+																																schemaPath: "#/$defs/StrategyParameter/properties/value/maxLength",
+																																keyword: "maxLength",
+																																params: { limit: 256 },
+																																message: "must NOT have more than 256 characters"
+																															}];
+																															return false;
+																														}
+																													} else {
+																														validate25.errors = [{
+																															instancePath: instancePath + "/parameters/" + i1 + "/value",
+																															schemaPath: "#/$defs/StrategyParameter/properties/value/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
+																													}
+																												}
+																												var valid4 = _errs33 === errors;
+																											} else var valid4 = true;
+																										}
+																									}
+																								}
+																							} else {
+																								validate25.errors = [{
+																									instancePath: instancePath + "/parameters/" + i1,
+																									schemaPath: "#/$defs/StrategyParameter/type",
+																									keyword: "type",
+																									params: { type: "object" },
+																									message: "must be object"
+																								}];
+																								return false;
+																							}
+																						}
+																						if (!(_errs27 === errors)) break;
+																					}
+																				}
+																			} else {
+																				validate25.errors = [{
+																					instancePath: instancePath + "/parameters",
+																					schemaPath: "#/properties/parameters/type",
+																					keyword: "type",
+																					params: { type: "array" },
+																					message: "must be array"
+																				}];
+																				return false;
+																			}
+																		}
+																		var valid0 = _errs25 === errors;
+																	} else var valid0 = true;
+																	if (valid0) {
+																		if (data.retrievedAt !== void 0) {
+																			let data16 = data.retrievedAt;
+																			const _errs35 = errors;
+																			if (errors === _errs35) {
+																				if (typeof data16 === "string") {
+																					if (func1(data16) > 64) {
+																						validate25.errors = [{
+																							instancePath: instancePath + "/retrievedAt",
+																							schemaPath: "#/properties/retrievedAt/maxLength",
+																							keyword: "maxLength",
+																							params: { limit: 64 },
+																							message: "must NOT have more than 64 characters"
+																						}];
+																						return false;
+																					} else if (func1(data16) < 1) {
+																						validate25.errors = [{
+																							instancePath: instancePath + "/retrievedAt",
+																							schemaPath: "#/properties/retrievedAt/minLength",
+																							keyword: "minLength",
+																							params: { limit: 1 },
+																							message: "must NOT have fewer than 1 characters"
+																						}];
+																						return false;
+																					}
+																				} else {
+																					validate25.errors = [{
+																						instancePath: instancePath + "/retrievedAt",
+																						schemaPath: "#/properties/retrievedAt/type",
+																						keyword: "type",
+																						params: { type: "string" },
+																						message: "must be string"
+																					}];
+																					return false;
+																				}
+																			}
+																			var valid0 = _errs35 === errors;
+																		} else var valid0 = true;
+																		if (valid0) {
+																			if (data.runtimeVersion !== void 0) {
+																				let data17 = data.runtimeVersion;
+																				const _errs37 = errors;
+																				if (errors === _errs37) {
+																					if (typeof data17 === "string") {
+																						if (func1(data17) > 128) {
+																							validate25.errors = [{
+																								instancePath: instancePath + "/runtimeVersion",
+																								schemaPath: "#/properties/runtimeVersion/maxLength",
+																								keyword: "maxLength",
+																								params: { limit: 128 },
+																								message: "must NOT have more than 128 characters"
+																							}];
+																							return false;
+																						} else if (func1(data17) < 1) {
+																							validate25.errors = [{
+																								instancePath: instancePath + "/runtimeVersion",
+																								schemaPath: "#/properties/runtimeVersion/minLength",
+																								keyword: "minLength",
+																								params: { limit: 1 },
+																								message: "must NOT have fewer than 1 characters"
+																							}];
+																							return false;
+																						}
+																					} else {
+																						validate25.errors = [{
+																							instancePath: instancePath + "/runtimeVersion",
+																							schemaPath: "#/properties/runtimeVersion/type",
+																							keyword: "type",
+																							params: { type: "string" },
+																							message: "must be string"
+																						}];
+																						return false;
+																					}
+																				}
+																				var valid0 = _errs37 === errors;
+																			} else var valid0 = true;
+																			if (valid0) {
+																				if (data.seed !== void 0) {
+																					let data18 = data.seed;
+																					const _errs39 = errors;
+																					if (errors === _errs39) {
+																						if (typeof data18 === "string") {
+																							if (func1(data18) > 128) {
+																								validate25.errors = [{
+																									instancePath: instancePath + "/seed",
+																									schemaPath: "#/properties/seed/maxLength",
+																									keyword: "maxLength",
+																									params: { limit: 128 },
+																									message: "must NOT have more than 128 characters"
+																								}];
+																								return false;
+																							} else if (func1(data18) < 1) {
+																								validate25.errors = [{
+																									instancePath: instancePath + "/seed",
+																									schemaPath: "#/properties/seed/minLength",
+																									keyword: "minLength",
+																									params: { limit: 1 },
+																									message: "must NOT have fewer than 1 characters"
+																								}];
+																								return false;
+																							}
+																						} else {
+																							validate25.errors = [{
+																								instancePath: instancePath + "/seed",
+																								schemaPath: "#/properties/seed/type",
+																								keyword: "type",
+																								params: { type: "string" },
+																								message: "must be string"
+																							}];
+																							return false;
+																						}
+																					}
+																					var valid0 = _errs39 === errors;
+																				} else var valid0 = true;
+																				if (valid0) {
+																					if (data.slippage !== void 0) {
+																						let data19 = data.slippage;
+																						const _errs41 = errors;
+																						if (errors === _errs41) {
+																							if (typeof data19 === "string") {
+																								if (func1(data19) > 128) {
+																									validate25.errors = [{
+																										instancePath: instancePath + "/slippage",
+																										schemaPath: "#/properties/slippage/maxLength",
+																										keyword: "maxLength",
+																										params: { limit: 128 },
+																										message: "must NOT have more than 128 characters"
+																									}];
+																									return false;
+																								} else if (func1(data19) < 1) {
+																									validate25.errors = [{
+																										instancePath: instancePath + "/slippage",
+																										schemaPath: "#/properties/slippage/minLength",
+																										keyword: "minLength",
+																										params: { limit: 1 },
+																										message: "must NOT have fewer than 1 characters"
+																									}];
+																									return false;
+																								}
+																							} else {
+																								validate25.errors = [{
+																									instancePath: instancePath + "/slippage",
+																									schemaPath: "#/properties/slippage/type",
+																									keyword: "type",
+																									params: { type: "string" },
+																									message: "must be string"
+																								}];
+																								return false;
+																							}
+																						}
+																						var valid0 = _errs41 === errors;
+																					} else var valid0 = true;
+																					if (valid0) {
+																						if (data.slippageModel !== void 0) {
+																							let data20 = data.slippageModel;
+																							const _errs43 = errors;
+																							if (errors === _errs43) {
+																								if (typeof data20 === "string") {
+																									if (func1(data20) > 128) {
+																										validate25.errors = [{
+																											instancePath: instancePath + "/slippageModel",
+																											schemaPath: "#/properties/slippageModel/maxLength",
+																											keyword: "maxLength",
+																											params: { limit: 128 },
+																											message: "must NOT have more than 128 characters"
+																										}];
+																										return false;
+																									} else if (func1(data20) < 1) {
+																										validate25.errors = [{
+																											instancePath: instancePath + "/slippageModel",
+																											schemaPath: "#/properties/slippageModel/minLength",
+																											keyword: "minLength",
+																											params: { limit: 1 },
+																											message: "must NOT have fewer than 1 characters"
+																										}];
+																										return false;
+																									}
+																								} else {
+																									validate25.errors = [{
+																										instancePath: instancePath + "/slippageModel",
+																										schemaPath: "#/properties/slippageModel/type",
+																										keyword: "type",
+																										params: { type: "string" },
+																										message: "must be string"
+																									}];
+																									return false;
+																								}
+																							}
+																							var valid0 = _errs43 === errors;
+																						} else var valid0 = true;
+																						if (valid0) {
+																							if (data.startAt !== void 0) {
+																								let data21 = data.startAt;
+																								const _errs45 = errors;
+																								if (errors === _errs45) {
+																									if (typeof data21 === "string") {
+																										if (func1(data21) > 64) {
+																											validate25.errors = [{
+																												instancePath: instancePath + "/startAt",
+																												schemaPath: "#/properties/startAt/maxLength",
+																												keyword: "maxLength",
+																												params: { limit: 64 },
+																												message: "must NOT have more than 64 characters"
+																											}];
+																											return false;
+																										} else if (func1(data21) < 1) {
+																											validate25.errors = [{
+																												instancePath: instancePath + "/startAt",
+																												schemaPath: "#/properties/startAt/minLength",
+																												keyword: "minLength",
+																												params: { limit: 1 },
+																												message: "must NOT have fewer than 1 characters"
+																											}];
+																											return false;
+																										}
+																									} else {
+																										validate25.errors = [{
+																											instancePath: instancePath + "/startAt",
+																											schemaPath: "#/properties/startAt/type",
+																											keyword: "type",
+																											params: { type: "string" },
+																											message: "must be string"
+																										}];
+																										return false;
+																									}
+																								}
+																								var valid0 = _errs45 === errors;
+																							} else var valid0 = true;
+																							if (valid0) {
+																								if (data.startingCash !== void 0) {
+																									let data22 = data.startingCash;
+																									const _errs47 = errors;
+																									if (errors === _errs47) {
+																										if (typeof data22 === "string") {
+																											if (func1(data22) > 128) {
+																												validate25.errors = [{
+																													instancePath: instancePath + "/startingCash",
+																													schemaPath: "#/properties/startingCash/maxLength",
+																													keyword: "maxLength",
+																													params: { limit: 128 },
+																													message: "must NOT have more than 128 characters"
+																												}];
+																												return false;
+																											} else if (func1(data22) < 1) {
+																												validate25.errors = [{
+																													instancePath: instancePath + "/startingCash",
+																													schemaPath: "#/properties/startingCash/minLength",
+																													keyword: "minLength",
+																													params: { limit: 1 },
+																													message: "must NOT have fewer than 1 characters"
+																												}];
+																												return false;
+																											}
+																										} else {
+																											validate25.errors = [{
+																												instancePath: instancePath + "/startingCash",
+																												schemaPath: "#/properties/startingCash/type",
+																												keyword: "type",
+																												params: { type: "string" },
+																												message: "must be string"
+																											}];
+																											return false;
+																										}
+																									}
+																									var valid0 = _errs47 === errors;
+																								} else var valid0 = true;
+																								if (valid0) {
+																									if (data.strategyHash !== void 0) {
+																										let data23 = data.strategyHash;
+																										const _errs49 = errors;
+																										if (errors === _errs49) {
+																											if (typeof data23 === "string") {
+																												if (func1(data23) > 71) {
+																													validate25.errors = [{
+																														instancePath: instancePath + "/strategyHash",
+																														schemaPath: "#/properties/strategyHash/maxLength",
+																														keyword: "maxLength",
+																														params: { limit: 71 },
+																														message: "must NOT have more than 71 characters"
+																													}];
+																													return false;
+																												} else if (func1(data23) < 71) {
+																													validate25.errors = [{
+																														instancePath: instancePath + "/strategyHash",
+																														schemaPath: "#/properties/strategyHash/minLength",
+																														keyword: "minLength",
+																														params: { limit: 71 },
+																														message: "must NOT have fewer than 71 characters"
+																													}];
+																													return false;
+																												}
+																											} else {
+																												validate25.errors = [{
+																													instancePath: instancePath + "/strategyHash",
+																													schemaPath: "#/properties/strategyHash/type",
+																													keyword: "type",
+																													params: { type: "string" },
+																													message: "must be string"
+																												}];
+																												return false;
+																											}
+																										}
+																										var valid0 = _errs49 === errors;
+																									} else var valid0 = true;
+																									if (valid0) {
+																										if (data.strategyVersion !== void 0) {
+																											let data24 = data.strategyVersion;
+																											const _errs51 = errors;
+																											if (errors === _errs51) {
+																												if (typeof data24 === "string") {
+																													if (func1(data24) > 128) {
+																														validate25.errors = [{
+																															instancePath: instancePath + "/strategyVersion",
+																															schemaPath: "#/properties/strategyVersion/maxLength",
+																															keyword: "maxLength",
+																															params: { limit: 128 },
+																															message: "must NOT have more than 128 characters"
+																														}];
+																														return false;
+																													} else if (func1(data24) < 1) {
+																														validate25.errors = [{
+																															instancePath: instancePath + "/strategyVersion",
+																															schemaPath: "#/properties/strategyVersion/minLength",
+																															keyword: "minLength",
+																															params: { limit: 1 },
+																															message: "must NOT have fewer than 1 characters"
+																														}];
+																														return false;
+																													}
+																												} else {
+																													validate25.errors = [{
+																														instancePath: instancePath + "/strategyVersion",
+																														schemaPath: "#/properties/strategyVersion/type",
+																														keyword: "type",
+																														params: { type: "string" },
+																														message: "must be string"
+																													}];
+																													return false;
+																												}
+																											}
+																											var valid0 = _errs51 === errors;
 																										} else var valid0 = true;
+																										if (valid0) {
+																											if (data.timezone !== void 0) {
+																												let data25 = data.timezone;
+																												const _errs53 = errors;
+																												if (errors === _errs53) {
+																													if (typeof data25 === "string") {
+																														if (func1(data25) > 64) {
+																															validate25.errors = [{
+																																instancePath: instancePath + "/timezone",
+																																schemaPath: "#/properties/timezone/maxLength",
+																																keyword: "maxLength",
+																																params: { limit: 64 },
+																																message: "must NOT have more than 64 characters"
+																															}];
+																															return false;
+																														} else if (func1(data25) < 1) {
+																															validate25.errors = [{
+																																instancePath: instancePath + "/timezone",
+																																schemaPath: "#/properties/timezone/minLength",
+																																keyword: "minLength",
+																																params: { limit: 1 },
+																																message: "must NOT have fewer than 1 characters"
+																															}];
+																															return false;
+																														}
+																													} else {
+																														validate25.errors = [{
+																															instancePath: instancePath + "/timezone",
+																															schemaPath: "#/properties/timezone/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
+																													}
+																												}
+																												var valid0 = _errs53 === errors;
+																											} else var valid0 = true;
+																										}
 																									}
 																								}
 																							}
@@ -15658,7 +15948,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				return false;
 																			} else {
 																				const _errs48 = errors;
-																				for (const key3 in data20) if (!func53.call(schema48.properties, key3)) {
+																				for (const key3 in data20) if (!func53.call(schema49.properties, key3)) {
 																					validate336.errors = [{
 																						instancePath: instancePath + "/trades/" + i2,
 																						schemaPath: "#/$defs/TradeRecord/additionalProperties",
@@ -16114,7 +16404,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.BacktestRun = validate338;
-	var schema49 = {
+	var schema50 = {
 		"type": "object",
 		"properties": {
 			"barInterval": {
@@ -16244,7 +16534,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"stateVersion"
 		]
 	};
-	var schema52 = {
+	var schema53 = {
 		"type": "string",
 		"enum": [
 			"QUEUED",
@@ -17022,7 +17312,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				return false;
 																			} else {
 																				const _errs48 = errors;
-																				for (const key3 in data20) if (!func53.call(schema48.properties, key3)) {
+																				for (const key3 in data20) if (!func53.call(schema49.properties, key3)) {
 																					validate28.errors = [{
 																						instancePath: instancePath + "/trades/" + i2,
 																						schemaPath: "#/$defs/TradeRecord/additionalProperties",
@@ -17497,7 +17787,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema49.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema50.properties, key0)) {
 						validate338.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -17964,7 +18254,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/fixtureLabel",
 															schemaPath: "#/properties/fixtureLabel/type",
 															keyword: "type",
-															params: { type: schema49.properties.fixtureLabel.type },
+															params: { type: schema50.properties.fixtureLabel.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -18220,7 +18510,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/portfolioSeed",
 																			schemaPath: "#/properties/portfolioSeed/type",
 																			keyword: "type",
-																			params: { type: schema49.properties.portfolioSeed.type },
+																			params: { type: schema50.properties.portfolioSeed.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -18515,7 +18805,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										instancePath: instancePath + "/state",
 																										schemaPath: "#/$defs/BacktestRunState/enum",
 																										keyword: "enum",
-																										params: { allowedValues: schema52.enum },
+																										params: { allowedValues: schema53.enum },
 																										message: "must be equal to one of the allowed values"
 																									}];
 																									return false;
@@ -18873,7 +19163,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.BacktestRunRequest = validate341;
-	var schema54 = {
+	var schema55 = {
 		"type": "object",
 		"properties": {
 			"barInterval": {
@@ -18978,7 +19268,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema54.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema55.properties, key0)) {
 						validate341.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -19149,7 +19439,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/expectedStrategyHash",
 													schemaPath: "#/properties/expectedStrategyHash/type",
 													keyword: "type",
-													params: { type: schema54.properties.expectedStrategyHash.type },
+													params: { type: schema55.properties.expectedStrategyHash.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -19203,7 +19493,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/fixtureScenario",
 														schemaPath: "#/$defs/BacktestFixtureScenario/enum",
 														keyword: "enum",
-														params: { allowedValues: schema55.enum },
+														params: { allowedValues: schema56.enum },
 														message: "must be equal to one of the allowed values"
 													};
 													if (vErrors === null) vErrors = [err1];
@@ -19437,7 +19727,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/portfolioSeed",
 																	schemaPath: "#/properties/portfolioSeed/type",
 																	keyword: "type",
-																	params: { type: schema54.properties.portfolioSeed.type },
+																	params: { type: schema55.properties.portfolioSeed.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -19712,7 +20002,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema52.enum },
+				params: { allowedValues: schema53.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -19787,7 +20077,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/inPies",
 									schemaPath: "#/properties/inPies/type",
 									keyword: "type",
-									params: { type: schema96.properties.inPies.type },
+									params: { type: schema97.properties.inPies.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -19802,7 +20092,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/locked",
 										schemaPath: "#/properties/locked/type",
 										keyword: "type",
-										params: { type: schema96.properties.locked.type },
+										params: { type: schema97.properties.locked.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -19817,7 +20107,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/reserved",
 											schemaPath: "#/properties/reserved/type",
 											keyword: "type",
-											params: { type: schema96.properties.reserved.type },
+											params: { type: schema97.properties.reserved.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -19832,7 +20122,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/restrictedAvailable",
 												schemaPath: "#/properties/restrictedAvailable/type",
 												keyword: "type",
-												params: { type: schema96.properties.restrictedAvailable.type },
+												params: { type: schema97.properties.restrictedAvailable.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -19847,7 +20137,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/total",
 													schemaPath: "#/properties/total/type",
 													keyword: "type",
-													params: { type: schema96.properties.total.type },
+													params: { type: schema97.properties.total.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -19880,7 +20170,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.CapabilityDecision = validate344;
-	var schema202 = {
+	var schema203 = {
 		"type": "object",
 		"properties": {
 			"allowedTools": {
@@ -19904,7 +20194,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"executionAllowed"
 		]
 	};
-	var schema203 = {
+	var schema204 = {
 		"type": "string",
 		"enum": [
 			"public_market_read",
@@ -19914,7 +20204,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"live_order_proposal"
 		]
 	};
-	var schema61 = {
+	var schema62 = {
 		"type": "string",
 		"enum": [
 			"C0",
@@ -20005,7 +20295,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/id",
 								schemaPath: "#/$defs/ResearchToolId/enum",
 								keyword: "enum",
-								params: { allowedValues: schema126.enum },
+								params: { allowedValues: schema127.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -20138,7 +20428,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/allowedTools/" + i0,
 												schemaPath: "#/$defs/ToolId/enum",
 												keyword: "enum",
-												params: { allowedValues: schema203.enum },
+												params: { allowedValues: schema204.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -20192,7 +20482,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/level",
 											schemaPath: "#/$defs/CapabilityLevel/enum",
 											keyword: "enum",
-											params: { allowedValues: schema61.enum },
+											params: { allowedValues: schema62.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -20208,7 +20498,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/reason",
 												schemaPath: "#/properties/reason/type",
 												keyword: "type",
-												params: { type: schema202.properties.reason.type },
+												params: { type: schema203.properties.reason.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -20306,7 +20596,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema61.enum },
+				params: { allowedValues: schema62.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -20398,7 +20688,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/agentMode",
 								schemaPath: "#/$defs/AgentMode/enum",
 								keyword: "enum",
-								params: { allowedValues: schema58.enum },
+								params: { allowedValues: schema59.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -20593,7 +20883,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/executionContext",
 										schemaPath: "#/$defs/ExecutionContext/enum",
 										keyword: "enum",
-										params: { allowedValues: schema60.enum },
+										params: { allowedValues: schema61.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -20618,7 +20908,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/requestedLevel",
 											schemaPath: "#/$defs/CapabilityLevel/enum",
 											keyword: "enum",
-											params: { allowedValues: schema61.enum },
+											params: { allowedValues: schema62.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -20721,7 +21011,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ChatgptLogin = validate348;
-	var schema63 = {
+	var schema64 = {
 		"type": "string",
 		"enum": ["LOGIN", "RELOGIN"]
 	};
@@ -20769,7 +21059,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/action",
 							schemaPath: "#/$defs/ChatgptLoginAction/enum",
 							keyword: "enum",
-							params: { allowedValues: schema63.enum },
+							params: { allowedValues: schema64.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -20888,7 +21178,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema63.enum },
+				params: { allowedValues: schema64.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -21639,7 +21929,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema94.enum },
+				params: { allowedValues: schema95.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -21652,7 +21942,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ContextCatalog = validate355;
-	var schema208 = {
+	var schema209 = {
 		"type": "object",
 		"properties": {
 			"availabilityReason": {
@@ -22168,7 +22458,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/emptyStates/" + i0 + "/kind",
 																			schemaPath: "#/$defs/ContextCatalogEmptyState/properties/kind/enum",
 																			keyword: "enum",
-																			params: { allowedValues: schema208.properties.kind.enum },
+																			params: { allowedValues: schema209.properties.kind.enum },
 																			message: "must be equal to one of the allowed values"
 																		}];
 																		return false;
@@ -22352,7 +22642,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/kind",
 								schemaPath: "#/properties/kind/enum",
 								keyword: "enum",
-								params: { allowedValues: schema208.properties.kind.enum },
+								params: { allowedValues: schema209.properties.kind.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -22744,7 +23034,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.CorporateAction = validate359;
-	var schema224 = {
+	var schema225 = {
 		"type": "string",
 		"enum": [
 			"SPLIT",
@@ -22832,7 +23122,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/actionType",
 								schemaPath: "#/$defs/CorporateActionType/enum",
 								keyword: "enum",
-								params: { allowedValues: schema224.enum },
+								params: { allowedValues: schema225.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -22857,7 +23147,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/adjustmentStatus",
 									schemaPath: "#/$defs/AdjustmentStatus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema222.enum },
+									params: { allowedValues: schema223.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -23086,7 +23376,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema224.enum },
+				params: { allowedValues: schema225.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -23099,7 +23389,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.DataSourceCatalog = validate361;
-	var schema212 = {
+	var schema213 = {
 		"type": "object",
 		"properties": {
 			"availabilityReason": {
@@ -23212,7 +23502,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"availabilityReason"
 		]
 	};
-	var schema213 = {
+	var schema214 = {
 		"type": "string",
 		"enum": ["PUBLIC_METADATA", "CREDENTIALED_METADATA"]
 	};
@@ -23233,7 +23523,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema212.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema213.properties, key0)) {
 					validate154.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -23627,7 +23917,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/probeKind",
 																		schemaPath: "#/$defs/DataSourceProbeKind/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema213.enum },
+																		params: { allowedValues: schema214.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -23827,7 +24117,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/status",
 																								schemaPath: "#/$defs/DataSourceStatus/enum",
 																								keyword: "enum",
-																								params: { allowedValues: schema118.enum },
+																								params: { allowedValues: schema119.enum },
 																								message: "must be equal to one of the allowed values"
 																							}];
 																							return false;
@@ -24143,7 +24433,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema212.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema213.properties, key0)) {
 					validate363.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -24537,7 +24827,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/probeKind",
 																		schemaPath: "#/$defs/DataSourceProbeKind/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema213.enum },
+																		params: { allowedValues: schema214.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -24737,7 +25027,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/status",
 																								schemaPath: "#/$defs/DataSourceStatus/enum",
 																								keyword: "enum",
-																								params: { allowedValues: schema118.enum },
+																								params: { allowedValues: schema119.enum },
 																								message: "must be equal to one of the allowed values"
 																							}];
 																							return false;
@@ -25026,7 +25316,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema213.enum },
+				params: { allowedValues: schema214.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -25139,7 +25429,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema118.enum },
+				params: { allowedValues: schema119.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -25152,7 +25442,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.DomainEvent = validate368;
-	var schema72 = {
+	var schema73 = {
 		"type": "object",
 		"properties": {
 			"aggregateId": {
@@ -25214,7 +25504,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"payload"
 		]
 	};
-	var schema74 = {
+	var schema75 = {
 		"type": "object",
 		"properties": {
 			"desiredRunning": { "type": "boolean" },
@@ -25271,7 +25561,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"updatedAt"
 		]
 	};
-	var schema75 = {
+	var schema76 = {
 		"type": "string",
 		"enum": [
 			"STOPPED",
@@ -25302,7 +25592,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema74.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema75.properties, key0)) {
 					validate42.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -25400,7 +25690,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema74.properties.errorCode.type },
+										params: { type: schema75.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -25429,7 +25719,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/lastProbeAt",
 												schemaPath: "#/properties/lastProbeAt/type",
 												keyword: "type",
-												params: { type: schema74.properties.lastProbeAt.type },
+												params: { type: schema75.properties.lastProbeAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -25458,7 +25748,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/nextRetryAt",
 														schemaPath: "#/properties/nextRetryAt/type",
 														keyword: "type",
-														params: { type: schema74.properties.nextRetryAt.type },
+														params: { type: schema75.properties.nextRetryAt.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -25585,7 +25875,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/status",
 																		schemaPath: "#/$defs/GatewayStatus/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema75.enum },
+																		params: { allowedValues: schema76.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -25673,7 +25963,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema76 = {
+	var schema77 = {
 		"type": "object",
 		"properties": {
 			"attempts": {
@@ -25720,7 +26010,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"updatedAt"
 		]
 	};
-	var schema77 = {
+	var schema78 = {
 		"type": "object",
 		"properties": {
 			"attemptId": {
@@ -25750,11 +26040,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"outcome"
 		]
 	};
-	var schema78 = {
+	var schema79 = {
 		"type": "string",
 		"enum": ["SETUP", "THREAD"]
 	};
-	var schema79 = {
+	var schema80 = {
 		"type": "string",
 		"enum": [
 			"VERIFIED",
@@ -25763,11 +26053,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FAILED"
 		]
 	};
-	var schema80 = {
+	var schema81 = {
 		"type": "string",
 		"enum": ["CHATGPT", "DEEPSEEK"]
 	};
-	var schema81 = {
+	var schema82 = {
 		"type": "object",
 		"properties": {
 			"remaining": {
@@ -25787,7 +26077,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		},
 		"additionalProperties": false
 	};
-	var schema82 = {
+	var schema83 = {
 		"type": "string",
 		"enum": ["disabled", "enabled"]
 	};
@@ -25811,7 +26101,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema77.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema78.properties, key0)) {
 						validate45.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -25883,7 +26173,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/errorCategory",
 											schemaPath: "#/properties/errorCategory/type",
 											keyword: "type",
-											params: { type: schema77.properties.errorCategory.type },
+											params: { type: schema78.properties.errorCategory.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -25909,7 +26199,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/kind",
 												schemaPath: "#/$defs/ModelAttemptKind/enum",
 												keyword: "enum",
-												params: { allowedValues: schema78.enum },
+												params: { allowedValues: schema79.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -25925,7 +26215,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/modelId",
 													schemaPath: "#/properties/modelId/type",
 													keyword: "type",
-													params: { type: schema77.properties.modelId.type },
+													params: { type: schema78.properties.modelId.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -25951,7 +26241,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/outcome",
 														schemaPath: "#/$defs/ModelAttemptOutcome/enum",
 														keyword: "enum",
-														params: { allowedValues: schema79.enum },
+														params: { allowedValues: schema80.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -25977,7 +26267,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/provider",
 															schemaPath: "#/$defs/ModelProvider/enum",
 															keyword: "enum",
-															params: { allowedValues: schema80.enum },
+															params: { allowedValues: schema81.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -26016,7 +26306,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/quota/remaining",
 																				schemaPath: "#/$defs/ModelQuota/properties/remaining/type",
 																				keyword: "type",
-																				params: { type: schema81.properties.remaining.type },
+																				params: { type: schema82.properties.remaining.type },
 																				message: "must be integer,null"
 																			};
 																			if (vErrors === null) vErrors = [err1];
@@ -26067,7 +26357,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/quota/resetAt",
 																					schemaPath: "#/$defs/ModelQuota/properties/resetAt/type",
 																					keyword: "type",
-																					params: { type: schema81.properties.resetAt.type },
+																					params: { type: schema82.properties.resetAt.type },
 																					message: "must be string,null"
 																				};
 																				if (vErrors === null) vErrors = [err4];
@@ -26085,7 +26375,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/quota/retryAfterSeconds",
 																						schemaPath: "#/$defs/ModelQuota/properties/retryAfterSeconds/type",
 																						keyword: "type",
-																						params: { type: schema81.properties.retryAfterSeconds.type },
+																						params: { type: schema82.properties.retryAfterSeconds.type },
 																						message: "must be integer,null"
 																					};
 																					if (vErrors === null) vErrors = [err5];
@@ -26136,7 +26426,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/quota/window",
 																							schemaPath: "#/$defs/ModelQuota/properties/window/type",
 																							keyword: "type",
-																							params: { type: schema81.properties.window.type },
+																							params: { type: schema82.properties.window.type },
 																							message: "must be string,null"
 																						};
 																						if (vErrors === null) vErrors = [err8];
@@ -26240,7 +26530,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/thinkingType",
 																		schemaPath: "#/$defs/ThinkingType/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema82.enum },
+																		params: { allowedValues: schema83.enum },
 																		message: "must be equal to one of the allowed values"
 																	};
 																	if (vErrors === null) vErrors = [err13];
@@ -26316,7 +26606,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema83 = {
+	var schema84 = {
 		"type": "object",
 		"properties": {
 			"configured": { "type": "boolean" },
@@ -26338,7 +26628,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"routes"
 		]
 	};
-	var schema88 = {
+	var schema89 = {
 		"type": "string",
 		"enum": [
 			"NOT_CONFIGURED",
@@ -26348,7 +26638,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FAILED"
 		]
 	};
-	var schema85 = {
+	var schema86 = {
 		"type": "object",
 		"properties": {
 			"modelId": {
@@ -26450,7 +26740,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema80.enum },
+										params: { allowedValues: schema81.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -26481,7 +26771,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema82.enum },
+											params: { allowedValues: schema83.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -26536,7 +26826,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/verifiedAt",
 												schemaPath: "#/properties/verifiedAt/type",
 												keyword: "type",
-												params: { type: schema85.properties.verifiedAt.type },
+												params: { type: schema86.properties.verifiedAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -26621,7 +26911,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema83.properties.errorCode.type },
+										params: { type: schema84.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -26637,7 +26927,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/lastVerifiedAt",
 											schemaPath: "#/properties/lastVerifiedAt/type",
 											keyword: "type",
-											params: { type: schema83.properties.lastVerifiedAt.type },
+											params: { type: schema84.properties.lastVerifiedAt.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -26663,7 +26953,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/provider",
 												schemaPath: "#/$defs/ModelProvider/enum",
 												keyword: "enum",
-												params: { allowedValues: schema80.enum },
+												params: { allowedValues: schema81.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -26734,7 +27024,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/ModelHealth/enum",
 														keyword: "enum",
-														params: { allowedValues: schema88.enum },
+														params: { allowedValues: schema89.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -26854,7 +27144,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema80.enum },
+										params: { allowedValues: schema81.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -26885,7 +27175,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema82.enum },
+											params: { allowedValues: schema83.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -26974,7 +27264,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema76.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema77.properties, key0)) {
 						validate44.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -27340,7 +27630,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema101 = {
+	var schema102 = {
 		"type": "object",
 		"properties": {
 			"configured": { "type": "boolean" },
@@ -27386,7 +27676,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"updatedAt"
 		]
 	};
-	var schema103 = {
+	var schema104 = {
 		"type": "object",
 		"properties": {
 			"liveInactivityTimeoutMinutes": {
@@ -27447,7 +27737,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema101.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema102.properties, key0)) {
 					validate60.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -27737,7 +28027,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
 																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
 																keyword: "type",
-																params: { type: schema103.properties.maxDailyRealizedLoss.type },
+																params: { type: schema104.properties.maxDailyRealizedLoss.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -27764,7 +28054,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
 																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
 																	keyword: "type",
-																	params: { type: schema103.properties.maxDailyTradedNotional.type },
+																	params: { type: schema104.properties.maxDailyTradedNotional.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -27791,7 +28081,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/policy/maxOrderNotional",
 																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
 																		keyword: "type",
-																		params: { type: schema103.properties.maxOrderNotional.type },
+																		params: { type: schema104.properties.maxOrderNotional.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -27818,7 +28108,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
 																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
 																			keyword: "type",
-																			params: { type: schema103.properties.maxSingleInstrumentExposurePercent.type },
+																			params: { type: schema104.properties.maxSingleInstrumentExposurePercent.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -28039,7 +28329,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema104 = {
+	var schema105 = {
 		"type": "object",
 		"properties": {
 			"accountId": {
@@ -28102,11 +28392,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"status"
 		]
 	};
-	var schema109 = {
+	var schema110 = {
 		"type": "string",
 		"enum": ["ACTIVE", "ARCHIVED"]
 	};
-	var schema110 = {
+	var schema111 = {
 		"type": "object",
 		"properties": {
 			"cancelRequestedAt": { "type": ["string", "null"] },
@@ -28138,7 +28428,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"startedAt"
 		]
 	};
-	var schema134 = {
+	var schema135 = {
 		"type": "string",
 		"enum": [
 			"RUNNING",
@@ -28148,7 +28438,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FAILED"
 		]
 	};
-	var schema111 = {
+	var schema112 = {
 		"type": "object",
 		"properties": {
 			"completedAt": { "type": ["string", "null"] },
@@ -28181,7 +28471,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"startedAt"
 		]
 	};
-	var schema127 = {
+	var schema128 = {
 		"type": "string",
 		"enum": [
 			"STARTED",
@@ -28229,7 +28519,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/completedAt",
 									schemaPath: "#/properties/completedAt/type",
 									keyword: "type",
-									params: { type: schema111.properties.completedAt.type },
+									params: { type: schema112.properties.completedAt.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -28392,7 +28682,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/sourceId",
 														schemaPath: "#/properties/sourceId/type",
 														keyword: "type",
-														params: { type: schema111.properties.sourceId.type },
+														params: { type: schema112.properties.sourceId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -28456,7 +28746,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/status",
 																schemaPath: "#/$defs/ItemStatus/enum",
 																keyword: "enum",
-																params: { allowedValues: schema127.enum },
+																params: { allowedValues: schema128.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -28530,7 +28820,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/cancelRequestedAt",
 									schemaPath: "#/properties/cancelRequestedAt/type",
 									keyword: "type",
-									params: { type: schema110.properties.cancelRequestedAt.type },
+									params: { type: schema111.properties.cancelRequestedAt.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -28546,7 +28836,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/completedAt",
 										schemaPath: "#/properties/completedAt/type",
 										keyword: "type",
-										params: { type: schema110.properties.completedAt.type },
+										params: { type: schema111.properties.completedAt.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -28668,7 +28958,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/providerAttempts/" + i1 + "/endedAt",
 																					schemaPath: "#/$defs/ThreadProviderAttempt/properties/endedAt/type",
 																					keyword: "type",
-																					params: { type: schema128.properties.endedAt.type },
+																					params: { type: schema129.properties.endedAt.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -28684,7 +28974,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/providerAttempts/" + i1 + "/errorCode",
 																						schemaPath: "#/$defs/ThreadProviderAttempt/properties/errorCode/type",
 																						keyword: "type",
-																						params: { type: schema128.properties.errorCode.type },
+																						params: { type: schema129.properties.errorCode.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -28926,7 +29216,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/status",
 															schemaPath: "#/$defs/TurnStatus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema134.enum },
+															params: { allowedValues: schema135.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -29019,7 +29309,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema104.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema105.properties, key0)) {
 						validate62.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -29038,7 +29328,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountId",
 									schemaPath: "#/properties/accountId/type",
 									keyword: "type",
-									params: { type: schema104.properties.accountId.type },
+									params: { type: schema105.properties.accountId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -29077,7 +29367,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/codexThreadId",
 										schemaPath: "#/properties/codexThreadId/type",
 										keyword: "type",
-										params: { type: schema104.properties.codexThreadId.type },
+										params: { type: schema105.properties.codexThreadId.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -29141,7 +29431,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/defaultAgentMode",
 												schemaPath: "#/$defs/AgentMode/enum",
 												keyword: "enum",
-												params: { allowedValues: schema58.enum },
+												params: { allowedValues: schema59.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -29167,7 +29457,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/defaultExecutionContext",
 													schemaPath: "#/$defs/ExecutionContext/enum",
 													keyword: "enum",
-													params: { allowedValues: schema60.enum },
+													params: { allowedValues: schema61.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -29485,7 +29775,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/model/thinkingType",
 																						schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
 																						keyword: "type",
-																						params: { type: schema108.properties.thinkingType.type },
+																						params: { type: schema109.properties.thinkingType.type },
 																						message: "must be string,null"
 																					};
 																					if (vErrors === null) vErrors = [err8];
@@ -29634,7 +29924,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/status",
 																	schemaPath: "#/$defs/ThreadStatus/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema109.enum },
+																	params: { allowedValues: schema110.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -30255,7 +30545,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/enum",
 										keyword: "enum",
-										params: { allowedValues: schema72.properties.aggregateType.enum },
+										params: { allowedValues: schema73.properties.aggregateType.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -30310,7 +30600,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/eventType",
 												schemaPath: "#/properties/eventType/enum",
 												keyword: "enum",
-												params: { allowedValues: schema72.properties.eventType.enum },
+												params: { allowedValues: schema73.properties.eventType.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -31011,7 +31301,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema60.enum },
+				params: { allowedValues: schema61.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -31450,7 +31740,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.FilterSpec = validate381;
-	var schema267 = {
+	var schema268 = {
 		"type": "string",
 		"enum": [
 			"US_EQUITIES",
@@ -31458,7 +31748,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"CRYPTO_SPOT"
 		]
 	};
-	var schema265 = {
+	var schema266 = {
 		"type": "string",
 		"enum": [
 			"REVENUE_GROWTH",
@@ -31467,7 +31757,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"PRICE_CHANGE"
 		]
 	};
-	var schema266 = {
+	var schema267 = {
 		"type": "string",
 		"enum": [
 			"GREATER_THAN",
@@ -31520,7 +31810,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/field",
 							schemaPath: "#/$defs/ScreenerPredicateField/enum",
 							keyword: "enum",
-							params: { allowedValues: schema265.enum },
+							params: { allowedValues: schema266.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -31545,7 +31835,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/operator",
 								schemaPath: "#/$defs/ScreenerOperator/enum",
 								keyword: "enum",
-								params: { allowedValues: schema266.enum },
+								params: { allowedValues: schema267.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -31702,7 +31992,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/universe",
 										schemaPath: "#/$defs/ScreenerUniverse/enum",
 										keyword: "enum",
-										params: { allowedValues: schema267.enum },
+										params: { allowedValues: schema268.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -31732,7 +32022,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.FxFreshness = validate383;
-	var schema240 = {
+	var schema241 = {
 		"type": "string",
 		"enum": [
 			"HEALTHY",
@@ -31760,7 +32050,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema240.enum },
+				params: { allowedValues: schema241.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -31773,7 +32063,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.FxProvenance = validate384;
-	var schema239 = {
+	var schema240 = {
 		"type": "object",
 		"properties": {
 			"depegWarning": {
@@ -31818,7 +32108,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"quality"
 		]
 	};
-	var schema241 = {
+	var schema242 = {
 		"type": "string",
 		"enum": [
 			"VERIFIED",
@@ -31861,7 +32151,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/depegWarning",
 							schemaPath: "#/properties/depegWarning/type",
 							keyword: "type",
-							params: { type: schema239.properties.depegWarning.type },
+							params: { type: schema240.properties.depegWarning.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -31907,7 +32197,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/freshness",
 								schemaPath: "#/$defs/FxFreshness/enum",
 								keyword: "enum",
-								params: { allowedValues: schema240.enum },
+								params: { allowedValues: schema241.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -32002,7 +32292,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/quality",
 											schemaPath: "#/$defs/FxQuality/enum",
 											keyword: "enum",
-											params: { allowedValues: schema241.enum },
+											params: { allowedValues: schema242.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -32161,7 +32451,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema241.enum },
+				params: { allowedValues: schema242.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -32174,7 +32464,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.GatewayAction = validate386;
-	var schema136 = {
+	var schema137 = {
 		"type": "string",
 		"enum": [
 			"LAUNCH",
@@ -32203,7 +32493,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema136.enum },
+				params: { allowedValues: schema137.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -32260,7 +32550,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/action",
 							schemaPath: "#/$defs/GatewayAction/enum",
 							keyword: "enum",
-							params: { allowedValues: schema136.enum },
+							params: { allowedValues: schema137.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -32376,7 +32666,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema74.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema75.properties, key0)) {
 					validate388.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -32474,7 +32764,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema74.properties.errorCode.type },
+										params: { type: schema75.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -32503,7 +32793,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/lastProbeAt",
 												schemaPath: "#/properties/lastProbeAt/type",
 												keyword: "type",
-												params: { type: schema74.properties.lastProbeAt.type },
+												params: { type: schema75.properties.lastProbeAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -32532,7 +32822,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/nextRetryAt",
 														schemaPath: "#/properties/nextRetryAt/type",
 														keyword: "type",
-														params: { type: schema74.properties.nextRetryAt.type },
+														params: { type: schema75.properties.nextRetryAt.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -32659,7 +32949,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/status",
 																		schemaPath: "#/$defs/GatewayStatus/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema75.enum },
+																		params: { allowedValues: schema76.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -32768,7 +33058,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema75.enum },
+				params: { allowedValues: schema76.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -32898,7 +33188,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.Instrument = validate391;
-	var schema216 = {
+	var schema217 = {
 		"type": "object",
 		"properties": {
 			"assetClass": { "$ref": "#/$defs/AssetClass" },
@@ -32970,7 +33260,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema216.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema217.properties, key0)) {
 					validate391.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -32997,7 +33287,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/assetClass",
 							schemaPath: "#/$defs/AssetClass/enum",
 							keyword: "enum",
-							params: { allowedValues: schema217.enum },
+							params: { allowedValues: schema218.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -33539,7 +33829,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema127.enum },
+				params: { allowedValues: schema128.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -33552,7 +33842,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.MarketCatalog = validate394;
-	var schema158 = {
+	var schema159 = {
 		"type": "string",
 		"enum": [
 			"AVAILABLE",
@@ -33561,7 +33851,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"UNVERIFIED"
 		]
 	};
-	var schema138 = {
+	var schema139 = {
 		"type": "string",
 		"enum": [
 			"CENSUS",
@@ -33587,7 +33877,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema216.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema217.properties, key0)) {
 					validate158.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -33614,7 +33904,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/assetClass",
 							schemaPath: "#/$defs/AssetClass/enum",
 							keyword: "enum",
-							params: { allowedValues: schema217.enum },
+							params: { allowedValues: schema218.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -34217,7 +34507,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/status",
 													schemaPath: "#/$defs/MarketDataStatus/enum",
 													keyword: "enum",
-													params: { allowedValues: schema158.enum },
+													params: { allowedValues: schema159.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -34243,7 +34533,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/tier",
 														schemaPath: "#/$defs/MarketTier/enum",
 														keyword: "enum",
-														params: { allowedValues: schema138.enum },
+														params: { allowedValues: schema139.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -34386,7 +34676,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/tier",
 								schemaPath: "#/$defs/MarketTier/enum",
 								keyword: "enum",
-								params: { allowedValues: schema138.enum },
+								params: { allowedValues: schema139.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -34470,7 +34760,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema158.enum },
+				params: { allowedValues: schema159.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -34483,7 +34773,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.MarketDetail = validate398;
-	var schema221 = {
+	var schema222 = {
 		"type": "object",
 		"properties": {
 			"adjustmentStatus": { "$ref": "#/$defs/AdjustmentStatus" },
@@ -34604,7 +34894,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/actionType",
 								schemaPath: "#/$defs/CorporateActionType/enum",
 								keyword: "enum",
-								params: { allowedValues: schema224.enum },
+								params: { allowedValues: schema225.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -34629,7 +34919,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/adjustmentStatus",
 									schemaPath: "#/$defs/AdjustmentStatus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema222.enum },
+									params: { allowedValues: schema223.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -34837,7 +35127,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema226 = {
+	var schema227 = {
 		"type": "object",
 		"properties": {
 			"calendarVersion": {
@@ -34894,7 +35184,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"reason"
 		]
 	};
-	var schema227 = {
+	var schema228 = {
 		"type": "string",
 		"enum": [
 			"OPEN",
@@ -34907,7 +35197,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"UNKNOWN"
 		]
 	};
-	var schema189 = {
+	var schema190 = {
 		"type": "string",
 		"enum": [
 			"TRUSTED",
@@ -34932,7 +35222,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema226.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema227.properties, key0)) {
 					validate165.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -35169,7 +35459,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/session",
 													schemaPath: "#/$defs/MarketSession/enum",
 													keyword: "enum",
-													params: { allowedValues: schema227.enum },
+													params: { allowedValues: schema228.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -35229,7 +35519,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/sourceStatus",
 															schemaPath: "#/$defs/MarketDataStatus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema158.enum },
+															params: { allowedValues: schema159.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -35254,7 +35544,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/timeConfidence",
 																schemaPath: "#/$defs/TimeConfidence/enum",
 																keyword: "enum",
-																params: { allowedValues: schema189.enum },
+																params: { allowedValues: schema190.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -35325,7 +35615,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema232 = {
+	var schema233 = {
 		"type": "string",
 		"enum": [
 			"REALTIME",
@@ -35333,7 +35623,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"UNKNOWN"
 		]
 	};
-	var schema233 = {
+	var schema234 = {
 		"type": "string",
 		"enum": [
 			"HEALTHY",
@@ -35385,7 +35675,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/entitlement",
 							schemaPath: "#/$defs/MarketEntitlement/enum",
 							keyword: "enum",
-							params: { allowedValues: schema232.enum },
+							params: { allowedValues: schema233.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -35410,7 +35700,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/freshness",
 								schemaPath: "#/$defs/MarketFreshness/enum",
 								keyword: "enum",
-								params: { allowedValues: schema233.enum },
+								params: { allowedValues: schema234.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -35859,7 +36149,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema221.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema222.properties, key0)) {
 						validate398.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -35888,7 +36178,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/adjustmentStatus",
 									schemaPath: "#/$defs/AdjustmentStatus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema222.enum },
+									params: { allowedValues: schema223.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -36121,7 +36411,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/status",
 																schemaPath: "#/$defs/MarketDataStatus/enum",
 																keyword: "enum",
-																params: { allowedValues: schema158.enum },
+																params: { allowedValues: schema159.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -36147,7 +36437,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/tier",
 																	schemaPath: "#/$defs/MarketTier/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema138.enum },
+																	params: { allowedValues: schema139.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -36243,7 +36533,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema232.enum },
+				params: { allowedValues: schema233.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -36276,7 +36566,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema233.enum },
+				params: { allowedValues: schema234.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -36368,7 +36658,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/tier",
 								schemaPath: "#/$defs/MarketTier/enum",
 								keyword: "enum",
-								params: { allowedValues: schema138.enum },
+								params: { allowedValues: schema139.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -36452,7 +36742,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema227.enum },
+				params: { allowedValues: schema228.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -36732,7 +37022,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/entitlement",
 							schemaPath: "#/$defs/MarketEntitlement/enum",
 							keyword: "enum",
-							params: { allowedValues: schema232.enum },
+							params: { allowedValues: schema233.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -36757,7 +37047,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/freshness",
 								schemaPath: "#/$defs/MarketFreshness/enum",
 								keyword: "enum",
-								params: { allowedValues: schema233.enum },
+								params: { allowedValues: schema234.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -36982,7 +37272,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema226.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema227.properties, key0)) {
 					validate410.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -37219,7 +37509,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/session",
 													schemaPath: "#/$defs/MarketSession/enum",
 													keyword: "enum",
-													params: { allowedValues: schema227.enum },
+													params: { allowedValues: schema228.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -37279,7 +37569,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/sourceStatus",
 															schemaPath: "#/$defs/MarketDataStatus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema158.enum },
+															params: { allowedValues: schema159.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -37304,7 +37594,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/timeConfidence",
 																schemaPath: "#/$defs/TimeConfidence/enum",
 																keyword: "enum",
-																params: { allowedValues: schema189.enum },
+																params: { allowedValues: schema190.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -37396,7 +37686,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema138.enum },
+				params: { allowedValues: schema139.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -37429,7 +37719,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema77.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema78.properties, key0)) {
 						validate412.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -37501,7 +37791,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/errorCategory",
 											schemaPath: "#/properties/errorCategory/type",
 											keyword: "type",
-											params: { type: schema77.properties.errorCategory.type },
+											params: { type: schema78.properties.errorCategory.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -37527,7 +37817,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/kind",
 												schemaPath: "#/$defs/ModelAttemptKind/enum",
 												keyword: "enum",
-												params: { allowedValues: schema78.enum },
+												params: { allowedValues: schema79.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -37543,7 +37833,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/modelId",
 													schemaPath: "#/properties/modelId/type",
 													keyword: "type",
-													params: { type: schema77.properties.modelId.type },
+													params: { type: schema78.properties.modelId.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -37569,7 +37859,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/outcome",
 														schemaPath: "#/$defs/ModelAttemptOutcome/enum",
 														keyword: "enum",
-														params: { allowedValues: schema79.enum },
+														params: { allowedValues: schema80.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -37595,7 +37885,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/provider",
 															schemaPath: "#/$defs/ModelProvider/enum",
 															keyword: "enum",
-															params: { allowedValues: schema80.enum },
+															params: { allowedValues: schema81.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -37634,7 +37924,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/quota/remaining",
 																				schemaPath: "#/$defs/ModelQuota/properties/remaining/type",
 																				keyword: "type",
-																				params: { type: schema81.properties.remaining.type },
+																				params: { type: schema82.properties.remaining.type },
 																				message: "must be integer,null"
 																			};
 																			if (vErrors === null) vErrors = [err1];
@@ -37685,7 +37975,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/quota/resetAt",
 																					schemaPath: "#/$defs/ModelQuota/properties/resetAt/type",
 																					keyword: "type",
-																					params: { type: schema81.properties.resetAt.type },
+																					params: { type: schema82.properties.resetAt.type },
 																					message: "must be string,null"
 																				};
 																				if (vErrors === null) vErrors = [err4];
@@ -37703,7 +37993,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/quota/retryAfterSeconds",
 																						schemaPath: "#/$defs/ModelQuota/properties/retryAfterSeconds/type",
 																						keyword: "type",
-																						params: { type: schema81.properties.retryAfterSeconds.type },
+																						params: { type: schema82.properties.retryAfterSeconds.type },
 																						message: "must be integer,null"
 																					};
 																					if (vErrors === null) vErrors = [err5];
@@ -37754,7 +38044,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/quota/window",
 																							schemaPath: "#/$defs/ModelQuota/properties/window/type",
 																							keyword: "type",
-																							params: { type: schema81.properties.window.type },
+																							params: { type: schema82.properties.window.type },
 																							message: "must be string,null"
 																						};
 																						if (vErrors === null) vErrors = [err8];
@@ -37858,7 +38148,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/thinkingType",
 																		schemaPath: "#/$defs/ThinkingType/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema82.enum },
+																		params: { allowedValues: schema83.enum },
 																		message: "must be equal to one of the allowed values"
 																	};
 																	if (vErrors === null) vErrors = [err13];
@@ -37955,7 +38245,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema78.enum },
+				params: { allowedValues: schema79.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -37988,7 +38278,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema79.enum },
+				params: { allowedValues: schema80.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -38021,7 +38311,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema88.enum },
+				params: { allowedValues: schema89.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -38054,7 +38344,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema80.enum },
+				params: { allowedValues: schema81.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -38121,7 +38411,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/errorCode",
 										schemaPath: "#/properties/errorCode/type",
 										keyword: "type",
-										params: { type: schema83.properties.errorCode.type },
+										params: { type: schema84.properties.errorCode.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -38137,7 +38427,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/lastVerifiedAt",
 											schemaPath: "#/properties/lastVerifiedAt/type",
 											keyword: "type",
-											params: { type: schema83.properties.lastVerifiedAt.type },
+											params: { type: schema84.properties.lastVerifiedAt.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -38163,7 +38453,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/provider",
 												schemaPath: "#/$defs/ModelProvider/enum",
 												keyword: "enum",
-												params: { allowedValues: schema80.enum },
+												params: { allowedValues: schema81.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -38234,7 +38524,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/ModelHealth/enum",
 														keyword: "enum",
-														params: { allowedValues: schema88.enum },
+														params: { allowedValues: schema89.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -38371,7 +38661,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						instancePath: instancePath + "/remaining",
 						schemaPath: "#/properties/remaining/type",
 						keyword: "type",
-						params: { type: schema81.properties.remaining.type },
+						params: { type: schema82.properties.remaining.type },
 						message: "must be integer,null"
 					}];
 					return false;
@@ -38413,7 +38703,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/resetAt",
 							schemaPath: "#/properties/resetAt/type",
 							keyword: "type",
-							params: { type: schema81.properties.resetAt.type },
+							params: { type: schema82.properties.resetAt.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -38428,7 +38718,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/retryAfterSeconds",
 								schemaPath: "#/properties/retryAfterSeconds/type",
 								keyword: "type",
-								params: { type: schema81.properties.retryAfterSeconds.type },
+								params: { type: schema82.properties.retryAfterSeconds.type },
 								message: "must be integer,null"
 							}];
 							return false;
@@ -38470,7 +38760,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/window",
 									schemaPath: "#/properties/window/type",
 									keyword: "type",
-									params: { type: schema81.properties.window.type },
+									params: { type: schema82.properties.window.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -38586,7 +38876,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema80.enum },
+										params: { allowedValues: schema81.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -38617,7 +38907,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema82.enum },
+											params: { allowedValues: schema83.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -38672,7 +38962,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/verifiedAt",
 												schemaPath: "#/properties/verifiedAt/type",
 												keyword: "type",
-												params: { type: schema85.properties.verifiedAt.type },
+												params: { type: schema86.properties.verifiedAt.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -38791,7 +39081,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/provider",
 										schemaPath: "#/$defs/ModelProvider/enum",
 										keyword: "enum",
-										params: { allowedValues: schema80.enum },
+										params: { allowedValues: schema81.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -38822,7 +39112,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/thinkingType",
 											schemaPath: "#/$defs/ThinkingType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema82.enum },
+											params: { allowedValues: schema83.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err1];
@@ -38912,7 +39202,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema76.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema77.properties, key0)) {
 						validate423.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -39296,7 +39586,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema97.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema98.properties, key0)) {
 					validate429.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -39327,7 +39617,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/currency",
 								schemaPath: "#/properties/currency/type",
 								keyword: "type",
-								params: { type: schema97.properties.currency.type },
+								params: { type: schema98.properties.currency.type },
 								message: "must be string,null"
 							}];
 							return false;
@@ -39342,7 +39632,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/filledQuantity",
 									schemaPath: "#/properties/filledQuantity/type",
 									keyword: "type",
-									params: { type: schema97.properties.filledQuantity.type },
+									params: { type: schema98.properties.filledQuantity.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -39357,7 +39647,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/filledValue",
 										schemaPath: "#/properties/filledValue/type",
 										keyword: "type",
-										params: { type: schema97.properties.filledValue.type },
+										params: { type: schema98.properties.filledValue.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -39372,7 +39662,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/instrumentId",
 											schemaPath: "#/properties/instrumentId/type",
 											keyword: "type",
-											params: { type: schema97.properties.instrumentId.type },
+											params: { type: schema98.properties.instrumentId.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -39408,7 +39698,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/kind",
 												schemaPath: "#/properties/kind/type",
 												keyword: "type",
-												params: { type: schema97.properties.kind.type },
+												params: { type: schema98.properties.kind.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -39418,7 +39708,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/kind",
 												schemaPath: "#/properties/kind/enum",
 												keyword: "enum",
-												params: { allowedValues: schema97.properties.kind.enum },
+												params: { allowedValues: schema98.properties.kind.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -39433,7 +39723,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/limitPrice",
 													schemaPath: "#/properties/limitPrice/type",
 													keyword: "type",
-													params: { type: schema97.properties.limitPrice.type },
+													params: { type: schema98.properties.limitPrice.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -39448,7 +39738,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/notional",
 														schemaPath: "#/properties/notional/type",
 														keyword: "type",
-														params: { type: schema97.properties.notional.type },
+														params: { type: schema98.properties.notional.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -39463,7 +39753,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/quantity",
 															schemaPath: "#/properties/quantity/type",
 															keyword: "type",
-															params: { type: schema97.properties.quantity.type },
+															params: { type: schema98.properties.quantity.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -39520,7 +39810,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/triggerPrice",
 																			schemaPath: "#/properties/triggerPrice/type",
 																			keyword: "type",
-																			params: { type: schema97.properties.triggerPrice.type },
+																			params: { type: schema98.properties.triggerPrice.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -39671,7 +39961,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.OrderDraft = validate431;
-	var schema143 = {
+	var schema144 = {
 		"type": "object",
 		"properties": {
 			"accountId": {
@@ -39721,15 +40011,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"timeInForce"
 		]
 	};
-	var schema145 = {
+	var schema146 = {
 		"type": "string",
 		"enum": ["MARKET", "LIMIT"]
 	};
-	var schema148 = {
+	var schema149 = {
 		"type": "string",
 		"enum": ["BUY", "SELL"]
 	};
-	var schema149 = {
+	var schema150 = {
 		"type": "string",
 		"enum": [
 			"DAY",
@@ -39738,7 +40028,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FOK"
 		]
 	};
-	var schema147 = {
+	var schema148 = {
 		"type": "string",
 		"enum": ["BASE", "QUOTE"]
 	};
@@ -39786,7 +40076,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/type",
 							schemaPath: "#/$defs/OrderQuantityType/enum",
 							keyword: "enum",
-							params: { allowedValues: schema147.enum },
+							params: { allowedValues: schema148.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -39868,7 +40158,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema143.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema144.properties, key0)) {
 						validate88.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -39887,7 +40177,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountId",
 									schemaPath: "#/properties/accountId/type",
 									keyword: "type",
-									params: { type: schema143.properties.accountId.type },
+									params: { type: schema144.properties.accountId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -39926,7 +40216,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/clientLabel",
 										schemaPath: "#/properties/clientLabel/type",
 										keyword: "type",
-										params: { type: schema143.properties.clientLabel.type },
+										params: { type: schema144.properties.clientLabel.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -39975,7 +40265,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/environment",
 											schemaPath: "#/$defs/ExecutionContext/enum",
 											keyword: "enum",
-											params: { allowedValues: schema60.enum },
+											params: { allowedValues: schema61.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -40115,7 +40405,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/orderType",
 															schemaPath: "#/$defs/OrderType/enum",
 															keyword: "enum",
-															params: { allowedValues: schema145.enum },
+															params: { allowedValues: schema146.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -40156,7 +40446,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/side",
 																	schemaPath: "#/$defs/OrderSide/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema148.enum },
+																	params: { allowedValues: schema149.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -40182,7 +40472,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/timeInForce",
 																		schemaPath: "#/$defs/TimeInForce/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema149.enum },
+																		params: { allowedValues: schema150.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -40547,7 +40837,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema143.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema144.properties, key0)) {
 						validate433.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -40566,7 +40856,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountId",
 									schemaPath: "#/properties/accountId/type",
 									keyword: "type",
-									params: { type: schema143.properties.accountId.type },
+									params: { type: schema144.properties.accountId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -40605,7 +40895,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/clientLabel",
 										schemaPath: "#/properties/clientLabel/type",
 										keyword: "type",
-										params: { type: schema143.properties.clientLabel.type },
+										params: { type: schema144.properties.clientLabel.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -40654,7 +40944,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/environment",
 											schemaPath: "#/$defs/ExecutionContext/enum",
 											keyword: "enum",
-											params: { allowedValues: schema60.enum },
+											params: { allowedValues: schema61.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -40794,7 +41084,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/orderType",
 															schemaPath: "#/$defs/OrderType/enum",
 															keyword: "enum",
-															params: { allowedValues: schema145.enum },
+															params: { allowedValues: schema146.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -40835,7 +41125,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/side",
 																	schemaPath: "#/$defs/OrderSide/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema148.enum },
+																	params: { allowedValues: schema149.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -40861,7 +41151,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/timeInForce",
 																		schemaPath: "#/$defs/TimeInForce/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema149.enum },
+																		params: { allowedValues: schema150.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -41059,7 +41349,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/environment",
 									schemaPath: "#/$defs/ExecutionContext/enum",
 									keyword: "enum",
-									params: { allowedValues: schema60.enum },
+									params: { allowedValues: schema61.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -41523,7 +41813,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.OrderDraftSave = validate438;
-	var schema154 = {
+	var schema155 = {
 		"type": "object",
 		"properties": {
 			"draftId": {
@@ -41585,7 +41875,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/draftId",
 									schemaPath: "#/properties/draftId/type",
 									keyword: "type",
-									params: { type: schema154.properties.draftId.type },
+									params: { type: schema155.properties.draftId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -41624,7 +41914,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/expectedStateVersion",
 										schemaPath: "#/properties/expectedStateVersion/type",
 										keyword: "type",
-										params: { type: schema154.properties.expectedStateVersion.type },
+										params: { type: schema155.properties.expectedStateVersion.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -41853,7 +42143,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/environment",
 									schemaPath: "#/$defs/ExecutionContext/enum",
 									keyword: "enum",
-									params: { allowedValues: schema60.enum },
+									params: { allowedValues: schema61.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -42026,7 +42316,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.OrderProposal = validate441;
-	var schema155 = {
+	var schema156 = {
 		"type": "object",
 		"properties": {
 			"createdAt": {
@@ -42137,7 +42427,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"history"
 		]
 	};
-	var schema159 = {
+	var schema160 = {
 		"type": "string",
 		"enum": [
 			"AVAILABLE",
@@ -42145,11 +42435,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"UNAVAILABLE"
 		]
 	};
-	var schema160 = {
+	var schema161 = {
 		"type": "string",
 		"enum": ["NEEDS_APPROVAL", "INVALIDATED"]
 	};
-	var schema156 = {
+	var schema157 = {
 		"type": "object",
 		"properties": {
 			"event": { "$ref": "#/$defs/OrderProposalHistoryEvent" },
@@ -42167,7 +42457,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"additionalProperties": false,
 		"required": ["event", "occurredAt"]
 	};
-	var schema157 = {
+	var schema158 = {
 		"type": "string",
 		"enum": [
 			"GENERATED",
@@ -42219,7 +42509,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/event",
 							schemaPath: "#/$defs/OrderProposalHistoryEvent/enum",
 							keyword: "enum",
-							params: { allowedValues: schema157.enum },
+							params: { allowedValues: schema158.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -42269,7 +42559,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/reason",
 									schemaPath: "#/properties/reason/type",
 									keyword: "type",
-									params: { type: schema156.properties.reason.type },
+									params: { type: schema157.properties.reason.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -42339,7 +42629,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema155.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema156.properties, key0)) {
 						validate441.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -42517,7 +42807,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/estimatedNotionalCurrency",
 													schemaPath: "#/properties/estimatedNotionalCurrency/type",
 													keyword: "type",
-													params: { type: schema155.properties.estimatedNotionalCurrency.type },
+													params: { type: schema156.properties.estimatedNotionalCurrency.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -42556,7 +42846,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/estimatedNotionalReason",
 														schemaPath: "#/properties/estimatedNotionalReason/type",
 														keyword: "type",
-														params: { type: schema155.properties.estimatedNotionalReason.type },
+														params: { type: schema156.properties.estimatedNotionalReason.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -42655,7 +42945,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/invalidationReason",
 																	schemaPath: "#/properties/invalidationReason/type",
 																	keyword: "type",
-																	params: { type: schema155.properties.invalidationReason.type },
+																	params: { type: schema156.properties.invalidationReason.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -42732,7 +43022,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/marketSnapshotId",
 																			schemaPath: "#/properties/marketSnapshotId/type",
 																			keyword: "type",
-																			params: { type: schema155.properties.marketSnapshotId.type },
+																			params: { type: schema156.properties.marketSnapshotId.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -42781,7 +43071,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/marketStatus",
 																				schemaPath: "#/$defs/MarketDataStatus/enum",
 																				keyword: "enum",
-																				params: { allowedValues: schema158.enum },
+																				params: { allowedValues: schema159.enum },
 																				message: "must be equal to one of the allowed values"
 																			}];
 																			return false;
@@ -42835,7 +43125,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/policyStateVersion",
 																						schemaPath: "#/properties/policyStateVersion/type",
 																						keyword: "type",
-																						params: { type: schema155.properties.policyStateVersion.type },
+																						params: { type: schema156.properties.policyStateVersion.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -42884,7 +43174,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/policyStatus",
 																							schemaPath: "#/$defs/ProposalReferenceStatus/enum",
 																							keyword: "enum",
-																							params: { allowedValues: schema159.enum },
+																							params: { allowedValues: schema160.enum },
 																							message: "must be equal to one of the allowed values"
 																						}];
 																						return false;
@@ -42900,7 +43190,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/policyVersion",
 																								schemaPath: "#/properties/policyVersion/type",
 																								keyword: "type",
-																								params: { type: schema155.properties.policyVersion.type },
+																								params: { type: schema156.properties.policyVersion.type },
 																								message: "must be integer,null"
 																							}];
 																							return false;
@@ -43048,7 +43338,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												instancePath: instancePath + "/status",
 																												schemaPath: "#/$defs/OrderProposalStatus/enum",
 																												keyword: "enum",
-																												params: { allowedValues: schema160.enum },
+																												params: { allowedValues: schema161.enum },
 																												message: "must be equal to one of the allowed values"
 																											}];
 																											return false;
@@ -43339,7 +43629,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/event",
 							schemaPath: "#/$defs/OrderProposalHistoryEvent/enum",
 							keyword: "enum",
-							params: { allowedValues: schema157.enum },
+							params: { allowedValues: schema158.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -43389,7 +43679,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/reason",
 									schemaPath: "#/properties/reason/type",
 									keyword: "type",
-									params: { type: schema156.properties.reason.type },
+									params: { type: schema157.properties.reason.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -43459,7 +43749,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema157.enum },
+				params: { allowedValues: schema158.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -43472,7 +43762,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.OrderProposalLibrary = validate447;
-	var schema163 = {
+	var schema164 = {
 		"type": "object",
 		"properties": {
 			"createdAt": {
@@ -43546,7 +43836,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema163.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema164.properties, key0)) {
 					validate106.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -43675,7 +43965,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/invalidationReason",
 										schemaPath: "#/properties/invalidationReason/type",
 										keyword: "type",
-										params: { type: schema163.properties.invalidationReason.type },
+										params: { type: schema164.properties.invalidationReason.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -43817,7 +44107,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/OrderProposalStatus/enum",
 														keyword: "enum",
-														params: { allowedValues: schema160.enum },
+														params: { allowedValues: schema161.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -44331,7 +44621,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.OrderProposalRefreshResult = validate451;
-	var schema167 = {
+	var schema168 = {
 		"type": "string",
 		"enum": [
 			"REFRESHED",
@@ -44360,7 +44650,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema155.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema156.properties, key0)) {
 						validate100.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -44538,7 +44828,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/estimatedNotionalCurrency",
 													schemaPath: "#/properties/estimatedNotionalCurrency/type",
 													keyword: "type",
-													params: { type: schema155.properties.estimatedNotionalCurrency.type },
+													params: { type: schema156.properties.estimatedNotionalCurrency.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -44577,7 +44867,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/estimatedNotionalReason",
 														schemaPath: "#/properties/estimatedNotionalReason/type",
 														keyword: "type",
-														params: { type: schema155.properties.estimatedNotionalReason.type },
+														params: { type: schema156.properties.estimatedNotionalReason.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -44676,7 +44966,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/invalidationReason",
 																	schemaPath: "#/properties/invalidationReason/type",
 																	keyword: "type",
-																	params: { type: schema155.properties.invalidationReason.type },
+																	params: { type: schema156.properties.invalidationReason.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -44753,7 +45043,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/marketSnapshotId",
 																			schemaPath: "#/properties/marketSnapshotId/type",
 																			keyword: "type",
-																			params: { type: schema155.properties.marketSnapshotId.type },
+																			params: { type: schema156.properties.marketSnapshotId.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -44802,7 +45092,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/marketStatus",
 																				schemaPath: "#/$defs/MarketDataStatus/enum",
 																				keyword: "enum",
-																				params: { allowedValues: schema158.enum },
+																				params: { allowedValues: schema159.enum },
 																				message: "must be equal to one of the allowed values"
 																			}];
 																			return false;
@@ -44856,7 +45146,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/policyStateVersion",
 																						schemaPath: "#/properties/policyStateVersion/type",
 																						keyword: "type",
-																						params: { type: schema155.properties.policyStateVersion.type },
+																						params: { type: schema156.properties.policyStateVersion.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -44905,7 +45195,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/policyStatus",
 																							schemaPath: "#/$defs/ProposalReferenceStatus/enum",
 																							keyword: "enum",
-																							params: { allowedValues: schema159.enum },
+																							params: { allowedValues: schema160.enum },
 																							message: "must be equal to one of the allowed values"
 																						}];
 																						return false;
@@ -44921,7 +45211,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/policyVersion",
 																								schemaPath: "#/properties/policyVersion/type",
 																								keyword: "type",
-																								params: { type: schema155.properties.policyVersion.type },
+																								params: { type: schema156.properties.policyVersion.type },
 																								message: "must be integer,null"
 																							}];
 																							return false;
@@ -45069,7 +45359,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												instancePath: instancePath + "/status",
 																												schemaPath: "#/$defs/OrderProposalStatus/enum",
 																												keyword: "enum",
-																												params: { allowedValues: schema160.enum },
+																												params: { allowedValues: schema161.enum },
 																												message: "must be equal to one of the allowed values"
 																											}];
 																											return false;
@@ -45272,7 +45562,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/refreshStatus",
 												schemaPath: "#/$defs/OrderProposalRefreshStatus/enum",
 												keyword: "enum",
-												params: { allowedValues: schema167.enum },
+												params: { allowedValues: schema168.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -45324,7 +45614,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema167.enum },
+				params: { allowedValues: schema168.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -45357,7 +45647,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema160.enum },
+				params: { allowedValues: schema161.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -45387,7 +45677,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema163.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema164.properties, key0)) {
 					validate456.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -45516,7 +45806,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/invalidationReason",
 										schemaPath: "#/properties/invalidationReason/type",
 										keyword: "type",
-										params: { type: schema163.properties.invalidationReason.type },
+										params: { type: schema164.properties.invalidationReason.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -45658,7 +45948,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/OrderProposalStatus/enum",
 														keyword: "enum",
-														params: { allowedValues: schema160.enum },
+														params: { allowedValues: schema161.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -45772,7 +46062,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/type",
 							schemaPath: "#/$defs/OrderQuantityType/enum",
 							keyword: "enum",
-							params: { allowedValues: schema147.enum },
+							params: { allowedValues: schema148.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -45855,7 +46145,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema147.enum },
+				params: { allowedValues: schema148.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -45888,7 +46178,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema148.enum },
+				params: { allowedValues: schema149.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -45921,7 +46211,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema145.enum },
+				params: { allowedValues: schema146.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -46036,7 +46326,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/ipAllowList",
 										schemaPath: "#/properties/ipAllowList/type",
 										keyword: "type",
-										params: { type: schema100.properties.ipAllowList.type },
+										params: { type: schema101.properties.ipAllowList.type },
 										message: "must be array,null"
 									}];
 									return false;
@@ -46088,7 +46378,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/scope",
 												schemaPath: "#/properties/scope/enum",
 												keyword: "enum",
-												params: { allowedValues: schema100.properties.scope.enum },
+												params: { allowedValues: schema101.properties.scope.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -46148,7 +46438,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.PortfolioAccount = validate462;
-	var schema237 = {
+	var schema238 = {
 		"type": "object",
 		"properties": {
 			"accountCurrency": {
@@ -46213,7 +46503,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"openOrdersCount"
 		]
 	};
-	var schema238 = {
+	var schema239 = {
 		"type": "object",
 		"properties": {
 			"accountCurrency": {
@@ -46285,7 +46575,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/depegWarning",
 							schemaPath: "#/properties/depegWarning/type",
 							keyword: "type",
-							params: { type: schema239.properties.depegWarning.type },
+							params: { type: schema240.properties.depegWarning.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -46331,7 +46621,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/freshness",
 								schemaPath: "#/$defs/FxFreshness/enum",
 								keyword: "enum",
-								params: { allowedValues: schema240.enum },
+								params: { allowedValues: schema241.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -46426,7 +46716,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/quality",
 											schemaPath: "#/$defs/FxQuality/enum",
 											keyword: "enum",
-											params: { allowedValues: schema241.enum },
+											params: { allowedValues: schema242.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -46603,7 +46893,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountCurrency",
 									schemaPath: "#/properties/accountCurrency/type",
 									keyword: "type",
-									params: { type: schema238.properties.accountCurrency.type },
+									params: { type: schema239.properties.accountCurrency.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -46736,7 +47026,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/nativeCurrency",
 												schemaPath: "#/properties/nativeCurrency/type",
 												keyword: "type",
-												params: { type: schema238.properties.nativeCurrency.type },
+												params: { type: schema239.properties.nativeCurrency.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -46927,7 +47217,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema237.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema238.properties, key0)) {
 						validate462.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -46946,7 +47236,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountCurrency",
 									schemaPath: "#/properties/accountCurrency/type",
 									keyword: "type",
-									params: { type: schema237.properties.accountCurrency.type },
+									params: { type: schema238.properties.accountCurrency.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -47048,7 +47338,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/connectionState",
 												schemaPath: "#/$defs/ConnectionState/enum",
 												keyword: "enum",
-												params: { allowedValues: schema94.enum },
+												params: { allowedValues: schema95.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -47117,7 +47407,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/fillsCount",
 															schemaPath: "#/properties/fillsCount/type",
 															keyword: "type",
-															params: { type: schema237.properties.fillsCount.type },
+															params: { type: schema238.properties.fillsCount.type },
 															message: "must be integer,null"
 														}];
 														return false;
@@ -47522,7 +47812,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.PortfolioFill = validate465;
-	var schema244 = {
+	var schema245 = {
 		"type": "object",
 		"properties": {
 			"accountLabel": {
@@ -47595,7 +47885,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema244.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema245.properties, key0)) {
 						validate465.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -47936,7 +48226,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/instrumentId",
 														schemaPath: "#/properties/instrumentId/type",
 														keyword: "type",
-														params: { type: schema244.properties.instrumentId.type },
+														params: { type: schema245.properties.instrumentId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -48087,7 +48377,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.PortfolioHolding = validate467;
-	var schema246 = {
+	var schema247 = {
 		"type": "object",
 		"properties": {
 			"accountLabel": {
@@ -48171,7 +48461,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema246.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema247.properties, key0)) {
 						validate467.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -48512,7 +48802,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/instrumentId",
 														schemaPath: "#/properties/instrumentId/type",
 														keyword: "type",
-														params: { type: schema246.properties.instrumentId.type },
+														params: { type: schema247.properties.instrumentId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -48736,7 +49026,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/venue",
 																				schemaPath: "#/properties/venue/type",
 																				keyword: "type",
-																				params: { type: schema246.properties.venue.type },
+																				params: { type: schema247.properties.venue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -48895,7 +49185,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.PortfolioOrder = validate471;
-	var schema249 = {
+	var schema250 = {
 		"type": "object",
 		"properties": {
 			"accountLabel": {
@@ -48984,7 +49274,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema249.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema250.properties, key0)) {
 					validate471.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -49141,7 +49431,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/currency",
 											schemaPath: "#/properties/currency/type",
 											keyword: "type",
-											params: { type: schema249.properties.currency.type },
+											params: { type: schema250.properties.currency.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -49333,7 +49623,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/instrumentId",
 													schemaPath: "#/properties/instrumentId/type",
 													keyword: "type",
-													params: { type: schema249.properties.instrumentId.type },
+													params: { type: schema250.properties.instrumentId.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -49647,7 +49937,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.PortfolioSnapshot = validate473;
-	var schema236 = {
+	var schema237 = {
 		"type": "object",
 		"properties": {
 			"accounts": {
@@ -49713,7 +50003,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"liveRisk"
 		]
 	};
-	var schema251 = {
+	var schema252 = {
 		"type": "string",
 		"enum": [
 			"AVAILABLE",
@@ -49742,7 +50032,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema237.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema238.properties, key0)) {
 						validate173.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -49761,7 +50051,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountCurrency",
 									schemaPath: "#/properties/accountCurrency/type",
 									keyword: "type",
-									params: { type: schema237.properties.accountCurrency.type },
+									params: { type: schema238.properties.accountCurrency.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -49863,7 +50153,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/connectionState",
 												schemaPath: "#/$defs/ConnectionState/enum",
 												keyword: "enum",
-												params: { allowedValues: schema94.enum },
+												params: { allowedValues: schema95.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -49932,7 +50222,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/fillsCount",
 															schemaPath: "#/properties/fillsCount/type",
 															keyword: "type",
-															params: { type: schema237.properties.fillsCount.type },
+															params: { type: schema238.properties.fillsCount.type },
 															message: "must be integer,null"
 														}];
 														return false;
@@ -50356,7 +50646,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema244.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema245.properties, key0)) {
 						validate180.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -50697,7 +50987,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/instrumentId",
 														schemaPath: "#/properties/instrumentId/type",
 														keyword: "type",
-														params: { type: schema244.properties.instrumentId.type },
+														params: { type: schema245.properties.instrumentId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -50867,7 +51157,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema246.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema247.properties, key0)) {
 						validate184.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -51208,7 +51498,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/instrumentId",
 														schemaPath: "#/properties/instrumentId/type",
 														keyword: "type",
-														params: { type: schema246.properties.instrumentId.type },
+														params: { type: schema247.properties.instrumentId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -51432,7 +51722,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				instancePath: instancePath + "/venue",
 																				schemaPath: "#/properties/venue/type",
 																				keyword: "type",
-																				params: { type: schema246.properties.venue.type },
+																				params: { type: schema247.properties.venue.type },
 																				message: "must be string,null"
 																			}];
 																			return false;
@@ -51511,7 +51801,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema249.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema250.properties, key0)) {
 					validate188.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -51668,7 +51958,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/currency",
 											schemaPath: "#/properties/currency/type",
 											keyword: "type",
-											params: { type: schema249.properties.currency.type },
+											params: { type: schema250.properties.currency.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -51860,7 +52150,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/instrumentId",
 													schemaPath: "#/properties/instrumentId/type",
 													keyword: "type",
-													params: { type: schema249.properties.instrumentId.type },
+													params: { type: schema250.properties.instrumentId.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -52243,7 +52533,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema236.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema237.properties, key0)) {
 						validate473.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -52374,7 +52664,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/fills",
 												schemaPath: "#/properties/fills/type",
 												keyword: "type",
-												params: { type: schema236.properties.fills.type },
+												params: { type: schema237.properties.fills.type },
 												message: "must be array,null"
 											}];
 											return false;
@@ -52700,7 +52990,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/status",
 																		schemaPath: "#/$defs/PortfolioStatus/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema251.enum },
+																		params: { allowedValues: schema252.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -52813,7 +53103,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema251.enum },
+				params: { allowedValues: schema252.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -52996,7 +53286,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountCurrency",
 									schemaPath: "#/properties/accountCurrency/type",
 									keyword: "type",
-									params: { type: schema238.properties.accountCurrency.type },
+									params: { type: schema239.properties.accountCurrency.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -53129,7 +53419,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/nativeCurrency",
 												schemaPath: "#/properties/nativeCurrency/type",
 												keyword: "type",
-												params: { type: schema238.properties.nativeCurrency.type },
+												params: { type: schema239.properties.nativeCurrency.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -53335,7 +53625,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/averageEntryPrice",
 							schemaPath: "#/properties/averageEntryPrice/type",
 							keyword: "type",
-							params: { type: schema98.properties.averageEntryPrice.type },
+							params: { type: schema99.properties.averageEntryPrice.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -53350,7 +53640,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/instrumentCurrency",
 								schemaPath: "#/properties/instrumentCurrency/type",
 								keyword: "type",
-								params: { type: schema98.properties.instrumentCurrency.type },
+								params: { type: schema99.properties.instrumentCurrency.type },
 								message: "must be string,null"
 							}];
 							return false;
@@ -53365,7 +53655,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/instrumentId",
 									schemaPath: "#/properties/instrumentId/type",
 									keyword: "type",
-									params: { type: schema98.properties.instrumentId.type },
+									params: { type: schema99.properties.instrumentId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -53401,7 +53691,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/marketValue",
 										schemaPath: "#/properties/marketValue/type",
 										keyword: "type",
-										params: { type: schema98.properties.marketValue.type },
+										params: { type: schema99.properties.marketValue.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -53416,7 +53706,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/marketValueCurrency",
 											schemaPath: "#/properties/marketValueCurrency/type",
 											keyword: "type",
-											params: { type: schema98.properties.marketValueCurrency.type },
+											params: { type: schema99.properties.marketValueCurrency.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -53497,7 +53787,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema159.enum },
+				params: { allowedValues: schema160.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -53510,7 +53800,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ProviderCatalog = validate491;
-	var schema198 = {
+	var schema199 = {
 		"type": "object",
 		"properties": {
 			"available": { "type": "boolean" },
@@ -53565,7 +53855,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema198.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema199.properties, key0)) {
 					validate137.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -54040,7 +54330,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema198.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema199.properties, key0)) {
 					validate493.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -54671,11 +54961,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.RankSpec = validate496;
-	var schema271 = {
+	var schema272 = {
 		"type": "string",
 		"enum": ["ASC", "DESC"]
 	};
-	var schema272 = {
+	var schema273 = {
 		"type": "string",
 		"enum": [
 			"QUALITY",
@@ -54727,7 +55017,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/direction",
 							schemaPath: "#/$defs/ScreenerDirection/enum",
 							keyword: "enum",
-							params: { allowedValues: schema271.enum },
+							params: { allowedValues: schema272.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -54752,7 +55042,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/field",
 								schemaPath: "#/$defs/ScreenerRankField/enum",
 								keyword: "enum",
-								params: { allowedValues: schema272.enum },
+								params: { allowedValues: schema273.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -54867,7 +55157,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ReplyData = validate498;
-	var schema191 = {
+	var schema192 = {
 		"type": "object",
 		"properties": {
 			"afterSequence": {
@@ -54913,7 +55203,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"replayedCount"
 		]
 	};
-	var schema185 = {
+	var schema186 = {
 		"type": "object",
 		"properties": {
 			"aggregateId": {
@@ -55025,7 +55315,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/enum",
 										keyword: "enum",
-										params: { allowedValues: schema185.properties.aggregateType.enum },
+										params: { allowedValues: schema186.properties.aggregateType.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -55299,7 +55589,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema188 = {
+	var schema189 = {
 		"type": "object",
 		"properties": {
 			"confidence": { "$ref": "#/$defs/TimeConfidence" },
@@ -55390,7 +55680,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/confidence",
 							schemaPath: "#/$defs/TimeConfidence/enum",
 							keyword: "enum",
-							params: { allowedValues: schema189.enum },
+							params: { allowedValues: schema190.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -55482,7 +55772,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/providerOffsetMs",
 										schemaPath: "#/properties/providerOffsetMs/type",
 										keyword: "type",
-										params: { type: schema188.properties.providerOffsetMs.type },
+										params: { type: schema189.properties.providerOffsetMs.type },
 										message: "must be integer,null"
 									}];
 									return false;
@@ -55742,7 +56032,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/defaultAgentMode",
 							schemaPath: "#/$defs/AgentMode/enum",
 							keyword: "enum",
-							params: { allowedValues: schema58.enum },
+							params: { allowedValues: schema59.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -55767,7 +56057,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/defaultExecutionContext",
 								schemaPath: "#/$defs/ExecutionContext/enum",
 								keyword: "enum",
-								params: { allowedValues: schema60.enum },
+								params: { allowedValues: schema61.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -55792,7 +56082,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/status",
 									schemaPath: "#/$defs/ThreadStatus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema109.enum },
+									params: { allowedValues: schema110.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -56247,7 +56537,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/allowedTools/" + i0,
 												schemaPath: "#/$defs/ToolId/enum",
 												keyword: "enum",
-												params: { allowedValues: schema203.enum },
+												params: { allowedValues: schema204.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -56301,7 +56591,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/level",
 											schemaPath: "#/$defs/CapabilityLevel/enum",
 											keyword: "enum",
-											params: { allowedValues: schema61.enum },
+											params: { allowedValues: schema62.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -56317,7 +56607,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/reason",
 												schemaPath: "#/properties/reason/type",
 												keyword: "type",
-												params: { type: schema202.properties.reason.type },
+												params: { type: schema203.properties.reason.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -56525,7 +56815,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/emptyStates/" + i0 + "/kind",
 																			schemaPath: "#/$defs/ContextCatalogEmptyState/properties/kind/enum",
 																			keyword: "enum",
-																			params: { allowedValues: schema208.properties.kind.enum },
+																			params: { allowedValues: schema209.properties.kind.enum },
 																			message: "must be equal to one of the allowed values"
 																		}];
 																		return false;
@@ -57011,7 +57301,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/status",
 													schemaPath: "#/$defs/MarketDataStatus/enum",
 													keyword: "enum",
-													params: { allowedValues: schema158.enum },
+													params: { allowedValues: schema159.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -57037,7 +57327,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/tier",
 														schemaPath: "#/$defs/MarketTier/enum",
 														keyword: "enum",
-														params: { allowedValues: schema138.enum },
+														params: { allowedValues: schema139.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -57129,7 +57419,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema221.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema222.properties, key0)) {
 						validate161.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -57158,7 +57448,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/adjustmentStatus",
 									schemaPath: "#/$defs/AdjustmentStatus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema222.enum },
+									params: { allowedValues: schema223.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -57391,7 +57681,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/status",
 																schemaPath: "#/$defs/MarketDataStatus/enum",
 																keyword: "enum",
-																params: { allowedValues: schema158.enum },
+																params: { allowedValues: schema159.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -57417,7 +57707,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/tier",
 																	schemaPath: "#/$defs/MarketTier/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema138.enum },
+																	params: { allowedValues: schema139.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -57512,7 +57802,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema236.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema237.properties, key0)) {
 						validate172.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -57643,7 +57933,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/fills",
 												schemaPath: "#/properties/fills/type",
 												keyword: "type",
-												params: { type: schema236.properties.fills.type },
+												params: { type: schema237.properties.fills.type },
 												message: "must be array,null"
 											}];
 											return false;
@@ -57969,7 +58259,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/status",
 																		schemaPath: "#/$defs/PortfolioStatus/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema251.enum },
+																		params: { allowedValues: schema252.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -58521,7 +58811,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema256 = {
+	var schema257 = {
 		"type": "object",
 		"properties": {
 			"appliedConditions": {
@@ -58618,11 +58908,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"availabilityReason"
 		]
 	};
-	var schema269 = {
+	var schema270 = {
 		"type": "string",
 		"enum": ["PARSE", "RUN"]
 	};
-	var schema273 = {
+	var schema274 = {
 		"type": "string",
 		"enum": [
 			"PARSED",
@@ -58633,7 +58923,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"FAILED"
 		]
 	};
-	var schema257 = {
+	var schema258 = {
 		"type": "object",
 		"properties": {
 			"features": {
@@ -58673,7 +58963,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"provenance"
 		]
 	};
-	var schema259 = {
+	var schema260 = {
 		"type": "string",
 		"enum": [
 			"REVENUE_GROWTH",
@@ -58729,7 +59019,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/field",
 							schemaPath: "#/$defs/ScreenerFeatureField/enum",
 							keyword: "enum",
-							params: { allowedValues: schema259.enum },
+							params: { allowedValues: schema260.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -58835,7 +59125,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/freshness",
 							schemaPath: "#/$defs/ResearchFreshness/enum",
 							keyword: "enum",
-							params: { allowedValues: schema116.enum },
+							params: { allowedValues: schema117.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -58895,7 +59185,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/quality",
 									schemaPath: "#/$defs/ResearchQuality/enum",
 									keyword: "enum",
-									params: { allowedValues: schema117.enum },
+									params: { allowedValues: schema118.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -59117,7 +59407,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/limitation",
 											schemaPath: "#/properties/limitation/type",
 											keyword: "type",
-											params: { type: schema257.properties.limitation.type },
+											params: { type: schema258.properties.limitation.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -59365,7 +59655,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/universe",
 										schemaPath: "#/$defs/ScreenerUniverse/enum",
 										keyword: "enum",
-										params: { allowedValues: schema267.enum },
+										params: { allowedValues: schema268.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -59438,7 +59728,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/direction",
 							schemaPath: "#/$defs/ScreenerDirection/enum",
 							keyword: "enum",
-							params: { allowedValues: schema271.enum },
+							params: { allowedValues: schema272.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -59463,7 +59753,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/field",
 								schemaPath: "#/$defs/ScreenerRankField/enum",
 								keyword: "enum",
-								params: { allowedValues: schema272.enum },
+								params: { allowedValues: schema273.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -59510,7 +59800,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema256.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema257.properties, key0)) {
 						validate204.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -59834,7 +60124,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/focus",
 															schemaPath: "#/$defs/ResearchFocus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema120.enum },
+															params: { allowedValues: schema121.enum },
 															message: "must be equal to one of the allowed values"
 														};
 														if (vErrors === null) vErrors = [err3];
@@ -60005,7 +60295,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/operation",
 																		schemaPath: "#/$defs/ScreenerOperation/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema269.enum },
+																		params: { allowedValues: schema270.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -60269,7 +60559,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/state",
 																								schemaPath: "#/$defs/ScreenerResultState/enum",
 																								keyword: "enum",
-																								params: { allowedValues: schema273.enum },
+																								params: { allowedValues: schema274.enum },
 																								message: "must be equal to one of the allowed values"
 																							}];
 																							return false;
@@ -60420,7 +60710,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/focus",
 										schemaPath: "#/$defs/ResearchFocus/enum",
 										keyword: "enum",
-										params: { allowedValues: schema120.enum },
+										params: { allowedValues: schema121.enum },
 										message: "must be equal to one of the allowed values"
 									};
 									if (vErrors === null) vErrors = [err1];
@@ -60806,7 +61096,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/state",
 													schemaPath: "#/$defs/ScreenerResultState/enum",
 													keyword: "enum",
-													params: { allowedValues: schema273.enum },
+													params: { allowedValues: schema274.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -62149,7 +62439,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/refreshStatus",
 												schemaPath: "#/$defs/OrderProposalRefreshStatus/enum",
 												keyword: "enum",
-												params: { allowedValues: schema167.enum },
+												params: { allowedValues: schema168.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -62200,7 +62490,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema281.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema282.properties, key0)) {
 						validate233.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -62782,7 +63072,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema292 = {
+	var schema293 = {
 		"type": "object",
 		"properties": {
 			"failureCode": { "type": ["string", "null"] },
@@ -62811,7 +63101,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"updatedAt"
 		]
 	};
-	var schema293 = {
+	var schema294 = {
 		"type": "string",
 		"enum": [
 			"QUEUED",
@@ -62855,7 +63145,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/failureCode",
 							schemaPath: "#/properties/failureCode/type",
 							keyword: "type",
-							params: { type: schema292.properties.failureCode.type },
+							params: { type: schema293.properties.failureCode.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -62915,7 +63205,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/state",
 									schemaPath: "#/$defs/StrategyRunState/enum",
 									keyword: "enum",
-									params: { allowedValues: schema293.enum },
+									params: { allowedValues: schema294.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -63895,7 +64185,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicProps": false,
 		"dynamicItems": false
 	};
-	var schema297 = {
+	var schema298 = {
 		"type": "object",
 		"properties": {
 			"createdAt": {
@@ -63996,7 +64286,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"stateVersion"
 		]
 	};
-	var schema301 = {
+	var schema302 = {
 		"type": "string",
 		"enum": [
 			"BUY",
@@ -64118,7 +64408,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/direction",
 									schemaPath: "#/$defs/StrategyDirection/enum",
 									keyword: "enum",
-									params: { allowedValues: schema301.enum },
+									params: { allowedValues: schema302.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -64346,7 +64636,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema297.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema298.properties, key0)) {
 						validate255.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -64737,7 +65027,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/fixtureLabel",
 													schemaPath: "#/properties/fixtureLabel/type",
 													keyword: "type",
-													params: { type: schema297.properties.fixtureLabel.type },
+													params: { type: schema298.properties.fixtureLabel.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -65173,7 +65463,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/state",
 																					schemaPath: "#/$defs/StrategyRunState/enum",
 																					keyword: "enum",
-																					params: { allowedValues: schema293.enum },
+																					params: { allowedValues: schema294.enum },
 																					message: "must be equal to one of the allowed values"
 																				}];
 																				return false;
@@ -65428,7 +65718,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema49.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema50.properties, key0)) {
 						validate31.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -65895,7 +66185,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/fixtureLabel",
 															schemaPath: "#/properties/fixtureLabel/type",
 															keyword: "type",
-															params: { type: schema49.properties.fixtureLabel.type },
+															params: { type: schema50.properties.fixtureLabel.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -66151,7 +66441,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/portfolioSeed",
 																			schemaPath: "#/properties/portfolioSeed/type",
 																			keyword: "type",
-																			params: { type: schema49.properties.portfolioSeed.type },
+																			params: { type: schema50.properties.portfolioSeed.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -66446,7 +66736,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										instancePath: instancePath + "/state",
 																										schemaPath: "#/$defs/BacktestRunState/enum",
 																										keyword: "enum",
-																										params: { allowedValues: schema52.enum },
+																										params: { allowedValues: schema53.enum },
 																										message: "must be equal to one of the allowed values"
 																									}];
 																									return false;
@@ -67100,7 +67390,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/aggregateType",
 											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema191.properties.aggregateType.enum },
+											params: { allowedValues: schema192.properties.aggregateType.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err21];
@@ -67511,7 +67801,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/ipAllowList",
 												schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 												keyword: "type",
-												params: { type: schema100.properties.ipAllowList.type },
+												params: { type: schema101.properties.ipAllowList.type },
 												message: "must be array,null"
 											};
 											if (vErrors === null) vErrors = [err36];
@@ -67579,7 +67869,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/scope",
 														schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 														keyword: "enum",
-														params: { allowedValues: schema100.properties.scope.enum },
+														params: { allowedValues: schema101.properties.scope.enum },
 														message: "must be equal to one of the allowed values"
 													};
 													if (vErrors === null) vErrors = [err40];
@@ -68467,7 +68757,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema120.enum },
+				params: { allowedValues: schema121.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -68500,7 +68790,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema116.enum },
+				params: { allowedValues: schema117.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -68557,7 +68847,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/freshness",
 							schemaPath: "#/$defs/ResearchFreshness/enum",
 							keyword: "enum",
-							params: { allowedValues: schema116.enum },
+							params: { allowedValues: schema117.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -68572,7 +68862,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/limitation",
 								schemaPath: "#/properties/limitation/type",
 								keyword: "type",
-								params: { type: schema115.properties.limitation.type },
+								params: { type: schema116.properties.limitation.type },
 								message: "must be string,null"
 							}];
 							return false;
@@ -68688,7 +68978,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/quality",
 											schemaPath: "#/$defs/ResearchQuality/enum",
 											keyword: "enum",
-											params: { allowedValues: schema117.enum },
+											params: { allowedValues: schema118.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -68783,7 +69073,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/status",
 														schemaPath: "#/$defs/DataSourceStatus/enum",
 														keyword: "enum",
-														params: { allowedValues: schema118.enum },
+														params: { allowedValues: schema119.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -68837,7 +69127,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema117.enum },
+				params: { allowedValues: schema118.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -68870,7 +69160,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema123.enum },
+				params: { allowedValues: schema124.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -69020,7 +69310,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema122.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema123.properties, key0)) {
 						validate541.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -69039,7 +69329,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/ask",
 									schemaPath: "#/properties/ask/type",
 									keyword: "type",
-									params: { type: schema122.properties.ask.type },
+									params: { type: schema123.properties.ask.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -69078,7 +69368,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/bid",
 										schemaPath: "#/properties/bid/type",
 										keyword: "type",
-										params: { type: schema122.properties.bid.type },
+										params: { type: schema123.properties.bid.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -69117,7 +69407,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/depth",
 											schemaPath: "#/properties/depth/type",
 											keyword: "type",
-											params: { type: schema122.properties.depth.type },
+											params: { type: schema123.properties.depth.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -69156,7 +69446,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/limitation",
 												schemaPath: "#/properties/limitation/type",
 												keyword: "type",
-												params: { type: schema122.properties.limitation.type },
+												params: { type: schema123.properties.limitation.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -69210,7 +69500,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/quoteAge",
 														schemaPath: "#/properties/quoteAge/type",
 														keyword: "type",
-														params: { type: schema122.properties.quoteAge.type },
+														params: { type: schema123.properties.quoteAge.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -69264,7 +69554,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/spread",
 																schemaPath: "#/properties/spread/type",
 																keyword: "type",
-																params: { type: schema122.properties.spread.type },
+																params: { type: schema123.properties.spread.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -69313,7 +69603,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/state",
 																	schemaPath: "#/$defs/ResearchResultState/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema123.enum },
+																	params: { allowedValues: schema124.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -69339,7 +69629,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/venue",
 																		schemaPath: "#/$defs/ResearchSpotVenueId/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema124.enum },
+																		params: { allowedValues: schema125.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -69397,7 +69687,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema124.enum },
+				params: { allowedValues: schema125.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -69489,7 +69779,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/id",
 								schemaPath: "#/$defs/ResearchToolId/enum",
 								keyword: "enum",
-								params: { allowedValues: schema126.enum },
+								params: { allowedValues: schema127.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -69588,7 +69878,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema126.enum },
+				params: { allowedValues: schema127.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -69655,7 +69945,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/focus",
 									schemaPath: "#/$defs/ResearchFocus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema120.enum },
+									params: { allowedValues: schema121.enum },
 									message: "must be equal to one of the allowed values"
 								};
 								if (vErrors === null) vErrors = [err1];
@@ -69758,7 +70048,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/toolId",
 											schemaPath: "#/$defs/ResearchToolId/enum",
 											keyword: "enum",
-											params: { allowedValues: schema126.enum },
+											params: { allowedValues: schema127.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -69809,7 +70099,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema114.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema115.properties, key0)) {
 						validate547.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -69896,7 +70186,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/conclusion",
 										schemaPath: "#/properties/conclusion/type",
 										keyword: "type",
-										params: { type: schema114.properties.conclusion.type },
+										params: { type: schema115.properties.conclusion.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -70251,7 +70541,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/focus",
 															schemaPath: "#/$defs/ResearchFocus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema120.enum },
+															params: { allowedValues: schema121.enum },
 															message: "must be equal to one of the allowed values"
 														};
 														if (vErrors === null) vErrors = [err1];
@@ -70821,7 +71111,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							instancePath: instancePath + "/state",
 																							schemaPath: "#/$defs/ResearchResultState/enum",
 																							keyword: "enum",
-																							params: { allowedValues: schema123.enum },
+																							params: { allowedValues: schema124.enum },
 																							message: "must be equal to one of the allowed values"
 																						}];
 																						return false;
@@ -70951,7 +71241,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/agentMode",
 										schemaPath: "#/$defs/AgentMode/enum",
 										keyword: "enum",
-										params: { allowedValues: schema58.enum },
+										params: { allowedValues: schema59.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -71166,7 +71456,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/executionContext",
 												schemaPath: "#/$defs/ExecutionContext/enum",
 												keyword: "enum",
-												params: { allowedValues: schema60.enum },
+												params: { allowedValues: schema61.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -71197,7 +71487,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/focus",
 													schemaPath: "#/$defs/ResearchFocus/enum",
 													keyword: "enum",
-													params: { allowedValues: schema120.enum },
+													params: { allowedValues: schema121.enum },
 													message: "must be equal to one of the allowed values"
 												};
 												if (vErrors === null) vErrors = [err1];
@@ -71300,7 +71590,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/toolId",
 															schemaPath: "#/$defs/ResearchToolId/enum",
 															keyword: "enum",
-															params: { allowedValues: schema126.enum },
+															params: { allowedValues: schema127.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -71817,7 +72107,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/toolId",
 																schemaPath: "#/$defs/ResearchToolId/enum",
 																keyword: "enum",
-																params: { allowedValues: schema126.enum },
+																params: { allowedValues: schema127.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -72267,7 +72557,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/aggregateType",
 											schemaPath: "#/$defs/SubscriptionAck/properties/aggregateType/enum",
 											keyword: "enum",
-											params: { allowedValues: schema191.properties.aggregateType.enum },
+											params: { allowedValues: schema192.properties.aggregateType.enum },
 											message: "must be equal to one of the allowed values"
 										};
 										if (vErrors === null) vErrors = [err21];
@@ -72678,7 +72968,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/ipAllowList",
 												schemaPath: "#/$defs/PermissionReview/properties/ipAllowList/type",
 												keyword: "type",
-												params: { type: schema100.properties.ipAllowList.type },
+												params: { type: schema101.properties.ipAllowList.type },
 												message: "must be array,null"
 											};
 											if (vErrors === null) vErrors = [err36];
@@ -72746,7 +73036,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/scope",
 														schemaPath: "#/$defs/PermissionReview/properties/scope/enum",
 														keyword: "enum",
-														params: { allowedValues: schema100.properties.scope.enum },
+														params: { allowedValues: schema101.properties.scope.enum },
 														message: "must be equal to one of the allowed values"
 													};
 													if (vErrors === null) vErrors = [err40];
@@ -74035,7 +74325,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/maxDailyRealizedLoss",
 									schemaPath: "#/properties/maxDailyRealizedLoss/type",
 									keyword: "type",
-									params: { type: schema103.properties.maxDailyRealizedLoss.type },
+									params: { type: schema104.properties.maxDailyRealizedLoss.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -74062,7 +74352,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/maxDailyTradedNotional",
 										schemaPath: "#/properties/maxDailyTradedNotional/type",
 										keyword: "type",
-										params: { type: schema103.properties.maxDailyTradedNotional.type },
+										params: { type: schema104.properties.maxDailyTradedNotional.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -74089,7 +74379,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/maxOrderNotional",
 											schemaPath: "#/properties/maxOrderNotional/type",
 											keyword: "type",
-											params: { type: schema103.properties.maxOrderNotional.type },
+											params: { type: schema104.properties.maxOrderNotional.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -74116,7 +74406,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
 												schemaPath: "#/properties/maxSingleInstrumentExposurePercent/type",
 												keyword: "type",
-												params: { type: schema103.properties.maxSingleInstrumentExposurePercent.type },
+												params: { type: schema104.properties.maxSingleInstrumentExposurePercent.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -74203,7 +74493,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.RiskPolicyInput = validate557;
-	var schema308 = {
+	var schema309 = {
 		"type": "object",
 		"properties": {
 			"liveInactivityTimeoutMinutes": {
@@ -74337,7 +74627,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/maxDailyRealizedLoss",
 									schemaPath: "#/properties/maxDailyRealizedLoss/type",
 									keyword: "type",
-									params: { type: schema308.properties.maxDailyRealizedLoss.type },
+									params: { type: schema309.properties.maxDailyRealizedLoss.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -74364,7 +74654,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/maxDailyTradedNotional",
 										schemaPath: "#/properties/maxDailyTradedNotional/type",
 										keyword: "type",
-										params: { type: schema308.properties.maxDailyTradedNotional.type },
+										params: { type: schema309.properties.maxDailyTradedNotional.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -74391,7 +74681,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/maxOrderNotional",
 											schemaPath: "#/properties/maxOrderNotional/type",
 											keyword: "type",
-											params: { type: schema308.properties.maxOrderNotional.type },
+											params: { type: schema309.properties.maxOrderNotional.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -74418,7 +74708,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/maxSingleInstrumentExposurePercent",
 												schemaPath: "#/properties/maxSingleInstrumentExposurePercent/type",
 												keyword: "type",
-												params: { type: schema308.properties.maxSingleInstrumentExposurePercent.type },
+												params: { type: schema309.properties.maxSingleInstrumentExposurePercent.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -74522,7 +74812,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema101.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema102.properties, key0)) {
 					validate558.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -74812,7 +75102,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/policy/maxDailyRealizedLoss",
 																schemaPath: "#/$defs/RiskPolicy/properties/maxDailyRealizedLoss/type",
 																keyword: "type",
-																params: { type: schema103.properties.maxDailyRealizedLoss.type },
+																params: { type: schema104.properties.maxDailyRealizedLoss.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -74839,7 +75129,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/policy/maxDailyTradedNotional",
 																	schemaPath: "#/$defs/RiskPolicy/properties/maxDailyTradedNotional/type",
 																	keyword: "type",
-																	params: { type: schema103.properties.maxDailyTradedNotional.type },
+																	params: { type: schema104.properties.maxDailyTradedNotional.type },
 																	message: "must be string,null"
 																}];
 																return false;
@@ -74866,7 +75156,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/policy/maxOrderNotional",
 																		schemaPath: "#/$defs/RiskPolicy/properties/maxOrderNotional/type",
 																		keyword: "type",
-																		params: { type: schema103.properties.maxOrderNotional.type },
+																		params: { type: schema104.properties.maxOrderNotional.type },
 																		message: "must be string,null"
 																	}];
 																	return false;
@@ -74893,7 +75183,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																			instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
 																			schemaPath: "#/$defs/RiskPolicy/properties/maxSingleInstrumentExposurePercent/type",
 																			keyword: "type",
-																			params: { type: schema103.properties.maxSingleInstrumentExposurePercent.type },
+																			params: { type: schema104.properties.maxSingleInstrumentExposurePercent.type },
 																			message: "must be string,null"
 																		}];
 																		return false;
@@ -75630,7 +75920,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/policy/maxDailyRealizedLoss",
 													schemaPath: "#/$defs/RiskPolicyInput/properties/maxDailyRealizedLoss/type",
 													keyword: "type",
-													params: { type: schema308.properties.maxDailyRealizedLoss.type },
+													params: { type: schema309.properties.maxDailyRealizedLoss.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -75657,7 +75947,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/policy/maxDailyTradedNotional",
 														schemaPath: "#/$defs/RiskPolicyInput/properties/maxDailyTradedNotional/type",
 														keyword: "type",
-														params: { type: schema308.properties.maxDailyTradedNotional.type },
+														params: { type: schema309.properties.maxDailyTradedNotional.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -75684,7 +75974,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/policy/maxOrderNotional",
 															schemaPath: "#/$defs/RiskPolicyInput/properties/maxOrderNotional/type",
 															keyword: "type",
-															params: { type: schema308.properties.maxOrderNotional.type },
+															params: { type: schema309.properties.maxOrderNotional.type },
 															message: "must be string,null"
 														}];
 														return false;
@@ -75711,7 +76001,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/policy/maxSingleInstrumentExposurePercent",
 																schemaPath: "#/$defs/RiskPolicyInput/properties/maxSingleInstrumentExposurePercent/type",
 																keyword: "type",
-																params: { type: schema308.properties.maxSingleInstrumentExposurePercent.type },
+																params: { type: schema309.properties.maxSingleInstrumentExposurePercent.type },
 																message: "must be string,null"
 															}];
 															return false;
@@ -76026,7 +76316,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/state",
 													schemaPath: "#/$defs/ScreenerResultState/enum",
 													keyword: "enum",
-													params: { allowedValues: schema273.enum },
+													params: { allowedValues: schema274.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -76774,7 +77064,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/limitation",
 											schemaPath: "#/properties/limitation/type",
 											keyword: "type",
-											params: { type: schema257.properties.limitation.type },
+											params: { type: schema258.properties.limitation.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -76998,7 +77288,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/focus",
 										schemaPath: "#/$defs/ResearchFocus/enum",
 										keyword: "enum",
-										params: { allowedValues: schema120.enum },
+										params: { allowedValues: schema121.enum },
 										message: "must be equal to one of the allowed values"
 									};
 									if (vErrors === null) vErrors = [err1];
@@ -77227,7 +77517,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema271.enum },
+				params: { allowedValues: schema272.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -77284,7 +77574,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/field",
 							schemaPath: "#/$defs/ScreenerFeatureField/enum",
 							keyword: "enum",
-							params: { allowedValues: schema259.enum },
+							params: { allowedValues: schema260.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -77367,7 +77657,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema259.enum },
+				params: { allowedValues: schema260.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -77575,7 +77865,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema269.enum },
+				params: { allowedValues: schema270.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -77608,7 +77898,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema266.enum },
+				params: { allowedValues: schema267.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -77665,7 +77955,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/field",
 							schemaPath: "#/$defs/ScreenerPredicateField/enum",
 							keyword: "enum",
-							params: { allowedValues: schema265.enum },
+							params: { allowedValues: schema266.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -77690,7 +77980,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/operator",
 								schemaPath: "#/$defs/ScreenerOperator/enum",
 								keyword: "enum",
-								params: { allowedValues: schema266.enum },
+								params: { allowedValues: schema267.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -77774,7 +78064,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema265.enum },
+				params: { allowedValues: schema266.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -77831,7 +78121,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/freshness",
 							schemaPath: "#/$defs/ResearchFreshness/enum",
 							keyword: "enum",
-							params: { allowedValues: schema116.enum },
+							params: { allowedValues: schema117.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -77891,7 +78181,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/quality",
 									schemaPath: "#/$defs/ResearchQuality/enum",
 									keyword: "enum",
-									params: { allowedValues: schema117.enum },
+									params: { allowedValues: schema118.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -78012,7 +78302,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema272.enum },
+				params: { allowedValues: schema273.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -78025,7 +78315,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ScreenerRequest = validate584;
-	var schema310 = {
+	var schema311 = {
 		"type": "object",
 		"properties": {
 			"filterSpec": { "anyOf": [{ "$ref": "#/$defs/FilterSpec" }, { "type": "null" }] },
@@ -78171,7 +78461,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/focus",
 										schemaPath: "#/$defs/ResearchFocus/enum",
 										keyword: "enum",
-										params: { allowedValues: schema120.enum },
+										params: { allowedValues: schema121.enum },
 										message: "must be equal to one of the allowed values"
 									};
 									if (vErrors === null) vErrors = [err3];
@@ -78226,7 +78516,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/limit",
 											schemaPath: "#/properties/limit/type",
 											keyword: "type",
-											params: { type: schema310.properties.limit.type },
+											params: { type: schema311.properties.limit.type },
 											message: "must be integer,null"
 										}];
 										return false;
@@ -78319,7 +78609,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/operation",
 													schemaPath: "#/$defs/ScreenerOperation/enum",
 													keyword: "enum",
-													params: { allowedValues: schema269.enum },
+													params: { allowedValues: schema270.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -78507,7 +78797,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema256.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema257.properties, key0)) {
 						validate587.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -78831,7 +79121,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/focus",
 															schemaPath: "#/$defs/ResearchFocus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema120.enum },
+															params: { allowedValues: schema121.enum },
 															message: "must be equal to one of the allowed values"
 														};
 														if (vErrors === null) vErrors = [err3];
@@ -79002,7 +79292,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		instancePath: instancePath + "/operation",
 																		schemaPath: "#/$defs/ScreenerOperation/enum",
 																		keyword: "enum",
-																		params: { allowedValues: schema269.enum },
+																		params: { allowedValues: schema270.enum },
 																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
@@ -79266,7 +79556,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								instancePath: instancePath + "/state",
 																								schemaPath: "#/$defs/ScreenerResultState/enum",
 																								keyword: "enum",
-																								params: { allowedValues: schema273.enum },
+																								params: { allowedValues: schema274.enum },
 																								message: "must be equal to one of the allowed values"
 																							}];
 																							return false;
@@ -79369,7 +79659,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema273.enum },
+				params: { allowedValues: schema274.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -79522,7 +79812,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/state",
 												schemaPath: "#/$defs/ScreenerResultState/enum",
 												keyword: "enum",
-												params: { allowedValues: schema273.enum },
+												params: { allowedValues: schema274.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -79613,7 +79903,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema267.enum },
+				params: { allowedValues: schema268.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -79804,7 +80094,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/state",
 													schemaPath: "#/$defs/ScreenerResultState/enum",
 													keyword: "enum",
-													params: { allowedValues: schema273.enum },
+													params: { allowedValues: schema274.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -80001,7 +80291,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/provider",
 											schemaPath: "#/$defs/ModelProvider/enum",
 											keyword: "enum",
-											params: { allowedValues: schema80.enum },
+											params: { allowedValues: schema81.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -80032,7 +80322,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/thinkingType",
 												schemaPath: "#/$defs/ThinkingType/enum",
 												keyword: "enum",
-												params: { allowedValues: schema82.enum },
+												params: { allowedValues: schema83.enum },
 												message: "must be equal to one of the allowed values"
 											};
 											if (vErrors === null) vErrors = [err1];
@@ -80512,7 +80802,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/aggregateType",
 										schemaPath: "#/properties/aggregateType/enum",
 										keyword: "enum",
-										params: { allowedValues: schema185.properties.aggregateType.enum },
+										params: { allowedValues: schema186.properties.aggregateType.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -81056,7 +81346,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema301.enum },
+				params: { allowedValues: schema302.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -81248,7 +81538,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.StrategyFixtureScenario = validate606;
-	var schema327 = {
+	var schema328 = {
 		"type": "string",
 		"enum": [
 			"SUCCESS",
@@ -81276,7 +81566,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema327.enum },
+				params: { allowedValues: schema328.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -81755,7 +82045,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema297.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema298.properties, key0)) {
 						validate612.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -82146,7 +82436,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/fixtureLabel",
 													schemaPath: "#/properties/fixtureLabel/type",
 													keyword: "type",
-													params: { type: schema297.properties.fixtureLabel.type },
+													params: { type: schema298.properties.fixtureLabel.type },
 													message: "must be string,null"
 												}];
 												return false;
@@ -82582,7 +82872,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/state",
 																					schemaPath: "#/$defs/StrategyRunState/enum",
 																					keyword: "enum",
-																					params: { allowedValues: schema293.enum },
+																					params: { allowedValues: schema294.enum },
 																					message: "must be equal to one of the allowed values"
 																				}];
 																				return false;
@@ -82935,7 +83225,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.StrategyRunRequest = validate615;
-	var schema326 = {
+	var schema327 = {
 		"type": "object",
 		"properties": {
 			"datasetId": {
@@ -83011,7 +83301,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema326.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema327.properties, key0)) {
 						validate615.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -83106,7 +83396,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/expectedStrategyHash",
 											schemaPath: "#/properties/expectedStrategyHash/type",
 											keyword: "type",
-											params: { type: schema326.properties.expectedStrategyHash.type },
+											params: { type: schema327.properties.expectedStrategyHash.type },
 											message: "must be string,null"
 										}];
 										return false;
@@ -83160,7 +83450,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/fixtureScenario",
 												schemaPath: "#/$defs/StrategyFixtureScenario/enum",
 												keyword: "enum",
-												params: { allowedValues: schema327.enum },
+												params: { allowedValues: schema328.enum },
 												message: "must be equal to one of the allowed values"
 											};
 											if (vErrors === null) vErrors = [err1];
@@ -83549,7 +83839,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema293.enum },
+				params: { allowedValues: schema294.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -83596,7 +83886,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/failureCode",
 							schemaPath: "#/properties/failureCode/type",
 							keyword: "type",
-							params: { type: schema292.properties.failureCode.type },
+							params: { type: schema293.properties.failureCode.type },
 							message: "must be string,null"
 						}];
 						return false;
@@ -83656,7 +83946,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/state",
 									schemaPath: "#/$defs/StrategyRunState/enum",
 									keyword: "enum",
-									params: { allowedValues: schema293.enum },
+									params: { allowedValues: schema294.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -83757,7 +84047,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.StrategySave = validate618;
-	var schema329 = {
+	var schema330 = {
 		"type": "object",
 		"properties": {
 			"definition": { "$ref": "#/$defs/StrategyDefinition" },
@@ -83829,7 +84119,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/strategyId",
 										schemaPath: "#/properties/strategyId/type",
 										keyword: "type",
-										params: { type: schema329.properties.strategyId.type },
+										params: { type: schema330.properties.strategyId.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -84035,7 +84325,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/direction",
 									schemaPath: "#/$defs/StrategyDirection/enum",
 									keyword: "enum",
-									params: { allowedValues: schema301.enum },
+									params: { allowedValues: schema302.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -84863,7 +85153,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/aggregateType",
 									schemaPath: "#/properties/aggregateType/enum",
 									keyword: "enum",
-									params: { allowedValues: schema191.properties.aggregateType.enum },
+									params: { allowedValues: schema192.properties.aggregateType.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -85205,7 +85495,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema82.enum },
+				params: { allowedValues: schema83.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -85238,7 +85528,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema104.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema105.properties, key0)) {
 						validate628.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -85257,7 +85547,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountId",
 									schemaPath: "#/properties/accountId/type",
 									keyword: "type",
-									params: { type: schema104.properties.accountId.type },
+									params: { type: schema105.properties.accountId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -85296,7 +85586,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/codexThreadId",
 										schemaPath: "#/properties/codexThreadId/type",
 										keyword: "type",
-										params: { type: schema104.properties.codexThreadId.type },
+										params: { type: schema105.properties.codexThreadId.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -85360,7 +85650,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/defaultAgentMode",
 												schemaPath: "#/$defs/AgentMode/enum",
 												keyword: "enum",
-												params: { allowedValues: schema58.enum },
+												params: { allowedValues: schema59.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -85386,7 +85676,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													instancePath: instancePath + "/defaultExecutionContext",
 													schemaPath: "#/$defs/ExecutionContext/enum",
 													keyword: "enum",
-													params: { allowedValues: schema60.enum },
+													params: { allowedValues: schema61.enum },
 													message: "must be equal to one of the allowed values"
 												}];
 												return false;
@@ -85704,7 +85994,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/model/thinkingType",
 																						schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
 																						keyword: "type",
-																						params: { type: schema108.properties.thinkingType.type },
+																						params: { type: schema109.properties.thinkingType.type },
 																						message: "must be string,null"
 																					};
 																					if (vErrors === null) vErrors = [err8];
@@ -85853,7 +86143,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	instancePath: instancePath + "/status",
 																	schemaPath: "#/$defs/ThreadStatus/enum",
 																	keyword: "enum",
-																	params: { allowedValues: schema109.enum },
+																	params: { allowedValues: schema110.enum },
 																	message: "must be equal to one of the allowed values"
 																}];
 																return false;
@@ -86211,7 +86501,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.ThreadCreate = validate631;
-	var schema331 = {
+	var schema332 = {
 		"type": "object",
 		"properties": {
 			"accountId": {
@@ -86290,7 +86580,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountId",
 									schemaPath: "#/properties/accountId/type",
 									keyword: "type",
-									params: { type: schema331.properties.accountId.type },
+									params: { type: schema332.properties.accountId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -86339,7 +86629,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/defaultAgentMode",
 										schemaPath: "#/$defs/AgentMode/enum",
 										keyword: "enum",
-										params: { allowedValues: schema58.enum },
+										params: { allowedValues: schema59.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -86365,7 +86655,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/defaultExecutionContext",
 											schemaPath: "#/$defs/ExecutionContext/enum",
 											keyword: "enum",
-											params: { allowedValues: schema60.enum },
+											params: { allowedValues: schema61.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -86381,7 +86671,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/expectedStateVersion",
 												schemaPath: "#/properties/expectedStateVersion/type",
 												keyword: "type",
-												params: { type: schema331.properties.expectedStateVersion.type },
+												params: { type: schema332.properties.expectedStateVersion.type },
 												message: "must be string,null"
 											}];
 											return false;
@@ -86722,7 +87012,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/model/thinkingType",
 																					schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
 																					keyword: "type",
-																					params: { type: schema108.properties.thinkingType.type },
+																					params: { type: schema109.properties.thinkingType.type },
 																					message: "must be string,null"
 																				};
 																				if (vErrors === null) vErrors = [err8];
@@ -86958,7 +87248,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/completedAt",
 									schemaPath: "#/properties/completedAt/type",
 									keyword: "type",
-									params: { type: schema111.properties.completedAt.type },
+									params: { type: schema112.properties.completedAt.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -87121,7 +87411,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/sourceId",
 														schemaPath: "#/properties/sourceId/type",
 														keyword: "type",
-														params: { type: schema111.properties.sourceId.type },
+														params: { type: schema112.properties.sourceId.type },
 														message: "must be string,null"
 													}];
 													return false;
@@ -87185,7 +87475,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																instancePath: instancePath + "/status",
 																schemaPath: "#/$defs/ItemStatus/enum",
 																keyword: "enum",
-																params: { allowedValues: schema127.enum },
+																params: { allowedValues: schema128.enum },
 																message: "must be equal to one of the allowed values"
 															}];
 															return false;
@@ -87409,7 +87699,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/thinkingType",
 									schemaPath: "#/properties/thinkingType/type",
 									keyword: "type",
-									params: { type: schema108.properties.thinkingType.type },
+									params: { type: schema109.properties.thinkingType.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -87528,7 +87818,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/endedAt",
 								schemaPath: "#/properties/endedAt/type",
 								keyword: "type",
-								params: { type: schema128.properties.endedAt.type },
+								params: { type: schema129.properties.endedAt.type },
 								message: "must be string,null"
 							}];
 							return false;
@@ -87543,7 +87833,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/errorCode",
 									schemaPath: "#/properties/errorCode/type",
 									keyword: "type",
-									params: { type: schema128.properties.errorCode.type },
+									params: { type: schema129.properties.errorCode.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -87853,7 +88143,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema109.enum },
+				params: { allowedValues: schema110.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -87910,7 +88200,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/defaultAgentMode",
 							schemaPath: "#/$defs/AgentMode/enum",
 							keyword: "enum",
-							params: { allowedValues: schema58.enum },
+							params: { allowedValues: schema59.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -87935,7 +88225,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								instancePath: instancePath + "/defaultExecutionContext",
 								schemaPath: "#/$defs/ExecutionContext/enum",
 								keyword: "enum",
-								params: { allowedValues: schema60.enum },
+								params: { allowedValues: schema61.enum },
 								message: "must be equal to one of the allowed values"
 							}];
 							return false;
@@ -87960,7 +88250,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/status",
 									schemaPath: "#/$defs/ThreadStatus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema109.enum },
+									params: { allowedValues: schema110.enum },
 									message: "must be equal to one of the allowed values"
 								}];
 								return false;
@@ -88151,7 +88441,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/cancelRequestedAt",
 									schemaPath: "#/properties/cancelRequestedAt/type",
 									keyword: "type",
-									params: { type: schema110.properties.cancelRequestedAt.type },
+									params: { type: schema111.properties.cancelRequestedAt.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -88167,7 +88457,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/completedAt",
 										schemaPath: "#/properties/completedAt/type",
 										keyword: "type",
-										params: { type: schema110.properties.completedAt.type },
+										params: { type: schema111.properties.completedAt.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -88289,7 +88579,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																					instancePath: instancePath + "/providerAttempts/" + i1 + "/endedAt",
 																					schemaPath: "#/$defs/ThreadProviderAttempt/properties/endedAt/type",
 																					keyword: "type",
-																					params: { type: schema128.properties.endedAt.type },
+																					params: { type: schema129.properties.endedAt.type },
 																					message: "must be string,null"
 																				}];
 																				return false;
@@ -88305,7 +88595,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/providerAttempts/" + i1 + "/errorCode",
 																						schemaPath: "#/$defs/ThreadProviderAttempt/properties/errorCode/type",
 																						keyword: "type",
-																						params: { type: schema128.properties.errorCode.type },
+																						params: { type: schema129.properties.errorCode.type },
 																						message: "must be string,null"
 																					}];
 																					return false;
@@ -88547,7 +88837,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															instancePath: instancePath + "/status",
 															schemaPath: "#/$defs/TurnStatus/enum",
 															keyword: "enum",
-															params: { allowedValues: schema134.enum },
+															params: { allowedValues: schema135.enum },
 															message: "must be equal to one of the allowed values"
 														}];
 														return false;
@@ -88641,7 +88931,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema189.enum },
+				params: { allowedValues: schema190.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -88674,7 +88964,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema149.enum },
+				params: { allowedValues: schema150.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -88731,7 +89021,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							instancePath: instancePath + "/confidence",
 							schemaPath: "#/$defs/TimeConfidence/enum",
 							keyword: "enum",
-							params: { allowedValues: schema189.enum },
+							params: { allowedValues: schema190.enum },
 							message: "must be equal to one of the allowed values"
 						}];
 						return false;
@@ -88823,7 +89113,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/providerOffsetMs",
 										schemaPath: "#/properties/providerOffsetMs/type",
 										keyword: "type",
-										params: { type: schema188.properties.providerOffsetMs.type },
+										params: { type: schema189.properties.providerOffsetMs.type },
 										message: "must be integer,null"
 									}];
 									return false;
@@ -89060,7 +89350,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema203.enum },
+				params: { allowedValues: schema204.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -89090,7 +89380,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func53.call(schema48.properties, key0)) {
+				for (const key0 in data) if (!func53.call(schema49.properties, key0)) {
 					validate648.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -90126,7 +90416,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema129.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema130.properties, key0)) {
 						validate652.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -90145,7 +90435,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountEnvironment",
 									schemaPath: "#/properties/accountEnvironment/type",
 									keyword: "type",
-									params: { type: schema129.properties.accountEnvironment.type },
+									params: { type: schema130.properties.accountEnvironment.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -90184,7 +90474,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/accountId",
 										schemaPath: "#/properties/accountId/type",
 										keyword: "type",
-										params: { type: schema129.properties.accountId.type },
+										params: { type: schema130.properties.accountId.type },
 										message: "must be string,null"
 									}];
 									return false;
@@ -90233,7 +90523,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/agentMode",
 											schemaPath: "#/$defs/AgentMode/enum",
 											keyword: "enum",
-											params: { allowedValues: schema58.enum },
+											params: { allowedValues: schema59.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -90475,7 +90765,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														instancePath: instancePath + "/executionContext",
 														schemaPath: "#/$defs/ExecutionContext/enum",
 														keyword: "enum",
-														params: { allowedValues: schema60.enum },
+														params: { allowedValues: schema61.enum },
 														message: "must be equal to one of the allowed values"
 													}];
 													return false;
@@ -90615,7 +90905,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/model/thinkingType",
 																						schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
 																						keyword: "type",
-																						params: { type: schema108.properties.thinkingType.type },
+																						params: { type: schema109.properties.thinkingType.type },
 																						message: "must be string,null"
 																					};
 																					if (vErrors === null) vErrors = [err8];
@@ -90790,7 +91080,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		"dynamicItems": false
 	};
 	exports.TurnStart = validate653;
-	var schema340 = {
+	var schema341 = {
 		"type": "object",
 		"properties": {
 			"accountId": {
@@ -90893,7 +91183,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/focus",
 									schemaPath: "#/$defs/ResearchFocus/enum",
 									keyword: "enum",
-									params: { allowedValues: schema120.enum },
+									params: { allowedValues: schema121.enum },
 									message: "must be equal to one of the allowed values"
 								};
 								if (vErrors === null) vErrors = [err1];
@@ -90996,7 +91286,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/toolId",
 											schemaPath: "#/$defs/ResearchToolId/enum",
 											keyword: "enum",
-											params: { allowedValues: schema126.enum },
+											params: { allowedValues: schema127.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -91046,7 +91336,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func53.call(schema340.properties, key0)) {
+					for (const key0 in data) if (!func53.call(schema341.properties, key0)) {
 						validate653.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -91065,7 +91355,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									instancePath: instancePath + "/accountId",
 									schemaPath: "#/properties/accountId/type",
 									keyword: "type",
-									params: { type: schema340.properties.accountId.type },
+									params: { type: schema341.properties.accountId.type },
 									message: "must be string,null"
 								}];
 								return false;
@@ -91114,7 +91404,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										instancePath: instancePath + "/agentMode",
 										schemaPath: "#/$defs/AgentMode/enum",
 										keyword: "enum",
-										params: { allowedValues: schema58.enum },
+										params: { allowedValues: schema59.enum },
 										message: "must be equal to one of the allowed values"
 									}];
 									return false;
@@ -91329,7 +91619,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/executionContext",
 												schemaPath: "#/$defs/ExecutionContext/enum",
 												keyword: "enum",
-												params: { allowedValues: schema60.enum },
+												params: { allowedValues: schema61.enum },
 												message: "must be equal to one of the allowed values"
 											}];
 											return false;
@@ -91545,7 +91835,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						instancePath: instancePath + "/model/thinkingType",
 																						schemaPath: "#/$defs/ThreadModel/properties/thinkingType/type",
 																						keyword: "type",
-																						params: { type: schema108.properties.thinkingType.type },
+																						params: { type: schema109.properties.thinkingType.type },
 																						message: "must be string,null"
 																					};
 																					if (vErrors === null) vErrors = [err8];
@@ -91877,7 +92167,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				instancePath,
 				schemaPath: "#/enum",
 				keyword: "enum",
-				params: { allowedValues: schema134.enum },
+				params: { allowedValues: schema135.enum },
 				message: "must be equal to one of the allowed values"
 			}];
 			return false;
@@ -92015,7 +92305,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											instancePath: instancePath + "/provider",
 											schemaPath: "#/$defs/ModelProvider/enum",
 											keyword: "enum",
-											params: { allowedValues: schema80.enum },
+											params: { allowedValues: schema81.enum },
 											message: "must be equal to one of the allowed values"
 										}];
 										return false;
@@ -92046,7 +92336,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												instancePath: instancePath + "/thinkingType",
 												schemaPath: "#/$defs/ThinkingType/enum",
 												keyword: "enum",
-												params: { allowedValues: schema82.enum },
+												params: { allowedValues: schema83.enum },
 												message: "must be equal to one of the allowed values"
 											};
 											if (vErrors === null) vErrors = [err1];

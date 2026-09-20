@@ -1203,6 +1203,13 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrategyParameter"
+          },
+          "maxItems": 32
+        },
         "retrievedAt": {
           "type": "string",
           "maxLength": 64,
@@ -1273,6 +1280,7 @@
         "slippage",
         "startingCash",
         "seed",
+        "parameters",
         "engineVersion",
         "runtimeVersion",
         "guardChecks",

@@ -1858,6 +1858,7 @@ interface BacktestManifest {
   slippage: string;
   startingCash: string;
   seed: string;
+  parameters: StrategyParameter[];
   engineVersion: string;
   runtimeVersion: string;
   guardChecks: Array<{name: string; state: "PASSED"; detail: string}>; // look-ahead, survivorship, split, dividend, timezone, gaps

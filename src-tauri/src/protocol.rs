@@ -1238,6 +1238,8 @@ pub struct BacktestManifest {
     pub starting_cash: String,
     #[schemars(length(min = 1, max = 128))]
     pub seed: String,
+    #[schemars(length(max = 32), inner())]
+    pub parameters: Vec<StrategyParameter>,
     #[schemars(length(min = 1, max = 128))]
     pub engine_version: String,
     #[schemars(length(min = 1, max = 128))]
