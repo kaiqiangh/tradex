@@ -123,6 +123,40 @@ fn strategy_run_fails_closed_for_tampered_hash_dataset_and_untrusted_time() {
         blocked["error"]["code"], "STRATEGY_TIME_UNTRUSTED",
         "{blocked}"
     );
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId": workspace_id}),
+        )["ok"],
+        true
+    );
+    let duplicate = command(
+        &mut control,
+        "strategy.run",
+        json!({
+            "workspaceId": workspace_id,
+            "strategyVersionId": version_id,
+            "instrumentId": "equity:US:AAPL",
+            "datasetId": "historical:fixture",
+            "startAt": "2026-01-01T00:00:00Z",
+            "endAt": "2026-01-02T00:00:00Z",
+            "parameters": [{"name":"window","value":"20"},{"name":"window","value":"30"}]
+        }),
+    );
+    assert_eq!(
+        duplicate["error"]["code"], "STRATEGY_PARAMETER_INVALID",
+        "{duplicate}"
+    );
+    let runs = command(
+        &mut control,
+        "strategy.list",
+        json!({"workspaceId": workspace_id}),
+    );
+    assert!(
+        runs["data"]["runs"].as_array().unwrap().is_empty(),
+        "{runs}"
+    );
 }
 
 #[test]

@@ -167,8 +167,12 @@ pub fn validate_run_request(request: &StrategyRunRequest) -> Result<()> {
     if request.start_at > request.end_at {
         return Err(TradeXError::new("STRATEGY_RUN_INVALID"));
     }
+    let mut parameter_names = std::collections::HashSet::new();
     for parameter in &request.parameters {
         validate_parameter(parameter)?;
+        if !parameter_names.insert(parameter.name.as_str()) {
+            return Err(TradeXError::new("STRATEGY_PARAMETER_INVALID"));
+        }
     }
     if request
         .expected_strategy_hash
