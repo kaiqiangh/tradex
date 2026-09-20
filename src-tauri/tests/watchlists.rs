@@ -273,13 +273,14 @@ fn schema_six_workspaces_migrate_watchlists_transactionally() {
     connection.execute("DROP TABLE watchlists", []).unwrap();
     connection.execute("DROP TABLE screeners", []).unwrap();
     connection.execute("DROP TABLE artifacts", []).unwrap();
+    connection.execute("DROP TABLE order_drafts", []).unwrap();
     connection.pragma_update(None, "user_version", 6).unwrap();
     drop(connection);
 
     let mut migrated = ControlPlane::new(path);
     let opened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(opened["ok"], true, "{opened}");
-    assert_eq!(opened["data"]["storageSchemaVersion"], 9);
+    assert_eq!(opened["data"]["storageSchemaVersion"], 10);
     let listed = command(
         &mut migrated,
         "watchlist.list",
@@ -314,13 +315,14 @@ fn schema_eight_workspaces_migrate_artifacts_table() {
     let database = path.join("workspace.sqlite3");
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection.execute("DROP TABLE artifacts", []).unwrap();
+    connection.execute("DROP TABLE order_drafts", []).unwrap();
     connection.pragma_update(None, "user_version", 8).unwrap();
     drop(connection);
 
     let mut migrated = ControlPlane::new(path);
     let reopened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(reopened["ok"], true, "{reopened}");
-    assert_eq!(reopened["data"]["storageSchemaVersion"], 9);
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 10);
     let artifacts = command(
         &mut migrated,
         "artifact.list",

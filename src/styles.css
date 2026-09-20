@@ -476,6 +476,17 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .order-identity { display: block; max-width: 150px; white-space: normal; margin-top: 4px; font-size: 10px; color: #64748b; }
 .account-detail h3 { margin: 22px 0 12px; }
 .settings-section:has(.accounts-panel) { padding: 20px; }
+.order-drafts-layout { display: grid; grid-template-columns: minmax(190px, .38fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.order-draft-list, .order-draft-editor { min-width: 0; }
+.order-draft-list { display: grid; gap: 10px; }
+.order-draft-row { display: grid; gap: 4px; width: 100%; min-width: 0; text-align: left; padding: 11px; white-space: normal; }
+.order-draft-row.selected { border-color: var(--blue); background: var(--blue-light); }
+.order-draft-row strong, .order-draft-row small, .order-draft-row time { overflow-wrap: anywhere; }
+.order-draft-row small, .order-draft-row time { color: var(--muted); font-size: 10px; }
+.order-draft-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.order-draft-grid .field { min-width: 0; }
+.form-errors { margin: 8px 0; padding-left: 18px; color: #991b1b; font-size: 11px; }
+@media (max-width: 760px) { .order-drafts-layout, .order-draft-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .provider-config, .account-detail, .portfolio-section, .portfolio-summary { padding: 14px; } .account-actions { width: 100%; } }
 
 .model-settings { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; overflow-wrap: anywhere; }

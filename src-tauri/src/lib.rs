@@ -733,6 +733,36 @@ impl ControlPlane {
                 };
                 Ok((json!(attachment), None))
             }
+            "trade.draft.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let library = self.store.as_ref().unwrap().order_drafts()?;
+                Ok((json!(library), Some(library.state_version)))
+            }
+            "trade.draft.get" => {
+                let input: protocol::OrderDraftQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_order_draft_id(&input.draft_id)?;
+                let draft = self.store.as_ref().unwrap().order_draft(&input.draft_id)?;
+                Ok((json!(draft), Some(draft.state_version.clone())))
+            }
+            "trade.save_draft" => {
+                let input: protocol::OrderDraftSave = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                if let Some(draft_id) = &input.draft_id {
+                    validate_order_draft_id(draft_id)?;
+                    validate_order_draft_state_version(
+                        input
+                            .expected_state_version
+                            .as_deref()
+                            .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
+                    )?;
+                } else if input.expected_state_version.is_some() {
+                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+                }
+                let draft = self.store.as_mut().unwrap().save_order_draft(&input)?;
+                Ok((json!(draft), Some(draft.state_version.clone())))
+            }
             "artifact.save" => {
                 let input: ArtifactSave = payload(request.payload)?;
                 let artifact = self.save_artifact(input)?;
@@ -2991,6 +3021,20 @@ fn validate_artifact_id(id: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_order_draft_id(id: &str) -> Result<()> {
+    if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_order_draft_state_version(version: &str) -> Result<()> {
+    if version.is_empty() || version.len() > 256 || version.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
 fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {
     if input.workspace_id.is_empty()
         || input.workspace_id.len() > 128
@@ -3940,6 +3984,9 @@ mod thread_tests {
             .execute("DROP TABLE artifacts", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE order_drafts", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -3949,7 +3996,7 @@ mod thread_tests {
             json!({"path": workspace_path.to_string_lossy()}),
         ));
         assert_eq!(migrated_open["ok"], true);
-        assert_eq!(migrated_open["data"]["storageSchemaVersion"], 9);
+        assert_eq!(migrated_open["data"]["storageSchemaVersion"], 10);
         let created = control.dispatch(request(
             "thread.create",
             json!({
@@ -4266,6 +4313,86 @@ mod thread_tests {
             corrupt_detail["error"]["code"],
             "WORKSPACE_INTEGRITY_FAILED"
         );
+    }
+
+    #[test]
+    fn order_draft_save_reopen_and_version_conflict_are_workspace_scoped() {
+        let directory = tempfile::tempdir().unwrap();
+        let workspace_path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(workspace_path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        assert_eq!(opened["ok"], true);
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let fields = json!({
+            "venue": "tradex_sim",
+            "environment": "LOCAL_PAPER",
+            "instrumentId": "equity:US:AAPL",
+            "side": "BUY",
+            "orderType": "LIMIT",
+            "quantity": {"type": "BASE", "value": "001.0000"},
+            "limitPrice": "221.5000",
+            "maximumSpend": null,
+            "timeInForce": "DAY",
+            "clientLabel": "  first draft  "
+        });
+        let saved = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":fields.clone()}),
+        ));
+        assert_eq!(saved["ok"], true, "{saved}");
+        assert_eq!(saved["data"]["fields"]["quantity"]["value"], "1");
+        assert_eq!(saved["data"]["fields"]["limitPrice"], "221.5");
+        assert_eq!(saved["data"]["fields"]["clientLabel"], "first draft");
+        let draft_id = saved["data"]["draftId"].as_str().unwrap().to_owned();
+        let state_version = saved["data"]["stateVersion"].as_str().unwrap().to_owned();
+        let listed = control.dispatch(request(
+            "trade.draft.list",
+            json!({"workspaceId":workspace_id}),
+        ));
+        assert_eq!(listed["ok"], true);
+        assert_eq!(listed["data"]["drafts"].as_array().unwrap().len(), 1);
+        let mut updated_fields = fields.clone();
+        updated_fields["quantity"] = json!({"type":"BASE","value":"2"});
+        let updated = control.dispatch(request(
+            "trade.save_draft",
+            json!({
+                "workspaceId":workspace_id,
+                "draftId":draft_id,
+                "expectedStateVersion":state_version,
+                "fields": updated_fields
+            }),
+        ));
+        assert_eq!(updated["ok"], true, "{updated}");
+        assert_eq!(updated["data"]["draftVersion"], 2);
+        let stale = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":updated["data"]["workspaceId"],"draftId":updated["data"]["draftId"],"expectedStateVersion":state_version,"fields":fields.clone()}),
+        ));
+        assert_eq!(stale["ok"], false);
+        assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT");
+        let mut blocked_fields = fields.clone();
+        blocked_fields["environment"] = json!("NONE_READ_ONLY");
+        let blocked = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":blocked_fields}),
+        ));
+        assert_eq!(blocked["ok"], false);
+        assert_eq!(blocked["error"]["code"], "ORDER_CONTEXT_INVALID");
+        drop(control);
+        let mut reopened = ControlPlane::new(workspace_path.clone());
+        assert_eq!(
+            reopened.dispatch(request(
+                "workspace.open",
+                json!({"path":workspace_path.to_string_lossy()}),
+            ))["ok"],
+            true
+        );
+        let got = reopened.dispatch(request(
+            "trade.draft.get",
+            json!({"workspaceId":workspace_id,"draftId":draft_id}),
+        ));
+        assert_eq!(got["ok"], true, "{got}");
+        assert_eq!(got["data"]["draftVersion"], 2);
     }
 }
 

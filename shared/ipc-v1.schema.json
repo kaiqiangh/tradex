@@ -64,6 +64,18 @@
     "modelQuery": {
       "$ref": "#/$defs/ModelQuery"
     },
+    "orderDraft": {
+      "$ref": "#/$defs/OrderDraft"
+    },
+    "orderDraftLibrary": {
+      "$ref": "#/$defs/OrderDraftLibrary"
+    },
+    "orderDraftQuery": {
+      "$ref": "#/$defs/OrderDraftQuery"
+    },
+    "orderDraftSave": {
+      "$ref": "#/$defs/OrderDraftSave"
+    },
     "portfolioQuery": {
       "$ref": "#/$defs/PortfolioQuery"
     },
@@ -198,6 +210,10 @@
     "screenerSave",
     "screenerUpdate",
     "screenerAttach",
+    "orderDraftSave",
+    "orderDraftQuery",
+    "orderDraft",
+    "orderDraftLibrary",
     "artifactSave",
     "artifactQuery",
     "artifactExport",
@@ -2808,6 +2824,285 @@
       },
       "additionalProperties": false
     },
+    "OrderDraft": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "draftVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "fields": {
+          "$ref": "#/$defs/OrderDraftFields"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "workspaceId",
+        "draftVersion",
+        "stateVersion",
+        "updatedAt",
+        "fields"
+      ]
+    },
+    "OrderDraftFields": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "clientLabel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "limitPrice": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "maximumSpend": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "orderType": {
+          "$ref": "#/$defs/OrderType"
+        },
+        "quantity": {
+          "$ref": "#/$defs/OrderQuantity"
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "timeInForce": {
+          "$ref": "#/$defs/TimeInForce"
+        },
+        "venue": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "venue",
+        "environment",
+        "instrumentId",
+        "side",
+        "orderType",
+        "quantity",
+        "timeInForce"
+      ]
+    },
+    "OrderDraftLibrary": {
+      "type": "object",
+      "properties": {
+        "drafts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OrderDraftSummary"
+          },
+          "maxItems": 256
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "drafts"
+      ]
+    },
+    "OrderDraftQuery": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "draftId"
+      ]
+    },
+    "OrderDraftSave": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "fields": {
+          "$ref": "#/$defs/OrderDraftFields"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "fields"
+      ]
+    },
+    "OrderDraftSummary": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "draftVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "workspaceId",
+        "draftVersion",
+        "stateVersion",
+        "instrumentId",
+        "environment",
+        "updatedAt"
+      ]
+    },
+    "OrderQuantity": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/OrderQuantityType"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ]
+    },
+    "OrderQuantityType": {
+      "type": "string",
+      "enum": [
+        "BASE",
+        "QUOTE"
+      ]
+    },
+    "OrderSide": {
+      "type": "string",
+      "enum": [
+        "BUY",
+        "SELL"
+      ]
+    },
+    "OrderType": {
+      "type": "string",
+      "enum": [
+        "MARKET",
+        "LIMIT"
+      ]
+    },
     "PermissionReview": {
       "type": "object",
       "properties": {
@@ -3665,6 +3960,12 @@
         },
         {
           "$ref": "#/$defs/ScreenerAttachment"
+        },
+        {
+          "$ref": "#/$defs/OrderDraft"
+        },
+        {
+          "$ref": "#/$defs/OrderDraftLibrary"
         },
         {
           "$ref": "#/$defs/Artifact"
@@ -5799,6 +6100,15 @@
         "STALE"
       ]
     },
+    "TimeInForce": {
+      "type": "string",
+      "enum": [
+        "DAY",
+        "GTC",
+        "IOC",
+        "FOK"
+      ]
+    },
     "TimeStatus": {
       "type": "object",
       "properties": {
@@ -6375,7 +6685,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 9,
+          "maximum": 10,
           "minimum": 1
         },
         "workspaceId": {

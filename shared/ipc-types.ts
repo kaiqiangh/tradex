@@ -143,6 +143,26 @@ export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
 export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderType".
+ */
+export type OrderType = "MARKET" | "LIMIT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderQuantityType".
+ */
+export type OrderQuantityType = "BASE" | "QUOTE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderSide".
+ */
+export type OrderSide = "BUY" | "SELL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TimeInForce".
+ */
+export type TimeInForce = "DAY" | "GTC" | "IOC" | "FOK";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Connect".
  */
 export type Connect =
@@ -197,6 +217,8 @@ export type ReplyData =
   | ScreenerResult
   | ScreenerLibrary
   | ScreenerAttachment
+  | OrderDraft
+  | OrderDraftLibrary
   | Artifact
   | ArtifactLibrary
   | ArtifactExportResult;
@@ -342,6 +364,10 @@ export interface IpcSchema {
   marketCatalogQuery: MarketCatalogQuery;
   marketGetQuery: MarketGetQuery;
   modelQuery: ModelQuery;
+  orderDraft: OrderDraft;
+  orderDraftLibrary: OrderDraftLibrary;
+  orderDraftQuery: OrderDraftQuery;
+  orderDraftSave: OrderDraftSave;
   portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
@@ -1162,6 +1188,86 @@ export interface MarketGetQuery {
  * via the `definition` "ModelQuery".
  */
 export interface ModelQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderDraft".
+ */
+export interface OrderDraft {
+  draftId: string;
+  draftVersion: number;
+  fields: OrderDraftFields;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderDraftFields".
+ */
+export interface OrderDraftFields {
+  accountId?: string | null;
+  clientLabel?: string | null;
+  environment: ExecutionContext;
+  instrumentId: string;
+  limitPrice?: string;
+  maximumSpend?: string;
+  orderType: OrderType;
+  quantity: OrderQuantity;
+  side: OrderSide;
+  timeInForce: TimeInForce;
+  venue: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderQuantity".
+ */
+export interface OrderQuantity {
+  type: OrderQuantityType;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderDraftLibrary".
+ */
+export interface OrderDraftLibrary {
+  /**
+   * @maxItems 256
+   */
+  drafts: OrderDraftSummary[];
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderDraftSummary".
+ */
+export interface OrderDraftSummary {
+  draftId: string;
+  draftVersion: number;
+  environment: ExecutionContext;
+  instrumentId: string;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderDraftQuery".
+ */
+export interface OrderDraftQuery {
+  draftId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderDraftSave".
+ */
+export interface OrderDraftSave {
+  draftId?: string | null;
+  expectedStateVersion?: string | null;
+  fields: OrderDraftFields;
   workspaceId: string;
 }
 /**

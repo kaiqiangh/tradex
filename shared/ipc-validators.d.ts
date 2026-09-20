@@ -84,6 +84,16 @@ declare const validators: {
   ModelState: (value: unknown) => boolean;
   OpenOrder: (value: unknown) => boolean;
   OpenWorkspace: (value: unknown) => boolean;
+  OrderDraft: (value: unknown) => boolean;
+  OrderDraftFields: (value: unknown) => boolean;
+  OrderDraftLibrary: (value: unknown) => boolean;
+  OrderDraftQuery: (value: unknown) => boolean;
+  OrderDraftSave: (value: unknown) => boolean;
+  OrderDraftSummary: (value: unknown) => boolean;
+  OrderQuantity: (value: unknown) => boolean;
+  OrderQuantityType: (value: unknown) => boolean;
+  OrderSide: (value: unknown) => boolean;
+  OrderType: (value: unknown) => boolean;
   PermissionReview: (value: unknown) => boolean;
   PortfolioAccount: (value: unknown) => boolean;
   PortfolioFill: (value: unknown) => boolean;
@@ -167,6 +177,7 @@ declare const validators: {
   ThreadSummary: (value: unknown) => boolean;
   ThreadTurn: (value: unknown) => boolean;
   TimeConfidence: (value: unknown) => boolean;
+  TimeInForce: (value: unknown) => boolean;
   TimeStatus: (value: unknown) => boolean;
   ToolId: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;

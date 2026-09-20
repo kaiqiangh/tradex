@@ -24,16 +24,17 @@ use crate::market;
 use crate::model::ModelState;
 use crate::protocol::{
     Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
-    ArtifactSummary, DomainEvent, DomainProjection, EventSink, MAX_SEQUENCE, OpenWorkspace, Result,
-    SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
-    SubscriptionAck, Thread, ThreadList, ThreadSummary, TradeXError, Watchlist, WatchlistItem,
-    Watchlists, Workspace,
+    ArtifactSummary, AssetClass, DomainEvent, DomainProjection, EventSink, ExecutionContext,
+    MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
+    OrderDraftSummary, OrderType, Result, SavedScreener, ScreenerLibrary, ScreenerResultState,
+    ScreenerSave, ScreenerUpdate, Snapshot, SubscriptionAck, Thread, ThreadList, ThreadSummary,
+    TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 9;
+pub(crate) const SCHEMA_VERSION: u32 = 10;
 
 pub struct Store {
     connection: Connection,
@@ -206,6 +207,17 @@ impl Store {
                 );
                 CREATE INDEX artifacts_workspace_order ON artifacts(workspace_id,sequence DESC,artifact_id);
                 PRAGMA user_version=9;").map_err(storage_error)?;
+            }
+            if version < 10 {
+                tx.execute_batch("CREATE TABLE order_drafts (
+                    draft_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    draft_version INTEGER NOT NULL CHECK(draft_version > 0),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX order_drafts_workspace_order ON order_drafts(workspace_id,sequence DESC,draft_id);
+                PRAGMA user_version=10;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1241,6 +1253,202 @@ impl Store {
         self.screeners()
     }
 
+    pub fn order_drafts(&self) -> Result<OrderDraftLibrary> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare(
+                "SELECT draft_id,workspace_id,draft_version,sequence,projection FROM order_drafts WHERE workspace_id=?1 ORDER BY sequence DESC,draft_id",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut drafts = Vec::new();
+        let mut max_sequence = 0_i64;
+        for row in rows {
+            let (draft_id, row_workspace_id, draft_version, sequence, projection) =
+                row.map_err(storage_error)?;
+            max_sequence = max_sequence.max(sequence);
+            let draft = decode_order_draft(
+                &projection,
+                &draft_id,
+                &row_workspace_id,
+                draft_version,
+                sequence,
+                &workspace_id,
+            )?;
+            drafts.push(OrderDraftSummary {
+                draft_id: draft.draft_id,
+                workspace_id: draft.workspace_id,
+                draft_version: draft.draft_version,
+                state_version: draft.state_version,
+                instrument_id: draft.fields.instrument_id,
+                environment: draft.fields.environment,
+                updated_at: draft.updated_at,
+            });
+        }
+        if !(0..=MAX_SEQUENCE as i64).contains(&max_sequence) || drafts.len() > 256 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(OrderDraftLibrary {
+            workspace_id: workspace_id.clone(),
+            state_version: format!("order-drafts:{workspace_id}:{max_sequence}"),
+            drafts,
+        })
+    }
+
+    pub fn order_draft(&self, draft_id: &str) -> Result<OrderDraft> {
+        let workspace_id = self.workspace_id()?;
+        let (row_workspace_id, draft_version, sequence, projection): (String, i64, i64, String) = self
+            .connection
+            .query_row(
+                "SELECT workspace_id,draft_version,sequence,projection FROM order_drafts WHERE workspace_id=?1 AND draft_id=?2",
+                params![workspace_id, draft_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ORDER_DRAFT_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        decode_order_draft(
+            &projection,
+            draft_id,
+            &row_workspace_id,
+            draft_version,
+            sequence,
+            &workspace_id,
+        )
+    }
+
+    pub fn save_order_draft(&mut self, input: &OrderDraftSave) -> Result<OrderDraft> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let mut fields = input.fields.clone();
+        normalize_order_draft_fields(&mut fields)?;
+        self.validate_order_draft_account(&fields)?;
+        if let Some(draft_id) = &input.draft_id {
+            validate_order_draft_id(draft_id)?;
+            let expected = input
+                .expected_state_version
+                .as_deref()
+                .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+            validate_order_draft_state_version(expected)?;
+        } else if input.expected_state_version.is_some() {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (draft_id, draft_version, sequence) = if let Some(draft_id) = &input.draft_id {
+            let previous = load_order_draft_tx(&tx, &workspace_id, draft_id)?;
+            if previous.state_version
+                != input
+                    .expected_state_version
+                    .as_deref()
+                    .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let next_version = previous
+                .draft_version
+                .checked_add(1)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+            (
+                draft_id.clone(),
+                next_version,
+                next_order_draft_sequence(&tx, &workspace_id)?,
+            )
+        } else {
+            let count: i64 = tx
+                .query_row(
+                    "SELECT COUNT(*) FROM order_drafts WHERE workspace_id=?1",
+                    [&workspace_id],
+                    |row| row.get(0),
+                )
+                .map_err(storage_error)?;
+            if !(0..256).contains(&count) {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+            (
+                Uuid::new_v4().to_string(),
+                1,
+                next_order_draft_sequence(&tx, &workspace_id)?,
+            )
+        };
+        let now = timestamp()?;
+        let draft = OrderDraft {
+            draft_id: draft_id.clone(),
+            workspace_id: workspace_id.clone(),
+            draft_version,
+            state_version: format!("order-draft:{draft_id}:{sequence}"),
+            updated_at: now,
+            fields,
+        };
+        let projection = serde_json::to_string(&draft).map_err(storage_error)?;
+        if input.draft_id.is_some() {
+            tx.execute(
+                "UPDATE order_drafts SET draft_version=?1,sequence=?2,projection=?3 WHERE workspace_id=?4 AND draft_id=?5",
+                params![draft.draft_version as i64, sequence, projection, workspace_id, draft_id],
+            )
+            .map_err(storage_error)?;
+        } else {
+            tx.execute(
+                "INSERT INTO order_drafts(draft_id,workspace_id,draft_version,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+                params![draft.draft_id, draft.workspace_id, draft.draft_version as i64, sequence, projection],
+            )
+            .map_err(storage_error)?;
+        }
+        tx.commit().map_err(storage_error)?;
+        Ok(draft)
+    }
+
+    fn validate_order_draft_account(&self, fields: &OrderDraftFields) -> Result<()> {
+        match fields.environment {
+            ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => {
+                return Err(TradeXError::new("ORDER_CONTEXT_INVALID"));
+            }
+            ExecutionContext::LocalPaper => {
+                if let Some(account_id) = &fields.account_id {
+                    if account_id != "local-paper" {
+                        return Err(TradeXError::new("ORDER_ACCOUNT_INVALID"));
+                    }
+                }
+            }
+            _ => {
+                let account_id = fields
+                    .account_id
+                    .as_deref()
+                    .ok_or_else(|| TradeXError::new("ORDER_ACCOUNT_REQUIRED"))?;
+                let account = self
+                    .account(account_id)
+                    .map_err(|_| TradeXError::new("ORDER_ACCOUNT_NOT_FOUND"))?;
+                let expected = execution_environment(&fields.environment)
+                    .ok_or_else(|| TradeXError::new("ORDER_CONTEXT_INVALID"))?;
+                let expected_provider = execution_provider(&fields.environment)
+                    .ok_or_else(|| TradeXError::new("ORDER_CONTEXT_INVALID"))?;
+                if account.environment != expected || account.provider_id != expected_provider {
+                    return Err(TradeXError::new("ORDER_CONTEXT_INVALID"));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn artifacts(&self) -> Result<ArtifactLibrary> {
         let workspace_id = self.workspace_id()?;
         let mut query = self
@@ -1735,6 +1943,221 @@ fn decode_screener(
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
     Ok(screener)
+}
+
+fn normalize_order_draft_fields(fields: &mut OrderDraftFields) -> Result<()> {
+    if let Some(account_id) = fields.account_id.as_mut() {
+        *account_id = account_id.trim().to_owned();
+        if !valid_order_text(account_id, 128) {
+            return Err(TradeXError::new("ORDER_ACCOUNT_INVALID"));
+        }
+    }
+    fields.venue = fields.venue.trim().to_ascii_uppercase();
+    if !valid_order_text(&fields.venue, 32) {
+        return Err(TradeXError::new("ORDER_VENUE_INVALID"));
+    }
+    fields.instrument_id = fields.instrument_id.trim().to_owned();
+    if !market::validate_instrument_id(&fields.instrument_id) {
+        return Err(TradeXError::new("MARKET_INSTRUMENT_INVALID"));
+    }
+    let instrument = market::instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == fields.instrument_id)
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_NOT_FOUND"))?;
+    if matches!(
+        fields.environment,
+        ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation
+    ) {
+        return Err(TradeXError::new("ORDER_CONTEXT_INVALID"));
+    }
+    let expected_venue = match fields.environment {
+        ExecutionContext::LocalPaper => "TRADEX_SIM",
+        ExecutionContext::BinanceTestnet | ExecutionContext::BinanceLive => "BINANCE",
+        ExecutionContext::BitgetDemo | ExecutionContext::BitgetLive => "BITGET",
+        ExecutionContext::AlpacaPaper
+        | ExecutionContext::Trading212Demo
+        | ExecutionContext::Trading212Live => instrument.exchange.as_deref().unwrap_or("XNAS"),
+        ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => unreachable!(),
+    };
+    if fields.venue != expected_venue
+        || (matches!(
+            fields.environment,
+            ExecutionContext::BinanceTestnet
+                | ExecutionContext::BinanceLive
+                | ExecutionContext::BitgetDemo
+                | ExecutionContext::BitgetLive
+        ) && instrument.asset_class != AssetClass::CryptoSpot)
+        || (matches!(
+            fields.environment,
+            ExecutionContext::AlpacaPaper
+                | ExecutionContext::Trading212Demo
+                | ExecutionContext::Trading212Live
+        ) && instrument.asset_class != AssetClass::Equity)
+    {
+        return Err(TradeXError::new("ORDER_VENUE_INVALID"));
+    }
+
+    fields.quantity.value = normalize_order_decimal(&fields.quantity.value)?;
+    if fields.quantity.value == "0" {
+        return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+    }
+    if let Some(value) = fields.limit_price.as_mut() {
+        *value = normalize_order_decimal(value)?;
+        if value == "0" {
+            return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+        }
+    }
+    if let Some(value) = fields.maximum_spend.as_mut() {
+        *value = normalize_order_decimal(value)?;
+        if value == "0" {
+            return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+        }
+    }
+    match fields.order_type {
+        OrderType::Limit if fields.limit_price.is_none() => {
+            return Err(TradeXError::new("ORDER_LIMIT_PRICE_REQUIRED"));
+        }
+        OrderType::Market if fields.limit_price.is_some() => {
+            return Err(TradeXError::new("ORDER_MARKET_PRICE_FORBIDDEN"));
+        }
+        _ => {}
+    }
+    if let Some(label) = fields.client_label.as_mut() {
+        *label = label.trim().to_owned();
+        if !valid_order_text(label, 80) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+    }
+    Ok(())
+}
+
+fn normalize_order_decimal(value: &str) -> Result<String> {
+    crate::provider_io::decimal(&serde_json::Value::String(value.to_owned()))
+        .map_err(|_| TradeXError::new("ORDER_DECIMAL_INVALID"))
+        .and_then(|normalized| {
+            if normalized.starts_with('-') {
+                Err(TradeXError::new("ORDER_AMOUNT_INVALID"))
+            } else {
+                Ok(normalized)
+            }
+        })
+}
+
+fn valid_order_text(value: &str, max_len: usize) -> bool {
+    !value.is_empty() && value.chars().count() <= max_len && !value.chars().any(char::is_control)
+}
+
+fn validate_order_draft_id(id: &str) -> Result<()> {
+    if !valid_order_text(id, 128) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_order_draft_state_version(version: &str) -> Result<()> {
+    if !valid_order_text(version, 256) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn execution_environment(environment: &ExecutionContext) -> Option<&'static str> {
+    match environment {
+        ExecutionContext::LocalPaper => Some("LOCAL"),
+        ExecutionContext::AlpacaPaper => Some("PAPER"),
+        ExecutionContext::Trading212Demo | ExecutionContext::BitgetDemo => Some("DEMO"),
+        ExecutionContext::BinanceTestnet => Some("TESTNET"),
+        ExecutionContext::Trading212Live
+        | ExecutionContext::BinanceLive
+        | ExecutionContext::BitgetLive => Some("LIVE"),
+        ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => None,
+    }
+}
+
+fn execution_provider(environment: &ExecutionContext) -> Option<&'static str> {
+    match environment {
+        ExecutionContext::AlpacaPaper => Some("alpaca"),
+        ExecutionContext::Trading212Demo | ExecutionContext::Trading212Live => Some("trading212"),
+        ExecutionContext::BinanceTestnet | ExecutionContext::BinanceLive => Some("binance"),
+        ExecutionContext::BitgetDemo | ExecutionContext::BitgetLive => Some("bitget"),
+        ExecutionContext::LocalPaper => Some("local-paper"),
+        ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => None,
+    }
+}
+
+fn next_order_draft_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
+    let max_sequence: Option<i64> = tx
+        .query_row(
+            "SELECT MAX(sequence) FROM order_drafts WHERE workspace_id=?1",
+            [workspace_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let max_sequence = max_sequence.unwrap_or(0);
+    if !(0..MAX_SEQUENCE as i64).contains(&max_sequence) {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    Ok(max_sequence + 1)
+}
+
+fn load_order_draft_tx(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+    draft_id: &str,
+) -> Result<OrderDraft> {
+    let (row_workspace_id, draft_version, sequence, projection): (String, i64, i64, String) = tx
+        .query_row(
+            "SELECT workspace_id,draft_version,sequence,projection FROM order_drafts WHERE workspace_id=?1 AND draft_id=?2",
+            params![workspace_id, draft_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .map_err(|error| {
+            if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("ORDER_DRAFT_NOT_FOUND")
+            } else {
+                storage_error(error)
+            }
+        })?;
+    decode_order_draft(
+        &projection,
+        draft_id,
+        &row_workspace_id,
+        draft_version,
+        sequence,
+        workspace_id,
+    )
+}
+
+fn decode_order_draft(
+    projection: &str,
+    row_id: &str,
+    row_workspace_id: &str,
+    row_draft_version: i64,
+    sequence: i64,
+    workspace_id: &str,
+) -> Result<OrderDraft> {
+    if sequence < 1
+        || sequence > MAX_SEQUENCE as i64
+        || row_draft_version < 1
+        || row_draft_version > 9_007_199_254_740_991
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let draft: OrderDraft = serde_json::from_str(projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let mut normalized = draft.fields.clone();
+    if normalize_order_draft_fields(&mut normalized).is_err()
+        || normalized != draft.fields
+        || draft.draft_id != row_id
+        || draft.workspace_id != row_workspace_id
+        || row_workspace_id != workspace_id
+        || draft.draft_version != row_draft_version as u64
+        || draft.state_version != format!("order-draft:{row_id}:{sequence}")
+        || !valid_order_text(&draft.updated_at, 64)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(draft)
 }
 
 fn artifact_kind_name(kind: ArtifactKind) -> &'static str {

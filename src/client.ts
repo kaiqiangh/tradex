@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate } from '../shared/ipc-types.ts';
+import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -48,6 +48,9 @@ interface Inputs {
   'screener.save': ScreenerSave;
   'screener.update': ScreenerUpdate;
   'screener.attach': ScreenerAttach;
+  'trade.draft.list': WorkspaceQuery;
+  'trade.draft.get': OrderDraftQuery;
+  'trade.save_draft': OrderDraftSave;
   'artifact.save': ArtifactSave;
   'artifact.list': WorkspaceQuery;
   'artifact.get': ArtifactQuery;
@@ -106,6 +109,9 @@ interface Outputs {
   'screener.save': ScreenerLibrary;
   'screener.update': ScreenerLibrary;
   'screener.attach': ScreenerAttachment;
+  'trade.draft.list': OrderDraftLibrary;
+  'trade.draft.get': OrderDraft;
+  'trade.save_draft': OrderDraft;
   'artifact.save': Artifact;
   'artifact.list': ArtifactLibrary;
   'artifact.get': Artifact;
@@ -164,6 +170,9 @@ const definitions = {
   'screener.save': ['ScreenerSave', 'ScreenerLibrary'],
   'screener.update': ['ScreenerUpdate', 'ScreenerLibrary'],
   'screener.attach': ['ScreenerAttach', 'ScreenerAttachment'],
+  'trade.draft.list': ['WorkspaceQuery', 'OrderDraftLibrary'],
+  'trade.draft.get': ['OrderDraftQuery', 'OrderDraft'],
+  'trade.save_draft': ['OrderDraftSave', 'OrderDraft'],
   'artifact.save': ['ArtifactSave', 'Artifact'],
   'artifact.list': ['WorkspaceQuery', 'ArtifactLibrary'],
   'artifact.get': ['ArtifactQuery', 'Artifact'],

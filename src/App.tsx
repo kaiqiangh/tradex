@@ -12,12 +12,13 @@ import { DataSources } from './DataSources.tsx';
 import { Markets } from './Markets.tsx';
 import { Watchlists } from './Watchlists.tsx';
 import { ArtifactsPage, SaveArtifactAction } from './Artifacts.tsx';
+import { OrderDrafts } from './OrderDrafts.tsx';
 import { fromModelSnapshot, fromRiskSnapshot, fromThreadSnapshot } from './projection.ts';
 import { useWorkspace } from './useWorkspace.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
 import type { OpenWorkspace, Workspace } from '../shared/ipc-types.ts';
 
-const pages = ['New Thread', 'Threads', 'Markets', 'Watchlists', 'Accounts', 'Strategies', 'Artifacts', 'Settings'] as const;
+const pages = ['New Thread', 'Threads', 'Markets', 'Watchlists', 'Order Drafts', 'Accounts', 'Strategies', 'Artifacts', 'Settings'] as const;
 type Page = typeof pages[number];
 
 function Navigation({ page, navigate }: { page: Page; navigate: (page: Page) => void }) {
@@ -717,6 +718,7 @@ export default function App() {
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}
             {page === 'Markets' && (workspace ? <Markets workspaceId={workspace.workspaceId} hasCurrentThread={Boolean(selectedThreadId)} onAttachContexts={attachScreenerContexts} onOpenDataSources={() => { setSettingsTab('Data & Storage'); navigate('Settings'); }} /> : <><div className="page-heading"><h1>Markets</h1><p>Search canonical instruments and inspect source-backed market availability.</p></div><section className="card empty-page"><h2>Open a workspace to browse markets</h2><p>Market catalogs and source status are scoped to a local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {page === 'Watchlists' && (workspace ? <Watchlists workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Watchlists</h1><p>Keep ordered canonical instruments in a local workspace.</p></div><section className="card empty-page"><h2>Open a workspace to manage watchlists</h2><p>Watchlists are stored in the selected local workspace.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
+            {page === 'Order Drafts' && (workspace ? <OrderDrafts workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Order Drafts</h1><p>Save versioned order drafts in a local workspace.</p></div><section className="card empty-page"><h2>Open a workspace to manage order drafts</h2><p>Order drafts are workspace scoped and never submit orders.</p><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {page === 'Artifacts' && (workspace ? <ArtifactsPage workspaceId={workspace.workspaceId} /> : <><div className="page-heading"><h1>Artifacts</h1><p>Saved research and decision provenance.</p></div><section className="card empty-page"><h2>Open a workspace to view artifacts</h2><button type="button" onClick={() => { setPage('New Thread'); setWorkspacePicker(true); }}>Open workspace</button></section></>)}
             {page === 'Strategies' && <>
               <div className="page-heading"><h1>{page}</h1></div>

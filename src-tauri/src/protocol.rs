@@ -188,6 +188,8 @@ pub enum ReplyData {
     ScreenerResult(ScreenerResult),
     ScreenerLibrary(ScreenerLibrary),
     ScreenerAttachment(ScreenerAttachment),
+    OrderDraft(Box<OrderDraft>),
+    OrderDraftLibrary(OrderDraftLibrary),
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
     ArtifactExport(ArtifactExportResult),
@@ -258,6 +260,10 @@ pub struct IpcSchema {
     pub screener_save: ScreenerSave,
     pub screener_update: ScreenerUpdate,
     pub screener_attach: ScreenerAttach,
+    pub order_draft_save: OrderDraftSave,
+    pub order_draft_query: OrderDraftQuery,
+    pub order_draft: OrderDraft,
+    pub order_draft_library: OrderDraftLibrary,
     pub artifact_save: ArtifactSave,
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
@@ -278,7 +284,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 9))]
+    #[schemars(range(min = 1, max = 10))]
     pub storage_schema_version: u32,
 }
 
@@ -1635,6 +1641,138 @@ pub struct Thread {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderSide {
+    Buy,
+    Sell,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderType {
+    Market,
+    Limit,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderQuantityType {
+    Base,
+    Quote,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TimeInForce {
+    Day,
+    Gtc,
+    Ioc,
+    Fok,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderQuantity {
+    pub r#type: OrderQuantityType,
+    #[schemars(length(min = 1, max = 128))]
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderDraftFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    #[schemars(length(min = 1, max = 32))]
+    pub venue: String,
+    pub environment: ExecutionContext,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub side: OrderSide,
+    pub order_type: OrderType,
+    pub quantity: OrderQuantity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub limit_price: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub maximum_spend: Option<String>,
+    pub time_in_force: TimeInForce,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 80))]
+    pub client_label: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderDraft {
+    #[schemars(length(min = 1, max = 128))]
+    pub draft_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub draft_version: u64,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    pub fields: OrderDraftFields,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderDraftSummary {
+    #[schemars(length(min = 1, max = 128))]
+    pub draft_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub draft_version: u64,
+    #[schemars(length(min = 1, max = 64))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub environment: ExecutionContext,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderDraftLibrary {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 256))]
+    pub drafts: Vec<OrderDraftSummary>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderDraftSave {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub draft_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: Option<String>,
+    pub fields: OrderDraftFields,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderDraftQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub draft_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ArtifactKind {
     Research,
     Decision,
@@ -2073,6 +2211,61 @@ impl TradeXError {
                 "The selected instrument is not in the current catalog.",
                 "reload_snapshot",
                 "Reload market catalog",
+            ),
+            "ORDER_CONTEXT_INVALID" => (
+                "This execution context cannot be used for an order draft or does not match the account.",
+                "select_execution_context",
+                "Choose a compatible context",
+            ),
+            "ORDER_ACCOUNT_REQUIRED" => (
+                "Select an existing provider account for this execution context.",
+                "select_account",
+                "Select an account",
+            ),
+            "ORDER_ACCOUNT_INVALID" => (
+                "The selected account is not valid for this workspace or context.",
+                "select_account",
+                "Choose another account",
+            ),
+            "ORDER_ACCOUNT_NOT_FOUND" => (
+                "That account is no longer available. Reload the account list.",
+                "select_account",
+                "Reload accounts",
+            ),
+            "ORDER_INSTRUMENT_NOT_FOUND" => (
+                "The selected instrument is no longer in the current catalog.",
+                "reload_snapshot",
+                "Reload market catalog",
+            ),
+            "ORDER_VENUE_INVALID" => (
+                "The venue does not match the selected instrument and execution context.",
+                "select_venue",
+                "Choose a compatible venue",
+            ),
+            "ORDER_DECIMAL_INVALID" => (
+                "Enter a decimal amount without exponent notation.",
+                "edit_order_amount",
+                "Review order amount",
+            ),
+            "ORDER_AMOUNT_INVALID" => (
+                "Order quantity and prices must be greater than zero.",
+                "edit_order_amount",
+                "Review order amount",
+            ),
+            "ORDER_LIMIT_PRICE_REQUIRED" => (
+                "A limit price is required for a limit order.",
+                "edit_order_amount",
+                "Enter a limit price",
+            ),
+            "ORDER_MARKET_PRICE_FORBIDDEN" => (
+                "Market orders cannot include a limit price.",
+                "edit_order_amount",
+                "Remove the limit price",
+            ),
+            "ORDER_DRAFT_NOT_FOUND" => (
+                "That order draft is no longer available. Reload the draft library.",
+                "reload_snapshot",
+                "Reload drafts",
             ),
             "MARKET_HISTORY_LIMIT" => (
                 "The local historical cache reached its bounded storage limit.",
