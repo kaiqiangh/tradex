@@ -2,7 +2,7 @@
 
 日期：2026-09-14
 前置：S06 数据源授权目录、S07 canonical market/Watchlists
-状态：已拆为 #30（可信时间门禁）与 #31（市场时段、停牌与公司行为）；#30 已完成，#31 已实现并通过独立审查；OD-005 真实授权与 S33/后续 authority consumers 仍待完成
+状态：**VERIFIED（2026-09-20，#30/#31 已完成）**；当前 S08 只读时间/市场状态切片已通过 schema、Rust、前端和 Rust-backed 浏览器证据；OD-005 真实授权、QA-04、S33 与后续 authority consumers 仍待完成
 
 ## Problem Statement
 
@@ -79,3 +79,4 @@ TradeX 已能用 canonical instrument ID 浏览 Markets 和管理 Watchlists，�
 - S06 的 OD-005 状态仍是 BLOCKED_EXTERNAL；这份规范明确分离“状态契约/fixture 验证”和真实数据授权。
 - S07 的 MarketDetail 继续保留原有 snapshot optional 语义；新增 market state 不会把 unavailable source 变成 quote。
 - #31 当前实现 SHA 为 `90060eab99f26fe8218da4dc6666d6e061ee4314`（包含初始边界 `813a75a00497d7746167c3876583f80e07b0193b`、权威门禁修复 `de7b5eee14c522bac374b81ddc4cf2b32fdd2165` 与桌面 Clippy 修复 `dc8e8c2e4b2efa59e98320f2ecdf297108d0e199`）；证据记录沿用 [S08 #31 验收](s08-market-evidence.md)。C6、C4/C5 的 S08 子范围以及 K7 的市场错误变体已更新为 `IMPLEMENTED_UNVERIFIED`；K6 的可信时间记录沿用 [S08 #30 证据](s08-time-evidence.md)，QA-04、S33 与真实 OD-005 仍待后续完整回归。
+- 当前 `dev` 复核基线为 `e6249ad`；S08 的 `time.*`、`market.get`、MarketState/CorporateAction 与 ErrorRecoveryPanel 路径在其后没有运行时行为变化。当前 workspace/full integration Rust、schema/build/unit、Clippy、fmt、diff check 与 traceability 均通过；历史浏览器证据仍以隔离 fixture 标注，不代表真实 OD-005 授权。
