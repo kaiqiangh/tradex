@@ -26,6 +26,7 @@ Issue：[#40](https://github.com/kaiqiangh/tradex/issues/40)（OPEN）；规范 
 - `npm run typecheck`
 - `npm run test:unit`：6 个 UI projection/schema 测试通过。
 - `npm run build`：Vite 构建通过；保留既有单 chunk 大于 500 kB 的非阻断 warning。
+- `npm run desktop:build`：Tauri desktop release 编译通过，产物为 `target/release/tradex`；这只证明桌面编译链和 capability 配置可构建，不替代原生窗口运行证据。
 - `node --check tests/thread-ui.mjs`
 - `python3 scripts/check_requirements.py`：201 requirements、70 screens、12 QA scenarios、23 baseline files traceability 通过。
 - `git diff --check`
