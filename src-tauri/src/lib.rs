@@ -780,6 +780,44 @@ impl ControlPlane {
                     .generate_order_proposal(&input, &references)?;
                 Ok((json!(proposal), Some(proposal.state_version.clone())))
             }
+            "trade.refresh_proposal" => {
+                let input: protocol::OrderProposalRefresh = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                storage::validate_order_proposal_id(&input.proposal_id)?;
+                let current = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .order_proposal(&input.proposal_id)?;
+                if current.workspace_id != input.workspace_id {
+                    return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+                }
+                let mut references = self.order_proposal_references(
+                    &input.workspace_id,
+                    &current.fields.instrument_id,
+                )?;
+                let time_status = self.time.status(&input.workspace_id)?;
+                let refresh_status =
+                    Self::proposal_refresh_status(&references, time_status.confidence);
+                references.market_reference_reason = format!(
+                    "{} Refresh time {} ({:?}).",
+                    references.market_reference_reason,
+                    time_status.observed_at,
+                    time_status.confidence,
+                );
+                if references.market_reference_reason.chars().count() > 256 {
+                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+                }
+                let refreshed = self.store.as_mut().unwrap().refresh_order_proposal(
+                    &input,
+                    &references,
+                    refresh_status,
+                )?;
+                Ok((
+                    json!(refreshed),
+                    Some(refreshed.proposal.state_version.clone()),
+                ))
+            }
             "trade.proposal.list" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -2842,6 +2880,32 @@ impl ControlPlane {
         })
     }
 
+    fn proposal_refresh_status(
+        references: &storage::OrderProposalReferences,
+        time_confidence: protocol::TimeConfidence,
+    ) -> protocol::OrderProposalRefreshStatus {
+        if matches!(
+            time_confidence,
+            protocol::TimeConfidence::ClockUncertain | protocol::TimeConfidence::Stale
+        ) {
+            protocol::OrderProposalRefreshStatus::Stale
+        } else if matches!(
+            &references.market_status,
+            protocol::MarketDataStatus::Unavailable | protocol::MarketDataStatus::Unverified
+        ) || references.policy_status == protocol::ProposalReferenceStatus::Unavailable
+        {
+            protocol::OrderProposalRefreshStatus::Unavailable
+        } else if matches!(
+            &references.market_status,
+            protocol::MarketDataStatus::BlockedExternal
+        ) || references.policy_status == protocol::ProposalReferenceStatus::Unconfigured
+        {
+            protocol::OrderProposalRefreshStatus::Blocked
+        } else {
+            protocol::OrderProposalRefreshStatus::Refreshed
+        }
+    }
+
     /// Prepare under the domain lock, perform native/provider work outside it, then commit with the same session/version.
     pub fn prepare_provider(&mut self, value: &Value) -> Result<Option<ProviderJob>> {
         match value.get("schemaVersion").and_then(Value::as_u64) {
@@ -4108,6 +4172,66 @@ mod thread_tests {
         assert_eq!(duplicate["ok"], true, "{duplicate}");
         assert_eq!(duplicate["data"]["proposalId"], proposal_id);
         assert_eq!(duplicate["data"]["proposalHash"], proposal_hash);
+        let refreshed = control.dispatch(request(
+            "trade.refresh_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal_id,
+                "expectedStateVersion": proposal["data"]["stateVersion"]
+            }),
+        ));
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        assert_eq!(refreshed["data"]["refreshStatus"], "STALE");
+        assert_eq!(
+            refreshed["data"]["previousProposal"]["status"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            refreshed["data"]["previousProposal"]["history"][1]["event"],
+            "REFRESHED"
+        );
+        assert_eq!(refreshed["data"]["proposal"]["status"], "NEEDS_APPROVAL");
+        assert_ne!(refreshed["data"]["proposal"]["proposalId"], proposal_id);
+        assert_ne!(refreshed["data"]["proposal"]["proposalHash"], proposal_hash);
+        let refreshed_id = refreshed["data"]["proposal"]["proposalId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let refreshed_state_version = refreshed["data"]["proposal"]["stateVersion"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let stale_refresh = control.dispatch(request(
+            "trade.refresh_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": &refreshed_id,
+                "expectedStateVersion": "order-proposal:stale:1"
+            }),
+        ));
+        assert_eq!(stale_refresh["ok"], false);
+        assert_eq!(stale_refresh["error"]["code"], "STATE_VERSION_CONFLICT");
+        let foreign_refresh = control.dispatch(request(
+            "trade.refresh_proposal",
+            json!({
+                "workspaceId": "foreign-workspace",
+                "proposalId": &refreshed_id,
+                "expectedStateVersion": &refreshed_state_version
+            }),
+        ));
+        assert_eq!(foreign_refresh["ok"], false);
+        assert_eq!(foreign_refresh["error"]["code"], "IPC_AGGREGATE_NOT_FOUND");
+        let forged_refresh = control.dispatch(request(
+            "trade.refresh_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": refreshed["data"]["proposal"]["proposalId"],
+                "expectedStateVersion": refreshed_state_version,
+                "refreshStatus": "REFRESHED"
+            }),
+        ));
+        assert_eq!(forged_refresh["ok"], false);
+        assert_eq!(forged_refresh["error"]["code"], "IPC_PAYLOAD_INVALID");
         let mut changed_fields = fields;
         changed_fields["quantity"] = json!({"type":"BASE","value":"2"});
         let updated = control.dispatch(request(
@@ -4163,7 +4287,30 @@ mod thread_tests {
         assert_eq!(invalidated["ok"], true, "{invalidated}");
         assert_eq!(invalidated["data"]["status"], "INVALIDATED");
         assert_eq!(invalidated["data"]["fields"]["quantity"]["value"], "1");
-        assert_eq!(invalidated["data"]["history"][1]["event"], "DRAFT_CHANGED");
+        assert_eq!(invalidated["data"]["history"][1]["event"], "REFRESHED");
+        let refreshed_invalidated = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":refreshed_id}),
+        ));
+        assert_eq!(refreshed_invalidated["ok"], true, "{refreshed_invalidated}");
+        assert_eq!(refreshed_invalidated["data"]["status"], "INVALIDATED");
+        assert_eq!(
+            refreshed_invalidated["data"]["history"][1]["event"],
+            "DRAFT_CHANGED"
+        );
+        let not_refreshable = control.dispatch(request(
+            "trade.refresh_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": refreshed_id,
+                "expectedStateVersion": refreshed_invalidated["data"]["stateVersion"]
+            }),
+        ));
+        assert_eq!(not_refreshable["ok"], false);
+        assert_eq!(
+            not_refreshable["error"]["code"],
+            "ORDER_PROPOSAL_NOT_REFRESHABLE"
+        );
         let next = control.dispatch(request(
             "trade.generate_proposal",
             json!({
@@ -4182,7 +4329,7 @@ mod thread_tests {
             json!({"workspaceId":workspace_id}),
         ));
         assert_eq!(listed["ok"], true, "{listed}");
-        assert_eq!(listed["data"]["proposals"].as_array().unwrap().len(), 2);
+        assert_eq!(listed["data"]["proposals"].as_array().unwrap().len(), 3);
         assert_eq!(control.store.as_ref().unwrap().risk().unwrap(), before_risk);
         assert_eq!(
             control

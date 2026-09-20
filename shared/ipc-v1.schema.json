@@ -88,6 +88,12 @@
     "orderProposalQuery": {
       "$ref": "#/$defs/OrderProposalQuery"
     },
+    "orderProposalRefresh": {
+      "$ref": "#/$defs/OrderProposalRefreshResult"
+    },
+    "orderProposalRefreshRequest": {
+      "$ref": "#/$defs/OrderProposalRefresh"
+    },
     "portfolioQuery": {
       "$ref": "#/$defs/PortfolioQuery"
     },
@@ -230,6 +236,8 @@
     "orderProposalQuery",
     "orderProposal",
     "orderProposalLibrary",
+    "orderProposalRefreshRequest",
+    "orderProposalRefresh",
     "artifactSave",
     "artifactQuery",
     "artifactExport",
@@ -3276,7 +3284,8 @@
       "type": "string",
       "enum": [
         "GENERATED",
-        "DRAFT_CHANGED"
+        "DRAFT_CHANGED",
+        "REFRESHED"
       ]
     },
     "OrderProposalLibrary": {
@@ -3325,6 +3334,67 @@
       "required": [
         "workspaceId",
         "proposalId"
+      ]
+    },
+    "OrderProposalRefresh": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "expectedStateVersion"
+      ]
+    },
+    "OrderProposalRefreshResult": {
+      "type": "object",
+      "properties": {
+        "invalidationReason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "previousProposal": {
+          "$ref": "#/$defs/OrderProposal"
+        },
+        "proposal": {
+          "$ref": "#/$defs/OrderProposal"
+        },
+        "refreshStatus": {
+          "$ref": "#/$defs/OrderProposalRefreshStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "previousProposal",
+        "proposal",
+        "refreshStatus",
+        "invalidationReason"
+      ]
+    },
+    "OrderProposalRefreshStatus": {
+      "type": "string",
+      "enum": [
+        "REFRESHED",
+        "STALE",
+        "BLOCKED",
+        "UNAVAILABLE"
       ]
     },
     "OrderProposalStatus": {
@@ -4312,6 +4382,9 @@
         },
         {
           "$ref": "#/$defs/OrderProposalLibrary"
+        },
+        {
+          "$ref": "#/$defs/OrderProposalRefreshResult"
         },
         {
           "$ref": "#/$defs/Artifact"

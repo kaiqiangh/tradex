@@ -27,11 +27,12 @@ use crate::protocol::{
     ArtifactSummary, AssetClass, DomainEvent, DomainProjection, EventSink, ExecutionContext,
     MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
     OrderDraftSummary, OrderProposal, OrderProposalGenerate, OrderProposalHistoryEntry,
-    OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalStatus, OrderProposalSummary,
-    OrderType, ProposalReferenceStatus, Result, SavedScreener, ScreenerLibrary,
-    ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, SubscriptionAck, Thread,
-    ThreadList, ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem, Watchlists,
-    Workspace,
+    OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
+    OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
+    OrderProposalSummary, OrderType, ProposalReferenceStatus, Result, SavedScreener,
+    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, SubscriptionAck,
+    Thread, ThreadList, ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem,
+    Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
@@ -65,6 +66,8 @@ struct StoredOrderProposal {
     draft_id: String,
     draft_version: u64,
     proposal_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    hash_salt: Option<String>,
     fields: OrderDraftFields,
     estimated_notional: Option<String>,
     estimated_notional_currency: Option<String>,
@@ -85,6 +88,8 @@ struct OrderProposalHashInput<'a> {
     workspace_id: &'a str,
     draft_id: &'a str,
     draft_version: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hash_salt: Option<&'a str>,
     fields: OrderProposalHashFields<'a>,
     estimated_notional: Option<&'a str>,
     estimated_notional_currency: Option<&'a str>,
@@ -1563,6 +1568,7 @@ impl Store {
             &workspace_id,
             &draft.draft_id,
             draft.draft_version,
+            None,
             &draft.fields,
             &estimated_notional,
             &estimated_notional_currency,
@@ -1610,6 +1616,7 @@ impl Store {
             draft_id: draft.draft_id,
             draft_version: draft.draft_version,
             proposal_hash: proposal_hash.clone(),
+            hash_salt: None,
             fields: draft.fields,
             estimated_notional,
             estimated_notional_currency,
@@ -1644,6 +1651,168 @@ impl Store {
         .map_err(storage_error)?;
         tx.commit().map_err(storage_error)?;
         materialize_order_proposal(&self.connection, stored)
+    }
+
+    pub fn refresh_order_proposal(
+        &mut self,
+        input: &OrderProposalRefresh,
+        references: &OrderProposalReferences,
+        refresh_status: OrderProposalRefreshStatus,
+    ) -> Result<OrderProposalRefreshResult> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(&input.proposal_id)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (row_workspace_id, draft_id, draft_version, proposal_hash, sequence, projection): (
+            String,
+            String,
+            i64,
+            String,
+            i64,
+            String,
+        ) = tx
+            .query_row(
+                "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 AND proposal_id=?2",
+                params![&workspace_id, &input.proposal_id],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                },
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let stored = decode_stored_order_proposal(
+            &projection,
+            &input.proposal_id,
+            &row_workspace_id,
+            &draft_id,
+            draft_version,
+            &proposal_hash,
+            sequence,
+            &workspace_id,
+        )?;
+        let (status, _, last_event_sequence) =
+            proposal_event_state(&tx, &input.proposal_id, &workspace_id)?;
+        let current_state_version =
+            format!("order-proposal:{}:{last_event_sequence}", input.proposal_id);
+        if input.expected_state_version != current_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if status != OrderProposalStatus::NeedsApproval {
+            return Err(TradeXError::new("ORDER_PROPOSAL_NOT_REFRESHABLE"));
+        }
+        let draft = load_order_draft_tx(&tx, &workspace_id, &stored.draft_id)?;
+        if draft.draft_version != stored.draft_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let (estimated_notional, estimated_notional_currency, estimated_notional_reason) =
+            estimate_order_notional(&draft.fields)?;
+        let proposal_id = format!("proposal:{}", Uuid::new_v4());
+        let proposal_hash = order_proposal_hash(
+            &workspace_id,
+            &draft.draft_id,
+            draft.draft_version,
+            Some(&proposal_id),
+            &draft.fields,
+            &estimated_notional,
+            &estimated_notional_currency,
+            &estimated_notional_reason,
+            references,
+        )?;
+        let count: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM order_proposals WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !(0..256).contains(&count) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let next_event_sequence = last_event_sequence
+            .checked_add(1)
+            .filter(|value| *value <= 32)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let sequence = next_order_proposal_sequence(&tx, &workspace_id)?;
+        let created_at = timestamp()?;
+        let invalidation_reason =
+            format!("Proposal refreshed as {proposal_id}; a new approval is required.");
+        tx.execute(
+            "INSERT INTO order_proposal_events(proposal_id,workspace_id,sequence,event,reason,occurred_at) VALUES(?1,?2,?3,?4,?5,?6)",
+            params![
+                &stored.proposal_id,
+                &workspace_id,
+                next_event_sequence,
+                "REFRESHED",
+                &invalidation_reason,
+                &created_at,
+            ],
+        )
+        .map_err(storage_error)?;
+        let refreshed = StoredOrderProposal {
+            proposal_id: proposal_id.clone(),
+            workspace_id: workspace_id.clone(),
+            draft_id: draft.draft_id,
+            draft_version: draft.draft_version,
+            proposal_hash,
+            hash_salt: Some(proposal_id.clone()),
+            fields: draft.fields,
+            estimated_notional,
+            estimated_notional_currency,
+            estimated_notional_reason,
+            policy_version: references.policy_version,
+            policy_state_version: references.policy_state_version.clone(),
+            policy_status: references.policy_status,
+            policy_reference_reason: references.policy_reference_reason.clone(),
+            market_snapshot_id: references.market_snapshot_id.clone(),
+            market_status: references.market_status.clone(),
+            market_reference_reason: references.market_reference_reason.clone(),
+            created_at: created_at.clone(),
+        };
+        let projection = serde_json::to_string(&refreshed).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO order_proposals(proposal_id,workspace_id,draft_id,draft_version,proposal_hash,sequence,projection) VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![
+                &refreshed.proposal_id,
+                &refreshed.workspace_id,
+                &refreshed.draft_id,
+                refreshed.draft_version as i64,
+                &refreshed.proposal_hash,
+                sequence,
+                projection,
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO order_proposal_events(proposal_id,workspace_id,sequence,event,reason,occurred_at) VALUES(?1,?2,1,?3,NULL,?4)",
+            params![&refreshed.proposal_id, &refreshed.workspace_id, "GENERATED", &created_at],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        let previous_proposal = materialize_order_proposal(&self.connection, stored)?;
+        let proposal = materialize_order_proposal(&self.connection, refreshed)?;
+        Ok(OrderProposalRefreshResult {
+            previous_proposal: Box::new(previous_proposal),
+            proposal: Box::new(proposal),
+            refresh_status,
+            invalidation_reason,
+        })
     }
 
     pub fn save_order_draft(&mut self, input: &OrderDraftSave) -> Result<OrderDraft> {
@@ -2544,6 +2713,7 @@ fn order_proposal_hash(
     workspace_id: &str,
     draft_id: &str,
     draft_version: u64,
+    hash_salt: Option<&str>,
     fields: &OrderDraftFields,
     estimated_notional: &Option<String>,
     estimated_notional_currency: &Option<String>,
@@ -2554,6 +2724,7 @@ fn order_proposal_hash(
         workspace_id,
         draft_id,
         draft_version,
+        hash_salt,
         fields: OrderProposalHashFields {
             account_id: fields.account_id.as_deref(),
             venue: &fields.venue,
@@ -2612,6 +2783,10 @@ fn decode_stored_order_proposal(
         || proposal.draft_id != row_draft_id
         || proposal.draft_version != row_draft_version as u64
         || proposal.proposal_hash != row_proposal_hash
+        || proposal
+            .hash_salt
+            .as_deref()
+            .is_some_and(|value| !valid_order_proposal_id(value))
         || !valid_order_text(&proposal.created_at, 64)
         || !valid_order_text(&proposal.policy_reference_reason, 256)
         || !valid_order_text(&proposal.market_reference_reason, 256)
@@ -2642,6 +2817,7 @@ fn decode_stored_order_proposal(
         workspace_id,
         row_draft_id,
         proposal.draft_version,
+        proposal.hash_salt.as_deref(),
         &proposal.fields,
         &proposal.estimated_notional,
         &proposal.estimated_notional_currency,
@@ -2751,7 +2927,7 @@ fn proposal_event_state(
         }
         match event.as_str() {
             "GENERATED" if sequence == 1 && reason.is_none() => {}
-            "DRAFT_CHANGED" if sequence > 1 => {
+            "DRAFT_CHANGED" | "REFRESHED" if sequence > 1 => {
                 status = OrderProposalStatus::Invalidated;
                 invalidation_reason =
                     Some(reason.ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?);
@@ -2797,6 +2973,7 @@ fn proposal_history(
         let event = match event.as_str() {
             "GENERATED" => OrderProposalHistoryEvent::Generated,
             "DRAFT_CHANGED" => OrderProposalHistoryEvent::DraftChanged,
+            "REFRESHED" => OrderProposalHistoryEvent::Refreshed,
             _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
         };
         if !(1..=MAX_SEQUENCE as i64).contains(&sequence)
@@ -2868,7 +3045,7 @@ fn invalidate_order_proposals_tx(
             )
             .optional()
             .map_err(storage_error)?;
-        if active.as_deref() == Some("DRAFT_CHANGED") {
+        if matches!(active.as_deref(), Some("DRAFT_CHANGED" | "REFRESHED")) {
             continue;
         }
         let last_sequence: i64 = tx

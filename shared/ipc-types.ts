@@ -165,7 +165,7 @@ export type TimeInForce = "DAY" | "GTC" | "IOC" | "FOK";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderProposalHistoryEvent".
  */
-export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED";
+export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED" | "REFRESHED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketDataStatus".
@@ -181,6 +181,11 @@ export type ProposalReferenceStatus = "AVAILABLE" | "UNCONFIGURED" | "UNAVAILABL
  * via the `definition` "OrderProposalStatus".
  */
 export type OrderProposalStatus = "NEEDS_APPROVAL" | "INVALIDATED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalRefreshStatus".
+ */
+export type OrderProposalRefreshStatus = "REFRESHED" | "STALE" | "BLOCKED" | "UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Connect".
@@ -241,6 +246,7 @@ export type ReplyData =
   | OrderDraftLibrary
   | OrderProposal
   | OrderProposalLibrary
+  | OrderProposalRefreshResult
   | Artifact
   | ArtifactLibrary
   | ArtifactExportResult;
@@ -389,6 +395,8 @@ export interface IpcSchema {
   orderProposalGenerate: OrderProposalGenerate;
   orderProposalLibrary: OrderProposalLibrary;
   orderProposalQuery: OrderProposalQuery;
+  orderProposalRefresh: OrderProposalRefreshResult;
+  orderProposalRefreshRequest: OrderProposalRefresh;
   portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
@@ -1371,6 +1379,25 @@ export interface OrderProposalSummary {
  * via the `definition` "OrderProposalQuery".
  */
 export interface OrderProposalQuery {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalRefreshResult".
+ */
+export interface OrderProposalRefreshResult {
+  invalidationReason: string;
+  previousProposal: OrderProposal;
+  proposal: OrderProposal;
+  refreshStatus: OrderProposalRefreshStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalRefresh".
+ */
+export interface OrderProposalRefresh {
+  expectedStateVersion: string;
   proposalId: string;
   workspaceId: string;
 }

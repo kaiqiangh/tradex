@@ -192,6 +192,7 @@ pub enum ReplyData {
     OrderDraftLibrary(OrderDraftLibrary),
     OrderProposal(Box<OrderProposal>),
     OrderProposalLibrary(OrderProposalLibrary),
+    OrderProposalRefresh(Box<OrderProposalRefreshResult>),
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
     ArtifactExport(ArtifactExportResult),
@@ -270,6 +271,8 @@ pub struct IpcSchema {
     pub order_proposal_query: OrderProposalQuery,
     pub order_proposal: OrderProposal,
     pub order_proposal_library: OrderProposalLibrary,
+    pub order_proposal_refresh_request: OrderProposalRefresh,
+    pub order_proposal_refresh: OrderProposalRefreshResult,
     pub artifact_save: ArtifactSave,
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
@@ -1797,6 +1800,16 @@ pub enum ProposalReferenceStatus {
 pub enum OrderProposalHistoryEvent {
     Generated,
     DraftChanged,
+    Refreshed,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderProposalRefreshStatus {
+    Refreshed,
+    Stale,
+    Blocked,
+    Unavailable,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1912,6 +1925,27 @@ pub struct OrderProposalQuery {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub proposal_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposalRefresh {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposalRefreshResult {
+    pub previous_proposal: Box<OrderProposal>,
+    pub proposal: Box<OrderProposal>,
+    pub refresh_status: OrderProposalRefreshStatus,
+    #[schemars(length(min = 1, max = 256))]
+    pub invalidation_reason: String,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2428,6 +2462,11 @@ impl TradeXError {
                 "reload_snapshot",
                 "Reload proposals",
             ),
+            "ORDER_PROPOSAL_NOT_REFRESHABLE" => (
+                "This proposal is already invalidated and must be regenerated from the current draft.",
+                "reload_snapshot",
+                "Reload proposal history",
+            ),
             "MARKET_HISTORY_LIMIT" => (
                 "The local historical cache reached its bounded storage limit.",
                 "retry_request",
@@ -2879,6 +2918,7 @@ impl TradeXError {
                 "IPC_AGGREGATE_NOT_FOUND"
                     | "ARTIFACT_NOT_FOUND"
                     | "ORDER_PROPOSAL_NOT_FOUND"
+                    | "ORDER_PROPOSAL_NOT_REFRESHABLE"
                     | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"

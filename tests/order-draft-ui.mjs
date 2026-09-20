@@ -29,6 +29,15 @@ export async function checkOrderDraftUI(tab, browser) {
     assert.equal(await ui.getByText(/Market: BLOCKED_EXTERNAL.*snapshot —/, { exact: false }).count() > 0, true);
     observed.push('A saved draft generates an immutable NEEDS_APPROVAL proposal with a visible history entry and estimated notional.');
 
+    await ui.getByRole('button', { name: 'Refresh proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: /Proposal refreshed \(STALE\)/ }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText('NEEDS_APPROVAL', { exact: true }).count() > 0, true);
+    await ui.getByRole('button', { name: /INVALIDATED v1/ }).press('Enter');
+    await ui.getByText('REFRESHED', { exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText(/Proposal refreshed as proposal:/, { exact: false }).count() > 0, true);
+    await ui.getByRole('button', { name: /NEEDS_APPROVAL v1/ }).press('Enter');
+    observed.push('Refresh preserves the old invalidated identity and creates a new NEEDS_APPROVAL proposal with an explicit stale status.');
+
     await quantity.fill('2');
     await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 2.' }).waitFor({ state: 'visible' });

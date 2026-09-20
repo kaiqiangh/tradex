@@ -96,6 +96,9 @@ declare const validators: {
   OrderProposalHistoryEvent: (value: unknown) => boolean;
   OrderProposalLibrary: (value: unknown) => boolean;
   OrderProposalQuery: (value: unknown) => boolean;
+  OrderProposalRefresh: (value: unknown) => boolean;
+  OrderProposalRefreshResult: (value: unknown) => boolean;
+  OrderProposalRefreshStatus: (value: unknown) => boolean;
   OrderProposalStatus: (value: unknown) => boolean;
   OrderProposalSummary: (value: unknown) => boolean;
   OrderQuantity: (value: unknown) => boolean;
