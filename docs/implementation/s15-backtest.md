@@ -2,7 +2,7 @@
 
 日期：2026-09-20  
 前置：S08 TimeService/market calendar、S14 不可变 StrategyVersion 与受限 worker
-状态：SPECIFIED（待拆票）
+状态：#48 已实现；#49/#50 待实现
 
 ## Problem Statement
 
