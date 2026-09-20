@@ -40,6 +40,7 @@ Standards 与 Spec 两轴复审均为 `PASS`。最后一次复审覆盖 producer
 - 从完成的 Research Item 保存 `S12 Runtime Artifact`，Artifacts library 显示 1 项；detail 显示 version、content hash、source item 和保存内容。
 - 打开 Provenance modal，确认 workspace/thread/turn/item、mode、execution context、model、provider attempts、source limitation 和三类 related refs 均来自保存快照。
 - 键盘验证通过：打开时焦点在 Close，`Tab` 在 Close/Done 间循环，`Shift+Tab` 反向循环；按 `Escape` 或 `Done` 关闭后，DOM 焦点恢复到 `View provenance`。
+- 响应式验证通过：390px、768px、1280px 下 Artifact detail 的 `scrollWidth` 分别为 390、768、1280，详情标题和保存内容均保持可见，没有横向溢出。
 - 首次 `Export JSON` 成功，UI 报告写入 workspace `exports/` 的 5616 bytes；再次导出同一 artifact 被已有目标文件拒绝并显示 `That export filename already exists. Choose another filename.`，证明 no-replace 边界仍生效。
 
 这条浏览器运行只证明本地 fixture 的 UI、IPC projection 和导出反馈；fixture provider 不等同于真实 OAuth/API provider。
