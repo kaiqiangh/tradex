@@ -4,7 +4,7 @@
 开发分支：`dev`  
 起始 SHA：`131b7a164b15f5983240768806c4c3c14e43c599`  
 实现/审查 SHA：`22a3890546d88e55d280f12eb0f9f795be466ea3`
-Issue：[#40](https://github.com/kaiqiangh/tradex/issues/40)（OPEN）；规范 [#39](https://github.com/kaiqiangh/tradex/issues/39) 与父项 [#1](https://github.com/kaiqiangh/tradex/issues/1) 保持 OPEN。
+Issue：[#40](https://github.com/kaiqiangh/tradex/issues/40)（CLOSED）；规范 [#39](https://github.com/kaiqiangh/tradex/issues/39) 已关闭，父项 [#1](https://github.com/kaiqiangh/tradex/issues/1) 保持 OPEN。
 
 ## 实现范围
 
