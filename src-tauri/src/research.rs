@@ -563,10 +563,11 @@ mod tests {
 
     #[test]
     fn available_catalog_source_without_matching_fixture_stays_unavailable() {
-        let source = crate::data_sources::entries()
+        let mut source = crate::data_sources::entries()
             .into_iter()
             .find(|entry| entry.source_id == "OD-001")
             .unwrap();
+        source.status = DataSourceStatus::Available;
         for focus in [
             None,
             Some(ResearchFocus::General),

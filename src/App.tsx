@@ -391,12 +391,16 @@ function TurnComposer({ thread, model, runtime, initialContexts = [], onContexts
     ?? capability.data?.researchTools[0];
   const ready = runtimeReady(runtime) && Boolean(selectedModel) && Boolean(capability.data) && !capability.isError;
   const researchReady = Boolean(selectedResearchTool) && Boolean(capability.data) && !capability.isError;
-  const researchLifecycle = researchBusy ? 'RUNNING' : researchPreview ? 'DONE' : capability.isError ? 'UNAVAILABLE' : 'READY';
+  const researchLifecycle = researchBusy
+    ? 'RUNNING'
+    : researchPreview
+      ? researchPreview.result.payload.state === 'AVAILABLE' ? 'DONE' : researchPreview.result.payload.state
+      : capability.isError ? 'UNAVAILABLE' : 'READY';
   const previewResearch = async () => {
     const definition = selectedResearchTool;
     if (!definition || researchBusy || busy) return;
     const query = message.trim() || 'Preview typed research context';
-    setResearchBusy(true); setError(undefined);
+    setResearchBusy(true); setResearchPreview(undefined); setError(undefined);
     try {
       const invocation: ResearchToolInvocation = { toolId: definition.id, focus: researchFocus, query };
       const result = await request('research.run', {
@@ -410,7 +414,7 @@ function TurnComposer({ thread, model, runtime, initialContexts = [], onContexts
         query: invocation.query,
       });
       setResearchPreview({ invocation, result });
-    } catch (failure) { setError(explainError(failure)); }
+    } catch (failure) { setResearchPreview(undefined); setError(explainError(failure)); }
     finally { setResearchBusy(false); }
   };
   const send = async (event: FormEvent) => {
