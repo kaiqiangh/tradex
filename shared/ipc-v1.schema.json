@@ -22,6 +22,21 @@
     "artifactSave": {
       "$ref": "#/$defs/ArtifactSave"
     },
+    "backtestCancel": {
+      "$ref": "#/$defs/BacktestCancel"
+    },
+    "backtestFailure": {
+      "$ref": "#/$defs/BacktestFailure"
+    },
+    "backtestRun": {
+      "$ref": "#/$defs/BacktestRun"
+    },
+    "backtestRunQuery": {
+      "$ref": "#/$defs/BacktestRunQuery"
+    },
+    "backtestRunRequest": {
+      "$ref": "#/$defs/BacktestRunRequest"
+    },
     "capabilityQuery": {
       "$ref": "#/$defs/CapabilityQuery"
     },
@@ -286,6 +301,11 @@
     "strategyRun",
     "strategySignal",
     "strategyFailure",
+    "backtestFailure",
+    "backtestRun",
+    "backtestRunQuery",
+    "backtestRunRequest",
+    "backtestCancel",
     "watchlistCreate",
     "watchlistRename",
     "watchlistDelete",
@@ -995,6 +1015,343 @@
       "enum": [
         "EQUITY",
         "CRYPTO_SPOT"
+      ]
+    },
+    "BacktestCancel": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "runId"
+      ]
+    },
+    "BacktestFailure": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "remediation": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason"
+      ]
+    },
+    "BacktestFixtureScenario": {
+      "type": "string",
+      "enum": [
+        "FAILURE",
+        "CANCELLED"
+      ]
+    },
+    "BacktestRun": {
+      "type": "object",
+      "properties": {
+        "barInterval": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "commission": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "datasetId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "endAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BacktestFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fixtureLabel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StrategyParameter"
+          },
+          "maxItems": 32
+        },
+        "portfolioSeed": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requestHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "slippage": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "startAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startingCash": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/BacktestRunState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "strategyHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "workspaceId",
+        "strategyVersionId",
+        "strategyHash",
+        "instrumentId",
+        "datasetId",
+        "startAt",
+        "endAt",
+        "barInterval",
+        "startingCash",
+        "commission",
+        "slippage",
+        "observedAt",
+        "state",
+        "requestHash",
+        "createdAt",
+        "updatedAt",
+        "stateVersion"
+      ]
+    },
+    "BacktestRunQuery": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "runId"
+      ]
+    },
+    "BacktestRunRequest": {
+      "type": "object",
+      "properties": {
+        "barInterval": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "commission": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "datasetId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "endAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "expectedStrategyHash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "fixtureScenario": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BacktestFixtureScenario"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StrategyParameter"
+          },
+          "maxItems": 32
+        },
+        "portfolioSeed": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "slippage": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "startAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startingCash": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "strategyVersionId",
+        "instrumentId",
+        "datasetId",
+        "startAt",
+        "endAt",
+        "barInterval",
+        "startingCash",
+        "commission",
+        "slippage"
+      ]
+    },
+    "BacktestRunState": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED"
       ]
     },
     "Balance": {
@@ -4447,6 +4804,9 @@
         },
         {
           "$ref": "#/$defs/StrategyRun"
+        },
+        {
+          "$ref": "#/$defs/BacktestRun"
         }
       ]
     },
@@ -7740,7 +8100,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 12,
+          "maximum": 13,
           "minimum": 1
         },
         "workspaceId": {

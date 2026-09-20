@@ -7,7 +7,7 @@ use std::sync::{
 };
 use tauri::{Manager, ipc::Channel};
 use tradex::{
-    ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
+    BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
     gateway_process::GatewayHost,
     model,
     model_credentials::{ModelVault, NativeModelVault},
@@ -21,6 +21,7 @@ struct Service(
     Arc<Mutex<GatewayHost>>,
     RuntimeSupervisor,
     StrategySupervisor,
+    BacktestSupervisor,
     Arc<AtomicBool>,
 );
 
@@ -47,6 +48,7 @@ async fn control(
     let gateway = service.1.clone();
     let supervisor = service.2.clone();
     let strategy_supervisor = service.3.clone();
+    let backtest_supervisor = service.4.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
@@ -130,6 +132,7 @@ async fn control(
         if request.get("command").and_then(Value::as_str) == Some("workspace.open") {
             supervisor.stop_all();
             strategy_supervisor.stop_all();
+            backtest_supervisor.stop_all();
         }
         let command = request.get("command").and_then(Value::as_str);
         if command == Some("turn.start") || command == Some("turn.retry") {
@@ -157,6 +160,12 @@ async fn control(
         }
         if command == Some("strategy.cancel") {
             return strategy_supervisor.cancel(engine, request);
+        }
+        if command == Some("backtest.run") {
+            return backtest_supervisor.start(engine, request);
+        }
+        if command == Some("backtest.cancel") {
+            return backtest_supervisor.cancel(engine, request);
         }
         let prepared = match engine.lock() {
             Ok(mut engine) => match engine.prepare_provider(&request) {
@@ -217,6 +226,7 @@ fn main() {
                 gateway.clone(),
                 RuntimeSupervisor::new(),
                 StrategySupervisor::new(),
+                BacktestSupervisor::new(),
                 exiting.clone(),
             ));
             std::thread::spawn(move || {
@@ -266,7 +276,8 @@ fn main() {
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<Service>().2.stop_all();
                 app.state::<Service>().3.stop_all();
-                app.state::<Service>().4.store(true, Ordering::Release);
+                app.state::<Service>().4.stop_all();
+                app.state::<Service>().5.store(true, Ordering::Release);
                 if let Ok(mut gateway) = app.state::<Service>().1.lock() {
                     gateway.stop();
                 }

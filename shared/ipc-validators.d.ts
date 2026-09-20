@@ -20,6 +20,13 @@ declare const validators: {
   ArtifactSave: (value: unknown) => boolean;
   ArtifactSummary: (value: unknown) => boolean;
   AssetClass: (value: unknown) => boolean;
+  BacktestCancel: (value: unknown) => boolean;
+  BacktestFailure: (value: unknown) => boolean;
+  BacktestFixtureScenario: (value: unknown) => boolean;
+  BacktestRun: (value: unknown) => boolean;
+  BacktestRunQuery: (value: unknown) => boolean;
+  BacktestRunRequest: (value: unknown) => boolean;
+  BacktestRunState: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
   CapabilityDecision: (value: unknown) => boolean;
   CapabilityLevel: (value: unknown) => boolean;

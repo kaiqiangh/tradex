@@ -34,10 +34,32 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByRole('button', { name: 'Cancel run', exact: true }).press('Enter');
   await ui.getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry run');
+  await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByLabel('Bar interval', { exact: true }).selectOption('1d');
+  await ui.getByLabel('Starting cash', { exact: true }).fill('100000');
+  await ui.getByLabel('Commission', { exact: true }).fill('0');
+  await ui.getByLabel('Slippage', { exact: true }).fill('0');
+  const backtestScenario = ui.getByRole('combobox', { name: 'Backtest integration scenario', exact: true });
+  const backtestRun = ui.getByRole('button', { name: 'Run backtest', exact: true });
+  await backtestScenario.selectOption('FAILURE');
+  await backtestRun.press('Enter');
+  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('BACKTEST_FIXTURE_FAILED:', { exact: false }).waitFor({ state: 'visible' });
+  const firstBacktestRun = /Run ([0-9a-f-]+)/.exec(await ui.locator('.strategy-result').last().innerText())?.[1];
+  await ui.getByRole('button', { name: 'Retry backtest', exact: true }).press('Enter');
+  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  const retriedBacktestRun = /Run ([0-9a-f-]+)/.exec(await ui.locator('.strategy-result').last().innerText())?.[1];
+  assert.ok(firstBacktestRun && retriedBacktestRun && firstBacktestRun !== retriedBacktestRun, 'Backtest retry must create a new run ID');
+  await backtestScenario.selectOption('CANCELLED');
+  await backtestRun.press('Enter');
+  await ui.getByText('RUNNING', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Cancel backtest', exact: true }).press('Enter');
+  await ui.getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry backtest');
   for (const width of [768, 390]) {
     await viewport.set({ width, height: 900 });
     const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
     assert.ok(size.scroll <= size.width, `Strategy page overflow at ${width}px: ${JSON.stringify(size)}`);
   }
-  return ['Research/Backtest context opens Strategies with preserved context', 'strategy draft saved as immutable version', 'success/failure/retry/cancel states preserve keyboard focus', 'fixture run returned signal-only HOLD', 'strategy surface stayed within 768px/390px viewport'];
+  return ['Research/Backtest context opens Strategies with preserved context', 'strategy draft saved as immutable version', 'strategy and backtest success/failure/retry/cancel states preserve keyboard focus', 'fixture run returned signal-only HOLD', 'strategy surface stayed within 768px/390px viewport'];
 }

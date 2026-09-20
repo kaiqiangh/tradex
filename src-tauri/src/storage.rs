@@ -24,8 +24,9 @@ use crate::market;
 use crate::model::ModelState;
 use crate::protocol::{
     Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
-    ArtifactSummary, AssetClass, DomainEvent, DomainProjection, EventSink, ExecutionContext,
-    MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
+    ArtifactSummary, AssetClass, BacktestFailure, BacktestRun, BacktestRunRequest,
+    BacktestRunState, DomainEvent, DomainProjection, EventSink, ExecutionContext, MAX_SEQUENCE,
+    OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
     OrderDraftSummary, OrderProposal, OrderProposalGenerate, OrderProposalHistoryEntry,
     OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
     OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
@@ -39,7 +40,7 @@ use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 12;
+pub(crate) const SCHEMA_VERSION: u32 = 13;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -335,6 +336,16 @@ impl Store {
                 );
                 CREATE INDEX IF NOT EXISTS strategy_runs_workspace_order ON strategy_runs(workspace_id,sequence DESC,run_id);
                 PRAGMA user_version=12;").map_err(storage_error)?;
+            }
+            if version < 13 {
+                tx.execute_batch("CREATE TABLE IF NOT EXISTS backtest_runs (
+                    run_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS backtest_runs_workspace_order ON backtest_runs(workspace_id,sequence DESC,run_id);
+                PRAGMA user_version=13;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1777,6 +1788,232 @@ impl Store {
         run.state_version = format!("strategy-run:{}:{sequence}", run.run_id);
         tx.execute(
             "INSERT INTO strategy_runs(run_id,workspace_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(run_id) DO UPDATE SET workspace_id=excluded.workspace_id,sequence=excluded.sequence,projection=excluded.projection",
+            params![
+                &run.run_id,
+                &run.workspace_id,
+                sequence,
+                serde_json::to_string(&run).map_err(storage_error)?,
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(run)
+    }
+
+    fn validate_backtest_run_projection(
+        &self,
+        run: &BacktestRun,
+        workspace_id: &str,
+    ) -> Result<()> {
+        let invalid = || TradeXError::new("WORKSPACE_INTEGRITY_FAILED");
+        if run.workspace_id != workspace_id
+            || run.run_id.trim().is_empty()
+            || run.run_id.len() > 128
+            || run.run_id.chars().any(char::is_control)
+            || run.strategy_hash.len() > 80
+            || run.strategy_hash.chars().any(char::is_control)
+            || run.instrument_id.len() > 128
+            || run.dataset_id.len() > 128
+            || run.bar_interval.len() > 32
+            || run.starting_cash.len() > 128
+            || run.commission.len() > 128
+            || run.slippage.len() > 128
+            || run
+                .portfolio_seed
+                .as_deref()
+                .is_some_and(|seed| seed.len() > 128)
+            || run.created_at.len() > 64
+            || run.updated_at.len() > 64
+            || run.observed_at.len() > 64
+            || run.request_hash.len() > 80
+            || run.state_version.len() > 256
+        {
+            return Err(invalid());
+        }
+        let version = self
+            .strategy_version(&run.strategy_version_id)
+            .map_err(|_| invalid())?;
+        let request = BacktestRunRequest {
+            workspace_id: run.workspace_id.clone(),
+            strategy_version_id: run.strategy_version_id.clone(),
+            expected_strategy_hash: Some(run.strategy_hash.clone()),
+            instrument_id: run.instrument_id.clone(),
+            dataset_id: run.dataset_id.clone(),
+            start_at: run.start_at.clone(),
+            end_at: run.end_at.clone(),
+            bar_interval: run.bar_interval.clone(),
+            starting_cash: run.starting_cash.clone(),
+            commission: run.commission.clone(),
+            slippage: run.slippage.clone(),
+            portfolio_seed: run.portfolio_seed.clone(),
+            parameters: run.parameters.clone(),
+            fixture_scenario: None,
+        };
+        crate::backtest::validate_run_request(&request).map_err(|_| invalid())?;
+        let allowed: std::collections::HashSet<&str> = version
+            .definition
+            .parameters
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect();
+        let mut seen = std::collections::HashSet::new();
+        if run
+            .parameters
+            .iter()
+            .any(|item| !allowed.contains(item.name.as_str()) || !seen.insert(item.name.as_str()))
+        {
+            return Err(invalid());
+        }
+        if run.strategy_hash != version.source_hash
+            || !valid_strategy_timestamp(&run.created_at)
+            || !valid_strategy_timestamp(&run.updated_at)
+            || !valid_strategy_timestamp(&run.observed_at)
+            || OffsetDateTime::parse(&run.created_at, &Rfc3339)
+                .ok()
+                .zip(OffsetDateTime::parse(&run.updated_at, &Rfc3339).ok())
+                .is_some_and(|(created, updated)| created > updated)
+            || crate::backtest::run_identity_hash(
+                &version,
+                &request,
+                &run.parameters,
+                &run.observed_at,
+            )
+            .map_err(|_| invalid())?
+                != run.request_hash
+            || run
+                .fixture_label
+                .as_deref()
+                .is_some_and(|label| label != "TRADEX_BACKTEST_FIXTURE")
+        {
+            return Err(invalid());
+        }
+        match run.state {
+            BacktestRunState::Queued | BacktestRunState::Running => {
+                if run.failure.is_some() {
+                    return Err(invalid());
+                }
+            }
+            BacktestRunState::Completed => {
+                if run.failure.is_some() {
+                    return Err(invalid());
+                }
+            }
+            BacktestRunState::Failed | BacktestRunState::Cancelled => {
+                let Some(failure) = run.failure.as_ref() else {
+                    return Err(invalid());
+                };
+                if crate::backtest::validate_failure(failure).is_err()
+                    || (run.state == BacktestRunState::Cancelled
+                        && failure.code != "BACKTEST_CANCELLED")
+                {
+                    return Err(invalid());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn reconcile_backtest_runs(&mut self) -> Result<()> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare(
+                "SELECT run_id,workspace_id,sequence,projection FROM backtest_runs WHERE workspace_id=?1",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut projections = Vec::new();
+        for row in rows {
+            let (id, row_workspace, sequence, projection) = row.map_err(storage_error)?;
+            let run: BacktestRun = serde_json::from_str(&projection).map_err(storage_error)?;
+            if id != run.run_id
+                || row_workspace != workspace_id
+                || run.workspace_id != workspace_id
+                || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
+                || run.state_version != format!("backtest-run:{id}:{sequence}")
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            projections.push(run);
+        }
+        drop(query);
+        for mut run in projections {
+            self.validate_backtest_run_projection(&run, &workspace_id)?;
+            if matches!(
+                run.state,
+                BacktestRunState::Queued | BacktestRunState::Running
+            ) {
+                run.state = BacktestRunState::Cancelled;
+                run.failure = Some(BacktestFailure {
+                    code: "BACKTEST_CANCELLED".into(),
+                    reason: "The workspace session ended before the backtest completed.".into(),
+                    remediation: vec!["retry_backtest_run".into()],
+                });
+                self.save_backtest_run(run)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn backtest_run(&self, id: &str) -> Result<BacktestRun> {
+        let workspace_id = self.workspace_id()?;
+        let (row_workspace, sequence, projection): (String, i64, String) = self
+            .connection
+            .query_row(
+                "SELECT workspace_id,sequence,projection FROM backtest_runs WHERE run_id=?1",
+                [id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| TradeXError::new("BACKTEST_RUN_NOT_FOUND"))?;
+        let run: BacktestRun = serde_json::from_str(&projection).map_err(storage_error)?;
+        if row_workspace != workspace_id
+            || run.workspace_id != workspace_id
+            || run.run_id != id
+            || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
+            || run.state_version != format!("backtest-run:{id}:{sequence}")
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        self.validate_backtest_run_projection(&run, &workspace_id)?;
+        Ok(run)
+    }
+
+    pub fn save_backtest_run(&mut self, mut run: BacktestRun) -> Result<BacktestRun> {
+        if run.workspace_id != self.workspace_id()? || run.run_id.is_empty() {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let existing_workspace: Option<String> = tx
+            .query_row(
+                "SELECT workspace_id FROM backtest_runs WHERE run_id=?1",
+                [&run.run_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if existing_workspace
+            .as_deref()
+            .is_some_and(|workspace| workspace != run.workspace_id)
+        {
+            return Err(TradeXError::new("BACKTEST_RUN_NOT_FOUND"));
+        }
+        let sequence = next_backtest_sequence(&tx, &run.workspace_id)?;
+        run.updated_at = timestamp()?;
+        run.state_version = format!("backtest-run:{}:{sequence}", run.run_id);
+        tx.execute(
+            "INSERT INTO backtest_runs(run_id,workspace_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(run_id) DO UPDATE SET workspace_id=excluded.workspace_id,sequence=excluded.sequence,projection=excluded.projection",
             params![
                 &run.run_id,
                 &run.workspace_id,
@@ -3832,6 +4069,21 @@ fn next_strategy_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) ->
         .unwrap_or(0);
     if !(0..MAX_SEQUENCE as i64).contains(&previous) {
         return Err(TradeXError::new("STRATEGY_VERSION_LIMIT"));
+    }
+    Ok(previous + 1)
+}
+
+fn next_backtest_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) -> Result<i64> {
+    let previous: i64 = tx
+        .query_row(
+            "SELECT MAX(sequence) FROM backtest_runs WHERE workspace_id=?1",
+            [workspace_id],
+            |row| row.get::<_, Option<i64>>(0),
+        )
+        .map_err(storage_error)?
+        .unwrap_or(0);
+    if !(0..MAX_SEQUENCE as i64).contains(&previous) {
+        return Err(TradeXError::new("BACKTEST_RUN_LIMIT"));
     }
     Ok(previous + 1)
 }

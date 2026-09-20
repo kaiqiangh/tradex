@@ -7,6 +7,16 @@
 export type ArtifactKind = "RESEARCH" | "DECISION";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestRunState".
+ */
+export type BacktestRunState = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestFixtureScenario".
+ */
+export type BacktestFixtureScenario = "FAILURE" | "CANCELLED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AgentMode".
  */
 export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
@@ -252,7 +262,8 @@ export type ReplyData =
   | ArtifactExportResult
   | StrategyLibrary
   | StrategyVersion
-  | StrategyRun;
+  | StrategyRun
+  | BacktestRun;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeConfidence".
@@ -391,6 +402,11 @@ export interface IpcSchema {
   artifactExport: ArtifactExport;
   artifactQuery: ArtifactQuery;
   artifactSave: ArtifactSave;
+  backtestCancel: BacktestCancel;
+  backtestFailure: BacktestFailure;
+  backtestRun: BacktestRun;
+  backtestRunQuery: BacktestRunQuery;
+  backtestRunRequest: BacktestRunRequest;
   capabilityQuery: CapabilityQuery;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
@@ -511,6 +527,96 @@ export interface ArtifactSave {
   threadId: string;
   title: string;
   turnId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestCancel".
+ */
+export interface BacktestCancel {
+  runId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestFailure".
+ */
+export interface BacktestFailure {
+  code: string;
+  reason: string;
+  /**
+   * @maxItems 4
+   */
+  remediation?: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestRun".
+ */
+export interface BacktestRun {
+  barInterval: string;
+  commission: string;
+  createdAt: string;
+  datasetId: string;
+  endAt: string;
+  failure?: BacktestFailure | null;
+  fixtureLabel?: string | null;
+  instrumentId: string;
+  observedAt: string;
+  /**
+   * @maxItems 32
+   */
+  parameters?: StrategyParameter[];
+  portfolioSeed?: string | null;
+  requestHash: string;
+  runId: string;
+  slippage: string;
+  startAt: string;
+  startingCash: string;
+  state: BacktestRunState;
+  stateVersion: string;
+  strategyHash: string;
+  strategyVersionId: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyParameter".
+ */
+export interface StrategyParameter {
+  name: string;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestRunQuery".
+ */
+export interface BacktestRunQuery {
+  runId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestRunRequest".
+ */
+export interface BacktestRunRequest {
+  barInterval: string;
+  commission: string;
+  datasetId: string;
+  endAt: string;
+  expectedStrategyHash?: string | null;
+  fixtureScenario?: BacktestFixtureScenario | null;
+  instrumentId: string;
+  /**
+   * @maxItems 32
+   */
+  parameters?: StrategyParameter[];
+  portfolioSeed?: string | null;
+  slippage: string;
+  startAt: string;
+  startingCash: string;
+  strategyVersionId: string;
   workspaceId: string;
 }
 /**
@@ -3108,14 +3214,6 @@ export interface StrategyDefinition {
   parameters?: StrategyParameter[];
   runtime: string;
   source: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "StrategyParameter".
- */
-export interface StrategyParameter {
-  name: string;
-  value: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

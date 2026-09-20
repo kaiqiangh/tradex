@@ -199,6 +199,7 @@ pub enum ReplyData {
     StrategyLibrary(StrategyLibrary),
     StrategyVersion(Box<StrategyVersion>),
     StrategyRun(Box<StrategyRun>),
+    BacktestRun(Box<BacktestRun>),
 }
 
 #[derive(JsonSchema)]
@@ -291,6 +292,11 @@ pub struct IpcSchema {
     pub strategy_run: StrategyRun,
     pub strategy_signal: StrategySignal,
     pub strategy_failure: StrategyFailure,
+    pub backtest_failure: BacktestFailure,
+    pub backtest_run: BacktestRun,
+    pub backtest_run_query: BacktestRunQuery,
+    pub backtest_run_request: BacktestRunRequest,
+    pub backtest_cancel: BacktestCancel,
     pub watchlist_create: WatchlistCreate,
     pub watchlist_rename: WatchlistRename,
     pub watchlist_delete: WatchlistDelete,
@@ -307,7 +313,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 12))]
+    #[schemars(range(min = 1, max = 13))]
     pub storage_schema_version: u32,
 }
 
@@ -1130,6 +1136,140 @@ pub struct StrategyRunRequest {
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StrategyCancel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BacktestRunState {
+    Queued,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BacktestFixtureScenario {
+    Failure,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestFailure {
+    #[schemars(length(min = 1, max = 64))]
+    pub code: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+    #[serde(default)]
+    #[schemars(length(max = 4), inner(length(min = 1, max = 256)))]
+    pub remediation: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestRun {
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub strategy_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub dataset_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub start_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub end_at: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub bar_interval: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub starting_cash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub commission: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub slippage: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub portfolio_seed: Option<String>,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub parameters: Vec<StrategyParameter>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub state: BacktestRunState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<BacktestFailure>,
+    #[schemars(length(min = 1, max = 80))]
+    pub request_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub fixture_label: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestRunRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 80))]
+    pub expected_strategy_hash: Option<String>,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub dataset_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub start_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub end_at: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub bar_interval: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub starting_cash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub commission: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub slippage: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub portfolio_seed: Option<String>,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub parameters: Vec<StrategyParameter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixture_scenario: Option<BacktestFixtureScenario>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestRunQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestCancel {
     #[schemars(length(min = 1, max = 128))]
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]

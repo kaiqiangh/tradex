@@ -1,3 +1,4 @@
+pub mod backtest;
 pub mod capability;
 pub mod codex_runtime;
 pub mod data_sources;
@@ -24,13 +25,14 @@ pub mod time;
 use capability::{CapabilityQuery, ResearchToolId};
 use protocol::{
     Aggregate, Artifact, ArtifactContent, ArtifactExport, ArtifactProvenance, ArtifactQuery,
-    ArtifactSave, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection,
-    EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier,
-    OpenWorkspace, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent,
-    RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure, StrategyQuery, StrategyRun,
-    StrategyRunQuery, StrategyRunRequest, StrategyRunState, StrategySave, Subscribe, Thread,
-    ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn,
-    TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    ArtifactSave, BacktestCancel, BacktestFailure, BacktestRun, BacktestRunQuery,
+    BacktestRunRequest, BacktestRunState, CommandEnvelope, DataSourceProbe, DataSourceQuery,
+    DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery,
+    MarketTier, OpenWorkspace, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result,
+    RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure,
+    StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategyRunState,
+    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
+    ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -172,6 +174,102 @@ impl StrategySupervisor {
             });
             if let Ok(mut control) = engine.lock() {
                 let _ = control.finish_strategy(&prepared, outcome);
+            }
+            if let Ok(mut jobs) = jobs.lock() {
+                jobs.remove(&key);
+            }
+        });
+    }
+}
+
+struct PreparedBacktest {
+    input: BacktestRunRequest,
+    run: BacktestRun,
+}
+
+type BacktestJobs = Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>;
+
+#[derive(Clone, Default)]
+pub struct BacktestSupervisor {
+    jobs: BacktestJobs,
+}
+
+impl BacktestSupervisor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn stop_all(&self) {
+        if let Ok(jobs) = self.jobs.lock() {
+            for cancel in jobs.values() {
+                cancel.store(true, Ordering::Release);
+            }
+        }
+    }
+
+    pub fn start(&self, engine: Arc<Mutex<ControlPlane>>, request: Value) -> Value {
+        let id = request_id(&request);
+        let input =
+            match async_payload(request, "backtest.run").and_then(payload::<BacktestRunRequest>) {
+                Ok(input) => input,
+                Err(error) => return failure_reply(id, error),
+            };
+        let (prepared, run) = match engine.lock() {
+            Ok(mut control) => match control.begin_backtest(input) {
+                Ok(value) => value,
+                Err(error) => return failure_reply(id, error),
+            },
+            Err(_) => return failure_reply(id, TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")),
+        };
+        self.spawn(engine, prepared);
+        success_reply(id, json!(run), Some(run.state_version))
+    }
+
+    pub fn cancel(&self, engine: Arc<Mutex<ControlPlane>>, request: Value) -> Value {
+        let id = request_id(&request);
+        let input = match async_payload(request, "backtest.cancel")
+            .and_then(payload::<protocol::BacktestCancel>)
+        {
+            Ok(input) => input,
+            Err(error) => return failure_reply(id, error),
+        };
+        let run_id = input.run_id.clone();
+        let run = match engine.lock() {
+            Ok(mut control) => match control.cancel_backtest(input) {
+                Ok(run) => run,
+                Err(error) => return failure_reply(id, error),
+            },
+            Err(_) => return failure_reply(id, TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")),
+        };
+        if let Ok(jobs) = self.jobs.lock()
+            && let Some(cancel) = jobs.get(&run_id)
+        {
+            cancel.store(true, Ordering::Release);
+        }
+        success_reply(id, json!(run), Some(run.state_version))
+    }
+
+    fn spawn(&self, engine: Arc<Mutex<ControlPlane>>, prepared: PreparedBacktest) {
+        let key = prepared.run.run_id.clone();
+        let cancel = Arc::new(AtomicBool::new(false));
+        if let Ok(mut jobs) = self.jobs.lock() {
+            jobs.insert(key.clone(), cancel.clone());
+        }
+        let jobs = self.jobs.clone();
+        thread::spawn(move || {
+            let running = engine
+                .lock()
+                .ok()
+                .and_then(|mut control| control.mark_backtest_running(&key).ok());
+            if running.is_none_or(|run| run.state == BacktestRunState::Cancelled) {
+                if let Ok(mut jobs) = jobs.lock() {
+                    jobs.remove(&key);
+                }
+                return;
+            }
+            let outcome = backtest::execute(&prepared.input, Some(&cancel));
+            if let Ok(mut control) = engine.lock() {
+                let _ = control.finish_backtest(&prepared, outcome);
             }
             if let Ok(mut jobs) = jobs.lock() {
                 jobs.remove(&key);
@@ -458,6 +556,7 @@ impl ControlPlane {
                 if same {
                     market::ensure_history(&self.store.as_ref().unwrap().path)?;
                     self.store.as_mut().unwrap().reconcile_strategy_runs()?;
+                    self.store.as_mut().unwrap().reconcile_backtest_runs()?;
                     self.reconcile_running_turns()?;
                     let event = self.store.as_mut().unwrap().record_open()?;
                     let workspace_id = event.aggregate_id.clone();
@@ -468,10 +567,12 @@ impl ControlPlane {
                 } else {
                     if let Some(store) = self.store.as_mut() {
                         store.reconcile_strategy_runs()?;
+                        store.reconcile_backtest_runs()?;
                     }
                     let mut store = Store::open(path, &input)?;
                     market::ensure_history(&store.path)?;
                     store.reconcile_strategy_runs()?;
+                    store.reconcile_backtest_runs()?;
                     store.mark_accounts_stale()?;
                     store.save_gateway(gateway::GatewayState::stopped(store.workspace_id()?))?;
                     let mut model = store.model_or_new()?;
@@ -777,6 +878,21 @@ impl ControlPlane {
             "strategy.cancel" => {
                 let input: StrategyCancel = payload(request.payload)?;
                 let run = self.cancel_strategy(input)?;
+                Ok((json!(run), Some(run.state_version.clone())))
+            }
+            "backtest.get" => {
+                let input: BacktestRunQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let run = self.store.as_ref().unwrap().backtest_run(&input.run_id)?;
+                Ok((json!(run), Some(run.state_version.clone())))
+            }
+            "backtest.run" => {
+                let input: BacktestRunRequest = payload(request.payload)?;
+                self.run_backtest(input)
+            }
+            "backtest.cancel" => {
+                let input: BacktestCancel = payload(request.payload)?;
+                let run = self.cancel_backtest(input)?;
                 Ok((json!(run), Some(run.state_version.clone())))
             }
             "data.source.catalog" => {
@@ -1785,6 +1901,151 @@ impl ControlPlane {
         });
         run = self.store.as_mut().unwrap().save_strategy_run(run)?;
         Ok(run)
+    }
+
+    fn begin_backtest(
+        &mut self,
+        input: BacktestRunRequest,
+    ) -> Result<(PreparedBacktest, BacktestRun)> {
+        self.require_workspace(&input.workspace_id)?;
+        backtest::validate_run_request(&input)?;
+        let version = self
+            .store
+            .as_ref()
+            .unwrap()
+            .strategy_version(&input.strategy_version_id)?;
+        if let Some(expected) = input.expected_strategy_hash.as_deref()
+            && expected != version.source_hash
+        {
+            return Err(TradeXError::new("BACKTEST_STRATEGY_HASH_MISMATCH"));
+        }
+        let parameters = if input.parameters.is_empty() {
+            version.definition.parameters.clone()
+        } else {
+            let allowed: HashSet<&str> = version
+                .definition
+                .parameters
+                .iter()
+                .map(|parameter| parameter.name.as_str())
+                .collect();
+            let mut seen = HashSet::new();
+            if input.parameters.iter().any(|parameter| {
+                !allowed.contains(parameter.name.as_str()) || !seen.insert(parameter.name.as_str())
+            }) {
+                return Err(TradeXError::new("BACKTEST_PARAMETER_INVALID"));
+            }
+            input.parameters.clone()
+        };
+        let time = self.time.status(&input.workspace_id)?;
+        let fixture = backtest::fixture_enabled();
+        if time.confidence != protocol::TimeConfidence::Trusted && !fixture {
+            return Err(TradeXError::new("BACKTEST_TIME_UNTRUSTED"));
+        }
+        let request_hash =
+            backtest::run_identity_hash(&version, &input, &parameters, &time.observed_at)?;
+        let run_id = uuid::Uuid::new_v4().to_string();
+        let now = storage::timestamp()?;
+        let fixture_label = fixture.then(|| "TRADEX_BACKTEST_FIXTURE".to_owned());
+        let run = BacktestRun {
+            run_id,
+            workspace_id: input.workspace_id.clone(),
+            strategy_version_id: version.strategy_version_id.clone(),
+            strategy_hash: version.source_hash.clone(),
+            instrument_id: input.instrument_id.clone(),
+            dataset_id: input.dataset_id.clone(),
+            start_at: input.start_at.clone(),
+            end_at: input.end_at.clone(),
+            bar_interval: input.bar_interval.clone(),
+            starting_cash: input.starting_cash.clone(),
+            commission: input.commission.clone(),
+            slippage: input.slippage.clone(),
+            portfolio_seed: input.portfolio_seed.clone(),
+            parameters,
+            observed_at: time.observed_at,
+            state: BacktestRunState::Queued,
+            failure: None,
+            request_hash,
+            fixture_label,
+            created_at: now.clone(),
+            updated_at: now,
+            state_version: String::new(),
+        };
+        let run = self.store.as_mut().unwrap().save_backtest_run(run)?;
+        let prepared = PreparedBacktest {
+            input,
+            run: run.clone(),
+        };
+        Ok((prepared, run))
+    }
+
+    fn mark_backtest_running(&mut self, run_id: &str) -> Result<BacktestRun> {
+        let mut run = self.store.as_ref().unwrap().backtest_run(run_id)?;
+        if run.state != BacktestRunState::Queued {
+            return Ok(run);
+        }
+        run.state = BacktestRunState::Running;
+        self.store.as_mut().unwrap().save_backtest_run(run)
+    }
+
+    fn finish_backtest(
+        &mut self,
+        prepared: &PreparedBacktest,
+        outcome: backtest::RunOutcome,
+    ) -> Result<BacktestRun> {
+        let mut run = self
+            .store
+            .as_ref()
+            .unwrap()
+            .backtest_run(&prepared.run.run_id)?;
+        if run.state == BacktestRunState::Cancelled {
+            return Ok(run);
+        }
+        match outcome {
+            backtest::RunOutcome::Failed(failure) => {
+                run.state = BacktestRunState::Failed;
+                run.failure = Some(failure);
+            }
+            backtest::RunOutcome::Cancelled(failure) => {
+                run.state = BacktestRunState::Cancelled;
+                run.failure = Some(failure);
+            }
+        }
+        self.store.as_mut().unwrap().save_backtest_run(run)
+    }
+
+    fn run_backtest(&mut self, input: BacktestRunRequest) -> Result<(Value, Option<String>)> {
+        let (prepared, _) = self.begin_backtest(input)?;
+        let run = self.mark_backtest_running(&prepared.run.run_id)?;
+        if run.state == BacktestRunState::Cancelled {
+            return Ok((json!(run), Some(run.state_version.clone())));
+        }
+        let outcome = backtest::execute(&prepared.input, None);
+        let run = self.finish_backtest(&prepared, outcome)?;
+        Ok((json!(run), Some(run.state_version.clone())))
+    }
+
+    fn cancel_backtest(&mut self, input: BacktestCancel) -> Result<BacktestRun> {
+        self.require_workspace(&input.workspace_id)?;
+        if input.run_id.is_empty()
+            || input.run_id.len() > 128
+            || input.run_id.chars().any(char::is_control)
+        {
+            return Err(TradeXError::new("BACKTEST_RUN_INVALID"));
+        }
+        let mut run = self.store.as_ref().unwrap().backtest_run(&input.run_id)?;
+        if !matches!(
+            run.state,
+            BacktestRunState::Queued | BacktestRunState::Running
+        ) {
+            return Err(TradeXError::new("BACKTEST_RUN_NOT_CANCELLABLE"));
+        }
+        run.state = BacktestRunState::Cancelled;
+        run.failure = Some(BacktestFailure {
+            code: "BACKTEST_CANCELLED".into(),
+            reason: "The backtest run was cancelled by the user.".into(),
+            remediation: vec!["retry_backtest_run".into()],
+        });
+        self.store.as_mut().unwrap().save_backtest_run(run)
     }
 
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {
