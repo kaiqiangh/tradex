@@ -6,7 +6,10 @@ import { browserIntegration, explainError, request } from './client.ts';
 
 const activeStates = ['QUEUED', 'RUNNING'];
 const backtestActiveStates = ['QUEUED', 'RUNNING'];
-const localDateTime = (value: Date) => value.toISOString().slice(0, 16);
+const localDateTime = (value: Date) => {
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+};
 const requestTimestamp = (value: string) => value ? new Date(value).toISOString() : '';
 const decimalInput = /^(?:\d+)(?:\.\d{0,18})?$/;
 export type StrategyEntryContext = { source: 'RESEARCH' | 'BACKTEST'; contextRefs: ThreadContextRef[] };
