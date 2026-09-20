@@ -167,10 +167,9 @@ pub fn run_with_source(
 /// deliberately absent from the production source catalog and cannot be enabled without the
 /// integration feature, so a fixture never becomes provider evidence.
 pub fn research_fixture_source(request: &ResearchToolRequest) -> Option<DataSourceEntry> {
-    (cfg!(feature = "integration-test")
-        && std::env::var_os("TRADEX_RESEARCH_FIXTURE").is_some()
-        && is_research_fixture_request(request))
-    .then(|| DataSourceEntry {
+    (capability::synthetic_research_fixture_enabled() && is_research_fixture_request(request)).then(
+        || {
+            DataSourceEntry {
         source_id: "control-plane:market".into(),
         provider: "TradeX synthetic research fixture".into(),
         capabilities: vec!["synthetic equity and crypto spot research".into()],
@@ -195,7 +194,9 @@ pub fn research_fixture_source(request: &ResearchToolRequest) -> Option<DataSour
         availability_reason:
             "Synthetic source is enabled only by the integration bridge for public market reads."
                 .into(),
-    })
+    }
+        },
+    )
 }
 
 fn is_research_fixture_request(request: &ResearchToolRequest) -> bool {

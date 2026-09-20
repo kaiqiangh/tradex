@@ -1,5 +1,7 @@
 use crate::market;
-use crate::protocol::{AgentMode, ExecutionContext, Result, ThreadContextRef, TradeXError};
+use crate::protocol::{
+    AgentMode, ArtifactSummary, ExecutionContext, Result, ThreadContextRef, TradeXError,
+};
 use crate::providers::{AccountConnection, ConnectionState};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -158,6 +160,21 @@ pub struct AccountContext {
 }
 
 pub const MAX_CONTEXT_CATALOG_ENTRIES: usize = 256;
+const SYNTHETIC_RESEARCH_ARTIFACT_ID: &str = "artifact-1";
+const SYNTHETIC_RESEARCH_ARTIFACT_HASH: &str =
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+pub fn synthetic_research_artifact_context() -> ThreadContextRef {
+    ThreadContextRef {
+        kind: "artifact".into(),
+        id: SYNTHETIC_RESEARCH_ARTIFACT_ID.into(),
+        hash: SYNTHETIC_RESEARCH_ARTIFACT_HASH.into(),
+    }
+}
+
+pub fn synthetic_research_fixture_enabled() -> bool {
+    cfg!(feature = "integration-test") && std::env::var_os("TRADEX_RESEARCH_FIXTURE").is_some()
+}
 
 pub fn context_catalog(accounts: &[AccountConnection]) -> Result<ContextCatalog> {
     if accounts.len() > MAX_CONTEXT_CATALOG_ENTRIES {
@@ -225,6 +242,16 @@ pub fn validate_catalog_refs(
     contexts: &[ThreadContextRef],
     accounts: &[AccountConnection],
 ) -> Result<()> {
+    validate_catalog_refs_with_artifacts(workspace_id, contexts, accounts, &[], false)
+}
+
+pub fn validate_catalog_refs_with_artifacts(
+    workspace_id: &str,
+    contexts: &[ThreadContextRef],
+    accounts: &[AccountConnection],
+    artifacts: &[ArtifactSummary],
+    allow_synthetic_artifact: bool,
+) -> Result<()> {
     validate_contexts(contexts)?;
     for context in contexts.iter().filter(|context| context.kind == "account") {
         let Some(account) = accounts
@@ -250,6 +277,21 @@ pub fn validate_catalog_refs(
                 .any(|instrument| instrument.instrument_id == context.id)
             || instrument_context_ref(workspace_id, &context.id).hash != context.hash
         {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        }
+    }
+    for context in contexts.iter().filter(|context| context.kind == "artifact") {
+        let synthetic = synthetic_research_artifact_context();
+        if allow_synthetic_artifact && context == &synthetic {
+            continue;
+        }
+        let Some(artifact) = artifacts
+            .iter()
+            .find(|artifact| artifact.artifact_id == context.id)
+        else {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        };
+        if artifact.workspace_id != workspace_id || artifact.content_hash != context.hash {
             return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
         }
     }
@@ -1103,6 +1145,91 @@ mod tests {
             validate_catalog_refs("workspace", &[unsupported], std::slice::from_ref(&account))
                 .unwrap_err()
                 .code,
+            "TURN_CONTEXT_INVALID"
+        );
+    }
+
+    #[test]
+    fn artifact_context_validation_requires_workspace_and_canonical_hash() {
+        let artifact = ArtifactSummary {
+            artifact_id: "artifact-1".into(),
+            workspace_id: "workspace".into(),
+            kind: crate::protocol::ArtifactKind::Research,
+            title: "Research artifact".into(),
+            content_hash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                .into(),
+            state_version: "artifact:artifact-1:1".into(),
+            created_at: "2026-09-20T00:00:00Z".into(),
+            updated_at: "2026-09-20T00:00:00Z".into(),
+            thread_id: "thread-1".into(),
+            turn_id: "turn-1".into(),
+            item_id: "item-1".into(),
+        };
+        let reference = ThreadContextRef {
+            kind: "artifact".into(),
+            id: artifact.artifact_id.clone(),
+            hash: artifact.content_hash.clone(),
+        };
+        assert!(
+            validate_catalog_refs_with_artifacts(
+                "workspace",
+                std::slice::from_ref(&reference),
+                &[],
+                std::slice::from_ref(&artifact),
+                false,
+            )
+            .is_ok()
+        );
+
+        let mut wrong_hash = reference.clone();
+        wrong_hash.hash =
+            "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into();
+        assert_eq!(
+            validate_catalog_refs_with_artifacts(
+                "workspace",
+                &[wrong_hash],
+                &[],
+                std::slice::from_ref(&artifact),
+                false,
+            )
+            .unwrap_err()
+            .code,
+            "TURN_CONTEXT_INVALID"
+        );
+
+        assert_eq!(
+            validate_catalog_refs_with_artifacts(
+                "other-workspace",
+                std::slice::from_ref(&reference),
+                &[],
+                std::slice::from_ref(&artifact),
+                false,
+            )
+            .unwrap_err()
+            .code,
+            "TURN_CONTEXT_INVALID"
+        );
+        let synthetic = synthetic_research_artifact_context();
+        assert!(
+            validate_catalog_refs_with_artifacts(
+                "workspace",
+                std::slice::from_ref(&synthetic),
+                &[],
+                &[],
+                true,
+            )
+            .is_ok()
+        );
+        assert_eq!(
+            validate_catalog_refs_with_artifacts(
+                "workspace",
+                std::slice::from_ref(&synthetic),
+                &[],
+                &[],
+                false,
+            )
+            .unwrap_err()
+            .code,
             "TURN_CONTEXT_INVALID"
         );
     }

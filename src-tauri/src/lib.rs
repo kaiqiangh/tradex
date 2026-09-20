@@ -1152,10 +1152,14 @@ impl ControlPlane {
     ) -> Result<capability::CapabilityDecision> {
         self.require_workspace(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
-        capability::validate_catalog_refs(
+        let artifacts = self.store.as_ref().unwrap().artifacts()?.artifacts;
+        let allow_synthetic_artifact = capability::synthetic_research_fixture_enabled();
+        capability::validate_catalog_refs_with_artifacts(
             &input.workspace_id,
             &input.attached_contexts,
             &accounts,
+            &artifacts,
+            allow_synthetic_artifact,
         )?;
         let account = input
             .account_id
@@ -1427,18 +1431,12 @@ impl ControlPlane {
         self.require_workspace(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
         let mut catalog = capability::context_catalog(&accounts)?;
-        if cfg!(feature = "integration-test")
-            && std::env::var_os("TRADEX_RESEARCH_FIXTURE").is_some()
-        {
+        if capability::synthetic_research_fixture_enabled() {
             catalog
                 .empty_states
                 .retain(|state| state.kind != "artifact");
             catalog.entries.push(capability::ContextCatalogEntry {
-                context_ref: protocol::ThreadContextRef {
-                    kind: "artifact".into(),
-                    id: "artifact-1".into(),
-                    hash: format!("sha256:{}", "a".repeat(64)),
-                },
+                context_ref: capability::synthetic_research_artifact_context(),
                 label: "Synthetic research artifact".into(),
                 provider_id: None,
                 environment: None,
@@ -3627,7 +3625,15 @@ mod thread_tests {
             json!({ "workspaceId": workspace_id }),
         ));
         assert_eq!(catalog["ok"], true);
-        assert_eq!(catalog["data"]["entries"].as_array().unwrap().len(), 0);
+        let fixture_enabled = capability::synthetic_research_fixture_enabled();
+        let entries = catalog["data"]["entries"].as_array().unwrap();
+        assert_eq!(entries.len(), usize::from(fixture_enabled));
+        if fixture_enabled {
+            assert_eq!(
+                entries[0]["contextRef"],
+                serde_json::to_value(capability::synthetic_research_artifact_context()).unwrap()
+            );
+        }
         let empty_states = catalog["data"]["emptyStates"].as_array().unwrap();
         assert!(empty_states.iter().any(|state| state["kind"] == "account"));
         assert!(
@@ -3637,7 +3643,10 @@ mod thread_tests {
         );
         assert!(empty_states.iter().any(|state| state["kind"] == "strategy"));
         assert!(empty_states.iter().any(|state| state["kind"] == "backtest"));
-        assert!(empty_states.iter().any(|state| state["kind"] == "artifact"));
+        assert_eq!(
+            empty_states.iter().any(|state| state["kind"] == "artifact"),
+            !fixture_enabled
+        );
 
         let unknown_workspace = control.dispatch(request(
             "context.catalog",
@@ -3669,6 +3678,48 @@ mod thread_tests {
             }),
         ));
         let thread_id = created["data"]["threadId"].as_str().unwrap().to_owned();
+        let unknown_artifact = control.dispatch(request(
+            "research.run",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": [{
+                    "kind": "artifact",
+                    "id": "forged-artifact",
+                    "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                }],
+                "toolId": "public_market_read",
+                "query": "AAPL"
+            }),
+        ));
+        assert_eq!(unknown_artifact["ok"], false);
+        assert_eq!(unknown_artifact["error"]["code"], "TURN_CONTEXT_INVALID");
+        let fixture_artifact = control.dispatch(request(
+            "research.run",
+            json!({
+                "workspaceId": workspace_id,
+                "agentMode": "ASK",
+                "executionContext": "NONE_READ_ONLY",
+                "attachedContexts": [{
+                    "kind": "artifact",
+                    "id": "artifact-1",
+                    "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }],
+                "toolId": "public_market_read",
+                "query": "AAPL"
+            }),
+        ));
+        if capability::synthetic_research_fixture_enabled() {
+            assert_eq!(fixture_artifact["ok"], true);
+            assert_eq!(
+                fixture_artifact["data"]["payload"]["artifactRefs"][0],
+                "artifact-1"
+            );
+        } else {
+            assert_eq!(fixture_artifact["ok"], false);
+            assert_eq!(fixture_artifact["error"]["code"], "TURN_CONTEXT_INVALID");
+        }
         let result = control.dispatch(request(
             "research.run",
             json!({
@@ -4045,6 +4096,11 @@ mod thread_tests {
                 paper["data"]["level"]
             );
 
+            let linked_contexts = if capability::synthetic_research_fixture_enabled() {
+                json!([{"kind":"artifact","id":"artifact-1","hash":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}])
+            } else {
+                json!([])
+            };
             let seeded = control.dispatch(request(
                 "thread.create",
                 json!({
@@ -4053,7 +4109,7 @@ mod thread_tests {
                     "defaultAgentMode": "RESEARCH",
                     "defaultExecutionContext": "NONE_READ_ONLY",
                     "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
-                    "linkedContexts": [{"kind":"artifact","id":"artifact-1","hash":"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}]
+                    "linkedContexts": linked_contexts
                 }),
             ));
             assert_eq!(seeded["ok"], true);
@@ -5061,6 +5117,12 @@ mod turn_runtime_tests {
             Some(sink),
         );
         assert_eq!(subscribed["ok"], true);
+        let fixture_context_enabled = capability::synthetic_research_fixture_enabled();
+        let attached_contexts = if fixture_context_enabled {
+            json!([{"kind":"artifact","id":"artifact-1","hash":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}])
+        } else {
+            json!([])
+        };
         let started = control.dispatch(json!({
             "requestId":"turn",
             "schemaVersion":1,
@@ -5072,7 +5134,7 @@ mod turn_runtime_tests {
                 "message":"Summarize the evidence",
                 "agentMode":"RESEARCH",
                 "executionContext":"NONE_READ_ONLY",
-                "attachedContexts":[{"kind":"artifact","id":"artifact-1","hash":"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}],
+                "attachedContexts": attached_contexts.clone(),
                 "model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
             }
         }));
@@ -5083,11 +5145,15 @@ mod turn_runtime_tests {
         assert_eq!(turn.items.len(), 2);
         assert_eq!(turn.items[1].status, protocol::ItemStatus::Completed);
         assert!(turn.items[1].content.contains("Read-only response"));
-        assert_eq!(turn.snapshot.attached_contexts[0].id, "artifact-1");
-        assert_eq!(
-            turn.snapshot.attached_contexts[0].hash,
-            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-        );
+        if fixture_context_enabled {
+            assert_eq!(turn.snapshot.attached_contexts[0].id, "artifact-1");
+            assert_eq!(
+                turn.snapshot.attached_contexts[0].hash,
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+        } else {
+            assert!(turn.snapshot.attached_contexts.is_empty());
+        }
         assert_eq!(turn.snapshot.account_environment, None);
         assert_eq!(turn.provider_attempts[0].outcome, "SUCCEEDED");
         assert!(thread.codex_thread_id.is_some());

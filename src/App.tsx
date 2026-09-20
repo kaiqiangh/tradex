@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import type { ComponentType, FormEvent } from 'react';
+import { Component, useEffect, useId, useRef, useState } from 'react';
+import type { ComponentType, FormEvent, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createPortal } from 'react-dom';
@@ -319,6 +319,27 @@ function routeAsThreadModel(route?: ModelRoute): ThreadModel | undefined {
   return route ? { provider: route.provider, modelId: route.modelId, ...(route.thinkingType ? { thinkingType: route.thinkingType } : {}) } : undefined;
 }
 
+type ResearchCardBoundaryProps = { children: ReactNode };
+type ResearchCardBoundaryState = { hasError: boolean };
+
+class ResearchCardBoundary extends Component<ResearchCardBoundaryProps, ResearchCardBoundaryState> {
+  state: ResearchCardBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(_error: Error): ResearchCardBoundaryState {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <section className="research-result" role="alert" tabIndex={0} aria-label="Typed research result unavailable">
+        <strong>Typed research result unavailable</strong>
+        <p>The evidence card could not be rendered. The surrounding Thread status remains available.</p>
+      </section>;
+    }
+    return this.props.children;
+  }
+}
+
 function ResearchResultCard({ result, persisted = false, agentMode }: { result: ResearchToolResult; persisted?: boolean; agentMode?: AgentMode }) {
   const payload = result.payload;
   const findings = payload.findings ?? [];
@@ -345,6 +366,10 @@ function ResearchResultCard({ result, persisted = false, agentMode }: { result: 
     <small>Request hash: {result.requestHash}</small>
     <small>Context refs: {formatContextRefs(result.contextRefs)}</small>
   </section>;
+}
+
+function SafeResearchResultCard(props: { result: ResearchToolResult; persisted?: boolean; agentMode?: AgentMode }) {
+  return <ResearchCardBoundary key={props.result?.marker}><ResearchResultCard {...props} /></ResearchCardBoundary>;
 }
 
 function TurnComposer({ thread, model, runtime, initialContexts = [], onContextsConsumed }: { thread: Thread; model?: ModelState; runtime?: RuntimeStatus; initialContexts?: ThreadContextRef[]; onContextsConsumed?: () => void }) {
@@ -453,7 +478,7 @@ function TurnComposer({ thread, model, runtime, initialContexts = [], onContexts
       </div>
       <ContextPicker workspaceId={thread.workspaceId} pending={pendingContexts} onAttach={contexts => { setPendingContexts(contexts); setResearchPreview(undefined); }} mode={mode} />
       <div className="composer-context"><span className="badge">Mode: {mode}</span><span className="badge">Execution: {execution}</span><span className="muted">Model: {selectedModel ? `${selectedModel.provider} · ${selectedModel.modelId}` : 'Verified route required'}</span><CapabilitySummary decision={capability.data} loading={capability.isPending} error={capability.error} /></div>
-      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><label className="field">Research tool<select value={selectedResearchTool?.id ?? ''} onChange={event => { setResearchToolId(event.target.value as ResearchToolId); setResearchPreview(undefined); }} disabled={busy}>{capability.data?.researchTools.map(tool => <option key={tool.id} value={tool.id}>{tool.label}</option>)}</select></label><label className="field">Research focus<select value={researchFocus} onChange={event => { setResearchFocus(event.target.value as ResearchFocus); setResearchPreview(undefined); }} disabled={busy}><option value="GENERAL">General</option><option value="EQUITY">Equities</option><option value="CRYPTO_SPOT">Crypto spot</option></select></label><button type="button" onClick={() => void previewResearch()} disabled={!researchReady || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button><p className="form-hint" role="status" aria-label="Research lifecycle" aria-live="polite">Research status: {researchLifecycle}</p>{researchPreview && <div><ResearchResultCard result={researchPreview.result} agentMode={mode} /></div>}</section>}
+      {(capability.data?.researchTools?.length ?? 0) > 0 && <section className="research-preview" aria-label="Typed research result"><label className="field">Research tool<select value={selectedResearchTool?.id ?? ''} onChange={event => { setResearchToolId(event.target.value as ResearchToolId); setResearchPreview(undefined); }} disabled={busy}>{capability.data?.researchTools.map(tool => <option key={tool.id} value={tool.id}>{tool.label}</option>)}</select></label><label className="field">Research focus<select value={researchFocus} onChange={event => { setResearchFocus(event.target.value as ResearchFocus); setResearchPreview(undefined); }} disabled={busy}><option value="GENERAL">General</option><option value="EQUITY">Equities</option><option value="CRYPTO_SPOT">Crypto spot</option></select></label><button type="button" onClick={() => void previewResearch()} disabled={!researchReady || busy || researchBusy}>{researchBusy ? 'Preparing typed result…' : 'Preview typed research result'}</button><p className="form-hint" role="status" aria-label="Research lifecycle" aria-live="polite">Research status: {researchLifecycle}</p>{researchPreview && <div><SafeResearchResultCard result={researchPreview.result} agentMode={mode} /></div>}</section>}
       {!runtimeReady(runtime) && <p className="form-hint">{runtime?.modelAvailable === false ? 'Model gateway is unavailable; the draft remains local until it is ready.' : 'Codex App Server is unavailable; the draft remains local until the runtime is ready.'}</p>}
       {!selectedModel && <p className="form-hint">Choose and verify a model route before sending.</p>}
       {error && <p className="error-text" role="alert">{error}</p>}
@@ -476,7 +501,7 @@ function ResearchTimelineItem({ item, contextRefs, agentMode }: TimelineRenderer
   return <>
     {item.sourceId && <small className="timeline-item-provenance">Source: {item.sourceId} · Context refs: {formatContextRefs(contextRefs)}</small>}
     <p>{item.content || 'Waiting for stream content…'}</p>
-    {item.researchResult && <ResearchResultCard result={item.researchResult} persisted agentMode={agentMode} />}
+    {item.researchResult && <SafeResearchResultCard result={item.researchResult} persisted agentMode={agentMode} />}
   </>;
 }
 
