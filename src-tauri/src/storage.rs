@@ -2011,6 +2011,9 @@ impl Store {
                 return Err(TradeXError::new("BACKTEST_RUN_NOT_FOUND"));
             }
             let existing: BacktestRun = serde_json::from_str(&projection).map_err(storage_error)?;
+            if existing.workspace_id != existing_workspace || existing.run_id != run.run_id {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
             if expected_state_version
                 .is_some_and(|expected| expected.is_empty() || expected.len() > 256)
                 || expected_state_version.is_some_and(|expected| expected != existing.state_version)
