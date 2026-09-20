@@ -30,10 +30,10 @@ use crate::protocol::{
     OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
     OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
     OrderProposalSummary, OrderType, ProposalReferenceStatus, Result, SavedScreener,
-    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, StrategyLibrary,
-    StrategyRun, StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread,
-    ThreadList, ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem, Watchlists,
-    Workspace,
+    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, StrategyFailure,
+    StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState, StrategyRunSummary,
+    StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList, ThreadSummary, TimeInForce,
+    TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
@@ -1370,6 +1370,173 @@ impl Store {
         self.screeners()
     }
 
+    fn validate_strategy_run_projection(
+        &self,
+        run: &StrategyRun,
+        workspace_id: &str,
+    ) -> Result<()> {
+        let invalid = || TradeXError::new("WORKSPACE_INTEGRITY_FAILED");
+        if run.workspace_id != workspace_id
+            || run.run_id.trim().is_empty()
+            || run.run_id.len() > 128
+            || run.run_id.chars().any(char::is_control)
+            || run.strategy_hash.len() > 80
+            || run.strategy_hash.chars().any(char::is_control)
+            || run.instrument_id.len() > 128
+            || run.dataset_id.len() > 128
+            || run.created_at.len() > 64
+            || run.updated_at.len() > 64
+            || run.observed_at.len() > 64
+            || run.request_hash.len() > 80
+            || run.state_version.len() > 256
+        {
+            return Err(invalid());
+        }
+        let version = self
+            .strategy_version(&run.strategy_version_id)
+            .map_err(|_| invalid())?;
+        let request = StrategyRunRequest {
+            workspace_id: run.workspace_id.clone(),
+            strategy_version_id: run.strategy_version_id.clone(),
+            expected_strategy_hash: Some(run.strategy_hash.clone()),
+            instrument_id: run.instrument_id.clone(),
+            dataset_id: run.dataset_id.clone(),
+            start_at: run.start_at.clone(),
+            end_at: run.end_at.clone(),
+            parameters: run.parameters.clone(),
+            fixture_scenario: None,
+        };
+        crate::strategy::validate_run_request(&request).map_err(|_| invalid())?;
+        let allowed: std::collections::HashSet<&str> = version
+            .definition
+            .parameters
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect();
+        let mut seen = std::collections::HashSet::new();
+        if run
+            .parameters
+            .iter()
+            .any(|item| !allowed.contains(item.name.as_str()) || !seen.insert(item.name.as_str()))
+        {
+            return Err(invalid());
+        }
+        if run.strategy_hash != version.source_hash
+            || !valid_strategy_timestamp(&run.created_at)
+            || !valid_strategy_timestamp(&run.updated_at)
+            || !valid_strategy_timestamp(&run.observed_at)
+            || OffsetDateTime::parse(&run.created_at, &Rfc3339)
+                .ok()
+                .zip(OffsetDateTime::parse(&run.updated_at, &Rfc3339).ok())
+                .is_some_and(|(created, updated)| created > updated)
+            || crate::strategy::run_identity_hash(
+                &version,
+                &request,
+                &run.parameters,
+                &run.observed_at,
+            )
+            .map_err(|_| invalid())?
+                != run.request_hash
+            || run
+                .fixture_label
+                .as_deref()
+                .is_some_and(|label| label != "TRADEX_STRATEGY_FIXTURE")
+        {
+            return Err(invalid());
+        }
+        match run.state {
+            StrategyRunState::Queued | StrategyRunState::Running => {
+                if run.signal.is_some() || run.failure.is_some() {
+                    return Err(invalid());
+                }
+            }
+            StrategyRunState::Completed => {
+                let Some(signal) = run.signal.as_ref() else {
+                    return Err(invalid());
+                };
+                if run.failure.is_some()
+                    || crate::strategy::validate_signal(
+                        signal,
+                        &version,
+                        &request,
+                        &run.observed_at,
+                    )
+                    .is_err()
+                {
+                    return Err(invalid());
+                }
+            }
+            StrategyRunState::Failed | StrategyRunState::Cancelled => {
+                let Some(failure) = run.failure.as_ref() else {
+                    return Err(invalid());
+                };
+                if run.signal.is_some()
+                    || crate::strategy::validate_failure(failure).is_err()
+                    || (run.state == StrategyRunState::Cancelled
+                        && failure.code != "STRATEGY_CANCELLED")
+                {
+                    return Err(invalid());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn reconcile_strategy_runs(&mut self) -> Result<()> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare(
+                "SELECT run_id,workspace_id,sequence,projection FROM strategy_runs WHERE workspace_id=?1",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut projections = Vec::new();
+        for row in rows {
+            let (id, row_workspace, sequence, projection) = row.map_err(storage_error)?;
+            let run: StrategyRun = serde_json::from_str(&projection).map_err(storage_error)?;
+            if id != run.run_id
+                || row_workspace != workspace_id
+                || run.workspace_id != workspace_id
+                || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
+                || run.state_version != format!("strategy-run:{id}:{sequence}")
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            projections.push(run);
+        }
+        drop(query);
+        let mut active = Vec::new();
+        for run in projections {
+            self.validate_strategy_run_projection(&run, &workspace_id)?;
+            if matches!(
+                run.state,
+                StrategyRunState::Queued | StrategyRunState::Running
+            ) {
+                active.push(run);
+            }
+        }
+        for mut run in active {
+            run.state = StrategyRunState::Cancelled;
+            run.failure = Some(StrategyFailure {
+                code: "STRATEGY_CANCELLED".into(),
+                reason: "The workspace session ended before the strategy run completed.".into(),
+                remediation: vec!["retry_strategy_run".into()],
+            });
+            self.save_strategy_run(run)?;
+        }
+        Ok(())
+    }
+
     pub fn strategies(&self) -> Result<StrategyLibrary> {
         let workspace_id = self.workspace_id()?;
         let mut versions_query = self
@@ -1440,6 +1607,7 @@ impl Store {
             {
                 return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
             }
+            self.validate_strategy_run_projection(&run, &workspace_id)?;
             runs.push(StrategyRunSummary {
                 run_id: run.run_id,
                 strategy_version_id: run.strategy_version_id,
@@ -1578,6 +1746,7 @@ impl Store {
         {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
+        self.validate_strategy_run_projection(&run, &workspace_id)?;
         Ok(run)
     }
 
@@ -3665,6 +3834,13 @@ fn next_strategy_sequence(tx: &rusqlite::Transaction<'_>, workspace_id: &str) ->
         return Err(TradeXError::new("STRATEGY_VERSION_LIMIT"));
     }
     Ok(previous + 1)
+}
+
+fn valid_strategy_timestamp(value: &str) -> bool {
+    !value.trim().is_empty()
+        && value.len() <= 64
+        && !value.chars().any(char::is_control)
+        && OffsetDateTime::parse(value, &Rfc3339).is_ok()
 }
 
 fn decode_artifact(

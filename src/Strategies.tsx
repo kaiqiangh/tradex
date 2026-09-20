@@ -72,6 +72,28 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
     } catch (cause) { setError(explainError(cause)); }
     finally { setBusy(false); }
   };
+  const loadRun = async (runId: string) => {
+    setBusy(true); setError(undefined);
+    try {
+      const loaded = await request('strategy.get_run', { workspaceId, runId });
+      setRun(loaded);
+      setInstrumentId(loaded.instrumentId);
+      setDatasetId(loaded.datasetId);
+      setLastRequest({
+        workspaceId,
+        strategyVersionId: loaded.strategyVersionId,
+        expectedStrategyHash: loaded.strategyHash,
+        instrumentId: loaded.instrumentId,
+        datasetId: loaded.datasetId,
+        startAt: loaded.startAt,
+        endAt: loaded.endAt,
+        parameters: loaded.parameters,
+      });
+      const version = library.data?.versions.find(item => item.strategyVersionId === loaded.strategyVersionId);
+      if (version) edit(version);
+    } catch (cause) { setError(explainError(cause)); }
+    finally { setBusy(false); }
+  };
   const cancel = async () => {
     if (!displayedRun || !activeStates.includes(displayedRun.state)) return;
     setBusy(true); setError(undefined);
@@ -102,7 +124,7 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
           <button type="button" onClick={() => edit(version)} aria-pressed={selected?.strategyVersionId === version.strategyVersionId}><strong>{version.definition.name}</strong><span>v{version.revision} · {version.definition.language}</span><code>{version.sourceHash}</code></button>
         </li>)}</ul>
         <p className="form-hint">Saved versions are immutable. Save again to create a new revision.</p>
-        {!!library.data.runs.length && <><h3>Recent runs</h3><ul className="strategy-run-list">{library.data.runs.map(item => <li key={item.runId}><code>{item.runId}</code><span>{item.state}</span></li>)}</ul></>}
+        {!!library.data.runs.length && <><h3>Recent runs</h3><ul className="strategy-run-list">{library.data.runs.map(item => <li key={item.runId}><button type="button" onClick={() => void loadRun(item.runId)} disabled={busy}><code>{item.runId}</code><span>{item.state}</span></button></li>)}</ul></>}
       </section>
     </div>
     <section className="card strategy-run" aria-labelledby="strategy-run-title">

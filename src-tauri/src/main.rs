@@ -265,7 +265,8 @@ fn main() {
             }
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<Service>().2.stop_all();
-                app.state::<Service>().3.store(true, Ordering::Release);
+                app.state::<Service>().3.stop_all();
+                app.state::<Service>().4.store(true, Ordering::Release);
                 if let Ok(mut gateway) = app.state::<Service>().1.lock() {
                     gateway.stop();
                 }

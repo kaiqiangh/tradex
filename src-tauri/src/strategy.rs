@@ -6,7 +6,7 @@ use crate::protocol::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc,
@@ -180,6 +180,66 @@ pub fn validate_run_request(request: &StrategyRunRequest) -> Result<()> {
     Ok(())
 }
 
+fn valid_timestamp(value: &str) -> bool {
+    value.len() <= 64
+        && !value.trim().is_empty()
+        && !value.chars().any(char::is_control)
+        && time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+            .is_ok()
+}
+
+fn valid_hash(value: &str) -> bool {
+    value.len() == 71
+        && value.starts_with("sha256:")
+        && value[7..].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+pub(crate) fn validate_failure(failure: &StrategyFailure) -> Result<()> {
+    if failure.code.trim().is_empty()
+        || failure.code.len() > 64
+        || failure.code.chars().any(char::is_control)
+        || failure.reason.trim().is_empty()
+        || failure.reason.len() > 512
+        || failure.reason.chars().any(char::is_control)
+        || failure.remediation.len() > 4
+        || failure.remediation.iter().any(|item| {
+            item.trim().is_empty() || item.len() > 256 || item.chars().any(char::is_control)
+        })
+    {
+        return Err(TradeXError::new("STRATEGY_WORKER_FAILED"));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_signal(
+    signal: &StrategySignal,
+    version: &StrategyVersion,
+    request: &StrategyRunRequest,
+    observed_at: &str,
+) -> Result<()> {
+    if signal.strategy_version_id != version.strategy_version_id
+        || signal.source_ref != format!("strategy-version:{}", version.strategy_version_id)
+        || signal.strategy_hash != version.source_hash
+        || signal.instrument_id != request.instrument_id
+        || signal.dataset_id != request.dataset_id
+        || signal.observed_at != observed_at
+        || !market::validate_instrument_id(&signal.instrument_id)
+        || !valid_dataset_id(&signal.dataset_id)
+        || !valid_hash(&signal.strategy_hash)
+        || signal.source_ref.len() > 256
+        || signal.source_ref.chars().any(char::is_control)
+        || signal.desired_exposure.trim().is_empty()
+        || signal.desired_exposure.len() > 64
+        || signal.desired_exposure.chars().any(char::is_control)
+        || crate::provider_io::decimal(&serde_json::Value::String(signal.desired_exposure.clone()))
+            .is_err()
+        || !valid_timestamp(&signal.observed_at)
+    {
+        return Err(TradeXError::new("STRATEGY_SIGNAL_INVALID"));
+    }
+    Ok(())
+}
+
 fn valid_dataset_id(value: &str) -> bool {
     matches!(value, "historical:fixture")
 }
@@ -205,7 +265,8 @@ fn valid_token(value: &str, max: usize) -> bool {
 }
 
 pub fn fixture_enabled() -> bool {
-    cfg!(feature = "integration-test") && std::env::var_os("TRADEX_STRATEGY_FIXTURE").is_some()
+    cfg!(feature = "integration-test")
+        && std::env::var("TRADEX_STRATEGY_FIXTURE").ok().as_deref() == Some("1")
 }
 
 pub fn execute(
@@ -293,7 +354,7 @@ fn run_controlled_worker(
         }
     };
     let started = Instant::now();
-    let request_line = serde_json::to_string(&WorkerRequest {
+    let request_line = match serde_json::to_string(&WorkerRequest {
         protocol_version: 1,
         session_token: &token,
         operation: "run",
@@ -302,13 +363,14 @@ fn run_controlled_worker(
         instrument_id: &request.instrument_id,
         dataset_id: &request.dataset_id,
         observed_at,
-    })
-    .map_err(|_| TradeXError::new("STRATEGY_WORKER_FAILED"))?;
-    let mut stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| TradeXError::new("STRATEGY_WORKER_FAILED"))?;
-    writeln!(
+    }) {
+        Ok(line) => line,
+        Err(_) => return worker_failed(&mut child, "Strategy worker request was invalid."),
+    };
+    let Some(mut stdin) = child.stdin.take() else {
+        return worker_failed(&mut child, "Strategy worker input was unavailable.");
+    };
+    if writeln!(
         stdin,
         "{}",
         serde_json::json!({
@@ -317,13 +379,15 @@ fn run_controlled_worker(
             "ok": true,
         })
     )
-    .map_err(|_| TradeXError::new("STRATEGY_WORKER_FAILED"))?;
-    writeln!(stdin, "{request_line}").map_err(|_| TradeXError::new("STRATEGY_WORKER_FAILED"))?;
+    .is_err()
+        || writeln!(stdin, "{request_line}").is_err()
+    {
+        return worker_failed(&mut child, "Strategy worker input was unavailable.");
+    }
     drop(stdin);
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| TradeXError::new("STRATEGY_WORKER_FAILED"))?;
+    let Some(stdout) = child.stdout.take() else {
+        return worker_failed(&mut child, "Strategy worker output was unavailable.");
+    };
     let (sender, receiver) = mpsc::channel();
     std::thread::spawn(move || {
         let mut stdout = stdout;
@@ -346,51 +410,52 @@ fn run_controlled_worker(
     });
     let result_lines = loop {
         if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
-            let _ = child.kill();
-            let _ = child.wait();
+            reap_child(&mut child);
             return Ok(RunOutcome::Cancelled(cancelled_failure()));
         }
         match receiver.recv_timeout(Duration::from_millis(50)) {
-            Ok(result) => break result.map_err(|_| TradeXError::new("STRATEGY_WORKER_FAILED"))?,
+            Ok(result) => match result {
+                Ok(lines) => break lines,
+                Err(_) => return worker_failed(&mut child, "Strategy worker output was invalid."),
+            },
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if started.elapsed() >= WORKER_TIMEOUT {
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    reap_child(&mut child);
                     return Ok(RunOutcome::Failed(worker_failure(
                         "Strategy worker exceeded its deadline.",
                     )));
                 }
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => {
-                return Ok(RunOutcome::Failed(worker_failure(
-                    "Strategy worker output was unavailable.",
-                )));
+                return worker_failed(&mut child, "Strategy worker output was unavailable.");
             }
         }
     };
-    let handshake: WorkerHandshake = serde_json::from_str(&result_lines.0)
-        .map_err(|_| TradeXError::new("STRATEGY_WORKER_FAILED"))?;
+    let handshake: WorkerHandshake = match serde_json::from_str(&result_lines.0) {
+        Ok(handshake) => handshake,
+        Err(_) => return worker_failed(&mut child, "Strategy worker handshake was invalid."),
+    };
     if !handshake.ok || handshake.protocol_version != 1 || handshake.session_token != token {
-        let _ = child.kill();
-        return Ok(RunOutcome::Failed(worker_failure(
-            "Strategy worker handshake was rejected.",
-        )));
+        return worker_failed(&mut child, "Strategy worker handshake was rejected.");
     }
-    let result: WorkerResult = serde_json::from_str(&result_lines.1)
-        .map_err(|_| TradeXError::new("STRATEGY_WORKER_FAILED"))?;
-    while child
-        .try_wait()
-        .map_err(|_| TradeXError::new("STRATEGY_WORKER_FAILED"))?
-        .is_none()
-    {
+    let result: WorkerResult = match serde_json::from_str(&result_lines.1) {
+        Ok(result) => result,
+        Err(_) => return worker_failed(&mut child, "Strategy worker response was invalid."),
+    };
+    loop {
+        let exited = match child.try_wait() {
+            Ok(status) => status.is_some(),
+            Err(_) => return worker_failed(&mut child, "Strategy worker status was unavailable."),
+        };
+        if exited {
+            break;
+        }
         if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
-            let _ = child.kill();
-            let _ = child.wait();
+            reap_child(&mut child);
             return Ok(RunOutcome::Cancelled(cancelled_failure()));
         }
         if started.elapsed() >= WORKER_TIMEOUT {
-            let _ = child.kill();
-            let _ = child.wait();
+            reap_child(&mut child);
             return Ok(RunOutcome::Failed(worker_failure(
                 "Strategy worker exceeded its deadline.",
             )));
@@ -403,27 +468,48 @@ fn run_controlled_worker(
         )));
     }
     if result.ok {
+        if result.failure.is_some() {
+            return Ok(RunOutcome::Failed(worker_failure(
+                "Strategy worker response was inconsistent.",
+            )));
+        }
         let Some(signal) = result.signal else {
             return Ok(RunOutcome::Failed(worker_failure(
                 "Strategy worker returned no signal.",
             )));
         };
-        if signal.strategy_version_id != version.strategy_version_id
-            || signal.source_ref != format!("strategy-version:{}", version.strategy_version_id)
-            || signal.strategy_hash != version.source_hash
-            || signal.instrument_id != request.instrument_id
-            || signal.dataset_id != request.dataset_id
-        {
+        if validate_signal(&signal, version, request, observed_at).is_err() {
             return Ok(RunOutcome::Failed(worker_failure(
-                "Strategy worker signal identity was rejected.",
+                "Strategy worker signal was rejected.",
             )));
         }
         Ok(RunOutcome::Completed(signal))
     } else {
-        Ok(RunOutcome::Failed(result.failure.unwrap_or_else(|| {
-            worker_failure("Strategy worker returned a typed failure.")
-        })))
+        if result.signal.is_some() {
+            return Ok(RunOutcome::Failed(worker_failure(
+                "Strategy worker response was inconsistent.",
+            )));
+        }
+        let failure = result
+            .failure
+            .unwrap_or_else(|| worker_failure("Strategy worker returned a typed failure."));
+        if validate_failure(&failure).is_err() {
+            return Ok(RunOutcome::Failed(worker_failure(
+                "Strategy worker failure was invalid.",
+            )));
+        }
+        Ok(RunOutcome::Failed(failure))
     }
+}
+
+fn reap_child(child: &mut Child) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn worker_failed(child: &mut Child, reason: &str) -> Result<RunOutcome> {
+    reap_child(child);
+    Ok(RunOutcome::Failed(worker_failure(reason)))
 }
 
 fn read_bounded_line<R: Read>(reader: &mut R, limit: usize) -> std::io::Result<Option<String>> {

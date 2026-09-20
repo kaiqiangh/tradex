@@ -124,3 +124,86 @@ fn strategy_run_fails_closed_for_tampered_hash_dataset_and_untrusted_time() {
         "{blocked}"
     );
 }
+
+#[test]
+fn persisted_strategy_runs_reject_tampering_and_reconcile_active_rows() {
+    let directory = tempfile::tempdir().unwrap();
+    let workspace_path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(workspace_path.clone());
+    let opened = command(&mut control, "workspace.open", json!({}));
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+    let saved = command(
+        &mut control,
+        "strategy.save_version",
+        json!({"workspaceId": workspace_id, "definition": definition("Momentum", "return 1")}),
+    );
+    let version_id = saved["data"]["strategyVersionId"].as_str().unwrap();
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId": workspace_id}),
+        )["ok"],
+        true
+    );
+    let run = command(
+        &mut control,
+        "strategy.run",
+        json!({
+            "workspaceId": workspace_id,
+            "strategyVersionId": version_id,
+            "instrumentId": "equity:US:AAPL",
+            "datasetId": "historical:fixture",
+            "startAt": "2026-01-01T00:00:00Z",
+            "endAt": "2026-01-02T00:00:00Z",
+            "parameters": []
+        }),
+    );
+    assert_eq!(run["ok"], true, "{run}");
+    let run_id = run["data"]["runId"].as_str().unwrap();
+    let database = rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+    let original: String = database
+        .query_row(
+            "SELECT projection FROM strategy_runs WHERE run_id=?1",
+            [run_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let mut tampered: Value = serde_json::from_str(&original).unwrap();
+    tampered["requestHash"] = json!(format!("sha256:{}", "0".repeat(64)));
+    database
+        .execute(
+            "UPDATE strategy_runs SET projection=?1 WHERE run_id=?2",
+            rusqlite::params![serde_json::to_string(&tampered).unwrap(), run_id],
+        )
+        .unwrap();
+    let rejected = command(
+        &mut control,
+        "strategy.get_run",
+        json!({"workspaceId": workspace_id, "runId": run_id}),
+    );
+    assert_eq!(
+        rejected["error"]["code"], "WORKSPACE_INTEGRITY_FAILED",
+        "{rejected}"
+    );
+
+    let mut active = tampered;
+    active["requestHash"] = json!(run["data"]["requestHash"]);
+    active["state"] = json!("QUEUED");
+    active["failure"] = Value::Null;
+    active["signal"] = Value::Null;
+    database
+        .execute(
+            "UPDATE strategy_runs SET projection=?1 WHERE run_id=?2",
+            rusqlite::params![serde_json::to_string(&active).unwrap(), run_id],
+        )
+        .unwrap();
+    let reopened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(reopened["ok"], true, "{reopened}");
+    let reconciled = command(
+        &mut control,
+        "strategy.get_run",
+        json!({"workspaceId": workspace_id, "runId": run_id}),
+    );
+    assert_eq!(reconciled["data"]["state"], "CANCELLED", "{reconciled}");
+}

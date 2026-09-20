@@ -457,6 +457,7 @@ impl ControlPlane {
                 let same = self.store.as_ref().is_some_and(|store| store.path == path);
                 if same {
                     market::ensure_history(&self.store.as_ref().unwrap().path)?;
+                    self.store.as_mut().unwrap().reconcile_strategy_runs()?;
                     self.reconcile_running_turns()?;
                     let event = self.store.as_mut().unwrap().record_open()?;
                     let workspace_id = event.aggregate_id.clone();
@@ -465,8 +466,12 @@ impl ControlPlane {
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     Ok((json!(event.payload), Some(version)))
                 } else {
+                    if let Some(store) = self.store.as_mut() {
+                        store.reconcile_strategy_runs()?;
+                    }
                     let mut store = Store::open(path, &input)?;
                     market::ensure_history(&store.path)?;
+                    store.reconcile_strategy_runs()?;
                     store.mark_accounts_stale()?;
                     store.save_gateway(gateway::GatewayState::stopped(store.workspace_id()?))?;
                     let mut model = store.model_or_new()?;

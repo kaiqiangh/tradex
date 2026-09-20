@@ -572,6 +572,9 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .strategy-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .strategy-list button { display: grid; gap: 3px; width: 100%; min-width: 0; padding: 10px; text-align: left; white-space: normal; }
 .strategy-list button span, .strategy-list button code { overflow-wrap: anywhere; color: var(--muted); font-size: 11px; }
+.strategy-run-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.strategy-run-list button { display: flex; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; padding: 8px; text-align: left; }
+.strategy-run-list button code, .strategy-run-list button span { overflow-wrap: anywhere; color: var(--muted); font-size: 11px; }
 .strategy-run { display: grid; gap: 12px; }
 .strategy-result { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
 .strategy-result dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; margin: 4px 0 0; }
