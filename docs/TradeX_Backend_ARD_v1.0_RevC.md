@@ -1832,7 +1832,8 @@ interface BacktestRunRequest {
   commission: string; // normalized non-negative decimal
   slippage: string; // normalized non-negative decimal
   portfolioSeed?: string;
-  parameters: StrategyParameter[];
+  parameters?: StrategyParameter[]; // omitted means the saved version parameters
+  fixtureScenario?: "FAILURE" | "CANCELLED"; // integration-test fixture only; never production
 }
 interface BacktestCancel {
   workspaceId: string;
@@ -1840,6 +1841,8 @@ interface BacktestCancel {
   expectedStateVersion: string;
 }
 ```
+
+When `parameters` is omitted or an empty array is supplied, the backend uses the saved strategy version's parameters. `fixtureScenario` is accepted only by the integration-test fixture and is never a production runtime control.
 
 `backtest.get` accepts `{workspaceId, runId}` and returns the complete frozen configuration, `runId`, `requestHash`, `state`, failure/remediation when applicable, and the opaque `stateVersion`. The stable request identity is the SHA-256 of the canonical strategy/version/hash, instrument, dataset, date range, timezone representation, bar interval, normalized costs, starting cash, portfolio seed, parameters, and engine version; observation time is metadata and is excluded from identity. Run IDs are unique per attempt, so a retry keeps the same request identity while creating a new run identity.
 

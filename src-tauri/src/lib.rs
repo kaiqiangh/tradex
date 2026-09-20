@@ -1905,7 +1905,7 @@ impl ControlPlane {
 
     fn begin_backtest(
         &mut self,
-        input: BacktestRunRequest,
+        mut input: BacktestRunRequest,
     ) -> Result<(PreparedBacktest, BacktestRun)> {
         self.require_workspace(&input.workspace_id)?;
         backtest::validate_run_request(&input)?;
@@ -1937,6 +1937,15 @@ impl ControlPlane {
             }
             input.parameters.clone()
         };
+        let starting_cash = backtest::normalize_decimal(&input.starting_cash, true)
+            .map_err(|error| error.with_field("startingCash"))?;
+        let commission = backtest::normalize_decimal(&input.commission, false)
+            .map_err(|error| error.with_field("commission"))?;
+        let slippage = backtest::normalize_decimal(&input.slippage, false)
+            .map_err(|error| error.with_field("slippage"))?;
+        input.starting_cash = starting_cash;
+        input.commission = commission;
+        input.slippage = slippage;
         let time = self.time.status(&input.workspace_id)?;
         let fixture = backtest::fixture_enabled();
         if time.confidence != protocol::TimeConfidence::Trusted && !fixture {

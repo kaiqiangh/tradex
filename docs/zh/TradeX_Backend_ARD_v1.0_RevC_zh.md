@@ -1832,7 +1832,8 @@ interface BacktestRunRequest {
   commission: string; // 规范化非负 decimal
   slippage: string; // 规范化非负 decimal
   portfolioSeed?: string;
-  parameters: StrategyParameter[];
+  parameters?: StrategyParameter[]; // 省略时使用已保存版本的参数
+  fixtureScenario?: "FAILURE" | "CANCELLED"; // 仅集成测试 fixture；生产环境禁止
 }
 interface BacktestCancel {
   workspaceId: string;
@@ -1840,6 +1841,8 @@ interface BacktestCancel {
   expectedStateVersion: string;
 }
 ```
+
+省略 `parameters` 或传入空数组时，后端使用已保存 strategy version 的参数。`fixtureScenario` 仅由集成测试 fixture 接受，生产运行时不得使用。
 
 `backtest.get` 接受 `{workspaceId, runId}`，返回完整冻结配置、`runId`、`requestHash`、`state`、适用时的 failure/remediation 以及不透明 `stateVersion`。稳定 request identity 是 strategy/version/hash、instrument、dataset、日期范围、时区表示、bar interval、规范化成本、starting cash、portfolio seed、parameters 和 engine version 的 canonical SHA-256；观测时间是 metadata，不参与 identity。同一配置的 retry 保持 request identity，但每次产生新的 run identity。
 

@@ -75,12 +75,12 @@ pub fn validate_run_request(request: &BacktestRunRequest) -> Result<(), TradeXEr
     if start > end {
         return Err(TradeXError::new("BACKTEST_DATE_RANGE_INVALID").with_field("endAt"));
     }
-    let _starting_cash =
-        decimal(&request.starting_cash, true).map_err(|error| error.with_field("startingCash"))?;
-    let _commission =
-        decimal(&request.commission, false).map_err(|error| error.with_field("commission"))?;
-    let _slippage =
-        decimal(&request.slippage, false).map_err(|error| error.with_field("slippage"))?;
+    let _starting_cash = normalize_decimal(&request.starting_cash, true)
+        .map_err(|error| error.with_field("startingCash"))?;
+    let _commission = normalize_decimal(&request.commission, false)
+        .map_err(|error| error.with_field("commission"))?;
+    let _slippage = normalize_decimal(&request.slippage, false)
+        .map_err(|error| error.with_field("slippage"))?;
     if let Some(seed) = &request.portfolio_seed
         && (seed.trim().is_empty() || seed.len() > 128 || seed.chars().any(char::is_control))
     {
@@ -110,9 +110,9 @@ pub fn run_identity_hash(
     request: &BacktestRunRequest,
     parameters: &[StrategyParameter],
 ) -> Result<String, TradeXError> {
-    let starting_cash = decimal(&request.starting_cash, true)?;
-    let commission = decimal(&request.commission, false)?;
-    let slippage = decimal(&request.slippage, false)?;
+    let starting_cash = normalize_decimal(&request.starting_cash, true)?;
+    let commission = normalize_decimal(&request.commission, false)?;
+    let slippage = normalize_decimal(&request.slippage, false)?;
     let input = CanonicalRun {
         workspace_id: &request.workspace_id,
         strategy_version_id: &version.strategy_version_id,
@@ -197,7 +197,7 @@ fn cancelled_failure() -> BacktestFailure {
     }
 }
 
-fn decimal(value: &str, positive: bool) -> Result<String, TradeXError> {
+pub(crate) fn normalize_decimal(value: &str, positive: bool) -> Result<String, TradeXError> {
     let normalized = crate::provider_io::decimal(&Value::String(value.to_owned()))
         .map_err(|_| TradeXError::new("BACKTEST_DECIMAL_INVALID"))?;
     let fraction_digits = normalized

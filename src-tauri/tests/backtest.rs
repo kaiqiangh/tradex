@@ -29,9 +29,9 @@ fn request(workspace_id: &str, version_id: &str) -> Value {
         "startAt": "2026-01-01T00:00:00Z",
         "endAt": "2026-01-02T00:00:00Z",
         "barInterval": "1d",
-        "startingCash": "100000",
-        "commission": "0",
-        "slippage": "0",
+        "startingCash": "00100000.00",
+        "commission": "00.00",
+        "slippage": "00.00",
         "parameters": []
     })
 }
@@ -96,6 +96,8 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
         "BACKTEST_RUNTIME_UNAVAILABLE"
     );
     assert_eq!(run["data"]["startingCash"], "100000");
+    assert_eq!(run["data"]["commission"], "0");
+    assert_eq!(run["data"]["slippage"], "0");
     assert!(
         run["data"]["requestHash"]
             .as_str()
@@ -104,6 +106,12 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
     );
 
     let run_id = run["data"]["runId"].as_str().unwrap();
+    let mut unknown_field = request(workspace_id, version_id);
+    unknown_field["unknownField"] = json!(true);
+    assert_eq!(
+        command(&mut control, "backtest.run", unknown_field)["error"]["code"],
+        "IPC_PAYLOAD_INVALID"
+    );
     let loaded = command(
         &mut control,
         "backtest.get",
@@ -129,6 +137,11 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
     );
 
     drop(control);
+    let mut cas_control = ControlPlane::new(workspace_path.clone());
+    assert_eq!(
+        command(&mut cas_control, "workspace.open", json!({}))["ok"],
+        true
+    );
     let database = rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
     let mut projection: Value = database
         .query_row(
@@ -147,17 +160,49 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
         )
         .unwrap();
     drop(database);
-    let mut restarted = ControlPlane::new(workspace_path.clone());
-    let reopened = command(&mut restarted, "workspace.open", json!({}));
+    let stale_cancel = command(
+        &mut cas_control,
+        "backtest.cancel",
+        json!({"workspaceId": workspace_id, "runId": run_id, "expectedStateVersion": "stale"}),
+    );
+    assert_eq!(
+        stale_cancel["error"]["code"], "STATE_VERSION_CONFLICT",
+        "{stale_cancel}"
+    );
+    let after_stale = command(
+        &mut cas_control,
+        "backtest.get",
+        json!({"workspaceId": workspace_id, "runId": run_id}),
+    );
+    assert_eq!(after_stale["data"]["state"], "RUNNING", "{after_stale}");
+    let reopened = command(&mut cas_control, "workspace.open", json!({}));
     assert_eq!(reopened["ok"], true, "{reopened}");
     let reconciled = command(
-        &mut restarted,
+        &mut cas_control,
         "backtest.get",
         json!({"workspaceId": workspace_id, "runId": run_id}),
     );
     assert_eq!(reconciled["data"]["state"], "CANCELLED", "{reconciled}");
     assert_eq!(reconciled["data"]["failure"]["code"], "BACKTEST_CANCELLED");
-    drop(restarted);
+    let other_path = directory.path().join("other-workspace");
+    let mut other = ControlPlane::new(other_path.clone());
+    let other_opened = command(
+        &mut other,
+        "workspace.open",
+        json!({"path": other_path.to_string_lossy()}),
+    );
+    assert_eq!(other_opened["ok"], true, "{other_opened}");
+    let cross_workspace = command(
+        &mut other,
+        "backtest.get",
+        json!({"workspaceId": workspace_id, "runId": run_id}),
+    );
+    assert_eq!(
+        cross_workspace["error"]["code"], "IPC_AGGREGATE_NOT_FOUND",
+        "{cross_workspace}"
+    );
+    drop(cas_control);
+    drop(other);
     let database = rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
     let count: i64 = database
         .query_row("SELECT COUNT(*) FROM backtest_runs", [], |row| row.get(0))

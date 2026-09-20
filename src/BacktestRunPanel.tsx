@@ -13,6 +13,25 @@ const localDateTime = (value: Date) => {
 
 const requestTimestamp = (value: string) => value ? new Date(value).toISOString() : '';
 
+function FrozenConfiguration({ run, titleId }: { run: BacktestRun; titleId: string }) {
+  return <section aria-labelledby={titleId}>
+    <h3 id={titleId}>Frozen configuration</h3>
+    <dl>
+      <div><dt>Strategy version</dt><dd>{run.strategyVersionId}</dd></div>
+      <div><dt>Strategy hash</dt><dd>{run.strategyHash}</dd></div>
+      <div><dt>Instrument</dt><dd>{run.instrumentId}</dd></div>
+      <div><dt>Dataset</dt><dd>{run.datasetId}</dd></div>
+      <div><dt>Date range</dt><dd>{run.startAt} → {run.endAt}</dd></div>
+      <div><dt>Bar interval</dt><dd>{run.barInterval}</dd></div>
+      <div><dt>Starting cash</dt><dd>{run.startingCash}</dd></div>
+      <div><dt>Commission</dt><dd>{run.commission}</dd></div>
+      <div><dt>Slippage</dt><dd>{run.slippage}</dd></div>
+      <div><dt>Portfolio seed</dt><dd>{run.portfolioSeed ?? 'None'}</dd></div>
+      <div><dt>Parameters</dt><dd>{run.parameters?.length ? run.parameters.map(parameter => `${parameter.name}=${parameter.value}`).join(', ') : 'Saved defaults'}</dd></div>
+    </dl>
+  </section>;
+}
+
 type Props = {
   workspaceId: string;
   strategy?: StrategyVersion;
@@ -77,8 +96,7 @@ export function BacktestRunPanel({
 
   useEffect(() => {
     if (strategy) setSelectedStrategyId(strategy.strategyVersionId);
-    else if (!selectedStrategyId && options[0]) setSelectedStrategyId(options[0].strategyVersionId);
-  }, [strategy?.strategyVersionId, options, selectedStrategyId]);
+  }, [strategy?.strategyVersionId]);
   useEffect(() => {
     if (initialInstrumentId && controlledInstrumentId == null) setLocalInstrumentId(initialInstrumentId);
   }, [initialInstrumentId, controlledInstrumentId]);
@@ -195,7 +213,7 @@ export function BacktestRunPanel({
       <button ref={retryRef} type="button" disabled={busy || !lastRequest || !queriedRun || activeStates.includes(queriedRun.state)} onFocus={event => { actionRef.current = event.currentTarget; }} onClick={event => { actionRef.current = event.currentTarget; void execute(lastRequest); }}>Retry backtest</button>
     </div>
     {error && <p className="error-text" role="alert">{error}</p>}
-    {queriedRun && <div className="strategy-result" aria-live="polite"><strong>{queriedRun.state}</strong><span>Run {queriedRun.runId}</span><span>Config {queriedRun.requestHash}</span>{queriedRun.failure && <><p role="alert">{queriedRun.failure.code}: {queriedRun.failure.reason}</p>{queriedRun.failure.remediation?.length ? <ul><li>{queriedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{queriedRun.fixtureLabel && <p className="form-hint">Integration fixture: {queriedRun.fixtureLabel}</p>}</div>}
+    {queriedRun && <div className="strategy-result" aria-live="polite"><strong>{queriedRun.state}</strong><span>Run {queriedRun.runId}</span><span>Config {queriedRun.requestHash}</span><FrozenConfiguration run={queriedRun} titleId={`backtest-frozen-title-${panelId}`} />{queriedRun.failure && <><p role="alert">{queriedRun.failure.code}: {queriedRun.failure.reason}</p>{queriedRun.failure.remediation?.length ? <ul><li>{queriedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{queriedRun.fixtureLabel && <p className="form-hint">Integration fixture: {queriedRun.fixtureLabel}</p>}</div>}
     {!selected && <p className="form-hint">Select a saved version before running a backtest.</p>}
   </section>;
 }
