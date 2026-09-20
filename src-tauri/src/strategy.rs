@@ -6,15 +6,32 @@ use crate::protocol::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
-use std::process::{Child, Command, Stdio};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc,
 };
 use std::time::{Duration, Instant};
+use std::{
+    path::Path,
+    process::{Child, Command, Stdio},
+};
 
 const MAX_WORKER_OUTPUT: usize = 16_384;
 const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[cfg(target_os = "macos")]
+const MACOS_WORKER_SANDBOX: &str = r#"
+(version 1)
+(import "system.sb")
+(deny process-exec*)
+(allow process-exec (literal (param "WORKER_PATH")))
+(deny network*)
+(deny file-read* (subpath "/Users"))
+(deny file-read* (subpath "/private"))
+(deny file-read* (subpath "/etc"))
+(deny file-read* (subpath "/tmp"))
+(deny file-write* (subpath "/"))
+"#;
 
 #[derive(Debug)]
 pub enum RunOutcome {
@@ -305,11 +322,19 @@ pub fn execute(
                     reason: "The integration strategy fixture returned a typed failure.".into(),
                     remediation: vec!["retry_strategy_run".into()],
                 }),
-                StrategyFixtureScenario::Cancelled => RunOutcome::Cancelled(StrategyFailure {
-                    code: "STRATEGY_CANCELLED".into(),
-                    reason: "The integration strategy fixture was cancelled.".into(),
-                    remediation: vec!["retry_strategy_run".into()],
-                }),
+                StrategyFixtureScenario::Cancelled => {
+                    for _ in 0..500 {
+                        if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                            return Ok(RunOutcome::Cancelled(cancelled_failure()));
+                        }
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    RunOutcome::Cancelled(StrategyFailure {
+                        code: "STRATEGY_CANCELLED".into(),
+                        reason: "The integration strategy fixture was cancelled.".into(),
+                        remediation: vec!["retry_strategy_run".into()],
+                    })
+                }
             },
         );
     }
@@ -342,7 +367,14 @@ fn run_controlled_worker(
         )));
     };
     let token = uuid::Uuid::new_v4().to_string();
-    let mut child = match Command::new(worker)
+    let Some(mut command) = sandboxed_worker_command(&worker) else {
+        return Ok(RunOutcome::Failed(StrategyFailure {
+            code: "STRATEGY_SANDBOX_UNAVAILABLE".into(),
+            reason: "No supported OS worker sandbox is available.".into(),
+            remediation: vec!["configure_strategy_sandbox".into()],
+        }));
+    };
+    let mut child = match command
         .env_clear()
         .env("TRADEX_STRATEGY_WORKER", "1")
         .stdin(Stdio::piped())
@@ -504,6 +536,35 @@ fn run_controlled_worker(
         }
         Ok(RunOutcome::Failed(failure))
     }
+}
+
+fn sandboxed_worker_command(worker: &Path) -> Option<Command> {
+    #[cfg(target_os = "macos")]
+    {
+        let sandbox = Path::new("/usr/bin/sandbox-exec");
+        let worker_path = worker.to_str()?;
+        if !sandbox.is_file() || !worker.is_file() || worker_path.chars().any(char::is_control) {
+            return None;
+        }
+        let mut command = Command::new(sandbox);
+        command
+            .arg("-D")
+            .arg(format!("WORKER_PATH={worker_path}"))
+            .arg("-p")
+            .arg(MACOS_WORKER_SANDBOX)
+            .arg(worker);
+        Some(command)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = worker;
+        None
+    }
+}
+
+#[cfg(all(feature = "integration-test", target_os = "macos"))]
+pub fn worker_sandbox_profile() -> &'static str {
+    MACOS_WORKER_SANDBOX
 }
 
 fn reap_child(child: &mut Child) {

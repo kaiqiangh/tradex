@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { FocusEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { StrategyRun, StrategyRunRequest, StrategySave, StrategyVersion } from '../shared/ipc-types.ts';
-import { explainError, request } from './client.ts';
+import type { StrategyFixtureScenario, StrategyRun, StrategyRunRequest, StrategySave, StrategyVersion, ThreadContextRef } from '../shared/ipc-types.ts';
+import { browserIntegration, explainError, request } from './client.ts';
 
 const activeStates = ['QUEUED', 'RUNNING'];
+export type StrategyEntryContext = { source: 'RESEARCH' | 'BACKTEST'; contextRefs: ThreadContextRef[] };
 
-export function Strategies({ workspaceId }: { workspaceId: string }) {
+export function Strategies({ workspaceId, entryContext }: { workspaceId: string; entryContext?: StrategyEntryContext }) {
   const queryClient = useQueryClient();
   const library = useQuery({ queryKey: ['strategies', workspaceId], queryFn: () => request('strategy.list', { workspaceId }) });
   const [selected, setSelected] = useState<StrategyVersion>();
@@ -13,12 +15,23 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
   const [source, setSource] = useState('signal = HOLD\nreturn signal');
   const [language, setLanguage] = useState('python');
   const [runtime, setRuntime] = useState('sandbox-v1');
-  const [instrumentId, setInstrumentId] = useState('equity:US:AAPL');
+  const contextInstrumentId = entryContext?.contextRefs.find(context => context.kind === 'instrument')?.id;
+  const [instrumentId, setInstrumentId] = useState(contextInstrumentId ?? 'equity:US:AAPL');
   const [datasetId, setDatasetId] = useState('historical:fixture');
+  const [fixtureScenario, setFixtureScenario] = useState<StrategyFixtureScenario>('SUCCESS');
   const [run, setRun] = useState<StrategyRun>();
   const [lastRequest, setLastRequest] = useState<StrategyRunRequest>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const focusedAction = useRef<HTMLButtonElement | null>(null);
+  const retryAction = useRef<HTMLButtonElement | null>(null);
+
+  const rememberActionFocus = (event: FocusEvent<HTMLButtonElement>) => {
+    focusedAction.current = event.currentTarget;
+  };
+  useEffect(() => {
+    if (contextInstrumentId) setInstrumentId(contextInstrumentId);
+  }, [contextInstrumentId]);
 
   const runQuery = useQuery({
     queryKey: ['strategy-run', workspaceId, run?.runId],
@@ -30,6 +43,13 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
     if (runQuery.data) setRun(runQuery.data);
   }, [runQuery.data]);
   const displayedRun = runQuery.data ?? run;
+  useEffect(() => {
+    if (!busy && focusedAction.current && displayedRun && !activeStates.includes(displayedRun.state)) {
+      const target = focusedAction.current.disabled ? retryAction.current : focusedAction.current;
+      target?.focus();
+      focusedAction.current = null;
+    }
+  }, [busy, displayedRun?.state]);
 
   const edit = (version: StrategyVersion) => {
     setSelected(version);
@@ -62,6 +82,7 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
     startAt: new Date(Date.now() - 86_400_000).toISOString(),
     endAt: new Date().toISOString(),
     parameters: [],
+    ...(browserIntegration ? { fixtureScenario } : {}),
   }) : undefined;
   const execute = async (input = buildRequest()) => {
     if (!input) return;
@@ -97,8 +118,15 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
   const cancel = async () => {
     if (!displayedRun || !activeStates.includes(displayedRun.state)) return;
     setBusy(true); setError(undefined);
-    try { setRun(await request('strategy.cancel', { workspaceId, runId: displayedRun.runId })); }
-    catch (cause) { setError(explainError(cause)); }
+    try {
+      const cancelled = await request('strategy.cancel', { workspaceId, runId: displayedRun.runId });
+      setRun(cancelled);
+      await queryClient.invalidateQueries({ queryKey: ['strategy-run', workspaceId, displayedRun.runId] });
+      await queryClient.invalidateQueries({ queryKey: ['strategies', workspaceId] });
+    } catch (cause) {
+      setError(explainError(cause));
+      await runQuery.refetch();
+    }
     finally { setBusy(false); }
   };
 
@@ -106,6 +134,7 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
   if (library.isError) return <div className="error-banner" role="alert"><p>Strategies are unavailable.</p><button type="button" onClick={() => void library.refetch()}>Reload strategies</button></div>;
   return <div className="strategy-surface">
     <div className="page-heading"><h1>Strategies</h1><p>Save immutable versions and inspect signal-only sandbox runs.</p></div>
+    {entryContext && <section className="notice" aria-label="Strategy entry context"><strong>Opened from {entryContext.source} context</strong><p>{entryContext.contextRefs.length ? entryContext.contextRefs.map(context => `${context.kind}:${context.id}#${context.hash}`).join(' · ') : 'No context reference attached; choose an instrument before running.'}</p></section>}
     {error && <p className="error-banner" role="alert">{error}</p>}
     <div className="strategy-grid">
       <section className="card" aria-labelledby="strategy-editor-title">
@@ -132,11 +161,12 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
       <div className="form-grid">
         <label className="field">Instrument<input value={instrumentId} onChange={event => setInstrumentId(event.target.value)} /></label>
         <label className="field">Dataset<input value={datasetId} onChange={event => setDatasetId(event.target.value)} /></label>
+        {browserIntegration && <label className="field">Integration scenario<select value={fixtureScenario} onChange={event => setFixtureScenario(event.target.value as StrategyFixtureScenario)}><option value="SUCCESS">Success</option><option value="FAILURE">Failure</option><option value="CANCELLED">Cancelled</option></select></label>}
       </div>
       <div className="form-actions">
-        <button type="button" className="primary" disabled={busy || !selected} onClick={() => void execute()}>Run selected version</button>
-        <button type="button" disabled={busy || !displayedRun || !activeStates.includes(displayedRun.state)} onClick={() => void cancel()}>Cancel run</button>
-        <button type="button" disabled={busy || !lastRequest || !displayedRun || activeStates.includes(displayedRun.state)} onClick={() => void execute(lastRequest)}>Retry run</button>
+        <button type="button" className="primary" disabled={busy || !selected} onFocus={rememberActionFocus} onClick={event => { focusedAction.current = event.currentTarget; void execute(); }}>Run selected version</button>
+        <button type="button" disabled={busy || !displayedRun || !activeStates.includes(displayedRun.state)} onFocus={rememberActionFocus} onClick={event => { focusedAction.current = event.currentTarget; void cancel(); }}>Cancel run</button>
+        <button ref={retryAction} type="button" disabled={busy || !lastRequest || !displayedRun || activeStates.includes(displayedRun.state)} onFocus={rememberActionFocus} onClick={event => { focusedAction.current = event.currentTarget; void execute(lastRequest); }}>Retry run</button>
       </div>
       {displayedRun && <div className="strategy-result" aria-live="polite"><strong>{displayedRun.state}</strong><span>Run {displayedRun.runId}</span>{displayedRun.failure && <><p role="alert">{displayedRun.failure.code}: {displayedRun.failure.reason}</p>{displayedRun.failure.remediation?.length ? <ul><li>{displayedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{displayedRun.signal && <dl><div><dt>Instrument</dt><dd>{displayedRun.signal.instrumentId}</dd></div><div><dt>Direction</dt><dd>{displayedRun.signal.direction}</dd></div><div><dt>Exposure</dt><dd>{displayedRun.signal.desiredExposure}</dd></div><div><dt>Observed</dt><dd>{displayedRun.signal.observedAt}</dd></div><div><dt>Source</dt><dd>{displayedRun.signal.sourceRef}</dd></div><div><dt>Dataset</dt><dd>{displayedRun.signal.datasetId}</dd></div></dl>}{displayedRun.fixtureLabel && <p className="form-hint">Integration fixture: {displayedRun.fixtureLabel}</p>}</div>}
       {!selected && <p className="form-hint">Select a saved version before running.</p>}

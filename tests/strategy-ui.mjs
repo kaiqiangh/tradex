@@ -4,19 +4,40 @@ export async function checkStrategyUI(tab, browser) {
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
   await viewport.set({ width: 1280, height: 900 });
+  await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
+  await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
+  await ui.getByRole('button', { name: 'Open Strategies from BACKTEST context', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Opened from BACKTEST context', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Strategies', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Save version', exact: true }).press('Enter');
   await ui.getByText(/Selected .* · v1 · sha256:/).waitFor({ state: 'visible' });
-  await ui.getByRole('button', { name: 'Run selected version', exact: true }).press('Enter');
+  const scenario = ui.getByRole('combobox', { name: 'Integration scenario', exact: true });
+  const run = ui.getByRole('button', { name: 'Run selected version', exact: true });
+  await scenario.selectOption('SUCCESS');
+  await run.press('Enter');
   await ui.getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByText('HOLD', { exact: true }).count(), 1);
   assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve/ }).count(), 0);
   assert.equal(await ui.locator('.strategy-result').getAttribute('aria-live'), 'polite');
+  await scenario.selectOption('FAILURE');
+  await run.press('Enter');
+  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  const retry = ui.getByRole('button', { name: 'Retry run', exact: true });
+  await retry.press('Enter');
+  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry run');
+  await scenario.selectOption('CANCELLED');
+  await run.press('Enter');
+  await ui.getByText('RUNNING', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Cancel run', exact: true }).press('Enter');
+  await ui.getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry run');
   for (const width of [768, 390]) {
     await viewport.set({ width, height: 900 });
     const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
     assert.ok(size.scroll <= size.width, `Strategy page overflow at ${width}px: ${JSON.stringify(size)}`);
   }
-  return ['strategy draft saved as immutable version', 'fixture run returned signal-only HOLD', 'strategy surface stayed within 768px/390px viewport'];
+  return ['Research/Backtest context opens Strategies with preserved context', 'strategy draft saved as immutable version', 'success/failure/retry/cancel states preserve keyboard focus', 'fixture run returned signal-only HOLD', 'strategy surface stayed within 768px/390px viewport'];
 }
