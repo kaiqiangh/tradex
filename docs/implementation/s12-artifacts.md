@@ -2,7 +2,7 @@
 
 日期：2026-09-19
 前置：S04 Thread/Turn/Item 持久化与不可变快照、S10 source-gated typed research 结果
-状态：IMPLEMENTED_UNVERIFIED（实现完成；原生/CUA/provider 运行时证据待补）
+状态：VERIFIED（S12 垂直切片完成；S33 全量回归和真实 provider 边界仍待后续工作项）
 
 ## Problem Statement
 

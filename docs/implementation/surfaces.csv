@@ -51,10 +51,10 @@ H3,Backtest Running,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,701,"S15,S33",NOT
 H4,Backtest Failed,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,702,"S15,S33",NOT_STARTED,
 H5,Backtest Result,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,703,"S15,S33",NOT_STARTED,
 H6,Backtest Compare,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,718,"S15,S33",NOT_STARTED,
-I1,Artifact Library,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,728,"S12,S33",NOT_STARTED,
-I2,Artifact Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,729,"S12,S33",NOT_STARTED,
-I3,Provenance Drawer / Modal,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,730,"S12,S33",NOT_STARTED,
-I4,Export,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,731,"S12,S33",NOT_STARTED,
+I1,Artifact Library,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,728,"S12,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s12-artifact-evidence.md; native QA bundle and browser fixture verify library/read path; S33 remains pending"
+I2,Artifact Detail,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,729,"S12,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s12-artifact-evidence.md; native QA bundle verifies detail, content hash and source item; S33 remains pending"
+I3,Provenance Drawer / Modal,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,730,"S12,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s12-artifact-evidence.md; native focus trap/Escape/Done restoration and browser provenance checks passed; S33 remains pending"
+I4,Export,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,731,"S12,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s12-artifact-evidence.md; native Save chooser/export and browser no-replace checks passed; S33 remains pending"
 J1,Providers & Models,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,741,"S02,S03,S33",IN_PROGRESS,"docs/implementation/s02-alpaca-evidence.md (Alpaca task #6 verified at c36296ba0d121e54703555430542bb573146b2c4; other mapped work incomplete); Trading 212 task #7 verified at 5f487ec10c48eea6616dac91472abe38a8297b19: docs/implementation/s02-trading212-evidence.md; other mapped work incomplete.; Binance Spot task #8 verified at feea542bf07be13b4f4cd98eea1e81a243c7b230: docs/implementation/s02-binance-evidence.md; other mapped work incomplete.; Bitget #9: 7b5f32929cef26a784aadd44833793b5f569d330, s02-bitget-evidence.md; docs/implementation/s03-routing-evidence.md (#12 credentialed route and #13 routing/cooldown evidence complete; S04 and S33 remain pending); S02 integration/later mapped work remain incomplete; #15 Accounts/Settings source selector and persisted-account refresh path verified: docs/implementation/s03-account-evidence.md; S04 and S33 remain pending"
 J2,Risk & Limits,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,758,"S21,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s03-onboarding-evidence.md; Settings Risk & Limits and persisted policy accepted in #14 at c812ad6 with decimal rejection, defaults, hard rules and reload recovery; full S21/S33 acceptance remains pending"
 J3,Data & Storage,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,773,"S31,S33",NOT_STARTED,
@@ -74,7 +74,7 @@ QA-02,Unknown order timeline,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,39,"S2
 QA-03,Evidence-based Manual Resolution,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,50,"S25,S33",NOT_STARTED,
 QA-04,Execution eligibility and approval expiry,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,61,"S08,S21,S22,S24,S33",NOT_STARTED,
 QA-05,Global disarm and dispatch interruption,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,72,"S21,S23,S24,S27,S33",NOT_STARTED,
-QA-06,Immutable historical provenance,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,83,"S04,S12,S33",NOT_STARTED,
+QA-06,Immutable historical provenance,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,83,"S04,S12,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s12-artifact-evidence.md; native and browser provenance checks passed; S33 remains pending"
 QA-07,Draft editing and proposal regeneration,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,94,"S13,S22,S33",NOT_STARTED,
 QA-08,"Screener, picker and instrument selection",docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,105,"S05,S07,S11,S33",IMPLEMENTED_UNVERIFIED,docs/implementation/s11-screener-evidence.md
 QA-09,Backtest entry and frozen run inputs,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,116,"S14,S15,S33",NOT_STARTED,
