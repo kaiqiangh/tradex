@@ -66,8 +66,6 @@ struct StoredOrderProposal {
     draft_id: String,
     draft_version: u64,
     proposal_hash: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    hash_salt: Option<String>,
     fields: OrderDraftFields,
     estimated_notional: Option<String>,
     estimated_notional_currency: Option<String>,
@@ -88,8 +86,6 @@ struct OrderProposalHashInput<'a> {
     workspace_id: &'a str,
     draft_id: &'a str,
     draft_version: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    hash_salt: Option<&'a str>,
     fields: OrderProposalHashFields<'a>,
     estimated_notional: Option<&'a str>,
     estimated_notional_currency: Option<&'a str>,
@@ -1568,7 +1564,6 @@ impl Store {
             &workspace_id,
             &draft.draft_id,
             draft.draft_version,
-            None,
             &draft.fields,
             &estimated_notional,
             &estimated_notional_currency,
@@ -1616,7 +1611,6 @@ impl Store {
             draft_id: draft.draft_id,
             draft_version: draft.draft_version,
             proposal_hash: proposal_hash.clone(),
-            hash_salt: None,
             fields: draft.fields,
             estimated_notional,
             estimated_notional_currency,
@@ -1728,7 +1722,6 @@ impl Store {
             &workspace_id,
             &draft.draft_id,
             draft.draft_version,
-            Some(&proposal_id),
             &draft.fields,
             &estimated_notional,
             &estimated_notional_currency,
@@ -1771,7 +1764,6 @@ impl Store {
             draft_id: draft.draft_id,
             draft_version: draft.draft_version,
             proposal_hash,
-            hash_salt: Some(proposal_id.clone()),
             fields: draft.fields,
             estimated_notional,
             estimated_notional_currency,
@@ -2713,7 +2705,6 @@ fn order_proposal_hash(
     workspace_id: &str,
     draft_id: &str,
     draft_version: u64,
-    hash_salt: Option<&str>,
     fields: &OrderDraftFields,
     estimated_notional: &Option<String>,
     estimated_notional_currency: &Option<String>,
@@ -2724,7 +2715,6 @@ fn order_proposal_hash(
         workspace_id,
         draft_id,
         draft_version,
-        hash_salt,
         fields: OrderProposalHashFields {
             account_id: fields.account_id.as_deref(),
             venue: &fields.venue,
@@ -2783,10 +2773,6 @@ fn decode_stored_order_proposal(
         || proposal.draft_id != row_draft_id
         || proposal.draft_version != row_draft_version as u64
         || proposal.proposal_hash != row_proposal_hash
-        || proposal
-            .hash_salt
-            .as_deref()
-            .is_some_and(|value| !valid_order_proposal_id(value))
         || !valid_order_text(&proposal.created_at, 64)
         || !valid_order_text(&proposal.policy_reference_reason, 256)
         || !valid_order_text(&proposal.market_reference_reason, 256)
@@ -2817,7 +2803,6 @@ fn decode_stored_order_proposal(
         workspace_id,
         row_draft_id,
         proposal.draft_version,
-        proposal.hash_salt.as_deref(),
         &proposal.fields,
         &proposal.estimated_notional,
         &proposal.estimated_notional_currency,
@@ -2894,6 +2879,88 @@ fn materialize_order_proposal(
     })
 }
 
+fn refreshed_replacement_id(reason: &str) -> Result<&str> {
+    let rest = reason
+        .strip_prefix("Proposal refreshed as ")
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let (proposal_id, suffix) = rest
+        .split_once(';')
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if suffix.trim() != "a new approval is required." {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let proposal_id = proposal_id.trim();
+    if !valid_order_proposal_id(proposal_id) {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(proposal_id)
+}
+
+fn validate_refreshed_replacement(
+    connection: &Connection,
+    proposal_id: &str,
+    workspace_id: &str,
+    reason: &str,
+) -> Result<()> {
+    let replacement_id = refreshed_replacement_id(reason)?;
+    if replacement_id == proposal_id {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let (row_workspace_id, draft_id, draft_version, proposal_hash, sequence, projection): (
+        String,
+        String,
+        i64,
+        String,
+        i64,
+        String,
+    ) = connection
+        .query_row(
+            "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE proposal_id=?1",
+            [replacement_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            },
+        )
+        .map_err(|error| {
+            if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("WORKSPACE_INTEGRITY_FAILED")
+            } else {
+                storage_error(error)
+            }
+        })?;
+    if row_workspace_id != workspace_id {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let _ = decode_stored_order_proposal(
+        &projection,
+        replacement_id,
+        &row_workspace_id,
+        &draft_id,
+        draft_version,
+        &proposal_hash,
+        sequence,
+        workspace_id,
+    )?;
+    let (first_sequence, first_event): (i64, String) = connection
+        .query_row(
+            "SELECT sequence,event FROM order_proposal_events WHERE proposal_id=?1 ORDER BY sequence LIMIT 1",
+            [replacement_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if first_sequence != 1 || first_event != "GENERATED" {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(())
+}
+
 fn proposal_event_state(
     connection: &Connection,
     proposal_id: &str,
@@ -2927,10 +2994,17 @@ fn proposal_event_state(
         }
         match event.as_str() {
             "GENERATED" if sequence == 1 && reason.is_none() => {}
-            "DRAFT_CHANGED" | "REFRESHED" if sequence > 1 => {
+            "DRAFT_CHANGED" if sequence > 1 => {
                 status = OrderProposalStatus::Invalidated;
                 invalidation_reason =
                     Some(reason.ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?);
+            }
+            "REFRESHED" if sequence > 1 => {
+                let reason =
+                    reason.ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                validate_refreshed_replacement(connection, proposal_id, workspace_id, &reason)?;
+                status = OrderProposalStatus::Invalidated;
+                invalidation_reason = Some(reason);
             }
             _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
         }

@@ -31,6 +31,7 @@ export async function checkOrderDraftUI(tab, browser) {
 
     await ui.getByRole('button', { name: 'Refresh proposal', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: /Proposal refreshed \(STALE\)/ }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByRole('status').filter({ hasText: /proposal:.*→ proposal:/ }).count() > 0, true);
     assert.equal(await ui.getByText('NEEDS_APPROVAL', { exact: true }).count() > 0, true);
     await ui.getByRole('button', { name: /INVALIDATED v1/ }).press('Enter');
     await ui.getByText('REFRESHED', { exact: true }).waitFor({ state: 'visible' });

@@ -89,7 +89,7 @@ function DraftRow({ draft, selected, onSelect }: { draft: OrderDraftSummary; sel
 
 function ProposalRow({ proposal, selected, onSelect }: { proposal: OrderProposalSummary; selected: boolean; onSelect: () => void }) {
   return <button type="button" className={`order-proposal-row${selected ? ' selected' : ''}`} aria-current={selected ? 'true' : undefined} onClick={onSelect}>
-    <strong>{proposal.status}</strong><small>v{proposal.draftVersion} · {proposal.proposalHash.slice(0, 16)}…</small><time dateTime={proposal.createdAt}>{new Date(proposal.createdAt).toLocaleString()}</time>
+    <strong>{proposal.status}</strong><small>v{proposal.draftVersion} · {proposal.proposalId}</small><small>{proposal.proposalHash}</small><time dateTime={proposal.createdAt}>{new Date(proposal.createdAt).toLocaleString()}</time>
   </button>;
 }
 
@@ -199,7 +199,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
       await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId] });
       setSelectedProposalId(result.proposal.proposalId);
-      setNotice(`Proposal refreshed (${result.refreshStatus}); ${result.invalidationReason}`);
+      setNotice(`Proposal refreshed (${result.refreshStatus}); ${result.previousProposal.proposalId} → ${result.proposal.proposalId}; ${result.invalidationReason}`);
     } catch (cause) { setError(cause); }
     finally { setProposalBusy(false); }
   };

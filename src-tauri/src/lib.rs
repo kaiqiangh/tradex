@@ -3456,6 +3456,51 @@ mod thread_tests {
     }
 
     #[test]
+    fn proposal_refresh_status_maps_each_reference_gate() {
+        let mut references = storage::OrderProposalReferences {
+            policy_version: Some(1),
+            policy_state_version: Some("risk:workspace:1".into()),
+            policy_status: protocol::ProposalReferenceStatus::Available,
+            policy_reference_reason: "configured".into(),
+            market_snapshot_id: Some("market:1".into()),
+            market_status: protocol::MarketDataStatus::Available,
+            market_reference_reason: "verified".into(),
+        };
+        assert_eq!(
+            ControlPlane::proposal_refresh_status(
+                &references,
+                protocol::TimeConfidence::ClockUncertain,
+            ),
+            protocol::OrderProposalRefreshStatus::Stale
+        );
+        assert_eq!(
+            ControlPlane::proposal_refresh_status(&references, protocol::TimeConfidence::Trusted,),
+            protocol::OrderProposalRefreshStatus::Refreshed
+        );
+        references.market_status = protocol::MarketDataStatus::BlockedExternal;
+        assert_eq!(
+            ControlPlane::proposal_refresh_status(&references, protocol::TimeConfidence::Trusted,),
+            protocol::OrderProposalRefreshStatus::Blocked
+        );
+        references.market_status = protocol::MarketDataStatus::Unavailable;
+        assert_eq!(
+            ControlPlane::proposal_refresh_status(&references, protocol::TimeConfidence::Trusted,),
+            protocol::OrderProposalRefreshStatus::Unavailable
+        );
+        references.market_status = protocol::MarketDataStatus::Available;
+        references.policy_status = protocol::ProposalReferenceStatus::Unconfigured;
+        assert_eq!(
+            ControlPlane::proposal_refresh_status(&references, protocol::TimeConfidence::Trusted,),
+            protocol::OrderProposalRefreshStatus::Blocked
+        );
+        references.policy_status = protocol::ProposalReferenceStatus::Unavailable;
+        assert_eq!(
+            ControlPlane::proposal_refresh_status(&references, protocol::TimeConfidence::Trusted,),
+            protocol::OrderProposalRefreshStatus::Unavailable
+        );
+    }
+
+    #[test]
     fn thread_create_list_snapshot_subscribe_and_reopen_are_persistent() {
         let directory = tempfile::tempdir().unwrap();
         let workspace_path = directory.path().join("workspace");
@@ -4114,6 +4159,8 @@ mod thread_tests {
         assert_eq!(opened["ok"], true);
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
         let before_risk = control.store.as_ref().unwrap().risk().unwrap();
+        let before_accounts =
+            serde_json::to_value(control.store.as_ref().unwrap().accounts().unwrap()).unwrap();
         let before_sequence = control
             .store
             .as_mut()
@@ -4211,6 +4258,17 @@ mod thread_tests {
         ));
         assert_eq!(stale_refresh["ok"], false);
         assert_eq!(stale_refresh["error"]["code"], "STATE_VERSION_CONFLICT");
+        let after_stale_failure = control.dispatch(request(
+            "trade.proposal.list",
+            json!({"workspaceId":workspace_id}),
+        ));
+        assert_eq!(
+            after_stale_failure["data"]["proposals"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
         let foreign_refresh = control.dispatch(request(
             "trade.refresh_proposal",
             json!({
@@ -4311,6 +4369,17 @@ mod thread_tests {
             not_refreshable["error"]["code"],
             "ORDER_PROPOSAL_NOT_REFRESHABLE"
         );
+        let after_invalidated_failure = control.dispatch(request(
+            "trade.proposal.list",
+            json!({"workspaceId":workspace_id}),
+        ));
+        assert_eq!(
+            after_invalidated_failure["data"]["proposals"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
         let next = control.dispatch(request(
             "trade.generate_proposal",
             json!({
@@ -4331,6 +4400,10 @@ mod thread_tests {
         assert_eq!(listed["ok"], true, "{listed}");
         assert_eq!(listed["data"]["proposals"].as_array().unwrap().len(), 3);
         assert_eq!(control.store.as_ref().unwrap().risk().unwrap(), before_risk);
+        assert_eq!(
+            serde_json::to_value(control.store.as_ref().unwrap().accounts().unwrap()).unwrap(),
+            before_accounts
+        );
         assert_eq!(
             control
                 .store
@@ -4353,9 +4426,52 @@ mod thread_tests {
         ));
         assert_eq!(reopened_proposal["ok"], true, "{reopened_proposal}");
         assert_eq!(reopened_proposal["data"]["status"], "INVALIDATED");
+        let reopened_replacement = reopened.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":refreshed_id}),
+        ));
+        assert_eq!(reopened_replacement["ok"], true, "{reopened_replacement}");
+        assert_eq!(reopened_replacement["data"]["status"], "INVALIDATED");
+        assert_eq!(
+            reopened_replacement["data"]["history"][1]["event"],
+            "DRAFT_CHANGED"
+        );
         drop(reopened);
         let database =
             rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "UPDATE order_proposal_events SET reason='Proposal refreshed as proposal:not-a-uuid; a new approval is required.' WHERE proposal_id=?1 AND sequence=2",
+                [&proposal_id],
+            )
+            .unwrap();
+        drop(database);
+        let mut corrupt_reason = ControlPlane::new(workspace_path.clone());
+        assert_eq!(
+            corrupt_reason.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let corrupt_reason_proposal = corrupt_reason.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
+        ));
+        assert_eq!(corrupt_reason_proposal["ok"], false);
+        assert_eq!(
+            corrupt_reason_proposal["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
+        drop(corrupt_reason);
+        let database =
+            rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "UPDATE order_proposal_events SET reason=?1 WHERE proposal_id=?2 AND sequence=2",
+                rusqlite::params![
+                    refreshed["data"]["invalidationReason"].as_str().unwrap(),
+                    &proposal_id
+                ],
+            )
+            .unwrap();
         database
             .execute(
                 "UPDATE order_proposal_events SET event='DRAFT_CHANGED' WHERE proposal_id=?1 AND sequence=1",
