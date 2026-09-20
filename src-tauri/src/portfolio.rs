@@ -930,7 +930,7 @@ fn decimal_add(left: &str, right: &str) -> Result<String> {
     format_decimal(negative, &digits, scale)
 }
 
-fn decimal_mul(left: &str, right: &str) -> Result<String> {
+pub(crate) fn decimal_mul(left: &str, right: &str) -> Result<String> {
     let (left_negative, left_digits, left_scale) = decimal_parts(left)?;
     let (right_negative, right_digits, right_scale) = decimal_parts(right)?;
     let mut digits = vec![0u8; left_digits.len() + right_digits.len()];

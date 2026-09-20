@@ -190,6 +190,8 @@ pub enum ReplyData {
     ScreenerAttachment(ScreenerAttachment),
     OrderDraft(Box<OrderDraft>),
     OrderDraftLibrary(OrderDraftLibrary),
+    OrderProposal(Box<OrderProposal>),
+    OrderProposalLibrary(OrderProposalLibrary),
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
     ArtifactExport(ArtifactExportResult),
@@ -264,6 +266,10 @@ pub struct IpcSchema {
     pub order_draft_query: OrderDraftQuery,
     pub order_draft: OrderDraft,
     pub order_draft_library: OrderDraftLibrary,
+    pub order_proposal_generate: OrderProposalGenerate,
+    pub order_proposal_query: OrderProposalQuery,
+    pub order_proposal: OrderProposal,
+    pub order_proposal_library: OrderProposalLibrary,
     pub artifact_save: ArtifactSave,
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
@@ -284,7 +290,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 10))]
+    #[schemars(range(min = 1, max = 12))]
     pub storage_schema_version: u32,
 }
 
@@ -1773,6 +1779,143 @@ pub struct OrderDraftQuery {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderProposalStatus {
+    NeedsApproval,
+    Invalidated,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ProposalReferenceStatus {
+    Available,
+    Unconfigured,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderProposalHistoryEvent {
+    Generated,
+    DraftChanged,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposalHistoryEntry {
+    pub event: OrderProposalHistoryEvent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub reason: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub occurred_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposal {
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub draft_id: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub draft_version: u64,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    pub fields: OrderDraftFields,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub estimated_notional: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 16))]
+    pub estimated_notional_currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub estimated_notional_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1))]
+    pub policy_version: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub policy_state_version: Option<String>,
+    pub policy_status: ProposalReferenceStatus,
+    #[schemars(length(min = 1, max = 256))]
+    pub policy_reference_reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub market_snapshot_id: Option<String>,
+    pub market_status: MarketDataStatus,
+    #[schemars(length(min = 1, max = 256))]
+    pub market_reference_reason: String,
+    pub status: OrderProposalStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub invalidation_reason: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 32))]
+    pub history: Vec<OrderProposalHistoryEntry>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposalSummary {
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub draft_id: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub draft_version: u64,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    pub status: OrderProposalStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub invalidation_reason: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposalLibrary {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 256))]
+    pub proposals: Vec<OrderProposalSummary>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposalGenerate {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub draft_id: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub expected_draft_version: u64,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OrderProposalQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ArtifactKind {
     Research,
     Decision,
@@ -2280,6 +2423,11 @@ impl TradeXError {
                 "reload_snapshot",
                 "Reload drafts",
             ),
+            "ORDER_PROPOSAL_NOT_FOUND" => (
+                "That order proposal is no longer available. Reload proposal history.",
+                "reload_snapshot",
+                "Reload proposals",
+            ),
             "MARKET_HISTORY_LIMIT" => (
                 "The local historical cache reached its bounded storage limit.",
                 "retry_request",
@@ -2730,6 +2878,7 @@ impl TradeXError {
                 code,
                 "IPC_AGGREGATE_NOT_FOUND"
                     | "ARTIFACT_NOT_FOUND"
+                    | "ORDER_PROPOSAL_NOT_FOUND"
                     | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"

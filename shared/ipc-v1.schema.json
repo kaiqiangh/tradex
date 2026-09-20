@@ -76,6 +76,18 @@
     "orderDraftSave": {
       "$ref": "#/$defs/OrderDraftSave"
     },
+    "orderProposal": {
+      "$ref": "#/$defs/OrderProposal"
+    },
+    "orderProposalGenerate": {
+      "$ref": "#/$defs/OrderProposalGenerate"
+    },
+    "orderProposalLibrary": {
+      "$ref": "#/$defs/OrderProposalLibrary"
+    },
+    "orderProposalQuery": {
+      "$ref": "#/$defs/OrderProposalQuery"
+    },
     "portfolioQuery": {
       "$ref": "#/$defs/PortfolioQuery"
     },
@@ -214,6 +226,10 @@
     "orderDraftQuery",
     "orderDraft",
     "orderDraftLibrary",
+    "orderProposalGenerate",
+    "orderProposalQuery",
+    "orderProposal",
+    "orderProposalLibrary",
     "artifactSave",
     "artifactQuery",
     "artifactExport",
@@ -3064,6 +3080,322 @@
         "updatedAt"
       ]
     },
+    "OrderProposal": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "draftId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "draftVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "estimatedNotional": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "estimatedNotionalCurrency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "estimatedNotionalReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "fields": {
+          "$ref": "#/$defs/OrderDraftFields"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OrderProposalHistoryEntry"
+          },
+          "maxItems": 32
+        },
+        "invalidationReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "marketReferenceReason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "marketSnapshotId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "marketStatus": {
+          "$ref": "#/$defs/MarketDataStatus"
+        },
+        "policyReferenceReason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "policyStateVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "policyStatus": {
+          "$ref": "#/$defs/ProposalReferenceStatus"
+        },
+        "policyVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/OrderProposalStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "proposalId",
+        "workspaceId",
+        "draftId",
+        "draftVersion",
+        "proposalHash",
+        "fields",
+        "policyStatus",
+        "policyReferenceReason",
+        "marketStatus",
+        "marketReferenceReason",
+        "status",
+        "createdAt",
+        "stateVersion",
+        "history"
+      ]
+    },
+    "OrderProposalGenerate": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedDraftVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "draftId",
+        "expectedDraftVersion"
+      ]
+    },
+    "OrderProposalHistoryEntry": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/OrderProposalHistoryEvent"
+        },
+        "occurredAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "event",
+        "occurredAt"
+      ]
+    },
+    "OrderProposalHistoryEvent": {
+      "type": "string",
+      "enum": [
+        "GENERATED",
+        "DRAFT_CHANGED"
+      ]
+    },
+    "OrderProposalLibrary": {
+      "type": "object",
+      "properties": {
+        "proposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OrderProposalSummary"
+          },
+          "maxItems": 256
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "proposals"
+      ]
+    },
+    "OrderProposalQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "OrderProposalStatus": {
+      "type": "string",
+      "enum": [
+        "NEEDS_APPROVAL",
+        "INVALIDATED"
+      ]
+    },
+    "OrderProposalSummary": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "draftId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "draftVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "invalidationReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/OrderProposalStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "proposalId",
+        "workspaceId",
+        "draftId",
+        "draftVersion",
+        "proposalHash",
+        "status",
+        "createdAt",
+        "stateVersion"
+      ]
+    },
     "OrderQuantity": {
       "type": "object",
       "properties": {
@@ -3716,6 +4048,14 @@
         "quantity"
       ]
     },
+    "ProposalReferenceStatus": {
+      "type": "string",
+      "enum": [
+        "AVAILABLE",
+        "UNCONFIGURED",
+        "UNAVAILABLE"
+      ]
+    },
     "ProviderCatalog": {
       "type": "object",
       "properties": {
@@ -3966,6 +4306,12 @@
         },
         {
           "$ref": "#/$defs/OrderDraftLibrary"
+        },
+        {
+          "$ref": "#/$defs/OrderProposal"
+        },
+        {
+          "$ref": "#/$defs/OrderProposalLibrary"
         },
         {
           "$ref": "#/$defs/Artifact"
@@ -6690,7 +7036,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 10,
+          "maximum": 12,
           "minimum": 1
         },
         "workspaceId": {

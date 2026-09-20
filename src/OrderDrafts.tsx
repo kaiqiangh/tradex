@@ -8,6 +8,8 @@ import type {
   OrderDraft,
   OrderDraftFields,
   OrderDraftSummary,
+  OrderProposal,
+  OrderProposalSummary,
   OrderQuantityType,
   OrderSide,
   OrderType,
@@ -85,19 +87,29 @@ function DraftRow({ draft, selected, onSelect }: { draft: OrderDraftSummary; sel
   </button>;
 }
 
+function ProposalRow({ proposal, selected, onSelect }: { proposal: OrderProposalSummary; selected: boolean; onSelect: () => void }) {
+  return <button type="button" className={`order-proposal-row${selected ? ' selected' : ''}`} aria-current={selected ? 'true' : undefined} onClick={onSelect}>
+    <strong>{proposal.status}</strong><small>v{proposal.draftVersion} · {proposal.proposalHash.slice(0, 16)}…</small><time dateTime={proposal.createdAt}>{new Date(proposal.createdAt).toLocaleString()}</time>
+  </button>;
+}
+
 export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient();
   const library = useQuery({ queryKey: ['order-drafts', workspaceId], queryFn: () => request('trade.draft.list', { workspaceId }), refetchOnMount: 'always' });
+  const proposals = useQuery({ queryKey: ['order-proposals', workspaceId], queryFn: () => request('trade.proposal.list', { workspaceId }), refetchOnMount: 'always' });
   const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'order-draft'], queryFn: () => request('account.list', { workspaceId }) });
   const catalog = useQuery({ queryKey: ['market-catalog', workspaceId, 'order-draft'], queryFn: () => request('market.catalog', { workspaceId, query: '', tier: marketTier }) });
   const [selectedId, setSelectedId] = useState<string>();
+  const [selectedProposalId, setSelectedProposalId] = useState<string>();
   const [newMode, setNewMode] = useState(false);
   const [form, setForm] = useState<DraftForm>(initialForm);
   const [error, setError] = useState<unknown>();
   const [fieldError, setFieldError] = useState<{ field: DraftField; message: string }>();
   const [notice, setNotice] = useState('');
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
+  const proposalDetail = useQuery({ queryKey: ['order-proposal', workspaceId, selectedProposalId], queryFn: () => request('trade.proposal.get', { workspaceId, proposalId: selectedProposalId! }), enabled: Boolean(selectedProposalId) });
   const selected = useMemo(() => newMode ? undefined : library.data?.drafts.find(draft => draft.draftId === selectedId), [library.data?.drafts, newMode, selectedId]);
+  const selectedProposals = useMemo(() => proposals.data?.proposals.filter(proposal => proposal.draftId === selectedId) ?? [], [proposals.data?.proposals, selectedId]);
   const detailLoading = Boolean(selectedId) && !newMode && detail.isPending;
 
   useEffect(() => {
@@ -105,6 +117,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     if (selectedId && library.data && !library.data.drafts.some(draft => draft.draftId === selectedId)) setSelectedId(undefined);
   }, [library.data, newMode, selectedId]);
   useEffect(() => { if (detail.data) setForm(fromDraft(detail.data)); }, [detail.data]);
+  useEffect(() => {
+    if (!selectedId || newMode || !selectedProposals.some(proposal => proposal.proposalId === selectedProposalId)) setSelectedProposalId(undefined);
+  }, [newMode, selectedId, selectedProposalId, selectedProposals]);
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
@@ -142,6 +157,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       });
       setNewMode(false); setSelectedId(saved.draftId); setForm(fromDraft(saved));
       await queryClient.invalidateQueries({ queryKey: ['order-drafts', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId] });
       setNotice(`Draft saved at version ${saved.draftVersion}.`);
     } catch (cause) {
       setError(cause);
@@ -156,6 +173,17 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         if (field) setFieldError({ field, message: cause.message });
       }
     }
+  };
+
+  const generateProposal = async () => {
+    if (!selected) return;
+    setError(undefined); setNotice('');
+    try {
+      const proposal = await request('trade.generate_proposal', { workspaceId, draftId: selected.draftId, expectedDraftVersion: selected.draftVersion });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+      setSelectedProposalId(proposal.proposalId);
+      setNotice(`Proposal ${proposal.proposalId.slice(0, 16)}… generated and requires approval.`);
+    } catch (cause) { setError(cause); }
   };
 
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
@@ -187,9 +215,27 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
           {fieldError && <p id="order-field-error" className="form-errors" role="alert">{fieldError.message}</p>}
           {localErrors.length > 0 && <ul className="form-errors" role="alert">{localErrors.map(message => <li key={message}>{message}</li>)}</ul>}
           {!catalog.isPending && !instruments.length && <p className="form-hint">Canonical market catalog is unavailable; reload before saving.</p>}
-          <div className="form-actions"><button className="primary" disabled={Boolean(localErrors.length) || catalog.isPending || !instruments.length}>Save draft</button></div>
+          <div className="form-actions"><button className="primary" disabled={Boolean(localErrors.length) || catalog.isPending || !instruments.length}>Save draft</button>{selected && <button type="button" onClick={() => void generateProposal()}>Generate proposal</button>}</div>
         </form>}
       </section>
     </div>
+    <section className="card order-proposal-panel" aria-labelledby="order-proposal-title">
+      <div className="section-heading"><div><h2 id="order-proposal-title">Order proposals</h2><p className="muted">Immutable read-only snapshots awaiting the later approval gate.</p></div>{selected && <span className="badge">{selectedProposals.length} for this draft</span>}</div>
+      {proposals.isPending && <p role="status">Loading proposal history…</p>}
+      {proposals.isError && <p className="error-text" role="alert">{explainError(proposals.error)}</p>}
+      {!proposals.isPending && !proposals.isError && !selectedProposals.length && <p className="muted">Save a draft, then generate a proposal for its immutable snapshot.</p>}
+      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{proposalDetail.isPending && <p role="status">Loading proposal…</p>}{proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} />}</div></div>}
+    </section>
   </>;
+}
+
+function ProposalDetail({ proposal }: { proposal: OrderProposal }) {
+  return <div className="proposal-read-only" aria-label="Proposal detail">
+    <div className="proposal-meta"><strong>{proposal.status}</strong><span>Draft v{proposal.draftVersion}</span><span>{proposal.proposalId}</span><span>{proposal.proposalHash}</span></div>
+    <dl className="proposal-fields"><div><dt>Instrument</dt><dd>{proposal.fields.instrumentId}</dd></div><div><dt>Account</dt><dd>{proposal.fields.accountId ?? 'Local Paper account'}</dd></div><div><dt>Side / type</dt><dd>{proposal.fields.side} · {proposal.fields.orderType}</dd></div><div><dt>Quantity</dt><dd>{proposal.fields.quantity.value} {proposal.fields.quantity.type}</dd></div><div><dt>Limit price</dt><dd>{proposal.fields.limitPrice ?? '—'}</dd></div><div><dt>Maximum spend</dt><dd>{proposal.fields.maximumSpend ?? '—'}</dd></div><div><dt>Venue / context</dt><dd>{proposal.fields.venue} · {proposal.fields.environment}</dd></div><div><dt>Time in force</dt><dd>{proposal.fields.timeInForce}</dd></div><div><dt>Client label</dt><dd>{proposal.fields.clientLabel ?? '—'}</dd></div><div><dt>Estimated notional</dt><dd>{proposal.estimatedNotional ? `${proposal.estimatedNotional} ${proposal.estimatedNotionalCurrency ?? ''}` : proposal.estimatedNotionalReason ?? 'Unavailable'}</dd></div></dl>
+    <p className="proposal-reference"><strong>Policy:</strong> {proposal.policyStatus} · {proposal.policyReferenceReason}</p>
+    <p className="proposal-reference"><strong>Market:</strong> {proposal.marketStatus} · {proposal.marketReferenceReason}</p>
+    {proposal.invalidationReason && <p className="error-text">{proposal.invalidationReason}</p>}
+    <h3>History</h3><ol className="proposal-history">{proposal.history.map((entry, index) => <li key={`${entry.event}-${entry.occurredAt}-${index}`}><strong>{entry.event}</strong><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time>{entry.reason && <span>{entry.reason}</span>}</li>)}</ol>
+  </div>;
 }

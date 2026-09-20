@@ -90,6 +90,14 @@ declare const validators: {
   OrderDraftQuery: (value: unknown) => boolean;
   OrderDraftSave: (value: unknown) => boolean;
   OrderDraftSummary: (value: unknown) => boolean;
+  OrderProposal: (value: unknown) => boolean;
+  OrderProposalGenerate: (value: unknown) => boolean;
+  OrderProposalHistoryEntry: (value: unknown) => boolean;
+  OrderProposalHistoryEvent: (value: unknown) => boolean;
+  OrderProposalLibrary: (value: unknown) => boolean;
+  OrderProposalQuery: (value: unknown) => boolean;
+  OrderProposalStatus: (value: unknown) => boolean;
+  OrderProposalSummary: (value: unknown) => boolean;
   OrderQuantity: (value: unknown) => boolean;
   OrderQuantityType: (value: unknown) => boolean;
   OrderSide: (value: unknown) => boolean;
@@ -106,6 +114,7 @@ declare const validators: {
   PortfolioTotals: (value: unknown) => boolean;
   PortfolioValue: (value: unknown) => boolean;
   Position: (value: unknown) => boolean;
+  ProposalReferenceStatus: (value: unknown) => boolean;
   ProviderCatalog: (value: unknown) => boolean;
   ProviderDefinition: (value: unknown) => boolean;
   ProviderField: (value: unknown) => boolean;

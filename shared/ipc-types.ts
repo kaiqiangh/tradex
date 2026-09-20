@@ -163,6 +163,26 @@ export type OrderSide = "BUY" | "SELL";
 export type TimeInForce = "DAY" | "GTC" | "IOC" | "FOK";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalHistoryEvent".
+ */
+export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketDataStatus".
+ */
+export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ProposalReferenceStatus".
+ */
+export type ProposalReferenceStatus = "AVAILABLE" | "UNCONFIGURED" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalStatus".
+ */
+export type OrderProposalStatus = "NEEDS_APPROVAL" | "INVALIDATED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Connect".
  */
 export type Connect =
@@ -219,6 +239,8 @@ export type ReplyData =
   | ScreenerAttachment
   | OrderDraft
   | OrderDraftLibrary
+  | OrderProposal
+  | OrderProposalLibrary
   | Artifact
   | ArtifactLibrary
   | ArtifactExportResult;
@@ -247,11 +269,6 @@ export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
  * via the `definition` "AssetClass".
  */
 export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketDataStatus".
- */
-export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AdjustmentStatus".
@@ -368,6 +385,10 @@ export interface IpcSchema {
   orderDraftLibrary: OrderDraftLibrary;
   orderDraftQuery: OrderDraftQuery;
   orderDraftSave: OrderDraftSave;
+  orderProposal: OrderProposal;
+  orderProposalGenerate: OrderProposalGenerate;
+  orderProposalLibrary: OrderProposalLibrary;
+  orderProposalQuery: OrderProposalQuery;
   portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
@@ -1268,6 +1289,89 @@ export interface OrderDraftSave {
   draftId?: string | null;
   expectedStateVersion?: string | null;
   fields: OrderDraftFields;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposal".
+ */
+export interface OrderProposal {
+  createdAt: string;
+  draftId: string;
+  draftVersion: number;
+  estimatedNotional?: string;
+  estimatedNotionalCurrency?: string | null;
+  estimatedNotionalReason?: string | null;
+  fields: OrderDraftFields;
+  /**
+   * @maxItems 32
+   */
+  history: OrderProposalHistoryEntry[];
+  invalidationReason?: string | null;
+  marketReferenceReason: string;
+  marketSnapshotId?: string | null;
+  marketStatus: MarketDataStatus;
+  policyReferenceReason: string;
+  policyStateVersion?: string | null;
+  policyStatus: ProposalReferenceStatus;
+  policyVersion?: number | null;
+  proposalHash: string;
+  proposalId: string;
+  stateVersion: string;
+  status: OrderProposalStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalHistoryEntry".
+ */
+export interface OrderProposalHistoryEntry {
+  event: OrderProposalHistoryEvent;
+  occurredAt: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalGenerate".
+ */
+export interface OrderProposalGenerate {
+  draftId: string;
+  expectedDraftVersion: number;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalLibrary".
+ */
+export interface OrderProposalLibrary {
+  /**
+   * @maxItems 256
+   */
+  proposals: OrderProposalSummary[];
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalSummary".
+ */
+export interface OrderProposalSummary {
+  createdAt: string;
+  draftId: string;
+  draftVersion: number;
+  invalidationReason?: string | null;
+  proposalHash: string;
+  proposalId: string;
+  stateVersion: string;
+  status: OrderProposalStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalQuery".
+ */
+export interface OrderProposalQuery {
+  proposalId: string;
   workspaceId: string;
 }
 /**

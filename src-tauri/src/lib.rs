@@ -763,6 +763,40 @@ impl ControlPlane {
                 let draft = self.store.as_mut().unwrap().save_order_draft(&input)?;
                 Ok((json!(draft), Some(draft.state_version.clone())))
             }
+            "trade.generate_proposal" => {
+                let input: protocol::OrderProposalGenerate = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                storage::validate_order_draft_id(&input.draft_id)?;
+                let draft = self.store.as_ref().unwrap().order_draft(&input.draft_id)?;
+                if draft.draft_version != input.expected_draft_version {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let references = self
+                    .order_proposal_references(&input.workspace_id, &draft.fields.instrument_id)?;
+                let proposal = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .generate_order_proposal(&input, &references)?;
+                Ok((json!(proposal), Some(proposal.state_version.clone())))
+            }
+            "trade.proposal.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let library = self.store.as_ref().unwrap().order_proposals()?;
+                Ok((json!(library), Some(library.state_version)))
+            }
+            "trade.proposal.get" => {
+                let input: protocol::OrderProposalQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                storage::validate_order_proposal_id(&input.proposal_id)?;
+                let proposal = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .order_proposal(&input.proposal_id)?;
+                Ok((json!(proposal), Some(proposal.state_version.clone())))
+            }
             "artifact.save" => {
                 let input: ArtifactSave = payload(request.payload)?;
                 let artifact = self.save_artifact(input)?;
@@ -2756,6 +2790,58 @@ impl ControlPlane {
             .collect()
     }
 
+    fn order_proposal_references(
+        &mut self,
+        workspace_id: &str,
+        instrument_id: &str,
+    ) -> Result<storage::OrderProposalReferences> {
+        let risk = self.store.as_ref().unwrap().risk_or_new()?;
+        let (policy_version, policy_state_version, policy_status, policy_reference_reason) =
+            match risk {
+                Some(risk) if risk.configured => (
+                    Some(risk.policy_version),
+                    Some(risk.state_version),
+                    protocol::ProposalReferenceStatus::Available,
+                    "The configured risk policy is referenced by this proposal.".into(),
+                ),
+                Some(risk) => (
+                    Some(risk.policy_version),
+                    Some(risk.state_version),
+                    protocol::ProposalReferenceStatus::Unconfigured,
+                    "The workspace risk policy is not configured; proposal generation does not approve or execute orders.".into(),
+                ),
+                None => (
+                    Some(1),
+                    None,
+                    protocol::ProposalReferenceStatus::Unconfigured,
+                    "No persisted risk policy is available; proposal generation does not approve or execute orders.".into(),
+                ),
+            };
+        let sources = self.data_source_sources(workspace_id);
+        let market_input = protocol::MarketGetQuery {
+            workspace_id: workspace_id.into(),
+            instrument_id: instrument_id.into(),
+            tier: protocol::MarketTier::Census,
+        };
+        let source = market::source_id_for_instrument(instrument_id, &market_input.tier)
+            .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
+        let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
+        let time_status = self.time.status(workspace_id)?;
+        let market = market::detail(&market_input, source, calendar_source, &time_status)?;
+        Ok(storage::OrderProposalReferences {
+            policy_version,
+            policy_state_version,
+            policy_status,
+            policy_reference_reason,
+            market_snapshot_id: market
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.provenance.market_snapshot_id.clone()),
+            market_status: market.status,
+            market_reference_reason: market.availability_reason,
+        })
+    }
+
     /// Prepare under the domain lock, perform native/provider work outside it, then commit with the same session/version.
     pub fn prepare_provider(&mut self, value: &Value) -> Result<Option<ProviderJob>> {
         match value.get("schemaVersion").and_then(Value::as_u64) {
@@ -3956,6 +4042,114 @@ mod thread_tests {
         assert_eq!(invalid_thread["error"]["code"], "TURN_CONTEXT_INVALID");
     }
     #[test]
+    fn order_proposal_is_immutable_and_invalidates_after_material_draft_change() {
+        let directory = tempfile::tempdir().unwrap();
+        let workspace_path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(workspace_path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        assert_eq!(opened["ok"], true);
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let fields = json!({
+            "venue": "TRADEX_SIM",
+            "environment": "LOCAL_PAPER",
+            "instrumentId": "equity:US:AAPL",
+            "side": "BUY",
+            "orderType": "LIMIT",
+            "quantity": {"type": "BASE", "value": "1"},
+            "limitPrice": "221.50",
+            "maximumSpend": null,
+            "timeInForce": "DAY",
+            "clientLabel": "first"
+        });
+        let saved = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":fields}),
+        ));
+        assert_eq!(saved["ok"], true, "{saved}");
+        let draft_id = saved["data"]["draftId"].as_str().unwrap().to_owned();
+        let proposal = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft_id,
+                "expectedDraftVersion": 1
+            }),
+        ));
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        assert_eq!(proposal["data"]["status"], "NEEDS_APPROVAL");
+        assert_eq!(proposal["data"]["estimatedNotional"], "221.5");
+        assert_eq!(proposal["data"]["estimatedNotionalCurrency"], "USD");
+        assert_eq!(proposal["data"]["history"][0]["event"], "GENERATED");
+        let proposal_id = proposal["data"]["proposalId"].as_str().unwrap().to_owned();
+        let proposal_hash = proposal["data"]["proposalHash"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let duplicate = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft_id,
+                "expectedDraftVersion": 1
+            }),
+        ));
+        assert_eq!(duplicate["ok"], true, "{duplicate}");
+        assert_eq!(duplicate["data"]["proposalId"], proposal_id);
+        assert_eq!(duplicate["data"]["proposalHash"], proposal_hash);
+        let mut changed_fields = fields;
+        changed_fields["quantity"] = json!({"type":"BASE","value":"2"});
+        let updated = control.dispatch(request(
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft_id,
+                "expectedStateVersion": saved["data"]["stateVersion"],
+                "fields": changed_fields
+            }),
+        ));
+        assert_eq!(updated["ok"], true, "{updated}");
+        let invalidated = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
+        ));
+        assert_eq!(invalidated["ok"], true, "{invalidated}");
+        assert_eq!(invalidated["data"]["status"], "INVALIDATED");
+        assert_eq!(invalidated["data"]["fields"]["quantity"]["value"], "1");
+        assert_eq!(invalidated["data"]["history"][1]["event"], "DRAFT_CHANGED");
+        let next = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft_id,
+                "expectedDraftVersion": 2
+            }),
+        ));
+        assert_eq!(next["ok"], true, "{next}");
+        assert_ne!(next["data"]["proposalId"], proposal_id);
+        assert_ne!(next["data"]["proposalHash"], proposal_hash);
+        assert_eq!(next["data"]["fields"]["quantity"]["value"], "2");
+        assert_eq!(next["data"]["estimatedNotional"], "443");
+        let listed = control.dispatch(request(
+            "trade.proposal.list",
+            json!({"workspaceId":workspace_id}),
+        ));
+        assert_eq!(listed["ok"], true, "{listed}");
+        assert_eq!(listed["data"]["proposals"].as_array().unwrap().len(), 2);
+        drop(control);
+        let mut reopened = ControlPlane::new(workspace_path);
+        assert_eq!(
+            reopened.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let reopened_proposal = reopened.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
+        ));
+        assert_eq!(reopened_proposal["ok"], true, "{reopened_proposal}");
+        assert_eq!(reopened_proposal["data"]["status"], "INVALIDATED");
+    }
+
+    #[test]
     fn artifact_round_trip_preserves_provenance_and_exports_safely() {
         let directory = tempfile::tempdir().unwrap();
         let workspace_path = directory.path().join("workspace");
@@ -3973,6 +4167,12 @@ mod thread_tests {
             .execute("DROP TABLE order_drafts", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE order_proposal_events", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE order_proposals", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -3982,7 +4182,7 @@ mod thread_tests {
             json!({"path": workspace_path.to_string_lossy()}),
         ));
         assert_eq!(migrated_open["ok"], true);
-        assert_eq!(migrated_open["data"]["storageSchemaVersion"], 10);
+        assert_eq!(migrated_open["data"]["storageSchemaVersion"], 11);
         let created = control.dispatch(request(
             "thread.create",
             json!({
