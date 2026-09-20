@@ -2,7 +2,7 @@
 
 日期：2026-09-19  
 前置：S05 capability/context/typed research、S06 data-source authorization、S07 canonical market、S09 portfolio/FX  
-状态：**SPEC**（待按 S10 tickets 串行实现）
+状态：**SPEC 已发布；#34 垂直切片已实现并留存证据**（真实 provider/native/S33 边界仍按 evidence 文档保留）
 
 ## Problem Statement
 

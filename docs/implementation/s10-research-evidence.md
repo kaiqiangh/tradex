@@ -1,9 +1,12 @@
 # S10 #34 source-gated typed research evidence
 
-日期：2026-09-19
-实现提交：`6eaa121`、`49c57ae`（typed result vertical slice）及本次审查修正
+日期：2026-09-20
+
+实现提交：`6eaa12149ca87fd50b8b1d1c5eb8c63faf264e47`、`49c57ae3b4e7016a01880c4c94a34523959ba395`、`4f68deb468c87061d0cbd1a1012283b17fa38845`、`6adae6c09e383fd3ce7a21a679d9b1df03745da1`、`aecd3b79f30b7d4fdd8310f09631579ff7fcf0f1`
+
+验证 SHA：`54ab1b200d2339a8fe886661a4c2ed3e6fd966f2`（`dev`）
 范围：S10 第一条垂直切片；股票/现货 evidence cards 见 [`s10-evidence-cards-evidence.md`](s10-evidence-cards-evidence.md)。
-状态：**IMPLEMENTED_UNVERIFIED**（契约、Rust 负例和隔离 bridge 已通过；真实 provider facts、完整 UI 研究卡和 S33 回归仍未宣称完成）
+状态：**IMPLEMENTED_UNVERIFIED**（#34 的 typed contract、source gate、隔离 bridge、fake runtime 和目标 UI 路径已通过；真实 provider facts、native Keychain/runtime 和 S33 回归仍未宣称完成）
 
 ## Delivered behavior
 
@@ -24,13 +27,18 @@
 | `npm run typecheck` | PASS |
 | `npm run build` | PASS；保留既有大 chunk warning |
 | `cargo check --workspace --features integration-test` | PASS |
-| `cargo test --workspace research::tests --features integration-test` | PASS — 4 targeted tests |
-| `cargo test --workspace typed_research_result_is_sanitized_and_tamper_evident --features integration-test` | PASS — marker, missing/tampered pair, no-mutation and sanitized evidence |
-| Rust-backed `/__integration/command` source gate | PASS — focus `EQUITY`，state `UNAVAILABLE`，source `OD-001`，evidence status `BLOCKED_EXTERNAL`，received `UNAVAILABLE`，injection text absent |
-| `git diff --check` | PASS |
+| `cargo test --workspace research::tests --features integration-test -- --test-threads=1` | PASS — 9 research tests |
+| `cargo test --workspace typed_research_result_is_sanitized_and_tamper_evident --features integration-test -- --test-threads=1` | PASS — marker, missing/tampered pair, no-mutation and sanitized evidence |
+| `cargo test --workspace --features integration-test -- --test-threads=1` | PASS — 100 library tests and all workspace integration targets; only repository-marked native checks ignored |
+| `cargo clippy --workspace --features integration-test --all-targets -- -D warnings` | PASS |
+| `python3 scripts/check_requirements.py` | PASS — 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files |
+| `node --check tests/thread-ui.mjs`、`git diff --check` | PASS |
+| Rust-backed `/__integration/command` source gate | PASS — `research.run` returns `UNAVAILABLE` / `OD-001` / `BLOCKED_EXTERNAL` / `UNAVAILABLE`; prompt-injection text is absent; missing and tampered result pairs return `RESEARCH_RESULT_INVALID` without changing thread state |
+| Rust-backed fake runtime | PASS — valid `EQUITY` result reaches `research_result` timeline and completed runtime item with the exact marker; provider attempt `SUCCEEDED` |
+| Fresh CUA browser path | PASS — unavailable preview, focus/mode invalidation, synthetic EQUITY and CRYPTO_SPOT cards, disabled Trade CTA, card/marker keyboard focus, renderer reload persistence, 390/768/1280 widths with no horizontal overflow, and zero warn/error logs |
 
-The native desktop window check could not be rerun in this pass because macOS became locked again. This is an environment boundary, not runtime success evidence. Full UI preview/timeline browser interaction and authenticated provider facts remain pending for #35/S33; this document does not upgrade them from `RUNTIME_PENDING`.
+The browser run used `npm run dev:browser` with a fresh temporary Rust/SQLite workspace and explicit integration fixtures. It did not read or write ChatGPT OAuth, DeepSeek keys, broker credentials, or external provider responses. The synthetic `AVAILABLE` rows therefore prove the typed contract and UI/runtime wiring only; they do not prove provider entitlement, real-time quotes, native Keychain behavior, or S33 coverage. The native desktop/provider boundary remains pending and is not upgraded by this fixture run.
 
 ## Remaining boundary
 
-#34 does not claim real market/portfolio/news/filings/fundamentals data, venue comparison, trade proposal, model inference or execution authority. #35 must consume this stable typed result to render the stock/spot evidence cards and rerun 390/768/1280, keyboard, console and security negative checks.
+#34 does not claim real market/portfolio/news/filings/fundamentals data, venue comparison, trade proposal, model inference or execution authority. #35 consumes this stable typed result for the follow-on evidence-card slice; S33 and real external entitlements remain separate evidence boundaries.
