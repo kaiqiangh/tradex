@@ -85,5 +85,6 @@ export async function checkStrategyUI(tab, browser) {
     const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
     assert.ok(size.scroll <= size.width, `Strategy page overflow at ${width}px: ${JSON.stringify(size)}`);
   }
+  assert.equal((await tab.dev.logs({ levels: ['warn', 'error'], limit: 20 })).length, 0);
   return ['Research/Backtest context opens Strategies with preserved context', 'strategy draft saved as immutable version', 'strategy and backtest success/failure/retry/cancel states preserve keyboard focus', 'fixture run returned signal-only HOLD', 'strategy surface stayed within 768px/390px viewport'];
 }

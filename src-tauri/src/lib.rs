@@ -1946,11 +1946,20 @@ impl ControlPlane {
         input.starting_cash = starting_cash;
         input.commission = commission;
         input.slippage = slippage;
+        input.parameters = parameters.clone();
         let time = self.time.status(&input.workspace_id)?;
         let fixture = backtest::fixture_enabled();
         if time.confidence != protocol::TimeConfidence::Trusted && !fixture {
             return Err(TradeXError::new("BACKTEST_TIME_UNTRUSTED").with_field("startAt"));
         }
+        let historical_source_available = self
+            .data_source_sources(&input.workspace_id)
+            .into_iter()
+            .any(|source| {
+                source.source_id == "OD-002"
+                    && source.status == protocol::DataSourceStatus::Available
+            });
+        backtest::validate_history_coverage(&input, fixture, historical_source_available)?;
         let request_hash = backtest::run_identity_hash(&version, &input, &parameters)?;
         let run_id = uuid::Uuid::new_v4().to_string();
         let now = storage::timestamp()?;

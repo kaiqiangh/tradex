@@ -171,7 +171,10 @@ export function BacktestRunPanel({
       setRun(await request('backtest.run', requestInput));
       await queryClient.invalidateQueries({ queryKey: ['strategies', workspaceId] });
     } catch (cause) {
-      if (cause instanceof CommandError && cause.detail.field) setFieldErrors(current => ({ ...current, [cause.detail.field!]: cause.detail.message }));
+      if (cause instanceof CommandError && cause.detail.field) {
+        const field = ({ instrumentId: 'instrument', datasetId: 'dataset', strategyVersionId: 'strategy' } as Record<string, string>)[cause.detail.field] ?? cause.detail.field;
+        setFieldErrors(current => ({ ...current, [field]: cause.detail.message }));
+      }
       setError(explainError(cause));
     } finally { setBusy(false); }
   };

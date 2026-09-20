@@ -11,6 +11,8 @@ use std::time::Duration;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub const ENGINE_VERSION: &str = "tradex-backtest-engine-v1";
+const FIXTURE_HISTORY_START: &str = "2000-01-01T00:00:00Z";
+const FIXTURE_HISTORY_END: &str = "2100-01-01T00:00:00Z";
 
 #[derive(Debug)]
 pub enum RunOutcome {
@@ -137,6 +139,29 @@ pub fn run_identity_hash(
 pub fn fixture_enabled() -> bool {
     cfg!(feature = "integration-test")
         && std::env::var("TRADEX_BACKTEST_FIXTURE").ok().as_deref() == Some("1")
+}
+
+pub fn validate_history_coverage(
+    request: &BacktestRunRequest,
+    fixture: bool,
+    historical_source_available: bool,
+) -> Result<(), TradeXError> {
+    let start = parse_timestamp(&request.start_at).map_err(|error| error.with_field("startAt"))?;
+    let end = parse_timestamp(&request.end_at).map_err(|error| error.with_field("endAt"))?;
+    let fixture_start =
+        parse_timestamp(FIXTURE_HISTORY_START).map_err(|error| error.with_field("startAt"))?;
+    let fixture_end =
+        parse_timestamp(FIXTURE_HISTORY_END).map_err(|error| error.with_field("endAt"))?;
+    if start < fixture_start {
+        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("startAt"));
+    }
+    if end > fixture_end {
+        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("endAt"));
+    }
+    if fixture || historical_source_available {
+        return Ok(());
+    }
+    Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("datasetId"))
 }
 
 pub fn execute(request: &BacktestRunRequest, cancel: Option<&AtomicBool>) -> RunOutcome {

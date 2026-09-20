@@ -16,7 +16,7 @@ fn definition(name: &str, source: &str) -> Value {
         "source": source,
         "language": "python",
         "runtime": "sandbox-v1",
-        "parameters": []
+        "parameters": [{"name": "window", "value": "20"}]
     })
 }
 
@@ -38,6 +38,9 @@ fn request(workspace_id: &str, version_id: &str) -> Value {
 
 #[test]
 fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
+    unsafe {
+        std::env::remove_var("TRADEX_BACKTEST_FIXTURE");
+    }
     let directory = tempfile::tempdir().unwrap();
     let workspace_path = directory.path().join("workspace");
     let mut control = ControlPlane::new(workspace_path.clone());
@@ -84,6 +87,22 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
         true
     );
 
+    if !cfg!(feature = "integration-test") {
+        let blocked = command(
+            &mut control,
+            "backtest.run",
+            request(workspace_id, version_id),
+        );
+        assert_eq!(
+            blocked["error"]["code"], "MARKET_HISTORY_UNAVAILABLE",
+            "{blocked}"
+        );
+        return;
+    }
+    unsafe {
+        std::env::set_var("TRADEX_BACKTEST_FIXTURE", "1");
+    }
+
     let run = command(
         &mut control,
         "backtest.run",
@@ -93,11 +112,19 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
     assert_eq!(run["data"]["state"], "FAILED");
     assert_eq!(
         run["data"]["failure"]["code"],
-        "BACKTEST_RUNTIME_UNAVAILABLE"
+        if cfg!(feature = "integration-test") {
+            "BACKTEST_FIXTURE_FAILED"
+        } else {
+            "BACKTEST_RUNTIME_UNAVAILABLE"
+        }
     );
     assert_eq!(run["data"]["startingCash"], "100000");
     assert_eq!(run["data"]["commission"], "0");
     assert_eq!(run["data"]["slippage"], "0");
+    assert_eq!(
+        run["data"]["parameters"],
+        json!([{"name": "window", "value": "20"}])
+    );
     assert!(
         run["data"]["requestHash"]
             .as_str()
@@ -240,4 +267,20 @@ fn backtest_rejects_invalid_numeric_interval_and_date_values() {
             "field={field}"
         );
     }
+    let mut uncovered = request(workspace_id, version_id);
+    uncovered["startAt"] = json!("1900-01-01T00:00:00Z");
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId": workspace_id}),
+        )["ok"],
+        true
+    );
+    let coverage_error = command(&mut control, "backtest.run", uncovered);
+    assert_eq!(
+        coverage_error["error"]["code"],
+        "MARKET_HISTORY_UNAVAILABLE"
+    );
+    assert_eq!(coverage_error["error"]["field"], "startAt");
 }
