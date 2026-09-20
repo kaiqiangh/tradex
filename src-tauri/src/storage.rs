@@ -79,6 +79,40 @@ struct StoredOrderProposal {
     created_at: String,
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OrderProposalHashInput<'a> {
+    workspace_id: &'a str,
+    draft_id: &'a str,
+    draft_version: u64,
+    fields: OrderProposalHashFields<'a>,
+    estimated_notional: Option<&'a str>,
+    estimated_notional_currency: Option<&'a str>,
+    estimated_notional_reason: Option<&'a str>,
+    policy_version: Option<u64>,
+    policy_state_version: Option<&'a str>,
+    policy_status: ProposalReferenceStatus,
+    policy_reference_reason: &'a str,
+    market_snapshot_id: Option<&'a str>,
+    market_status: crate::protocol::MarketDataStatus,
+    market_reference_reason: &'a str,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OrderProposalHashFields<'a> {
+    account_id: Option<&'a str>,
+    venue: &'a str,
+    environment: &'a ExecutionContext,
+    instrument_id: &'a str,
+    side: &'a crate::protocol::OrderSide,
+    order_type: &'a OrderType,
+    quantity: &'a crate::protocol::OrderQuantity,
+    limit_price: Option<&'a str>,
+    maximum_spend: Option<&'a str>,
+    time_in_force: &'a TimeInForce,
+}
+
 pub(crate) fn storage_error(_: impl std::fmt::Debug) -> TradeXError {
     TradeXError::new("WORKSPACE_OPEN_FAILED")
 }
@@ -1557,7 +1591,7 @@ impl Store {
             tx.commit().map_err(storage_error)?;
             return materialize_order_proposal(&self.connection, stored);
         }
-        let proposal_id = format!("proposal:{}", &proposal_hash["sha256:".len()..]);
+        let proposal_id = format!("proposal:{}", Uuid::new_v4());
         let count: i64 = tx
             .query_row(
                 "SELECT COUNT(*) FROM order_proposals WHERE workspace_id=?1",
@@ -2447,22 +2481,16 @@ fn load_order_draft_tx(
 }
 
 fn same_order_draft_material_fields(left: &OrderDraftFields, right: &OrderDraftFields) -> bool {
-    proposal_material_fields(left) == proposal_material_fields(right)
-}
-
-fn proposal_material_fields(fields: &OrderDraftFields) -> serde_json::Value {
-    serde_json::json!({
-        "accountId": fields.account_id,
-        "venue": fields.venue,
-        "environment": fields.environment,
-        "instrumentId": fields.instrument_id,
-        "side": fields.side,
-        "orderType": fields.order_type,
-        "quantity": fields.quantity,
-        "limitPrice": fields.limit_price,
-        "maximumSpend": fields.maximum_spend,
-        "timeInForce": fields.time_in_force,
-    })
+    left.account_id == right.account_id
+        && left.venue == right.venue
+        && left.environment == right.environment
+        && left.instrument_id == right.instrument_id
+        && left.side == right.side
+        && left.order_type == right.order_type
+        && left.quantity == right.quantity
+        && left.limit_price == right.limit_price
+        && left.maximum_spend == right.maximum_spend
+        && left.time_in_force == right.time_in_force
 }
 
 fn estimate_order_notional(
@@ -2511,6 +2539,7 @@ fn estimate_order_notional(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn order_proposal_hash(
     workspace_id: &str,
     draft_id: &str,
@@ -2521,27 +2550,39 @@ fn order_proposal_hash(
     estimated_notional_reason: &Option<String>,
     references: &OrderProposalReferences,
 ) -> Result<String> {
-    let canonical = serde_json::json!({
-        "workspaceId": workspace_id,
-        "draftId": draft_id,
-        "draftVersion": draft_version,
-        "fields": proposal_material_fields(fields),
-        "estimatedNotional": estimated_notional,
-        "estimatedNotionalCurrency": estimated_notional_currency,
-        "estimatedNotionalReason": estimated_notional_reason,
-        "policyVersion": references.policy_version,
-        "policyStateVersion": references.policy_state_version,
-        "policyStatus": references.policy_status,
-        "policyReferenceReason": references.policy_reference_reason,
-        "marketSnapshotId": references.market_snapshot_id,
-        "marketStatus": references.market_status,
-        "marketReferenceReason": references.market_reference_reason,
-    });
+    let canonical = OrderProposalHashInput {
+        workspace_id,
+        draft_id,
+        draft_version,
+        fields: OrderProposalHashFields {
+            account_id: fields.account_id.as_deref(),
+            venue: &fields.venue,
+            environment: &fields.environment,
+            instrument_id: &fields.instrument_id,
+            side: &fields.side,
+            order_type: &fields.order_type,
+            quantity: &fields.quantity,
+            limit_price: fields.limit_price.as_deref(),
+            maximum_spend: fields.maximum_spend.as_deref(),
+            time_in_force: &fields.time_in_force,
+        },
+        estimated_notional: estimated_notional.as_deref(),
+        estimated_notional_currency: estimated_notional_currency.as_deref(),
+        estimated_notional_reason: estimated_notional_reason.as_deref(),
+        policy_version: references.policy_version,
+        policy_state_version: references.policy_state_version.as_deref(),
+        policy_status: references.policy_status,
+        policy_reference_reason: &references.policy_reference_reason,
+        market_snapshot_id: references.market_snapshot_id.as_deref(),
+        market_status: references.market_status.clone(),
+        market_reference_reason: &references.market_reference_reason,
+    };
     Ok(hash_bytes(
         &serde_json::to_vec(&canonical).map_err(storage_error)?,
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn decode_stored_order_proposal(
     projection: &str,
     row_id: &str,
@@ -2625,18 +2666,19 @@ fn valid_order_proposal_id(id: &str) -> bool {
     let Some(hex) = id.strip_prefix("proposal:") else {
         return false;
     };
-    hex.len() == 64
-        && hex
-            .bytes()
-            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    Uuid::parse_str(hex).is_ok()
 }
 
 fn valid_proposal_hash(hash: &str) -> bool {
     let Some(hex) = hash.strip_prefix("sha256:") else {
         return false;
     };
-    hex.len() == 64
-        && hex
+    valid_lower_hex(hex, 64)
+}
+
+fn valid_lower_hex(value: &str, length: usize) -> bool {
+    value.len() == length
+        && value
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }

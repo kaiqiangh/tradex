@@ -4049,6 +4049,14 @@ mod thread_tests {
         let opened = control.dispatch(request("workspace.open", json!({})));
         assert_eq!(opened["ok"], true);
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let before_risk = control.store.as_ref().unwrap().risk().unwrap();
+        let before_sequence = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot()
+            .unwrap()
+            .last_sequence;
         let fields = json!({
             "venue": "TRADEX_SIM",
             "environment": "LOCAL_PAPER",
@@ -4080,6 +4088,10 @@ mod thread_tests {
         assert_eq!(proposal["data"]["estimatedNotional"], "221.5");
         assert_eq!(proposal["data"]["estimatedNotionalCurrency"], "USD");
         assert_eq!(proposal["data"]["history"][0]["event"], "GENERATED");
+        assert_ne!(
+            proposal["data"]["proposalId"],
+            proposal["data"]["proposalHash"]
+        );
         let proposal_id = proposal["data"]["proposalId"].as_str().unwrap().to_owned();
         let proposal_hash = proposal["data"]["proposalHash"]
             .as_str()
@@ -4108,6 +4120,42 @@ mod thread_tests {
             }),
         ));
         assert_eq!(updated["ok"], true, "{updated}");
+        let stale_generate = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft_id,
+                "expectedDraftVersion": 1
+            }),
+        ));
+        assert_eq!(stale_generate["ok"], false);
+        assert_eq!(stale_generate["error"]["code"], "STATE_VERSION_CONFLICT");
+        let foreign_workspace = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": "foreign-workspace",
+                "draftId": draft_id,
+                "expectedDraftVersion": 2
+            }),
+        ));
+        assert_eq!(foreign_workspace["ok"], false);
+        assert_eq!(
+            foreign_workspace["error"]["code"],
+            "IPC_AGGREGATE_NOT_FOUND"
+        );
+        let forged = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft_id,
+                "expectedDraftVersion": 2,
+                "proposalHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "estimatedNotional": "0",
+                "status": "INVALIDATED"
+            }),
+        ));
+        assert_eq!(forged["ok"], false);
+        assert_eq!(forged["error"]["code"], "IPC_PAYLOAD_INVALID");
         let invalidated = control.dispatch(request(
             "trade.proposal.get",
             json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
@@ -4135,8 +4183,19 @@ mod thread_tests {
         ));
         assert_eq!(listed["ok"], true, "{listed}");
         assert_eq!(listed["data"]["proposals"].as_array().unwrap().len(), 2);
+        assert_eq!(control.store.as_ref().unwrap().risk().unwrap(), before_risk);
+        assert_eq!(
+            control
+                .store
+                .as_mut()
+                .unwrap()
+                .snapshot()
+                .unwrap()
+                .last_sequence,
+            before_sequence
+        );
         drop(control);
-        let mut reopened = ControlPlane::new(workspace_path);
+        let mut reopened = ControlPlane::new(workspace_path.clone());
         assert_eq!(
             reopened.dispatch(request("workspace.open", json!({})))["ok"],
             true
@@ -4147,6 +4206,30 @@ mod thread_tests {
         ));
         assert_eq!(reopened_proposal["ok"], true, "{reopened_proposal}");
         assert_eq!(reopened_proposal["data"]["status"], "INVALIDATED");
+        drop(reopened);
+        let database =
+            rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "UPDATE order_proposal_events SET event='DRAFT_CHANGED' WHERE proposal_id=?1 AND sequence=1",
+                [&proposal_id],
+            )
+            .unwrap();
+        drop(database);
+        let mut corrupt = ControlPlane::new(workspace_path);
+        assert_eq!(
+            corrupt.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let corrupt_proposal = corrupt.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
+        ));
+        assert_eq!(corrupt_proposal["ok"], false);
+        assert_eq!(
+            corrupt_proposal["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
     }
 
     #[test]

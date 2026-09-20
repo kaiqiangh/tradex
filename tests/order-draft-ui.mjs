@@ -25,6 +25,8 @@ export async function checkOrderDraftUI(tab, browser) {
     assert.equal(await ui.getByText('NEEDS_APPROVAL', { exact: true }).count() > 0, true);
     assert.equal(await ui.getByText('GENERATED', { exact: true }).count() > 0, true);
     assert.equal(await ui.getByText('221.5 USD', { exact: true }).count() > 0, true);
+    assert.equal(await ui.getByText(/Policy: UNCONFIGURED.*v1.*state/, { exact: false }).count() > 0, true);
+    assert.equal(await ui.getByText(/Market: BLOCKED_EXTERNAL.*snapshot —/, { exact: false }).count() > 0, true);
     observed.push('A saved draft generates an immutable NEEDS_APPROVAL proposal with a visible history entry and estimated notional.');
 
     await quantity.fill('2');
@@ -42,7 +44,7 @@ export async function checkOrderDraftUI(tab, browser) {
     assert.equal(await quantity.getAttribute('aria-describedby'), 'order-field-error');
     observed.push('Server precision rejection is announced as a field-level quantity error.');
 
-    for (const width of [768, 390]) {
+    for (const width of [1280, 768, 390]) {
       await viewport.set({ width, height: 900 });
       const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
       assert.ok(size.width <= width && size.width >= width - 20, `Viewport override did not apply: ${JSON.stringify(size)}`);
