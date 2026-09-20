@@ -1,8 +1,8 @@
 # S15 回测运行生命周期证据
 
-日期：2026-09-20  
+日期：2026-09-21
 规范起点：`cb378e5`  
-#48 实现 SHA：`d82335f17ebaffc173698b0bfad0e2714359b6bc`（`dev`）
+#48 实现 SHA：`d5af7ba49f7e4c6bf5cf039dd293bd62a2562961`（`dev`）
 
 ## 本票范围
 
@@ -11,21 +11,23 @@
 - 运行生命周期覆盖 `QUEUED → RUNNING → FAILED|CANCELLED`，run-scoped cancel、失败后以原请求 retry（分配新 run ID）以及 workspace 重开时将遗留 `QUEUED/RUNNING` 收敛为 `CANCELLED`。
 - Backtest Thread 与 Strategies 页面复用同一 `BacktestRunPanel`，要求用户明确选择已保存 strategy version，提供 instrument/dataset、日期范围、bar interval、成本/滑点、seed、状态、run ID、request hash、失败 remediation、retry/cancel 和 `aria-live`；结果从后端投影渲染完整 Frozen configuration，字段和后端错误均显示 `aria-invalid`/field message，页面明确历史模拟且不提供 broker/order/approval/reservation 操作。
 - 后端在 request identity、worker input 和 SQLite projection 三个边界统一使用规范化 decimal；负向测试覆盖未知字段、stale cancel CAS 不变更、跨 workspace 读取隔离和重开收敛。
+- Run 前检查历史覆盖范围（fixture 为 2000–2100 UTC）和 OD-002 entitlement；不可用或越界日期在保存前返回带 `startAt`/`endAt`/`datasetId` 的 `MARKET_HISTORY_UNAVAILABLE`，不会创建 run。省略参数会先解析为保存版本的默认参数，再同时冻结到 projection 和 worker input。
+- 浏览器自动脚本收集 warn/error console 并断言为空；手动观察与自动断言保持同一条隔离 Rust bridge 线路。
 - Backend ARD §41.1.1 及中文对应段落定义了版本 1 的 backtest payload。request identity 排除观测时间；SQLite transition 使用 run-scoped state-version CAS，终态 projection 不可变，cancel 只接受返回的 `expectedStateVersion`。
-- integration fixture 只在 `integration-test` feature 且 `TRADEX_BACKTEST_FIXTURE=1` 时启用，并在结果显示 `TRADEX_BACKTEST_FIXTURE`。生产路径没有回测引擎时返回 `BACKTEST_RUNTIME_UNAVAILABLE`，不伪造完成结果。
+- integration fixture 只在 `integration-test` feature 且 `TRADEX_BACKTEST_FIXTURE=1` 时启用，并在结果显示 `TRADEX_BACKTEST_FIXTURE`。生产路径先在没有可用历史 entitlement/覆盖时返回 `MARKET_HISTORY_UNAVAILABLE`；通过数据门禁后若没有回测引擎才返回 `BACKTEST_RUNTIME_UNAVAILABLE`，不伪造完成结果。
 
 ## 验证结果
 
 | 检查 | 结果 |
 |---|---|
-| `cargo test --workspace --all-features` | PASS：105 个库测试及全部 workspace 集成测试通过；backtest 测试覆盖输入拒绝、规范化 decimal、未知字段、typed runtime failure、SQLite 保存/get、stale cancel CAS 无变更、跨 workspace 隔离、终态不可取消、重开收敛 |
+| `cargo test --workspace --all-features` | PASS：105 个库测试及全部 workspace 集成测试通过；backtest 测试覆盖输入拒绝、规范化 decimal、历史覆盖/entitlement 门禁、保存版本默认参数、未知字段、typed fixture failure、SQLite 保存/get、stale cancel CAS 无变更、跨 workspace 隔离、终态不可取消、重开收敛 |
 | `cargo check --workspace --all-targets --all-features` | PASS |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
 | `cargo fmt --all -- --check`、`git diff --check` | PASS |
 | `npm run schema:check`、`npm run typecheck`、`npm run build` | PASS；Rust / JSON Schema / TypeScript 一致 |
 | `npm run test:unit` | PASS：6 个 projection/schema 测试 |
 | `python3 scripts/check_requirements.py` | PASS：201 requirements、70 screens、12 QA scenarios、23 baseline files |
-| `node --check tests/strategy-ui.mjs` | PASS |
+| `node --check tests/strategy-ui.mjs` | PASS；脚本包含 warn/error console 为空断言 |
 
 ## 隔离浏览器证据
 
