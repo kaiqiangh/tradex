@@ -1909,6 +1909,10 @@ impl ControlPlane {
     ) -> Result<(PreparedBacktest, BacktestRun)> {
         self.require_workspace(&input.workspace_id)?;
         backtest::validate_run_request(&input)?;
+        input.start_at = backtest::canonical_timestamp(&input.start_at)
+            .map_err(|error| error.with_field("startAt"))?;
+        input.end_at = backtest::canonical_timestamp(&input.end_at)
+            .map_err(|error| error.with_field("endAt"))?;
         let version = self
             .store
             .as_ref()

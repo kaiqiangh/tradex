@@ -12,8 +12,8 @@ use std::time::Duration;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub const ENGINE_VERSION: &str = "tradex-backtest-engine-v1";
-const FIXTURE_HISTORY_START: &str = "2000-01-01T00:00:00Z";
-const FIXTURE_HISTORY_END: &str = "2100-01-01T00:00:00Z";
+const FIXTURE_HISTORY_START: &str = "2026-01-01T00:00:00Z";
+const FIXTURE_HISTORY_END: &str = "2026-01-02T00:00:00Z";
 
 #[derive(Debug)]
 pub enum RunOutcome {
@@ -122,14 +122,16 @@ pub fn run_identity_hash(
     let starting_cash = normalize_decimal(&request.starting_cash, true)?;
     let commission = normalize_decimal(&request.commission, false)?;
     let slippage = normalize_decimal(&request.slippage, false)?;
+    let start_at = canonical_timestamp(&request.start_at)?;
+    let end_at = canonical_timestamp(&request.end_at)?;
     let input = CanonicalRun {
         workspace_id: &request.workspace_id,
         strategy_version_id: &version.strategy_version_id,
         strategy_hash: &version.source_hash,
         instrument_id: &request.instrument_id,
         dataset_id: &request.dataset_id,
-        start_at: &request.start_at,
-        end_at: &request.end_at,
+        start_at: &start_at,
+        end_at: &end_at,
         bar_interval: &request.bar_interval,
         starting_cash: &starting_cash,
         commission: &commission,
@@ -164,13 +166,24 @@ pub fn validate_history_coverage(
         parse_timestamp(FIXTURE_HISTORY_START).map_err(|error| error.with_field("startAt"))?;
     let fixture_end =
         parse_timestamp(FIXTURE_HISTORY_END).map_err(|error| error.with_field("endAt"))?;
-    if start < fixture_start {
-        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("startAt"));
+    if fixture {
+        if start != fixture_start {
+            return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("startAt"));
+        }
+        if end != fixture_end {
+            return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("endAt"));
+        }
+        return Ok(());
     }
-    if end > fixture_end {
-        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("endAt"));
+    if !historical_source_available {
+        if start < fixture_start {
+            return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("startAt"));
+        }
+        if end > fixture_end {
+            return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("endAt"));
+        }
     }
-    if fixture || historical_source_available {
+    if historical_source_available {
         return Ok(());
     }
     Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("datasetId"))
@@ -462,7 +475,7 @@ pub fn validate_result(result: &BacktestResult, run: &BacktestRun) -> Result<(),
         || result.trades.iter().any(|trade| {
             trade.trade_id.trim().is_empty()
                 || trade.instrument_id != run.instrument_id
-                || trade.side != "BUY"
+                || !matches!(trade.side.as_str(), "BUY" | "SELL")
                 || normalize_decimal(&trade.quantity, true).is_err()
                 || normalize_decimal(&trade.price, true).is_err()
                 || normalize_decimal(&trade.gross_value, true).is_err()
@@ -557,6 +570,15 @@ fn parse_timestamp(value: &str) -> Result<OffsetDateTime, TradeXError> {
         .map_err(|_| TradeXError::new("BACKTEST_DATE_RANGE_INVALID"))
 }
 
+pub fn canonical_timestamp(value: &str) -> Result<String, TradeXError> {
+    parse_timestamp(value).and_then(|timestamp| {
+        timestamp
+            .to_offset(time::UtcOffset::UTC)
+            .format(&Rfc3339)
+            .map_err(|_| TradeXError::new("BACKTEST_DATE_RANGE_INVALID"))
+    })
+}
+
 fn validate_parameter(parameter: &StrategyParameter) -> Result<(), TradeXError> {
     if parameter.name.trim().is_empty()
         || parameter.name.len() > 64
@@ -573,4 +595,81 @@ fn valid_hash(value: &str) -> bool {
     value.len() == 71
         && value.starts_with("sha256:")
         && value[7..].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn fixture_request() -> BacktestRunRequest {
+        serde_json::from_value(json!({
+            "workspaceId": "workspace-1",
+            "strategyVersionId": "strategy-v1",
+            "instrumentId": "equity:US:AAPL",
+            "datasetId": "historical:fixture",
+            "startAt": "2026-01-01T00:00:00Z",
+            "endAt": "2026-01-02T00:00:00Z",
+            "barInterval": "1d",
+            "startingCash": "100000",
+            "commission": "0",
+            "slippage": "0",
+            "parameters": []
+        }))
+        .unwrap()
+    }
+
+    fn fixture_run(request: &BacktestRunRequest) -> BacktestRun {
+        serde_json::from_value(json!({
+            "runId": "run-1",
+            "workspaceId": request.workspace_id,
+            "strategyVersionId": request.strategy_version_id,
+            "strategyHash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "instrumentId": request.instrument_id,
+            "datasetId": request.dataset_id,
+            "startAt": request.start_at,
+            "endAt": request.end_at,
+            "barInterval": request.bar_interval,
+            "startingCash": "100000",
+            "commission": "0",
+            "slippage": "0",
+            "parameters": [],
+            "observedAt": "2026-01-01T00:00:00Z",
+            "state": "RUNNING",
+            "requestHash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "stateVersion": "1"
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn canonical_timestamp_normalizes_equivalent_utc_offsets() {
+        assert_eq!(
+            canonical_timestamp("2026-01-01T01:00:00+01:00").unwrap(),
+            "2026-01-01T00:00:00Z"
+        );
+    }
+
+    #[test]
+    fn result_validation_accepts_sell_loss_trade() {
+        let request = fixture_request();
+        let run = fixture_run(&request);
+        let mut result = fixture_result(&request, &run).unwrap();
+        result.trades[0].side = "SELL".into();
+        result.trades[0].realized_pnl = "-0.005".into();
+        result.result_hash = result_hash(&result).unwrap();
+        assert!(validate_result(&result, &run).is_ok());
+    }
+
+    #[test]
+    fn fixture_coverage_rejects_ranges_without_declared_bars() {
+        let mut request = fixture_request();
+        request.start_at = "2026-01-03T00:00:00Z".into();
+        request.end_at = "2026-01-04T00:00:00Z".into();
+        let error = validate_history_coverage(&request, true, false).unwrap_err();
+        assert_eq!(error.code, "MARKET_HISTORY_UNAVAILABLE");
+        assert_eq!(error.field.as_deref(), Some("startAt"));
+    }
 }

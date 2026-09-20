@@ -367,6 +367,20 @@ fn completed_backtest_persists_deterministic_result_and_typed_guards() {
     assert_eq!(second["data"]["result"], first["data"]["result"]);
     assert_ne!(second["data"]["runId"], first["data"]["runId"]);
 
+    let mut equivalent_request = request(workspace_id, version_id);
+    equivalent_request["startAt"] = json!("2026-01-01T01:00:00+01:00");
+    equivalent_request["endAt"] = json!("2026-01-02T01:00:00+01:00");
+    equivalent_request["fixtureScenario"] = json!("SUCCESS");
+    let equivalent = command(&mut control, "backtest.run", equivalent_request);
+    assert_eq!(equivalent["data"]["state"], "COMPLETED", "{equivalent}");
+    assert_eq!(
+        equivalent["data"]["requestHash"],
+        first["data"]["requestHash"]
+    );
+    assert_eq!(equivalent["data"]["result"], first["data"]["result"]);
+    assert_eq!(equivalent["data"]["startAt"], first["data"]["startAt"]);
+    assert_eq!(equivalent["data"]["endAt"], first["data"]["endAt"]);
+
     let mut guard_request = request(workspace_id, version_id);
     guard_request["fixtureScenario"] = json!("DATA_GAP");
     let guard = command(&mut control, "backtest.run", guard_request);

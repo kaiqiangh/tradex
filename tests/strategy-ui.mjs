@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 
 export async function checkStrategyUI(tab, browser) {
   const ui = tab.playwright;
+  const setFixtureRange = async () => {
+    await ui.getByLabel('Start date', { exact: true }).fill('2026-01-01T00:00');
+    await ui.getByLabel('End date', { exact: true }).fill('2026-01-02T00:00');
+  };
   const viewport = await browser.capabilities.get('viewport');
   await viewport.set({ width: 1280, height: 900 });
   await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
@@ -30,6 +34,7 @@ export async function checkStrategyUI(tab, browser) {
   assert.equal(await ui.getByLabel('Instrument', { exact: false }).getAttribute('aria-invalid'), 'true');
   await threadInstrument.fill('equity:US:AAPL');
   await threadBacktestScenario.selectOption('SUCCESS');
+  await setFixtureRange();
   await threadBacktestRun.press('Enter');
   await ui.getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Completed result · historical simulation', { exact: true }).waitFor({ state: 'visible' });
@@ -47,6 +52,7 @@ export async function checkStrategyUI(tab, browser) {
   const scenario = ui.getByRole('combobox', { name: 'Integration scenario', exact: true });
   const run = ui.getByRole('button', { name: 'Run selected version', exact: true });
   await scenario.selectOption('SUCCESS');
+  await setFixtureRange();
   await run.press('Enter');
   await ui.getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByText('HOLD', { exact: true }).count(), 1);
