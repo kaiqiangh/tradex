@@ -4,6 +4,7 @@
 开发分支：`dev`
 状态：**VERIFIED（#32 垂直验收完成）**。生产 OD-006 交易级授权、后续 Live risk consumers 和 S33 全量回归仍保留在外部边界。
 最终实现提交：`e645089` (`fix: remove stale portfolio account field`)
+复核基线：`522bf33`；该提交之后没有 S09 运行时行为变化，`src-tauri/src/portfolio.rs` 仅将已验证的 `decimal_mul` 提升为模块可见性。
 前置实现提交：`739f380` (`fix: validate portfolio account identities`)
 前置 fixture/输出修复：`7e613e4` (`fix: harden S09 portfolio output and fixture totals`)
 前置审查修复：`1d81509` (`fix: close S09 portfolio review findings`)
@@ -59,3 +60,5 @@ The executable browser coverage remains in `tests/portfolio-ui.mjs`; it now has 
 ## Evidence boundary
 
 The fixture proves the IPC contract, value layering, rendering and fail-closed UI state. The production path remains dependent on OD-006 ECB reference-rate availability and provider adapters; no transaction-grade FX entitlement, stablecoin parity or S21+ Live risk consumer is claimed. Full cross-page QA remains assigned to S33.
+
+The current `dev` recheck also passed `npm run check`, the integration-feature Rust suite, Clippy, schema/type/build/unit checks, `cargo fmt --all -- --check`, `git diff --check`, `node --check tests/portfolio-ui.mjs`, and `python3 scripts/check_requirements.py`; the current diff contains no S09 behavior change after `e645089`.
