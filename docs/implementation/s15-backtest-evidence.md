@@ -2,14 +2,15 @@
 
 日期：2026-09-20  
 规范起点：`cb378e5`  
-#48 实现 SHA：`edbf197d1f93af3256114d896d286d80d1846fba`（`dev`）
+#48 实现 SHA：`538a39fec6445bb48a69e0eb0c69a17d9913972b`（`dev`）
 
 ## 本票范围
 
 - Rust Control Plane 新增版本化 `backtest.run`、`backtest.get`、`backtest.cancel`，renderer 只能提交有界配置；run ID、状态、identity、observed time 和 state version 由后端生成。
 - SQLite 以 workspace 为边界保存冻结的 StrategyVersion/hash、instrument/dataset、日期、bar interval、starting cash、commission、slippage、seed、状态和 typed failure；读取会重新校验 hash、配置、时间、参数和状态不变量。
 - 运行生命周期覆盖 `QUEUED → RUNNING → FAILED|CANCELLED`，run-scoped cancel、失败后以原请求 retry（分配新 run ID）以及 workspace 重开时将遗留 `QUEUED/RUNNING` 收敛为 `CANCELLED`。
-- Strategies 页面提供与策略版本共用的 instrument/dataset 和 backtest 配置字段、日期范围、成本/滑点、seed、状态、run ID、request hash、失败 remediation、retry/cancel 和 `aria-live`；页面明确历史模拟且不提供 broker/order/approval/reservation 操作。
+- Backtest Thread 与 Strategies 页面复用同一 `BacktestRunPanel`，提供 saved strategy、instrument/dataset、日期范围、bar interval、成本/滑点、seed、状态、run ID、request hash、失败 remediation、retry/cancel 和 `aria-live`；字段和后端错误均显示 `aria-invalid`/field message，页面明确历史模拟且不提供 broker/order/approval/reservation 操作。
+- Backend ARD §41.1.1 及中文对应段落定义了版本 1 的 backtest payload。request identity 排除观测时间；SQLite transition 使用 run-scoped state-version CAS，终态 projection 不可变，cancel 只接受返回的 `expectedStateVersion`。
 - integration fixture 只在 `integration-test` feature 且 `TRADEX_BACKTEST_FIXTURE=1` 时启用，并在结果显示 `TRADEX_BACKTEST_FIXTURE`。生产路径没有回测引擎时返回 `BACKTEST_RUNTIME_UNAVAILABLE`，不伪造完成结果。
 
 ## 验证结果
@@ -21,13 +22,15 @@
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
 | `cargo fmt --all -- --check`、`git diff --check` | PASS |
 | `npm run schema:check`、`npm run typecheck`、`npm run build` | PASS；Rust / JSON Schema / TypeScript 一致 |
+| `npm run test:unit` | PASS：6 个 projection/schema 测试 |
 | `python3 scripts/check_requirements.py` | PASS：201 requirements、70 screens、12 QA scenarios、23 baseline files |
 | `node --check tests/strategy-ui.mjs` | PASS |
 
 ## 隔离浏览器证据
 
-2026-09-20 在 `npm run dev:browser` 的真实 Rust stdio/SQLite bridge 中使用临时 workspace `914d5407-c075-43ec-ba5b-ac7f9b7d64b9`，通过 Strategies 页面保存版本并验证 backtest：
+2026-09-20 在 `npm run dev:browser` 的真实 Rust stdio/SQLite bridge 中使用临时 workspace `9fdc9dea-5f0f-400b-a7c5-2bdbef8c6ffe`，通过 Thread 与 Strategies 两个入口保存版本并验证 backtest：
 
+- Thread Backtest panel 选择 saved version 后直接提交 `backtest.run`，失败显示 `FAILED / BACKTEST_FIXTURE_FAILED`；同一面板的取消使用 state-version CAS 并得到 `CANCELLED / BACKTEST_CANCELLED`。
 - `FAILURE` 返回 `FAILED / BACKTEST_FIXTURE_FAILED`、冻结配置和 remediation；Retry 保留原配置并生成新的 run ID。
 - `CANCELLED` 进入 `RUNNING`，随后只取消目标 run，得到 `CANCELLED / BACKTEST_CANCELLED`；终态焦点恢复到 `Retry backtest`。
 - 结果显示 run ID、request hash 和 fixture label；页面没有 Trade、Approve、Reserve 或 provider 操作。
