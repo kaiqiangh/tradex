@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ComponentType, FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createPortal } from 'react-dom';
@@ -456,13 +456,52 @@ function TurnComposer({ thread, model, runtime, initialContexts = [], onContexts
   </section>;
 }
 
-function TimelineItem({ workspaceId, threadId, turn, item, contextRefs, agentMode }: { workspaceId: string; threadId: string; turn: ThreadTurn; item: ThreadItem; contextRefs: ThreadContextRef[]; agentMode: AgentMode }) {
-  const result = item.researchResult;
-  return <article className={`timeline-item timeline-${item.status.toLowerCase()}`} data-item-status={item.status}>
-    <div className="timeline-item-heading"><strong>{item.itemType.replaceAll('_', ' ')}</strong><span className="badge">{item.status}</span></div>
+type TimelineRendererProps = { item: ThreadItem; contextRefs: ThreadContextRef[]; agentMode: AgentMode };
+type TimelineItemType = 'user_message' | 'agent_message' | 'research_result' | 'error' | 'codex_approval' | 'tool_call' | 'tool_result' | 'market_snapshot' | 'research_evidence' | 'portfolio_snapshot' | 'screener_result' | 'backtest_result' | 'order_draft' | 'order_proposal' | 'risk_check' | 'approval_request' | 'reservation' | 'order_update' | 'fill' | 'artifact';
+
+function TextTimelineItem({ item, contextRefs }: TimelineRendererProps) {
+  return <>
     {item.sourceId && <small className="timeline-item-provenance">Source: {item.sourceId} · Context refs: {formatContextRefs(contextRefs)}</small>}
     <p>{item.content || 'Waiting for stream content…'}</p>
-    {result && <ResearchResultCard result={result} persisted agentMode={agentMode} />}
+  </>;
+}
+
+function ResearchTimelineItem({ item, contextRefs, agentMode }: TimelineRendererProps) {
+  return <>
+    {item.sourceId && <small className="timeline-item-provenance">Source: {item.sourceId} · Context refs: {formatContextRefs(contextRefs)}</small>}
+    <p>{item.content || 'Waiting for stream content…'}</p>
+    {item.researchResult && <ResearchResultCard result={item.researchResult} persisted agentMode={agentMode} />}
+  </>;
+}
+
+const itemRenderers: Record<TimelineItemType, ComponentType<TimelineRendererProps>> = {
+  user_message: TextTimelineItem,
+  agent_message: TextTimelineItem,
+  research_result: ResearchTimelineItem,
+  error: TextTimelineItem,
+  codex_approval: TextTimelineItem,
+  tool_call: TextTimelineItem,
+  tool_result: TextTimelineItem,
+  market_snapshot: TextTimelineItem,
+  research_evidence: TextTimelineItem,
+  portfolio_snapshot: TextTimelineItem,
+  screener_result: TextTimelineItem,
+  backtest_result: TextTimelineItem,
+  order_draft: TextTimelineItem,
+  order_proposal: TextTimelineItem,
+  risk_check: TextTimelineItem,
+  approval_request: TextTimelineItem,
+  reservation: TextTimelineItem,
+  order_update: TextTimelineItem,
+  fill: TextTimelineItem,
+  artifact: TextTimelineItem,
+};
+
+function TimelineItem({ workspaceId, threadId, turn, item, contextRefs, agentMode }: { workspaceId: string; threadId: string; turn: ThreadTurn; item: ThreadItem; contextRefs: ThreadContextRef[]; agentMode: AgentMode }) {
+  const Renderer = itemRenderers[item.itemType as TimelineItemType] ?? TextTimelineItem;
+  return <article className={`timeline-item timeline-${item.status.toLowerCase()}`} data-item-status={item.status}>
+    <div className="timeline-item-heading"><strong>{item.itemType.replaceAll('_', ' ')}</strong><span className="badge">{item.status}</span></div>
+    <Renderer item={item} contextRefs={contextRefs} agentMode={agentMode} />
     <div className="timeline-item-actions"><SaveArtifactAction workspaceId={workspaceId} thread={{ threadId }} turn={turn} item={item} /></div>
   </article>;
 }
