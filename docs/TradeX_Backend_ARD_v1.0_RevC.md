@@ -1814,6 +1814,37 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 
 State versions are opaque backend tokens, scoped to the returned aggregate. Decimal amounts use normalized strings; IDs, enum values, time representations, and required/optional fields are part of the command's versioned schema. A request ID correlates one exchange and never substitutes for proposal/approval/execution identity. After timeout on an authority-changing command, query state before any retry; never turn transport retries into repeated consent.
 
+#### 41.1.1 Backtest lifecycle payloads (S15)
+
+`backtest.run`, `backtest.get`, and `backtest.cancel` use schema version 1 and are workspace-scoped. `backtest.run` accepts only the bounded frozen configuration below; the renderer cannot submit a run ID, state, request hash, observed timestamp, engine version, or state version. The backend resolves the saved strategy hash and trusted time, then persists a queued run before any worker starts.
+
+```ts
+interface BacktestRunRequest {
+  workspaceId: string;
+  strategyVersionId: string;
+  expectedStrategyHash?: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string; // UTC RFC 3339
+  endAt: string; // UTC RFC 3339, end >= start
+  barInterval: "1m" | "5m" | "15m" | "30m" | "1h" | "1d";
+  startingCash: string; // normalized non-negative decimal, > 0
+  commission: string; // normalized non-negative decimal
+  slippage: string; // normalized non-negative decimal
+  portfolioSeed?: string;
+  parameters: StrategyParameter[];
+}
+interface BacktestCancel {
+  workspaceId: string;
+  runId: string;
+  expectedStateVersion: string;
+}
+```
+
+`backtest.get` accepts `{workspaceId, runId}` and returns the complete frozen configuration, `runId`, `requestHash`, `state`, failure/remediation when applicable, and the opaque `stateVersion`. The stable request identity is the SHA-256 of the canonical strategy/version/hash, instrument, dataset, date range, timezone representation, bar interval, normalized costs, starting cash, portfolio seed, parameters, and engine version; observation time is metadata and is excluded from identity. Run IDs are unique per attempt, so a retry keeps the same request identity while creating a new run identity.
+
+The persisted state machine is `QUEUED -> RUNNING -> COMPLETED|FAILED|CANCELLED` (a queued run may fail or cancel before running). Every transition is an immediate SQLite transaction with a state-version compare-and-swap. A stale cancel token returns `STATE_STALE / STATE_VERSION_CONFLICT` without mutation; a missing token fails the version-1 payload schema before dispatch. Terminal projections are immutable. Reopening a workspace reconciles queued/running runs to typed `CANCELLED` state. Backtest workers never place broker orders or invoke execution accounts.
+
 Runtime status, account queries, event subscription/replay, and reconciliation must remain available when model inference is unavailable. Frontend-only navigation/draft typing does not require a backend command.
 
 ---

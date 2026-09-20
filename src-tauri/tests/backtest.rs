@@ -110,10 +110,18 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
         json!({"workspaceId": workspace_id, "runId": run_id}),
     );
     assert_eq!(loaded["data"], run["data"], "{loaded}");
+    let repeated = command(
+        &mut control,
+        "backtest.run",
+        request(workspace_id, version_id),
+    );
+    assert_eq!(repeated["ok"], true, "{repeated}");
+    assert_eq!(repeated["data"]["requestHash"], run["data"]["requestHash"]);
+    assert_ne!(repeated["data"]["runId"], run["data"]["runId"]);
     let cancelled = command(
         &mut control,
         "backtest.cancel",
-        json!({"workspaceId": workspace_id, "runId": run_id}),
+        json!({"workspaceId": workspace_id, "runId": run_id, "expectedStateVersion": run["data"]["stateVersion"]}),
     );
     assert_eq!(
         cancelled["error"]["code"], "BACKTEST_RUN_NOT_CANCELLABLE",
@@ -154,7 +162,7 @@ fn backtest_validates_inputs_and_persists_typed_runtime_failure() {
     let count: i64 = database
         .query_row("SELECT COUNT(*) FROM backtest_runs", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(count, 1);
+    assert_eq!(count, 2);
 }
 
 #[test]

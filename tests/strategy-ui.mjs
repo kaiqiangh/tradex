@@ -6,6 +6,9 @@ export async function checkStrategyUI(tab, browser) {
   await viewport.set({ width: 1280, height: 900 });
   await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
   await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
+  await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await ui.getByLabel('Instrument', { exact: true }).count(), 1);
+  assert.equal(await ui.getByLabel('Dataset', { exact: true }).count(), 1);
   await ui.getByRole('button', { name: 'Open Strategies from BACKTEST context', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Opened from BACKTEST context', { exact: true }).waitFor({ state: 'visible' });
@@ -13,6 +16,17 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Save version', exact: true }).press('Enter');
   await ui.getByText(/Selected .* · v1 · sha256:/).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
+  await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
+  const threadBacktestScenario = ui.getByRole('combobox', { name: 'Backtest integration scenario', exact: true });
+  const threadBacktestRun = ui.getByRole('button', { name: 'Run backtest', exact: true });
+  await threadBacktestScenario.selectOption('FAILURE');
+  await threadBacktestRun.press('Enter');
+  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('BACKTEST_FIXTURE_FAILED:', { exact: false }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Strategies', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: /My strategy/ }).press('Enter');
   const scenario = ui.getByRole('combobox', { name: 'Integration scenario', exact: true });
   const run = ui.getByRole('button', { name: 'Run selected version', exact: true });
   await scenario.selectOption('SUCCESS');

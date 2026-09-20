@@ -1814,6 +1814,37 @@ interface TradeXError {
 
 状态版本是后端生成、限于返回聚合对象的不透明 token。Decimal 金额使用规范化字符串；ID、枚举、时间表示及必填/可选字段属于命令的版本化 schema。request ID 只关联一次交互，不能替代 proposal/approval/execution 身份。改变权限的命令超时后必须先查询状态再决定重试；不得把传输重试变成重复同意。
 
+#### 41.1.1 回测生命周期 payload（S15）
+
+`backtest.run`、`backtest.get` 和 `backtest.cancel` 使用版本 1 且限定在当前 workspace。`backtest.run` 只接受以下有界冻结配置；renderer 不能提交 run ID、state、request hash、观测时间、引擎版本或 state version。后端解析已保存的 strategy hash 和可信时间，并在 worker 启动前持久化 QUEUED run。
+
+```ts
+interface BacktestRunRequest {
+  workspaceId: string;
+  strategyVersionId: string;
+  expectedStrategyHash?: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string; // UTC RFC 3339
+  endAt: string; // UTC RFC 3339，end >= start
+  barInterval: "1m" | "5m" | "15m" | "30m" | "1h" | "1d";
+  startingCash: string; // 规范化非负 decimal，且 > 0
+  commission: string; // 规范化非负 decimal
+  slippage: string; // 规范化非负 decimal
+  portfolioSeed?: string;
+  parameters: StrategyParameter[];
+}
+interface BacktestCancel {
+  workspaceId: string;
+  runId: string;
+  expectedStateVersion: string;
+}
+```
+
+`backtest.get` 接受 `{workspaceId, runId}`，返回完整冻结配置、`runId`、`requestHash`、`state`、适用时的 failure/remediation 以及不透明 `stateVersion`。稳定 request identity 是 strategy/version/hash、instrument、dataset、日期范围、时区表示、bar interval、规范化成本、starting cash、portfolio seed、parameters 和 engine version 的 canonical SHA-256；观测时间是 metadata，不参与 identity。同一配置的 retry 保持 request identity，但每次产生新的 run identity。
+
+持久化状态机为 `QUEUED -> RUNNING -> COMPLETED|FAILED|CANCELLED`（QUEUED 可在启动前 FAILED 或 CANCELLED）。每次迁移都在 SQLite immediate transaction 中执行并进行 state-version compare-and-swap。过期的 cancel token 返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态；缺失 token 会在派发前被版本 1 payload schema 拒绝。terminal projection 不可变。重新打开 workspace 时，QUEUED/RUNNING run 会被对账为带类型的 `CANCELLED`。回测 worker 永不提交券商订单，也不调用 execution account。
+
 模型推理不可用时，运行时状态、账户查询、事件订阅/重放和对账仍必须可用。纯前端导航/草稿输入不需要后端命令。
 
 ---

@@ -534,6 +534,7 @@ export interface ArtifactSave {
  * via the `definition` "BacktestCancel".
  */
 export interface BacktestCancel {
+  expectedStateVersion: string;
   runId: string;
   workspaceId: string;
 }

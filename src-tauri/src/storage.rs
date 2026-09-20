@@ -1872,13 +1872,8 @@ impl Store {
                 .ok()
                 .zip(OffsetDateTime::parse(&run.updated_at, &Rfc3339).ok())
                 .is_some_and(|(created, updated)| created > updated)
-            || crate::backtest::run_identity_hash(
-                &version,
-                &request,
-                &run.parameters,
-                &run.observed_at,
-            )
-            .map_err(|_| invalid())?
+            || crate::backtest::run_identity_hash(&version, &request, &run.parameters)
+                .map_err(|_| invalid())?
                 != run.request_hash
             || run
                 .fixture_label
@@ -1987,7 +1982,15 @@ impl Store {
         Ok(run)
     }
 
-    pub fn save_backtest_run(&mut self, mut run: BacktestRun) -> Result<BacktestRun> {
+    pub fn save_backtest_run(&mut self, run: BacktestRun) -> Result<BacktestRun> {
+        self.save_backtest_run_cas(run, None)
+    }
+
+    pub fn save_backtest_run_cas(
+        &mut self,
+        mut run: BacktestRun,
+        expected_state_version: Option<&str>,
+    ) -> Result<BacktestRun> {
         if run.workspace_id != self.workspace_id()? || run.run_id.is_empty() {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
@@ -1995,19 +1998,50 @@ impl Store {
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        let existing_workspace: Option<String> = tx
+        let existing_projection: Option<(String, String)> = tx
             .query_row(
-                "SELECT workspace_id FROM backtest_runs WHERE run_id=?1",
+                "SELECT workspace_id,projection FROM backtest_runs WHERE run_id=?1",
                 [&run.run_id],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()
             .map_err(storage_error)?;
-        if existing_workspace
-            .as_deref()
-            .is_some_and(|workspace| workspace != run.workspace_id)
-        {
-            return Err(TradeXError::new("BACKTEST_RUN_NOT_FOUND"));
+        if let Some((existing_workspace, projection)) = existing_projection {
+            if existing_workspace != run.workspace_id {
+                return Err(TradeXError::new("BACKTEST_RUN_NOT_FOUND"));
+            }
+            let existing: BacktestRun = serde_json::from_str(&projection).map_err(storage_error)?;
+            if expected_state_version
+                .is_some_and(|expected| expected.is_empty() || expected.len() > 256)
+                || expected_state_version.is_some_and(|expected| expected != existing.state_version)
+                || (expected_state_version.is_none() && run.state_version != existing.state_version)
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if matches!(
+                existing.state,
+                BacktestRunState::Completed
+                    | BacktestRunState::Failed
+                    | BacktestRunState::Cancelled
+            ) {
+                return Err(TradeXError::new("BACKTEST_RUN_TERMINAL_IMMUTABLE"));
+            }
+            let valid_transition = matches!(
+                (&existing.state, &run.state),
+                (BacktestRunState::Queued, BacktestRunState::Running)
+                    | (BacktestRunState::Queued, BacktestRunState::Failed)
+                    | (BacktestRunState::Queued, BacktestRunState::Cancelled)
+                    | (BacktestRunState::Running, BacktestRunState::Completed)
+                    | (BacktestRunState::Running, BacktestRunState::Failed)
+                    | (BacktestRunState::Running, BacktestRunState::Cancelled)
+            );
+            if !valid_transition {
+                return Err(TradeXError::new("BACKTEST_RUN_INVALID"));
+            }
+        } else {
+            if expected_state_version.is_some() || run.state != BacktestRunState::Queued {
+                return Err(TradeXError::new("BACKTEST_RUN_INVALID"));
+            }
         }
         let sequence = next_backtest_sequence(&tx, &run.workspace_id)?;
         run.updated_at = timestamp()?;

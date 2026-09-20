@@ -34,7 +34,6 @@ struct CanonicalRun<'a> {
     slippage: &'a str,
     portfolio_seed: Option<&'a str>,
     parameters: &'a [StrategyParameter],
-    observed_at: &'a str,
     engine_version: &'static str,
 }
 
@@ -60,40 +59,45 @@ pub fn validate_run_request(request: &BacktestRunRequest) -> Result<(), TradeXEr
             .iter()
             .any(|instrument| instrument.instrument_id == request.instrument_id)
     {
-        return Err(TradeXError::new("BACKTEST_INSTRUMENT_NOT_FOUND"));
+        return Err(TradeXError::new("BACKTEST_INSTRUMENT_NOT_FOUND").with_field("instrumentId"));
     }
     if request.dataset_id != "historical:fixture" {
-        return Err(TradeXError::new("BACKTEST_DATASET_NOT_FOUND"));
+        return Err(TradeXError::new("BACKTEST_DATASET_NOT_FOUND").with_field("datasetId"));
     }
     if !matches!(
         request.bar_interval.as_str(),
         "1m" | "5m" | "15m" | "30m" | "1h" | "1d"
     ) {
-        return Err(TradeXError::new("BACKTEST_BAR_INTERVAL_INVALID"));
+        return Err(TradeXError::new("BACKTEST_BAR_INTERVAL_INVALID").with_field("barInterval"));
     }
-    let start = parse_timestamp(&request.start_at)?;
-    let end = parse_timestamp(&request.end_at)?;
+    let start = parse_timestamp(&request.start_at).map_err(|error| error.with_field("startAt"))?;
+    let end = parse_timestamp(&request.end_at).map_err(|error| error.with_field("endAt"))?;
     if start > end {
-        return Err(TradeXError::new("BACKTEST_DATE_RANGE_INVALID"));
+        return Err(TradeXError::new("BACKTEST_DATE_RANGE_INVALID").with_field("endAt"));
     }
-    let _starting_cash = decimal(&request.starting_cash, true)?;
-    let _commission = decimal(&request.commission, false)?;
-    let _slippage = decimal(&request.slippage, false)?;
+    let _starting_cash =
+        decimal(&request.starting_cash, true).map_err(|error| error.with_field("startingCash"))?;
+    let _commission =
+        decimal(&request.commission, false).map_err(|error| error.with_field("commission"))?;
+    let _slippage =
+        decimal(&request.slippage, false).map_err(|error| error.with_field("slippage"))?;
     if let Some(seed) = &request.portfolio_seed
         && (seed.trim().is_empty() || seed.len() > 128 || seed.chars().any(char::is_control))
     {
-        return Err(TradeXError::new("BACKTEST_PORTFOLIO_SEED_INVALID"));
+        return Err(TradeXError::new("BACKTEST_PORTFOLIO_SEED_INVALID").with_field("portfolioSeed"));
     }
     if request.parameters.len() > 32 {
         return Err(TradeXError::new("BACKTEST_PARAMETER_INVALID"));
     }
     for parameter in &request.parameters {
-        validate_parameter(parameter)?;
+        validate_parameter(parameter).map_err(|error| error.with_field("parameters"))?;
     }
     if let Some(hash) = request.expected_strategy_hash.as_deref()
         && !valid_hash(hash)
     {
-        return Err(TradeXError::new("BACKTEST_STRATEGY_HASH_INVALID"));
+        return Err(
+            TradeXError::new("BACKTEST_STRATEGY_HASH_INVALID").with_field("expectedStrategyHash")
+        );
     }
     if request.fixture_scenario.is_some() && !fixture_enabled() {
         return Err(TradeXError::new("BACKTEST_FIXTURE_UNAVAILABLE"));
@@ -105,7 +109,6 @@ pub fn run_identity_hash(
     version: &StrategyVersion,
     request: &BacktestRunRequest,
     parameters: &[StrategyParameter],
-    observed_at: &str,
 ) -> Result<String, TradeXError> {
     let starting_cash = decimal(&request.starting_cash, true)?;
     let commission = decimal(&request.commission, false)?;
@@ -124,7 +127,6 @@ pub fn run_identity_hash(
         slippage: &slippage,
         portfolio_seed: request.portfolio_seed.as_deref(),
         parameters,
-        observed_at,
         engine_version: ENGINE_VERSION,
     };
     let bytes =

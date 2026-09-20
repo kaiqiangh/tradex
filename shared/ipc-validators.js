@@ -114,7 +114,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"ipAllowListStatus"
 		]
 	};
-	var func47 = Object.prototype.hasOwnProperty;
+	var func49 = Object.prototype.hasOwnProperty;
 	var func1 = require_ucs2length().default;
 	var schema86 = {
 		"type": "object",
@@ -512,7 +512,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else {
-														for (const key2 in data16) if (!func47.call(schema88.properties, key2)) {
+														for (const key2 in data16) if (!func49.call(schema88.properties, key2)) {
 															validate48.errors = [{
 																instancePath: instancePath + "/openOrders/" + i3,
 																schemaPath: "#/$defs/OpenOrder/additionalProperties",
@@ -1021,7 +1021,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema84.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema84.properties, key0)) {
 						validate291.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -2026,7 +2026,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													} else {
-														for (const key2 in data16) if (!func47.call(schema88.properties, key2)) {
+														for (const key2 in data16) if (!func49.call(schema88.properties, key2)) {
 															validate293.errors = [{
 																instancePath: instancePath + "/openOrders/" + i3,
 																schemaPath: "#/$defs/OpenOrder/additionalProperties",
@@ -2971,7 +2971,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema84.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema84.properties, key0)) {
 						validate47.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -4618,7 +4618,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema113.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema113.properties, key0)) {
 						validate60.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -4994,7 +4994,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema105.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema105.properties, key0)) {
 						validate57.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -6893,7 +6893,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema120.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema120.properties, key0)) {
 						validate66.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -7576,7 +7576,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema275.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema275.properties, key0)) {
 						validate228.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -8464,7 +8464,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema272.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema272.properties, key0)) {
 						validate302.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -9561,7 +9561,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema279.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema279.properties, key0)) {
 					validate234.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -10169,7 +10169,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema275.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema275.properties, key0)) {
 						validate312.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -11423,7 +11423,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema279.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema279.properties, key0)) {
 					validate317.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -11881,7 +11881,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		if (evaluated0.dynamicItems) evaluated0.items = void 0;
 		if (data && typeof data == "object" && !Array.isArray(data)) {
 			let missing0;
-			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.runId === void 0 && (missing0 = "runId")) {
+			if (data.workspaceId === void 0 && (missing0 = "workspaceId") || data.runId === void 0 && (missing0 = "runId") || data.expectedStateVersion === void 0 && (missing0 = "expectedStateVersion")) {
 				validate319.errors = [{
 					instancePath,
 					schemaPath: "#/required",
@@ -11891,7 +11891,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!(key0 === "runId" || key0 === "workspaceId")) {
+				for (const key0 in data) if (!(key0 === "expectedStateVersion" || key0 === "runId" || key0 === "workspaceId")) {
 					validate319.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -11901,22 +11901,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					}];
 					return false;
 				}
-				if (data.runId !== void 0) {
-					let data0 = data.runId;
+				if (data.expectedStateVersion !== void 0) {
+					let data0 = data.expectedStateVersion;
 					if (typeof data0 === "string") {
-						if (func1(data0) > 128) {
+						if (func1(data0) > 256) {
 							validate319.errors = [{
-								instancePath: instancePath + "/runId",
-								schemaPath: "#/properties/runId/maxLength",
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/maxLength",
 								keyword: "maxLength",
-								params: { limit: 128 },
-								message: "must NOT have more than 128 characters"
+								params: { limit: 256 },
+								message: "must NOT have more than 256 characters"
 							}];
 							return false;
 						} else if (func1(data0) < 1) {
 							validate319.errors = [{
-								instancePath: instancePath + "/runId",
-								schemaPath: "#/properties/runId/minLength",
+								instancePath: instancePath + "/expectedStateVersion",
+								schemaPath: "#/properties/expectedStateVersion/minLength",
 								keyword: "minLength",
 								params: { limit: 1 },
 								message: "must NOT have fewer than 1 characters"
@@ -11925,8 +11925,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						}
 					} else {
 						validate319.errors = [{
-							instancePath: instancePath + "/runId",
-							schemaPath: "#/properties/runId/type",
+							instancePath: instancePath + "/expectedStateVersion",
+							schemaPath: "#/properties/expectedStateVersion/type",
 							keyword: "type",
 							params: { type: "string" },
 							message: "must be string"
@@ -11936,13 +11936,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					var valid0 = true;
 				} else var valid0 = true;
 				if (valid0) {
-					if (data.workspaceId !== void 0) {
-						let data1 = data.workspaceId;
+					if (data.runId !== void 0) {
+						let data1 = data.runId;
 						if (typeof data1 === "string") {
 							if (func1(data1) > 128) {
 								validate319.errors = [{
-									instancePath: instancePath + "/workspaceId",
-									schemaPath: "#/properties/workspaceId/maxLength",
+									instancePath: instancePath + "/runId",
+									schemaPath: "#/properties/runId/maxLength",
 									keyword: "maxLength",
 									params: { limit: 128 },
 									message: "must NOT have more than 128 characters"
@@ -11950,8 +11950,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								return false;
 							} else if (func1(data1) < 1) {
 								validate319.errors = [{
-									instancePath: instancePath + "/workspaceId",
-									schemaPath: "#/properties/workspaceId/minLength",
+									instancePath: instancePath + "/runId",
+									schemaPath: "#/properties/runId/minLength",
 									keyword: "minLength",
 									params: { limit: 1 },
 									message: "must NOT have fewer than 1 characters"
@@ -11960,8 +11960,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							}
 						} else {
 							validate319.errors = [{
-								instancePath: instancePath + "/workspaceId",
-								schemaPath: "#/properties/workspaceId/type",
+								instancePath: instancePath + "/runId",
+								schemaPath: "#/properties/runId/type",
 								keyword: "type",
 								params: { type: "string" },
 								message: "must be string"
@@ -11970,6 +11970,42 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						}
 						var valid0 = true;
 					} else var valid0 = true;
+					if (valid0) {
+						if (data.workspaceId !== void 0) {
+							let data2 = data.workspaceId;
+							if (typeof data2 === "string") {
+								if (func1(data2) > 128) {
+									validate319.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/maxLength",
+										keyword: "maxLength",
+										params: { limit: 128 },
+										message: "must NOT have more than 128 characters"
+									}];
+									return false;
+								} else if (func1(data2) < 1) {
+									validate319.errors = [{
+										instancePath: instancePath + "/workspaceId",
+										schemaPath: "#/properties/workspaceId/minLength",
+										keyword: "minLength",
+										params: { limit: 1 },
+										message: "must NOT have fewer than 1 characters"
+									}];
+									return false;
+								}
+							} else {
+								validate319.errors = [{
+									instancePath: instancePath + "/workspaceId",
+									schemaPath: "#/properties/workspaceId/type",
+									keyword: "type",
+									params: { type: "string" },
+									message: "must be string"
+								}];
+								return false;
+							}
+							var valid0 = true;
+						} else var valid0 = true;
+					}
 				}
 			}
 		} else {
@@ -12366,7 +12402,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema41.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema41.properties, key0)) {
 						validate322.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -13790,7 +13826,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema46.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema46.properties, key0)) {
 						validate324.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -18045,7 +18081,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema203.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema203.properties, key0)) {
 					validate145.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -18955,7 +18991,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema203.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema203.properties, key0)) {
 					validate346.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -20114,7 +20150,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema65.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema65.properties, key0)) {
 					validate33.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -20623,7 +20659,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema68.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema68.properties, key0)) {
 						validate36.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -21786,7 +21822,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema67.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema67.properties, key0)) {
 						validate35.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -22259,7 +22295,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema92.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema92.properties, key0)) {
 					validate51.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -23831,7 +23867,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema95.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema95.properties, key0)) {
 						validate53.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -27035,7 +27071,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema65.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema65.properties, key0)) {
 					validate370.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -27629,7 +27665,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema207.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema207.properties, key0)) {
 					validate373.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -28246,7 +28282,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema207.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema207.properties, key0)) {
 					validate149.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -29591,7 +29627,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema217.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema217.properties, key0)) {
 					validate156.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -30518,7 +30554,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema212.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema212.properties, key0)) {
 						validate380.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -31641,7 +31677,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema217.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema217.properties, key0)) {
 					validate392.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -32088,7 +32124,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema68.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema68.properties, key0)) {
 						validate394.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -33571,7 +33607,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema67.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema67.properties, key0)) {
 						validate405.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -33955,7 +33991,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema88.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema88.properties, key0)) {
 					validate411.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -34527,7 +34563,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema134.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema134.properties, key0)) {
 						validate79.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -35206,7 +35242,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema134.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema134.properties, key0)) {
 						validate415.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -36998,7 +37034,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema146.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema146.properties, key0)) {
 						validate423.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -38205,7 +38241,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema154.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema154.properties, key0)) {
 					validate97.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -39019,7 +39055,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema146.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema146.properties, key0)) {
 						validate91.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -40046,7 +40082,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema154.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema154.properties, key0)) {
 					validate438.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -41586,7 +41622,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema228.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema228.properties, key0)) {
 						validate444.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -42254,7 +42290,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema235.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema235.properties, key0)) {
 						validate447.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -42830,7 +42866,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema237.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema237.properties, key0)) {
 						validate449.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -43643,7 +43679,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema240.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema240.properties, key0)) {
 					validate453.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -44401,7 +44437,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema228.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema228.properties, key0)) {
 						validate164.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -45015,7 +45051,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema235.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema235.properties, key0)) {
 						validate171.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -45526,7 +45562,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema237.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema237.properties, key0)) {
 						validate175.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -46170,7 +46206,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema240.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema240.properties, key0)) {
 					validate179.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -46902,7 +46938,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema227.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema227.properties, key0)) {
 						validate455.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -48224,7 +48260,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema189.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema189.properties, key0)) {
 					validate128.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -48699,7 +48735,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema189.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema189.properties, key0)) {
 					validate475.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -51788,7 +51824,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema212.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema212.properties, key0)) {
 						validate152.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -52171,7 +52207,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema227.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema227.properties, key0)) {
 						validate163.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -54169,7 +54205,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema247.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema247.properties, key0)) {
 						validate195.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -56859,7 +56895,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema272.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema272.properties, key0)) {
 						validate224.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -59005,7 +59041,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema288.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema288.properties, key0)) {
 						validate246.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -60087,7 +60123,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema41.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema41.properties, key0)) {
 						validate23.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -63622,7 +63658,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema113.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema113.properties, key0)) {
 						validate523.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -64411,7 +64447,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema105.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema105.properties, key0)) {
 						validate529.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -69124,7 +69160,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!func47.call(schema92.properties, key0)) {
+				for (const key0 in data) if (!func49.call(schema92.properties, key0)) {
 					validate540.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -73109,7 +73145,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema247.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema247.properties, key0)) {
 						validate569.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -76357,7 +76393,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema288.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema288.properties, key0)) {
 						validate594.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -77613,7 +77649,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema317.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema317.properties, key0)) {
 						validate597.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -79840,7 +79876,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema95.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema95.properties, key0)) {
 						validate610.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -84323,7 +84359,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema120.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema120.properties, key0)) {
 						validate633.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -85243,7 +85279,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!func47.call(schema330.properties, key0)) {
+					for (const key0 in data) if (!func49.call(schema330.properties, key0)) {
 						validate634.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",

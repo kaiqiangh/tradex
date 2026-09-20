@@ -1917,7 +1917,8 @@ impl ControlPlane {
         if let Some(expected) = input.expected_strategy_hash.as_deref()
             && expected != version.source_hash
         {
-            return Err(TradeXError::new("BACKTEST_STRATEGY_HASH_MISMATCH"));
+            return Err(TradeXError::new("BACKTEST_STRATEGY_HASH_MISMATCH")
+                .with_field("expectedStrategyHash"));
         }
         let parameters = if input.parameters.is_empty() {
             version.definition.parameters.clone()
@@ -1939,10 +1940,9 @@ impl ControlPlane {
         let time = self.time.status(&input.workspace_id)?;
         let fixture = backtest::fixture_enabled();
         if time.confidence != protocol::TimeConfidence::Trusted && !fixture {
-            return Err(TradeXError::new("BACKTEST_TIME_UNTRUSTED"));
+            return Err(TradeXError::new("BACKTEST_TIME_UNTRUSTED").with_field("startAt"));
         }
-        let request_hash =
-            backtest::run_identity_hash(&version, &input, &parameters, &time.observed_at)?;
+        let request_hash = backtest::run_identity_hash(&version, &input, &parameters)?;
         let run_id = uuid::Uuid::new_v4().to_string();
         let now = storage::timestamp()?;
         let fixture_label = fixture.then(|| "TRADEX_BACKTEST_FIXTURE".to_owned());
@@ -2029,6 +2029,9 @@ impl ControlPlane {
         if input.run_id.is_empty()
             || input.run_id.len() > 128
             || input.run_id.chars().any(char::is_control)
+            || input.expected_state_version.is_empty()
+            || input.expected_state_version.len() > 256
+            || input.expected_state_version.chars().any(char::is_control)
         {
             return Err(TradeXError::new("BACKTEST_RUN_INVALID"));
         }
@@ -2045,7 +2048,10 @@ impl ControlPlane {
             reason: "The backtest run was cancelled by the user.".into(),
             remediation: vec!["retry_backtest_run".into()],
         });
-        self.store.as_mut().unwrap().save_backtest_run(run)
+        self.store
+            .as_mut()
+            .unwrap()
+            .save_backtest_run_cas(run, Some(&input.expected_state_version))
     }
 
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {

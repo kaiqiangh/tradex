@@ -1274,6 +1274,8 @@ pub struct BacktestCancel {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub run_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -3186,6 +3188,67 @@ impl TradeXError {
                 "retry_strategy_run",
                 "Retry strategy run",
             ),
+            "BACKTEST_CONFIG_INVALID"
+            | "BACKTEST_RUN_INVALID"
+            | "BACKTEST_DECIMAL_INVALID"
+            | "BACKTEST_BAR_INTERVAL_INVALID"
+            | "BACKTEST_DATE_RANGE_INVALID"
+            | "BACKTEST_PARAMETER_INVALID"
+            | "BACKTEST_PORTFOLIO_SEED_INVALID" => (
+                "Review the bounded historical backtest configuration.",
+                "review_backtest",
+                "Review backtest",
+            ),
+            "BACKTEST_INSTRUMENT_NOT_FOUND" => (
+                "Choose a canonical instrument from the market catalog.",
+                "select_instrument",
+                "Choose instrument",
+            ),
+            "BACKTEST_DATASET_NOT_FOUND" => (
+                "Choose a supported historical dataset.",
+                "select_dataset",
+                "Choose dataset",
+            ),
+            "BACKTEST_STRATEGY_HASH_INVALID" | "BACKTEST_STRATEGY_HASH_MISMATCH" => (
+                "The selected strategy version changed. Reload it before running.",
+                "reload_snapshot",
+                "Reload strategy",
+            ),
+            "BACKTEST_TIME_UNTRUSTED" => (
+                "TradeX time is not trusted, so this backtest is blocked.",
+                "time_revalidate",
+                "Revalidate time",
+            ),
+            "BACKTEST_FIXTURE_UNAVAILABLE" => (
+                "The browser integration fixture is unavailable in this runtime.",
+                "retry_request",
+                "Retry backtest",
+            ),
+            "BACKTEST_RUNTIME_UNAVAILABLE" | "BACKTEST_FIXTURE_FAILED" => (
+                "The backtest runtime failed closed without producing synthetic results.",
+                "retry_backtest_run",
+                "Retry backtest",
+            ),
+            "BACKTEST_CANCELLED" => (
+                "The backtest was cancelled before completion.",
+                "retry_backtest_run",
+                "Retry backtest",
+            ),
+            "BACKTEST_FAILURE_INVALID" | "BACKTEST_IDENTITY_FAILED" => (
+                "The backtest result could not be validated safely.",
+                "retry_backtest_run",
+                "Retry backtest",
+            ),
+            "BACKTEST_RUN_NOT_FOUND" => (
+                "That backtest run is no longer available in this workspace.",
+                "reload_snapshot",
+                "Reload runs",
+            ),
+            "BACKTEST_RUN_NOT_CANCELLABLE" | "BACKTEST_RUN_TERMINAL_IMMUTABLE" => (
+                "This backtest run has already reached a terminal state.",
+                "reload_snapshot",
+                "Reload run",
+            ),
             "SCREENER_REVISION_STALE" => (
                 "The reviewed screener conditions changed. Parse them again before running.",
                 "retry_request",
@@ -3335,11 +3398,14 @@ impl TradeXError {
                     | "CODEX_TURN_CANCELLED"
             ) {
                 "RUNTIME_ERROR"
-            } else if code == "STRATEGY_TIME_UNTRUSTED" {
+            } else if matches!(code, "STRATEGY_TIME_UNTRUSTED" | "BACKTEST_TIME_UNTRUSTED") {
                 "STATE_STALE"
             } else if matches!(
                 code,
-                "STRATEGY_WORKER_FAILED" | "STRATEGY_RUNTIME_UNAVAILABLE"
+                "STRATEGY_WORKER_FAILED"
+                    | "STRATEGY_RUNTIME_UNAVAILABLE"
+                    | "BACKTEST_RUNTIME_UNAVAILABLE"
+                    | "BACKTEST_FIXTURE_FAILED"
             ) {
                 "RUNTIME_ERROR"
             } else if code.starts_with("MODEL_")
@@ -3379,6 +3445,10 @@ impl TradeXError {
                     | "STATE_VERSION_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"
                     | "CLOCK_SKEW"
+                    | "BACKTEST_RUN_NOT_FOUND"
+                    | "BACKTEST_RUN_NOT_CANCELLABLE"
+                    | "BACKTEST_RUN_TERMINAL_IMMUTABLE"
+                    | "BACKTEST_CANCELLED"
             ) {
                 "STATE_STALE"
             } else {
@@ -3410,6 +3480,9 @@ impl TradeXError {
                     | "CODEX_TURN_CANCELLED"
                     | "STRATEGY_WORKER_FAILED"
                     | "STRATEGY_RUNTIME_UNAVAILABLE"
+                    | "BACKTEST_RUNTIME_UNAVAILABLE"
+                    | "BACKTEST_FIXTURE_FAILED"
+                    | "BACKTEST_FIXTURE_UNAVAILABLE"
                     | "ARTIFACT_EXPORT_FAILED"
             ),
             blocking: true,
