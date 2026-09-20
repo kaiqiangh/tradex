@@ -20,20 +20,8 @@ struct WorkerResponse<'a> {
     protocol_version: u32,
     session_token: &'a str,
     ok: bool,
-    signal: Option<Signal<'a>>,
+    signal: Option<serde_json::Value>,
     failure: Option<Failure<'a>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Signal<'a> {
-    instrument_id: &'a str,
-    direction: &'static str,
-    desired_exposure: &'static str,
-    observed_at: &'a str,
-    strategy_version_id: &'a str,
-    strategy_hash: &'a str,
-    dataset_id: &'a str,
 }
 
 #[derive(Serialize)]
@@ -101,23 +89,19 @@ fn main() {
         );
         return;
     }
-    let signal = Signal {
-        instrument_id: &request.instrument_id,
-        direction: "HOLD",
-        desired_exposure: "0",
-        observed_at: &request.observed_at,
-        strategy_version_id: &request.strategy_version_id,
-        strategy_hash: &request.strategy_hash,
-        dataset_id: &request.dataset_id,
+    let failure = Failure {
+        code: "STRATEGY_RUNTIME_UNAVAILABLE",
+        reason: "No production strategy runtime is configured for this worker.",
+        remediation: ["configure_strategy_runtime"],
     };
     println!(
         "{}",
         serde_json::to_string(&WorkerResponse {
             protocol_version: 1,
             session_token: token,
-            ok: true,
-            signal: Some(signal),
-            failure: None
+            ok: false,
+            signal: None,
+            failure: Some(failure)
         })
         .unwrap()
     );

@@ -437,6 +437,7 @@ export interface IpcSchema {
   strategyLibrary: StrategyLibrary;
   strategyQuery: StrategyQuery;
   strategyRun: StrategyRun;
+  strategyRunQuery: StrategyRunQuery;
   strategyRunRequest: StrategyRunRequest;
   strategySave: StrategySave;
   strategySignal: StrategySignal;
@@ -3127,6 +3128,7 @@ export interface StrategyRun {
   failure?: StrategyFailure | null;
   fixtureLabel?: string | null;
   instrumentId: string;
+  observedAt: string;
   /**
    * @maxItems 32
    */
@@ -3164,6 +3166,7 @@ export interface StrategySignal {
   direction: StrategyDirection;
   instrumentId: string;
   observedAt: string;
+  sourceRef: string;
   strategyHash: string;
   strategyVersionId: string;
 }
@@ -3312,6 +3315,14 @@ export interface StrategyCancel {
  */
 export interface StrategyQuery {
   strategyVersionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "StrategyRunQuery".
+ */
+export interface StrategyRunQuery {
+  runId: string;
   workspaceId: string;
 }
 /**

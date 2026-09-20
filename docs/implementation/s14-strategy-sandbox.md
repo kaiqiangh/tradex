@@ -2,7 +2,7 @@
 
 日期：2026-09-20
 前置：S01 工作区、S07 canonical market/watchlists、S08 TimeService/market gate
-状态：IMPLEMENTED_UNVERIFIED（本地 IPC/持久化/受控 worker 已验证；真实 Python 运行时限制与桌面浏览器回归仍需外部验收）
+状态：IMPLEMENTED_UNVERIFIED（本地 IPC/持久化/受控 worker 生命周期已验证；生产 Python 运行时故意 fail-closed，桌面浏览器回归仍需外部验收）
 
 ## Problem Statement
 

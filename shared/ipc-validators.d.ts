@@ -182,6 +182,7 @@ declare const validators: {
   StrategyParameter: (value: unknown) => boolean;
   StrategyQuery: (value: unknown) => boolean;
   StrategyRun: (value: unknown) => boolean;
+  StrategyRunQuery: (value: unknown) => boolean;
   StrategyRunRequest: (value: unknown) => boolean;
   StrategyRunState: (value: unknown) => boolean;
   StrategyRunSummary: (value: unknown) => boolean;

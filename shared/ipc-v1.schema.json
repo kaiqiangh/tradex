@@ -160,6 +160,9 @@
     "strategyRun": {
       "$ref": "#/$defs/StrategyRun"
     },
+    "strategyRunQuery": {
+      "$ref": "#/$defs/StrategyRunQuery"
+    },
     "strategyRunRequest": {
       "$ref": "#/$defs/StrategyRunRequest"
     },
@@ -276,6 +279,7 @@
     "strategyVersion",
     "strategySave",
     "strategyQuery",
+    "strategyRunQuery",
     "strategyRunRequest",
     "strategyCancel",
     "strategyLibrary",
@@ -6219,6 +6223,11 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
         "parameters": {
           "type": "array",
           "default": [],
@@ -6291,11 +6300,32 @@
         "datasetId",
         "startAt",
         "endAt",
+        "observedAt",
         "state",
         "requestHash",
         "createdAt",
         "updatedAt",
         "stateVersion"
+      ]
+    },
+    "StrategyRunQuery": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "runId"
       ]
     },
     "StrategyRunRequest": {
@@ -6466,6 +6496,11 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "sourceRef": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
         "strategyHash": {
           "type": "string",
           "maxLength": 80,
@@ -6484,6 +6519,7 @@
         "desiredExposure",
         "observedAt",
         "strategyVersionId",
+        "sourceRef",
         "strategyHash",
         "datasetId"
       ]

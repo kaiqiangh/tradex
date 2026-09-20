@@ -284,6 +284,7 @@ pub struct IpcSchema {
     pub strategy_version: StrategyVersion,
     pub strategy_save: StrategySave,
     pub strategy_query: StrategyQuery,
+    pub strategy_run_query: StrategyRunQuery,
     pub strategy_run_request: StrategyRunRequest,
     pub strategy_cancel: StrategyCancel,
     pub strategy_library: StrategyLibrary,
@@ -983,6 +984,8 @@ pub struct StrategySignal {
     pub observed_at: String,
     #[schemars(length(min = 1, max = 128))]
     pub strategy_version_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_ref: String,
     #[schemars(length(min = 1, max = 80))]
     pub strategy_hash: String,
     #[schemars(length(min = 1, max = 128))]
@@ -1020,6 +1023,8 @@ pub struct StrategyRun {
     pub start_at: String,
     #[schemars(length(min = 1, max = 64))]
     pub end_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
     #[serde(default)]
     #[schemars(length(max = 32))]
     pub parameters: Vec<StrategyParameter>,
@@ -1086,6 +1091,15 @@ pub struct StrategyQuery {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub strategy_version_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StrategyRunQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -3022,6 +3036,11 @@ impl TradeXError {
                 "reload_snapshot",
                 "Reload run",
             ),
+            "STRATEGY_RUNTIME_UNAVAILABLE" => (
+                "No production strategy runtime is configured, so this run failed closed without synthetic output.",
+                "retry_strategy_run",
+                "Retry strategy run",
+            ),
             "STRATEGY_WORKER_FAILED" => (
                 "The restricted strategy worker failed safely without exposing provider secrets.",
                 "retry_strategy_run",
@@ -3178,7 +3197,10 @@ impl TradeXError {
                 "RUNTIME_ERROR"
             } else if code == "STRATEGY_TIME_UNTRUSTED" {
                 "STATE_STALE"
-            } else if code == "STRATEGY_WORKER_FAILED" {
+            } else if matches!(
+                code,
+                "STRATEGY_WORKER_FAILED" | "STRATEGY_RUNTIME_UNAVAILABLE"
+            ) {
                 "RUNTIME_ERROR"
             } else if code.starts_with("MODEL_")
                 || code == "PROVIDER_AUTH_FAILED"
@@ -3247,6 +3269,7 @@ impl TradeXError {
                     | "CODEX_UPSTREAM_ERROR"
                     | "CODEX_TURN_CANCELLED"
                     | "STRATEGY_WORKER_FAILED"
+                    | "STRATEGY_RUNTIME_UNAVAILABLE"
                     | "ARTIFACT_EXPORT_FAILED"
             ),
             blocking: true,

@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { StrategyRun, StrategySave, StrategyVersion } from '../shared/ipc-types.ts';
+import type { StrategyRun, StrategyRunRequest, StrategySave, StrategyVersion } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
+
+const activeStates = ['QUEUED', 'RUNNING'];
 
 export function Strategies({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient();
@@ -14,8 +16,20 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
   const [instrumentId, setInstrumentId] = useState('equity:US:AAPL');
   const [datasetId, setDatasetId] = useState('historical:fixture');
   const [run, setRun] = useState<StrategyRun>();
+  const [lastRequest, setLastRequest] = useState<StrategyRunRequest>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+
+  const runQuery = useQuery({
+    queryKey: ['strategy-run', workspaceId, run?.runId],
+    queryFn: () => request('strategy.get_run', { workspaceId, runId: run!.runId }),
+    enabled: Boolean(run && activeStates.includes(run.state)),
+    refetchInterval: 250,
+  });
+  useEffect(() => {
+    if (runQuery.data) setRun(runQuery.data);
+  }, [runQuery.data]);
+  const displayedRun = runQuery.data ?? run;
 
   const edit = (version: StrategyVersion) => {
     setSelected(version);
@@ -39,29 +53,29 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
     } catch (cause) { setError(explainError(cause)); }
     finally { setBusy(false); }
   };
-  const execute = async () => {
-    if (!selected) return;
-    setBusy(true); setError(undefined);
+  const buildRequest = (): StrategyRunRequest | undefined => selected ? ({
+    workspaceId,
+    strategyVersionId: selected.strategyVersionId,
+    expectedStrategyHash: selected.sourceHash,
+    instrumentId,
+    datasetId,
+    startAt: new Date(Date.now() - 86_400_000).toISOString(),
+    endAt: new Date().toISOString(),
+    parameters: [],
+  }) : undefined;
+  const execute = async (input = buildRequest()) => {
+    if (!input) return;
+    setBusy(true); setError(undefined); setLastRequest(input);
     try {
-      const result = await request('strategy.run', {
-        workspaceId,
-        strategyVersionId: selected.strategyVersionId,
-        expectedStrategyHash: selected.sourceHash,
-        instrumentId,
-        datasetId,
-        startAt: new Date(Date.now() - 86_400_000).toISOString(),
-        endAt: new Date().toISOString(),
-        parameters: [],
-      });
-      setRun(result);
+      setRun(await request('strategy.run', input));
       await queryClient.invalidateQueries({ queryKey: ['strategies', workspaceId] });
     } catch (cause) { setError(explainError(cause)); }
     finally { setBusy(false); }
   };
   const cancel = async () => {
-    if (!run || !['QUEUED', 'RUNNING'].includes(run.state)) return;
+    if (!displayedRun || !activeStates.includes(displayedRun.state)) return;
     setBusy(true); setError(undefined);
-    try { setRun(await request('strategy.cancel', { workspaceId, runId: run.runId })); }
+    try { setRun(await request('strategy.cancel', { workspaceId, runId: displayedRun.runId })); }
     catch (cause) { setError(explainError(cause)); }
     finally { setBusy(false); }
   };
@@ -88,6 +102,7 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
           <button type="button" onClick={() => edit(version)} aria-pressed={selected?.strategyVersionId === version.strategyVersionId}><strong>{version.definition.name}</strong><span>v{version.revision} · {version.definition.language}</span><code>{version.sourceHash}</code></button>
         </li>)}</ul>
         <p className="form-hint">Saved versions are immutable. Save again to create a new revision.</p>
+        {!!library.data.runs.length && <><h3>Recent runs</h3><ul className="strategy-run-list">{library.data.runs.map(item => <li key={item.runId}><code>{item.runId}</code><span>{item.state}</span></li>)}</ul></>}
       </section>
     </div>
     <section className="card strategy-run" aria-labelledby="strategy-run-title">
@@ -96,8 +111,12 @@ export function Strategies({ workspaceId }: { workspaceId: string }) {
         <label className="field">Instrument<input value={instrumentId} onChange={event => setInstrumentId(event.target.value)} /></label>
         <label className="field">Dataset<input value={datasetId} onChange={event => setDatasetId(event.target.value)} /></label>
       </div>
-      <div className="form-actions"><button type="button" className="primary" disabled={busy || !selected} onClick={() => void execute()}>Run selected version</button><button type="button" disabled={busy || !run || !['QUEUED', 'RUNNING'].includes(run.state)} onClick={() => void cancel()}>Cancel run</button></div>
-      {run && <div className="strategy-result" aria-live="polite"><strong>{run.state}</strong><span>Run {run.runId}</span>{run.failure && <p role="alert">{run.failure.code}: {run.failure.reason}</p>}{run.signal && <dl><div><dt>Instrument</dt><dd>{run.signal.instrumentId}</dd></div><div><dt>Direction</dt><dd>{run.signal.direction}</dd></div><div><dt>Exposure</dt><dd>{run.signal.desiredExposure}</dd></div><div><dt>Observed</dt><dd>{run.signal.observedAt}</dd></div><div><dt>Dataset</dt><dd>{run.signal.datasetId}</dd></div></dl>}{run.fixtureLabel && <p className="form-hint">Integration fixture: {run.fixtureLabel}</p>}</div>}
+      <div className="form-actions">
+        <button type="button" className="primary" disabled={busy || !selected} onClick={() => void execute()}>Run selected version</button>
+        <button type="button" disabled={busy || !displayedRun || !activeStates.includes(displayedRun.state)} onClick={() => void cancel()}>Cancel run</button>
+        <button type="button" disabled={busy || !lastRequest || !displayedRun || activeStates.includes(displayedRun.state)} onClick={() => void execute(lastRequest)}>Retry run</button>
+      </div>
+      {displayedRun && <div className="strategy-result" aria-live="polite"><strong>{displayedRun.state}</strong><span>Run {displayedRun.runId}</span>{displayedRun.failure && <><p role="alert">{displayedRun.failure.code}: {displayedRun.failure.reason}</p>{displayedRun.failure.remediation?.length ? <ul><li>{displayedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{displayedRun.signal && <dl><div><dt>Instrument</dt><dd>{displayedRun.signal.instrumentId}</dd></div><div><dt>Direction</dt><dd>{displayedRun.signal.direction}</dd></div><div><dt>Exposure</dt><dd>{displayedRun.signal.desiredExposure}</dd></div><div><dt>Observed</dt><dd>{displayedRun.signal.observedAt}</dd></div><div><dt>Source</dt><dd>{displayedRun.signal.sourceRef}</dd></div><div><dt>Dataset</dt><dd>{displayedRun.signal.datasetId}</dd></div></dl>}{displayedRun.fixtureLabel && <p className="form-hint">Integration fixture: {displayedRun.fixtureLabel}</p>}</div>}
       {!selected && <p className="form-hint">Select a saved version before running.</p>}
     </section>
     <p className="notice">Strategy output is a signal only. Trade, approval, reservation and provider actions are unavailable here.</p>

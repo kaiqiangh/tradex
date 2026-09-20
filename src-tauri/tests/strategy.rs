@@ -111,6 +111,13 @@ fn strategy_run_fails_closed_for_tampered_hash_dataset_and_untrusted_time() {
         unknown_dataset["error"]["code"], "STRATEGY_DATASET_NOT_FOUND",
         "{unknown_dataset}"
     );
+    let mut unknown_historical = base.clone();
+    unknown_historical["datasetId"] = json!("historical:unknown");
+    let unknown_historical = command(&mut control, "strategy.run", unknown_historical);
+    assert_eq!(
+        unknown_historical["error"]["code"], "STRATEGY_DATASET_NOT_FOUND",
+        "{unknown_historical}"
+    );
     let blocked = command(&mut control, "strategy.run", base);
     assert_eq!(
         blocked["error"]["code"], "STRATEGY_TIME_UNTRUSTED",

@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tradex::{ControlPlane, RuntimeSupervisor, protocol::EventSink};
+use tradex::{ControlPlane, RuntimeSupervisor, StrategySupervisor, protocol::EventSink};
 
 #[cfg(feature = "integration-test")]
 #[path = "../../tests/support/provider_fixtures.rs"]
@@ -19,6 +19,7 @@ fn main() -> io::Result<()> {
     };
     let control = Arc::new(Mutex::new(ControlPlane::new(PathBuf::from(path))));
     let supervisor = RuntimeSupervisor::new();
+    let strategy_supervisor = StrategySupervisor::new();
     #[cfg(all(feature = "integration-test", target_os = "macos"))]
     let runtime_path =
         std::env::temp_dir().join(format!("tradex-model-ui-{}", uuid::Uuid::new_v4()));
@@ -57,6 +58,7 @@ fn main() -> io::Result<()> {
             let command = request.get("command").and_then(Value::as_str);
             if command == Some("workspace.open") {
                 supervisor.stop_all();
+                strategy_supervisor.stop_all();
             }
             if command == Some("turn.start") || command == Some("turn.retry") {
                 let result = if command == Some("turn.start") {
@@ -71,6 +73,20 @@ fn main() -> io::Result<()> {
             }
             if command == Some("turn.cancel") {
                 let result = supervisor.cancel(control.clone(), request);
+                write_frame(&output, &json!({"kind":"result", "result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            if command == Some("strategy.run") {
+                let result = strategy_supervisor.start(control.clone(), request);
+                write_frame(&output, &json!({"kind":"result", "result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            if command == Some("strategy.cancel") {
+                let result = strategy_supervisor.cancel(control.clone(), request);
                 write_frame(&output, &json!({"kind":"result", "result":result}))?;
                 frame.clear();
                 oversized = false;

@@ -7,7 +7,7 @@ use std::sync::{
 };
 use tauri::{Manager, ipc::Channel};
 use tradex::{
-    ControlPlane, RuntimeSupervisor, data_sources,
+    ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
     gateway_process::GatewayHost,
     model,
     model_credentials::{ModelVault, NativeModelVault},
@@ -20,6 +20,7 @@ struct Service(
     Arc<Mutex<ControlPlane>>,
     Arc<Mutex<GatewayHost>>,
     RuntimeSupervisor,
+    StrategySupervisor,
     Arc<AtomicBool>,
 );
 
@@ -45,6 +46,7 @@ async fn control(
     let engine = service.0.clone();
     let gateway = service.1.clone();
     let supervisor = service.2.clone();
+    let strategy_supervisor = service.3.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
@@ -127,6 +129,7 @@ async fn control(
         }
         if request.get("command").and_then(Value::as_str) == Some("workspace.open") {
             supervisor.stop_all();
+            strategy_supervisor.stop_all();
         }
         let command = request.get("command").and_then(Value::as_str);
         if command == Some("turn.start") || command == Some("turn.retry") {
@@ -148,6 +151,12 @@ async fn control(
         }
         if command == Some("turn.cancel") {
             return supervisor.cancel(engine, request);
+        }
+        if command == Some("strategy.run") {
+            return strategy_supervisor.start(engine, request);
+        }
+        if command == Some("strategy.cancel") {
+            return strategy_supervisor.cancel(engine, request);
         }
         let prepared = match engine.lock() {
             Ok(mut engine) => match engine.prepare_provider(&request) {
@@ -207,6 +216,7 @@ fn main() {
                 engine.clone(),
                 gateway.clone(),
                 RuntimeSupervisor::new(),
+                StrategySupervisor::new(),
                 exiting.clone(),
             ));
             std::thread::spawn(move || {

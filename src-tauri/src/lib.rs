@@ -27,10 +27,10 @@ use protocol::{
     ArtifactSave, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection,
     EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier,
     OpenWorkspace, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent,
-    RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyQuery, StrategyRun, StrategyRunRequest,
-    StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
-    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry,
-    TurnSnapshot, TurnStart,
+    RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure, StrategyQuery, StrategyRun,
+    StrategyRunQuery, StrategyRunRequest, StrategyRunState, StrategySave, Subscribe, Thread,
+    ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn,
+    TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -68,6 +68,116 @@ type RuntimeJobs = Arc<Mutex<HashMap<RuntimeJobKey, Arc<AtomicBool>>>>;
 #[derive(Clone, Default)]
 pub struct RuntimeSupervisor {
     jobs: RuntimeJobs,
+}
+
+struct PreparedStrategy {
+    input: StrategyRunRequest,
+    version: protocol::StrategyVersion,
+    run: StrategyRun,
+    observed_at: String,
+}
+
+type StrategyJobs = Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>;
+
+#[derive(Clone, Default)]
+pub struct StrategySupervisor {
+    jobs: StrategyJobs,
+}
+
+impl StrategySupervisor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn stop_all(&self) {
+        if let Ok(jobs) = self.jobs.lock() {
+            for cancel in jobs.values() {
+                cancel.store(true, Ordering::Release);
+            }
+        }
+    }
+
+    pub fn start(&self, engine: Arc<Mutex<ControlPlane>>, request: Value) -> Value {
+        let id = request_id(&request);
+        let input =
+            match async_payload(request, "strategy.run").and_then(payload::<StrategyRunRequest>) {
+                Ok(input) => input,
+                Err(error) => return failure_reply(id, error),
+            };
+        let (prepared, run) = match engine.lock() {
+            Ok(mut control) => match control.begin_strategy(input) {
+                Ok(value) => value,
+                Err(error) => return failure_reply(id, error),
+            },
+            Err(_) => return failure_reply(id, TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")),
+        };
+        self.spawn(engine, prepared);
+        success_reply(id, json!(run), Some(run.state_version))
+    }
+
+    pub fn cancel(&self, engine: Arc<Mutex<ControlPlane>>, request: Value) -> Value {
+        let id = request_id(&request);
+        let input =
+            match async_payload(request, "strategy.cancel").and_then(payload::<StrategyCancel>) {
+                Ok(input) => input,
+                Err(error) => return failure_reply(id, error),
+            };
+        let run_id = input.run_id.clone();
+        let run = match engine.lock() {
+            Ok(mut control) => match control.cancel_strategy(input) {
+                Ok(run) => run,
+                Err(error) => return failure_reply(id, error),
+            },
+            Err(_) => return failure_reply(id, TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")),
+        };
+        if let Ok(jobs) = self.jobs.lock()
+            && let Some(cancel) = jobs.get(&run_id)
+        {
+            cancel.store(true, Ordering::Release);
+        }
+        success_reply(id, json!(run), Some(run.state_version))
+    }
+
+    fn spawn(&self, engine: Arc<Mutex<ControlPlane>>, prepared: PreparedStrategy) {
+        let key = prepared.run.run_id.clone();
+        let cancel = Arc::new(AtomicBool::new(false));
+        if let Ok(mut jobs) = self.jobs.lock() {
+            jobs.insert(key.clone(), cancel.clone());
+        }
+        let jobs = self.jobs.clone();
+        thread::spawn(move || {
+            let running = engine
+                .lock()
+                .ok()
+                .and_then(|mut control| control.mark_strategy_running(&key).ok());
+            if running.is_none_or(|run| run.state == StrategyRunState::Cancelled) {
+                if let Ok(mut jobs) = jobs.lock() {
+                    jobs.remove(&key);
+                }
+                return;
+            }
+            let outcome = strategy::execute(
+                &prepared.version,
+                &prepared.input,
+                &prepared.run.parameters,
+                &prepared.observed_at,
+                Some(&cancel),
+            )
+            .unwrap_or_else(|error| {
+                strategy::RunOutcome::Failed(StrategyFailure {
+                    code: error.code,
+                    reason: error.message,
+                    remediation: vec!["retry_strategy_run".into()],
+                })
+            });
+            if let Ok(mut control) = engine.lock() {
+                let _ = control.finish_strategy(&prepared, outcome);
+            }
+            if let Ok(mut jobs) = jobs.lock() {
+                jobs.remove(&key);
+            }
+        });
+    }
 }
 
 impl RuntimeSupervisor {
@@ -643,6 +753,12 @@ impl ControlPlane {
                     .strategy_version(&input.strategy_version_id)?;
                 Ok((json!(version), Some(version.state_version.clone())))
             }
+            "strategy.get_run" => {
+                let input: StrategyRunQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let run = self.store.as_ref().unwrap().strategy_run(&input.run_id)?;
+                Ok((json!(run), Some(run.state_version.clone())))
+            }
             "strategy.save_version" => {
                 let input: StrategySave = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -655,7 +771,8 @@ impl ControlPlane {
             }
             "strategy.cancel" => {
                 let input: StrategyCancel = payload(request.payload)?;
-                self.cancel_strategy(input)
+                let run = self.cancel_strategy(input)?;
+                Ok((json!(run), Some(run.state_version.clone())))
             }
             "data.source.catalog" => {
                 let input: DataSourceQuery = payload(request.payload)?;
@@ -1503,7 +1620,10 @@ impl ControlPlane {
         Ok(catalog)
     }
 
-    fn run_strategy(&mut self, input: StrategyRunRequest) -> Result<(Value, Option<String>)> {
+    fn begin_strategy(
+        &mut self,
+        input: StrategyRunRequest,
+    ) -> Result<(PreparedStrategy, StrategyRun)> {
         self.require_workspace(&input.workspace_id)?;
         strategy::validate_run_request(&input)?;
         let version = self
@@ -1539,7 +1659,8 @@ impl ControlPlane {
         if time.confidence != protocol::TimeConfidence::Trusted && !fixture {
             return Err(TradeXError::new("STRATEGY_TIME_UNTRUSTED"));
         }
-        let request_hash = strategy::run_identity_hash(&version, &input, &parameters)?;
+        let request_hash =
+            strategy::run_identity_hash(&version, &input, &parameters, &time.observed_at)?;
         let run_id = uuid::Uuid::new_v4().to_string();
         let now = storage::timestamp()?;
         let fixture_label = fixture.then(|| "TRADEX_STRATEGY_FIXTURE".to_owned());
@@ -1552,6 +1673,7 @@ impl ControlPlane {
             dataset_id: input.dataset_id.clone(),
             start_at: input.start_at.clone(),
             end_at: input.end_at.clone(),
+            observed_at: time.observed_at.clone(),
             parameters,
             state: StrategyRunState::Queued,
             signal: None,
@@ -1563,16 +1685,37 @@ impl ControlPlane {
             state_version: String::new(),
         };
         run = self.store.as_mut().unwrap().save_strategy_run(run)?;
+        let prepared = PreparedStrategy {
+            input,
+            version,
+            run: run.clone(),
+            observed_at: time.observed_at,
+        };
+        Ok((prepared, run))
+    }
+
+    fn mark_strategy_running(&mut self, run_id: &str) -> Result<StrategyRun> {
+        let mut run = self.store.as_ref().unwrap().strategy_run(run_id)?;
+        if run.state != StrategyRunState::Queued {
+            return Ok(run);
+        }
         run.state = StrategyRunState::Running;
-        run = self.store.as_mut().unwrap().save_strategy_run(run)?;
-        let outcome = strategy::execute(&version, &input, &run.parameters, &time.observed_at)
-            .unwrap_or_else(|error| {
-                strategy::RunOutcome::Failed(protocol::StrategyFailure {
-                    code: error.code,
-                    reason: error.message,
-                    remediation: vec!["retry_strategy_run".into()],
-                })
-            });
+        self.store.as_mut().unwrap().save_strategy_run(run)
+    }
+
+    fn finish_strategy(
+        &mut self,
+        prepared: &PreparedStrategy,
+        outcome: strategy::RunOutcome,
+    ) -> Result<StrategyRun> {
+        let mut run = self
+            .store
+            .as_ref()
+            .unwrap()
+            .strategy_run(&prepared.run.run_id)?;
+        if run.state == StrategyRunState::Cancelled {
+            return Ok(run);
+        }
         match outcome {
             strategy::RunOutcome::Completed(signal) => {
                 run.state = StrategyRunState::Completed;
@@ -1587,11 +1730,34 @@ impl ControlPlane {
                 run.failure = Some(failure);
             }
         }
-        run = self.store.as_mut().unwrap().save_strategy_run(run)?;
+        self.store.as_mut().unwrap().save_strategy_run(run)
+    }
+
+    fn run_strategy(&mut self, input: StrategyRunRequest) -> Result<(Value, Option<String>)> {
+        let (prepared, _) = self.begin_strategy(input)?;
+        let run = self.mark_strategy_running(&prepared.run.run_id)?;
+        if run.state == StrategyRunState::Cancelled {
+            return Ok((json!(run), Some(run.state_version.clone())));
+        }
+        let outcome = strategy::execute(
+            &prepared.version,
+            &prepared.input,
+            &run.parameters,
+            &prepared.observed_at,
+            None,
+        )
+        .unwrap_or_else(|error| {
+            strategy::RunOutcome::Failed(StrategyFailure {
+                code: error.code,
+                reason: error.message,
+                remediation: vec!["retry_strategy_run".into()],
+            })
+        });
+        let run = self.finish_strategy(&prepared, outcome)?;
         Ok((json!(run), Some(run.state_version.clone())))
     }
 
-    fn cancel_strategy(&mut self, input: StrategyCancel) -> Result<(Value, Option<String>)> {
+    fn cancel_strategy(&mut self, input: StrategyCancel) -> Result<StrategyRun> {
         self.require_workspace(&input.workspace_id)?;
         if input.run_id.is_empty()
             || input.run_id.len() > 128
@@ -1613,7 +1779,7 @@ impl ControlPlane {
             remediation: vec!["retry_strategy_run".into()],
         });
         run = self.store.as_mut().unwrap().save_strategy_run(run)?;
-        Ok((json!(run), Some(run.state_version.clone())))
+        Ok(run)
     }
 
     fn create_thread(&mut self, input: ThreadCreate) -> Result<(Value, Option<String>)> {

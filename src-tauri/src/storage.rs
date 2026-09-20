@@ -1478,6 +1478,7 @@ impl Store {
             || version.strategy_version_id != id
             || version.strategy_id != strategy_id
             || version.revision != u64::try_from(revision).map_err(storage_error)?
+            || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
             || version.state_version != format!("strategy-version:{id}:{sequence}")
         {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
@@ -1572,6 +1573,7 @@ impl Store {
         if row_workspace != workspace_id
             || run.workspace_id != workspace_id
             || run.run_id != id
+            || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
             || run.state_version != format!("strategy-run:{id}:{sequence}")
         {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
