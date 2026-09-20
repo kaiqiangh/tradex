@@ -742,7 +742,7 @@ impl ControlPlane {
             "trade.draft.get" => {
                 let input: protocol::OrderDraftQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
-                validate_order_draft_id(&input.draft_id)?;
+                storage::validate_order_draft_id(&input.draft_id)?;
                 let draft = self.store.as_ref().unwrap().order_draft(&input.draft_id)?;
                 Ok((json!(draft), Some(draft.state_version.clone())))
             }
@@ -750,8 +750,8 @@ impl ControlPlane {
                 let input: protocol::OrderDraftSave = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
                 if let Some(draft_id) = &input.draft_id {
-                    validate_order_draft_id(draft_id)?;
-                    validate_order_draft_state_version(
+                    storage::validate_order_draft_id(draft_id)?;
+                    storage::validate_order_draft_state_version(
                         input
                             .expected_state_version
                             .as_deref()
@@ -3021,20 +3021,6 @@ fn validate_artifact_id(id: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_order_draft_id(id: &str) -> Result<()> {
-    if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
-        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
-    }
-    Ok(())
-}
-
-fn validate_order_draft_state_version(version: &str) -> Result<()> {
-    if version.is_empty() || version.len() > 256 || version.chars().any(char::is_control) {
-        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
-    }
-    Ok(())
-}
-
 fn validate_data_source_probe(input: &DataSourceProbe) -> Result<()> {
     if input.workspace_id.is_empty()
         || input.workspace_id.len() > 128
@@ -4378,6 +4364,77 @@ mod thread_tests {
         ));
         assert_eq!(blocked["ok"], false);
         assert_eq!(blocked["error"]["code"], "ORDER_CONTEXT_INVALID");
+        assert_eq!(blocked["error"]["field"], "environment");
+        let mut precision_fields = fields.clone();
+        precision_fields["quantity"] = json!({
+            "type": "BASE",
+            "value": "1.1234567890123456789"
+        });
+        let precision = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":precision_fields}),
+        ));
+        assert_eq!(precision["ok"], false);
+        assert_eq!(precision["error"]["code"], "ORDER_DECIMAL_INVALID");
+        assert_eq!(precision["error"]["field"], "quantity");
+        let mut market_ioc = fields.clone();
+        market_ioc["orderType"] = json!("MARKET");
+        market_ioc["limitPrice"] = serde_json::Value::Null;
+        market_ioc["timeInForce"] = json!("IOC");
+        let tif = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":market_ioc}),
+        ));
+        assert_eq!(tif["ok"], false);
+        assert_eq!(tif["error"]["code"], "ORDER_TIF_INVALID");
+        assert_eq!(tif["error"]["field"], "timeInForce");
+        let trading212 = AccountConnection::new(
+            workspace_id.clone(),
+            "trading212".into(),
+            "DEMO".into(),
+            "test-trading212".into(),
+        )
+        .unwrap();
+        let trading212_id = trading212.connection_id.clone();
+        let trading212_credential = trading212.credential_ref();
+        let trading212_json = serde_json::to_string(&trading212).unwrap();
+        let database =
+            rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "INSERT INTO accounts VALUES (?1,?2,?3,NULL,1,?4,?5)",
+                rusqlite::params![
+                    trading212_id,
+                    trading212.provider_id,
+                    trading212.environment,
+                    trading212_credential,
+                    trading212_json
+                ],
+            )
+            .unwrap();
+        let mut unsupported_provider = fields.clone();
+        unsupported_provider["accountId"] = json!(trading212.connection_id);
+        unsupported_provider["environment"] = json!("TRADING212_DEMO");
+        unsupported_provider["venue"] = json!("XNAS");
+        let provider_mapping = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":unsupported_provider}),
+        ));
+        assert_eq!(provider_mapping["ok"], false);
+        assert_eq!(
+            provider_mapping["error"]["code"],
+            "ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"
+        );
+        assert_eq!(provider_mapping["error"]["field"], "instrumentId");
+        drop(database);
+        let mut unknown_fields = fields.clone();
+        unknown_fields["unknownField"] = json!(true);
+        let unknown = control.dispatch(request(
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":unknown_fields}),
+        ));
+        assert_eq!(unknown["ok"], false);
+        assert_eq!(unknown["error"]["code"], "IPC_PAYLOAD_INVALID");
         drop(control);
         let mut reopened = ControlPlane::new(workspace_path.clone());
         assert_eq!(
@@ -4393,6 +4450,20 @@ mod thread_tests {
         ));
         assert_eq!(got["ok"], true, "{got}");
         assert_eq!(got["data"]["draftVersion"], 2);
+        let other_path = directory.path().join("other-workspace");
+        let mut other = ControlPlane::new(other_path.clone());
+        let other_opened = other.dispatch(request(
+            "workspace.open",
+            json!({"path":other_path.to_string_lossy()}),
+        ));
+        assert_eq!(other_opened["ok"], true);
+        let other_workspace_id = other_opened["data"]["workspaceId"].as_str().unwrap();
+        let cross_workspace = other.dispatch(request(
+            "trade.draft.get",
+            json!({"workspaceId":other_workspace_id,"draftId":draft_id}),
+        ));
+        assert_eq!(cross_workspace["ok"], false);
+        assert_eq!(cross_workspace["error"]["code"], "ORDER_DRAFT_NOT_FOUND");
     }
 }
 

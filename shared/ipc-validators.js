@@ -23037,7 +23037,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!(key0 === "blocking" || key0 === "category" || key0 === "code" || key0 === "message" || key0 === "remediationActions" || key0 === "retryable")) {
+				for (const key0 in data) if (!(key0 === "blocking" || key0 === "category" || key0 === "code" || key0 === "field" || key0 === "message" || key0 === "remediationActions" || key0 === "retryable")) {
 					validate220.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -23089,11 +23089,32 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							var valid0 = true;
 						} else var valid0 = true;
 						if (valid0) {
-							if (data.message !== void 0) {
-								if (typeof data.message !== "string") {
+							if (data.field !== void 0) {
+								let data3 = data.field;
+								if (typeof data3 === "string") {
+									if (func1(data3) > 64) {
+										validate220.errors = [{
+											instancePath: instancePath + "/field",
+											schemaPath: "#/properties/field/maxLength",
+											keyword: "maxLength",
+											params: { limit: 64 },
+											message: "must NOT have more than 64 characters"
+										}];
+										return false;
+									} else if (func1(data3) < 1) {
+										validate220.errors = [{
+											instancePath: instancePath + "/field",
+											schemaPath: "#/properties/field/minLength",
+											keyword: "minLength",
+											params: { limit: 1 },
+											message: "must NOT have fewer than 1 characters"
+										}];
+										return false;
+									}
+								} else {
 									validate220.errors = [{
-										instancePath: instancePath + "/message",
-										schemaPath: "#/properties/message/type",
+										instancePath: instancePath + "/field",
+										schemaPath: "#/properties/field/type",
 										keyword: "type",
 										params: { type: "string" },
 										message: "must be string"
@@ -23103,65 +23124,65 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								var valid0 = true;
 							} else var valid0 = true;
 							if (valid0) {
-								if (data.remediationActions !== void 0) {
-									let data4 = data.remediationActions;
-									if (Array.isArray(data4)) {
-										const len0 = data4.length;
-										for (let i0 = 0; i0 < len0; i0++) {
-											let data5 = data4[i0];
-											if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
-												let missing1;
-												if (data5.id === void 0 && (missing1 = "id") || data5.label === void 0 && (missing1 = "label")) {
-													validate220.errors = [{
-														instancePath: instancePath + "/remediationActions/" + i0,
-														schemaPath: "#/$defs/Remediation/required",
-														keyword: "required",
-														params: { missingProperty: missing1 },
-														message: "must have required property '" + missing1 + "'"
-													}];
-													return false;
-												} else {
-													for (const key1 in data5) if (!(key1 === "id" || key1 === "label")) {
+								if (data.message !== void 0) {
+									if (typeof data.message !== "string") {
+										validate220.errors = [{
+											instancePath: instancePath + "/message",
+											schemaPath: "#/properties/message/type",
+											keyword: "type",
+											params: { type: "string" },
+											message: "must be string"
+										}];
+										return false;
+									}
+									var valid0 = true;
+								} else var valid0 = true;
+								if (valid0) {
+									if (data.remediationActions !== void 0) {
+										let data5 = data.remediationActions;
+										if (Array.isArray(data5)) {
+											const len0 = data5.length;
+											for (let i0 = 0; i0 < len0; i0++) {
+												let data6 = data5[i0];
+												if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
+													let missing1;
+													if (data6.id === void 0 && (missing1 = "id") || data6.label === void 0 && (missing1 = "label")) {
 														validate220.errors = [{
 															instancePath: instancePath + "/remediationActions/" + i0,
-															schemaPath: "#/$defs/Remediation/additionalProperties",
-															keyword: "additionalProperties",
-															params: { additionalProperty: key1 },
-															message: "must NOT have additional properties"
+															schemaPath: "#/$defs/Remediation/required",
+															keyword: "required",
+															params: { missingProperty: missing1 },
+															message: "must have required property '" + missing1 + "'"
 														}];
 														return false;
-													}
-													if (data5.id !== void 0) {
-														let data6 = data5.id;
-														if (typeof data6 === "string") {
-															if (func1(data6) < 1) {
-																validate220.errors = [{
-																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
-																	schemaPath: "#/$defs/Remediation/properties/id/minLength",
-																	keyword: "minLength",
-																	params: { limit: 1 },
-																	message: "must NOT have fewer than 1 characters"
-																}];
-																return false;
-															}
-														} else {
+													} else {
+														for (const key1 in data6) if (!(key1 === "id" || key1 === "label")) {
 															validate220.errors = [{
-																instancePath: instancePath + "/remediationActions/" + i0 + "/id",
-																schemaPath: "#/$defs/Remediation/properties/id/type",
-																keyword: "type",
-																params: { type: "string" },
-																message: "must be string"
+																instancePath: instancePath + "/remediationActions/" + i0,
+																schemaPath: "#/$defs/Remediation/additionalProperties",
+																keyword: "additionalProperties",
+																params: { additionalProperty: key1 },
+																message: "must NOT have additional properties"
 															}];
 															return false;
 														}
-														var valid3 = true;
-													} else var valid3 = true;
-													if (valid3) {
-														if (data5.label !== void 0) {
-															if (typeof data5.label !== "string") {
+														if (data6.id !== void 0) {
+															let data7 = data6.id;
+															if (typeof data7 === "string") {
+																if (func1(data7) < 1) {
+																	validate220.errors = [{
+																		instancePath: instancePath + "/remediationActions/" + i0 + "/id",
+																		schemaPath: "#/$defs/Remediation/properties/id/minLength",
+																		keyword: "minLength",
+																		params: { limit: 1 },
+																		message: "must NOT have fewer than 1 characters"
+																	}];
+																	return false;
+																}
+															} else {
 																validate220.errors = [{
-																	instancePath: instancePath + "/remediationActions/" + i0 + "/label",
-																	schemaPath: "#/$defs/Remediation/properties/label/type",
+																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
+																	schemaPath: "#/$defs/Remediation/properties/id/type",
 																	keyword: "type",
 																	params: { type: "string" },
 																	message: "must be string"
@@ -23170,45 +23191,60 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															}
 															var valid3 = true;
 														} else var valid3 = true;
+														if (valid3) {
+															if (data6.label !== void 0) {
+																if (typeof data6.label !== "string") {
+																	validate220.errors = [{
+																		instancePath: instancePath + "/remediationActions/" + i0 + "/label",
+																		schemaPath: "#/$defs/Remediation/properties/label/type",
+																		keyword: "type",
+																		params: { type: "string" },
+																		message: "must be string"
+																	}];
+																	return false;
+																}
+																var valid3 = true;
+															} else var valid3 = true;
+														}
 													}
+												} else {
+													validate220.errors = [{
+														instancePath: instancePath + "/remediationActions/" + i0,
+														schemaPath: "#/$defs/Remediation/type",
+														keyword: "type",
+														params: { type: "object" },
+														message: "must be object"
+													}];
+													return false;
 												}
-											} else {
-												validate220.errors = [{
-													instancePath: instancePath + "/remediationActions/" + i0,
-													schemaPath: "#/$defs/Remediation/type",
-													keyword: "type",
-													params: { type: "object" },
-													message: "must be object"
-												}];
-												return false;
 											}
-										}
-									} else {
-										validate220.errors = [{
-											instancePath: instancePath + "/remediationActions",
-											schemaPath: "#/properties/remediationActions/type",
-											keyword: "type",
-											params: { type: "array" },
-											message: "must be array"
-										}];
-										return false;
-									}
-									var valid0 = true;
-								} else var valid0 = true;
-								if (valid0) {
-									if (data.retryable !== void 0) {
-										if (typeof data.retryable !== "boolean") {
+										} else {
 											validate220.errors = [{
-												instancePath: instancePath + "/retryable",
-												schemaPath: "#/properties/retryable/type",
+												instancePath: instancePath + "/remediationActions",
+												schemaPath: "#/properties/remediationActions/type",
 												keyword: "type",
-												params: { type: "boolean" },
-												message: "must be boolean"
+												params: { type: "array" },
+												message: "must be array"
 											}];
 											return false;
 										}
 										var valid0 = true;
 									} else var valid0 = true;
+									if (valid0) {
+										if (data.retryable !== void 0) {
+											if (typeof data.retryable !== "boolean") {
+												validate220.errors = [{
+													instancePath: instancePath + "/retryable",
+													schemaPath: "#/properties/retryable/type",
+													keyword: "type",
+													params: { type: "boolean" },
+													message: "must be boolean"
+												}];
+												return false;
+											}
+											var valid0 = true;
+										} else var valid0 = true;
+									}
 								}
 							}
 						}
@@ -68878,7 +68914,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!(key0 === "blocking" || key0 === "category" || key0 === "code" || key0 === "message" || key0 === "remediationActions" || key0 === "retryable")) {
+				for (const key0 in data) if (!(key0 === "blocking" || key0 === "category" || key0 === "code" || key0 === "field" || key0 === "message" || key0 === "remediationActions" || key0 === "retryable")) {
 					validate534.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -68930,11 +68966,32 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							var valid0 = true;
 						} else var valid0 = true;
 						if (valid0) {
-							if (data.message !== void 0) {
-								if (typeof data.message !== "string") {
+							if (data.field !== void 0) {
+								let data3 = data.field;
+								if (typeof data3 === "string") {
+									if (func1(data3) > 64) {
+										validate534.errors = [{
+											instancePath: instancePath + "/field",
+											schemaPath: "#/properties/field/maxLength",
+											keyword: "maxLength",
+											params: { limit: 64 },
+											message: "must NOT have more than 64 characters"
+										}];
+										return false;
+									} else if (func1(data3) < 1) {
+										validate534.errors = [{
+											instancePath: instancePath + "/field",
+											schemaPath: "#/properties/field/minLength",
+											keyword: "minLength",
+											params: { limit: 1 },
+											message: "must NOT have fewer than 1 characters"
+										}];
+										return false;
+									}
+								} else {
 									validate534.errors = [{
-										instancePath: instancePath + "/message",
-										schemaPath: "#/properties/message/type",
+										instancePath: instancePath + "/field",
+										schemaPath: "#/properties/field/type",
 										keyword: "type",
 										params: { type: "string" },
 										message: "must be string"
@@ -68944,65 +69001,65 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								var valid0 = true;
 							} else var valid0 = true;
 							if (valid0) {
-								if (data.remediationActions !== void 0) {
-									let data4 = data.remediationActions;
-									if (Array.isArray(data4)) {
-										const len0 = data4.length;
-										for (let i0 = 0; i0 < len0; i0++) {
-											let data5 = data4[i0];
-											if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
-												let missing1;
-												if (data5.id === void 0 && (missing1 = "id") || data5.label === void 0 && (missing1 = "label")) {
-													validate534.errors = [{
-														instancePath: instancePath + "/remediationActions/" + i0,
-														schemaPath: "#/$defs/Remediation/required",
-														keyword: "required",
-														params: { missingProperty: missing1 },
-														message: "must have required property '" + missing1 + "'"
-													}];
-													return false;
-												} else {
-													for (const key1 in data5) if (!(key1 === "id" || key1 === "label")) {
+								if (data.message !== void 0) {
+									if (typeof data.message !== "string") {
+										validate534.errors = [{
+											instancePath: instancePath + "/message",
+											schemaPath: "#/properties/message/type",
+											keyword: "type",
+											params: { type: "string" },
+											message: "must be string"
+										}];
+										return false;
+									}
+									var valid0 = true;
+								} else var valid0 = true;
+								if (valid0) {
+									if (data.remediationActions !== void 0) {
+										let data5 = data.remediationActions;
+										if (Array.isArray(data5)) {
+											const len0 = data5.length;
+											for (let i0 = 0; i0 < len0; i0++) {
+												let data6 = data5[i0];
+												if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
+													let missing1;
+													if (data6.id === void 0 && (missing1 = "id") || data6.label === void 0 && (missing1 = "label")) {
 														validate534.errors = [{
 															instancePath: instancePath + "/remediationActions/" + i0,
-															schemaPath: "#/$defs/Remediation/additionalProperties",
-															keyword: "additionalProperties",
-															params: { additionalProperty: key1 },
-															message: "must NOT have additional properties"
+															schemaPath: "#/$defs/Remediation/required",
+															keyword: "required",
+															params: { missingProperty: missing1 },
+															message: "must have required property '" + missing1 + "'"
 														}];
 														return false;
-													}
-													if (data5.id !== void 0) {
-														let data6 = data5.id;
-														if (typeof data6 === "string") {
-															if (func1(data6) < 1) {
-																validate534.errors = [{
-																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
-																	schemaPath: "#/$defs/Remediation/properties/id/minLength",
-																	keyword: "minLength",
-																	params: { limit: 1 },
-																	message: "must NOT have fewer than 1 characters"
-																}];
-																return false;
-															}
-														} else {
+													} else {
+														for (const key1 in data6) if (!(key1 === "id" || key1 === "label")) {
 															validate534.errors = [{
-																instancePath: instancePath + "/remediationActions/" + i0 + "/id",
-																schemaPath: "#/$defs/Remediation/properties/id/type",
-																keyword: "type",
-																params: { type: "string" },
-																message: "must be string"
+																instancePath: instancePath + "/remediationActions/" + i0,
+																schemaPath: "#/$defs/Remediation/additionalProperties",
+																keyword: "additionalProperties",
+																params: { additionalProperty: key1 },
+																message: "must NOT have additional properties"
 															}];
 															return false;
 														}
-														var valid3 = true;
-													} else var valid3 = true;
-													if (valid3) {
-														if (data5.label !== void 0) {
-															if (typeof data5.label !== "string") {
+														if (data6.id !== void 0) {
+															let data7 = data6.id;
+															if (typeof data7 === "string") {
+																if (func1(data7) < 1) {
+																	validate534.errors = [{
+																		instancePath: instancePath + "/remediationActions/" + i0 + "/id",
+																		schemaPath: "#/$defs/Remediation/properties/id/minLength",
+																		keyword: "minLength",
+																		params: { limit: 1 },
+																		message: "must NOT have fewer than 1 characters"
+																	}];
+																	return false;
+																}
+															} else {
 																validate534.errors = [{
-																	instancePath: instancePath + "/remediationActions/" + i0 + "/label",
-																	schemaPath: "#/$defs/Remediation/properties/label/type",
+																	instancePath: instancePath + "/remediationActions/" + i0 + "/id",
+																	schemaPath: "#/$defs/Remediation/properties/id/type",
 																	keyword: "type",
 																	params: { type: "string" },
 																	message: "must be string"
@@ -69011,45 +69068,60 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															}
 															var valid3 = true;
 														} else var valid3 = true;
+														if (valid3) {
+															if (data6.label !== void 0) {
+																if (typeof data6.label !== "string") {
+																	validate534.errors = [{
+																		instancePath: instancePath + "/remediationActions/" + i0 + "/label",
+																		schemaPath: "#/$defs/Remediation/properties/label/type",
+																		keyword: "type",
+																		params: { type: "string" },
+																		message: "must be string"
+																	}];
+																	return false;
+																}
+																var valid3 = true;
+															} else var valid3 = true;
+														}
 													}
+												} else {
+													validate534.errors = [{
+														instancePath: instancePath + "/remediationActions/" + i0,
+														schemaPath: "#/$defs/Remediation/type",
+														keyword: "type",
+														params: { type: "object" },
+														message: "must be object"
+													}];
+													return false;
 												}
-											} else {
-												validate534.errors = [{
-													instancePath: instancePath + "/remediationActions/" + i0,
-													schemaPath: "#/$defs/Remediation/type",
-													keyword: "type",
-													params: { type: "object" },
-													message: "must be object"
-												}];
-												return false;
 											}
-										}
-									} else {
-										validate534.errors = [{
-											instancePath: instancePath + "/remediationActions",
-											schemaPath: "#/properties/remediationActions/type",
-											keyword: "type",
-											params: { type: "array" },
-											message: "must be array"
-										}];
-										return false;
-									}
-									var valid0 = true;
-								} else var valid0 = true;
-								if (valid0) {
-									if (data.retryable !== void 0) {
-										if (typeof data.retryable !== "boolean") {
+										} else {
 											validate534.errors = [{
-												instancePath: instancePath + "/retryable",
-												schemaPath: "#/properties/retryable/type",
+												instancePath: instancePath + "/remediationActions",
+												schemaPath: "#/properties/remediationActions/type",
 												keyword: "type",
-												params: { type: "boolean" },
-												message: "must be boolean"
+												params: { type: "array" },
+												message: "must be array"
 											}];
 											return false;
 										}
 										var valid0 = true;
 									} else var valid0 = true;
+									if (valid0) {
+										if (data.retryable !== void 0) {
+											if (typeof data.retryable !== "boolean") {
+												validate534.errors = [{
+													instancePath: instancePath + "/retryable",
+													schemaPath: "#/properties/retryable/type",
+													keyword: "type",
+													params: { type: "boolean" },
+													message: "must be boolean"
+												}];
+												return false;
+											}
+											var valid0 = true;
+										} else var valid0 = true;
+									}
 								}
 							}
 						}

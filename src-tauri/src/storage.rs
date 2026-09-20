@@ -28,13 +28,14 @@ use crate::protocol::{
     MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
     OrderDraftSummary, OrderType, Result, SavedScreener, ScreenerLibrary, ScreenerResultState,
     ScreenerSave, ScreenerUpdate, Snapshot, SubscriptionAck, Thread, ThreadList, ThreadSummary,
-    TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
+    TimeInForce, TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
 pub(crate) const SCHEMA_VERSION: u32 = 10;
+const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
     connection: Connection,
@@ -1420,29 +1421,31 @@ impl Store {
     fn validate_order_draft_account(&self, fields: &OrderDraftFields) -> Result<()> {
         match fields.environment {
             ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => {
-                return Err(TradeXError::new("ORDER_CONTEXT_INVALID"));
+                return Err(TradeXError::new("ORDER_CONTEXT_INVALID").with_field("environment"));
             }
             ExecutionContext::LocalPaper => {
-                if let Some(account_id) = &fields.account_id {
-                    if account_id != "local-paper" {
-                        return Err(TradeXError::new("ORDER_ACCOUNT_INVALID"));
-                    }
+                if let Some(account_id) = &fields.account_id
+                    && account_id != "local-paper"
+                {
+                    return Err(TradeXError::new("ORDER_ACCOUNT_INVALID").with_field("accountId"));
                 }
             }
             _ => {
-                let account_id = fields
-                    .account_id
-                    .as_deref()
-                    .ok_or_else(|| TradeXError::new("ORDER_ACCOUNT_REQUIRED"))?;
-                let account = self
-                    .account(account_id)
-                    .map_err(|_| TradeXError::new("ORDER_ACCOUNT_NOT_FOUND"))?;
-                let expected = execution_environment(&fields.environment)
-                    .ok_or_else(|| TradeXError::new("ORDER_CONTEXT_INVALID"))?;
-                let expected_provider = execution_provider(&fields.environment)
-                    .ok_or_else(|| TradeXError::new("ORDER_CONTEXT_INVALID"))?;
+                let account_id = fields.account_id.as_deref().ok_or_else(|| {
+                    TradeXError::new("ORDER_ACCOUNT_REQUIRED").with_field("accountId")
+                })?;
+                let account = self.account(account_id).map_err(|_| {
+                    TradeXError::new("ORDER_ACCOUNT_NOT_FOUND").with_field("accountId")
+                })?;
+                let expected = execution_environment(&fields.environment).ok_or_else(|| {
+                    TradeXError::new("ORDER_CONTEXT_INVALID").with_field("environment")
+                })?;
+                let expected_provider =
+                    execution_provider(&fields.environment).ok_or_else(|| {
+                        TradeXError::new("ORDER_CONTEXT_INVALID").with_field("environment")
+                    })?;
                 if account.environment != expected || account.provider_id != expected_provider {
-                    return Err(TradeXError::new("ORDER_CONTEXT_INVALID"));
+                    return Err(TradeXError::new("ORDER_CONTEXT_INVALID").with_field("environment"));
                 }
             }
         }
@@ -1949,26 +1952,26 @@ fn normalize_order_draft_fields(fields: &mut OrderDraftFields) -> Result<()> {
     if let Some(account_id) = fields.account_id.as_mut() {
         *account_id = account_id.trim().to_owned();
         if !valid_order_text(account_id, 128) {
-            return Err(TradeXError::new("ORDER_ACCOUNT_INVALID"));
+            return Err(TradeXError::new("ORDER_ACCOUNT_INVALID").with_field("accountId"));
         }
     }
     fields.venue = fields.venue.trim().to_ascii_uppercase();
     if !valid_order_text(&fields.venue, 32) {
-        return Err(TradeXError::new("ORDER_VENUE_INVALID"));
+        return Err(TradeXError::new("ORDER_VENUE_INVALID").with_field("venue"));
     }
     fields.instrument_id = fields.instrument_id.trim().to_owned();
     if !market::validate_instrument_id(&fields.instrument_id) {
-        return Err(TradeXError::new("MARKET_INSTRUMENT_INVALID"));
+        return Err(TradeXError::new("MARKET_INSTRUMENT_INVALID").with_field("instrumentId"));
     }
     let instrument = market::instruments()
         .into_iter()
         .find(|instrument| instrument.instrument_id == fields.instrument_id)
-        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_NOT_FOUND"))?;
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_NOT_FOUND").with_field("instrumentId"))?;
     if matches!(
         fields.environment,
         ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation
     ) {
-        return Err(TradeXError::new("ORDER_CONTEXT_INVALID"));
+        return Err(TradeXError::new("ORDER_CONTEXT_INVALID").with_field("environment"));
     }
     let expected_venue = match fields.environment {
         ExecutionContext::LocalPaper => "TRADEX_SIM",
@@ -1994,33 +1997,50 @@ fn normalize_order_draft_fields(fields: &mut OrderDraftFields) -> Result<()> {
                 | ExecutionContext::Trading212Live
         ) && instrument.asset_class != AssetClass::Equity)
     {
-        return Err(TradeXError::new("ORDER_VENUE_INVALID"));
+        return Err(TradeXError::new("ORDER_VENUE_INVALID").with_field("venue"));
     }
 
-    fields.quantity.value = normalize_order_decimal(&fields.quantity.value)?;
+    if let Some(provider_id) = execution_provider(&fields.environment)
+        && provider_id != "local-paper"
+        && !instrument
+            .providers
+            .iter()
+            .any(|mapping| mapping.provider_id == provider_id)
+    {
+        return Err(
+            TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED").with_field("instrumentId")
+        );
+    }
+
+    fields.quantity.value = normalize_order_decimal(&fields.quantity.value, "quantity")?;
     if fields.quantity.value == "0" {
-        return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+        return Err(TradeXError::new("ORDER_AMOUNT_INVALID").with_field("quantity"));
     }
     if let Some(value) = fields.limit_price.as_mut() {
-        *value = normalize_order_decimal(value)?;
+        *value = normalize_order_decimal(value, "limitPrice")?;
         if value == "0" {
-            return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+            return Err(TradeXError::new("ORDER_AMOUNT_INVALID").with_field("limitPrice"));
         }
     }
     if let Some(value) = fields.maximum_spend.as_mut() {
-        *value = normalize_order_decimal(value)?;
+        *value = normalize_order_decimal(value, "maximumSpend")?;
         if value == "0" {
-            return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+            return Err(TradeXError::new("ORDER_AMOUNT_INVALID").with_field("maximumSpend"));
         }
     }
     match fields.order_type {
         OrderType::Limit if fields.limit_price.is_none() => {
-            return Err(TradeXError::new("ORDER_LIMIT_PRICE_REQUIRED"));
+            return Err(TradeXError::new("ORDER_LIMIT_PRICE_REQUIRED").with_field("limitPrice"));
         }
         OrderType::Market if fields.limit_price.is_some() => {
-            return Err(TradeXError::new("ORDER_MARKET_PRICE_FORBIDDEN"));
+            return Err(TradeXError::new("ORDER_MARKET_PRICE_FORBIDDEN").with_field("orderType"));
         }
         _ => {}
+    }
+    if matches!(fields.order_type, OrderType::Market)
+        && matches!(fields.time_in_force, TimeInForce::Ioc | TimeInForce::Fok)
+    {
+        return Err(TradeXError::new("ORDER_TIF_INVALID").with_field("timeInForce"));
     }
     if let Some(label) = fields.client_label.as_mut() {
         *label = label.trim().to_owned();
@@ -2031,12 +2051,17 @@ fn normalize_order_draft_fields(fields: &mut OrderDraftFields) -> Result<()> {
     Ok(())
 }
 
-fn normalize_order_decimal(value: &str) -> Result<String> {
+fn normalize_order_decimal(value: &str, field: &str) -> Result<String> {
     crate::provider_io::decimal(&serde_json::Value::String(value.to_owned()))
-        .map_err(|_| TradeXError::new("ORDER_DECIMAL_INVALID"))
+        .map_err(|_| TradeXError::new("ORDER_DECIMAL_INVALID").with_field(field))
         .and_then(|normalized| {
-            if normalized.starts_with('-') {
-                Err(TradeXError::new("ORDER_AMOUNT_INVALID"))
+            if normalized
+                .split_once('.')
+                .is_some_and(|(_, fraction)| fraction.len() > MAX_ORDER_DECIMAL_FRACTION_DIGITS)
+            {
+                Err(TradeXError::new("ORDER_DECIMAL_INVALID").with_field(field))
+            } else if normalized.starts_with('-') {
+                Err(TradeXError::new("ORDER_AMOUNT_INVALID").with_field(field))
             } else {
                 Ok(normalized)
             }
@@ -2047,14 +2072,14 @@ fn valid_order_text(value: &str, max_len: usize) -> bool {
     !value.is_empty() && value.chars().count() <= max_len && !value.chars().any(char::is_control)
 }
 
-fn validate_order_draft_id(id: &str) -> Result<()> {
+pub(crate) fn validate_order_draft_id(id: &str) -> Result<()> {
     if !valid_order_text(id, 128) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
     Ok(())
 }
 
-fn validate_order_draft_state_version(version: &str) -> Result<()> {
+pub(crate) fn validate_order_draft_state_version(version: &str) -> Result<()> {
     if !valid_order_text(version, 256) {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
     }
@@ -2138,8 +2163,7 @@ fn decode_order_draft(
 ) -> Result<OrderDraft> {
     if sequence < 1
         || sequence > MAX_SEQUENCE as i64
-        || row_draft_version < 1
-        || row_draft_version > 9_007_199_254_740_991
+        || !(1..=9_007_199_254_740_991).contains(&row_draft_version)
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }

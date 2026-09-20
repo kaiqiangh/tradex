@@ -53,7 +53,7 @@ export async function checkWorkspaceUI(tab, browser) {
     assert.equal(await ui.getByText(/Current verified route:/).count(), 0);
     observed.push('Settings exposes both model sources, keeps keys out of renderer inputs, requires the owned gateway for verification, and records secure DeepSeek configuration as unverified until inference succeeds.');
 
-    const destinations = ['+ New Thread', 'Threads', 'Markets', 'Watchlists', 'Accounts', 'Strategies', 'Artifacts', 'Settings'];
+    const destinations = ['+ New Thread', 'Threads', 'Markets', 'Watchlists', 'Order Drafts', 'Accounts', 'Strategies', 'Artifacts', 'Settings'];
     for (const width of [768, 390]) {
       await viewport.set({ width, height: 860 });
       await tab.getAXState({ emit: false });
@@ -70,7 +70,7 @@ export async function checkWorkspaceUI(tab, browser) {
         const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
         assert.ok(size.scroll <= size.width, `Horizontal overflow at ${width}: ${JSON.stringify(size)}`);
       }
-      observed.push(`All eight navigation destinations work with Enter at ${width}px, without horizontal overflow.`);
+      observed.push(`All nine navigation destinations work with Enter at ${width}px, without horizontal overflow.`);
     }
     assert.equal((await tab.dev.logs({ levels: ['error'], limit: 20 })).length, 0);
     return observed;

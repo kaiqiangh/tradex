@@ -2136,6 +2136,9 @@ pub struct TradeXError {
     pub message: String,
     pub retryable: bool,
     pub blocking: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub field: Option<Box<str>>,
     pub remediation_actions: Vec<Remediation>,
 }
 
@@ -2237,6 +2240,11 @@ impl TradeXError {
                 "reload_snapshot",
                 "Reload market catalog",
             ),
+            "ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED" => (
+                "The selected provider does not support this instrument mapping.",
+                "select_instrument",
+                "Choose another instrument",
+            ),
             "ORDER_VENUE_INVALID" => (
                 "The venue does not match the selected instrument and execution context.",
                 "select_venue",
@@ -2261,6 +2269,11 @@ impl TradeXError {
                 "Market orders cannot include a limit price.",
                 "edit_order_amount",
                 "Remove the limit price",
+            ),
+            "ORDER_TIF_INVALID" => (
+                "This time in force is not supported for the selected order type.",
+                "edit_order_type",
+                "Choose a compatible time in force",
             ),
             "ORDER_DRAFT_NOT_FOUND" => (
                 "That order draft is no longer available. Reload the draft library.",
@@ -2706,6 +2719,7 @@ impl TradeXError {
                     | "UNSUPPORTED_CAPABILITY"
                     | "RESEARCH_RESULT_INVALID"
                     | "DATA_SOURCE_UNKNOWN"
+                    | "ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"
             ) {
                 "UNSUPPORTED_CAPABILITY"
             } else if matches!(code, "MARKET_CLOSED" | "INSTRUMENT_HALTED") {
@@ -2756,7 +2770,13 @@ impl TradeXError {
                 id: action.into(),
                 label: label.into(),
             }],
+            field: None,
         }
+    }
+
+    pub fn with_field(mut self, field: &str) -> Self {
+        self.field = Some(field.to_owned().into_boxed_str());
+        self
     }
 }
 

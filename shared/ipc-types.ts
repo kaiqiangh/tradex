@@ -2912,6 +2912,7 @@ export interface TradeXError {
   blocking: boolean;
   category: string;
   code: string;
+  field?: string;
   message: string;
   remediationActions: Remediation[];
   retryable: boolean;

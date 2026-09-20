@@ -13,7 +13,7 @@ import type {
   OrderType,
   TimeInForce,
 } from '../shared/ipc-types.ts';
-import { explainError, request } from './client.ts';
+import { CommandError, explainError, request } from './client.ts';
 
 const environments: { value: ExecutionContext; label: string }[] = [
   { value: 'LOCAL_PAPER', label: 'Local Paper' },
@@ -41,6 +41,7 @@ type DraftForm = {
   timeInForce: TimeInForce;
   clientLabel: string;
 };
+type DraftField = keyof DraftForm;
 
 const initialForm: DraftForm = {
   accountId: '', venue: 'TRADEX_SIM', environment: 'LOCAL_PAPER', instrumentId: 'equity:US:AAPL',
@@ -58,7 +59,7 @@ function fromDraft(draft: OrderDraft): DraftForm {
   };
 }
 
-function positive(value: string) { return /^(?:\d+)(?:\.\d+)?$/.test(value) && value !== '0' && !/^0(?:\.0+)?$/.test(value); }
+function isPositiveDecimal(value: string) { return /^(?:\d+)(?:\.\d+)?$/.test(value) && value !== '0' && !/^0(?:\.0+)?$/.test(value); }
 
 function contextForAccount(providerId: string, environment: string): ExecutionContext | undefined {
   if (providerId === 'alpaca' && environment === 'PAPER') return 'ALPACA_PAPER';
@@ -93,9 +94,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [newMode, setNewMode] = useState(false);
   const [form, setForm] = useState<DraftForm>(initialForm);
   const [error, setError] = useState<unknown>();
+  const [fieldError, setFieldError] = useState<{ field: DraftField; message: string }>();
   const [notice, setNotice] = useState('');
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
   const selected = useMemo(() => newMode ? undefined : library.data?.drafts.find(draft => draft.draftId === selectedId), [library.data?.drafts, newMode, selectedId]);
+  const detailLoading = Boolean(selectedId) && !newMode && detail.isPending;
 
   useEffect(() => {
     if (!newMode && !selectedId && library.data?.drafts.length) setSelectedId(library.data.drafts[0].draftId);
@@ -106,10 +109,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
     !form.instrumentId ? 'Choose an instrument.' : '',
-    !positive(form.quantity) ? 'Quantity must be greater than zero.' : '',
-    form.orderType === 'LIMIT' && !positive(form.limitPrice) ? 'Limit price must be greater than zero.' : '',
+    !isPositiveDecimal(form.quantity) ? 'Quantity must be greater than zero.' : '',
+    form.orderType === 'LIMIT' && !isPositiveDecimal(form.limitPrice) ? 'Limit price must be greater than zero.' : '',
   ].filter(Boolean);
-  const update = <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => setForm(current => ({ ...current, [key]: value }));
+  const update = <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => {
+    setFieldError(current => current?.field === key ? undefined : current);
+    setForm(current => ({ ...current, [key]: value }));
+  };
   const selectAccount = (accountId: string) => {
     const account = accounts.data?.accounts.find(item => item.connectionId === accountId);
     update('accountId', accountId);
@@ -117,11 +123,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     if (environment) update('environment', environment);
     if (environment) update('venue', expectedVenue(environment, form.instrumentId));
   };
-  const newDraft = () => { setNewMode(true); setSelectedId(undefined); setForm(initialForm); setError(undefined); setNotice(''); };
+  const newDraft = () => { setNewMode(true); setSelectedId(undefined); setForm(initialForm); setError(undefined); setFieldError(undefined); setNotice(''); };
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (localErrors.length) return;
-    setError(undefined); setNotice('');
+    setError(undefined); setFieldError(undefined); setNotice('');
     try {
       const fields: OrderDraftFields = {
         accountId: form.accountId || undefined, venue: form.venue, environment: form.environment,
@@ -137,7 +143,19 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       setNewMode(false); setSelectedId(saved.draftId); setForm(fromDraft(saved));
       await queryClient.invalidateQueries({ queryKey: ['order-drafts', workspaceId] });
       setNotice(`Draft saved at version ${saved.draftVersion}.`);
-    } catch (cause) { setError(cause); }
+    } catch (cause) {
+      setError(cause);
+      if (cause instanceof CommandError) {
+        const field = (cause.detail.field as DraftField | undefined) ?? ({
+          ORDER_CONTEXT_INVALID: 'environment', ORDER_ACCOUNT_REQUIRED: 'accountId', ORDER_ACCOUNT_INVALID: 'accountId',
+          ORDER_ACCOUNT_NOT_FOUND: 'accountId', ORDER_INSTRUMENT_NOT_FOUND: 'instrumentId',
+          ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED: 'instrumentId', ORDER_VENUE_INVALID: 'venue',
+          ORDER_DECIMAL_INVALID: 'quantity', ORDER_AMOUNT_INVALID: 'quantity', ORDER_LIMIT_PRICE_REQUIRED: 'limitPrice',
+          ORDER_MARKET_PRICE_FORBIDDEN: 'orderType', ORDER_TIF_INVALID: 'timeInForce',
+        } as Partial<Record<string, DraftField>>)[cause.detail.code];
+        if (field) setFieldError({ field, message: cause.message });
+      }
+    }
   };
 
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
@@ -149,23 +167,24 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     <div className="order-drafts-layout">
       <section className="card order-draft-list" aria-labelledby="order-draft-list-title"><div className="section-heading"><div><h2 id="order-draft-list-title">Saved drafts</h2><p className="muted">Workspace-local history</p></div><button type="button" onClick={newDraft}>New draft</button></div>{library.data.drafts.length ? library.data.drafts.map(draft => <DraftRow key={draft.draftId} draft={draft} selected={!newMode && draft.draftId === selectedId} onSelect={() => { setNewMode(false); setSelectedId(draft.draftId); }} />) : <p className="muted">No drafts saved yet.</p>}</section>
       <section className="card order-draft-editor" aria-labelledby="order-draft-editor-title"><div className="section-heading"><div><h2 id="order-draft-editor-title">{selected ? `Edit ${selected.instrumentId}` : 'New order draft'}</h2><p className="muted">Draft changes require the current state version.</p></div>{selected && <span className="badge">v{selected.draftVersion}</span>}</div>
-        {detail.isPending && <p role="status">Loading draft…</p>}
+        {detailLoading && <p role="status">Loading draft…</p>}
         {detail.isError && <p className="error-text" role="alert">{explainError(detail.error)}</p>}
-        {!detail.isPending && !detail.isError && <form onSubmit={save}>
+        {!detailLoading && !detail.isError && <form onSubmit={save}>
           <div className="order-draft-grid">
-            <label className="field">Execution context<select value={form.environment} onChange={event => { const environment = event.target.value as ExecutionContext; update('environment', environment); update('venue', expectedVenue(environment, form.instrumentId)); }}>{environments.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-            <label className="field">Account<select value={form.accountId} onChange={event => selectAccount(event.target.value)}><option value="">Local Paper account</option>{(accounts.data?.accounts ?? []).map((account: AccountConnection) => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.providerId} · {account.environment}</option>)}</select></label>
-            <label className="field">Instrument<select value={form.instrumentId} onChange={event => { update('instrumentId', event.target.value); update('venue', expectedVenue(form.environment, event.target.value)); }}>{instruments.map(instrument => <option key={instrument.instrumentId} value={instrument.instrumentId}>{instrument.symbol} · {instrument.instrumentId}</option>)}</select></label>
-            <label className="field">Venue<select value={form.venue} onChange={event => update('venue', event.target.value)}><option value="TRADEX_SIM">TRADEX_SIM</option><option value="XNAS">XNAS</option><option value="BINANCE">BINANCE</option><option value="BITGET">BITGET</option></select></label>
+            <label className="field">Execution context<select value={form.environment} aria-describedby={fieldError?.field === 'environment' ? 'order-field-error' : undefined} onChange={event => { const environment = event.target.value as ExecutionContext; update('environment', environment); update('venue', expectedVenue(environment, form.instrumentId)); }}>{environments.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="field">Account<select value={form.accountId} aria-describedby={fieldError?.field === 'accountId' ? 'order-field-error' : undefined} onChange={event => selectAccount(event.target.value)}><option value="">Local Paper account</option>{(accounts.data?.accounts ?? []).map((account: AccountConnection) => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.providerId} · {account.environment}</option>)}</select></label>
+            <label className="field">Instrument<select value={form.instrumentId} aria-describedby={fieldError?.field === 'instrumentId' ? 'order-field-error' : undefined} onChange={event => { update('instrumentId', event.target.value); update('venue', expectedVenue(form.environment, event.target.value)); }}>{instruments.map(instrument => <option key={instrument.instrumentId} value={instrument.instrumentId}>{instrument.symbol} · {instrument.instrumentId}</option>)}</select></label>
+            <label className="field">Venue<select value={form.venue} aria-describedby={fieldError?.field === 'venue' ? 'order-field-error' : undefined} onChange={event => update('venue', event.target.value)}><option value="TRADEX_SIM">TRADEX_SIM</option><option value="XNAS">XNAS</option><option value="BINANCE">BINANCE</option><option value="BITGET">BITGET</option></select></label>
             <label className="field">Side<select value={form.side} onChange={event => update('side', event.target.value as OrderSide)}><option value="BUY">Buy</option><option value="SELL">Sell</option></select></label>
-            <label className="field">Order type<select value={form.orderType} onChange={event => update('orderType', event.target.value as OrderType)}><option value="LIMIT">Limit</option><option value="MARKET">Market</option></select></label>
+            <label className="field">Order type<select value={form.orderType} aria-describedby={fieldError?.field === 'orderType' ? 'order-field-error' : undefined} onChange={event => update('orderType', event.target.value as OrderType)}><option value="LIMIT">Limit</option><option value="MARKET">Market</option></select></label>
             <label className="field">Quantity type<select value={form.quantityType} onChange={event => update('quantityType', event.target.value as OrderQuantityType)}><option value="BASE">Base</option><option value="QUOTE">Quote</option></select></label>
-            <label className="field">Quantity<input inputMode="decimal" value={form.quantity} onChange={event => update('quantity', event.target.value)} aria-invalid={!positive(form.quantity)} /></label>
-            <label className="field">Limit price<input inputMode="decimal" value={form.limitPrice} disabled={form.orderType === 'MARKET'} onChange={event => update('limitPrice', event.target.value)} aria-invalid={form.orderType === 'LIMIT' && !positive(form.limitPrice)} /></label>
+            <label className="field">Quantity<input inputMode="decimal" value={form.quantity} aria-describedby={fieldError?.field === 'quantity' ? 'order-field-error' : undefined} onChange={event => update('quantity', event.target.value)} aria-invalid={!isPositiveDecimal(form.quantity)} /></label>
+            <label className="field">Limit price<input inputMode="decimal" value={form.limitPrice} disabled={form.orderType === 'MARKET'} aria-describedby={fieldError?.field === 'limitPrice' ? 'order-field-error' : undefined} onChange={event => update('limitPrice', event.target.value)} aria-invalid={form.orderType === 'LIMIT' && !isPositiveDecimal(form.limitPrice)} /></label>
             <label className="field">Maximum spend <span className="muted">(optional)</span><input inputMode="decimal" value={form.maximumSpend} onChange={event => update('maximumSpend', event.target.value)} /></label>
             <label className="field">Time in force<select value={form.timeInForce} onChange={event => update('timeInForce', event.target.value as TimeInForce)}>{(['DAY', 'GTC', 'IOC', 'FOK'] as TimeInForce[]).map(value => <option key={value} value={value}>{value}</option>)}</select></label>
             <label className="field">Client label <span className="muted">(optional)</span><input maxLength={80} value={form.clientLabel} onChange={event => update('clientLabel', event.target.value)} /></label>
           </div>
+          {fieldError && <p id="order-field-error" className="form-errors" role="alert">{fieldError.message}</p>}
           {localErrors.length > 0 && <ul className="form-errors" role="alert">{localErrors.map(message => <li key={message}>{message}</li>)}</ul>}
           {!catalog.isPending && !instruments.length && <p className="form-hint">Canonical market catalog is unavailable; reload before saving.</p>}
           <div className="form-actions"><button className="primary" disabled={Boolean(localErrors.length) || catalog.isPending || !instruments.length}>Save draft</button></div>
