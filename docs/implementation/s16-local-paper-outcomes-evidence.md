@@ -1,7 +1,7 @@
 # S16 Local Paper outcomes and cancellation evidence
 
 - Scope: issue #54, Local Paper quote freshness, partial/resting/rejected/cancelled outcomes and UI integration.
-- Implementation SHA: `c950ff1` (`fix: close Local Paper spec review gaps`).
+- Implementation SHA: `6c62c1f` (`fix: enforce exact Local Paper quote freshness`).
 - Predecessor: `5b08bcc3871498e00dca5bd5f965cc7fff86d446`.
 - Evidence boundary: this closes the Local Paper outcome slice. Native Keychain/OAuth, external provider truth, Live Gateway authority and full isolation closeout remain issue #55.
 
@@ -14,12 +14,13 @@
 - SQLite persistence rehydrates canonical orders, fills and events after reopen; scenario changes and quote refresh are rejected while open orders exist. Local Paper remains `local-paper` / `LOCAL` / `TRADEX_SIMULATION` and never creates provider order IDs or Live authority records.
 - Order Drafts and Accounts expose scenario selection, quote freshness/refresh, fill history, state text, cancellation and simulation disclosure. Submit/cancel confirmation restores focus to the proposal surface; Accounts cancellation now uses the same explicit confirmation/focus contract and exposes persisted fills and event sequences. Submit reselects the immutable Proposal before each attempt and retains submit/cancel idempotency keys for retry semantics.
 
-## Automated verification at `c950ff1`
+## Automated verification at `6c62c1f`
 
 - `cargo fmt --all --check` — PASS
 - `cargo check -q --workspace --all-targets --all-features` — PASS
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings` — PASS
 - `RUST_TEST_THREADS=1 cargo test -q --workspace --all-targets --all-features` — PASS (120 tests)
+- Quote freshness boundary test rejects an observation just over 300 seconds (`300.001s`) with `PAPER_QUOTE_UNAVAILABLE`.
 - `npm run schema:check` — PASS
 - `npm run typecheck` — PASS
 - `npm run build` — PASS (existing >500 kB Vite chunk warning only)
@@ -34,8 +35,8 @@ Command: `npm run dev:browser`.
 
 Helper: `checkLocalPaperSubmitUI` from `tests/order-draft-ui.mjs`.
 
-- Temporary workspace ID: `10b2b10e-64b4-4dc4-85c2-2f7edb37d182`
-- Temporary workspace path: `/private/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-browser-Pj0GAi/workspace`
+- Temporary workspace ID: `f750e88a-7242-420e-b258-55358d2ff04b`
+- Temporary workspace path: `/private/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-browser-knGME4/workspace`
 - Observed full fill: deterministic `FILLED`, quote, Proposal hash and `TRADEX_SIMULATION` disclosure.
 - Observed quote recovery: Accounts refreshed the bounded deterministic quote through `paper.quote.refresh` after the full fill; the UI reported the new observation time and state cursor.
 - Observed portfolio: Local Paper provenance and `Live risk: Blocked · TRADEX_SIMULATION_NOT_LIVE` remained visible.
