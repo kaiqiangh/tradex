@@ -82,11 +82,13 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is FILLED' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText('TRADEX_SIMULATION · FILLED', { exact: true }).count(), 1);
     assert.equal(await ui.getByText(/2 filled · 0 remaining · quote 100 USD/, { exact: false }).count(), 1);
     assert.equal(await ui.getByText(/Proposal hash: sha256:/, { exact: false }).count(), 1);
+    assert.equal(await ui.getByText(/not provider truth; not Live execution/, { exact: false }).count(), 1);
     observed.push('A Local Paper Proposal submits through the Rust-backed browser dispatcher and renders deterministic full-fill, quote, hash and simulation disclosure.');
 
     await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
@@ -97,6 +99,34 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     assert.match(await ui.getByText(/Live risk: Blocked/).innerText(), /TRADEX_SIMULATION_NOT_LIVE/);
     assert.match(await ui.getByRole('region', { name: 'Open orders', exact: true }).innerText(), /Fills/);
     observed.push('Portfolio refresh preserves Local Paper simulation provenance and blocked Live risk after the fill.');
+
+    await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'New order draft', exact: true }).waitFor({ state: 'visible' });
+    const insufficientQuantity = ui.getByRole('textbox', { name: 'Quantity', exact: true });
+    const insufficientLimit = ui.getByRole('textbox', { name: 'Limit price', exact: true });
+    await insufficientQuantity.fill('1001');
+    await insufficientLimit.fill('100');
+    assert.equal(await insufficientQuantity.getAttribute('value'), '1001');
+    assert.equal(await insufficientLimit.getAttribute('value'), '100');
+    await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('alert').filter({ hasText: /enough simulation cash/i }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByRole('status').filter({ hasText: 'is FILLED' }).count(), 0);
+    observed.push('Insufficient Local Paper cash fails closed in the Rust-backed browser flow without rendering a fill.');
+
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: 900 });
+      const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+      assert.ok(size.width <= width && size.width >= width - 20, `Viewport override did not apply: ${JSON.stringify(size)}`);
+      assert.ok(size.scroll <= size.width, `Order Drafts overflow at ${width}px: ${JSON.stringify(size)}`);
+    }
+    observed.push('Local Paper submission and remediation remain free of horizontal overflow at 768px and 390px.');
     assert.equal((await tab.dev.logs({ levels: ['error'], limit: 20 })).length, 0);
     return observed;
   } finally { await viewport.reset(); }

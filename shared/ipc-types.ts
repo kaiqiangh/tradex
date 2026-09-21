@@ -1769,6 +1769,7 @@ export interface LocalPaperProfile {
   baseCurrency: string;
   engineVersion: string;
   quoteFreshness?: string | null;
+  quoteObservedAt?: string | null;
   quotePrice?: string;
   quoteSource: string;
   scenarioId: string;

@@ -3601,6 +3601,14 @@
           "maxLength": 32,
           "minLength": 1
         },
+        "quoteObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
         "quotePrice": {
           "type": "string",
           "maxLength": 128,
@@ -9638,7 +9646,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 14,
+          "maximum": 15,
           "minimum": 1
         },
         "workspaceId": {

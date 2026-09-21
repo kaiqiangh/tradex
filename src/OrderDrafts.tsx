@@ -119,8 +119,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     if (!newMode && !selectedId && library.data?.drafts.length) setSelectedId(library.data.drafts[0].draftId);
-    if (selectedId && library.data && !library.data.drafts.some(draft => draft.draftId === selectedId)) setSelectedId(undefined);
-  }, [library.data, newMode, selectedId]);
+    if (selectedId && library.data && !library.isFetching && !library.data.drafts.some(draft => draft.draftId === selectedId)) setSelectedId(undefined);
+  }, [library.data, library.isFetching, newMode, selectedId]);
   useEffect(() => {
     if (!form.accountId && accounts.data) {
       const localPaper = accounts.data.accounts.find(account => account.providerId === 'local-paper' && account.environment === 'LOCAL');
@@ -173,6 +173,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       });
       setNewMode(false); setSelectedId(saved.draftId); setForm(fromDraft(saved));
       await queryClient.invalidateQueries({ queryKey: ['order-drafts', workspaceId] });
+      await queryClient.refetchQueries({ queryKey: ['order-drafts', workspaceId] });
       await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
       await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId] });
       setNotice(`Draft saved at version ${saved.draftVersion}.`);

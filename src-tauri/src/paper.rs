@@ -116,6 +116,7 @@ pub fn initial_state(
             engine_version: ENGINE_VERSION.into(),
             quote_price: Some("100".into()),
             quote_freshness: Some("FRESH".into()),
+            quote_observed_at: Some(updated_at.clone()),
         },
         cash: money(DEFAULT_STARTING_CASH),
         reserved_cash: money("0"),
@@ -331,11 +332,33 @@ fn deterministic_quote(
     instrument_id: &str,
     observed_at: &str,
 ) -> Result<LocalPaperQuote> {
+    let instrument_currency = crate::market::instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == instrument_id)
+        .map(|instrument| instrument.currency)
+        .ok_or_else(|| TradeXError::new("PAPER_QUOTE_UNAVAILABLE"))?;
+    let quote_observed_at = state
+        .profile
+        .quote_observed_at
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("PAPER_QUOTE_UNAVAILABLE"))?;
+    let observed =
+        time::OffsetDateTime::parse(observed_at, &time::format_description::well_known::Rfc3339)
+            .map_err(|_| TradeXError::new("PAPER_QUOTE_UNAVAILABLE"))?;
+    let quote_time = time::OffsetDateTime::parse(
+        quote_observed_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| TradeXError::new("PAPER_QUOTE_UNAVAILABLE"))?;
+    let age = observed - quote_time;
     if instrument_id.is_empty()
         || instrument_id.len() > 128
         || instrument_id.chars().any(char::is_control)
         || state.profile.quote_source != QUOTE_SOURCE
         || state.profile.quote_freshness.as_deref() != Some("FRESH")
+        || instrument_currency != state.profile.base_currency
+        || age.is_negative()
+        || age.whole_seconds() > 300
     {
         return Err(TradeXError::new("PAPER_QUOTE_UNAVAILABLE"));
     }
@@ -358,7 +381,7 @@ fn deterministic_quote(
         instrument_id: instrument_id.into(),
         price,
         currency: state.profile.base_currency.clone(),
-        observed_at: observed_at.into(),
+        observed_at: quote_observed_at.into(),
         scenario_id: state.profile.scenario_id.clone(),
         source: state.profile.quote_source.clone(),
         freshness: state.profile.quote_freshness.clone().unwrap_or_default(),
@@ -547,6 +570,21 @@ mod tests {
         state.profile.quote_price = None;
         assert_eq!(
             deterministic_quote(&state, "equity:US:AAPL", "2026-01-01T00:00:00Z")
+                .unwrap_err()
+                .code,
+            "PAPER_QUOTE_UNAVAILABLE"
+        );
+        state.profile.quote_price = Some("100".into());
+        state.profile.quote_observed_at = Some("2025-12-31T23:00:00Z".into());
+        assert_eq!(
+            deterministic_quote(&state, "equity:US:AAPL", "2026-01-01T00:00:00Z")
+                .unwrap_err()
+                .code,
+            "PAPER_QUOTE_UNAVAILABLE"
+        );
+        state.profile.quote_observed_at = Some("2026-01-01T00:00:00Z".into());
+        assert_eq!(
+            deterministic_quote(&state, "crypto:BTC/USDT:spot", "2026-01-01T00:00:00Z")
                 .unwrap_err()
                 .code,
             "PAPER_QUOTE_UNAVAILABLE"

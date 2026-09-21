@@ -440,6 +440,7 @@ pub struct ControlPlane {
     store: Option<Store>,
     subscribers: HashMap<(String, String, String), EventSink>,
     data_source_observations: HashMap<(String, String), protocol::DataSourceEntry>,
+    selected_local_paper_proposal: Option<(String, String)>,
     session: String,
     time: time::TimeService,
 }
@@ -451,6 +452,7 @@ impl ControlPlane {
             store: None,
             subscribers: HashMap::new(),
             data_source_observations: HashMap::new(),
+            selected_local_paper_proposal: None,
             session: uuid::Uuid::new_v4().to_string(),
             time: time::TimeService::new(),
         }
@@ -537,6 +539,7 @@ impl ControlPlane {
         match request.command.as_str() {
             "workspace.open" => {
                 let input: OpenWorkspace = payload(request.payload)?;
+                self.selected_local_paper_proposal = None;
                 if input.name.as_ref().is_some_and(|n| {
                     n.trim().is_empty()
                         || n.chars().count() > 120
@@ -864,11 +867,25 @@ impl ControlPlane {
             "paper.order.submit" => {
                 let input: PaperOrderSubmit = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
+                let proposal = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .order_proposal(&input.proposal_id)?;
+                if proposal.workspace_id != input.workspace_id {
+                    return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+                }
+                if self.selected_local_paper_proposal.as_ref()
+                    != Some(&(input.workspace_id.clone(), input.proposal_id.clone()))
+                {
+                    return Err(TradeXError::new("PAPER_PROPOSAL_NOT_SELECTED"));
+                }
                 let result = self
                     .store
                     .as_mut()
                     .unwrap()
                     .submit_local_paper_order(&input)?;
+                self.selected_local_paper_proposal = None;
                 Ok((json!(result), Some(result.state_version.clone())))
             }
             "strategy.list" => {
@@ -1057,6 +1074,7 @@ impl ControlPlane {
             "trade.save_draft" => {
                 let input: protocol::OrderDraftSave = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
+                self.selected_local_paper_proposal = None;
                 if let Some(draft_id) = &input.draft_id {
                     storage::validate_order_draft_id(draft_id)?;
                     storage::validate_order_draft_state_version(
@@ -1074,6 +1092,7 @@ impl ControlPlane {
             "trade.generate_proposal" => {
                 let input: protocol::OrderProposalGenerate = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
+                self.selected_local_paper_proposal = None;
                 storage::validate_order_draft_id(&input.draft_id)?;
                 let draft = self.store.as_ref().unwrap().order_draft(&input.draft_id)?;
                 if draft.draft_version != input.expected_draft_version {
@@ -1091,6 +1110,7 @@ impl ControlPlane {
             "trade.refresh_proposal" => {
                 let input: protocol::OrderProposalRefresh = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
+                self.selected_local_paper_proposal = None;
                 storage::validate_order_proposal_id(&input.proposal_id)?;
                 let current = self
                     .store
@@ -1141,6 +1161,12 @@ impl ControlPlane {
                     .as_ref()
                     .unwrap()
                     .order_proposal(&input.proposal_id)?;
+                if proposal.fields.environment == protocol::ExecutionContext::LocalPaper
+                    && matches!(consumer, "main" | "stdio" | "headless")
+                {
+                    self.selected_local_paper_proposal =
+                        Some((input.workspace_id.clone(), proposal.proposal_id.clone()));
+                }
                 Ok((json!(proposal), Some(proposal.state_version.clone())))
             }
             "artifact.save" => {
@@ -6412,12 +6438,21 @@ mod paper_tests {
             }),
         ));
         assert_eq!(proposal["ok"], true, "{proposal}");
+        let selected = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["data"]["proposalId"]}),
+        ));
+        assert_eq!(selected["ok"], true, "{selected}");
         let submit_payload = json!({
             "workspaceId": workspace_id,
             "proposalId": proposal["data"]["proposalId"],
             "expectedProposalStateVersion": proposal["data"]["stateVersion"],
             "idempotencyKey": "paper-submit-full-1"
         });
+        let provider_boundary = control
+            .prepare_provider(&request("paper.order.submit", submit_payload.clone()))
+            .unwrap();
+        assert!(provider_boundary.is_none());
         let gateway_before = control.dispatch(request(
             "model.get_gateway",
             json!({"workspaceId": workspace_id}),
@@ -6442,6 +6477,11 @@ mod paper_tests {
                 .len(),
             2
         );
+        let selected_duplicate = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["data"]["proposalId"]}),
+        ));
+        assert_eq!(selected_duplicate["ok"], true, "{selected_duplicate}");
         let duplicate = control.dispatch(request("paper.order.submit", submit_payload));
         assert_eq!(duplicate["ok"], true, "{duplicate}");
         assert_eq!(
@@ -6452,6 +6492,11 @@ mod paper_tests {
             duplicate["data"]["paperState"]["eventCursor"],
             submitted["data"]["paperState"]["eventCursor"]
         );
+        let selected_conflict = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["data"]["proposalId"]}),
+        ));
+        assert_eq!(selected_conflict["ok"], true, "{selected_conflict}");
         let different_key = control.dispatch(request(
             "paper.order.submit",
             json!({
@@ -6496,6 +6541,11 @@ mod paper_tests {
             }),
         ));
         assert_eq!(quote_proposal["ok"], true, "{quote_proposal}");
+        let selected_quote = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": quote_proposal["data"]["proposalId"]}),
+        ));
+        assert_eq!(selected_quote["ok"], true, "{selected_quote}");
         let quote_submitted = control.dispatch(request(
             "paper.order.submit",
             json!({
@@ -6594,6 +6644,11 @@ mod paper_tests {
             "trade.generate_proposal",
             json!({"workspaceId": workspace_id, "draftId": saved["data"]["draftId"], "expectedDraftVersion": 1}),
         ));
+        let selected = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["data"]["proposalId"]}),
+        ));
+        assert_eq!(selected["ok"], true, "{selected}");
         let rejected = control.dispatch(request(
             "paper.order.submit",
             json!({

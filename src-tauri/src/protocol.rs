@@ -334,7 +334,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 14))]
+    #[schemars(range(min = 1, max = 15))]
     pub storage_schema_version: u32,
 }
 
@@ -3161,6 +3161,11 @@ impl TradeXError {
                 "reload_snapshot",
                 "Reload proposal",
             ),
+            "PAPER_PROPOSAL_NOT_SELECTED" => (
+                "Select the Local Paper proposal from the Trade surface before submitting it.",
+                "reload_snapshot",
+                "Select proposal",
+            ),
             "PAPER_PROPOSAL_CONSUMED" => (
                 "This proposal has already been consumed by a Local Paper order.",
                 "reload_snapshot",
@@ -3916,6 +3921,9 @@ pub struct LocalPaperProfile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 32))]
     pub quote_freshness: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub quote_observed_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
