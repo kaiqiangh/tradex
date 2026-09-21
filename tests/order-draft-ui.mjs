@@ -84,7 +84,10 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('dialog', { name: 'Confirm Local Paper submission', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Confirm submit', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is FILLED' }).waitFor({ state: 'visible' });
+    assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true, 'Submit confirmation should restore focus to the proposal surface');
     assert.equal(await ui.getByText('TRADEX_SIMULATION · FILLED', { exact: true }).count(), 1);
     assert.equal(await ui.getByText(/2 filled · 0 remaining · quote 100 USD/, { exact: false }).count(), 1);
     assert.equal(await ui.getByText(/Proposal hash: sha256:/, { exact: false }).count(), 1);
@@ -93,6 +96,13 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
 
     await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    const refreshSimulationQuote = ui.getByRole('button', { name: 'Refresh simulation quote', exact: true });
+    await refreshSimulationQuote.waitFor({ state: 'visible' });
+    for (let attempt = 0; attempt < 40 && !(await refreshSimulationQuote.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
+    assert.equal(await refreshSimulationQuote.isEnabled(), true);
+    await refreshSimulationQuote.press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Simulation quote refreshed at' }).waitFor({ state: 'visible' });
+    observed.push('The Trade surface can refresh the bounded Local Paper quote through Control Plane state.');
     const openPortfolio = ui.getByRole('button', { name: 'Open portfolio', exact: true });
     if (await openPortfolio.count()) await openPortfolio.press('Enter');
     await ui.getByRole('heading', { name: 'Workspace valuation', exact: true }).waitFor({ state: 'visible' });
@@ -116,15 +126,28 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('dialog', { name: 'Confirm Local Paper submission', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Confirm submit', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is PARTIALLY_FILLED' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText('TRADEX_SIMULATION · PARTIALLY_FILLED', { exact: true }).count(), 1);
     assert.equal(await ui.getByText(/2 filled · 2 remaining · quote 100 USD/, { exact: false }).count(), 1);
     await ui.getByRole('button', { name: 'Cancel Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('dialog', { name: 'Confirm Local Paper cancellation', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Confirm cancel', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is CANCELLED' }).waitFor({ state: 'visible' });
+    assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true, 'Cancel confirmation should restore focus to the proposal surface');
     observed.push('Partial Local Paper fill shows remaining quantity, then cancel releases reserved cash while preserving the fill.');
 
     await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    const historyDetails = ui.locator('summary').filter({ hasText: 'View fills and events' });
+    assert.equal(await historyDetails.count() > 1, true);
+    await historyDetails.nth(1).click();
+    assert.equal(await ui.evaluate(() => [...document.querySelectorAll('details')]
+      .some((details) => details.open && details.textContent?.includes('PARTIALLY_FILLED'))), true);
+    assert.equal(await ui.evaluate(() => [...document.querySelectorAll('details')]
+      .some((details) => details.open && details.textContent?.includes('CANCELLED'))), true);
+    observed.push('Local Paper account history exposes persisted fill and event details after cancellation.');
     await ui.getByRole('combobox', { name: 'Simulation scenario', exact: true }).selectOption('resting-v1');
     await ui.getByRole('button', { name: 'Apply scenario', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Scenario resting-v1 is active.' }).waitFor({ state: 'visible' });
@@ -138,6 +161,8 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('dialog', { name: 'Confirm Local Paper submission', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Confirm submit', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is ACCEPTED' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText(/0 filled · 1 remaining · quote 100 USD/, { exact: false }).count(), 1);
     await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
@@ -160,6 +185,8 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('dialog', { name: 'Confirm Local Paper submission', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Confirm submit', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is REJECTED' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText('TRADEX_SIMULATION · REJECTED', { exact: true }).count(), 1);
     assert.equal(await ui.getByText(/0 filled · 1 remaining · quote 100 USD/, { exact: false }).count(), 1);
@@ -186,6 +213,8 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('dialog', { name: 'Confirm Local Paper submission', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Confirm submit', exact: true }).press('Enter');
     await ui.getByRole('alert').filter({ hasText: /enough simulation cash/i }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('status').filter({ hasText: 'is FILLED' }).count(), 0);
     observed.push('Insufficient Local Paper cash fails closed in the Rust-backed browser flow without rendering a fill.');

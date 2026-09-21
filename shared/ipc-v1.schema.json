@@ -160,6 +160,9 @@
     "paperOrderSubmit": {
       "$ref": "#/$defs/PaperOrderSubmit"
     },
+    "paperQuoteRefresh": {
+      "$ref": "#/$defs/PaperQuoteRefresh"
+    },
     "paperScenarioSet": {
       "$ref": "#/$defs/PaperScenarioSet"
     },
@@ -350,6 +353,7 @@
     "localPaperState",
     "paperOrderSubmit",
     "paperOrderCancel",
+    "paperQuoteRefresh",
     "paperScenarioSet",
     "paperOrderResult",
     "strategyDefinition",
@@ -3327,7 +3331,8 @@
         "FILLED",
         "REJECTED",
         "CANCELLED",
-        "SCENARIO_CHANGED"
+        "SCENARIO_CHANGED",
+        "QUOTE_REFRESHED"
       ]
     },
     "LocalPaperFill": {
@@ -5426,6 +5431,26 @@
         "proposalId",
         "expectedProposalStateVersion",
         "idempotencyKey"
+      ]
+    },
+    "PaperQuoteRefresh": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
       ]
     },
     "PaperScenarioSet": {

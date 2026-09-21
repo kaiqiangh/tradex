@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
@@ -112,6 +112,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [paperResult, setPaperResult] = useState<PaperOrderResult>();
   const [paperIdempotencyKey, setPaperIdempotencyKey] = useState<string>();
   const [paperCancelIdempotencyKey, setPaperCancelIdempotencyKey] = useState<string>();
+  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel'>();
+  const confirmationRef = useRef<HTMLDivElement>(null);
+  const confirmationTriggerRef = useRef<HTMLElement | null>(null);
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
   const proposalDetail = useQuery({ queryKey: ['order-proposal', workspaceId, selectedProposalId], queryFn: () => request('trade.proposal.get', { workspaceId, proposalId: selectedProposalId! }), enabled: Boolean(selectedProposalId) });
   const selected = useMemo(() => newMode ? undefined : library.data?.drafts.find(draft => draft.draftId === selectedId), [library.data?.drafts, newMode, selectedId]);
@@ -137,6 +140,15 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setPaperIdempotencyKey(undefined);
     setPaperCancelIdempotencyKey(undefined);
   }, [selectedProposalId]);
+  useEffect(() => {
+    if (paperConfirmation) {
+      queueMicrotask(() => confirmationRef.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus());
+      return;
+    }
+    const trigger = confirmationTriggerRef.current;
+    confirmationTriggerRef.current = null;
+    queueMicrotask(() => { if (trigger?.isConnected) trigger.focus(); else document.getElementById('order-proposal-title')?.focus(); });
+  }, [paperConfirmation]);
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
@@ -269,6 +281,18 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setPaperBusy(false); }
   };
 
+  const openPaperConfirmation = (action: 'submit' | 'cancel') => {
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPaperConfirmation(action);
+  };
+  const confirmPaperAction = async () => {
+    const action = paperConfirmation;
+    if (!action) return;
+    if (action === 'submit') await submitProposal();
+    else await cancelPaperOrder();
+    setPaperConfirmation(undefined);
+  };
+
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
   if (library.isError) return <div className="error-banner" role="alert"><div><strong>Order drafts are unavailable.</strong><p>{explainError(library.error)}</p></div><button type="button" onClick={() => void library.refetch()}>Reload drafts</button></div>;
   return <>
@@ -303,12 +327,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       </section>
     </div>
     <section className="card order-proposal-panel" aria-labelledby="order-proposal-title">
-      <div className="section-heading"><div><h2 id="order-proposal-title">Order proposals</h2><p className="muted">Immutable read-only snapshots awaiting the later approval gate.</p></div>{selected && <span className="badge">{selectedProposals.length} for this draft</span>}</div>
+      <div className="section-heading"><div><h2 id="order-proposal-title" tabIndex={-1}>Order proposals</h2><p className="muted">Immutable read-only snapshots awaiting the later approval gate.</p></div>{selected && <span className="badge">{selectedProposals.length} for this draft</span>}</div>
       {proposals.isPending && <p role="status">Loading proposal history…</p>}
       {proposals.isError && <p className="error-text" role="alert">{explainError(proposals.error)}</p>}
       {!proposals.isPending && !proposals.isError && !selectedProposals.length && <p className="muted">Save a draft, then generate a proposal for its immutable snapshot.</p>}
-      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{proposalDetail.isPending && <p role="status">Loading proposal…</p>}{proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={submitProposal} onCancel={cancelPaperOrder} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
+      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{proposalDetail.isPending && <p role="status">Loading proposal…</p>}{proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
     </section>
+    {paperConfirmation && <div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}><div className="picker-dialog-heading"><div><h2 id="paper-confirm-title">{paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2><p className="muted">This changes the TradeX simulation only.</p></div></div><p>{paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p><div className="picker-dialog-actions"><button type="button" onClick={() => setPaperConfirmation(undefined)} disabled={paperBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy}>{paperBusy ? 'Working…' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div></div></div>}
   </>;
 }
 

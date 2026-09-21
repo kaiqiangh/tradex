@@ -166,7 +166,7 @@ export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
  * via the `definition` "LocalPaperEventKind".
  */
 export type LocalPaperEventKind =
-  "ACCEPTED" | "PARTIALLY_FILLED" | "FILLED" | "REJECTED" | "CANCELLED" | "SCENARIO_CHANGED";
+  "ACCEPTED" | "PARTIALLY_FILLED" | "FILLED" | "REJECTED" | "CANCELLED" | "SCENARIO_CHANGED" | "QUOTE_REFRESHED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderSide".
@@ -479,6 +479,7 @@ export interface IpcSchema {
   paperOrderCancel: PaperOrderCancel;
   paperOrderResult: PaperOrderResult;
   paperOrderSubmit: PaperOrderSubmit;
+  paperQuoteRefresh: PaperQuoteRefresh;
   paperScenarioSet: PaperScenarioSet;
   portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
@@ -2023,6 +2024,14 @@ export interface PaperOrderSubmit {
   expectedProposalStateVersion: string;
   idempotencyKey: string;
   proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PaperQuoteRefresh".
+ */
+export interface PaperQuoteRefresh {
+  expectedStateVersion: string;
   workspaceId: string;
 }
 /**

@@ -32,11 +32,11 @@ use crate::protocol::{
     OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
     OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
     OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult,
-    PaperOrderSubmit, PaperScenarioSet, ProposalReferenceStatus, Result, SavedScreener,
-    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, StrategyFailure,
-    StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState, StrategyRunSummary,
-    StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList, ThreadSummary, TimeInForce,
-    TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
+    PaperOrderSubmit, PaperQuoteRefresh, PaperScenarioSet, ProposalReferenceStatus, Result,
+    SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
+    StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
+    StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
+    ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
@@ -1012,6 +1012,53 @@ impl Store {
         let previous_event_cursor = state.event_cursor;
         let mut next_state = state;
         crate::paper::set_scenario(&mut next_state, input.profile.clone(), timestamp()?)?;
+        persist_local_paper_events_and_state(
+            &tx,
+            &workspace_id,
+            previous_event_cursor,
+            &next_state,
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok(next_state)
+    }
+
+    pub fn refresh_local_paper_quote(
+        &mut self,
+        input: &PaperQuoteRefresh,
+    ) -> Result<LocalPaperState> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if !valid_order_text(&input.expected_state_version, 256) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (state_account_id, state_sequence, encoded_state): (String, i64, String) = tx
+            .query_row(
+                "SELECT account_id,sequence,projection FROM paper_state WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        if state_sequence < 1 || state_sequence > MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let state = load_local_paper_tables(
+            &tx,
+            &workspace_id,
+            serde_json::from_str(&encoded_state).map_err(storage_error)?,
+        )?;
+        validate_local_paper_state(&state, &workspace_id, &state_account_id)?;
+        if input.expected_state_version != state.state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let previous_event_cursor = state.event_cursor;
+        let mut next_state = state;
+        crate::paper::refresh_quote(&mut next_state, timestamp()?)?;
         persist_local_paper_events_and_state(
             &tx,
             &workspace_id,
@@ -5134,6 +5181,7 @@ fn paper_event_kind_name(kind: LocalPaperEventKind) -> &'static str {
         LocalPaperEventKind::Rejected => "REJECTED",
         LocalPaperEventKind::Cancelled => "CANCELLED",
         LocalPaperEventKind::ScenarioChanged => "SCENARIO_CHANGED",
+        LocalPaperEventKind::QuoteRefreshed => "QUOTE_REFRESHED",
     }
 }
 
@@ -5145,6 +5193,7 @@ fn paper_event_kind(value: &str) -> Result<LocalPaperEventKind> {
         "REJECTED" => Ok(LocalPaperEventKind::Rejected),
         "CANCELLED" => Ok(LocalPaperEventKind::Cancelled),
         "SCENARIO_CHANGED" => Ok(LocalPaperEventKind::ScenarioChanged),
+        "QUOTE_REFRESHED" => Ok(LocalPaperEventKind::QuoteRefreshed),
         _ => Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
     }
 }

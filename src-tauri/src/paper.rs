@@ -455,6 +455,23 @@ pub fn set_scenario(
     Ok(())
 }
 
+pub fn refresh_quote(state: &mut LocalPaperState, now: String) -> Result<()> {
+    if !state.open_orders.is_empty() {
+        return Err(TradeXError::new("PAPER_SCENARIO_ORDER_OPEN"));
+    }
+    state.profile.quote_freshness = Some("FRESH".into());
+    state.profile.quote_observed_at = Some(now.clone());
+    state.updated_at = now.clone();
+    append_event(
+        state,
+        LocalPaperEventKind::QuoteRefreshed,
+        format!("paper-quote-refresh:{}", state.workspace_id),
+        None,
+        now,
+    )?;
+    Ok(())
+}
+
 struct OrderOutcome<'a> {
     quote: &'a LocalPaperQuote,
     requested_quantity: &'a str,
@@ -720,6 +737,8 @@ fn deterministic_quote(
     hasher.update(instrument_id.as_bytes());
     hasher.update(b"\0");
     hasher.update(price.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(quote_observed_at.as_bytes());
     let quote_id = format!("quote:sha256:{}", hex::encode(hasher.finalize()));
     Ok(LocalPaperQuote {
         quote_id,

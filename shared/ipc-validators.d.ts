@@ -140,6 +140,7 @@ declare const validators: {
   PaperOrderCancel: (value: unknown) => boolean;
   PaperOrderResult: (value: unknown) => boolean;
   PaperOrderSubmit: (value: unknown) => boolean;
+  PaperQuoteRefresh: (value: unknown) => boolean;
   PaperScenarioSet: (value: unknown) => boolean;
   PermissionReview: (value: unknown) => boolean;
   PortfolioAccount: (value: unknown) => boolean;

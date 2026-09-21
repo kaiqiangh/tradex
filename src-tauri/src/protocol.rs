@@ -288,6 +288,7 @@ pub struct IpcSchema {
     pub local_paper_state: LocalPaperState,
     pub paper_order_submit: PaperOrderSubmit,
     pub paper_order_cancel: PaperOrderCancel,
+    pub paper_quote_refresh: PaperQuoteRefresh,
     pub paper_scenario_set: PaperScenarioSet,
     pub paper_order_result: PaperOrderResult,
     pub strategy_definition: StrategyDefinition,
@@ -3208,6 +3209,11 @@ impl TradeXError {
                 "reload_snapshot",
                 "Review open orders",
             ),
+            "PAPER_SCENARIO_AGENT_FORBIDDEN" => (
+                "Agents cannot mutate the Local Paper simulation profile. Use the Trade surface.",
+                "select_proposal",
+                "Open Trade surface",
+            ),
             "PAPER_MAXIMUM_SPEND_EXCEEDED" => (
                 "The deterministic Local Paper fill exceeds the proposal maximum spend.",
                 "edit_order_amount",
@@ -4091,6 +4097,7 @@ pub enum LocalPaperEventKind {
     Rejected,
     Cancelled,
     ScenarioChanged,
+    QuoteRefreshed,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -4180,6 +4187,15 @@ pub struct PaperOrderCancel {
     pub expected_state_version: String,
     #[schemars(length(min = 1, max = 128))]
     pub idempotency_key: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaperQuoteRefresh {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
 }
 
 #[derive(Deserialize, JsonSchema)]

@@ -898,9 +898,22 @@ impl ControlPlane {
                     .cancel_local_paper_order(&input)?;
                 Ok((json!(result), Some(result.state_version.clone())))
             }
+            "paper.quote.refresh" => {
+                let input: protocol::PaperQuoteRefresh = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let state = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .refresh_local_paper_quote(&input)?;
+                Ok((json!(state), Some(state.state_version.clone())))
+            }
             "paper.scenario.set" => {
                 let input: protocol::PaperScenarioSet = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
+                if !matches!(consumer, "main" | "stdio" | "headless") {
+                    return Err(TradeXError::new("PAPER_SCENARIO_AGENT_FORBIDDEN"));
+                }
                 let state = self
                     .store
                     .as_mut()
@@ -6197,6 +6210,7 @@ mod paper_tests {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn local_paper_proposal(
         control: &mut ControlPlane,
         workspace_id: &str,
@@ -6749,6 +6763,136 @@ mod paper_tests {
         ));
         assert_eq!(foreign["ok"], false);
         assert_eq!(foreign["error"]["code"], "ORDER_PROPOSAL_NOT_FOUND");
+    }
+
+    #[test]
+    fn local_paper_quote_refresh_recovers_stale_input_and_changes_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+        let initial = control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        let mut stale_profile = initial["data"]["profile"].clone();
+        stale_profile["quoteObservedAt"] = "2020-01-01T00:00:00Z".into();
+        let stale = control.dispatch(request(
+            "paper.scenario.set",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": initial["data"]["stateVersion"],
+                "profile": stale_profile
+            }),
+        ));
+        assert_eq!(stale["ok"], true, "{stale}");
+        let proposal = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:AAPL",
+            "BUY",
+            "MARKET",
+            "1",
+            None,
+            "DAY",
+        );
+        let stale_selected = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["proposalId"]}),
+        ));
+        let stale_submit = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+                "expectedProposalStateVersion": stale_selected["data"]["stateVersion"],
+                "idempotencyKey": "paper-quote-stale"
+            }),
+        ));
+        assert_eq!(stale_submit["ok"], false, "{stale_submit}");
+        assert_eq!(stale_submit["error"]["code"], "PAPER_QUOTE_UNAVAILABLE");
+        let stale_state =
+            control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        let refreshed = control.dispatch(request(
+            "paper.quote.refresh",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": stale_state["data"]["stateVersion"]
+            }),
+        ));
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        assert_ne!(
+            refreshed["data"]["profile"]["quoteObservedAt"],
+            "2020-01-01T00:00:00Z"
+        );
+        assert_eq!(
+            refreshed["data"]["events"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["kind"],
+            "QUOTE_REFRESHED"
+        );
+        let refreshed_selected = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["proposalId"]}),
+        ));
+        let fresh_submit = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+                "expectedProposalStateVersion": refreshed_selected["data"]["stateVersion"],
+                "idempotencyKey": "paper-quote-fresh"
+            }),
+        ));
+        assert_eq!(fresh_submit["ok"], true, "{fresh_submit}");
+        assert_eq!(
+            fresh_submit["data"]["quote"]["observedAt"],
+            refreshed["data"]["profile"]["quoteObservedAt"]
+        );
+        assert_ne!(
+            fresh_submit["data"]["quote"]["quoteId"],
+            "quote:sha256:stale"
+        );
+        assert!(
+            fresh_submit["data"]["quote"]["quoteId"]
+                .as_str()
+                .is_some_and(|quote_id| quote_id.starts_with("quote:sha256:"))
+        );
+    }
+
+    #[test]
+    fn local_paper_scenario_mutation_is_not_an_agent_command() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let initial = control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        let mut profile = initial["data"]["profile"].clone();
+        profile["scenarioId"] = "partial-v1".into();
+        let denied = control.dispatch_with_events(
+            request(
+                "paper.scenario.set",
+                json!({
+                    "workspaceId": workspace_id,
+                    "expectedStateVersion": initial["data"]["stateVersion"],
+                    "profile": profile
+                }),
+            ),
+            "agent",
+            None,
+        );
+        assert_eq!(denied["ok"], false, "{denied}");
+        assert_eq!(denied["error"]["code"], "PAPER_SCENARIO_AGENT_FORBIDDEN");
     }
 
     #[test]

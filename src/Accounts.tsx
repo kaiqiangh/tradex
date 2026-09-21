@@ -14,6 +14,7 @@ function LocalPaperSummary({ state }: { state: LocalPaperState }) {
   const queryClient = useQueryClient();
   const [scenario, setScenario] = useState(state.profile.scenarioId);
   const [busyOrder, setBusyOrder] = useState<string>();
+  const [quoteBusy, setQuoteBusy] = useState(false);
   const [notice, setNotice] = useState('');
   useEffect(() => setScenario(state.profile.scenarioId), [state.profile.scenarioId]);
   const applyScenario = async () => {
@@ -41,12 +42,26 @@ function LocalPaperSummary({ state }: { state: LocalPaperState }) {
     } catch (failure) { setNotice(explainError(failure)); }
     finally { setBusyOrder(undefined); }
   };
+  const refreshQuote = async () => {
+    setQuoteBusy(true); setNotice('');
+    try {
+      const current = await queryClient.fetchQuery({
+        queryKey: ['paper', state.workspaceId],
+        queryFn: () => request('paper.get', { workspaceId: state.workspaceId }),
+        staleTime: 0,
+      });
+      const next = await request('paper.quote.refresh', { workspaceId: state.workspaceId, expectedStateVersion: current.stateVersion });
+      await queryClient.invalidateQueries({ queryKey: ['paper', state.workspaceId] });
+      setNotice(`Simulation quote refreshed at ${time(next.profile.quoteObservedAt)}.`);
+    } catch (failure) { setNotice(explainError(failure)); }
+    finally { setQuoteBusy(false); }
+  };
   return <section className="card local-paper-summary" aria-labelledby="local-paper-summary-title">
     <div className="section-heading"><div><p className="eyebrow">Local Paper · LOCAL_PAPER</p><h2 id="local-paper-summary-title">TradeX simulation · TRADEX_SIMULATION</h2><p>{state.disclosure}</p></div><span className="badge">LOCAL PAPER</span></div>
-    <dl className="health-grid"><div><dt>Scenario</dt><dd>{state.profile.scenarioId}</dd></div><div><dt>Engine</dt><dd>{state.profile.engineVersion}</dd></div><div><dt>Starting cash</dt><dd>{state.profile.startingCash} {state.profile.baseCurrency}</dd></div><div><dt>Cash</dt><dd>{state.cash.value} {state.cash.currency}</dd></div><div><dt>Reserved</dt><dd>{state.reservedCash.value} {state.reservedCash.currency}</dd></div><div><dt>Positions</dt><dd>{state.positions.length}</dd></div><div><dt>Open orders</dt><dd>{state.openOrders.length}</dd></div><div><dt>Fills</dt><dd>{state.fills.length}</dd></div></dl>
-    <div className="form-actions"><label className="field">Simulation scenario<select aria-label="Simulation scenario" value={scenario} onChange={event => setScenario(event.target.value)}><option value="default-v1">Default full fill</option><option value="partial-v1">Partial fill</option><option value="resting-v1">Resting limit</option><option value="rejected-v1">Rejected</option></select></label><button type="button" onClick={() => void applyScenario()} disabled={scenario === state.profile.scenarioId}>Apply scenario</button></div>
+    <dl className="health-grid"><div><dt>Scenario</dt><dd>{state.profile.scenarioId}</dd></div><div><dt>Engine</dt><dd>{state.profile.engineVersion}</dd></div><div><dt>Starting cash</dt><dd>{state.profile.startingCash} {state.profile.baseCurrency}</dd></div><div><dt>Cash</dt><dd>{state.cash.value} {state.cash.currency}</dd></div><div><dt>Reserved</dt><dd>{state.reservedCash.value} {state.reservedCash.currency}</dd></div><div><dt>Positions</dt><dd>{state.positions.length}</dd></div><div><dt>Open orders</dt><dd>{state.openOrders.length}</dd></div><div><dt>Fills</dt><dd>{state.fills.length}</dd></div><div><dt>Quote observed</dt><dd>{time(state.profile.quoteObservedAt)}</dd></div></dl>
+    <div className="form-actions"><label className="field">Simulation scenario<select aria-label="Simulation scenario" value={scenario} onChange={event => setScenario(event.target.value)}><option value="default-v1">Default full fill</option><option value="partial-v1">Partial fill</option><option value="resting-v1">Resting limit</option><option value="rejected-v1">Rejected</option></select></label><button type="button" onClick={() => void applyScenario()} disabled={scenario === state.profile.scenarioId}>Apply scenario</button><button type="button" onClick={() => void refreshQuote()} disabled={quoteBusy || state.openOrders.length > 0}>{quoteBusy ? 'Refreshing quote…' : 'Refresh simulation quote'}</button></div>
     {notice && <p role="status">{notice}</p>}
-    {(state.orders ?? []).length > 0 && <section aria-label="Local Paper order history"><h3>Local Paper order history</h3><ul>{(state.orders ?? []).map(order => <li key={order.orderId}><strong>{order.state}</strong> · {order.instrumentId} · {order.filledQuantity} filled · {order.remainingQuantity} remaining{['ACCEPTED', 'PARTIALLY_FILLED'].includes(order.state) && <button type="button" onClick={() => void cancel(order.orderId)} disabled={busyOrder === order.orderId}>{busyOrder === order.orderId ? 'Cancelling…' : 'Cancel'}</button>}</li>)}</ul></section>}
+    {(state.orders ?? []).length > 0 && <section aria-label="Local Paper order history"><h3>Local Paper order history</h3><ul>{(state.orders ?? []).map(order => { const fills = state.fills.filter(fill => fill.orderId === order.orderId); const events = (state.events ?? []).filter(event => event.orderId === order.orderId); return <li key={order.orderId}><strong>{order.state}</strong> · {order.instrumentId} · {order.filledQuantity} filled · {order.remainingQuantity} remaining{['ACCEPTED', 'PARTIALLY_FILLED'].includes(order.state) && <button type="button" onClick={() => void cancel(order.orderId)} disabled={busyOrder === order.orderId}>{busyOrder === order.orderId ? 'Cancelling…' : 'Cancel'}</button>}<details><summary>View fills and events</summary><p>Fills</p>{fills.length ? <ul>{fills.map(fill => <li key={fill.fillId}>{fill.quantity} @ {fill.price} {fill.currency} · {time(fill.observedAt)}</li>)}</ul> : <p>No fills.</p>}<p>Events</p>{events.length ? <ol>{events.map(event => <li key={event.eventId}>{event.kind} · {time(event.occurredAt)} · sequence {event.sequence}</li>)}</ol> : <p>No events.</p>}</details></li>; })}</ul></section>}
     <p className="muted">Quote source: {state.profile.quoteSource} · State {state.stateVersion}</p>
   </section>;
 }
