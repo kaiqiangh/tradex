@@ -72,9 +72,12 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByRole('heading', { name: 'Backtest comparison', exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Equity curve summary', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Run identity', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Model not configured', { exact: false }).waitFor({ state: 'visible' });
+  await ui.getByText('Completed result · historical simulation', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve|Provider/ }).count(), 0);
   await ui.getByRole('button', { name: 'Back to backtest', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Compare runs');
   await scenario.selectOption('FAILURE');
   await run.press('Enter');
   await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
