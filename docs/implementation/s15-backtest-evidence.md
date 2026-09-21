@@ -8,6 +8,7 @@
 #49 signed-metric validation SHA：`9655290`（`dev`）
 #49 review-fix SHA：`c2e7c33`（`dev`）
 #49 fixture-boundary fix SHA：`ee13d7b`（`dev`）
+#50 compare implementation SHA：`92f3de2e0aec4899aceb81fc82c41e2254595a35`（`dev`）
 
 ## 本票范围
 
@@ -23,6 +24,8 @@
 - manifest/result hash、strategy/dataset identity、冻结日期/成本/seed、历史模拟标记和结果字段在 SQLite 读取时重新验证；tamper、缺字段、hash mismatch、错误 guard 或非历史结果统一 `WORKSPACE_INTEGRITY_FAILED`。`LOOKAHEAD`、`SURVIVORSHIP`、`SPLIT`、`DIVIDEND`、`TIMEZONE`、`DATA_GAP` 和 `DATASET_HASH_MISMATCH` fixture 返回 typed failure，保留冻结输入。
 - 同一规范化输入的重复 run 保持 request hash、manifest、metrics、curve、trades 和 result hash 一致；每次尝试仍生成独立 run ID，修改输入会生成新的 request identity，terminal projection 继续不可变。
 - integration fixture 只在 `integration-test` feature 且 `TRADEX_BACKTEST_FIXTURE=1` 时启用，并在结果显示 `TRADEX_BACKTEST_FIXTURE`。生产路径先在没有可用历史 entitlement/覆盖时返回 `MARKET_HISTORY_UNAVAILABLE`；通过数据门禁后若没有回测引擎才返回 `BACKTEST_RUNTIME_UNAVAILABLE`，不伪造完成结果。
+- #50 增加 workspace-scoped `backtest.list` 持久摘要目录与 `backtest.compare` 查询。目录按最新 sequence 返回有界 run identity；Compare 重新加载并校验两边 projection、request/result/manifest hash、COMPLETED 状态和历史模拟标记，返回完整 run identity、冻结输入与 manifest 差异、metric deltas、curve 摘要和只读限制。same-run、non-completed、unknown、cross-workspace 与 tampered compare 均有 typed negative coverage，查询不写入 workspace。
+- Thread 与 Strategies 继续复用同一个 `BacktestRunPanel` 与 persisted library；进入 Strategies 时强制刷新 `backtest.list`，因此离开 Thread 后仍能发现已保存 completed runs。Compare 页面展示 strategy/data/engine identity、核心指标、curve、input/manifest 差异，并保持 historical-only/no-broker 边界。
 
 ## 验证结果
 
@@ -35,7 +38,7 @@
 | `npm run schema:check`、`npm run typecheck`、`npm run build` | PASS；Rust / JSON Schema / TypeScript 一致，UI 显示 completed metrics、curve、trades、manifest 和 limitations |
 | `npm run test:unit` | PASS：6 个 projection/schema 测试 |
 | `python3 scripts/check_requirements.py` | PASS：201 requirements、70 screens、12 QA scenarios、23 baseline files |
-| `node --check tests/strategy-ui.mjs` | PASS；脚本包含 SUCCESS completed result、manifest/metric/no-broker 断言以及 warn/error console 为空断言 |
+| `node --check tests/strategy-ui.mjs` | PASS；脚本包含两条 SUCCESS completed run、persisted compare、manifest/metric/no-broker 断言、Retry/Cancel/focus、768/390 no-overflow 以及 warn/error console 为空断言 |
 
 ## 隔离浏览器证据
 
@@ -48,4 +51,6 @@
 - SUCCESS 结果显示 run ID、request hash、metrics、equity curve、trade list、manifest、limitations 和 fixture label；页面没有 Trade、Approve、Reserve 或 provider 操作。
 - 1280、768、390 视口的 `scrollWidth` 分别为 `1265/1265`、`753/753`、`375/375`；浏览器 error 日志为零。
 
-该 fixture 和 deterministic engine 只证明本地 schema、状态、持久化、结果 hash、UI 结果表面和 no-broker 边界；它不证明真实历史数据授权、外部 provider entitlement 或生产数据引擎。`TRADEX_BACKTEST_FIXTURE` 明确标记 synthetic fixture；真实数据不可用时生产路径仍返回 `MARKET_HISTORY_UNAVAILABLE`/`BACKTEST_RUNTIME_UNAVAILABLE`。Compare、双入口结果选择和完整 S33 回归仍属于 #50/后续工作。原生 macOS 窗口本票未重复运行，S14 的原生 Strategies 证据仍单独记录。
+2026-09-21 在 `npm run dev:browser` 的真实 Rust stdio/SQLite bridge 中使用新临时 workspace `de2f8601-c3cc-40cd-a9af-39ee6b4eb885`，在当前 `92f3de2e0aec4899aceb81fc82c41e2254595a35` 工作树运行 `checkStrategyUI` 全量脚本并通过。脚本覆盖 Thread→Strategies 双入口、第二条持久 completed run、Compare/Back、failure/retry/cancel/focus 和 768/390 no-overflow；手动复核确认离开 Strategies 后重新进入仍显示两个已保存 run，Compare 展示 strategy/data/engine identity、指标与曲线，页面不含 broker action，warn/error console 为空。
+
+该 fixture 和 deterministic engine 只证明本地 schema、状态、持久化、结果 hash、Compare UI 和 no-broker 边界；它不证明真实历史数据授权、外部 provider entitlement 或生产数据引擎。`TRADEX_BACKTEST_FIXTURE` 明确标记 synthetic fixture；真实数据不可用时生产路径仍返回 `MARKET_HISTORY_UNAVAILABLE`/`BACKTEST_RUNTIME_UNAVAILABLE`。S33 完整回归、原生 macOS 窗口复核以及真实 provider/data 验收仍待后续工作，S14 的原生 Strategies 证据仍单独记录。
