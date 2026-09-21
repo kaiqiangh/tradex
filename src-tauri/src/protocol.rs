@@ -200,6 +200,8 @@ pub enum ReplyData {
     StrategyVersion(Box<StrategyVersion>),
     StrategyRun(Box<StrategyRun>),
     BacktestRun(Box<BacktestRun>),
+    BacktestLibrary(BacktestLibrary),
+    BacktestComparison(Box<BacktestComparison>),
 }
 
 #[derive(JsonSchema)]
@@ -300,6 +302,14 @@ pub struct IpcSchema {
     pub trade_record: TradeRecord,
     pub backtest_result: BacktestResult,
     pub backtest_run: BacktestRun,
+    pub backtest_run_summary: BacktestRunSummary,
+    pub backtest_library: BacktestLibrary,
+    pub backtest_compare_request: BacktestCompareRequest,
+    pub backtest_field_difference: BacktestFieldDifference,
+    pub backtest_metric_delta: BacktestMetricDelta,
+    pub backtest_metric_comparison: BacktestMetricComparison,
+    pub backtest_curve_summary: BacktestCurveSummary,
+    pub backtest_comparison: BacktestComparison,
     pub backtest_run_query: BacktestRunQuery,
     pub backtest_run_request: BacktestRunRequest,
     pub backtest_cancel: BacktestCancel,
@@ -1375,6 +1385,132 @@ pub struct BacktestRun {
     pub updated_at: String,
     #[schemars(length(min = 1, max = 256))]
     pub state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestRunSummary {
+    #[schemars(length(min = 1, max = 128))]
+    pub run_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub strategy_version_id: String,
+    #[schemars(length(min = 1, max = 80))]
+    pub strategy_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub dataset_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub start_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub end_at: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub bar_interval: String,
+    pub state: BacktestRunState,
+    #[schemars(length(min = 1, max = 80))]
+    pub request_hash: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 71, max = 71))]
+    pub result_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 0, max = 100_000))]
+    pub trade_count: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestLibrary {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(max = 256))]
+    pub runs: Vec<BacktestRunSummary>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestCompareRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub left_run_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub right_run_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestFieldDifference {
+    #[schemars(length(min = 1, max = 128))]
+    pub field: String,
+    #[schemars(length(min = 1, max = 16384))]
+    pub left: String,
+    #[schemars(length(min = 1, max = 16384))]
+    pub right: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestMetricDelta {
+    #[schemars(length(min = 1, max = 128))]
+    pub left: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub right: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub difference: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestMetricComparison {
+    #[serde(rename = "return")]
+    pub return_pct: BacktestMetricDelta,
+    pub sharpe: BacktestMetricDelta,
+    pub sortino: BacktestMetricDelta,
+    pub max_drawdown: BacktestMetricDelta,
+    pub win_rate: BacktestMetricDelta,
+    pub profit_factor: BacktestMetricDelta,
+    pub turnover: BacktestMetricDelta,
+    pub trade_count: BacktestMetricDelta,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestCurveSummary {
+    #[schemars(range(min = 1, max = 5_000))]
+    pub point_count: u32,
+    #[schemars(length(min = 1, max = 64))]
+    pub start_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub end_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub start_equity: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub end_equity: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub max_drawdown: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BacktestComparison {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub left: Box<BacktestRun>,
+    pub right: Box<BacktestRun>,
+    pub left_curve: BacktestCurveSummary,
+    pub right_curve: BacktestCurveSummary,
+    #[schemars(length(max = 64))]
+    pub input_differences: Vec<BacktestFieldDifference>,
+    #[schemars(length(max = 64))]
+    pub manifest_differences: Vec<BacktestFieldDifference>,
+    pub metrics: BacktestMetricComparison,
+    pub historical_simulation: bool,
+    #[schemars(length(min = 1, max = 8), inner(length(min = 1, max = 256)))]
+    pub limitations: Vec<String>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -3409,6 +3545,21 @@ impl TradeXError {
                 "retry_backtest_run",
                 "Retry backtest",
             ),
+            "BACKTEST_COMPARE_INVALID" => (
+                "Choose two valid completed backtest runs to compare.",
+                "select_backtest_runs",
+                "Choose runs",
+            ),
+            "BACKTEST_COMPARE_SAME_RUN" => (
+                "Choose two different completed backtest runs.",
+                "select_backtest_runs",
+                "Choose different runs",
+            ),
+            "BACKTEST_COMPARE_NOT_COMPLETED" => (
+                "Only completed backtest runs can be compared.",
+                "select_backtest_runs",
+                "Choose completed runs",
+            ),
             "BACKTEST_RUN_NOT_FOUND" => (
                 "That backtest run is no longer available in this workspace.",
                 "reload_snapshot",
@@ -3619,6 +3770,8 @@ impl TradeXError {
                     | "BACKTEST_RUN_NOT_CANCELLABLE"
                     | "BACKTEST_RUN_TERMINAL_IMMUTABLE"
                     | "BACKTEST_CANCELLED"
+                    | "BACKTEST_COMPARE_SAME_RUN"
+                    | "BACKTEST_COMPARE_NOT_COMPLETED"
             ) {
                 "STATE_STALE"
             } else {

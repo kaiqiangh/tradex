@@ -58,6 +58,21 @@ export async function checkStrategyUI(tab, browser) {
   assert.equal(await ui.getByText('HOLD', { exact: true }).count(), 1);
   assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve/ }).count(), 0);
   assert.equal(await ui.locator('.strategy-result').getAttribute('aria-live'), 'polite');
+  const backtestScenario = ui.getByRole('combobox', { name: 'Backtest integration scenario', exact: true });
+  const backtestRun = ui.getByRole('button', { name: 'Run backtest', exact: true });
+  await backtestScenario.selectOption('SUCCESS');
+  await setFixtureRange();
+  await backtestRun.press('Enter');
+  await ui.getByText('Completed result · historical simulation', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByLabel('Compare left run', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByLabel('Compare right run', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Compare runs', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Backtest comparison', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Equity curve summary', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Run identity', { exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve|Provider/ }).count(), 0);
+  await ui.getByRole('button', { name: 'Back to backtest', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
   await scenario.selectOption('FAILURE');
   await run.press('Enter');
   await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
@@ -72,26 +87,29 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry run');
   await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
-  await ui.getByLabel('Bar interval', { exact: true }).selectOption('1d');
+  await ui.getByRole('combobox', { name: 'Bar interval', exact: true }).selectOption('1d');
   await ui.getByLabel('Starting cash', { exact: true }).fill('100000');
   await ui.getByLabel('Commission', { exact: true }).fill('0');
   await ui.getByLabel('Slippage', { exact: true }).fill('0');
-  const backtestScenario = ui.getByRole('combobox', { name: 'Backtest integration scenario', exact: true });
-  const backtestRun = ui.getByRole('button', { name: 'Run backtest', exact: true });
   await backtestScenario.selectOption('FAILURE');
   await backtestRun.press('Enter');
   await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('BACKTEST_FIXTURE_FAILED:', { exact: false }).waitFor({ state: 'visible' });
   const firstBacktestRun = /Run ([0-9a-f-]+)/.exec(await ui.locator('.strategy-result').last().innerText())?.[1];
   await ui.getByRole('button', { name: 'Retry backtest', exact: true }).press('Enter');
-  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
-  const retriedBacktestRun = /Run ([0-9a-f-]+)/.exec(await ui.locator('.strategy-result').last().innerText())?.[1];
+  let retriedBacktestRun;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    retriedBacktestRun = /Run ([0-9a-f-]+)/.exec(await ui.locator('.strategy-result').last().innerText())?.[1];
+    if (retriedBacktestRun && retriedBacktestRun !== firstBacktestRun) break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
   assert.ok(firstBacktestRun && retriedBacktestRun && firstBacktestRun !== retriedBacktestRun, 'Backtest retry must create a new run ID');
   await backtestScenario.selectOption('CANCELLED');
   await backtestRun.press('Enter');
   await ui.getByText('RUNNING', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Cancel backtest', exact: true }).press('Enter');
   await ui.getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
+  await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry backtest');
   for (const width of [768, 390]) {
     await viewport.set({ width, height: 900 });

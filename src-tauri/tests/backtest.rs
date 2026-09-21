@@ -381,11 +381,111 @@ fn completed_backtest_persists_deterministic_result_and_typed_guards() {
     assert_eq!(equivalent["data"]["startAt"], first["data"]["startAt"]);
     assert_eq!(equivalent["data"]["endAt"], first["data"]["endAt"]);
 
+    let mut variant_request = request(workspace_id, version_id);
+    variant_request["startingCash"] = json!("110000");
+    variant_request["portfolioSeed"] = json!("seed-a");
+    variant_request["fixtureScenario"] = json!("SUCCESS");
+    let variant = command(&mut control, "backtest.run", variant_request);
+    assert_eq!(variant["data"]["state"], "COMPLETED", "{variant}");
+    let library = command(
+        &mut control,
+        "backtest.list",
+        json!({"workspaceId": workspace_id}),
+    );
+    assert_eq!(library["ok"], true, "{library}");
+    assert!(library["data"]["runs"].as_array().unwrap().len() >= 3);
+    let comparison = command(
+        &mut control,
+        "backtest.compare",
+        json!({
+            "workspaceId": workspace_id,
+            "leftRunId": first["data"]["runId"],
+            "rightRunId": variant["data"]["runId"],
+        }),
+    );
+    assert_eq!(comparison["ok"], true, "{comparison}");
+    assert_eq!(comparison["data"]["historicalSimulation"], true);
+    assert_eq!(comparison["data"]["left"]["runId"], first["data"]["runId"]);
+    assert_eq!(
+        comparison["data"]["right"]["runId"],
+        variant["data"]["runId"]
+    );
+    assert_eq!(comparison["data"]["metrics"]["return"]["difference"], "0");
+    assert!(
+        comparison["data"]["inputDifferences"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["field"] == "startingCash")
+    );
+    assert!(
+        comparison["data"]["inputDifferences"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["field"] == "portfolioSeed" && item["left"] == "None")
+    );
+    assert_eq!(
+        command(
+            &mut control,
+            "backtest.compare",
+            json!({
+                "workspaceId": workspace_id,
+                "leftRunId": first["data"]["runId"],
+                "rightRunId": first["data"]["runId"],
+            }),
+        )["error"]["code"],
+        "BACKTEST_COMPARE_SAME_RUN"
+    );
+
+    let other_path = directory.path().join("compare-other-workspace");
+    let mut other = ControlPlane::new(other_path);
+    let other_opened = command(&mut other, "workspace.open", json!({}));
+    let other_workspace_id = other_opened["data"]["workspaceId"].as_str().unwrap();
+    let cross_workspace = command(
+        &mut other,
+        "backtest.compare",
+        json!({
+            "workspaceId": other_workspace_id,
+            "leftRunId": first["data"]["runId"],
+            "rightRunId": variant["data"]["runId"],
+        }),
+    );
+    assert_eq!(
+        cross_workspace["error"]["code"], "BACKTEST_RUN_NOT_FOUND",
+        "{cross_workspace}"
+    );
+    drop(other);
+
     let mut guard_request = request(workspace_id, version_id);
     guard_request["fixtureScenario"] = json!("DATA_GAP");
     let guard = command(&mut control, "backtest.run", guard_request);
     assert_eq!(guard["data"]["state"], "FAILED", "{guard}");
     assert_eq!(guard["data"]["failure"]["code"], "BACKTEST_DATA_GAP");
+    assert_eq!(
+        command(
+            &mut control,
+            "backtest.compare",
+            json!({
+                "workspaceId": workspace_id,
+                "leftRunId": first["data"]["runId"],
+                "rightRunId": guard["data"]["runId"],
+            }),
+        )["error"]["code"],
+        "BACKTEST_COMPARE_NOT_COMPLETED"
+    );
+    assert_eq!(
+        command(
+            &mut control,
+            "backtest.compare",
+            json!({
+                "workspaceId": workspace_id,
+                "leftRunId": first["data"]["runId"],
+                "rightRunId": "unknown-run",
+            }),
+        )["error"]["code"],
+        "BACKTEST_RUN_NOT_FOUND"
+    );
 
     let run_id = first["data"]["runId"].as_str().unwrap();
     let database = rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
@@ -405,12 +505,17 @@ fn completed_backtest_persists_deterministic_result_and_typed_guards() {
         )
         .unwrap();
     drop(database);
+    let tampered_compare = command(
+        &mut control,
+        "backtest.compare",
+        json!({
+            "workspaceId": workspace_id,
+            "leftRunId": run_id,
+            "rightRunId": variant["data"]["runId"],
+        }),
+    );
     assert_eq!(
-        command(
-            &mut control,
-            "backtest.get",
-            json!({"workspaceId": workspace_id, "runId": run_id}),
-        )["error"]["code"],
-        "WORKSPACE_INTEGRITY_FAILED"
+        tampered_compare["error"]["code"], "WORKSPACE_INTEGRITY_FAILED",
+        "{tampered_compare}"
     );
 }

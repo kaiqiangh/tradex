@@ -1753,6 +1753,7 @@ strategy.save_version
 backtest.run
 backtest.cancel
 backtest.get
+backtest.list
 backtest.compare
 ```
 
@@ -1816,7 +1817,7 @@ State versions are opaque backend tokens, scoped to the returned aggregate. Deci
 
 #### 41.1.1 Backtest lifecycle payloads (S15)
 
-`backtest.run`, `backtest.get`, and `backtest.cancel` use schema version 1 and are workspace-scoped. `backtest.run` accepts only the bounded frozen configuration below; the renderer cannot submit a run ID, state, request hash, observed timestamp, engine version, or state version. The backend resolves the saved strategy hash and trusted time, then persists a queued run before any worker starts.
+`backtest.run`, `backtest.get`, `backtest.list`, `backtest.compare`, and `backtest.cancel` use schema version 1 and are workspace-scoped. `backtest.run` accepts only the bounded frozen configuration below; the renderer cannot submit a run ID, state, request hash, observed timestamp, engine version, or state version. The backend resolves the saved strategy hash and trusted time, then persists a queued run before any worker starts.
 
 ```ts
 interface BacktestRunRequest {
@@ -1839,6 +1840,43 @@ interface BacktestCancel {
   workspaceId: string;
   runId: string;
   expectedStateVersion: string;
+}
+interface BacktestRunSummary {
+  runId: string;
+  strategyVersionId: string;
+  strategyHash: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string;
+  endAt: string;
+  barInterval: string;
+  state: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  requestHash: string;
+  updatedAt: string;
+  resultHash?: string;
+  tradeCount?: number;
+}
+interface BacktestLibrary {
+  workspaceId: string;
+  stateVersion: string;
+  runs: BacktestRunSummary[];
+}
+interface BacktestCompareRequest {
+  workspaceId: string;
+  leftRunId: string;
+  rightRunId: string;
+}
+interface BacktestComparison {
+  workspaceId: string;
+  left: BacktestRun;
+  right: BacktestRun;
+  leftCurve: {pointCount: number; startAt: string; endAt: string; startEquity: string; endEquity: string; maxDrawdown: string};
+  rightCurve: {pointCount: number; startAt: string; endAt: string; startEquity: string; endEquity: string; maxDrawdown: string};
+  inputDifferences: Array<{field: string; left: string; right: string}>;
+  manifestDifferences: Array<{field: string; left: string; right: string}>;
+  metrics: Record<string, {left: string; right: string; difference: string}>;
+  historicalSimulation: boolean;
+  limitations: string[];
 }
 interface BacktestManifest {
   strategyVersion: string;
@@ -1902,6 +1940,8 @@ interface BacktestRun {
 When `parameters` is omitted or an empty array is supplied, the backend uses the saved strategy version's parameters. `fixtureScenario` is accepted only by the integration-test fixture and is never a production runtime control.
 
 `backtest.get` accepts `{workspaceId, runId}` and returns the complete frozen configuration, `runId`, `requestHash`, `state`, failure/remediation when applicable, and the opaque `stateVersion`. A `COMPLETED` response includes a hash-checked `BacktestResult` with the full metric set, equity curve, trade list, six data guard checks, limitations and reproducibility manifest. Missing fields, tampered hashes, mismatched strategy/dataset identity or a non-historical result fail closed. The stable request identity is the SHA-256 of the canonical strategy/version/hash, dataset hash, instrument, dataset, date range, timezone, calendar/adjustment assumptions, bar interval, normalized costs, starting cash, portfolio seed, parameters, runtime and engine versions; observation time is metadata and is excluded from identity. Run IDs are unique per attempt, so a retry keeps the same request identity while creating a new run identity.
+
+`backtest.list` accepts {workspaceId} and returns a bounded, workspace-scoped `BacktestLibrary` of persisted summaries, ordered newest first. The backend revalidates every projection before returning it; the library is a selector for the compare flow and does not grant execution authority. `backtest.compare` accepts exactly two distinct run IDs and reloads both projections before constructing `BacktestComparison`. Both runs must belong to the active workspace, be `COMPLETED`, have valid request/result/manifest identities and `historicalSimulation=true`; unknown, cross-workspace, same-run, non-completed or tampered identities fail closed without mutation. The response retains both full run identities and bounded input/manifest/metric/curve differences. Compare is read-only historical analysis and never invokes a broker, order, approval, reservation, gateway or provider mutation. A model-unavailable state does not clear this persisted library or completed results.
 
 The persisted state machine is `QUEUED -> RUNNING -> COMPLETED|FAILED|CANCELLED` (a queued run may fail or cancel before running). Every transition is an immediate SQLite transaction with a state-version compare-and-swap. A stale cancel token returns `STATE_STALE / STATE_VERSION_CONFLICT` without mutation; a missing token fails the version-1 payload schema before dispatch. Terminal projections are immutable. Reopening a workspace reconciles queued/running runs to typed `CANCELLED` state. Backtest workers never place broker orders or invoke execution accounts.
 

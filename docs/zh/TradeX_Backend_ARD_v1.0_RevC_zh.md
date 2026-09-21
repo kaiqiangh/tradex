@@ -1753,6 +1753,7 @@ strategy.save_version
 backtest.run
 backtest.cancel
 backtest.get
+backtest.list
 backtest.compare
 ```
 
@@ -1816,7 +1817,7 @@ interface TradeXError {
 
 #### 41.1.1 回测生命周期 payload（S15）
 
-`backtest.run`、`backtest.get` 和 `backtest.cancel` 使用版本 1 且限定在当前 workspace。`backtest.run` 只接受以下有界冻结配置；renderer 不能提交 run ID、state、request hash、观测时间、引擎版本或 state version。后端解析已保存的 strategy hash 和可信时间，并在 worker 启动前持久化 QUEUED run。
+`backtest.run`、`backtest.get`、`backtest.list`、`backtest.compare` 和 `backtest.cancel` 使用版本 1 且限定在当前 workspace。`backtest.run` 只接受以下有界冻结配置；renderer 不能提交 run ID、state、request hash、观测时间、引擎版本或 state version。后端解析已保存的 strategy hash 和可信时间，并在 worker 启动前持久化 QUEUED run。
 
 ```ts
 interface BacktestRunRequest {
@@ -1839,6 +1840,43 @@ interface BacktestCancel {
   workspaceId: string;
   runId: string;
   expectedStateVersion: string;
+}
+interface BacktestRunSummary {
+  runId: string;
+  strategyVersionId: string;
+  strategyHash: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string;
+  endAt: string;
+  barInterval: string;
+  state: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  requestHash: string;
+  updatedAt: string;
+  resultHash?: string;
+  tradeCount?: number;
+}
+interface BacktestLibrary {
+  workspaceId: string;
+  stateVersion: string;
+  runs: BacktestRunSummary[];
+}
+interface BacktestCompareRequest {
+  workspaceId: string;
+  leftRunId: string;
+  rightRunId: string;
+}
+interface BacktestComparison {
+  workspaceId: string;
+  left: BacktestRun;
+  right: BacktestRun;
+  leftCurve: {pointCount: number; startAt: string; endAt: string; startEquity: string; endEquity: string; maxDrawdown: string};
+  rightCurve: {pointCount: number; startAt: string; endAt: string; startEquity: string; endEquity: string; maxDrawdown: string};
+  inputDifferences: Array<{field: string; left: string; right: string}>;
+  manifestDifferences: Array<{field: string; left: string; right: string}>;
+  metrics: Record<string, {left: string; right: string; difference: string}>;
+  historicalSimulation: boolean;
+  limitations: string[];
 }
 interface BacktestManifest {
   strategyVersion: string;
@@ -1902,6 +1940,8 @@ interface BacktestRun {
 省略 `parameters` 或传入空数组时，后端使用已保存 strategy version 的参数。`fixtureScenario` 仅由集成测试 fixture 接受，生产运行时不得使用。
 
 `backtest.get` 接受 `{workspaceId, runId}`，返回完整冻结配置、`runId`、`requestHash`、`state`、适用时的 failure/remediation 以及不透明 `stateVersion`。`COMPLETED` 响应包含经过 hash 校验的 `BacktestResult`，涵盖完整指标集、equity curve、trade list、六项数据 guard、限制说明和可复现 manifest。字段缺失、hash 被篡改、strategy/dataset identity 不匹配或结果不是历史模拟时必须 fail closed。稳定 request identity 是 strategy/version/hash、dataset hash、instrument、dataset、日期范围、时区、calendar/adjustment 假设、bar interval、规范化成本、starting cash、portfolio seed、parameters、runtime 和 engine version 的 canonical SHA-256；观测时间是 metadata，不参与 identity。同一配置的 retry 保持 request identity，但每次产生新的 run identity。
+
+`backtest.list` 接受 {workspaceId}，返回按最新优先排序的、有界、workspace 作用域 `BacktestLibrary` 持久化摘要。后端在返回前重新校验每个 projection；该目录只用于 compare 选择，不授予执行权限。`backtest.compare` 恰好接受两个不同 run ID，并在构造 `BacktestComparison` 前重新加载两个 projection。两个 run 必须属于当前 workspace、均为 `COMPLETED`，且 request/result/manifest identity 有效并满足 `historicalSimulation=true`；未知、跨 workspace、同一 run、未完成或被篡改的 identity 必须 fail closed 且不产生修改。响应保留两侧完整 run identity 以及有界 input/manifest/metric/curve 差异。Compare 只读历史分析，永远不调用 broker、order、approval、reservation、gateway 或 provider mutation。模型不可用时，不得清空该持久化目录或已完成结果。
 
 持久化状态机为 `QUEUED -> RUNNING -> COMPLETED|FAILED|CANCELLED`（QUEUED 可在启动前 FAILED 或 CANCELLED）。每次迁移都在 SQLite immediate transaction 中执行并进行 state-version compare-and-swap。过期的 cancel token 返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态；缺失 token 会在派发前被版本 1 payload schema 拒绝。terminal projection 不可变。重新打开 workspace 时，QUEUED/RUNNING run 会被对账为带类型的 `CANCELLED`。回测 worker 永不提交券商订单，也不调用 execution account。
 

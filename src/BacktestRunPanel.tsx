@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BacktestFixtureScenario, BacktestResult, BacktestRun, BacktestRunRequest, StrategyVersion } from '../shared/ipc-types.ts';
+import type { BacktestComparison, BacktestFixtureScenario, BacktestResult, BacktestRun, BacktestRunRequest, StrategyVersion } from '../shared/ipc-types.ts';
 import { browserIntegration, CommandError, explainError, request } from './client.ts';
 
 const activeStates = ['QUEUED', 'RUNNING'];
@@ -55,6 +55,25 @@ function BacktestResultView({ result, titleId }: { result: BacktestResult; title
   </section>;
 }
 
+function BacktestComparisonView({ comparison, onBack, titleId }: { comparison: BacktestComparison; onBack: () => void; titleId: string }) {
+  const metricRows = Object.entries(comparison.metrics) as Array<[string, { left: string; right: string; difference: string }]>;
+  const renderDifferences = (title: string, differences: BacktestComparison['inputDifferences']) => <section aria-labelledby={titleId + '-' + title}>
+    <h4 id={titleId + '-' + title}>{title}</h4>
+    {differences.length ? <div className="table-scroll"><table><caption className="sr-only">{title}</caption><thead><tr><th scope="col">Field</th><th scope="col">Left</th><th scope="col">Right</th></tr></thead><tbody>{differences.map(item => <tr key={item.field}><th scope="row">{item.field}</th><td>{item.left}</td><td>{item.right}</td></tr>)}</tbody></table></div> : <p className="form-hint">No differences.</p>}
+  </section>;
+  return <section className="strategy-result" aria-labelledby={titleId} aria-live="polite">
+    <div className="form-actions"><button type="button" onClick={onBack}>Back to backtest</button></div>
+    <h3 id={titleId}>Backtest comparison</h3>
+    <p className="form-hint">Historical simulation only. Comparison is read-only and cannot place trades or call a provider.</p>
+    <div className="table-scroll"><table><caption className="sr-only">Backtest metric comparison</caption><thead><tr><th scope="col">Metric</th><th scope="col">Left</th><th scope="col">Right</th><th scope="col">Difference</th></tr></thead><tbody>{metricRows.map(([name, value]) => <tr key={name}><th scope="row">{name}</th><td>{value.left}</td><td>{value.right}</td><td>{value.difference}</td></tr>)}</tbody></table></div>
+    <section aria-labelledby={titleId + '-identity'}><h4 id={titleId + '-identity'}>Run identity</h4><dl><div><dt>Left run</dt><dd>{comparison.left.runId}</dd></div><div><dt>Right run</dt><dd>{comparison.right.runId}</dd></div><div><dt>Left request</dt><dd>{comparison.left.requestHash}</dd></div><div><dt>Right request</dt><dd>{comparison.right.requestHash}</dd></div><div><dt>Strategy</dt><dd>{comparison.left.strategyVersionId} · {comparison.left.strategyHash} → {comparison.right.strategyVersionId} · {comparison.right.strategyHash}</dd></div><div><dt>Dataset</dt><dd>{comparison.left.instrumentId} · {comparison.left.datasetId} → {comparison.right.instrumentId} · {comparison.right.datasetId}</dd></div><div><dt>Engine</dt><dd>{comparison.left.result?.manifest.engineVersion ?? 'Unavailable'} · {comparison.left.result?.manifest.runtimeVersion ?? 'Unavailable'} → {comparison.right.result?.manifest.engineVersion ?? 'Unavailable'} · {comparison.right.result?.manifest.runtimeVersion ?? 'Unavailable'}</dd></div></dl></section>
+    <section aria-labelledby={titleId + '-curve'}><h4 id={titleId + '-curve'}>Equity curve summary</h4><dl><div><dt>Left points</dt><dd>{comparison.leftCurve.pointCount} · {comparison.leftCurve.startEquity} → {comparison.leftCurve.endEquity}</dd></div><div><dt>Right points</dt><dd>{comparison.rightCurve.pointCount} · {comparison.rightCurve.startEquity} → {comparison.rightCurve.endEquity}</dd></div><div><dt>Max drawdown</dt><dd>{comparison.leftCurve.maxDrawdown} → {comparison.rightCurve.maxDrawdown}</dd></div></dl></section>
+    {renderDifferences('Input differences', comparison.inputDifferences)}
+    {renderDifferences('Manifest differences', comparison.manifestDifferences)}
+    <ul>{comparison.limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul>
+  </section>;
+}
+
 type Props = {
   workspaceId: string;
   strategy?: StrategyVersion;
@@ -102,6 +121,9 @@ export function BacktestRunPanel({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [leftRunId, setLeftRunId] = useState('');
+  const [rightRunId, setRightRunId] = useState('');
+  const [compareRequest, setCompareRequest] = useState<{ workspaceId: string; leftRunId: string; rightRunId: string }>();
   const actionRef = useRef<HTMLButtonElement | null>(null);
   const retryRef = useRef<HTMLButtonElement | null>(null);
 
@@ -116,6 +138,17 @@ export function BacktestRunPanel({
     refetchInterval: 250,
   });
   const queriedRun = runQuery.data ?? displayedRun;
+  const backtestLibrary = useQuery({
+    queryKey: ['backtest-library', workspaceId],
+    queryFn: () => request('backtest.list', { workspaceId }),
+    refetchOnMount: 'always',
+  });
+  const completedRuns = backtestLibrary.data?.runs.filter(item => item.state === 'COMPLETED') ?? [];
+  const comparisonQuery = useQuery({
+    queryKey: ['backtest-compare', compareRequest],
+    queryFn: () => request('backtest.compare', compareRequest!),
+    enabled: Boolean(compareRequest),
+  });
 
   useEffect(() => {
     if (strategy) setSelectedStrategyId(strategy.strategyVersionId);
@@ -126,6 +159,15 @@ export function BacktestRunPanel({
   useEffect(() => {
     if (runQuery.data) setRun(runQuery.data);
   }, [runQuery.data]);
+  useEffect(() => {
+    if (completedRuns.length >= 2) {
+      setLeftRunId(current => completedRuns.some(item => item.runId === current) ? current : completedRuns[0].runId);
+      setRightRunId(current => completedRuns.some(item => item.runId === current && item.runId !== leftRunId) ? current : completedRuns[1].runId);
+    } else {
+      setLeftRunId('');
+      setRightRunId('');
+    }
+  }, [backtestLibrary.data?.stateVersion]);
   useEffect(() => {
     if (!busy && actionRef.current && queriedRun && !activeStates.includes(queriedRun.state)) {
       const target = actionRef.current.disabled ? retryRef.current : actionRef.current;
@@ -193,6 +235,7 @@ export function BacktestRunPanel({
     try {
       setRun(await request('backtest.run', requestInput));
       await queryClient.invalidateQueries({ queryKey: ['strategies', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['backtest-library', workspaceId] });
     } catch (cause) {
       if (cause instanceof CommandError && cause.detail.field) {
         const field = ({ instrumentId: 'instrument', datasetId: 'dataset', strategyVersionId: 'strategy' } as Record<string, string>)[cause.detail.field] ?? cause.detail.field;
@@ -224,8 +267,8 @@ export function BacktestRunPanel({
     <div className="form-grid">
       <label className="field">Instrument<input value={instrumentId} aria-invalid={Boolean(fieldErrors.instrument)} aria-describedby={fieldErrors.instrument ? errorId('instrument') : undefined} onChange={event => setInstrument(event.target.value)} />{fieldMessage('instrument')}</label>
       <label className="field">Dataset<input value={datasetId} aria-invalid={Boolean(fieldErrors.dataset)} aria-describedby={fieldErrors.dataset ? errorId('dataset') : undefined} onChange={event => setDataset(event.target.value)} />{fieldMessage('dataset')}</label>
-      <label className="field">Start date<input type="datetime-local" value={startAt} aria-invalid={Boolean(fieldErrors.startAt)} aria-describedby={fieldErrors.startAt ? errorId('startAt') : undefined} onChange={event => setStartAt(event.target.value)} />{fieldMessage('startAt')}</label>
-      <label className="field">End date<input type="datetime-local" value={endAt} aria-invalid={Boolean(fieldErrors.endAt)} aria-describedby={fieldErrors.endAt ? errorId('endAt') : undefined} onChange={event => setEndAt(event.target.value)} />{fieldMessage('endAt')}</label>
+      <label className="field">Start date<input type="datetime-local" value={startAt} aria-invalid={Boolean(fieldErrors.startAt)} aria-describedby={fieldErrors.startAt ? errorId('startAt') : undefined} onInput={event => setStartAt(event.currentTarget.value)} onChange={event => setStartAt(event.target.value)} />{fieldMessage('startAt')}</label>
+      <label className="field">End date<input type="datetime-local" value={endAt} aria-invalid={Boolean(fieldErrors.endAt)} aria-describedby={fieldErrors.endAt ? errorId('endAt') : undefined} onInput={event => setEndAt(event.currentTarget.value)} onChange={event => setEndAt(event.target.value)} />{fieldMessage('endAt')}</label>
       <label className="field">Bar interval<select value={barInterval} aria-invalid={Boolean(fieldErrors.barInterval)} aria-describedby={fieldErrors.barInterval ? errorId('barInterval') : undefined} onChange={event => setBarInterval(event.target.value)}><option value="1m">1 minute</option><option value="5m">5 minutes</option><option value="15m">15 minutes</option><option value="30m">30 minutes</option><option value="1h">1 hour</option><option value="1d">1 day</option></select>{fieldMessage('barInterval')}</label>
       <label className="field">Starting cash<input inputMode="decimal" value={startingCash} aria-invalid={Boolean(fieldErrors.startingCash)} aria-describedby={fieldErrors.startingCash ? errorId('startingCash') : undefined} onChange={event => setStartingCash(event.target.value)} />{fieldMessage('startingCash')}</label>
       <label className="field">Commission<input inputMode="decimal" value={commission} aria-invalid={Boolean(fieldErrors.commission)} aria-describedby={fieldErrors.commission ? errorId('commission') : undefined} onChange={event => setCommission(event.target.value)} />{fieldMessage('commission')}</label>
@@ -239,6 +282,16 @@ export function BacktestRunPanel({
       <button ref={retryRef} type="button" disabled={busy || !lastRequest || !queriedRun || activeStates.includes(queriedRun.state)} onFocus={event => { actionRef.current = event.currentTarget; }} onClick={event => { actionRef.current = event.currentTarget; void execute(lastRequest); }}>Retry backtest</button>
     </div>
     {error && <p className="error-text" role="alert">{error}</p>}
+    <section className="strategy-compare" aria-labelledby={'backtest-compare-title-' + panelId}>
+      <h3 id={'backtest-compare-title-' + panelId}>Compare completed runs</h3>
+      <p className="form-hint">Select two saved completed runs from this workspace. Results stay historical and read-only.</p>
+      {backtestLibrary.isPending && <p role="status">Loading saved backtests…</p>}
+      {backtestLibrary.isError && <><p className="error-banner" role="alert">Saved backtests are unavailable.</p><button type="button" onClick={() => void backtestLibrary.refetch()}>Reload saved backtests</button></>}
+      {!backtestLibrary.isPending && !backtestLibrary.isError && completedRuns.length < 2 && <p className="form-hint">Complete a second backtest to compare runs.</p>}
+      {completedRuns.length >= 2 && <div className="form-grid"><label className="field">Left run<select aria-label="Compare left run" value={leftRunId} onChange={event => setLeftRunId(event.target.value)}>{completedRuns.map(item => <option key={item.runId} value={item.runId}>{item.runId} · {item.updatedAt}</option>)}</select></label><label className="field">Right run<select aria-label="Compare right run" value={rightRunId} onChange={event => setRightRunId(event.target.value)}>{completedRuns.map(item => <option key={item.runId} value={item.runId}>{item.runId} · {item.updatedAt}</option>)}</select></label><div className="form-actions"><button type="button" className="primary" disabled={!leftRunId || !rightRunId || leftRunId === rightRunId || comparisonQuery.isFetching} onClick={() => { setError(undefined); setCompareRequest({ workspaceId, leftRunId, rightRunId }); }}>{comparisonQuery.isFetching ? 'Comparing…' : 'Compare runs'}</button></div></div>}
+      {comparisonQuery.isError && <p className="error-text" role="alert">{explainError(comparisonQuery.error)} <button type="button" onClick={() => void comparisonQuery.refetch()}>Retry compare</button></p>}
+      {comparisonQuery.data && <BacktestComparisonView comparison={comparisonQuery.data} onBack={() => { setCompareRequest(undefined); }} titleId={'backtest-comparison-title-' + panelId} />}
+    </section>
     {queriedRun && <div className="strategy-result" aria-live="polite"><strong>{queriedRun.state}</strong><span>Run {queriedRun.runId}</span><span>Config {queriedRun.requestHash}</span><FrozenConfiguration run={queriedRun} titleId={`backtest-frozen-title-${panelId}`} />{queriedRun.result && <BacktestResultView result={queriedRun.result} titleId={`backtest-result-title-${panelId}`} />}{queriedRun.failure && <><p role="alert">{queriedRun.failure.code}: {queriedRun.failure.reason}</p>{queriedRun.failure.remediation?.length ? <ul><li>{queriedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{queriedRun.fixtureLabel && <p className="form-hint">Integration fixture: {queriedRun.fixtureLabel}</p>}</div>}
     {!selected && <p className="form-hint">Select a saved version before running a backtest.</p>}
   </section>;

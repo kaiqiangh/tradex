@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCancel } from '../shared/ipc-types.ts';
+import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 
 interface Inputs {
@@ -73,6 +73,8 @@ interface Inputs {
   'strategy.run': StrategyRunRequest;
   'strategy.cancel': StrategyCancel;
   'backtest.get': BacktestRunQuery;
+  'backtest.list': WorkspaceQuery;
+  'backtest.compare': BacktestCompareRequest;
   'backtest.run': BacktestRunRequest;
   'backtest.cancel': BacktestCancel;
 }
@@ -147,6 +149,8 @@ interface Outputs {
   'strategy.run': StrategyRun;
   'strategy.cancel': StrategyRun;
   'backtest.get': BacktestRun;
+  'backtest.list': BacktestLibrary;
+  'backtest.compare': BacktestComparison;
   'backtest.run': BacktestRun;
   'backtest.cancel': BacktestRun;
 }
@@ -221,6 +225,8 @@ const definitions = {
   'strategy.run': ['StrategyRunRequest', 'StrategyRun'],
   'strategy.cancel': ['StrategyCancel', 'StrategyRun'],
   'backtest.get': ['BacktestRunQuery', 'BacktestRun'],
+  'backtest.list': ['WorkspaceQuery', 'BacktestLibrary'],
+  'backtest.compare': ['BacktestCompareRequest', 'BacktestComparison'],
   'backtest.run': ['BacktestRunRequest', 'BacktestRun'],
   'backtest.cancel': ['BacktestCancel', 'BacktestRun'],
 } as const;

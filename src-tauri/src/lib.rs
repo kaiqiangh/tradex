@@ -25,14 +25,16 @@ pub mod time;
 use capability::{CapabilityQuery, ResearchToolId};
 use protocol::{
     Aggregate, Artifact, ArtifactContent, ArtifactExport, ArtifactProvenance, ArtifactQuery,
-    ArtifactSave, BacktestCancel, BacktestFailure, BacktestRun, BacktestRunQuery,
-    BacktestRunRequest, BacktestRunState, CommandEnvelope, DataSourceProbe, DataSourceQuery,
-    DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery,
-    MarketTier, OpenWorkspace, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result,
-    RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure,
-    StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategyRunState,
-    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
-    ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    ArtifactSave, BacktestCancel, BacktestCompareRequest, BacktestComparison, BacktestCurveSummary,
+    BacktestFailure, BacktestFieldDifference, BacktestMetricComparison, BacktestMetricDelta,
+    BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestRunState, CommandEnvelope,
+    DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
+    MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace, PortfolioQuery, ResearchFinding,
+    ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel,
+    StrategyFailure, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest,
+    StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
+    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry,
+    TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -885,6 +887,16 @@ impl ControlPlane {
                 self.require_workspace(&input.workspace_id)?;
                 let run = self.store.as_ref().unwrap().backtest_run(&input.run_id)?;
                 Ok((json!(run), Some(run.state_version.clone())))
+            }
+            "backtest.list" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let library = self.store.as_ref().unwrap().backtest_runs()?;
+                Ok((json!(library), Some(library.state_version.clone())))
+            }
+            "backtest.compare" => {
+                let input: BacktestCompareRequest = payload(request.payload)?;
+                self.compare_backtests(input)
             }
             "backtest.run" => {
                 let input: BacktestRunRequest = payload(request.payload)?;
@@ -2052,6 +2064,57 @@ impl ControlPlane {
         let outcome = backtest::execute(&prepared.input, &prepared.run, None);
         let run = self.finish_backtest(&prepared, outcome)?;
         Ok((json!(run), Some(run.state_version.clone())))
+    }
+
+    fn compare_backtests(
+        &mut self,
+        input: BacktestCompareRequest,
+    ) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        if invalid_backtest_compare_id(&input.left_run_id)
+            || invalid_backtest_compare_id(&input.right_run_id)
+        {
+            return Err(TradeXError::new("BACKTEST_COMPARE_INVALID"));
+        }
+        if input.left_run_id == input.right_run_id {
+            return Err(TradeXError::new("BACKTEST_COMPARE_SAME_RUN"));
+        }
+        let store = self.store.as_ref().unwrap();
+        let left = store.backtest_run(&input.left_run_id)?;
+        let right = store.backtest_run(&input.right_run_id)?;
+        if left.state != BacktestRunState::Completed || right.state != BacktestRunState::Completed {
+            return Err(TradeXError::new("BACKTEST_COMPARE_NOT_COMPLETED"));
+        }
+        let left_result = left
+            .result
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        let right_result = right
+            .result
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        let comparison = BacktestComparison {
+            workspace_id: input.workspace_id,
+            left_curve: curve_summary(left_result)?,
+            right_curve: curve_summary(right_result)?,
+            input_differences: input_differences(&left, &right)?,
+            manifest_differences: manifest_differences(left_result, right_result)?,
+            metrics: metric_comparison(&left_result.metrics, &right_result.metrics)?,
+            historical_simulation: left_result.historical_simulation
+                && right_result.historical_simulation,
+            limitations: vec![
+                "HISTORICAL_SIMULATION_ONLY".into(),
+                "COMPARISON_READ_ONLY".into(),
+                "SYNTHETIC_FIXTURE_NOT_PROVIDER_DATA".into(),
+            ],
+            left: Box::new(left),
+            right: Box::new(right),
+        };
+        let state_version = format!(
+            "backtest-compare:{}:{}",
+            comparison.left.run_id, comparison.right.run_id
+        );
+        Ok((json!(comparison), Some(state_version)))
     }
 
     fn cancel_backtest(&mut self, input: BacktestCancel) -> Result<BacktestRun> {
@@ -4000,6 +4063,270 @@ fn runtime_event_key(event: &codex_runtime::RuntimeEvent) -> String {
         | codex_runtime::RuntimeEvent::ItemDelta { key, .. }
         | codex_runtime::RuntimeEvent::ItemCompleted { key, .. } => key.clone(),
     }
+}
+
+fn invalid_backtest_compare_id(value: &str) -> bool {
+    value.is_empty() || value.len() > 128 || value.chars().any(char::is_control)
+}
+
+fn metric_delta(left: &str, right: &str) -> Result<BacktestMetricDelta> {
+    let negated_right = if let Some(value) = right.strip_prefix('-') {
+        value.to_owned()
+    } else {
+        format!("-{right}")
+    };
+    Ok(BacktestMetricDelta {
+        left: left.into(),
+        right: right.into(),
+        difference: portfolio::decimal_add(left, &negated_right)?,
+    })
+}
+
+fn metric_comparison(
+    left: &protocol::BacktestMetrics,
+    right: &protocol::BacktestMetrics,
+) -> Result<BacktestMetricComparison> {
+    Ok(BacktestMetricComparison {
+        return_pct: metric_delta(&left.return_pct, &right.return_pct)?,
+        sharpe: metric_delta(&left.sharpe, &right.sharpe)?,
+        sortino: metric_delta(&left.sortino, &right.sortino)?,
+        max_drawdown: metric_delta(&left.max_drawdown, &right.max_drawdown)?,
+        win_rate: metric_delta(&left.win_rate, &right.win_rate)?,
+        profit_factor: metric_delta(&left.profit_factor, &right.profit_factor)?,
+        turnover: metric_delta(&left.turnover, &right.turnover)?,
+        trade_count: metric_delta(
+            &left.trade_count.to_string(),
+            &right.trade_count.to_string(),
+        )?,
+    })
+}
+
+fn input_differences(
+    left: &BacktestRun,
+    right: &BacktestRun,
+) -> Result<Vec<BacktestFieldDifference>> {
+    let values = [
+        (
+            "strategyVersionId",
+            left.strategy_version_id.clone(),
+            right.strategy_version_id.clone(),
+        ),
+        (
+            "strategyHash",
+            left.strategy_hash.clone(),
+            right.strategy_hash.clone(),
+        ),
+        (
+            "instrumentId",
+            left.instrument_id.clone(),
+            right.instrument_id.clone(),
+        ),
+        (
+            "datasetId",
+            left.dataset_id.clone(),
+            right.dataset_id.clone(),
+        ),
+        ("startAt", left.start_at.clone(), right.start_at.clone()),
+        ("endAt", left.end_at.clone(), right.end_at.clone()),
+        (
+            "barInterval",
+            left.bar_interval.clone(),
+            right.bar_interval.clone(),
+        ),
+        (
+            "startingCash",
+            left.starting_cash.clone(),
+            right.starting_cash.clone(),
+        ),
+        (
+            "commission",
+            left.commission.clone(),
+            right.commission.clone(),
+        ),
+        ("slippage", left.slippage.clone(), right.slippage.clone()),
+        (
+            "portfolioSeed",
+            left.portfolio_seed.clone().unwrap_or_else(|| "None".into()),
+            right
+                .portfolio_seed
+                .clone()
+                .unwrap_or_else(|| "None".into()),
+        ),
+        (
+            "parameters",
+            serde_json::to_string(&left.parameters)
+                .map_err(|_| TradeXError::new("BACKTEST_COMPARE_INVALID"))?,
+            serde_json::to_string(&right.parameters)
+                .map_err(|_| TradeXError::new("BACKTEST_COMPARE_INVALID"))?,
+        ),
+        (
+            "requestHash",
+            left.request_hash.clone(),
+            right.request_hash.clone(),
+        ),
+    ];
+    Ok(values
+        .into_iter()
+        .filter(|(_, left, right)| left != right)
+        .map(|(field, left, right)| BacktestFieldDifference {
+            field: field.into(),
+            left,
+            right,
+        })
+        .collect())
+}
+
+fn manifest_differences(
+    left: &protocol::BacktestResult,
+    right: &protocol::BacktestResult,
+) -> Result<Vec<BacktestFieldDifference>> {
+    let left_manifest = &left.manifest;
+    let right_manifest = &right.manifest;
+    let values = [
+        (
+            "strategyVersion",
+            left_manifest.strategy_version.clone(),
+            right_manifest.strategy_version.clone(),
+        ),
+        (
+            "strategyHash",
+            left_manifest.strategy_hash.clone(),
+            right_manifest.strategy_hash.clone(),
+        ),
+        (
+            "datasetId",
+            left_manifest.dataset_id.clone(),
+            right_manifest.dataset_id.clone(),
+        ),
+        (
+            "datasetHash",
+            left_manifest.dataset_hash.clone(),
+            right_manifest.dataset_hash.clone(),
+        ),
+        (
+            "dataProvider",
+            left_manifest.data_provider.clone(),
+            right_manifest.data_provider.clone(),
+        ),
+        (
+            "retrievedAt",
+            left_manifest.retrieved_at.clone(),
+            right_manifest.retrieved_at.clone(),
+        ),
+        (
+            "startAt",
+            left_manifest.start_at.clone(),
+            right_manifest.start_at.clone(),
+        ),
+        (
+            "endAt",
+            left_manifest.end_at.clone(),
+            right_manifest.end_at.clone(),
+        ),
+        (
+            "adjustmentMethod",
+            left_manifest.adjustment_method.clone(),
+            right_manifest.adjustment_method.clone(),
+        ),
+        (
+            "timezone",
+            left_manifest.timezone.clone(),
+            right_manifest.timezone.clone(),
+        ),
+        (
+            "marketCalendarVersion",
+            left_manifest.market_calendar_version.clone(),
+            right_manifest.market_calendar_version.clone(),
+        ),
+        (
+            "commissionModel",
+            left_manifest.commission_model.clone(),
+            right_manifest.commission_model.clone(),
+        ),
+        (
+            "commission",
+            left_manifest.commission.clone(),
+            right_manifest.commission.clone(),
+        ),
+        (
+            "slippageModel",
+            left_manifest.slippage_model.clone(),
+            right_manifest.slippage_model.clone(),
+        ),
+        (
+            "slippage",
+            left_manifest.slippage.clone(),
+            right_manifest.slippage.clone(),
+        ),
+        (
+            "startingCash",
+            left_manifest.starting_cash.clone(),
+            right_manifest.starting_cash.clone(),
+        ),
+        (
+            "seed",
+            left_manifest.seed.clone(),
+            right_manifest.seed.clone(),
+        ),
+        (
+            "parameters",
+            serde_json::to_string(&left_manifest.parameters)
+                .map_err(|_| TradeXError::new("BACKTEST_COMPARE_INVALID"))?,
+            serde_json::to_string(&right_manifest.parameters)
+                .map_err(|_| TradeXError::new("BACKTEST_COMPARE_INVALID"))?,
+        ),
+        (
+            "engineVersion",
+            left_manifest.engine_version.clone(),
+            right_manifest.engine_version.clone(),
+        ),
+        (
+            "runtimeVersion",
+            left_manifest.runtime_version.clone(),
+            right_manifest.runtime_version.clone(),
+        ),
+        (
+            "guardChecks",
+            serde_json::to_string(&left_manifest.guard_checks)
+                .map_err(|_| TradeXError::new("BACKTEST_COMPARE_INVALID"))?,
+            serde_json::to_string(&right_manifest.guard_checks)
+                .map_err(|_| TradeXError::new("BACKTEST_COMPARE_INVALID"))?,
+        ),
+        (
+            "manifestHash",
+            left_manifest.manifest_hash.clone(),
+            right_manifest.manifest_hash.clone(),
+        ),
+    ];
+    Ok(values
+        .into_iter()
+        .filter(|(_, left, right)| left != right)
+        .map(|(field, left, right)| BacktestFieldDifference {
+            field: field.into(),
+            left,
+            right,
+        })
+        .collect())
+}
+
+fn curve_summary(result: &protocol::BacktestResult) -> Result<BacktestCurveSummary> {
+    let first = result
+        .equity_curve
+        .first()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let last = result
+        .equity_curve
+        .last()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    Ok(BacktestCurveSummary {
+        point_count: u32::try_from(result.equity_curve.len())
+            .map_err(|_| TradeXError::new("BACKTEST_RESULT_INVALID"))?,
+        start_at: first.observed_at.clone(),
+        end_at: last.observed_at.clone(),
+        start_equity: first.equity.clone(),
+        end_equity: last.equity.clone(),
+        max_drawdown: result.metrics.max_drawdown.clone(),
+    })
 }
 
 #[cfg(test)]

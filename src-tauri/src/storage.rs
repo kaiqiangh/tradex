@@ -24,17 +24,17 @@ use crate::market;
 use crate::model::ModelState;
 use crate::protocol::{
     Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
-    ArtifactSummary, AssetClass, BacktestFailure, BacktestRun, BacktestRunRequest,
-    BacktestRunState, DomainEvent, DomainProjection, EventSink, ExecutionContext, MAX_SEQUENCE,
-    OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
-    OrderDraftSummary, OrderProposal, OrderProposalGenerate, OrderProposalHistoryEntry,
-    OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
-    OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
-    OrderProposalSummary, OrderType, ProposalReferenceStatus, Result, SavedScreener,
-    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, StrategyFailure,
-    StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState, StrategyRunSummary,
-    StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList, ThreadSummary, TimeInForce,
-    TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
+    ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
+    BacktestRunState, BacktestRunSummary, DomainEvent, DomainProjection, EventSink,
+    ExecutionContext, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary,
+    OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
+    OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
+    OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
+    OrderProposalStatus, OrderProposalSummary, OrderType, ProposalReferenceStatus, Result,
+    SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
+    StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
+    StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
+    ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
@@ -1986,6 +1986,66 @@ impl Store {
         }
         self.validate_backtest_run_projection(&run, &workspace_id)?;
         Ok(run)
+    }
+
+    pub fn backtest_runs(&self) -> Result<BacktestLibrary> {
+        let workspace_id = self.workspace_id()?;
+        let mut query = self
+            .connection
+            .prepare(
+                "SELECT run_id,workspace_id,sequence,projection FROM backtest_runs WHERE workspace_id=?1 ORDER BY sequence DESC,run_id",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut runs = Vec::new();
+        let mut max_sequence = 0_i64;
+        for row in rows {
+            let (id, row_workspace, sequence, projection) = row.map_err(storage_error)?;
+            max_sequence = max_sequence.max(sequence);
+            let run: BacktestRun = serde_json::from_str(&projection).map_err(storage_error)?;
+            if run.run_id != id
+                || run.workspace_id != row_workspace
+                || row_workspace != workspace_id
+                || run.state_version != format!("backtest-run:{id}:{sequence}")
+                || !(1..=MAX_SEQUENCE as i64).contains(&sequence)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            self.validate_backtest_run_projection(&run, &workspace_id)?;
+            let result = run.result.as_ref();
+            runs.push(BacktestRunSummary {
+                run_id: run.run_id,
+                strategy_version_id: run.strategy_version_id,
+                strategy_hash: run.strategy_hash,
+                instrument_id: run.instrument_id,
+                dataset_id: run.dataset_id,
+                start_at: run.start_at,
+                end_at: run.end_at,
+                bar_interval: run.bar_interval,
+                state: run.state,
+                request_hash: run.request_hash,
+                updated_at: run.updated_at,
+                result_hash: result.map(|value| value.result_hash.clone()),
+                trade_count: result.map(|value| value.metrics.trade_count),
+            });
+        }
+        if runs.len() > 256 || !(0..=MAX_SEQUENCE as i64).contains(&max_sequence) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(BacktestLibrary {
+            workspace_id: workspace_id.clone(),
+            state_version: format!("backtests:{workspace_id}:{max_sequence}"),
+            runs,
+        })
     }
 
     pub fn save_backtest_run(&mut self, run: BacktestRun) -> Result<BacktestRun> {

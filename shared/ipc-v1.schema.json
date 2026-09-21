@@ -25,14 +25,35 @@
     "backtestCancel": {
       "$ref": "#/$defs/BacktestCancel"
     },
+    "backtestCompareRequest": {
+      "$ref": "#/$defs/BacktestCompareRequest"
+    },
+    "backtestComparison": {
+      "$ref": "#/$defs/BacktestComparison"
+    },
+    "backtestCurveSummary": {
+      "$ref": "#/$defs/BacktestCurveSummary"
+    },
     "backtestFailure": {
       "$ref": "#/$defs/BacktestFailure"
+    },
+    "backtestFieldDifference": {
+      "$ref": "#/$defs/BacktestFieldDifference"
     },
     "backtestGuardCheck": {
       "$ref": "#/$defs/BacktestGuardCheck"
     },
+    "backtestLibrary": {
+      "$ref": "#/$defs/BacktestLibrary"
+    },
     "backtestManifest": {
       "$ref": "#/$defs/BacktestManifest"
+    },
+    "backtestMetricComparison": {
+      "$ref": "#/$defs/BacktestMetricComparison"
+    },
+    "backtestMetricDelta": {
+      "$ref": "#/$defs/BacktestMetricDelta"
     },
     "backtestMetrics": {
       "$ref": "#/$defs/BacktestMetrics"
@@ -48,6 +69,9 @@
     },
     "backtestRunRequest": {
       "$ref": "#/$defs/BacktestRunRequest"
+    },
+    "backtestRunSummary": {
+      "$ref": "#/$defs/BacktestRunSummary"
     },
     "capabilityQuery": {
       "$ref": "#/$defs/CapabilityQuery"
@@ -327,6 +351,14 @@
     "tradeRecord",
     "backtestResult",
     "backtestRun",
+    "backtestRunSummary",
+    "backtestLibrary",
+    "backtestCompareRequest",
+    "backtestFieldDifference",
+    "backtestMetricDelta",
+    "backtestMetricComparison",
+    "backtestCurveSummary",
+    "backtestComparison",
     "backtestRunQuery",
     "backtestRunRequest",
     "backtestCancel",
@@ -1067,6 +1099,142 @@
         "expectedStateVersion"
       ]
     },
+    "BacktestCompareRequest": {
+      "type": "object",
+      "properties": {
+        "leftRunId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "rightRunId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "leftRunId",
+        "rightRunId"
+      ]
+    },
+    "BacktestComparison": {
+      "type": "object",
+      "properties": {
+        "historicalSimulation": {
+          "type": "boolean"
+        },
+        "inputDifferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BacktestFieldDifference"
+          },
+          "maxItems": 64
+        },
+        "left": {
+          "$ref": "#/$defs/BacktestRun"
+        },
+        "leftCurve": {
+          "$ref": "#/$defs/BacktestCurveSummary"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "maxItems": 8,
+          "minItems": 1
+        },
+        "manifestDifferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BacktestFieldDifference"
+          },
+          "maxItems": 64
+        },
+        "metrics": {
+          "$ref": "#/$defs/BacktestMetricComparison"
+        },
+        "right": {
+          "$ref": "#/$defs/BacktestRun"
+        },
+        "rightCurve": {
+          "$ref": "#/$defs/BacktestCurveSummary"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "left",
+        "right",
+        "leftCurve",
+        "rightCurve",
+        "inputDifferences",
+        "manifestDifferences",
+        "metrics",
+        "historicalSimulation",
+        "limitations"
+      ]
+    },
+    "BacktestCurveSummary": {
+      "type": "object",
+      "properties": {
+        "endAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "endEquity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "maxDrawdown": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "pointCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 5000,
+          "minimum": 1
+        },
+        "startAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startEquity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pointCount",
+        "startAt",
+        "endAt",
+        "startEquity",
+        "endEquity",
+        "maxDrawdown"
+      ]
+    },
     "BacktestFailure": {
       "type": "object",
       "properties": {
@@ -1095,6 +1263,32 @@
       "required": [
         "code",
         "reason"
+      ]
+    },
+    "BacktestFieldDifference": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "left": {
+          "type": "string",
+          "maxLength": 16384,
+          "minLength": 1
+        },
+        "right": {
+          "type": "string",
+          "maxLength": 16384,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "left",
+        "right"
       ]
     },
     "BacktestFixtureScenario": {
@@ -1140,6 +1334,34 @@
       "type": "string",
       "enum": [
         "PASSED"
+      ]
+    },
+    "BacktestLibrary": {
+      "type": "object",
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BacktestRunSummary"
+          },
+          "maxItems": 256
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "runs"
       ]
     },
     "BacktestManifest": {
@@ -1285,6 +1507,72 @@
         "runtimeVersion",
         "guardChecks",
         "manifestHash"
+      ]
+    },
+    "BacktestMetricComparison": {
+      "type": "object",
+      "properties": {
+        "maxDrawdown": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        },
+        "profitFactor": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        },
+        "return": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        },
+        "sharpe": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        },
+        "sortino": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        },
+        "tradeCount": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        },
+        "turnover": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        },
+        "winRate": {
+          "$ref": "#/$defs/BacktestMetricDelta"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "return",
+        "sharpe",
+        "sortino",
+        "maxDrawdown",
+        "winRate",
+        "profitFactor",
+        "turnover",
+        "tradeCount"
+      ]
+    },
+    "BacktestMetricDelta": {
+      "type": "object",
+      "properties": {
+        "difference": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "left": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "right": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "left",
+        "right",
+        "difference"
       ]
     },
     "BacktestMetrics": {
@@ -1686,6 +1974,95 @@
         "COMPLETED",
         "FAILED",
         "CANCELLED"
+      ]
+    },
+    "BacktestRunSummary": {
+      "type": "object",
+      "properties": {
+        "barInterval": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "datasetId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "endAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requestHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "resultHash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "runId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "startAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/BacktestRunState"
+        },
+        "strategyHash": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1
+        },
+        "strategyVersionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "tradeCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "maximum": 100000,
+          "minimum": 0
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "strategyVersionId",
+        "strategyHash",
+        "instrumentId",
+        "datasetId",
+        "startAt",
+        "endAt",
+        "barInterval",
+        "state",
+        "requestHash",
+        "updatedAt"
       ]
     },
     "Balance": {
@@ -5167,6 +5544,12 @@
         },
         {
           "$ref": "#/$defs/BacktestRun"
+        },
+        {
+          "$ref": "#/$defs/BacktestLibrary"
+        },
+        {
+          "$ref": "#/$defs/BacktestComparison"
         }
       ]
     },

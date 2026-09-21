@@ -278,7 +278,9 @@ export type ReplyData =
   | StrategyLibrary
   | StrategyVersion
   | StrategyRun
-  | BacktestRun;
+  | BacktestRun
+  | BacktestLibrary
+  | BacktestComparison;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeConfidence".
@@ -418,14 +420,22 @@ export interface IpcSchema {
   artifactQuery: ArtifactQuery;
   artifactSave: ArtifactSave;
   backtestCancel: BacktestCancel;
+  backtestCompareRequest: BacktestCompareRequest;
+  backtestComparison: BacktestComparison;
+  backtestCurveSummary: BacktestCurveSummary;
   backtestFailure: BacktestFailure;
+  backtestFieldDifference: BacktestFieldDifference;
   backtestGuardCheck: BacktestGuardCheck;
+  backtestLibrary: BacktestLibrary;
   backtestManifest: BacktestManifest;
+  backtestMetricComparison: BacktestMetricComparison;
+  backtestMetricDelta: BacktestMetricDelta;
   backtestMetrics: BacktestMetrics;
   backtestResult: BacktestResult;
   backtestRun: BacktestRun;
   backtestRunQuery: BacktestRunQuery;
   backtestRunRequest: BacktestRunRequest;
+  backtestRunSummary: BacktestRunSummary;
   capabilityQuery: CapabilityQuery;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
@@ -561,6 +571,90 @@ export interface BacktestCancel {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestCompareRequest".
+ */
+export interface BacktestCompareRequest {
+  leftRunId: string;
+  rightRunId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestComparison".
+ */
+export interface BacktestComparison {
+  historicalSimulation: boolean;
+  /**
+   * @maxItems 64
+   */
+  inputDifferences: BacktestFieldDifference[];
+  left: BacktestRun;
+  leftCurve: BacktestCurveSummary;
+  /**
+   * @minItems 1
+   * @maxItems 8
+   */
+  limitations:
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  /**
+   * @maxItems 64
+   */
+  manifestDifferences: BacktestFieldDifference[];
+  metrics: BacktestMetricComparison;
+  right: BacktestRun;
+  rightCurve: BacktestCurveSummary;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestFieldDifference".
+ */
+export interface BacktestFieldDifference {
+  field: string;
+  left: string;
+  right: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestRun".
+ */
+export interface BacktestRun {
+  barInterval: string;
+  commission: string;
+  createdAt: string;
+  datasetId: string;
+  endAt: string;
+  failure?: BacktestFailure | null;
+  fixtureLabel?: string | null;
+  instrumentId: string;
+  observedAt: string;
+  /**
+   * @maxItems 32
+   */
+  parameters?: StrategyParameter[];
+  portfolioSeed?: string | null;
+  requestHash: string;
+  result?: BacktestResult | null;
+  runId: string;
+  slippage: string;
+  startAt: string;
+  startingCash: string;
+  state: BacktestRunState;
+  stateVersion: string;
+  strategyHash: string;
+  strategyVersionId: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BacktestFailure".
  */
 export interface BacktestFailure {
@@ -573,12 +667,52 @@ export interface BacktestFailure {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "BacktestGuardCheck".
+ * via the `definition` "StrategyParameter".
  */
-export interface BacktestGuardCheck {
-  detail: string;
+export interface StrategyParameter {
   name: string;
-  state: BacktestGuardState;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestResult".
+ */
+export interface BacktestResult {
+  /**
+   * @minItems 1
+   * @maxItems 5000
+   */
+  equityCurve: [EquityPoint, ...EquityPoint[]];
+  historicalSimulation: boolean;
+  /**
+   * @minItems 1
+   * @maxItems 8
+   */
+  limitations:
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  manifest: BacktestManifest;
+  metrics: BacktestMetrics;
+  resultHash: string;
+  /**
+   * @maxItems 5000
+   */
+  trades: TradeRecord[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "EquityPoint".
+ */
+export interface EquityPoint {
+  drawdown: string;
+  equity: string;
+  observedAt: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -624,11 +758,12 @@ export interface BacktestManifest {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "StrategyParameter".
+ * via the `definition` "BacktestGuardCheck".
  */
-export interface StrategyParameter {
+export interface BacktestGuardCheck {
+  detail: string;
   name: string;
-  value: string;
+  state: BacktestGuardState;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -643,47 +778,6 @@ export interface BacktestMetrics {
   tradeCount: number;
   turnover: string;
   winRate: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "BacktestResult".
- */
-export interface BacktestResult {
-  /**
-   * @minItems 1
-   * @maxItems 5000
-   */
-  equityCurve: [EquityPoint, ...EquityPoint[]];
-  historicalSimulation: boolean;
-  /**
-   * @minItems 1
-   * @maxItems 8
-   */
-  limitations:
-    | [string]
-    | [string, string]
-    | [string, string, string]
-    | [string, string, string, string]
-    | [string, string, string, string, string]
-    | [string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string, string];
-  manifest: BacktestManifest;
-  metrics: BacktestMetrics;
-  resultHash: string;
-  /**
-   * @maxItems 5000
-   */
-  trades: TradeRecord[];
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "EquityPoint".
- */
-export interface EquityPoint {
-  drawdown: string;
-  equity: string;
-  observedAt: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -703,35 +797,69 @@ export interface TradeRecord {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "BacktestRun".
+ * via the `definition` "BacktestCurveSummary".
  */
-export interface BacktestRun {
+export interface BacktestCurveSummary {
+  endAt: string;
+  endEquity: string;
+  maxDrawdown: string;
+  pointCount: number;
+  startAt: string;
+  startEquity: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestMetricComparison".
+ */
+export interface BacktestMetricComparison {
+  maxDrawdown: BacktestMetricDelta;
+  profitFactor: BacktestMetricDelta;
+  return: BacktestMetricDelta;
+  sharpe: BacktestMetricDelta;
+  sortino: BacktestMetricDelta;
+  tradeCount: BacktestMetricDelta;
+  turnover: BacktestMetricDelta;
+  winRate: BacktestMetricDelta;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestMetricDelta".
+ */
+export interface BacktestMetricDelta {
+  difference: string;
+  left: string;
+  right: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestLibrary".
+ */
+export interface BacktestLibrary {
+  /**
+   * @maxItems 256
+   */
+  runs: BacktestRunSummary[];
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BacktestRunSummary".
+ */
+export interface BacktestRunSummary {
   barInterval: string;
-  commission: string;
-  createdAt: string;
   datasetId: string;
   endAt: string;
-  failure?: BacktestFailure | null;
-  fixtureLabel?: string | null;
   instrumentId: string;
-  observedAt: string;
-  /**
-   * @maxItems 32
-   */
-  parameters?: StrategyParameter[];
-  portfolioSeed?: string | null;
   requestHash: string;
-  result?: BacktestResult | null;
+  resultHash?: string | null;
   runId: string;
-  slippage: string;
   startAt: string;
-  startingCash: string;
   state: BacktestRunState;
-  stateVersion: string;
   strategyHash: string;
   strategyVersionId: string;
+  tradeCount?: number | null;
   updatedAt: string;
-  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
