@@ -2,7 +2,8 @@
 
 - Scope: issue #55, the S16 acceptance ticket after #53 and #54.
 - Branch: `dev`.
-- Implementation SHA: `306275b` (`fix: reject tampered Local Paper projections`). The final dev verification SHA is recorded in the closing issue comment after the documentation commit and complete checks.
+- Implementation SHA: `306275b` (`fix: reject tampered Local Paper projections`).
+- Verification SHA: `5c2575e55af23f3c94a7e70fe9e15de2dc76a828` (final `dev` commit before this evidence-only amendment).
 - Boundary: Local Paper is a TradeX-owned simulation. This evidence does not claim provider Paper/Demo/Testnet, Live authority, native credential, or S33 completion.
 
 ## Acceptance evidence
@@ -27,7 +28,23 @@ RUST_TEST_THREADS=1 cargo test -q paper_tests --workspace --all-targets --all-fe
 11 passed
 ```
 
-The final evidence below will bind the complete Rust workspace suite, format, check, clippy, schema, TypeScript, build, unit, helper syntax, requirements, and diff checks to the exact final `dev` SHA.
+The complete checks were rerun at verification SHA `5c2575e55af23f3c94a7e70fe9e15de2dc76a828`:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --all --check` | PASS |
+| `cargo check -q --workspace --all-targets --all-features` | PASS |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
+| `RUST_TEST_THREADS=1 cargo test -q --workspace --all-targets --all-features` | PASS — 121 core tests passed; all remaining workspace test binaries passed with no failures |
+| `npm run schema:check` | PASS — Rust / JSON Schema / TypeScript agree |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS — Vite build completed; existing chunk-size warning only |
+| `npm run test:unit` | PASS — 6/6 |
+| `node --check tests/order-draft-ui.mjs` | PASS |
+| `python3 scripts/check_requirements.py` | PASS — 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files |
+| `git diff --check` | PASS |
+
+The evidence-only documentation commit after this verification does not change implementation code. The closing issue comment records both this exact verification SHA and the final documentation commit SHA.
 
 ## Rust-backed browser evidence
 
