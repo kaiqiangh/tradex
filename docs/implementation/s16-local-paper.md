@@ -58,6 +58,7 @@ Local Paper 不是真实市场、券商账户或预期 Live 结果的代理。�
   - `paper.get({workspaceId, expectedStateVersion?}) -> LocalPaperState`，返回 simulation profile、cash/balances、positions、openOrders、fills、P&L、event cursor、state version 和 disclosure。
   - `paper.order.submit({workspaceId, proposalId, expectedProposalStateVersion, idempotencyKey}) -> PaperOrderResult`。
   - `paper.order.cancel({workspaceId, orderId, expectedStateVersion, idempotencyKey}) -> PaperOrderResult`。
+  - `paper.quote.refresh({workspaceId, expectedStateVersion}) -> LocalPaperState`：在没有 open order 时刷新受约束的本地 quote，写入新的 quote identity/observed time 与 `QUOTE_REFRESHED` event。
   - `paper.scenario.set({workspaceId, expectedStateVersion, profile}) -> LocalPaperState` 只修改 Local Paper simulation profile，不产生 provider/account mutation；profile 字段有严格 bounds，且不能由 Agent 工具调用。
 - `paper.order.submit` 只接受 `fields.environment=LOCAL_PAPER`、Local Paper venue/account identity 和当前 workspace 的 Proposal；Live/Paper/Demo/Testnet、跨 workspace、invalidated Proposal、重复已消费 Proposal、旧 state version 和不支持的 order/TIF 组合 fail closed。Renderer 不得提交 order state、fill、cash、position、quote、provider order ID 或 P&L。
 - `PaperOrderResult` 至少包含 `orderId`、`workspaceId`、`accountId`、`proposalId`/`proposalHash`、`environment=LOCAL`、normalized fields、state、requested/filled/remaining quantity、average fill price、simulation scenario/quote identity、created/updated time、state version、event sequence、explicit disclosure 和 typed error/remediation（如适用）。所有 decimal 使用规范字符串，禁止 binary floating point 参与 canonical validation 或 arithmetic。
