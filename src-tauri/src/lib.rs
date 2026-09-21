@@ -888,6 +888,26 @@ impl ControlPlane {
                 self.selected_local_paper_proposal = None;
                 Ok((json!(result), Some(result.state_version.clone())))
             }
+            "paper.order.cancel" => {
+                let input: protocol::PaperOrderCancel = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .cancel_local_paper_order(&input)?;
+                Ok((json!(result), Some(result.state_version.clone())))
+            }
+            "paper.scenario.set" => {
+                let input: protocol::PaperScenarioSet = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let state = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .set_local_paper_scenario(&input)?;
+                Ok((json!(state), Some(state.state_version.clone())))
+            }
             "strategy.list" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -6177,6 +6197,55 @@ mod paper_tests {
         })
     }
 
+    fn local_paper_proposal(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account_id: &str,
+        instrument_id: &str,
+        side: &str,
+        order_type: &str,
+        quantity: &str,
+        limit_price: Option<&str>,
+        time_in_force: &str,
+    ) -> Value {
+        let saved = control.dispatch(request(
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "fields": {
+                    "accountId": account_id,
+                    "venue": "TRADEX_SIM",
+                    "environment": "LOCAL_PAPER",
+                    "instrumentId": instrument_id,
+                    "side": side,
+                    "orderType": order_type,
+                    "quantity": {"type": "BASE", "value": quantity},
+                    "limitPrice": limit_price,
+                    "timeInForce": time_in_force
+                }
+            }),
+        ));
+        assert_eq!(saved["ok"], true, "{saved}");
+        let proposal = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": saved["data"]["draftId"],
+                "expectedDraftVersion": 1
+            }),
+        ));
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        let selected = control.dispatch(request(
+            "trade.proposal.get",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["data"]["proposalId"]
+            }),
+        ));
+        assert_eq!(selected["ok"], true, "{selected}");
+        proposal["data"].clone()
+    }
+
     #[test]
     fn local_paper_is_provisioned_and_exposed_without_provider_io() {
         let directory = tempfile::tempdir().unwrap();
@@ -6680,6 +6749,294 @@ mod paper_tests {
         ));
         assert_eq!(foreign["ok"], false);
         assert_eq!(foreign["error"]["code"], "ORDER_PROPOSAL_NOT_FOUND");
+    }
+
+    #[test]
+    fn local_paper_outcomes_cancel_and_reopen_are_authoritative() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+
+        let initial = control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        let mut partial_profile = initial["data"]["profile"].clone();
+        partial_profile["scenarioId"] = "partial-v1".into();
+        let partial_scenario = control.dispatch(request(
+            "paper.scenario.set",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": initial["data"]["stateVersion"],
+                "profile": partial_profile
+            }),
+        ));
+        assert_eq!(partial_scenario["ok"], true, "{partial_scenario}");
+        assert_eq!(
+            partial_scenario["data"]["profile"]["scenarioId"],
+            "partial-v1"
+        );
+        let stale_scenario = control.dispatch(request(
+            "paper.scenario.set",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": initial["data"]["stateVersion"],
+                "profile": partial_scenario["data"]["profile"]
+            }),
+        ));
+        assert_eq!(stale_scenario["ok"], false);
+        assert_eq!(stale_scenario["error"]["code"], "STATE_VERSION_CONFLICT");
+
+        let partial = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:AAPL",
+            "BUY",
+            "LIMIT",
+            "4",
+            Some("100"),
+            "DAY",
+        );
+        let submit_payload = json!({
+            "workspaceId": workspace_id,
+            "proposalId": partial["proposalId"],
+            "expectedProposalStateVersion": partial["stateVersion"],
+            "idempotencyKey": "paper-outcomes-partial-1"
+        });
+        let partial_result =
+            control.dispatch(request("paper.order.submit", submit_payload.clone()));
+        assert_eq!(partial_result["ok"], true, "{partial_result}");
+        assert_eq!(partial_result["data"]["order"]["state"], "PARTIALLY_FILLED");
+        assert_eq!(partial_result["data"]["order"]["filledQuantity"], "2");
+        assert_eq!(partial_result["data"]["order"]["remainingQuantity"], "2");
+        assert_eq!(partial_result["data"]["fill"]["quantity"], "2");
+        assert_eq!(
+            partial_result["data"]["paperState"]["cash"]["value"],
+            "99600"
+        );
+        assert_eq!(
+            partial_result["data"]["paperState"]["reservedCash"]["value"],
+            "200"
+        );
+        assert_eq!(
+            partial_result["data"]["paperState"]["openOrders"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            partial_result["data"]["paperState"]["events"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
+
+        let reselected = control.dispatch(request(
+            "trade.proposal.get",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": partial["proposalId"]
+            }),
+        ));
+        assert_eq!(reselected["ok"], true, "{reselected}");
+        let duplicate = control.dispatch(request("paper.order.submit", submit_payload));
+        assert_eq!(duplicate["ok"], true, "{duplicate}");
+        assert_eq!(
+            duplicate["data"]["order"]["orderId"],
+            partial_result["data"]["order"]["orderId"]
+        );
+        assert_eq!(
+            duplicate["data"]["paperState"]["eventCursor"],
+            partial_result["data"]["paperState"]["eventCursor"]
+        );
+
+        let mut blocked_profile = partial_result["data"]["paperState"]["profile"].clone();
+        blocked_profile["scenarioId"] = "resting-v1".into();
+        let blocked_scenario = control.dispatch(request(
+            "paper.scenario.set",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": partial_result["data"]["stateVersion"],
+                "profile": blocked_profile
+            }),
+        ));
+        assert_eq!(blocked_scenario["ok"], false);
+        assert_eq!(
+            blocked_scenario["error"]["code"],
+            "PAPER_SCENARIO_ORDER_OPEN"
+        );
+
+        let cancel_payload = json!({
+            "workspaceId": workspace_id,
+            "orderId": partial_result["data"]["order"]["orderId"],
+            "expectedStateVersion": partial_result["data"]["stateVersion"],
+            "idempotencyKey": "paper-outcomes-cancel-1"
+        });
+        let cancelled = control.dispatch(request("paper.order.cancel", cancel_payload.clone()));
+        assert_eq!(cancelled["ok"], true, "{cancelled}");
+        assert_eq!(cancelled["data"]["order"]["state"], "CANCELLED");
+        assert_eq!(cancelled["data"]["order"]["remainingQuantity"], "2");
+        assert_eq!(cancelled["data"]["paperState"]["cash"]["value"], "99800");
+        assert_eq!(
+            cancelled["data"]["paperState"]["reservedCash"]["value"],
+            "0"
+        );
+        assert_eq!(
+            cancelled["data"]["paperState"]["openOrders"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+        assert_eq!(
+            cancelled["data"]["paperState"]["fills"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let cancel_duplicate = control.dispatch(request("paper.order.cancel", cancel_payload));
+        assert_eq!(cancel_duplicate["ok"], true, "{cancel_duplicate}");
+        assert_eq!(
+            cancel_duplicate["data"]["paperState"]["eventCursor"],
+            cancelled["data"]["paperState"]["eventCursor"]
+        );
+
+        let mut resting_profile = cancelled["data"]["paperState"]["profile"].clone();
+        resting_profile["scenarioId"] = "resting-v1".into();
+        let resting_scenario = control.dispatch(request(
+            "paper.scenario.set",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": cancelled["data"]["stateVersion"],
+                "profile": resting_profile
+            }),
+        ));
+        assert_eq!(resting_scenario["ok"], true, "{resting_scenario}");
+        let resting = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:MSFT",
+            "BUY",
+            "LIMIT",
+            "1",
+            Some("90"),
+            "GTC",
+        );
+        let resting_result = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": resting["proposalId"],
+                "expectedProposalStateVersion": resting["stateVersion"],
+                "idempotencyKey": "paper-outcomes-resting-1"
+            }),
+        ));
+        assert_eq!(resting_result["ok"], true, "{resting_result}");
+        assert_eq!(resting_result["data"]["order"]["state"], "ACCEPTED");
+        assert_eq!(resting_result["data"]["fill"], Value::Null);
+        assert_eq!(resting_result["data"]["order"]["remainingQuantity"], "1");
+        assert_eq!(
+            resting_result["data"]["paperState"]["reservedCash"]["value"],
+            "90"
+        );
+        let resting_cancelled = control.dispatch(request(
+            "paper.order.cancel",
+            json!({
+                "workspaceId": workspace_id,
+                "orderId": resting_result["data"]["order"]["orderId"],
+                "expectedStateVersion": resting_result["data"]["stateVersion"],
+                "idempotencyKey": "paper-outcomes-resting-cancel-1"
+            }),
+        ));
+        assert_eq!(resting_cancelled["ok"], true, "{resting_cancelled}");
+        assert_eq!(resting_cancelled["data"]["order"]["state"], "CANCELLED");
+        assert_eq!(
+            resting_cancelled["data"]["paperState"]["reservedCash"]["value"],
+            "0"
+        );
+
+        let mut rejected_profile = resting_cancelled["data"]["paperState"]["profile"].clone();
+        rejected_profile["scenarioId"] = "rejected-v1".into();
+        let rejected_scenario = control.dispatch(request(
+            "paper.scenario.set",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": resting_cancelled["data"]["stateVersion"],
+                "profile": rejected_profile
+            }),
+        ));
+        assert_eq!(rejected_scenario["ok"], true, "{rejected_scenario}");
+        let rejected = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:AAPL",
+            "BUY",
+            "MARKET",
+            "1",
+            None,
+            "DAY",
+        );
+        let rejected_result = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": rejected["proposalId"],
+                "expectedProposalStateVersion": rejected["stateVersion"],
+                "idempotencyKey": "paper-outcomes-rejected-1"
+            }),
+        ));
+        assert_eq!(rejected_result["ok"], true, "{rejected_result}");
+        assert_eq!(rejected_result["data"]["order"]["state"], "REJECTED");
+        assert_eq!(rejected_result["data"]["fill"], Value::Null);
+        assert_eq!(
+            rejected_result["data"]["paperState"]["cash"]["value"],
+            "99800"
+        );
+
+        drop(control);
+        let mut reopened = ControlPlane::new(path);
+        assert_eq!(
+            reopened.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let paper = reopened.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        assert_eq!(paper["ok"], true, "{paper}");
+        assert_eq!(paper["data"]["orders"].as_array().unwrap().len(), 3);
+        assert_eq!(paper["data"]["fills"].as_array().unwrap().len(), 1);
+        assert_eq!(paper["data"]["openOrders"].as_array().unwrap().len(), 0);
+        assert_eq!(paper["data"]["positions"][0]["quantity"], "2");
+        assert_eq!(paper["data"]["cash"]["value"], "99800");
+        assert_eq!(paper["data"]["reservedCash"]["value"], "0");
+        assert_eq!(paper["data"]["events"].as_array().unwrap().len(), 10);
+        assert!(
+            paper["data"]["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|event| event["kind"] == "PARTIALLY_FILLED")
+        );
+        assert!(
+            paper["data"]["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|event| event["kind"] == "SCENARIO_CHANGED")
+        );
     }
 }
 

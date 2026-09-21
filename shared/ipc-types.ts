@@ -165,7 +165,8 @@ export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LocalPaperEventKind".
  */
-export type LocalPaperEventKind = "ACCEPTED" | "FILLED" | "REJECTED" | "CANCELLED";
+export type LocalPaperEventKind =
+  "ACCEPTED" | "PARTIALLY_FILLED" | "FILLED" | "REJECTED" | "CANCELLED" | "SCENARIO_CHANGED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderSide".
@@ -475,8 +476,10 @@ export interface IpcSchema {
   orderProposalQuery: OrderProposalQuery;
   orderProposalRefresh: OrderProposalRefreshResult;
   orderProposalRefreshRequest: OrderProposalRefresh;
+  paperOrderCancel: PaperOrderCancel;
   paperOrderResult: PaperOrderResult;
   paperOrderSubmit: PaperOrderSubmit;
+  paperScenarioSet: PaperScenarioSet;
   portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
@@ -1716,6 +1719,7 @@ export interface LocalPaperFill {
  */
 export interface LocalPaperOrder {
   averageFillPrice?: string;
+  cancelIdempotencyKey?: string | null;
   createdAt: string;
   eventSequence?: number | null;
   filledQuantity: string;
@@ -1984,6 +1988,16 @@ export interface OrderProposalRefresh {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PaperOrderCancel".
+ */
+export interface PaperOrderCancel {
+  expectedStateVersion: string;
+  idempotencyKey: string;
+  orderId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "PaperOrderResult".
  */
 export interface PaperOrderResult {
@@ -1991,7 +2005,7 @@ export interface PaperOrderResult {
   disclosure: string;
   environment: string;
   eventSequence: number;
-  fill: LocalPaperFill;
+  fill?: LocalPaperFill | null;
   order: LocalPaperOrder;
   paperState: LocalPaperState;
   proposalHash: string;
@@ -2009,6 +2023,15 @@ export interface PaperOrderSubmit {
   expectedProposalStateVersion: string;
   idempotencyKey: string;
   proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PaperScenarioSet".
+ */
+export interface PaperScenarioSet {
+  expectedStateVersion: string;
+  profile: LocalPaperProfile;
   workspaceId: string;
 }
 /**

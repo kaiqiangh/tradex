@@ -31,12 +31,12 @@ use crate::protocol::{
     OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
     OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
     OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
-    OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderResult, PaperOrderSubmit,
-    ProposalReferenceStatus, Result, SavedScreener, ScreenerLibrary, ScreenerResultState,
-    ScreenerSave, ScreenerUpdate, Snapshot, StrategyFailure, StrategyLibrary, StrategyRun,
-    StrategyRunRequest, StrategyRunState, StrategyRunSummary, StrategySave, StrategyVersion,
-    SubscriptionAck, Thread, ThreadList, ThreadSummary, TimeInForce, TradeXError, Watchlist,
-    WatchlistItem, Watchlists, Workspace,
+    OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult,
+    PaperOrderSubmit, PaperScenarioSet, ProposalReferenceStatus, Result, SavedScreener,
+    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, StrategyFailure,
+    StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState, StrategyRunSummary,
+    StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList, ThreadSummary, TimeInForce,
+    TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
@@ -827,16 +827,18 @@ impl Store {
             ],
         )
         .map_err(storage_error)?;
-        tx.execute(
-            "INSERT INTO paper_fills(workspace_id,fill_id,order_id,projection) VALUES(?1,?2,?3,?4)",
-            params![
-                &workspace_id,
-                &result.fill.fill_id,
-                &result.fill.order_id,
-                serde_json::to_string(&result.fill).map_err(storage_error)?,
-            ],
-        )
-        .map_err(storage_error)?;
+        if let Some(fill) = result.fill.as_ref() {
+            tx.execute(
+                "INSERT INTO paper_fills(workspace_id,fill_id,order_id,projection) VALUES(?1,?2,?3,?4)",
+                params![
+                    &workspace_id,
+                    &fill.fill_id,
+                    &fill.order_id,
+                    serde_json::to_string(fill).map_err(storage_error)?,
+                ],
+            )
+            .map_err(storage_error)?;
+        }
         for event in next_state
             .events
             .iter()
@@ -881,6 +883,143 @@ impl Store {
         tx.commit().map_err(storage_error)?;
         result.paper_state = Box::new(next_state);
         Ok(result)
+    }
+
+    pub fn cancel_local_paper_order(
+        &mut self,
+        input: &PaperOrderCancel,
+    ) -> Result<PaperOrderResult> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if !valid_order_text(&input.order_id, 128)
+            || !valid_order_text(&input.expected_state_version, 256)
+            || !valid_order_text(&input.idempotency_key, 128)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (state_account_id, state_sequence, encoded_state): (String, i64, String) = tx
+            .query_row(
+                "SELECT account_id,sequence,projection FROM paper_state WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        if state_sequence < 1 || state_sequence > MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let state = load_local_paper_tables(
+            &tx,
+            &workspace_id,
+            serde_json::from_str(&encoded_state).map_err(storage_error)?,
+        )?;
+        validate_local_paper_state(&state, &workspace_id, &state_account_id)?;
+        let existing = state
+            .orders
+            .iter()
+            .find(|order| order.order_id == input.order_id)
+            .cloned()
+            .ok_or_else(|| TradeXError::new("PAPER_ORDER_NOT_FOUND"))?;
+        let (_, _, proposal_sequence) =
+            proposal_event_state(&tx, &existing.proposal_id, &workspace_id)?;
+        let proposal_state_version = format!(
+            "order-proposal:{}:{proposal_sequence}",
+            existing.proposal_id
+        );
+        if existing.cancel_idempotency_key.as_deref() == Some(input.idempotency_key.as_str()) {
+            let result =
+                crate::paper::result_for_order(&state, &existing, &proposal_state_version)?;
+            tx.commit().map_err(storage_error)?;
+            return Ok(result);
+        }
+        if input.expected_state_version != state.state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let previous_event_cursor = state.event_cursor;
+        let mut next_state = state;
+        let result = crate::paper::cancel(
+            &mut next_state,
+            &input.order_id,
+            &input.idempotency_key,
+            &proposal_state_version,
+            timestamp()?,
+        )?;
+        tx.execute(
+            "UPDATE paper_orders SET projection=?1 WHERE workspace_id=?2 AND order_id=?3",
+            params![
+                serde_json::to_string(&result.order).map_err(storage_error)?,
+                &workspace_id,
+                &input.order_id,
+            ],
+        )
+        .map_err(storage_error)
+        .and_then(|changed| {
+            if changed == 1 {
+                Ok(())
+            } else {
+                Err(storage_error(rusqlite::Error::QueryReturnedNoRows))
+            }
+        })?;
+        persist_local_paper_events_and_state(
+            &tx,
+            &workspace_id,
+            previous_event_cursor,
+            &next_state,
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok(result)
+    }
+
+    pub fn set_local_paper_scenario(
+        &mut self,
+        input: &PaperScenarioSet,
+    ) -> Result<LocalPaperState> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if !valid_order_text(&input.expected_state_version, 256) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (state_account_id, state_sequence, encoded_state): (String, i64, String) = tx
+            .query_row(
+                "SELECT account_id,sequence,projection FROM paper_state WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        if state_sequence < 1 || state_sequence > MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let state = load_local_paper_tables(
+            &tx,
+            &workspace_id,
+            serde_json::from_str(&encoded_state).map_err(storage_error)?,
+        )?;
+        validate_local_paper_state(&state, &workspace_id, &state_account_id)?;
+        if input.expected_state_version != state.state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let previous_event_cursor = state.event_cursor;
+        let mut next_state = state;
+        crate::paper::set_scenario(&mut next_state, input.profile.clone(), timestamp()?)?;
+        persist_local_paper_events_and_state(
+            &tx,
+            &workspace_id,
+            previous_event_cursor,
+            &next_state,
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok(next_state)
     }
 
     pub fn account(&self, id: &str) -> Result<AccountConnection> {
@@ -4937,21 +5076,75 @@ fn backfill_local_paper_tables(connection: &mut Connection) -> Result<()> {
     tx.commit().map_err(storage_error)
 }
 
+fn persist_local_paper_events_and_state(
+    tx: &rusqlite::Transaction<'_>,
+    workspace_id: &str,
+    previous_event_cursor: u64,
+    next_state: &LocalPaperState,
+) -> Result<()> {
+    for event in next_state
+        .events
+        .iter()
+        .filter(|event| event.sequence > previous_event_cursor)
+    {
+        tx.execute(
+            "INSERT INTO paper_events(workspace_id,account_id,event_id,sequence,order_id,fill_id,kind,occurred_at,state_version) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            params![
+                workspace_id,
+                &next_state.account_id,
+                &event.event_id,
+                event.sequence as i64,
+                &event.order_id,
+                &event.fill_id,
+                paper_event_kind_name(event.kind),
+                &event.occurred_at,
+                &event.state_version,
+            ],
+        )
+        .map_err(storage_error)?;
+    }
+    let mut persisted_state = next_state.clone();
+    persisted_state.orders.clear();
+    persisted_state.fills.clear();
+    persisted_state.events.clear();
+    persisted_state.open_orders.clear();
+    let encoded = serde_json::to_string(&persisted_state).map_err(storage_error)?;
+    let changed = tx
+        .execute(
+            "UPDATE paper_state SET account_id=?1,sequence=?2,projection=?3 WHERE workspace_id=?4 AND account_id=?1",
+            params![
+                &next_state.account_id,
+                next_state.event_cursor.max(1) as i64,
+                encoded,
+                workspace_id,
+            ],
+        )
+        .map_err(storage_error)?;
+    if changed != 1 {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(())
+}
+
 fn paper_event_kind_name(kind: LocalPaperEventKind) -> &'static str {
     match kind {
         LocalPaperEventKind::Accepted => "ACCEPTED",
+        LocalPaperEventKind::PartiallyFilled => "PARTIALLY_FILLED",
         LocalPaperEventKind::Filled => "FILLED",
         LocalPaperEventKind::Rejected => "REJECTED",
         LocalPaperEventKind::Cancelled => "CANCELLED",
+        LocalPaperEventKind::ScenarioChanged => "SCENARIO_CHANGED",
     }
 }
 
 fn paper_event_kind(value: &str) -> Result<LocalPaperEventKind> {
     match value {
         "ACCEPTED" => Ok(LocalPaperEventKind::Accepted),
+        "PARTIALLY_FILLED" => Ok(LocalPaperEventKind::PartiallyFilled),
         "FILLED" => Ok(LocalPaperEventKind::Filled),
         "REJECTED" => Ok(LocalPaperEventKind::Rejected),
         "CANCELLED" => Ok(LocalPaperEventKind::Cancelled),
+        "SCENARIO_CHANGED" => Ok(LocalPaperEventKind::ScenarioChanged),
         _ => Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
     }
 }
@@ -5030,7 +5223,14 @@ fn load_local_paper_tables(
     state.open_orders = state
         .orders
         .iter()
-        .filter(|order| !matches!(order.state, crate::protocol::LocalPaperOrderState::Filled))
+        .filter(|order| {
+            matches!(
+                order.state,
+                crate::protocol::LocalPaperOrderState::Accepted
+                    | crate::protocol::LocalPaperOrderState::PartiallyFilled
+                    | crate::protocol::LocalPaperOrderState::CancelPending
+            )
+        })
         .cloned()
         .collect();
     Ok(state)
@@ -5079,6 +5279,7 @@ fn validate_local_paper_state(
             .as_deref()
             .is_some_and(|value| !valid_local_paper_timestamp(value))
         || !valid_local_paper_text(&state.profile.scenario_id, 128)
+        || !crate::paper::scenario_supported(&state.profile.scenario_id)
         || !valid_local_paper_text(&state.profile.engine_version, 64)
         || !valid_local_paper_text(&state.state_version, 256)
         || !valid_local_paper_text(&state.updated_at, 64)
@@ -5114,6 +5315,10 @@ fn validate_local_paper_state(
                     .is_some_and(|value| !valid_local_paper_decimal(value, true))
                 || order
                     .idempotency_key
+                    .as_deref()
+                    .is_some_and(|value| !valid_local_paper_text(value, 128))
+                || order
+                    .cancel_idempotency_key
                     .as_deref()
                     .is_some_and(|value| !valid_local_paper_text(value, 128))
                 || order.quote.as_ref().is_some_and(|quote| {
@@ -5157,6 +5362,12 @@ fn validate_local_paper_state(
                     .is_some_and(|value| !valid_local_paper_decimal(value, true))
                 || !valid_local_paper_text(&order.created_at, 64)
                 || !valid_local_paper_text(&order.updated_at, 64)
+                || !matches!(
+                    order.state,
+                    crate::protocol::LocalPaperOrderState::Accepted
+                        | crate::protocol::LocalPaperOrderState::PartiallyFilled
+                        | crate::protocol::LocalPaperOrderState::CancelPending
+                )
         })
         || state.fills.iter().any(|fill| {
             !valid_local_paper_text(&fill.fill_id, 128)

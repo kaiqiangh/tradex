@@ -11,9 +11,42 @@ function money(value: string | null | undefined, currency?: string | null) { ret
 function time(value: string | null | undefined) { return value ? new Date(value).toLocaleString() : 'Not yet'; }
 
 function LocalPaperSummary({ state }: { state: LocalPaperState }) {
+  const queryClient = useQueryClient();
+  const [scenario, setScenario] = useState(state.profile.scenarioId);
+  const [busyOrder, setBusyOrder] = useState<string>();
+  const [notice, setNotice] = useState('');
+  useEffect(() => setScenario(state.profile.scenarioId), [state.profile.scenarioId]);
+  const applyScenario = async () => {
+    try {
+      const next = await request('paper.scenario.set', {
+        workspaceId: state.workspaceId,
+        expectedStateVersion: state.stateVersion,
+        profile: { ...state.profile, scenarioId: scenario },
+      });
+      await queryClient.invalidateQueries({ queryKey: ['paper', state.workspaceId] });
+      setNotice(`Scenario ${next.profile.scenarioId} is active.`);
+    } catch (failure) { setNotice(explainError(failure)); }
+  };
+  const cancel = async (orderId: string) => {
+    setBusyOrder(orderId); setNotice('');
+    try {
+      const result = await request('paper.order.cancel', {
+        workspaceId: state.workspaceId,
+        orderId,
+        expectedStateVersion: state.stateVersion,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      await queryClient.invalidateQueries({ queryKey: ['paper', state.workspaceId] });
+      setNotice(`Order ${result.order.orderId} is ${result.order.state}.`);
+    } catch (failure) { setNotice(explainError(failure)); }
+    finally { setBusyOrder(undefined); }
+  };
   return <section className="card local-paper-summary" aria-labelledby="local-paper-summary-title">
     <div className="section-heading"><div><p className="eyebrow">Local Paper · LOCAL_PAPER</p><h2 id="local-paper-summary-title">TradeX simulation · TRADEX_SIMULATION</h2><p>{state.disclosure}</p></div><span className="badge">LOCAL PAPER</span></div>
     <dl className="health-grid"><div><dt>Scenario</dt><dd>{state.profile.scenarioId}</dd></div><div><dt>Engine</dt><dd>{state.profile.engineVersion}</dd></div><div><dt>Starting cash</dt><dd>{state.profile.startingCash} {state.profile.baseCurrency}</dd></div><div><dt>Cash</dt><dd>{state.cash.value} {state.cash.currency}</dd></div><div><dt>Reserved</dt><dd>{state.reservedCash.value} {state.reservedCash.currency}</dd></div><div><dt>Positions</dt><dd>{state.positions.length}</dd></div><div><dt>Open orders</dt><dd>{state.openOrders.length}</dd></div><div><dt>Fills</dt><dd>{state.fills.length}</dd></div></dl>
+    <div className="form-actions"><label className="field">Simulation scenario<select aria-label="Simulation scenario" value={scenario} onChange={event => setScenario(event.target.value)}><option value="default-v1">Default full fill</option><option value="partial-v1">Partial fill</option><option value="resting-v1">Resting limit</option><option value="rejected-v1">Rejected</option></select></label><button type="button" onClick={() => void applyScenario()} disabled={scenario === state.profile.scenarioId}>Apply scenario</button></div>
+    {notice && <p role="status">{notice}</p>}
+    {(state.orders ?? []).length > 0 && <section aria-label="Local Paper order history"><h3>Local Paper order history</h3><ul>{(state.orders ?? []).map(order => <li key={order.orderId}><strong>{order.state}</strong> · {order.instrumentId} · {order.filledQuantity} filled · {order.remainingQuantity} remaining{['ACCEPTED', 'PARTIALLY_FILLED'].includes(order.state) && <button type="button" onClick={() => void cancel(order.orderId)} disabled={busyOrder === order.orderId}>{busyOrder === order.orderId ? 'Cancelling…' : 'Cancel'}</button>}</li>)}</ul></section>}
     <p className="muted">Quote source: {state.profile.quoteSource} · State {state.stateVersion}</p>
   </section>;
 }

@@ -287,6 +287,8 @@ pub struct IpcSchema {
     pub portfolio_query: PortfolioQuery,
     pub local_paper_state: LocalPaperState,
     pub paper_order_submit: PaperOrderSubmit,
+    pub paper_order_cancel: PaperOrderCancel,
+    pub paper_scenario_set: PaperScenarioSet,
     pub paper_order_result: PaperOrderResult,
     pub strategy_definition: StrategyDefinition,
     pub strategy_version: StrategyVersion,
@@ -3182,9 +3184,29 @@ impl TradeXError {
                 "Retry submission",
             ),
             "PAPER_LIMIT_NOT_CROSSED" => (
-                "The Local Paper limit price does not cross the deterministic simulation quote.",
+                "The Local Paper limit order remains open because its limit does not cross the deterministic simulation quote.",
+                "reload_snapshot",
+                "Review open order",
+            ),
+            "PAPER_ORDER_NOT_FOUND" => (
+                "That Local Paper order is no longer available in this workspace.",
+                "reload_snapshot",
+                "Reload simulation",
+            ),
+            "PAPER_ORDER_NOT_CANCELLABLE" => (
+                "This Local Paper order is already terminal and cannot be cancelled.",
+                "reload_snapshot",
+                "Reload order state",
+            ),
+            "PAPER_SCENARIO_INVALID" => (
+                "The Local Paper scenario or profile is outside the bounded simulation contract.",
                 "edit_order_amount",
-                "Review limit price",
+                "Choose a supported scenario",
+            ),
+            "PAPER_SCENARIO_ORDER_OPEN" => (
+                "Close open Local Paper orders before changing the simulation scenario.",
+                "reload_snapshot",
+                "Review open orders",
             ),
             "PAPER_MAXIMUM_SPEND_EXCEEDED" => (
                 "The deterministic Local Paper fill exceeds the proposal maximum spend.",
@@ -4027,6 +4049,9 @@ pub struct LocalPaperOrder {
     #[schemars(length(min = 1, max = 128))]
     pub idempotency_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub cancel_idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
     pub event_sequence: Option<u64>,
     #[schemars(length(min = 1, max = 64))]
@@ -4061,9 +4086,11 @@ pub struct LocalPaperFill {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LocalPaperEventKind {
     Accepted,
+    PartiallyFilled,
     Filled,
     Rejected,
     Cancelled,
+    ScenarioChanged,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -4142,6 +4169,29 @@ pub struct PaperOrderSubmit {
     pub idempotency_key: String,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaperOrderCancel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub order_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaperScenarioSet {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub profile: LocalPaperProfile,
+}
+
 #[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PaperOrderResult {
@@ -4156,7 +4206,7 @@ pub struct PaperOrderResult {
     #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
     pub proposal_hash: String,
     pub order: LocalPaperOrder,
-    pub fill: LocalPaperFill,
+    pub fill: Option<LocalPaperFill>,
     pub quote: LocalPaperQuote,
     #[schemars(length(min = 1, max = 256))]
     pub proposal_state_version: String,
