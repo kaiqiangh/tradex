@@ -735,7 +735,7 @@ fn deterministic_quote(
         || state.profile.quote_freshness.as_deref() != Some("FRESH")
         || instrument_currency != state.profile.base_currency
         || age.is_negative()
-        || age.whole_seconds() > 300
+        || age > time::Duration::seconds(300)
     {
         return Err(TradeXError::new("PAPER_QUOTE_UNAVAILABLE"));
     }
@@ -970,6 +970,12 @@ mod tests {
         state.profile.quote_observed_at = Some("2026-01-01T00:00:00Z".into());
         assert_eq!(
             deterministic_quote(&state, "crypto:BTC/USDT:spot", "2026-01-01T00:00:00Z")
+                .unwrap_err()
+                .code,
+            "PAPER_QUOTE_UNAVAILABLE"
+        );
+        assert_eq!(
+            deterministic_quote(&state, "equity:US:AAPL", "2026-01-01T00:05:00.001Z")
                 .unwrap_err()
                 .code,
             "PAPER_QUOTE_UNAVAILABLE"
