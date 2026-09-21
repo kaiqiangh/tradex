@@ -5330,6 +5330,16 @@ fn validate_local_paper_state(
         || !valid_local_paper_text(&state.profile.scenario_id, 128)
         || !crate::paper::scenario_supported(&state.profile.scenario_id)
         || !valid_local_paper_text(&state.profile.engine_version, 64)
+        || !valid_local_paper_text(&state.profile.scenario_seed, 64)
+        || state.profile.scenario_seed != crate::paper::SCENARIO_SEED
+        || !valid_local_paper_text(&state.profile.scenario_version, 64)
+        || state.profile.scenario_version != crate::paper::SCENARIO_VERSION
+        || !valid_local_paper_text(&state.profile.fee_policy, 64)
+        || state.profile.fee_policy != crate::paper::FEE_POLICY
+        || !valid_local_paper_text(&state.profile.slippage_policy, 64)
+        || state.profile.slippage_policy != crate::paper::SLIPPAGE_POLICY
+        || !valid_local_paper_text(&state.profile.fill_policy, 64)
+        || state.profile.fill_policy != crate::paper::FILL_POLICY
         || !valid_local_paper_text(&state.state_version, 256)
         || !valid_local_paper_text(&state.updated_at, 64)
         || !valid_local_paper_text(&state.disclosure, 256)

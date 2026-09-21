@@ -169,8 +169,12 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('heading', { name: 'Local Paper order history', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Cancel', exact: true }).press('Enter');
+    await ui.getByRole('dialog', { name: 'Confirm Local Paper cancellation', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.evaluate(() => document.activeElement?.textContent), 'Keep reviewing', 'Accounts cancellation should focus the first dialog action');
+    await ui.getByRole('button', { name: 'Confirm cancel', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is CANCELLED' }).waitFor({ state: 'visible' });
-    observed.push('Resting limit remains ACCEPTED with one remaining unit and is cancellable from the Local Paper account history.');
+    assert.equal(await ui.evaluate(() => document.activeElement?.closest('.local-paper-summary') !== null), true, 'Accounts cancellation should restore focus to the Local Paper surface');
+    observed.push('Resting limit remains ACCEPTED with one remaining unit, requires explicit confirmation, and is cancellable from the Local Paper account history.');
 
     await ui.getByRole('combobox', { name: 'Simulation scenario', exact: true }).selectOption('rejected-v1');
     await ui.getByRole('button', { name: 'Apply scenario', exact: true }).press('Enter');

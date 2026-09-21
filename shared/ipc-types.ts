@@ -1773,11 +1773,16 @@ export interface LocalPaperPosition {
 export interface LocalPaperProfile {
   baseCurrency: string;
   engineVersion: string;
+  feePolicy?: string;
+  fillPolicy?: string;
   quoteFreshness?: string | null;
   quoteObservedAt?: string | null;
   quotePrice?: string;
   quoteSource: string;
   scenarioId: string;
+  scenarioSeed?: string;
+  scenarioVersion?: string;
+  slippagePolicy?: string;
   startingCash: string;
 }
 /**

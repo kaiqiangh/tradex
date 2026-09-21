@@ -3616,6 +3616,18 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "feePolicy": {
+          "type": "string",
+          "default": "ZERO",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fillPolicy": {
+          "type": "string",
+          "default": "BOUNDED_V1",
+          "maxLength": 64,
+          "minLength": 1
+        },
         "quoteFreshness": {
           "type": [
             "string",
@@ -3645,6 +3657,24 @@
         "scenarioId": {
           "type": "string",
           "maxLength": 128,
+          "minLength": 1
+        },
+        "scenarioSeed": {
+          "type": "string",
+          "default": "s16-default",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "scenarioVersion": {
+          "type": "string",
+          "default": "s16-v1",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "slippagePolicy": {
+          "type": "string",
+          "default": "NONE",
+          "maxLength": 64,
           "minLength": 1
         },
         "startingCash": {

@@ -43539,6 +43539,18 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				"maxLength": 64,
 				"minLength": 1
 			},
+			"feePolicy": {
+				"type": "string",
+				"default": "ZERO",
+				"maxLength": 64,
+				"minLength": 1
+			},
+			"fillPolicy": {
+				"type": "string",
+				"default": "BOUNDED_V1",
+				"maxLength": 64,
+				"minLength": 1
+			},
 			"quoteFreshness": {
 				"type": ["string", "null"],
 				"maxLength": 32,
@@ -43562,6 +43574,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"scenarioId": {
 				"type": "string",
 				"maxLength": 128,
+				"minLength": 1
+			},
+			"scenarioSeed": {
+				"type": "string",
+				"default": "s16-default",
+				"maxLength": 64,
+				"minLength": 1
+			},
+			"scenarioVersion": {
+				"type": "string",
+				"default": "s16-v1",
+				"maxLength": 64,
+				"minLength": 1
+			},
+			"slippagePolicy": {
+				"type": "string",
+				"default": "NONE",
+				"maxLength": 64,
 				"minLength": 1
 			},
 			"startingCash": {
@@ -43596,7 +43626,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}];
 				return false;
 			} else {
-				for (const key0 in data) if (!(key0 === "baseCurrency" || key0 === "engineVersion" || key0 === "quoteFreshness" || key0 === "quoteObservedAt" || key0 === "quotePrice" || key0 === "quoteSource" || key0 === "scenarioId" || key0 === "startingCash")) {
+				for (const key0 in data) if (!func49.call(schema176.properties, key0)) {
 					validate446.errors = [{
 						instancePath,
 						schemaPath: "#/additionalProperties",
@@ -43667,59 +43697,48 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 						var valid0 = true;
 					} else var valid0 = true;
 					if (valid0) {
-						if (data.quoteFreshness !== void 0) {
-							let data2 = data.quoteFreshness;
-							if (typeof data2 !== "string" && data2 !== null) {
-								validate446.errors = [{
-									instancePath: instancePath + "/quoteFreshness",
-									schemaPath: "#/properties/quoteFreshness/type",
-									keyword: "type",
-									params: { type: schema176.properties.quoteFreshness.type },
-									message: "must be string,null"
-								}];
-								return false;
-							}
+						if (data.feePolicy !== void 0) {
+							let data2 = data.feePolicy;
 							if (typeof data2 === "string") {
-								if (func1(data2) > 32) {
+								if (func1(data2) > 64) {
 									validate446.errors = [{
-										instancePath: instancePath + "/quoteFreshness",
-										schemaPath: "#/properties/quoteFreshness/maxLength",
+										instancePath: instancePath + "/feePolicy",
+										schemaPath: "#/properties/feePolicy/maxLength",
 										keyword: "maxLength",
-										params: { limit: 32 },
-										message: "must NOT have more than 32 characters"
+										params: { limit: 64 },
+										message: "must NOT have more than 64 characters"
 									}];
 									return false;
 								} else if (func1(data2) < 1) {
 									validate446.errors = [{
-										instancePath: instancePath + "/quoteFreshness",
-										schemaPath: "#/properties/quoteFreshness/minLength",
+										instancePath: instancePath + "/feePolicy",
+										schemaPath: "#/properties/feePolicy/minLength",
 										keyword: "minLength",
 										params: { limit: 1 },
 										message: "must NOT have fewer than 1 characters"
 									}];
 									return false;
 								}
+							} else {
+								validate446.errors = [{
+									instancePath: instancePath + "/feePolicy",
+									schemaPath: "#/properties/feePolicy/type",
+									keyword: "type",
+									params: { type: "string" },
+									message: "must be string"
+								}];
+								return false;
 							}
 							var valid0 = true;
 						} else var valid0 = true;
 						if (valid0) {
-							if (data.quoteObservedAt !== void 0) {
-								let data3 = data.quoteObservedAt;
-								if (typeof data3 !== "string" && data3 !== null) {
-									validate446.errors = [{
-										instancePath: instancePath + "/quoteObservedAt",
-										schemaPath: "#/properties/quoteObservedAt/type",
-										keyword: "type",
-										params: { type: schema176.properties.quoteObservedAt.type },
-										message: "must be string,null"
-									}];
-									return false;
-								}
+							if (data.fillPolicy !== void 0) {
+								let data3 = data.fillPolicy;
 								if (typeof data3 === "string") {
 									if (func1(data3) > 64) {
 										validate446.errors = [{
-											instancePath: instancePath + "/quoteObservedAt",
-											schemaPath: "#/properties/quoteObservedAt/maxLength",
+											instancePath: instancePath + "/fillPolicy",
+											schemaPath: "#/properties/fillPolicy/maxLength",
 											keyword: "maxLength",
 											params: { limit: 64 },
 											message: "must NOT have more than 64 characters"
@@ -43727,60 +43746,80 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									} else if (func1(data3) < 1) {
 										validate446.errors = [{
-											instancePath: instancePath + "/quoteObservedAt",
-											schemaPath: "#/properties/quoteObservedAt/minLength",
+											instancePath: instancePath + "/fillPolicy",
+											schemaPath: "#/properties/fillPolicy/minLength",
 											keyword: "minLength",
 											params: { limit: 1 },
 											message: "must NOT have fewer than 1 characters"
 										}];
 										return false;
 									}
+								} else {
+									validate446.errors = [{
+										instancePath: instancePath + "/fillPolicy",
+										schemaPath: "#/properties/fillPolicy/type",
+										keyword: "type",
+										params: { type: "string" },
+										message: "must be string"
+									}];
+									return false;
 								}
 								var valid0 = true;
 							} else var valid0 = true;
 							if (valid0) {
-								if (data.quotePrice !== void 0) {
-									let data4 = data.quotePrice;
+								if (data.quoteFreshness !== void 0) {
+									let data4 = data.quoteFreshness;
+									if (typeof data4 !== "string" && data4 !== null) {
+										validate446.errors = [{
+											instancePath: instancePath + "/quoteFreshness",
+											schemaPath: "#/properties/quoteFreshness/type",
+											keyword: "type",
+											params: { type: schema176.properties.quoteFreshness.type },
+											message: "must be string,null"
+										}];
+										return false;
+									}
 									if (typeof data4 === "string") {
-										if (func1(data4) > 128) {
+										if (func1(data4) > 32) {
 											validate446.errors = [{
-												instancePath: instancePath + "/quotePrice",
-												schemaPath: "#/properties/quotePrice/maxLength",
+												instancePath: instancePath + "/quoteFreshness",
+												schemaPath: "#/properties/quoteFreshness/maxLength",
 												keyword: "maxLength",
-												params: { limit: 128 },
-												message: "must NOT have more than 128 characters"
+												params: { limit: 32 },
+												message: "must NOT have more than 32 characters"
 											}];
 											return false;
 										} else if (func1(data4) < 1) {
 											validate446.errors = [{
-												instancePath: instancePath + "/quotePrice",
-												schemaPath: "#/properties/quotePrice/minLength",
+												instancePath: instancePath + "/quoteFreshness",
+												schemaPath: "#/properties/quoteFreshness/minLength",
 												keyword: "minLength",
 												params: { limit: 1 },
 												message: "must NOT have fewer than 1 characters"
 											}];
 											return false;
 										}
-									} else {
-										validate446.errors = [{
-											instancePath: instancePath + "/quotePrice",
-											schemaPath: "#/properties/quotePrice/type",
-											keyword: "type",
-											params: { type: "string" },
-											message: "must be string"
-										}];
-										return false;
 									}
 									var valid0 = true;
 								} else var valid0 = true;
 								if (valid0) {
-									if (data.quoteSource !== void 0) {
-										let data5 = data.quoteSource;
+									if (data.quoteObservedAt !== void 0) {
+										let data5 = data.quoteObservedAt;
+										if (typeof data5 !== "string" && data5 !== null) {
+											validate446.errors = [{
+												instancePath: instancePath + "/quoteObservedAt",
+												schemaPath: "#/properties/quoteObservedAt/type",
+												keyword: "type",
+												params: { type: schema176.properties.quoteObservedAt.type },
+												message: "must be string,null"
+											}];
+											return false;
+										}
 										if (typeof data5 === "string") {
 											if (func1(data5) > 64) {
 												validate446.errors = [{
-													instancePath: instancePath + "/quoteSource",
-													schemaPath: "#/properties/quoteSource/maxLength",
+													instancePath: instancePath + "/quoteObservedAt",
+													schemaPath: "#/properties/quoteObservedAt/maxLength",
 													keyword: "maxLength",
 													params: { limit: 64 },
 													message: "must NOT have more than 64 characters"
@@ -43788,34 +43827,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												return false;
 											} else if (func1(data5) < 1) {
 												validate446.errors = [{
-													instancePath: instancePath + "/quoteSource",
-													schemaPath: "#/properties/quoteSource/minLength",
+													instancePath: instancePath + "/quoteObservedAt",
+													schemaPath: "#/properties/quoteObservedAt/minLength",
 													keyword: "minLength",
 													params: { limit: 1 },
 													message: "must NOT have fewer than 1 characters"
 												}];
 												return false;
 											}
-										} else {
-											validate446.errors = [{
-												instancePath: instancePath + "/quoteSource",
-												schemaPath: "#/properties/quoteSource/type",
-												keyword: "type",
-												params: { type: "string" },
-												message: "must be string"
-											}];
-											return false;
 										}
 										var valid0 = true;
 									} else var valid0 = true;
 									if (valid0) {
-										if (data.scenarioId !== void 0) {
-											let data6 = data.scenarioId;
+										if (data.quotePrice !== void 0) {
+											let data6 = data.quotePrice;
 											if (typeof data6 === "string") {
 												if (func1(data6) > 128) {
 													validate446.errors = [{
-														instancePath: instancePath + "/scenarioId",
-														schemaPath: "#/properties/scenarioId/maxLength",
+														instancePath: instancePath + "/quotePrice",
+														schemaPath: "#/properties/quotePrice/maxLength",
 														keyword: "maxLength",
 														params: { limit: 128 },
 														message: "must NOT have more than 128 characters"
@@ -43823,8 +43853,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												} else if (func1(data6) < 1) {
 													validate446.errors = [{
-														instancePath: instancePath + "/scenarioId",
-														schemaPath: "#/properties/scenarioId/minLength",
+														instancePath: instancePath + "/quotePrice",
+														schemaPath: "#/properties/quotePrice/minLength",
 														keyword: "minLength",
 														params: { limit: 1 },
 														message: "must NOT have fewer than 1 characters"
@@ -43833,8 +43863,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 											} else {
 												validate446.errors = [{
-													instancePath: instancePath + "/scenarioId",
-													schemaPath: "#/properties/scenarioId/type",
+													instancePath: instancePath + "/quotePrice",
+													schemaPath: "#/properties/quotePrice/type",
 													keyword: "type",
 													params: { type: "string" },
 													message: "must be string"
@@ -43844,22 +43874,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											var valid0 = true;
 										} else var valid0 = true;
 										if (valid0) {
-											if (data.startingCash !== void 0) {
-												let data7 = data.startingCash;
+											if (data.quoteSource !== void 0) {
+												let data7 = data.quoteSource;
 												if (typeof data7 === "string") {
-													if (func1(data7) > 128) {
+													if (func1(data7) > 64) {
 														validate446.errors = [{
-															instancePath: instancePath + "/startingCash",
-															schemaPath: "#/properties/startingCash/maxLength",
+															instancePath: instancePath + "/quoteSource",
+															schemaPath: "#/properties/quoteSource/maxLength",
 															keyword: "maxLength",
-															params: { limit: 128 },
-															message: "must NOT have more than 128 characters"
+															params: { limit: 64 },
+															message: "must NOT have more than 64 characters"
 														}];
 														return false;
 													} else if (func1(data7) < 1) {
 														validate446.errors = [{
-															instancePath: instancePath + "/startingCash",
-															schemaPath: "#/properties/startingCash/minLength",
+															instancePath: instancePath + "/quoteSource",
+															schemaPath: "#/properties/quoteSource/minLength",
 															keyword: "minLength",
 															params: { limit: 1 },
 															message: "must NOT have fewer than 1 characters"
@@ -43868,8 +43898,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													}
 												} else {
 													validate446.errors = [{
-														instancePath: instancePath + "/startingCash",
-														schemaPath: "#/properties/startingCash/type",
+														instancePath: instancePath + "/quoteSource",
+														schemaPath: "#/properties/quoteSource/type",
 														keyword: "type",
 														params: { type: "string" },
 														message: "must be string"
@@ -43878,6 +43908,186 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 												var valid0 = true;
 											} else var valid0 = true;
+											if (valid0) {
+												if (data.scenarioId !== void 0) {
+													let data8 = data.scenarioId;
+													if (typeof data8 === "string") {
+														if (func1(data8) > 128) {
+															validate446.errors = [{
+																instancePath: instancePath + "/scenarioId",
+																schemaPath: "#/properties/scenarioId/maxLength",
+																keyword: "maxLength",
+																params: { limit: 128 },
+																message: "must NOT have more than 128 characters"
+															}];
+															return false;
+														} else if (func1(data8) < 1) {
+															validate446.errors = [{
+																instancePath: instancePath + "/scenarioId",
+																schemaPath: "#/properties/scenarioId/minLength",
+																keyword: "minLength",
+																params: { limit: 1 },
+																message: "must NOT have fewer than 1 characters"
+															}];
+															return false;
+														}
+													} else {
+														validate446.errors = [{
+															instancePath: instancePath + "/scenarioId",
+															schemaPath: "#/properties/scenarioId/type",
+															keyword: "type",
+															params: { type: "string" },
+															message: "must be string"
+														}];
+														return false;
+													}
+													var valid0 = true;
+												} else var valid0 = true;
+												if (valid0) {
+													if (data.scenarioSeed !== void 0) {
+														let data9 = data.scenarioSeed;
+														if (typeof data9 === "string") {
+															if (func1(data9) > 64) {
+																validate446.errors = [{
+																	instancePath: instancePath + "/scenarioSeed",
+																	schemaPath: "#/properties/scenarioSeed/maxLength",
+																	keyword: "maxLength",
+																	params: { limit: 64 },
+																	message: "must NOT have more than 64 characters"
+																}];
+																return false;
+															} else if (func1(data9) < 1) {
+																validate446.errors = [{
+																	instancePath: instancePath + "/scenarioSeed",
+																	schemaPath: "#/properties/scenarioSeed/minLength",
+																	keyword: "minLength",
+																	params: { limit: 1 },
+																	message: "must NOT have fewer than 1 characters"
+																}];
+																return false;
+															}
+														} else {
+															validate446.errors = [{
+																instancePath: instancePath + "/scenarioSeed",
+																schemaPath: "#/properties/scenarioSeed/type",
+																keyword: "type",
+																params: { type: "string" },
+																message: "must be string"
+															}];
+															return false;
+														}
+														var valid0 = true;
+													} else var valid0 = true;
+													if (valid0) {
+														if (data.scenarioVersion !== void 0) {
+															let data10 = data.scenarioVersion;
+															if (typeof data10 === "string") {
+																if (func1(data10) > 64) {
+																	validate446.errors = [{
+																		instancePath: instancePath + "/scenarioVersion",
+																		schemaPath: "#/properties/scenarioVersion/maxLength",
+																		keyword: "maxLength",
+																		params: { limit: 64 },
+																		message: "must NOT have more than 64 characters"
+																	}];
+																	return false;
+																} else if (func1(data10) < 1) {
+																	validate446.errors = [{
+																		instancePath: instancePath + "/scenarioVersion",
+																		schemaPath: "#/properties/scenarioVersion/minLength",
+																		keyword: "minLength",
+																		params: { limit: 1 },
+																		message: "must NOT have fewer than 1 characters"
+																	}];
+																	return false;
+																}
+															} else {
+																validate446.errors = [{
+																	instancePath: instancePath + "/scenarioVersion",
+																	schemaPath: "#/properties/scenarioVersion/type",
+																	keyword: "type",
+																	params: { type: "string" },
+																	message: "must be string"
+																}];
+																return false;
+															}
+															var valid0 = true;
+														} else var valid0 = true;
+														if (valid0) {
+															if (data.slippagePolicy !== void 0) {
+																let data11 = data.slippagePolicy;
+																if (typeof data11 === "string") {
+																	if (func1(data11) > 64) {
+																		validate446.errors = [{
+																			instancePath: instancePath + "/slippagePolicy",
+																			schemaPath: "#/properties/slippagePolicy/maxLength",
+																			keyword: "maxLength",
+																			params: { limit: 64 },
+																			message: "must NOT have more than 64 characters"
+																		}];
+																		return false;
+																	} else if (func1(data11) < 1) {
+																		validate446.errors = [{
+																			instancePath: instancePath + "/slippagePolicy",
+																			schemaPath: "#/properties/slippagePolicy/minLength",
+																			keyword: "minLength",
+																			params: { limit: 1 },
+																			message: "must NOT have fewer than 1 characters"
+																		}];
+																		return false;
+																	}
+																} else {
+																	validate446.errors = [{
+																		instancePath: instancePath + "/slippagePolicy",
+																		schemaPath: "#/properties/slippagePolicy/type",
+																		keyword: "type",
+																		params: { type: "string" },
+																		message: "must be string"
+																	}];
+																	return false;
+																}
+																var valid0 = true;
+															} else var valid0 = true;
+															if (valid0) {
+																if (data.startingCash !== void 0) {
+																	let data12 = data.startingCash;
+																	if (typeof data12 === "string") {
+																		if (func1(data12) > 128) {
+																			validate446.errors = [{
+																				instancePath: instancePath + "/startingCash",
+																				schemaPath: "#/properties/startingCash/maxLength",
+																				keyword: "maxLength",
+																				params: { limit: 128 },
+																				message: "must NOT have more than 128 characters"
+																			}];
+																			return false;
+																		} else if (func1(data12) < 1) {
+																			validate446.errors = [{
+																				instancePath: instancePath + "/startingCash",
+																				schemaPath: "#/properties/startingCash/minLength",
+																				keyword: "minLength",
+																				params: { limit: 1 },
+																				message: "must NOT have fewer than 1 characters"
+																			}];
+																			return false;
+																		}
+																	} else {
+																		validate446.errors = [{
+																			instancePath: instancePath + "/startingCash",
+																			schemaPath: "#/properties/startingCash/type",
+																			keyword: "type",
+																			params: { type: "string" },
+																			message: "must be string"
+																		}];
+																		return false;
+																	}
+																	var valid0 = true;
+																} else var valid0 = true;
+															}
+														}
+													}
+												}
+											}
 										}
 									}
 								}
@@ -47526,7 +47736,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								return false;
 																							} else {
 																								const _errs83 = errors;
-																								for (const key6 in data36) if (!(key6 === "baseCurrency" || key6 === "engineVersion" || key6 === "quoteFreshness" || key6 === "quoteObservedAt" || key6 === "quotePrice" || key6 === "quoteSource" || key6 === "scenarioId" || key6 === "startingCash")) {
+																								for (const key6 in data36) if (!func49.call(schema176.properties, key6)) {
 																									validate448.errors = [{
 																										instancePath: instancePath + "/profile",
 																										schemaPath: "#/$defs/LocalPaperProfile/additionalProperties",
@@ -47604,64 +47814,53 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											var valid18 = _errs86 === errors;
 																										} else var valid18 = true;
 																										if (valid18) {
-																											if (data36.quoteFreshness !== void 0) {
-																												let data39 = data36.quoteFreshness;
+																											if (data36.feePolicy !== void 0) {
+																												let data39 = data36.feePolicy;
 																												const _errs88 = errors;
-																												if (typeof data39 !== "string" && data39 !== null) {
-																													validate448.errors = [{
-																														instancePath: instancePath + "/profile/quoteFreshness",
-																														schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/type",
-																														keyword: "type",
-																														params: { type: schema176.properties.quoteFreshness.type },
-																														message: "must be string,null"
-																													}];
-																													return false;
-																												}
 																												if (errors === _errs88) {
 																													if (typeof data39 === "string") {
-																														if (func1(data39) > 32) {
+																														if (func1(data39) > 64) {
 																															validate448.errors = [{
-																																instancePath: instancePath + "/profile/quoteFreshness",
-																																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/maxLength",
+																																instancePath: instancePath + "/profile/feePolicy",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/maxLength",
 																																keyword: "maxLength",
-																																params: { limit: 32 },
-																																message: "must NOT have more than 32 characters"
+																																params: { limit: 64 },
+																																message: "must NOT have more than 64 characters"
 																															}];
 																															return false;
 																														} else if (func1(data39) < 1) {
 																															validate448.errors = [{
-																																instancePath: instancePath + "/profile/quoteFreshness",
-																																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/minLength",
+																																instancePath: instancePath + "/profile/feePolicy",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/minLength",
 																																keyword: "minLength",
 																																params: { limit: 1 },
 																																message: "must NOT have fewer than 1 characters"
 																															}];
 																															return false;
 																														}
+																													} else {
+																														validate448.errors = [{
+																															instancePath: instancePath + "/profile/feePolicy",
+																															schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
 																													}
 																												}
 																												var valid18 = _errs88 === errors;
 																											} else var valid18 = true;
 																											if (valid18) {
-																												if (data36.quoteObservedAt !== void 0) {
-																													let data40 = data36.quoteObservedAt;
+																												if (data36.fillPolicy !== void 0) {
+																													let data40 = data36.fillPolicy;
 																													const _errs90 = errors;
-																													if (typeof data40 !== "string" && data40 !== null) {
-																														validate448.errors = [{
-																															instancePath: instancePath + "/profile/quoteObservedAt",
-																															schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/type",
-																															keyword: "type",
-																															params: { type: schema176.properties.quoteObservedAt.type },
-																															message: "must be string,null"
-																														}];
-																														return false;
-																													}
 																													if (errors === _errs90) {
 																														if (typeof data40 === "string") {
 																															if (func1(data40) > 64) {
 																																validate448.errors = [{
-																																	instancePath: instancePath + "/profile/quoteObservedAt",
-																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/maxLength",
+																																	instancePath: instancePath + "/profile/fillPolicy",
+																																	schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/maxLength",
 																																	keyword: "maxLength",
 																																	params: { limit: 64 },
 																																	message: "must NOT have more than 64 characters"
@@ -47669,66 +47868,86 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																return false;
 																															} else if (func1(data40) < 1) {
 																																validate448.errors = [{
-																																	instancePath: instancePath + "/profile/quoteObservedAt",
-																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/minLength",
+																																	instancePath: instancePath + "/profile/fillPolicy",
+																																	schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/minLength",
 																																	keyword: "minLength",
 																																	params: { limit: 1 },
 																																	message: "must NOT have fewer than 1 characters"
 																																}];
 																																return false;
 																															}
+																														} else {
+																															validate448.errors = [{
+																																instancePath: instancePath + "/profile/fillPolicy",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/type",
+																																keyword: "type",
+																																params: { type: "string" },
+																																message: "must be string"
+																															}];
+																															return false;
 																														}
 																													}
 																													var valid18 = _errs90 === errors;
 																												} else var valid18 = true;
 																												if (valid18) {
-																													if (data36.quotePrice !== void 0) {
-																														let data41 = data36.quotePrice;
+																													if (data36.quoteFreshness !== void 0) {
+																														let data41 = data36.quoteFreshness;
 																														const _errs92 = errors;
+																														if (typeof data41 !== "string" && data41 !== null) {
+																															validate448.errors = [{
+																																instancePath: instancePath + "/profile/quoteFreshness",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/type",
+																																keyword: "type",
+																																params: { type: schema176.properties.quoteFreshness.type },
+																																message: "must be string,null"
+																															}];
+																															return false;
+																														}
 																														if (errors === _errs92) {
 																															if (typeof data41 === "string") {
-																																if (func1(data41) > 128) {
+																																if (func1(data41) > 32) {
 																																	validate448.errors = [{
-																																		instancePath: instancePath + "/profile/quotePrice",
-																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/maxLength",
+																																		instancePath: instancePath + "/profile/quoteFreshness",
+																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/maxLength",
 																																		keyword: "maxLength",
-																																		params: { limit: 128 },
-																																		message: "must NOT have more than 128 characters"
+																																		params: { limit: 32 },
+																																		message: "must NOT have more than 32 characters"
 																																	}];
 																																	return false;
 																																} else if (func1(data41) < 1) {
 																																	validate448.errors = [{
-																																		instancePath: instancePath + "/profile/quotePrice",
-																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/minLength",
+																																		instancePath: instancePath + "/profile/quoteFreshness",
+																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/minLength",
 																																		keyword: "minLength",
 																																		params: { limit: 1 },
 																																		message: "must NOT have fewer than 1 characters"
 																																	}];
 																																	return false;
 																																}
-																															} else {
-																																validate448.errors = [{
-																																	instancePath: instancePath + "/profile/quotePrice",
-																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/type",
-																																	keyword: "type",
-																																	params: { type: "string" },
-																																	message: "must be string"
-																																}];
-																																return false;
 																															}
 																														}
 																														var valid18 = _errs92 === errors;
 																													} else var valid18 = true;
 																													if (valid18) {
-																														if (data36.quoteSource !== void 0) {
-																															let data42 = data36.quoteSource;
+																														if (data36.quoteObservedAt !== void 0) {
+																															let data42 = data36.quoteObservedAt;
 																															const _errs94 = errors;
+																															if (typeof data42 !== "string" && data42 !== null) {
+																																validate448.errors = [{
+																																	instancePath: instancePath + "/profile/quoteObservedAt",
+																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/type",
+																																	keyword: "type",
+																																	params: { type: schema176.properties.quoteObservedAt.type },
+																																	message: "must be string,null"
+																																}];
+																																return false;
+																															}
 																															if (errors === _errs94) {
 																																if (typeof data42 === "string") {
 																																	if (func1(data42) > 64) {
 																																		validate448.errors = [{
-																																			instancePath: instancePath + "/profile/quoteSource",
-																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/maxLength",
+																																			instancePath: instancePath + "/profile/quoteObservedAt",
+																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/maxLength",
 																																			keyword: "maxLength",
 																																			params: { limit: 64 },
 																																			message: "must NOT have more than 64 characters"
@@ -47736,37 +47955,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		return false;
 																																	} else if (func1(data42) < 1) {
 																																		validate448.errors = [{
-																																			instancePath: instancePath + "/profile/quoteSource",
-																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/minLength",
+																																			instancePath: instancePath + "/profile/quoteObservedAt",
+																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/minLength",
 																																			keyword: "minLength",
 																																			params: { limit: 1 },
 																																			message: "must NOT have fewer than 1 characters"
 																																		}];
 																																		return false;
 																																	}
-																																} else {
-																																	validate448.errors = [{
-																																		instancePath: instancePath + "/profile/quoteSource",
-																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/type",
-																																		keyword: "type",
-																																		params: { type: "string" },
-																																		message: "must be string"
-																																	}];
-																																	return false;
 																																}
 																															}
 																															var valid18 = _errs94 === errors;
 																														} else var valid18 = true;
 																														if (valid18) {
-																															if (data36.scenarioId !== void 0) {
-																																let data43 = data36.scenarioId;
+																															if (data36.quotePrice !== void 0) {
+																																let data43 = data36.quotePrice;
 																																const _errs96 = errors;
 																																if (errors === _errs96) {
 																																	if (typeof data43 === "string") {
 																																		if (func1(data43) > 128) {
 																																			validate448.errors = [{
-																																				instancePath: instancePath + "/profile/scenarioId",
-																																				schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/maxLength",
+																																				instancePath: instancePath + "/profile/quotePrice",
+																																				schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/maxLength",
 																																				keyword: "maxLength",
 																																				params: { limit: 128 },
 																																				message: "must NOT have more than 128 characters"
@@ -47774,8 +47984,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			return false;
 																																		} else if (func1(data43) < 1) {
 																																			validate448.errors = [{
-																																				instancePath: instancePath + "/profile/scenarioId",
-																																				schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/minLength",
+																																				instancePath: instancePath + "/profile/quotePrice",
+																																				schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/minLength",
 																																				keyword: "minLength",
 																																				params: { limit: 1 },
 																																				message: "must NOT have fewer than 1 characters"
@@ -47784,8 +47994,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		}
 																																	} else {
 																																		validate448.errors = [{
-																																			instancePath: instancePath + "/profile/scenarioId",
-																																			schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/type",
+																																			instancePath: instancePath + "/profile/quotePrice",
+																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/type",
 																																			keyword: "type",
 																																			params: { type: "string" },
 																																			message: "must be string"
@@ -47796,24 +48006,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																var valid18 = _errs96 === errors;
 																															} else var valid18 = true;
 																															if (valid18) {
-																																if (data36.startingCash !== void 0) {
-																																	let data44 = data36.startingCash;
+																																if (data36.quoteSource !== void 0) {
+																																	let data44 = data36.quoteSource;
 																																	const _errs98 = errors;
 																																	if (errors === _errs98) {
 																																		if (typeof data44 === "string") {
-																																			if (func1(data44) > 128) {
+																																			if (func1(data44) > 64) {
 																																				validate448.errors = [{
-																																					instancePath: instancePath + "/profile/startingCash",
-																																					schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/maxLength",
+																																					instancePath: instancePath + "/profile/quoteSource",
+																																					schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/maxLength",
 																																					keyword: "maxLength",
-																																					params: { limit: 128 },
-																																					message: "must NOT have more than 128 characters"
+																																					params: { limit: 64 },
+																																					message: "must NOT have more than 64 characters"
 																																				}];
 																																				return false;
 																																			} else if (func1(data44) < 1) {
 																																				validate448.errors = [{
-																																					instancePath: instancePath + "/profile/startingCash",
-																																					schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/minLength",
+																																					instancePath: instancePath + "/profile/quoteSource",
+																																					schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/minLength",
 																																					keyword: "minLength",
 																																					params: { limit: 1 },
 																																					message: "must NOT have fewer than 1 characters"
@@ -47822,8 +48032,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			}
 																																		} else {
 																																			validate448.errors = [{
-																																				instancePath: instancePath + "/profile/startingCash",
-																																				schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/type",
+																																				instancePath: instancePath + "/profile/quoteSource",
+																																				schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/type",
 																																				keyword: "type",
 																																				params: { type: "string" },
 																																				message: "must be string"
@@ -47833,6 +48043,201 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																	}
 																																	var valid18 = _errs98 === errors;
 																																} else var valid18 = true;
+																																if (valid18) {
+																																	if (data36.scenarioId !== void 0) {
+																																		let data45 = data36.scenarioId;
+																																		const _errs100 = errors;
+																																		if (errors === _errs100) {
+																																			if (typeof data45 === "string") {
+																																				if (func1(data45) > 128) {
+																																					validate448.errors = [{
+																																						instancePath: instancePath + "/profile/scenarioId",
+																																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/maxLength",
+																																						keyword: "maxLength",
+																																						params: { limit: 128 },
+																																						message: "must NOT have more than 128 characters"
+																																					}];
+																																					return false;
+																																				} else if (func1(data45) < 1) {
+																																					validate448.errors = [{
+																																						instancePath: instancePath + "/profile/scenarioId",
+																																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/minLength",
+																																						keyword: "minLength",
+																																						params: { limit: 1 },
+																																						message: "must NOT have fewer than 1 characters"
+																																					}];
+																																					return false;
+																																				}
+																																			} else {
+																																				validate448.errors = [{
+																																					instancePath: instancePath + "/profile/scenarioId",
+																																					schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/type",
+																																					keyword: "type",
+																																					params: { type: "string" },
+																																					message: "must be string"
+																																				}];
+																																				return false;
+																																			}
+																																		}
+																																		var valid18 = _errs100 === errors;
+																																	} else var valid18 = true;
+																																	if (valid18) {
+																																		if (data36.scenarioSeed !== void 0) {
+																																			let data46 = data36.scenarioSeed;
+																																			const _errs102 = errors;
+																																			if (errors === _errs102) {
+																																				if (typeof data46 === "string") {
+																																					if (func1(data46) > 64) {
+																																						validate448.errors = [{
+																																							instancePath: instancePath + "/profile/scenarioSeed",
+																																							schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/maxLength",
+																																							keyword: "maxLength",
+																																							params: { limit: 64 },
+																																							message: "must NOT have more than 64 characters"
+																																						}];
+																																						return false;
+																																					} else if (func1(data46) < 1) {
+																																						validate448.errors = [{
+																																							instancePath: instancePath + "/profile/scenarioSeed",
+																																							schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/minLength",
+																																							keyword: "minLength",
+																																							params: { limit: 1 },
+																																							message: "must NOT have fewer than 1 characters"
+																																						}];
+																																						return false;
+																																					}
+																																				} else {
+																																					validate448.errors = [{
+																																						instancePath: instancePath + "/profile/scenarioSeed",
+																																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/type",
+																																						keyword: "type",
+																																						params: { type: "string" },
+																																						message: "must be string"
+																																					}];
+																																					return false;
+																																				}
+																																			}
+																																			var valid18 = _errs102 === errors;
+																																		} else var valid18 = true;
+																																		if (valid18) {
+																																			if (data36.scenarioVersion !== void 0) {
+																																				let data47 = data36.scenarioVersion;
+																																				const _errs104 = errors;
+																																				if (errors === _errs104) {
+																																					if (typeof data47 === "string") {
+																																						if (func1(data47) > 64) {
+																																							validate448.errors = [{
+																																								instancePath: instancePath + "/profile/scenarioVersion",
+																																								schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/maxLength",
+																																								keyword: "maxLength",
+																																								params: { limit: 64 },
+																																								message: "must NOT have more than 64 characters"
+																																							}];
+																																							return false;
+																																						} else if (func1(data47) < 1) {
+																																							validate448.errors = [{
+																																								instancePath: instancePath + "/profile/scenarioVersion",
+																																								schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/minLength",
+																																								keyword: "minLength",
+																																								params: { limit: 1 },
+																																								message: "must NOT have fewer than 1 characters"
+																																							}];
+																																							return false;
+																																						}
+																																					} else {
+																																						validate448.errors = [{
+																																							instancePath: instancePath + "/profile/scenarioVersion",
+																																							schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/type",
+																																							keyword: "type",
+																																							params: { type: "string" },
+																																							message: "must be string"
+																																						}];
+																																						return false;
+																																					}
+																																				}
+																																				var valid18 = _errs104 === errors;
+																																			} else var valid18 = true;
+																																			if (valid18) {
+																																				if (data36.slippagePolicy !== void 0) {
+																																					let data48 = data36.slippagePolicy;
+																																					const _errs106 = errors;
+																																					if (errors === _errs106) {
+																																						if (typeof data48 === "string") {
+																																							if (func1(data48) > 64) {
+																																								validate448.errors = [{
+																																									instancePath: instancePath + "/profile/slippagePolicy",
+																																									schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/maxLength",
+																																									keyword: "maxLength",
+																																									params: { limit: 64 },
+																																									message: "must NOT have more than 64 characters"
+																																								}];
+																																								return false;
+																																							} else if (func1(data48) < 1) {
+																																								validate448.errors = [{
+																																									instancePath: instancePath + "/profile/slippagePolicy",
+																																									schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/minLength",
+																																									keyword: "minLength",
+																																									params: { limit: 1 },
+																																									message: "must NOT have fewer than 1 characters"
+																																								}];
+																																								return false;
+																																							}
+																																						} else {
+																																							validate448.errors = [{
+																																								instancePath: instancePath + "/profile/slippagePolicy",
+																																								schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/type",
+																																								keyword: "type",
+																																								params: { type: "string" },
+																																								message: "must be string"
+																																							}];
+																																							return false;
+																																						}
+																																					}
+																																					var valid18 = _errs106 === errors;
+																																				} else var valid18 = true;
+																																				if (valid18) {
+																																					if (data36.startingCash !== void 0) {
+																																						let data49 = data36.startingCash;
+																																						const _errs108 = errors;
+																																						if (errors === _errs108) {
+																																							if (typeof data49 === "string") {
+																																								if (func1(data49) > 128) {
+																																									validate448.errors = [{
+																																										instancePath: instancePath + "/profile/startingCash",
+																																										schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/maxLength",
+																																										keyword: "maxLength",
+																																										params: { limit: 128 },
+																																										message: "must NOT have more than 128 characters"
+																																									}];
+																																									return false;
+																																								} else if (func1(data49) < 1) {
+																																									validate448.errors = [{
+																																										instancePath: instancePath + "/profile/startingCash",
+																																										schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/minLength",
+																																										keyword: "minLength",
+																																										params: { limit: 1 },
+																																										message: "must NOT have fewer than 1 characters"
+																																									}];
+																																									return false;
+																																								}
+																																							} else {
+																																								validate448.errors = [{
+																																									instancePath: instancePath + "/profile/startingCash",
+																																									schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/type",
+																																									keyword: "type",
+																																									params: { type: "string" },
+																																									message: "must be string"
+																																								}];
+																																								return false;
+																																							}
+																																						}
+																																						var valid18 = _errs108 === errors;
+																																					} else var valid18 = true;
+																																				}
+																																			}
+																																		}
+																																	}
+																																}
 																															}
 																														}
 																													}
@@ -47857,11 +48262,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				} else var valid0 = true;
 																				if (valid0) {
 																					if (data.providerId !== void 0) {
-																						let data45 = data.providerId;
-																						const _errs100 = errors;
-																						if (errors === _errs100) {
-																							if (typeof data45 === "string") {
-																								if (func1(data45) > 32) {
+																						let data50 = data.providerId;
+																						const _errs110 = errors;
+																						if (errors === _errs110) {
+																							if (typeof data50 === "string") {
+																								if (func1(data50) > 32) {
 																									validate448.errors = [{
 																										instancePath: instancePath + "/providerId",
 																										schemaPath: "#/properties/providerId/maxLength",
@@ -47870,7 +48275,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										message: "must NOT have more than 32 characters"
 																									}];
 																									return false;
-																								} else if (func1(data45) < 1) {
+																								} else if (func1(data50) < 1) {
 																									validate448.errors = [{
 																										instancePath: instancePath + "/providerId",
 																										schemaPath: "#/properties/providerId/minLength",
@@ -47891,16 +48296,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								return false;
 																							}
 																						}
-																						var valid0 = _errs100 === errors;
+																						var valid0 = _errs110 === errors;
 																					} else var valid0 = true;
 																					if (valid0) {
 																						if (data.realizedPnl !== void 0) {
-																							let data46 = data.realizedPnl;
-																							const _errs102 = errors;
+																							let data51 = data.realizedPnl;
+																							const _errs112 = errors;
 																							if (errors === errors) {
-																								if (data46 && typeof data46 == "object" && !Array.isArray(data46)) {
+																								if (data51 && typeof data51 == "object" && !Array.isArray(data51)) {
 																									let missing7;
-																									if (data46.value === void 0 && (missing7 = "value") || data46.currency === void 0 && (missing7 = "currency")) {
+																									if (data51.value === void 0 && (missing7 = "value") || data51.currency === void 0 && (missing7 = "currency")) {
 																										validate448.errors = [{
 																											instancePath: instancePath + "/realizedPnl",
 																											schemaPath: "#/$defs/LocalPaperMoney/required",
@@ -47910,8 +48315,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										}];
 																										return false;
 																									} else {
-																										const _errs105 = errors;
-																										for (const key7 in data46) if (!(key7 === "currency" || key7 === "value")) {
+																										const _errs115 = errors;
+																										for (const key7 in data51) if (!(key7 === "currency" || key7 === "value")) {
 																											validate448.errors = [{
 																												instancePath: instancePath + "/realizedPnl",
 																												schemaPath: "#/$defs/LocalPaperMoney/additionalProperties",
@@ -47921,13 +48326,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											}];
 																											return false;
 																										}
-																										if (_errs105 === errors) {
-																											if (data46.currency !== void 0) {
-																												let data47 = data46.currency;
-																												const _errs106 = errors;
-																												if (errors === _errs106) {
-																													if (typeof data47 === "string") {
-																														if (!pattern4.test(data47)) {
+																										if (_errs115 === errors) {
+																											if (data51.currency !== void 0) {
+																												let data52 = data51.currency;
+																												const _errs116 = errors;
+																												if (errors === _errs116) {
+																													if (typeof data52 === "string") {
+																														if (!pattern4.test(data52)) {
 																															validate448.errors = [{
 																																instancePath: instancePath + "/realizedPnl/currency",
 																																schemaPath: "#/$defs/LocalPaperMoney/properties/currency/pattern",
@@ -47948,15 +48353,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														return false;
 																													}
 																												}
-																												var valid20 = _errs106 === errors;
+																												var valid20 = _errs116 === errors;
 																											} else var valid20 = true;
 																											if (valid20) {
-																												if (data46.value !== void 0) {
-																													let data48 = data46.value;
-																													const _errs108 = errors;
-																													if (errors === _errs108) {
-																														if (typeof data48 === "string") {
-																															if (func1(data48) > 128) {
+																												if (data51.value !== void 0) {
+																													let data53 = data51.value;
+																													const _errs118 = errors;
+																													if (errors === _errs118) {
+																														if (typeof data53 === "string") {
+																															if (func1(data53) > 128) {
 																																validate448.errors = [{
 																																	instancePath: instancePath + "/realizedPnl/value",
 																																	schemaPath: "#/$defs/LocalPaperMoney/properties/value/maxLength",
@@ -47965,7 +48370,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																	message: "must NOT have more than 128 characters"
 																																}];
 																																return false;
-																															} else if (func1(data48) < 1) {
+																															} else if (func1(data53) < 1) {
 																																validate448.errors = [{
 																																	instancePath: instancePath + "/realizedPnl/value",
 																																	schemaPath: "#/$defs/LocalPaperMoney/properties/value/minLength",
@@ -47986,7 +48391,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																															return false;
 																														}
 																													}
-																													var valid20 = _errs108 === errors;
+																													var valid20 = _errs118 === errors;
 																												} else var valid20 = true;
 																											}
 																										}
@@ -48002,16 +48407,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									return false;
 																								}
 																							}
-																							var valid0 = _errs102 === errors;
+																							var valid0 = _errs112 === errors;
 																						} else var valid0 = true;
 																						if (valid0) {
 																							if (data.reservedCash !== void 0) {
-																								let data49 = data.reservedCash;
-																								const _errs110 = errors;
+																								let data54 = data.reservedCash;
+																								const _errs120 = errors;
 																								if (errors === errors) {
-																									if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
+																									if (data54 && typeof data54 == "object" && !Array.isArray(data54)) {
 																										let missing8;
-																										if (data49.value === void 0 && (missing8 = "value") || data49.currency === void 0 && (missing8 = "currency")) {
+																										if (data54.value === void 0 && (missing8 = "value") || data54.currency === void 0 && (missing8 = "currency")) {
 																											validate448.errors = [{
 																												instancePath: instancePath + "/reservedCash",
 																												schemaPath: "#/$defs/LocalPaperMoney/required",
@@ -48021,8 +48426,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											}];
 																											return false;
 																										} else {
-																											const _errs113 = errors;
-																											for (const key8 in data49) if (!(key8 === "currency" || key8 === "value")) {
+																											const _errs123 = errors;
+																											for (const key8 in data54) if (!(key8 === "currency" || key8 === "value")) {
 																												validate448.errors = [{
 																													instancePath: instancePath + "/reservedCash",
 																													schemaPath: "#/$defs/LocalPaperMoney/additionalProperties",
@@ -48032,13 +48437,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												}];
 																												return false;
 																											}
-																											if (_errs113 === errors) {
-																												if (data49.currency !== void 0) {
-																													let data50 = data49.currency;
-																													const _errs114 = errors;
-																													if (errors === _errs114) {
-																														if (typeof data50 === "string") {
-																															if (!pattern4.test(data50)) {
+																											if (_errs123 === errors) {
+																												if (data54.currency !== void 0) {
+																													let data55 = data54.currency;
+																													const _errs124 = errors;
+																													if (errors === _errs124) {
+																														if (typeof data55 === "string") {
+																															if (!pattern4.test(data55)) {
 																																validate448.errors = [{
 																																	instancePath: instancePath + "/reservedCash/currency",
 																																	schemaPath: "#/$defs/LocalPaperMoney/properties/currency/pattern",
@@ -48059,15 +48464,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																															return false;
 																														}
 																													}
-																													var valid22 = _errs114 === errors;
+																													var valid22 = _errs124 === errors;
 																												} else var valid22 = true;
 																												if (valid22) {
-																													if (data49.value !== void 0) {
-																														let data51 = data49.value;
-																														const _errs116 = errors;
-																														if (errors === _errs116) {
-																															if (typeof data51 === "string") {
-																																if (func1(data51) > 128) {
+																													if (data54.value !== void 0) {
+																														let data56 = data54.value;
+																														const _errs126 = errors;
+																														if (errors === _errs126) {
+																															if (typeof data56 === "string") {
+																																if (func1(data56) > 128) {
 																																	validate448.errors = [{
 																																		instancePath: instancePath + "/reservedCash/value",
 																																		schemaPath: "#/$defs/LocalPaperMoney/properties/value/maxLength",
@@ -48076,7 +48481,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		message: "must NOT have more than 128 characters"
 																																	}];
 																																	return false;
-																																} else if (func1(data51) < 1) {
+																																} else if (func1(data56) < 1) {
 																																	validate448.errors = [{
 																																		instancePath: instancePath + "/reservedCash/value",
 																																		schemaPath: "#/$defs/LocalPaperMoney/properties/value/minLength",
@@ -48097,7 +48502,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																return false;
 																															}
 																														}
-																														var valid22 = _errs116 === errors;
+																														var valid22 = _errs126 === errors;
 																													} else var valid22 = true;
 																												}
 																											}
@@ -48113,15 +48518,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										return false;
 																									}
 																								}
-																								var valid0 = _errs110 === errors;
+																								var valid0 = _errs120 === errors;
 																							} else var valid0 = true;
 																							if (valid0) {
 																								if (data.stateVersion !== void 0) {
-																									let data52 = data.stateVersion;
-																									const _errs118 = errors;
-																									if (errors === _errs118) {
-																										if (typeof data52 === "string") {
-																											if (func1(data52) > 256) {
+																									let data57 = data.stateVersion;
+																									const _errs128 = errors;
+																									if (errors === _errs128) {
+																										if (typeof data57 === "string") {
+																											if (func1(data57) > 256) {
 																												validate448.errors = [{
 																													instancePath: instancePath + "/stateVersion",
 																													schemaPath: "#/properties/stateVersion/maxLength",
@@ -48130,7 +48535,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													message: "must NOT have more than 256 characters"
 																												}];
 																												return false;
-																											} else if (func1(data52) < 1) {
+																											} else if (func1(data57) < 1) {
 																												validate448.errors = [{
 																													instancePath: instancePath + "/stateVersion",
 																													schemaPath: "#/properties/stateVersion/minLength",
@@ -48151,16 +48556,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											return false;
 																										}
 																									}
-																									var valid0 = _errs118 === errors;
+																									var valid0 = _errs128 === errors;
 																								} else var valid0 = true;
 																								if (valid0) {
 																									if (data.unrealizedPnl !== void 0) {
-																										let data53 = data.unrealizedPnl;
-																										const _errs120 = errors;
+																										let data58 = data.unrealizedPnl;
+																										const _errs130 = errors;
 																										if (errors === errors) {
-																											if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
+																											if (data58 && typeof data58 == "object" && !Array.isArray(data58)) {
 																												let missing9;
-																												if (data53.value === void 0 && (missing9 = "value") || data53.currency === void 0 && (missing9 = "currency")) {
+																												if (data58.value === void 0 && (missing9 = "value") || data58.currency === void 0 && (missing9 = "currency")) {
 																													validate448.errors = [{
 																														instancePath: instancePath + "/unrealizedPnl",
 																														schemaPath: "#/$defs/LocalPaperMoney/required",
@@ -48170,8 +48575,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													}];
 																													return false;
 																												} else {
-																													const _errs123 = errors;
-																													for (const key9 in data53) if (!(key9 === "currency" || key9 === "value")) {
+																													const _errs133 = errors;
+																													for (const key9 in data58) if (!(key9 === "currency" || key9 === "value")) {
 																														validate448.errors = [{
 																															instancePath: instancePath + "/unrealizedPnl",
 																															schemaPath: "#/$defs/LocalPaperMoney/additionalProperties",
@@ -48181,13 +48586,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														}];
 																														return false;
 																													}
-																													if (_errs123 === errors) {
-																														if (data53.currency !== void 0) {
-																															let data54 = data53.currency;
-																															const _errs124 = errors;
-																															if (errors === _errs124) {
-																																if (typeof data54 === "string") {
-																																	if (!pattern4.test(data54)) {
+																													if (_errs133 === errors) {
+																														if (data58.currency !== void 0) {
+																															let data59 = data58.currency;
+																															const _errs134 = errors;
+																															if (errors === _errs134) {
+																																if (typeof data59 === "string") {
+																																	if (!pattern4.test(data59)) {
 																																		validate448.errors = [{
 																																			instancePath: instancePath + "/unrealizedPnl/currency",
 																																			schemaPath: "#/$defs/LocalPaperMoney/properties/currency/pattern",
@@ -48208,15 +48613,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																	return false;
 																																}
 																															}
-																															var valid24 = _errs124 === errors;
+																															var valid24 = _errs134 === errors;
 																														} else var valid24 = true;
 																														if (valid24) {
-																															if (data53.value !== void 0) {
-																																let data55 = data53.value;
-																																const _errs126 = errors;
-																																if (errors === _errs126) {
-																																	if (typeof data55 === "string") {
-																																		if (func1(data55) > 128) {
+																															if (data58.value !== void 0) {
+																																let data60 = data58.value;
+																																const _errs136 = errors;
+																																if (errors === _errs136) {
+																																	if (typeof data60 === "string") {
+																																		if (func1(data60) > 128) {
 																																			validate448.errors = [{
 																																				instancePath: instancePath + "/unrealizedPnl/value",
 																																				schemaPath: "#/$defs/LocalPaperMoney/properties/value/maxLength",
@@ -48225,7 +48630,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																				message: "must NOT have more than 128 characters"
 																																			}];
 																																			return false;
-																																		} else if (func1(data55) < 1) {
+																																		} else if (func1(data60) < 1) {
 																																			validate448.errors = [{
 																																				instancePath: instancePath + "/unrealizedPnl/value",
 																																				schemaPath: "#/$defs/LocalPaperMoney/properties/value/minLength",
@@ -48246,7 +48651,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		return false;
 																																	}
 																																}
-																																var valid24 = _errs126 === errors;
+																																var valid24 = _errs136 === errors;
 																															} else var valid24 = true;
 																														}
 																													}
@@ -48262,15 +48667,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												return false;
 																											}
 																										}
-																										var valid0 = _errs120 === errors;
+																										var valid0 = _errs130 === errors;
 																									} else var valid0 = true;
 																									if (valid0) {
 																										if (data.updatedAt !== void 0) {
-																											let data56 = data.updatedAt;
-																											const _errs128 = errors;
-																											if (errors === _errs128) {
-																												if (typeof data56 === "string") {
-																													if (func1(data56) > 64) {
+																											let data61 = data.updatedAt;
+																											const _errs138 = errors;
+																											if (errors === _errs138) {
+																												if (typeof data61 === "string") {
+																													if (func1(data61) > 64) {
 																														validate448.errors = [{
 																															instancePath: instancePath + "/updatedAt",
 																															schemaPath: "#/properties/updatedAt/maxLength",
@@ -48279,7 +48684,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																															message: "must NOT have more than 64 characters"
 																														}];
 																														return false;
-																													} else if (func1(data56) < 1) {
+																													} else if (func1(data61) < 1) {
 																														validate448.errors = [{
 																															instancePath: instancePath + "/updatedAt",
 																															schemaPath: "#/properties/updatedAt/minLength",
@@ -48300,15 +48705,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													return false;
 																												}
 																											}
-																											var valid0 = _errs128 === errors;
+																											var valid0 = _errs138 === errors;
 																										} else var valid0 = true;
 																										if (valid0) {
 																											if (data.workspaceId !== void 0) {
-																												let data57 = data.workspaceId;
-																												const _errs130 = errors;
-																												if (errors === _errs130) {
-																													if (typeof data57 === "string") {
-																														if (func1(data57) > 128) {
+																												let data62 = data.workspaceId;
+																												const _errs140 = errors;
+																												if (errors === _errs140) {
+																													if (typeof data62 === "string") {
+																														if (func1(data62) > 128) {
 																															validate448.errors = [{
 																																instancePath: instancePath + "/workspaceId",
 																																schemaPath: "#/properties/workspaceId/maxLength",
@@ -48317,7 +48722,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																message: "must NOT have more than 128 characters"
 																															}];
 																															return false;
-																														} else if (func1(data57) < 1) {
+																														} else if (func1(data62) < 1) {
 																															validate448.errors = [{
 																																instancePath: instancePath + "/workspaceId",
 																																schemaPath: "#/properties/workspaceId/minLength",
@@ -48338,7 +48743,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														return false;
 																													}
 																												}
-																												var valid0 = _errs130 === errors;
+																												var valid0 = _errs140 === errors;
 																											} else var valid0 = true;
 																										}
 																									}
@@ -62288,7 +62693,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								return false;
 																							} else {
 																								const _errs83 = errors;
-																								for (const key6 in data36) if (!(key6 === "baseCurrency" || key6 === "engineVersion" || key6 === "quoteFreshness" || key6 === "quoteObservedAt" || key6 === "quotePrice" || key6 === "quoteSource" || key6 === "scenarioId" || key6 === "startingCash")) {
+																								for (const key6 in data36) if (!func49.call(schema176.properties, key6)) {
 																									validate95.errors = [{
 																										instancePath: instancePath + "/profile",
 																										schemaPath: "#/$defs/LocalPaperProfile/additionalProperties",
@@ -62366,64 +62771,53 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											var valid18 = _errs86 === errors;
 																										} else var valid18 = true;
 																										if (valid18) {
-																											if (data36.quoteFreshness !== void 0) {
-																												let data39 = data36.quoteFreshness;
+																											if (data36.feePolicy !== void 0) {
+																												let data39 = data36.feePolicy;
 																												const _errs88 = errors;
-																												if (typeof data39 !== "string" && data39 !== null) {
-																													validate95.errors = [{
-																														instancePath: instancePath + "/profile/quoteFreshness",
-																														schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/type",
-																														keyword: "type",
-																														params: { type: schema176.properties.quoteFreshness.type },
-																														message: "must be string,null"
-																													}];
-																													return false;
-																												}
 																												if (errors === _errs88) {
 																													if (typeof data39 === "string") {
-																														if (func1(data39) > 32) {
+																														if (func1(data39) > 64) {
 																															validate95.errors = [{
-																																instancePath: instancePath + "/profile/quoteFreshness",
-																																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/maxLength",
+																																instancePath: instancePath + "/profile/feePolicy",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/maxLength",
 																																keyword: "maxLength",
-																																params: { limit: 32 },
-																																message: "must NOT have more than 32 characters"
+																																params: { limit: 64 },
+																																message: "must NOT have more than 64 characters"
 																															}];
 																															return false;
 																														} else if (func1(data39) < 1) {
 																															validate95.errors = [{
-																																instancePath: instancePath + "/profile/quoteFreshness",
-																																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/minLength",
+																																instancePath: instancePath + "/profile/feePolicy",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/minLength",
 																																keyword: "minLength",
 																																params: { limit: 1 },
 																																message: "must NOT have fewer than 1 characters"
 																															}];
 																															return false;
 																														}
+																													} else {
+																														validate95.errors = [{
+																															instancePath: instancePath + "/profile/feePolicy",
+																															schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
 																													}
 																												}
 																												var valid18 = _errs88 === errors;
 																											} else var valid18 = true;
 																											if (valid18) {
-																												if (data36.quoteObservedAt !== void 0) {
-																													let data40 = data36.quoteObservedAt;
+																												if (data36.fillPolicy !== void 0) {
+																													let data40 = data36.fillPolicy;
 																													const _errs90 = errors;
-																													if (typeof data40 !== "string" && data40 !== null) {
-																														validate95.errors = [{
-																															instancePath: instancePath + "/profile/quoteObservedAt",
-																															schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/type",
-																															keyword: "type",
-																															params: { type: schema176.properties.quoteObservedAt.type },
-																															message: "must be string,null"
-																														}];
-																														return false;
-																													}
 																													if (errors === _errs90) {
 																														if (typeof data40 === "string") {
 																															if (func1(data40) > 64) {
 																																validate95.errors = [{
-																																	instancePath: instancePath + "/profile/quoteObservedAt",
-																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/maxLength",
+																																	instancePath: instancePath + "/profile/fillPolicy",
+																																	schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/maxLength",
 																																	keyword: "maxLength",
 																																	params: { limit: 64 },
 																																	message: "must NOT have more than 64 characters"
@@ -62431,66 +62825,86 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																return false;
 																															} else if (func1(data40) < 1) {
 																																validate95.errors = [{
-																																	instancePath: instancePath + "/profile/quoteObservedAt",
-																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/minLength",
+																																	instancePath: instancePath + "/profile/fillPolicy",
+																																	schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/minLength",
 																																	keyword: "minLength",
 																																	params: { limit: 1 },
 																																	message: "must NOT have fewer than 1 characters"
 																																}];
 																																return false;
 																															}
+																														} else {
+																															validate95.errors = [{
+																																instancePath: instancePath + "/profile/fillPolicy",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/type",
+																																keyword: "type",
+																																params: { type: "string" },
+																																message: "must be string"
+																															}];
+																															return false;
 																														}
 																													}
 																													var valid18 = _errs90 === errors;
 																												} else var valid18 = true;
 																												if (valid18) {
-																													if (data36.quotePrice !== void 0) {
-																														let data41 = data36.quotePrice;
+																													if (data36.quoteFreshness !== void 0) {
+																														let data41 = data36.quoteFreshness;
 																														const _errs92 = errors;
+																														if (typeof data41 !== "string" && data41 !== null) {
+																															validate95.errors = [{
+																																instancePath: instancePath + "/profile/quoteFreshness",
+																																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/type",
+																																keyword: "type",
+																																params: { type: schema176.properties.quoteFreshness.type },
+																																message: "must be string,null"
+																															}];
+																															return false;
+																														}
 																														if (errors === _errs92) {
 																															if (typeof data41 === "string") {
-																																if (func1(data41) > 128) {
+																																if (func1(data41) > 32) {
 																																	validate95.errors = [{
-																																		instancePath: instancePath + "/profile/quotePrice",
-																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/maxLength",
+																																		instancePath: instancePath + "/profile/quoteFreshness",
+																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/maxLength",
 																																		keyword: "maxLength",
-																																		params: { limit: 128 },
-																																		message: "must NOT have more than 128 characters"
+																																		params: { limit: 32 },
+																																		message: "must NOT have more than 32 characters"
 																																	}];
 																																	return false;
 																																} else if (func1(data41) < 1) {
 																																	validate95.errors = [{
-																																		instancePath: instancePath + "/profile/quotePrice",
-																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/minLength",
+																																		instancePath: instancePath + "/profile/quoteFreshness",
+																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/minLength",
 																																		keyword: "minLength",
 																																		params: { limit: 1 },
 																																		message: "must NOT have fewer than 1 characters"
 																																	}];
 																																	return false;
 																																}
-																															} else {
-																																validate95.errors = [{
-																																	instancePath: instancePath + "/profile/quotePrice",
-																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/type",
-																																	keyword: "type",
-																																	params: { type: "string" },
-																																	message: "must be string"
-																																}];
-																																return false;
 																															}
 																														}
 																														var valid18 = _errs92 === errors;
 																													} else var valid18 = true;
 																													if (valid18) {
-																														if (data36.quoteSource !== void 0) {
-																															let data42 = data36.quoteSource;
+																														if (data36.quoteObservedAt !== void 0) {
+																															let data42 = data36.quoteObservedAt;
 																															const _errs94 = errors;
+																															if (typeof data42 !== "string" && data42 !== null) {
+																																validate95.errors = [{
+																																	instancePath: instancePath + "/profile/quoteObservedAt",
+																																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/type",
+																																	keyword: "type",
+																																	params: { type: schema176.properties.quoteObservedAt.type },
+																																	message: "must be string,null"
+																																}];
+																																return false;
+																															}
 																															if (errors === _errs94) {
 																																if (typeof data42 === "string") {
 																																	if (func1(data42) > 64) {
 																																		validate95.errors = [{
-																																			instancePath: instancePath + "/profile/quoteSource",
-																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/maxLength",
+																																			instancePath: instancePath + "/profile/quoteObservedAt",
+																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/maxLength",
 																																			keyword: "maxLength",
 																																			params: { limit: 64 },
 																																			message: "must NOT have more than 64 characters"
@@ -62498,37 +62912,28 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		return false;
 																																	} else if (func1(data42) < 1) {
 																																		validate95.errors = [{
-																																			instancePath: instancePath + "/profile/quoteSource",
-																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/minLength",
+																																			instancePath: instancePath + "/profile/quoteObservedAt",
+																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/minLength",
 																																			keyword: "minLength",
 																																			params: { limit: 1 },
 																																			message: "must NOT have fewer than 1 characters"
 																																		}];
 																																		return false;
 																																	}
-																																} else {
-																																	validate95.errors = [{
-																																		instancePath: instancePath + "/profile/quoteSource",
-																																		schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/type",
-																																		keyword: "type",
-																																		params: { type: "string" },
-																																		message: "must be string"
-																																	}];
-																																	return false;
 																																}
 																															}
 																															var valid18 = _errs94 === errors;
 																														} else var valid18 = true;
 																														if (valid18) {
-																															if (data36.scenarioId !== void 0) {
-																																let data43 = data36.scenarioId;
+																															if (data36.quotePrice !== void 0) {
+																																let data43 = data36.quotePrice;
 																																const _errs96 = errors;
 																																if (errors === _errs96) {
 																																	if (typeof data43 === "string") {
 																																		if (func1(data43) > 128) {
 																																			validate95.errors = [{
-																																				instancePath: instancePath + "/profile/scenarioId",
-																																				schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/maxLength",
+																																				instancePath: instancePath + "/profile/quotePrice",
+																																				schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/maxLength",
 																																				keyword: "maxLength",
 																																				params: { limit: 128 },
 																																				message: "must NOT have more than 128 characters"
@@ -62536,8 +62941,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			return false;
 																																		} else if (func1(data43) < 1) {
 																																			validate95.errors = [{
-																																				instancePath: instancePath + "/profile/scenarioId",
-																																				schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/minLength",
+																																				instancePath: instancePath + "/profile/quotePrice",
+																																				schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/minLength",
 																																				keyword: "minLength",
 																																				params: { limit: 1 },
 																																				message: "must NOT have fewer than 1 characters"
@@ -62546,8 +62951,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		}
 																																	} else {
 																																		validate95.errors = [{
-																																			instancePath: instancePath + "/profile/scenarioId",
-																																			schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/type",
+																																			instancePath: instancePath + "/profile/quotePrice",
+																																			schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/type",
 																																			keyword: "type",
 																																			params: { type: "string" },
 																																			message: "must be string"
@@ -62558,24 +62963,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																var valid18 = _errs96 === errors;
 																															} else var valid18 = true;
 																															if (valid18) {
-																																if (data36.startingCash !== void 0) {
-																																	let data44 = data36.startingCash;
+																																if (data36.quoteSource !== void 0) {
+																																	let data44 = data36.quoteSource;
 																																	const _errs98 = errors;
 																																	if (errors === _errs98) {
 																																		if (typeof data44 === "string") {
-																																			if (func1(data44) > 128) {
+																																			if (func1(data44) > 64) {
 																																				validate95.errors = [{
-																																					instancePath: instancePath + "/profile/startingCash",
-																																					schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/maxLength",
+																																					instancePath: instancePath + "/profile/quoteSource",
+																																					schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/maxLength",
 																																					keyword: "maxLength",
-																																					params: { limit: 128 },
-																																					message: "must NOT have more than 128 characters"
+																																					params: { limit: 64 },
+																																					message: "must NOT have more than 64 characters"
 																																				}];
 																																				return false;
 																																			} else if (func1(data44) < 1) {
 																																				validate95.errors = [{
-																																					instancePath: instancePath + "/profile/startingCash",
-																																					schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/minLength",
+																																					instancePath: instancePath + "/profile/quoteSource",
+																																					schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/minLength",
 																																					keyword: "minLength",
 																																					params: { limit: 1 },
 																																					message: "must NOT have fewer than 1 characters"
@@ -62584,8 +62989,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			}
 																																		} else {
 																																			validate95.errors = [{
-																																				instancePath: instancePath + "/profile/startingCash",
-																																				schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/type",
+																																				instancePath: instancePath + "/profile/quoteSource",
+																																				schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/type",
 																																				keyword: "type",
 																																				params: { type: "string" },
 																																				message: "must be string"
@@ -62595,6 +63000,201 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																	}
 																																	var valid18 = _errs98 === errors;
 																																} else var valid18 = true;
+																																if (valid18) {
+																																	if (data36.scenarioId !== void 0) {
+																																		let data45 = data36.scenarioId;
+																																		const _errs100 = errors;
+																																		if (errors === _errs100) {
+																																			if (typeof data45 === "string") {
+																																				if (func1(data45) > 128) {
+																																					validate95.errors = [{
+																																						instancePath: instancePath + "/profile/scenarioId",
+																																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/maxLength",
+																																						keyword: "maxLength",
+																																						params: { limit: 128 },
+																																						message: "must NOT have more than 128 characters"
+																																					}];
+																																					return false;
+																																				} else if (func1(data45) < 1) {
+																																					validate95.errors = [{
+																																						instancePath: instancePath + "/profile/scenarioId",
+																																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/minLength",
+																																						keyword: "minLength",
+																																						params: { limit: 1 },
+																																						message: "must NOT have fewer than 1 characters"
+																																					}];
+																																					return false;
+																																				}
+																																			} else {
+																																				validate95.errors = [{
+																																					instancePath: instancePath + "/profile/scenarioId",
+																																					schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/type",
+																																					keyword: "type",
+																																					params: { type: "string" },
+																																					message: "must be string"
+																																				}];
+																																				return false;
+																																			}
+																																		}
+																																		var valid18 = _errs100 === errors;
+																																	} else var valid18 = true;
+																																	if (valid18) {
+																																		if (data36.scenarioSeed !== void 0) {
+																																			let data46 = data36.scenarioSeed;
+																																			const _errs102 = errors;
+																																			if (errors === _errs102) {
+																																				if (typeof data46 === "string") {
+																																					if (func1(data46) > 64) {
+																																						validate95.errors = [{
+																																							instancePath: instancePath + "/profile/scenarioSeed",
+																																							schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/maxLength",
+																																							keyword: "maxLength",
+																																							params: { limit: 64 },
+																																							message: "must NOT have more than 64 characters"
+																																						}];
+																																						return false;
+																																					} else if (func1(data46) < 1) {
+																																						validate95.errors = [{
+																																							instancePath: instancePath + "/profile/scenarioSeed",
+																																							schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/minLength",
+																																							keyword: "minLength",
+																																							params: { limit: 1 },
+																																							message: "must NOT have fewer than 1 characters"
+																																						}];
+																																						return false;
+																																					}
+																																				} else {
+																																					validate95.errors = [{
+																																						instancePath: instancePath + "/profile/scenarioSeed",
+																																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/type",
+																																						keyword: "type",
+																																						params: { type: "string" },
+																																						message: "must be string"
+																																					}];
+																																					return false;
+																																				}
+																																			}
+																																			var valid18 = _errs102 === errors;
+																																		} else var valid18 = true;
+																																		if (valid18) {
+																																			if (data36.scenarioVersion !== void 0) {
+																																				let data47 = data36.scenarioVersion;
+																																				const _errs104 = errors;
+																																				if (errors === _errs104) {
+																																					if (typeof data47 === "string") {
+																																						if (func1(data47) > 64) {
+																																							validate95.errors = [{
+																																								instancePath: instancePath + "/profile/scenarioVersion",
+																																								schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/maxLength",
+																																								keyword: "maxLength",
+																																								params: { limit: 64 },
+																																								message: "must NOT have more than 64 characters"
+																																							}];
+																																							return false;
+																																						} else if (func1(data47) < 1) {
+																																							validate95.errors = [{
+																																								instancePath: instancePath + "/profile/scenarioVersion",
+																																								schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/minLength",
+																																								keyword: "minLength",
+																																								params: { limit: 1 },
+																																								message: "must NOT have fewer than 1 characters"
+																																							}];
+																																							return false;
+																																						}
+																																					} else {
+																																						validate95.errors = [{
+																																							instancePath: instancePath + "/profile/scenarioVersion",
+																																							schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/type",
+																																							keyword: "type",
+																																							params: { type: "string" },
+																																							message: "must be string"
+																																						}];
+																																						return false;
+																																					}
+																																				}
+																																				var valid18 = _errs104 === errors;
+																																			} else var valid18 = true;
+																																			if (valid18) {
+																																				if (data36.slippagePolicy !== void 0) {
+																																					let data48 = data36.slippagePolicy;
+																																					const _errs106 = errors;
+																																					if (errors === _errs106) {
+																																						if (typeof data48 === "string") {
+																																							if (func1(data48) > 64) {
+																																								validate95.errors = [{
+																																									instancePath: instancePath + "/profile/slippagePolicy",
+																																									schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/maxLength",
+																																									keyword: "maxLength",
+																																									params: { limit: 64 },
+																																									message: "must NOT have more than 64 characters"
+																																								}];
+																																								return false;
+																																							} else if (func1(data48) < 1) {
+																																								validate95.errors = [{
+																																									instancePath: instancePath + "/profile/slippagePolicy",
+																																									schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/minLength",
+																																									keyword: "minLength",
+																																									params: { limit: 1 },
+																																									message: "must NOT have fewer than 1 characters"
+																																								}];
+																																								return false;
+																																							}
+																																						} else {
+																																							validate95.errors = [{
+																																								instancePath: instancePath + "/profile/slippagePolicy",
+																																								schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/type",
+																																								keyword: "type",
+																																								params: { type: "string" },
+																																								message: "must be string"
+																																							}];
+																																							return false;
+																																						}
+																																					}
+																																					var valid18 = _errs106 === errors;
+																																				} else var valid18 = true;
+																																				if (valid18) {
+																																					if (data36.startingCash !== void 0) {
+																																						let data49 = data36.startingCash;
+																																						const _errs108 = errors;
+																																						if (errors === _errs108) {
+																																							if (typeof data49 === "string") {
+																																								if (func1(data49) > 128) {
+																																									validate95.errors = [{
+																																										instancePath: instancePath + "/profile/startingCash",
+																																										schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/maxLength",
+																																										keyword: "maxLength",
+																																										params: { limit: 128 },
+																																										message: "must NOT have more than 128 characters"
+																																									}];
+																																									return false;
+																																								} else if (func1(data49) < 1) {
+																																									validate95.errors = [{
+																																										instancePath: instancePath + "/profile/startingCash",
+																																										schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/minLength",
+																																										keyword: "minLength",
+																																										params: { limit: 1 },
+																																										message: "must NOT have fewer than 1 characters"
+																																									}];
+																																									return false;
+																																								}
+																																							} else {
+																																								validate95.errors = [{
+																																									instancePath: instancePath + "/profile/startingCash",
+																																									schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/type",
+																																									keyword: "type",
+																																									params: { type: "string" },
+																																									message: "must be string"
+																																								}];
+																																								return false;
+																																							}
+																																						}
+																																						var valid18 = _errs108 === errors;
+																																					} else var valid18 = true;
+																																				}
+																																			}
+																																		}
+																																	}
+																																}
 																															}
 																														}
 																													}
@@ -62619,11 +63219,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				} else var valid0 = true;
 																				if (valid0) {
 																					if (data.providerId !== void 0) {
-																						let data45 = data.providerId;
-																						const _errs100 = errors;
-																						if (errors === _errs100) {
-																							if (typeof data45 === "string") {
-																								if (func1(data45) > 32) {
+																						let data50 = data.providerId;
+																						const _errs110 = errors;
+																						if (errors === _errs110) {
+																							if (typeof data50 === "string") {
+																								if (func1(data50) > 32) {
 																									validate95.errors = [{
 																										instancePath: instancePath + "/providerId",
 																										schemaPath: "#/properties/providerId/maxLength",
@@ -62632,7 +63232,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										message: "must NOT have more than 32 characters"
 																									}];
 																									return false;
-																								} else if (func1(data45) < 1) {
+																								} else if (func1(data50) < 1) {
 																									validate95.errors = [{
 																										instancePath: instancePath + "/providerId",
 																										schemaPath: "#/properties/providerId/minLength",
@@ -62653,16 +63253,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								return false;
 																							}
 																						}
-																						var valid0 = _errs100 === errors;
+																						var valid0 = _errs110 === errors;
 																					} else var valid0 = true;
 																					if (valid0) {
 																						if (data.realizedPnl !== void 0) {
-																							let data46 = data.realizedPnl;
-																							const _errs102 = errors;
+																							let data51 = data.realizedPnl;
+																							const _errs112 = errors;
 																							if (errors === errors) {
-																								if (data46 && typeof data46 == "object" && !Array.isArray(data46)) {
+																								if (data51 && typeof data51 == "object" && !Array.isArray(data51)) {
 																									let missing7;
-																									if (data46.value === void 0 && (missing7 = "value") || data46.currency === void 0 && (missing7 = "currency")) {
+																									if (data51.value === void 0 && (missing7 = "value") || data51.currency === void 0 && (missing7 = "currency")) {
 																										validate95.errors = [{
 																											instancePath: instancePath + "/realizedPnl",
 																											schemaPath: "#/$defs/LocalPaperMoney/required",
@@ -62672,8 +63272,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										}];
 																										return false;
 																									} else {
-																										const _errs105 = errors;
-																										for (const key7 in data46) if (!(key7 === "currency" || key7 === "value")) {
+																										const _errs115 = errors;
+																										for (const key7 in data51) if (!(key7 === "currency" || key7 === "value")) {
 																											validate95.errors = [{
 																												instancePath: instancePath + "/realizedPnl",
 																												schemaPath: "#/$defs/LocalPaperMoney/additionalProperties",
@@ -62683,13 +63283,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											}];
 																											return false;
 																										}
-																										if (_errs105 === errors) {
-																											if (data46.currency !== void 0) {
-																												let data47 = data46.currency;
-																												const _errs106 = errors;
-																												if (errors === _errs106) {
-																													if (typeof data47 === "string") {
-																														if (!pattern4.test(data47)) {
+																										if (_errs115 === errors) {
+																											if (data51.currency !== void 0) {
+																												let data52 = data51.currency;
+																												const _errs116 = errors;
+																												if (errors === _errs116) {
+																													if (typeof data52 === "string") {
+																														if (!pattern4.test(data52)) {
 																															validate95.errors = [{
 																																instancePath: instancePath + "/realizedPnl/currency",
 																																schemaPath: "#/$defs/LocalPaperMoney/properties/currency/pattern",
@@ -62710,15 +63310,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														return false;
 																													}
 																												}
-																												var valid20 = _errs106 === errors;
+																												var valid20 = _errs116 === errors;
 																											} else var valid20 = true;
 																											if (valid20) {
-																												if (data46.value !== void 0) {
-																													let data48 = data46.value;
-																													const _errs108 = errors;
-																													if (errors === _errs108) {
-																														if (typeof data48 === "string") {
-																															if (func1(data48) > 128) {
+																												if (data51.value !== void 0) {
+																													let data53 = data51.value;
+																													const _errs118 = errors;
+																													if (errors === _errs118) {
+																														if (typeof data53 === "string") {
+																															if (func1(data53) > 128) {
 																																validate95.errors = [{
 																																	instancePath: instancePath + "/realizedPnl/value",
 																																	schemaPath: "#/$defs/LocalPaperMoney/properties/value/maxLength",
@@ -62727,7 +63327,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																	message: "must NOT have more than 128 characters"
 																																}];
 																																return false;
-																															} else if (func1(data48) < 1) {
+																															} else if (func1(data53) < 1) {
 																																validate95.errors = [{
 																																	instancePath: instancePath + "/realizedPnl/value",
 																																	schemaPath: "#/$defs/LocalPaperMoney/properties/value/minLength",
@@ -62748,7 +63348,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																															return false;
 																														}
 																													}
-																													var valid20 = _errs108 === errors;
+																													var valid20 = _errs118 === errors;
 																												} else var valid20 = true;
 																											}
 																										}
@@ -62764,16 +63364,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									return false;
 																								}
 																							}
-																							var valid0 = _errs102 === errors;
+																							var valid0 = _errs112 === errors;
 																						} else var valid0 = true;
 																						if (valid0) {
 																							if (data.reservedCash !== void 0) {
-																								let data49 = data.reservedCash;
-																								const _errs110 = errors;
+																								let data54 = data.reservedCash;
+																								const _errs120 = errors;
 																								if (errors === errors) {
-																									if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
+																									if (data54 && typeof data54 == "object" && !Array.isArray(data54)) {
 																										let missing8;
-																										if (data49.value === void 0 && (missing8 = "value") || data49.currency === void 0 && (missing8 = "currency")) {
+																										if (data54.value === void 0 && (missing8 = "value") || data54.currency === void 0 && (missing8 = "currency")) {
 																											validate95.errors = [{
 																												instancePath: instancePath + "/reservedCash",
 																												schemaPath: "#/$defs/LocalPaperMoney/required",
@@ -62783,8 +63383,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											}];
 																											return false;
 																										} else {
-																											const _errs113 = errors;
-																											for (const key8 in data49) if (!(key8 === "currency" || key8 === "value")) {
+																											const _errs123 = errors;
+																											for (const key8 in data54) if (!(key8 === "currency" || key8 === "value")) {
 																												validate95.errors = [{
 																													instancePath: instancePath + "/reservedCash",
 																													schemaPath: "#/$defs/LocalPaperMoney/additionalProperties",
@@ -62794,13 +63394,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												}];
 																												return false;
 																											}
-																											if (_errs113 === errors) {
-																												if (data49.currency !== void 0) {
-																													let data50 = data49.currency;
-																													const _errs114 = errors;
-																													if (errors === _errs114) {
-																														if (typeof data50 === "string") {
-																															if (!pattern4.test(data50)) {
+																											if (_errs123 === errors) {
+																												if (data54.currency !== void 0) {
+																													let data55 = data54.currency;
+																													const _errs124 = errors;
+																													if (errors === _errs124) {
+																														if (typeof data55 === "string") {
+																															if (!pattern4.test(data55)) {
 																																validate95.errors = [{
 																																	instancePath: instancePath + "/reservedCash/currency",
 																																	schemaPath: "#/$defs/LocalPaperMoney/properties/currency/pattern",
@@ -62821,15 +63421,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																															return false;
 																														}
 																													}
-																													var valid22 = _errs114 === errors;
+																													var valid22 = _errs124 === errors;
 																												} else var valid22 = true;
 																												if (valid22) {
-																													if (data49.value !== void 0) {
-																														let data51 = data49.value;
-																														const _errs116 = errors;
-																														if (errors === _errs116) {
-																															if (typeof data51 === "string") {
-																																if (func1(data51) > 128) {
+																													if (data54.value !== void 0) {
+																														let data56 = data54.value;
+																														const _errs126 = errors;
+																														if (errors === _errs126) {
+																															if (typeof data56 === "string") {
+																																if (func1(data56) > 128) {
 																																	validate95.errors = [{
 																																		instancePath: instancePath + "/reservedCash/value",
 																																		schemaPath: "#/$defs/LocalPaperMoney/properties/value/maxLength",
@@ -62838,7 +63438,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		message: "must NOT have more than 128 characters"
 																																	}];
 																																	return false;
-																																} else if (func1(data51) < 1) {
+																																} else if (func1(data56) < 1) {
 																																	validate95.errors = [{
 																																		instancePath: instancePath + "/reservedCash/value",
 																																		schemaPath: "#/$defs/LocalPaperMoney/properties/value/minLength",
@@ -62859,7 +63459,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																return false;
 																															}
 																														}
-																														var valid22 = _errs116 === errors;
+																														var valid22 = _errs126 === errors;
 																													} else var valid22 = true;
 																												}
 																											}
@@ -62875,15 +63475,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										return false;
 																									}
 																								}
-																								var valid0 = _errs110 === errors;
+																								var valid0 = _errs120 === errors;
 																							} else var valid0 = true;
 																							if (valid0) {
 																								if (data.stateVersion !== void 0) {
-																									let data52 = data.stateVersion;
-																									const _errs118 = errors;
-																									if (errors === _errs118) {
-																										if (typeof data52 === "string") {
-																											if (func1(data52) > 256) {
+																									let data57 = data.stateVersion;
+																									const _errs128 = errors;
+																									if (errors === _errs128) {
+																										if (typeof data57 === "string") {
+																											if (func1(data57) > 256) {
 																												validate95.errors = [{
 																													instancePath: instancePath + "/stateVersion",
 																													schemaPath: "#/properties/stateVersion/maxLength",
@@ -62892,7 +63492,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													message: "must NOT have more than 256 characters"
 																												}];
 																												return false;
-																											} else if (func1(data52) < 1) {
+																											} else if (func1(data57) < 1) {
 																												validate95.errors = [{
 																													instancePath: instancePath + "/stateVersion",
 																													schemaPath: "#/properties/stateVersion/minLength",
@@ -62913,16 +63513,16 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											return false;
 																										}
 																									}
-																									var valid0 = _errs118 === errors;
+																									var valid0 = _errs128 === errors;
 																								} else var valid0 = true;
 																								if (valid0) {
 																									if (data.unrealizedPnl !== void 0) {
-																										let data53 = data.unrealizedPnl;
-																										const _errs120 = errors;
+																										let data58 = data.unrealizedPnl;
+																										const _errs130 = errors;
 																										if (errors === errors) {
-																											if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
+																											if (data58 && typeof data58 == "object" && !Array.isArray(data58)) {
 																												let missing9;
-																												if (data53.value === void 0 && (missing9 = "value") || data53.currency === void 0 && (missing9 = "currency")) {
+																												if (data58.value === void 0 && (missing9 = "value") || data58.currency === void 0 && (missing9 = "currency")) {
 																													validate95.errors = [{
 																														instancePath: instancePath + "/unrealizedPnl",
 																														schemaPath: "#/$defs/LocalPaperMoney/required",
@@ -62932,8 +63532,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													}];
 																													return false;
 																												} else {
-																													const _errs123 = errors;
-																													for (const key9 in data53) if (!(key9 === "currency" || key9 === "value")) {
+																													const _errs133 = errors;
+																													for (const key9 in data58) if (!(key9 === "currency" || key9 === "value")) {
 																														validate95.errors = [{
 																															instancePath: instancePath + "/unrealizedPnl",
 																															schemaPath: "#/$defs/LocalPaperMoney/additionalProperties",
@@ -62943,13 +63543,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														}];
 																														return false;
 																													}
-																													if (_errs123 === errors) {
-																														if (data53.currency !== void 0) {
-																															let data54 = data53.currency;
-																															const _errs124 = errors;
-																															if (errors === _errs124) {
-																																if (typeof data54 === "string") {
-																																	if (!pattern4.test(data54)) {
+																													if (_errs133 === errors) {
+																														if (data58.currency !== void 0) {
+																															let data59 = data58.currency;
+																															const _errs134 = errors;
+																															if (errors === _errs134) {
+																																if (typeof data59 === "string") {
+																																	if (!pattern4.test(data59)) {
 																																		validate95.errors = [{
 																																			instancePath: instancePath + "/unrealizedPnl/currency",
 																																			schemaPath: "#/$defs/LocalPaperMoney/properties/currency/pattern",
@@ -62970,15 +63570,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																	return false;
 																																}
 																															}
-																															var valid24 = _errs124 === errors;
+																															var valid24 = _errs134 === errors;
 																														} else var valid24 = true;
 																														if (valid24) {
-																															if (data53.value !== void 0) {
-																																let data55 = data53.value;
-																																const _errs126 = errors;
-																																if (errors === _errs126) {
-																																	if (typeof data55 === "string") {
-																																		if (func1(data55) > 128) {
+																															if (data58.value !== void 0) {
+																																let data60 = data58.value;
+																																const _errs136 = errors;
+																																if (errors === _errs136) {
+																																	if (typeof data60 === "string") {
+																																		if (func1(data60) > 128) {
 																																			validate95.errors = [{
 																																				instancePath: instancePath + "/unrealizedPnl/value",
 																																				schemaPath: "#/$defs/LocalPaperMoney/properties/value/maxLength",
@@ -62987,7 +63587,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																				message: "must NOT have more than 128 characters"
 																																			}];
 																																			return false;
-																																		} else if (func1(data55) < 1) {
+																																		} else if (func1(data60) < 1) {
 																																			validate95.errors = [{
 																																				instancePath: instancePath + "/unrealizedPnl/value",
 																																				schemaPath: "#/$defs/LocalPaperMoney/properties/value/minLength",
@@ -63008,7 +63608,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		return false;
 																																	}
 																																}
-																																var valid24 = _errs126 === errors;
+																																var valid24 = _errs136 === errors;
 																															} else var valid24 = true;
 																														}
 																													}
@@ -63024,15 +63624,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																												return false;
 																											}
 																										}
-																										var valid0 = _errs120 === errors;
+																										var valid0 = _errs130 === errors;
 																									} else var valid0 = true;
 																									if (valid0) {
 																										if (data.updatedAt !== void 0) {
-																											let data56 = data.updatedAt;
-																											const _errs128 = errors;
-																											if (errors === _errs128) {
-																												if (typeof data56 === "string") {
-																													if (func1(data56) > 64) {
+																											let data61 = data.updatedAt;
+																											const _errs138 = errors;
+																											if (errors === _errs138) {
+																												if (typeof data61 === "string") {
+																													if (func1(data61) > 64) {
 																														validate95.errors = [{
 																															instancePath: instancePath + "/updatedAt",
 																															schemaPath: "#/properties/updatedAt/maxLength",
@@ -63041,7 +63641,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																															message: "must NOT have more than 64 characters"
 																														}];
 																														return false;
-																													} else if (func1(data56) < 1) {
+																													} else if (func1(data61) < 1) {
 																														validate95.errors = [{
 																															instancePath: instancePath + "/updatedAt",
 																															schemaPath: "#/properties/updatedAt/minLength",
@@ -63062,15 +63662,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																													return false;
 																												}
 																											}
-																											var valid0 = _errs128 === errors;
+																											var valid0 = _errs138 === errors;
 																										} else var valid0 = true;
 																										if (valid0) {
 																											if (data.workspaceId !== void 0) {
-																												let data57 = data.workspaceId;
-																												const _errs130 = errors;
-																												if (errors === _errs130) {
-																													if (typeof data57 === "string") {
-																														if (func1(data57) > 128) {
+																												let data62 = data.workspaceId;
+																												const _errs140 = errors;
+																												if (errors === _errs140) {
+																													if (typeof data62 === "string") {
+																														if (func1(data62) > 128) {
 																															validate95.errors = [{
 																																instancePath: instancePath + "/workspaceId",
 																																schemaPath: "#/properties/workspaceId/maxLength",
@@ -63079,7 +63679,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																message: "must NOT have more than 128 characters"
 																															}];
 																															return false;
-																														} else if (func1(data57) < 1) {
+																														} else if (func1(data62) < 1) {
 																															validate95.errors = [{
 																																instancePath: instancePath + "/workspaceId",
 																																schemaPath: "#/properties/workspaceId/minLength",
@@ -63100,7 +63700,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														return false;
 																													}
 																												}
-																												var valid0 = _errs130 === errors;
+																												var valid0 = _errs140 === errors;
 																											} else var valid0 = true;
 																										}
 																									}
@@ -64361,7 +64961,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								}];
 								return false;
 							} else {
-								for (const key1 in data1) if (!(key1 === "baseCurrency" || key1 === "engineVersion" || key1 === "quoteFreshness" || key1 === "quoteObservedAt" || key1 === "quotePrice" || key1 === "quoteSource" || key1 === "scenarioId" || key1 === "startingCash")) {
+								for (const key1 in data1) if (!func49.call(schema176.properties, key1)) {
 									validate527.errors = [{
 										instancePath: instancePath + "/profile",
 										schemaPath: "#/$defs/LocalPaperProfile/additionalProperties",
@@ -64432,59 +65032,48 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										var valid2 = true;
 									} else var valid2 = true;
 									if (valid2) {
-										if (data1.quoteFreshness !== void 0) {
-											let data4 = data1.quoteFreshness;
-											if (typeof data4 !== "string" && data4 !== null) {
-												validate527.errors = [{
-													instancePath: instancePath + "/profile/quoteFreshness",
-													schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/type",
-													keyword: "type",
-													params: { type: schema176.properties.quoteFreshness.type },
-													message: "must be string,null"
-												}];
-												return false;
-											}
+										if (data1.feePolicy !== void 0) {
+											let data4 = data1.feePolicy;
 											if (typeof data4 === "string") {
-												if (func1(data4) > 32) {
+												if (func1(data4) > 64) {
 													validate527.errors = [{
-														instancePath: instancePath + "/profile/quoteFreshness",
-														schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/maxLength",
+														instancePath: instancePath + "/profile/feePolicy",
+														schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/maxLength",
 														keyword: "maxLength",
-														params: { limit: 32 },
-														message: "must NOT have more than 32 characters"
+														params: { limit: 64 },
+														message: "must NOT have more than 64 characters"
 													}];
 													return false;
 												} else if (func1(data4) < 1) {
 													validate527.errors = [{
-														instancePath: instancePath + "/profile/quoteFreshness",
-														schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/minLength",
+														instancePath: instancePath + "/profile/feePolicy",
+														schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/minLength",
 														keyword: "minLength",
 														params: { limit: 1 },
 														message: "must NOT have fewer than 1 characters"
 													}];
 													return false;
 												}
+											} else {
+												validate527.errors = [{
+													instancePath: instancePath + "/profile/feePolicy",
+													schemaPath: "#/$defs/LocalPaperProfile/properties/feePolicy/type",
+													keyword: "type",
+													params: { type: "string" },
+													message: "must be string"
+												}];
+												return false;
 											}
 											var valid2 = true;
 										} else var valid2 = true;
 										if (valid2) {
-											if (data1.quoteObservedAt !== void 0) {
-												let data5 = data1.quoteObservedAt;
-												if (typeof data5 !== "string" && data5 !== null) {
-													validate527.errors = [{
-														instancePath: instancePath + "/profile/quoteObservedAt",
-														schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/type",
-														keyword: "type",
-														params: { type: schema176.properties.quoteObservedAt.type },
-														message: "must be string,null"
-													}];
-													return false;
-												}
+											if (data1.fillPolicy !== void 0) {
+												let data5 = data1.fillPolicy;
 												if (typeof data5 === "string") {
 													if (func1(data5) > 64) {
 														validate527.errors = [{
-															instancePath: instancePath + "/profile/quoteObservedAt",
-															schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/maxLength",
+															instancePath: instancePath + "/profile/fillPolicy",
+															schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/maxLength",
 															keyword: "maxLength",
 															params: { limit: 64 },
 															message: "must NOT have more than 64 characters"
@@ -64492,60 +65081,80 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														return false;
 													} else if (func1(data5) < 1) {
 														validate527.errors = [{
-															instancePath: instancePath + "/profile/quoteObservedAt",
-															schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/minLength",
+															instancePath: instancePath + "/profile/fillPolicy",
+															schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/minLength",
 															keyword: "minLength",
 															params: { limit: 1 },
 															message: "must NOT have fewer than 1 characters"
 														}];
 														return false;
 													}
+												} else {
+													validate527.errors = [{
+														instancePath: instancePath + "/profile/fillPolicy",
+														schemaPath: "#/$defs/LocalPaperProfile/properties/fillPolicy/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
 												}
 												var valid2 = true;
 											} else var valid2 = true;
 											if (valid2) {
-												if (data1.quotePrice !== void 0) {
-													let data6 = data1.quotePrice;
+												if (data1.quoteFreshness !== void 0) {
+													let data6 = data1.quoteFreshness;
+													if (typeof data6 !== "string" && data6 !== null) {
+														validate527.errors = [{
+															instancePath: instancePath + "/profile/quoteFreshness",
+															schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/type",
+															keyword: "type",
+															params: { type: schema176.properties.quoteFreshness.type },
+															message: "must be string,null"
+														}];
+														return false;
+													}
 													if (typeof data6 === "string") {
-														if (func1(data6) > 128) {
+														if (func1(data6) > 32) {
 															validate527.errors = [{
-																instancePath: instancePath + "/profile/quotePrice",
-																schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/maxLength",
+																instancePath: instancePath + "/profile/quoteFreshness",
+																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/maxLength",
 																keyword: "maxLength",
-																params: { limit: 128 },
-																message: "must NOT have more than 128 characters"
+																params: { limit: 32 },
+																message: "must NOT have more than 32 characters"
 															}];
 															return false;
 														} else if (func1(data6) < 1) {
 															validate527.errors = [{
-																instancePath: instancePath + "/profile/quotePrice",
-																schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/minLength",
+																instancePath: instancePath + "/profile/quoteFreshness",
+																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteFreshness/minLength",
 																keyword: "minLength",
 																params: { limit: 1 },
 																message: "must NOT have fewer than 1 characters"
 															}];
 															return false;
 														}
-													} else {
-														validate527.errors = [{
-															instancePath: instancePath + "/profile/quotePrice",
-															schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/type",
-															keyword: "type",
-															params: { type: "string" },
-															message: "must be string"
-														}];
-														return false;
 													}
 													var valid2 = true;
 												} else var valid2 = true;
 												if (valid2) {
-													if (data1.quoteSource !== void 0) {
-														let data7 = data1.quoteSource;
+													if (data1.quoteObservedAt !== void 0) {
+														let data7 = data1.quoteObservedAt;
+														if (typeof data7 !== "string" && data7 !== null) {
+															validate527.errors = [{
+																instancePath: instancePath + "/profile/quoteObservedAt",
+																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/type",
+																keyword: "type",
+																params: { type: schema176.properties.quoteObservedAt.type },
+																message: "must be string,null"
+															}];
+															return false;
+														}
 														if (typeof data7 === "string") {
 															if (func1(data7) > 64) {
 																validate527.errors = [{
-																	instancePath: instancePath + "/profile/quoteSource",
-																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/maxLength",
+																	instancePath: instancePath + "/profile/quoteObservedAt",
+																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/maxLength",
 																	keyword: "maxLength",
 																	params: { limit: 64 },
 																	message: "must NOT have more than 64 characters"
@@ -64553,34 +65162,25 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																return false;
 															} else if (func1(data7) < 1) {
 																validate527.errors = [{
-																	instancePath: instancePath + "/profile/quoteSource",
-																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/minLength",
+																	instancePath: instancePath + "/profile/quoteObservedAt",
+																	schemaPath: "#/$defs/LocalPaperProfile/properties/quoteObservedAt/minLength",
 																	keyword: "minLength",
 																	params: { limit: 1 },
 																	message: "must NOT have fewer than 1 characters"
 																}];
 																return false;
 															}
-														} else {
-															validate527.errors = [{
-																instancePath: instancePath + "/profile/quoteSource",
-																schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/type",
-																keyword: "type",
-																params: { type: "string" },
-																message: "must be string"
-															}];
-															return false;
 														}
 														var valid2 = true;
 													} else var valid2 = true;
 													if (valid2) {
-														if (data1.scenarioId !== void 0) {
-															let data8 = data1.scenarioId;
+														if (data1.quotePrice !== void 0) {
+															let data8 = data1.quotePrice;
 															if (typeof data8 === "string") {
 																if (func1(data8) > 128) {
 																	validate527.errors = [{
-																		instancePath: instancePath + "/profile/scenarioId",
-																		schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/maxLength",
+																		instancePath: instancePath + "/profile/quotePrice",
+																		schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/maxLength",
 																		keyword: "maxLength",
 																		params: { limit: 128 },
 																		message: "must NOT have more than 128 characters"
@@ -64588,8 +65188,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	return false;
 																} else if (func1(data8) < 1) {
 																	validate527.errors = [{
-																		instancePath: instancePath + "/profile/scenarioId",
-																		schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/minLength",
+																		instancePath: instancePath + "/profile/quotePrice",
+																		schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/minLength",
 																		keyword: "minLength",
 																		params: { limit: 1 },
 																		message: "must NOT have fewer than 1 characters"
@@ -64598,8 +65198,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																}
 															} else {
 																validate527.errors = [{
-																	instancePath: instancePath + "/profile/scenarioId",
-																	schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/type",
+																	instancePath: instancePath + "/profile/quotePrice",
+																	schemaPath: "#/$defs/LocalPaperProfile/properties/quotePrice/type",
 																	keyword: "type",
 																	params: { type: "string" },
 																	message: "must be string"
@@ -64609,22 +65209,22 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 															var valid2 = true;
 														} else var valid2 = true;
 														if (valid2) {
-															if (data1.startingCash !== void 0) {
-																let data9 = data1.startingCash;
+															if (data1.quoteSource !== void 0) {
+																let data9 = data1.quoteSource;
 																if (typeof data9 === "string") {
-																	if (func1(data9) > 128) {
+																	if (func1(data9) > 64) {
 																		validate527.errors = [{
-																			instancePath: instancePath + "/profile/startingCash",
-																			schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/maxLength",
+																			instancePath: instancePath + "/profile/quoteSource",
+																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/maxLength",
 																			keyword: "maxLength",
-																			params: { limit: 128 },
-																			message: "must NOT have more than 128 characters"
+																			params: { limit: 64 },
+																			message: "must NOT have more than 64 characters"
 																		}];
 																		return false;
 																	} else if (func1(data9) < 1) {
 																		validate527.errors = [{
-																			instancePath: instancePath + "/profile/startingCash",
-																			schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/minLength",
+																			instancePath: instancePath + "/profile/quoteSource",
+																			schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/minLength",
 																			keyword: "minLength",
 																			params: { limit: 1 },
 																			message: "must NOT have fewer than 1 characters"
@@ -64633,8 +65233,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}
 																} else {
 																	validate527.errors = [{
-																		instancePath: instancePath + "/profile/startingCash",
-																		schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/type",
+																		instancePath: instancePath + "/profile/quoteSource",
+																		schemaPath: "#/$defs/LocalPaperProfile/properties/quoteSource/type",
 																		keyword: "type",
 																		params: { type: "string" },
 																		message: "must be string"
@@ -64643,6 +65243,186 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																}
 																var valid2 = true;
 															} else var valid2 = true;
+															if (valid2) {
+																if (data1.scenarioId !== void 0) {
+																	let data10 = data1.scenarioId;
+																	if (typeof data10 === "string") {
+																		if (func1(data10) > 128) {
+																			validate527.errors = [{
+																				instancePath: instancePath + "/profile/scenarioId",
+																				schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/maxLength",
+																				keyword: "maxLength",
+																				params: { limit: 128 },
+																				message: "must NOT have more than 128 characters"
+																			}];
+																			return false;
+																		} else if (func1(data10) < 1) {
+																			validate527.errors = [{
+																				instancePath: instancePath + "/profile/scenarioId",
+																				schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/minLength",
+																				keyword: "minLength",
+																				params: { limit: 1 },
+																				message: "must NOT have fewer than 1 characters"
+																			}];
+																			return false;
+																		}
+																	} else {
+																		validate527.errors = [{
+																			instancePath: instancePath + "/profile/scenarioId",
+																			schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioId/type",
+																			keyword: "type",
+																			params: { type: "string" },
+																			message: "must be string"
+																		}];
+																		return false;
+																	}
+																	var valid2 = true;
+																} else var valid2 = true;
+																if (valid2) {
+																	if (data1.scenarioSeed !== void 0) {
+																		let data11 = data1.scenarioSeed;
+																		if (typeof data11 === "string") {
+																			if (func1(data11) > 64) {
+																				validate527.errors = [{
+																					instancePath: instancePath + "/profile/scenarioSeed",
+																					schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/maxLength",
+																					keyword: "maxLength",
+																					params: { limit: 64 },
+																					message: "must NOT have more than 64 characters"
+																				}];
+																				return false;
+																			} else if (func1(data11) < 1) {
+																				validate527.errors = [{
+																					instancePath: instancePath + "/profile/scenarioSeed",
+																					schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/minLength",
+																					keyword: "minLength",
+																					params: { limit: 1 },
+																					message: "must NOT have fewer than 1 characters"
+																				}];
+																				return false;
+																			}
+																		} else {
+																			validate527.errors = [{
+																				instancePath: instancePath + "/profile/scenarioSeed",
+																				schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioSeed/type",
+																				keyword: "type",
+																				params: { type: "string" },
+																				message: "must be string"
+																			}];
+																			return false;
+																		}
+																		var valid2 = true;
+																	} else var valid2 = true;
+																	if (valid2) {
+																		if (data1.scenarioVersion !== void 0) {
+																			let data12 = data1.scenarioVersion;
+																			if (typeof data12 === "string") {
+																				if (func1(data12) > 64) {
+																					validate527.errors = [{
+																						instancePath: instancePath + "/profile/scenarioVersion",
+																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/maxLength",
+																						keyword: "maxLength",
+																						params: { limit: 64 },
+																						message: "must NOT have more than 64 characters"
+																					}];
+																					return false;
+																				} else if (func1(data12) < 1) {
+																					validate527.errors = [{
+																						instancePath: instancePath + "/profile/scenarioVersion",
+																						schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/minLength",
+																						keyword: "minLength",
+																						params: { limit: 1 },
+																						message: "must NOT have fewer than 1 characters"
+																					}];
+																					return false;
+																				}
+																			} else {
+																				validate527.errors = [{
+																					instancePath: instancePath + "/profile/scenarioVersion",
+																					schemaPath: "#/$defs/LocalPaperProfile/properties/scenarioVersion/type",
+																					keyword: "type",
+																					params: { type: "string" },
+																					message: "must be string"
+																				}];
+																				return false;
+																			}
+																			var valid2 = true;
+																		} else var valid2 = true;
+																		if (valid2) {
+																			if (data1.slippagePolicy !== void 0) {
+																				let data13 = data1.slippagePolicy;
+																				if (typeof data13 === "string") {
+																					if (func1(data13) > 64) {
+																						validate527.errors = [{
+																							instancePath: instancePath + "/profile/slippagePolicy",
+																							schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/maxLength",
+																							keyword: "maxLength",
+																							params: { limit: 64 },
+																							message: "must NOT have more than 64 characters"
+																						}];
+																						return false;
+																					} else if (func1(data13) < 1) {
+																						validate527.errors = [{
+																							instancePath: instancePath + "/profile/slippagePolicy",
+																							schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/minLength",
+																							keyword: "minLength",
+																							params: { limit: 1 },
+																							message: "must NOT have fewer than 1 characters"
+																						}];
+																						return false;
+																					}
+																				} else {
+																					validate527.errors = [{
+																						instancePath: instancePath + "/profile/slippagePolicy",
+																						schemaPath: "#/$defs/LocalPaperProfile/properties/slippagePolicy/type",
+																						keyword: "type",
+																						params: { type: "string" },
+																						message: "must be string"
+																					}];
+																					return false;
+																				}
+																				var valid2 = true;
+																			} else var valid2 = true;
+																			if (valid2) {
+																				if (data1.startingCash !== void 0) {
+																					let data14 = data1.startingCash;
+																					if (typeof data14 === "string") {
+																						if (func1(data14) > 128) {
+																							validate527.errors = [{
+																								instancePath: instancePath + "/profile/startingCash",
+																								schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/maxLength",
+																								keyword: "maxLength",
+																								params: { limit: 128 },
+																								message: "must NOT have more than 128 characters"
+																							}];
+																							return false;
+																						} else if (func1(data14) < 1) {
+																							validate527.errors = [{
+																								instancePath: instancePath + "/profile/startingCash",
+																								schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/minLength",
+																								keyword: "minLength",
+																								params: { limit: 1 },
+																								message: "must NOT have fewer than 1 characters"
+																							}];
+																							return false;
+																						}
+																					} else {
+																						validate527.errors = [{
+																							instancePath: instancePath + "/profile/startingCash",
+																							schemaPath: "#/$defs/LocalPaperProfile/properties/startingCash/type",
+																							keyword: "type",
+																							params: { type: "string" },
+																							message: "must be string"
+																						}];
+																						return false;
+																					}
+																					var valid2 = true;
+																				} else var valid2 = true;
+																			}
+																		}
+																	}
+																}
+															}
 														}
 													}
 												}
@@ -64665,9 +65445,9 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					} else var valid0 = true;
 					if (valid0) {
 						if (data.workspaceId !== void 0) {
-							let data10 = data.workspaceId;
-							if (typeof data10 === "string") {
-								if (func1(data10) > 128) {
+							let data15 = data.workspaceId;
+							if (typeof data15 === "string") {
+								if (func1(data15) > 128) {
 									validate527.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/maxLength",
@@ -64676,7 +65456,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										message: "must NOT have more than 128 characters"
 									}];
 									return false;
-								} else if (func1(data10) < 1) {
+								} else if (func1(data15) < 1) {
 									validate527.errors = [{
 										instancePath: instancePath + "/workspaceId",
 										schemaPath: "#/properties/workspaceId/minLength",

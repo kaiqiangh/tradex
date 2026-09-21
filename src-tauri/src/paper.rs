@@ -20,6 +20,11 @@ pub const SCENARIO_PARTIAL: &str = "partial-v1";
 pub const SCENARIO_RESTING: &str = "resting-v1";
 pub const SCENARIO_REJECTED: &str = "rejected-v1";
 pub const ENGINE_VERSION: &str = "s16-v1";
+pub const SCENARIO_SEED: &str = "s16-default";
+pub const SCENARIO_VERSION: &str = "s16-v1";
+pub const FEE_POLICY: &str = "ZERO";
+pub const SLIPPAGE_POLICY: &str = "NONE";
+pub const FILL_POLICY: &str = "BOUNDED_V1";
 pub const DISCLOSURE: &str =
     "TRADEX_SIMULATION; TradeX simulation; not provider truth; not Live execution.";
 
@@ -124,6 +129,11 @@ pub fn initial_state(
             quote_source: QUOTE_SOURCE.into(),
             scenario_id: SCENARIO_ID.into(),
             engine_version: ENGINE_VERSION.into(),
+            scenario_seed: SCENARIO_SEED.into(),
+            scenario_version: SCENARIO_VERSION.into(),
+            fee_policy: FEE_POLICY.into(),
+            slippage_policy: SLIPPAGE_POLICY.into(),
+            fill_policy: FILL_POLICY.into(),
             quote_price: Some("100".into()),
             quote_freshness: Some("FRESH".into()),
             quote_observed_at: Some(updated_at.clone()),
@@ -161,6 +171,11 @@ pub fn validate_profile(
         || profile.starting_cash != starting_cash
         || profile.quote_source != QUOTE_SOURCE
         || profile.engine_version != ENGINE_VERSION
+        || profile.scenario_seed != SCENARIO_SEED
+        || profile.scenario_version != SCENARIO_VERSION
+        || profile.fee_policy != FEE_POLICY
+        || profile.slippage_policy != SLIPPAGE_POLICY
+        || profile.fill_policy != FILL_POLICY
         || !scenario_supported(&profile.scenario_id)
         || profile.quote_freshness.as_deref() != Some("FRESH")
         || !profile
@@ -734,6 +749,16 @@ fn deterministic_quote(
     let mut hasher = Sha256::new();
     hasher.update(state.profile.scenario_id.as_bytes());
     hasher.update(b"\0");
+    hasher.update(state.profile.scenario_seed.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(state.profile.scenario_version.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(state.profile.fee_policy.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(state.profile.slippage_policy.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(state.profile.fill_policy.as_bytes());
+    hasher.update(b"\0");
     hasher.update(instrument_id.as_bytes());
     hasher.update(b"\0");
     hasher.update(price.as_bytes());
@@ -901,6 +926,11 @@ mod tests {
         assert!(state.disclosure.contains("not provider truth"));
         assert_eq!(state.profile.quote_price.as_deref(), Some("100"));
         assert_eq!(state.profile.quote_freshness.as_deref(), Some("FRESH"));
+        assert_eq!(state.profile.scenario_seed, SCENARIO_SEED);
+        assert_eq!(state.profile.scenario_version, SCENARIO_VERSION);
+        assert_eq!(state.profile.fee_policy, FEE_POLICY);
+        assert_eq!(state.profile.slippage_policy, SLIPPAGE_POLICY);
+        assert_eq!(state.profile.fill_policy, FILL_POLICY);
     }
 
     #[test]
@@ -943,6 +973,13 @@ mod tests {
                 .unwrap_err()
                 .code,
             "PAPER_QUOTE_UNAVAILABLE"
+        );
+        state.profile.fill_policy = "UNBOUNDED".into();
+        assert_eq!(
+            validate_profile(&state.profile, "USD", DEFAULT_STARTING_CASH)
+                .unwrap_err()
+                .code,
+            "PAPER_SCENARIO_INVALID"
         );
     }
 }

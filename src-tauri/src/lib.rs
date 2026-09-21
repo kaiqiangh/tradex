@@ -901,6 +901,9 @@ impl ControlPlane {
             "paper.quote.refresh" => {
                 let input: protocol::PaperQuoteRefresh = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
+                if !matches!(consumer, "main" | "stdio" | "headless") {
+                    return Err(TradeXError::new("PAPER_QUOTE_REFRESH_AGENT_FORBIDDEN"));
+                }
                 let state = self
                     .store
                     .as_mut()
@@ -6893,6 +6896,31 @@ mod paper_tests {
         );
         assert_eq!(denied["ok"], false, "{denied}");
         assert_eq!(denied["error"]["code"], "PAPER_SCENARIO_AGENT_FORBIDDEN");
+    }
+
+    #[test]
+    fn local_paper_quote_refresh_is_not_an_agent_command() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let initial = control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        let denied = control.dispatch_with_events(
+            request(
+                "paper.quote.refresh",
+                json!({
+                    "workspaceId": workspace_id,
+                    "expectedStateVersion": initial["data"]["stateVersion"]
+                }),
+            ),
+            "agent",
+            None,
+        );
+        assert_eq!(denied["ok"], false, "{denied}");
+        assert_eq!(
+            denied["error"]["code"],
+            "PAPER_QUOTE_REFRESH_AGENT_FORBIDDEN"
+        );
     }
 
     #[test]

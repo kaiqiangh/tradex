@@ -3214,6 +3214,11 @@ impl TradeXError {
                 "select_proposal",
                 "Open Trade surface",
             ),
+            "PAPER_QUOTE_REFRESH_AGENT_FORBIDDEN" => (
+                "Agents cannot refresh the Local Paper quote. Use the Trade surface.",
+                "select_proposal",
+                "Open Trade surface",
+            ),
             "PAPER_MAXIMUM_SPEND_EXCEEDED" => (
                 "The deterministic Local Paper fill exceeds the proposal maximum spend.",
                 "edit_order_amount",
@@ -3930,6 +3935,26 @@ pub struct LocalPaperMoney {
     pub currency: String,
 }
 
+fn default_local_paper_scenario_seed() -> String {
+    "s16-default".into()
+}
+
+fn default_local_paper_scenario_version() -> String {
+    "s16-v1".into()
+}
+
+fn default_local_paper_fee_policy() -> String {
+    "ZERO".into()
+}
+
+fn default_local_paper_slippage_policy() -> String {
+    "NONE".into()
+}
+
+fn default_local_paper_fill_policy() -> String {
+    "BOUNDED_V1".into()
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LocalPaperProfile {
@@ -3943,6 +3968,21 @@ pub struct LocalPaperProfile {
     pub scenario_id: String,
     #[schemars(length(min = 1, max = 64))]
     pub engine_version: String,
+    #[serde(default = "default_local_paper_scenario_seed")]
+    #[schemars(required, length(min = 1, max = 64))]
+    pub scenario_seed: String,
+    #[serde(default = "default_local_paper_scenario_version")]
+    #[schemars(required, length(min = 1, max = 64))]
+    pub scenario_version: String,
+    #[serde(default = "default_local_paper_fee_policy")]
+    #[schemars(required, length(min = 1, max = 64))]
+    pub fee_policy: String,
+    #[serde(default = "default_local_paper_slippage_policy")]
+    #[schemars(required, length(min = 1, max = 64))]
+    pub slippage_policy: String,
+    #[serde(default = "default_local_paper_fill_policy")]
+    #[schemars(required, length(min = 1, max = 64))]
+    pub fill_policy: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub quote_price: Option<String>,
