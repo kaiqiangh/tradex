@@ -598,8 +598,7 @@ fn provider_schema_precedes_native_entry_and_never_accepts_renderer_secrets() {
         command(&mut cp, "provider.connect", input)["error"]["code"],
         "IPC_PAYLOAD_INVALID"
     );
-    assert_eq!(
-        command(&mut cp, "account.list", json!({"workspaceId":workspace}))["data"]["accounts"],
-        json!([])
-    );
+    let accounts = command(&mut cp, "account.list", json!({"workspaceId":workspace}));
+    assert_eq!(accounts["data"]["accounts"].as_array().unwrap().len(), 1);
+    assert_eq!(accounts["data"]["accounts"][0]["providerId"], "local-paper");
 }

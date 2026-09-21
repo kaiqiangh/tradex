@@ -27,8 +27,8 @@ fn portfolio_read_is_workspace_scoped_and_does_not_mutate_state() {
     );
     assert_eq!(portfolio["ok"], true, "{portfolio}");
     assert_eq!(portfolio["data"]["workspaceId"], workspace_id);
-    assert_eq!(portfolio["data"]["status"], "UNAVAILABLE");
-    assert_eq!(portfolio["data"]["fills"], Value::Null);
+    assert_eq!(portfolio["data"]["status"], "AVAILABLE");
+    assert_eq!(portfolio["data"]["fills"], json!([]));
     assert_eq!(portfolio["data"]["liveRisk"]["eligible"], false);
     assert_eq!(
         command(&mut control, "domain.snapshot", aggregate.clone()),

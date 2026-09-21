@@ -117,6 +117,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     if (!newMode && !selectedId && library.data?.drafts.length) setSelectedId(library.data.drafts[0].draftId);
     if (selectedId && library.data && !library.data.drafts.some(draft => draft.draftId === selectedId)) setSelectedId(undefined);
   }, [library.data, newMode, selectedId]);
+  useEffect(() => {
+    if (!form.accountId && accounts.data) {
+      const localPaper = accounts.data.accounts.find(account => account.providerId === 'local-paper' && account.environment === 'LOCAL');
+      if (localPaper) update('accountId', localPaper.connectionId);
+    }
+  }, [accounts.data, form.accountId]);
   useEffect(() => { if (detail.data) setForm(fromDraft(detail.data)); }, [detail.data]);
   useEffect(() => {
     if (!selectedId || newMode || !selectedProposals.some(proposal => proposal.proposalId === selectedProposalId)) setSelectedProposalId(undefined);
@@ -124,6 +130,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
+    form.environment === 'LOCAL_PAPER' && !form.accountId ? 'Select the Local Paper account.' : '',
     !form.instrumentId ? 'Choose an instrument.' : '',
     !isPositiveDecimal(form.quantity) ? 'Quantity must be greater than zero.' : '',
     form.orderType === 'LIMIT' && !isPositiveDecimal(form.limitPrice) ? 'Limit price must be greater than zero.' : '',

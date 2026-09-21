@@ -541,17 +541,20 @@ impl Store {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })
             .map_err(storage_error)?;
-        rows.map(|row| {
-            let (connection_id, encoded) = row.map_err(storage_error)?;
-            let account: AccountConnection =
-                serde_json::from_str(&encoded).map_err(storage_error)?;
-            if account.connection_id != connection_id {
-                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
-            }
-            account.validate_persisted(&workspace_id)?;
-            Ok(account)
-        })
-        .collect()
+        let mut accounts = rows
+            .map(|row| {
+                let (connection_id, encoded) = row.map_err(storage_error)?;
+                let account: AccountConnection =
+                    serde_json::from_str(&encoded).map_err(storage_error)?;
+                if account.connection_id != connection_id {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                account.validate_persisted(&workspace_id)?;
+                Ok(account)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        accounts.sort_by_key(AccountConnection::is_local_paper);
+        Ok(accounts)
     }
 
     pub fn ensure_local_paper(
@@ -2784,9 +2787,13 @@ impl Store {
                 return Err(TradeXError::new("ORDER_CONTEXT_INVALID").with_field("environment"));
             }
             ExecutionContext::LocalPaper => {
-                if let Some(account_id) = &fields.account_id
-                    && account_id != "local-paper"
-                {
+                let account_id = fields.account_id.as_deref().ok_or_else(|| {
+                    TradeXError::new("ORDER_ACCOUNT_REQUIRED").with_field("accountId")
+                })?;
+                let account = self.account(account_id).map_err(|_| {
+                    TradeXError::new("ORDER_ACCOUNT_NOT_FOUND").with_field("accountId")
+                })?;
+                if !account.is_local_paper() {
                     return Err(TradeXError::new("ORDER_ACCOUNT_INVALID").with_field("accountId"));
                 }
             }

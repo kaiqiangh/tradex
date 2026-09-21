@@ -9,13 +9,34 @@ export async function checkPortfolioUI(tab, browser) {
     await viewport.set({ width: 1280, height: 900 });
     await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    const localAccountRow = ui.locator('.account-row').filter({ hasText: 'local-paper' });
+    await localAccountRow.waitFor({ state: 'visible' });
+    const localAccountText = await localAccountRow.innerText();
+    assert.match(localAccountText, /LOCAL_PAPER/);
+    assert.match(localAccountText, /TRADEX_SIMULATION/);
+    assert.match(localAccountText, /not provider truth/);
+    assert.match(localAccountText, /not Live execution/);
+    await ui.getByRole('button', { name: '+ New Thread', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'What would you like to research?', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: '@ Context', exact: true }).press('Enter');
+    const localContext = ui.locator('.context-option').filter({ hasText: 'local-paper' });
+    await localContext.waitFor({ state: 'visible' });
+    const localContextText = await localContext.innerText();
+    assert.match(localContextText, /LOCAL_PAPER/);
+    assert.match(localContextText, /TRADEX_SIMULATION/);
+    assert.match(localContextText, /not provider truth/);
+    assert.match(localContextText, /not Live execution/);
+    await ui.getByRole('button', { name: 'Cancel', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     const openPortfolio = ui.getByRole('button', { name: 'Open portfolio', exact: true });
     if (await openPortfolio.count()) await openPortfolio.press('Enter');
     await ui.getByRole('heading', { name: 'Workspace valuation', exact: true }).waitFor({ state: 'visible' });
 
     const summary = ui.locator('.portfolio-summary');
     const summaryText = await summary.innerText();
-    if (/TRADEX_SIMULATION/.test(summaryText)) {
+    const localPaper = /LOCAL_PAPER/.test(summaryText);
+    if (localPaper) {
       assert.match(summaryText, /LOCAL_PAPER/);
       assert.match(summaryText, /not provider truth/);
       assert.match(summaryText, /not Live execution/);
@@ -25,11 +46,13 @@ export async function checkPortfolioUI(tab, browser) {
     } else {
       assert.match(summaryText, /Degraded/);
       assert.match(summaryText, /3867\.6 USD/);
+      assert.match(summaryText, /TRADEX_SIMULATION/);
+      assert.match(summaryText, /portfolio-fixture-v1/);
     }
     assert.match(await ui.getByText(/Live risk: Blocked/).innerText(), /Live risk: Blocked/);
     const provenance = ui.locator('.portfolio-provenance');
     const holdings = ui.locator('section[aria-labelledby="portfolio-holdings-title"]');
-    if (/TRADEX_SIMULATION/.test(summaryText)) {
+    if (localPaper) {
       assert.match(await holdings.innerText(), /Local Paper/);
       assert.match(await holdings.innerText(), /100000 USD/);
       assert.match(await provenance.innerText(), /USD -> USD/);
@@ -41,7 +64,7 @@ export async function checkPortfolioUI(tab, browser) {
       assert.match(await holdings.innerText(), /UNAVAILABLE/);
     }
     assert.ok((await ui.locator('.table-scroll').count()) >= 3);
-    if (!/TRADEX_SIMULATION/.test(summaryText)) observed.push('Fixture portfolio totals, canonical identities, unavailable balance, FX provenance and blocked Live risk render in Accounts.');
+    if (!localPaper) observed.push('Fixture portfolio totals, canonical identities, unavailable balance, FX provenance, simulation provenance and blocked Live risk render in Accounts.');
 
     for (const width of [768, 390]) {
       await viewport.set({ width, height: 900 });

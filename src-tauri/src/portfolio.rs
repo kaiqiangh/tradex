@@ -1,15 +1,19 @@
 use crate::protocol::{
-    DataSourceEntry, DataSourceStatus, FxFreshness, FxProvenance, FxQuality, PortfolioAccount,
-    PortfolioFill, PortfolioHolding, PortfolioLiveRisk, PortfolioOrder, PortfolioSnapshot,
-    PortfolioStatus, PortfolioTotals, PortfolioValue, Result, TimeStatus, TradeXError,
+    DataSourceEntry, DataSourceStatus, FxFreshness, FxProvenance, FxQuality, LocalPaperOrderState,
+    LocalPaperState, OrderSide, PortfolioAccount, PortfolioFill, PortfolioHolding,
+    PortfolioLiveRisk, PortfolioOrder, PortfolioSnapshot, PortfolioStatus, PortfolioTotals,
+    PortfolioValue, Result, TimeStatus, TradeXError,
 };
-use crate::providers::{AccountConnection, AccountHealth, Balance, ConnectionState, Position};
+use crate::providers::{
+    AccountConnection, AccountData, AccountHealth, Balance, ConnectionState, OpenOrder, Position,
+};
 use serde_json::Value;
 
 const IDENTITY_SOURCE: &str = "IDENTITY";
 const MAX_PORTFOLIO_ACCOUNTS: usize = 256;
 const MAX_PORTFOLIO_ROWS: usize = 512;
 const MAX_PORTFOLIO_FX_ROUTES: usize = 128;
+const FIXTURE_SCENARIO_ID: &str = "portfolio-fixture-v1";
 
 pub fn get(
     workspace_id: &str,
@@ -17,6 +21,26 @@ pub fn get(
     accounts: &[AccountConnection],
     fx_source: Option<&DataSourceEntry>,
     time_status: &TimeStatus,
+    fixture: bool,
+) -> Result<PortfolioSnapshot> {
+    get_with_paper_state(
+        workspace_id,
+        base_currency,
+        accounts,
+        fx_source,
+        time_status,
+        None,
+        fixture,
+    )
+}
+
+pub fn get_with_paper_state(
+    workspace_id: &str,
+    base_currency: &str,
+    accounts: &[AccountConnection],
+    fx_source: Option<&DataSourceEntry>,
+    time_status: &TimeStatus,
+    paper_state: Option<&LocalPaperState>,
     fixture: bool,
 ) -> Result<PortfolioSnapshot> {
     if !valid_workspace_id(workspace_id) || !valid_base_currency(base_currency) {
@@ -34,7 +58,100 @@ pub fn get(
         accounts,
         fx_source,
         time_status,
+        paper_state,
     )
+}
+
+fn local_paper_data(account: &AccountConnection, state: &LocalPaperState) -> AccountData {
+    let mut balances = state
+        .balances
+        .iter()
+        .map(|balance| Balance {
+            asset: balance.asset.clone(),
+            available: balance.available.clone(),
+            total: Some(balance.total.clone()),
+            reserved: Some(balance.reserved.clone()),
+            in_pies: None,
+            locked: None,
+            restricted_available: None,
+        })
+        .collect::<Vec<_>>();
+    if let Some(balance) = balances
+        .iter_mut()
+        .find(|balance| balance.asset == state.cash.currency)
+    {
+        balance.available = state.cash.value.clone();
+        balance.reserved = Some(state.reserved_cash.value.clone());
+    } else {
+        balances.push(Balance {
+            asset: state.cash.currency.clone(),
+            available: state.cash.value.clone(),
+            total: Some(state.cash.value.clone()),
+            reserved: Some(state.reserved_cash.value.clone()),
+            in_pies: None,
+            locked: None,
+            restricted_available: None,
+        });
+    }
+    AccountData {
+        remote_account_id: account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.clone())
+            .unwrap_or_else(|| format!("tradex-simulation:{}", state.workspace_id)),
+        account_type: "TRADEX_SIMULATION".into(),
+        currency: Some(state.cash.currency.clone()),
+        balances,
+        positions: state
+            .positions
+            .iter()
+            .map(|position| Position {
+                symbol: position.instrument_id.clone(),
+                instrument_id: Some(position.instrument_id.clone()),
+                quantity: position.quantity.clone(),
+                market_value: position.market_value.clone(),
+                average_entry_price: Some(position.average_entry_price.clone()),
+                instrument_currency: Some(position.currency.clone()),
+                market_value_currency: Some(position.currency.clone()),
+            })
+            .collect(),
+        open_orders: state
+            .open_orders
+            .iter()
+            .map(|order| OpenOrder {
+                broker_order_id: order.order_id.clone(),
+                symbol: order.instrument_id.clone(),
+                instrument_id: Some(order.instrument_id.clone()),
+                side: match order.side {
+                    OrderSide::Buy => "BUY".into(),
+                    OrderSide::Sell => "SELL".into(),
+                },
+                quantity: Some(order.remaining_quantity.clone()),
+                notional: None,
+                filled_quantity: Some(order.filled_quantity.clone()),
+                filled_value: None,
+                currency: Some(state.cash.currency.clone()),
+                status: match order.state {
+                    LocalPaperOrderState::Proposed => "PROPOSED",
+                    LocalPaperOrderState::Accepted => "ACCEPTED",
+                    LocalPaperOrderState::PartiallyFilled => "PARTIALLY_FILLED",
+                    LocalPaperOrderState::Filled => "FILLED",
+                    LocalPaperOrderState::Rejected => "REJECTED",
+                    LocalPaperOrderState::CancelPending => "CANCEL_PENDING",
+                    LocalPaperOrderState::Cancelled => "CANCELLED",
+                }
+                .into(),
+                limit_price: None,
+                kind: None,
+                trigger_price: None,
+            })
+            .collect(),
+        capabilities: vec!["simulation.execute".into(), "portfolio.read".into()],
+        limitations: vec![
+            state.disclosure.clone(),
+            "No external provider or network I/O.".into(),
+        ],
+    }
 }
 
 fn actual_snapshot(
@@ -43,6 +160,7 @@ fn actual_snapshot(
     accounts: &[AccountConnection],
     fx_source: Option<&DataSourceEntry>,
     time_status: &TimeStatus,
+    paper_state: Option<&LocalPaperState>,
 ) -> Result<PortfolioSnapshot> {
     if accounts.len() > MAX_PORTFOLIO_ACCOUNTS
         || accounts
@@ -71,12 +189,30 @@ fn actual_snapshot(
     let mut equity_values = Vec::new();
     let mut cash_values = Vec::new();
     let mut exposure_values = Vec::new();
+    let mut realized_pnl_values = Vec::new();
+    let mut unrealized_pnl_values = Vec::new();
+    let mut paper_fills = Vec::new();
     let mut any_observation = false;
     let mut conversion_missing = false;
     let mut data_incomplete = false;
     let has_local_paper = accounts.iter().any(AccountConnection::is_local_paper);
     for account in accounts {
-        let Some(data) = account.data.as_ref() else {
+        let local_state = if account.is_local_paper() {
+            let state =
+                paper_state.ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if state.workspace_id != workspace_id
+                || state.account_id != account.connection_id
+                || state.provider_id != account.provider_id
+                || state.environment != account.environment
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            Some(state)
+        } else {
+            None
+        };
+        let local_data = local_state.map(|state| local_paper_data(account, state));
+        let Some(data) = local_data.as_ref().or(account.data.as_ref()) else {
             portfolio_accounts.push(account_row(account, base_currency, None, None, 0, 0, None));
             continue;
         };
@@ -112,39 +248,65 @@ fn actual_snapshot(
         if !account.is_local_paper() {
             data_incomplete = true;
         }
-        let account_currency = data.currency.as_deref();
+        let account_currency = local_state
+            .map(|state| state.cash.currency.as_str())
+            .or(data.currency.as_deref());
         let cash_balance = data
             .balances
             .iter()
             .find(|balance| account_currency.is_some_and(|currency| balance.asset == currency));
-        let cash = cash_balance
-            .map(|balance| balance.available.as_str())
-            .map(|value| {
-                value_from_parts(
-                    Some(value),
-                    account_currency,
-                    account_currency,
-                    base_currency,
-                    fx_source,
-                    time_status,
-                    false,
-                )
-            })
-            .transpose()?;
-        let equity = cash_balance
-            .and_then(|balance| balance.total.as_deref())
-            .map(|value| {
-                value_from_parts(
-                    Some(value),
-                    account_currency,
-                    account_currency,
-                    base_currency,
-                    fx_source,
-                    time_status,
-                    false,
-                )
-            })
-            .transpose()?;
+        let cash = if let Some(state) = local_state {
+            Some(value_from_parts(
+                Some(state.cash.value.as_str()),
+                Some(state.cash.currency.as_str()),
+                account_currency,
+                base_currency,
+                fx_source,
+                time_status,
+                false,
+            )?)
+        } else {
+            cash_balance
+                .map(|balance| balance.available.as_str())
+                .map(|value| {
+                    value_from_parts(
+                        Some(value),
+                        account_currency,
+                        account_currency,
+                        base_currency,
+                        fx_source,
+                        time_status,
+                        false,
+                    )
+                })
+                .transpose()?
+        };
+        let equity = if let Some(state) = local_state {
+            Some(value_from_parts(
+                Some(state.equity.value.as_str()),
+                Some(state.equity.currency.as_str()),
+                account_currency,
+                base_currency,
+                fx_source,
+                time_status,
+                false,
+            )?)
+        } else {
+            cash_balance
+                .and_then(|balance| balance.total.as_deref())
+                .map(|value| {
+                    value_from_parts(
+                        Some(value),
+                        account_currency,
+                        account_currency,
+                        base_currency,
+                        fx_source,
+                        time_status,
+                        false,
+                    )
+                })
+                .transpose()?
+        };
         if let Some(value) = equity.as_ref() {
             conversion_missing |= value.workspace_value.is_none() && value.native_value.is_some();
             collect_fx(value, &mut fx_routes)?;
@@ -154,6 +316,52 @@ fn actual_snapshot(
             conversion_missing |= value.workspace_value.is_none() && value.native_value.is_some();
             collect_fx(value, &mut fx_routes)?;
             cash_values.push(value.clone());
+        }
+        if let Some(state) = local_state {
+            for (money, target) in [
+                (&state.realized_pnl, &mut realized_pnl_values),
+                (&state.unrealized_pnl, &mut unrealized_pnl_values),
+                (&state.exposure, &mut exposure_values),
+            ] {
+                let value = value_from_parts(
+                    Some(money.value.as_str()),
+                    Some(money.currency.as_str()),
+                    account_currency,
+                    base_currency,
+                    fx_source,
+                    time_status,
+                    false,
+                )?;
+                conversion_missing |=
+                    value.workspace_value.is_none() && value.native_value.is_some();
+                collect_fx(&value, &mut fx_routes)?;
+                target.push(value);
+            }
+            for fill in &state.fills {
+                let value = value_from_parts(
+                    Some(fill.value.as_str()),
+                    Some(fill.currency.as_str()),
+                    account_currency,
+                    base_currency,
+                    fx_source,
+                    time_status,
+                    false,
+                )?;
+                conversion_missing |=
+                    value.workspace_value.is_none() && value.native_value.is_some();
+                collect_fx(&value, &mut fx_routes)?;
+                paper_fills.push(PortfolioFill {
+                    connection_id: account.connection_id.clone(),
+                    account_label: account.label.clone(),
+                    fill_id: fill.fill_id.clone(),
+                    instrument_id: Some(fill.instrument_id.clone()),
+                    asset: fill.instrument_id.clone(),
+                    quantity: fill.quantity.clone(),
+                    value,
+                    observed_at: fill.observed_at.clone(),
+                    health: account.health.clone(),
+                });
+            }
         }
         for balance in &data.balances {
             if let Some(total) = balance
@@ -200,7 +408,9 @@ fn actual_snapshot(
                 conversion_missing |=
                     value.workspace_value.is_none() && value.native_value.is_some();
                 collect_fx(value, &mut fx_routes)?;
-                exposure_values.push(value.clone());
+                if local_state.is_none() {
+                    exposure_values.push(value.clone());
+                }
             }
             holdings.push(holding_from_position(
                 account,
@@ -281,15 +491,23 @@ fn actual_snapshot(
         totals: PortfolioTotals {
             equity: sum_values(&equity_values, base_currency, time_status)?,
             cash: sum_values(&cash_values, base_currency, time_status)?,
-            unrealized_pnl: unavailable_value(base_currency),
-            realized_pnl: unavailable_value(base_currency),
+            unrealized_pnl: if unrealized_pnl_values.is_empty() {
+                unavailable_value(base_currency)
+            } else {
+                sum_values(&unrealized_pnl_values, base_currency, time_status)?
+            },
+            realized_pnl: if realized_pnl_values.is_empty() {
+                unavailable_value(base_currency)
+            } else {
+                sum_values(&realized_pnl_values, base_currency, time_status)?
+            },
             exposure: sum_values(&exposure_values, base_currency, time_status)?,
         },
         accounts: portfolio_accounts,
         holdings,
         open_orders,
         fills: if has_local_paper {
-            Some(Vec::new())
+            Some(paper_fills)
         } else {
             None
         },
@@ -511,10 +729,13 @@ fn fixture_snapshot(
             PortfolioStatus::Available
         },
         availability_reason: if degraded {
-            "Synthetic fixture includes degraded or unavailable FX routes; workspace analytics are not authority.".into()
+            format!(
+                "TRADEX_SIMULATION; scenario={FIXTURE_SCENARIO_ID}; synthetic fixture includes degraded or unavailable FX routes; workspace analytics are not authority."
+            )
         } else {
-            "Synthetic fixture values are labelled for contract and rendering verification only."
-                .into()
+            format!(
+                "TRADEX_SIMULATION; scenario={FIXTURE_SCENARIO_ID}; synthetic fixture values are labelled for contract and rendering verification only."
+            )
         },
         totals: PortfolioTotals {
             equity: sum_values(&equity_values, base_currency, time_status)?,
@@ -530,9 +751,9 @@ fn fixture_snapshot(
         fx_routes,
         live_risk: PortfolioLiveRisk {
             eligible: false,
-            reason:
-                "Stablecoin quality is degraded in this fixture; S09 never authorizes Live risk."
-                    .into(),
+            reason: format!(
+                "TRADEX_SIMULATION; scenario={FIXTURE_SCENARIO_ID}; stablecoin quality is degraded in this fixture; S09 never authorizes Live risk."
+            ),
         },
     })
 }
@@ -546,7 +767,9 @@ fn fixture_health() -> AccountHealth {
         reconciliation: "NOT_RUN".into(),
         execution_eligibility: "BLOCKED".into(),
         arming: "DISARMED".into(),
-        reason: "Synthetic fixture account; no provider connection was made.".into(),
+        reason: format!(
+            "TRADEX_SIMULATION; scenario={FIXTURE_SCENARIO_ID}; synthetic fixture account; no provider connection was made."
+        ),
     }
 }
 

@@ -1172,12 +1172,18 @@ impl ControlPlane {
                 let time_status = self.time.status(&input.workspace_id)?;
                 let fixture = cfg!(feature = "integration-test")
                     && std::env::var_os("TRADEX_PORTFOLIO_FIXTURE").is_some();
-                let snapshot = portfolio::get(
+                let paper_state = if fixture {
+                    None
+                } else {
+                    Some(self.store.as_ref().unwrap().local_paper_state()?)
+                };
+                let snapshot = portfolio::get_with_paper_state(
                     &input.workspace_id,
                     &base_currency,
                     &accounts,
                     fx_source,
                     &time_status,
+                    paper_state.as_ref(),
                     fixture,
                 )?;
                 Ok((json!(snapshot), None))
@@ -1701,12 +1707,17 @@ impl ControlPlane {
                         }),
                     );
                 };
-                let detail = match portfolio::get(
+                let paper_state = self
+                    .store
+                    .as_ref()
+                    .and_then(|store| store.local_paper_state().ok());
+                let detail = match portfolio::get_with_paper_state(
                     &request.workspace_id,
                     &base_currency,
                     &accounts,
                     fx_source,
                     &time_status,
+                    paper_state.as_ref(),
                     false,
                 ) {
                     Ok(snapshot) => format!(
@@ -5243,6 +5254,16 @@ mod thread_tests {
         let before_risk = control.store.as_ref().unwrap().risk().unwrap();
         let before_accounts =
             serde_json::to_value(control.store.as_ref().unwrap().accounts().unwrap()).unwrap();
+        let local_account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
         let before_sequence = control
             .store
             .as_mut()
@@ -5251,6 +5272,7 @@ mod thread_tests {
             .unwrap()
             .last_sequence;
         let fields = json!({
+            "accountId": local_account_id,
             "venue": "TRADEX_SIM",
             "environment": "LOCAL_PAPER",
             "instrumentId": "equity:US:AAPL",
@@ -5940,7 +5962,15 @@ mod thread_tests {
         let opened = control.dispatch(request("workspace.open", json!({})));
         assert_eq!(opened["ok"], true);
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let local_account_id = control.dispatch(request(
+            "account.list",
+            json!({"workspaceId": workspace_id}),
+        ))["data"]["accounts"][0]["connectionId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
         let fields = json!({
+            "accountId": local_account_id,
             "venue": "tradex_sim",
             "environment": "LOCAL_PAPER",
             "instrumentId": "equity:US:AAPL",
@@ -6235,6 +6265,49 @@ mod paper_tests {
             json!({"workspaceId": workspace_id}),
         ));
         assert_eq!(accounts["data"]["accounts"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn portfolio_reads_local_paper_projection_instead_of_account_seed() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        drop(control);
+
+        let database = rusqlite::Connection::open(path.join("workspace.sqlite3")).unwrap();
+        let projection: String = database
+            .query_row(
+                "SELECT projection FROM paper_state WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut state: Value = serde_json::from_str(&projection).unwrap();
+        state["cash"]["value"] = "1234".into();
+        database
+            .execute(
+                "UPDATE paper_state SET projection=?1 WHERE workspace_id=?2",
+                rusqlite::params![serde_json::to_string(&state).unwrap(), &workspace_id],
+            )
+            .unwrap();
+        drop(database);
+
+        let mut reopened = ControlPlane::new(path);
+        assert_eq!(
+            reopened.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let portfolio = reopened.dispatch(request(
+            "portfolio.get",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(portfolio["ok"], true, "{portfolio}");
+        assert_eq!(
+            portfolio["data"]["totals"]["cash"]["workspaceValue"],
+            "1234"
+        );
     }
 
     #[test]
