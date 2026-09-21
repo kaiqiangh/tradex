@@ -167,6 +167,9 @@ pub fn validate_history_coverage(
     let fixture_end =
         parse_timestamp(FIXTURE_HISTORY_END).map_err(|error| error.with_field("endAt"))?;
     if fixture {
+        if request.bar_interval != "1d" {
+            return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("barInterval"));
+        }
         if start != fixture_start {
             return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE").with_field("startAt"));
         }
@@ -671,5 +674,11 @@ mod tests {
         let error = validate_history_coverage(&request, true, false).unwrap_err();
         assert_eq!(error.code, "MARKET_HISTORY_UNAVAILABLE");
         assert_eq!(error.field.as_deref(), Some("startAt"));
+
+        let mut unsupported_interval = fixture_request();
+        unsupported_interval.bar_interval = "1h".into();
+        let error = validate_history_coverage(&unsupported_interval, true, false).unwrap_err();
+        assert_eq!(error.code, "MARKET_HISTORY_UNAVAILABLE");
+        assert_eq!(error.field.as_deref(), Some("barInterval"));
     }
 }
