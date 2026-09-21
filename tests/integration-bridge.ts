@@ -28,11 +28,12 @@ export function integrationBridge(): Plugin {
       let blockedWorkspaceId: string | undefined;
       let blockedChildAvailable = true;
       let screenerBlocked = false;
+      let backtestMode: 'normal' | 'delay' | 'list-error' | 'compare-error' = 'normal';
       const blockedBootstrapRequestId = randomUUID();
       let resolveBlockedBootstrap!: () => void;
       const blockedBootstrapReady = new Promise<void>(resolve => { resolveBlockedBootstrap = resolve; });
       const clients = new Set<ServerResponse>();
-      const pending = new Map<string, ServerResponse>();
+      const pending = new Map<string, { response: ServerResponse; command: string }>();
       const blockedPending = new Map<string, { response: ServerResponse; command: string }>();
       createInterface({ input: child.stdout }).on('line', line => {
         const frame = JSON.parse(line);
@@ -42,12 +43,20 @@ export function integrationBridge(): Plugin {
             else response.write(`data: ${JSON.stringify(frame.event)}\n\n`);
           }
         } else {
-          const response = pending.get(frame.result.requestId);
-          if (response) { response.end(JSON.stringify(frame.result)); pending.delete(frame.result.requestId); }
+          const pendingResult = pending.get(frame.result.requestId);
+          if (pendingResult) {
+            const finish = () => {
+              if (pending.get(frame.result.requestId) !== pendingResult) return;
+              pending.delete(frame.result.requestId);
+              if (!pendingResult.response.destroyed) pendingResult.response.end(JSON.stringify(frame.result));
+            };
+            if (backtestMode === 'delay' && pendingResult.command === 'backtest.list') setTimeout(finish, 800);
+            else finish();
+          }
         }
       });
       child.on('exit', () => {
-        for (const response of pending.values()) { response.writeHead(503); response.end(); }
+        for (const { response } of pending.values()) { response.writeHead(503); response.end(); }
         pending.clear();
         for (const response of clients) response.end();
         clients.clear();
@@ -130,6 +139,21 @@ export function integrationBridge(): Plugin {
           } catch { response.writeHead(400); response.end(); }
           return;
         }
+        if (request.url === '/backtest-mode' && request.method === 'POST') {
+          try {
+            const parts: Buffer[] = []; let size = 0;
+            for await (const chunk of request) {
+              size += chunk.length;
+              if (size > 100) { response.writeHead(413); response.end(); return; }
+              parts.push(chunk);
+            }
+            const payload = JSON.parse(Buffer.concat(parts).toString());
+            if (!['normal', 'delay', 'list-error', 'compare-error'].includes(payload.mode)) { response.writeHead(400); response.end(); return; }
+            backtestMode = payload.mode;
+            response.writeHead(204); response.end();
+          } catch { response.writeHead(400); response.end(); }
+          return;
+        }
         if (request.url !== '/command' || request.method !== 'POST') { response.writeHead(404); response.end(); return; }
         try {
           const parts: Buffer[] = []; let size = 0;
@@ -157,7 +181,25 @@ export function integrationBridge(): Plugin {
           }
           response.setHeader('Content-Type', 'application/json');
           response.setHeader('Cache-Control', 'no-store');
-          pending.set(envelope.requestId, response);
+          const failedBacktestQuery = (backtestMode === 'list-error' && envelope.command === 'backtest.list')
+            || (backtestMode === 'compare-error' && envelope.command === 'backtest.compare');
+          if (failedBacktestQuery) {
+            response.end(JSON.stringify({
+              requestId: envelope.requestId,
+              schemaVersion: 1,
+              ok: false,
+              error: {
+                category: 'RUNTIME_ERROR',
+                code: 'BACKTEST_RUNTIME_UNAVAILABLE',
+                message: 'The backtest runtime failed closed without producing synthetic results.',
+                retryable: true,
+                blocking: true,
+                remediationActions: [{ id: 'retry_backtest_run', label: 'Retry backtest' }],
+              },
+            }));
+            return;
+          }
+          pending.set(envelope.requestId, { response, command: envelope.command });
           response.on('close', () => pending.delete(envelope.requestId));
           child.stdin.write(JSON.stringify(envelope) + '\n');
         } catch { if (!response.headersSent) response.writeHead(400); response.end(); }

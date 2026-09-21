@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 
 export async function checkStrategyUI(tab, browser) {
   const ui = tab.playwright;
+  const setBacktestMode = async mode => {
+    const response = await fetch('http://127.0.0.1:1420/__integration/backtest-mode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }),
+    });
+    assert.equal(response.status, 204);
+  };
   const setFixtureRange = async () => {
     await ui.getByLabel('Start date', { exact: true }).fill('2026-01-01T00:00');
     await ui.getByLabel('End date', { exact: true }).fill('2026-01-02T00:00');
@@ -10,8 +16,12 @@ export async function checkStrategyUI(tab, browser) {
   await viewport.set({ width: 1280, height: 900 });
   await ui.getByText('Model not configured', { exact: false }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
+  await setBacktestMode('delay');
   await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
   await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Loading saved backtests…', { exact: true }).waitFor({ state: 'visible' });
+  await setBacktestMode('normal');
+  await ui.getByText('Complete a second backtest to compare runs.', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByLabel('Instrument', { exact: true }).count(), 1);
   assert.equal(await ui.getByLabel('Dataset', { exact: true }).count(), 1);
   await ui.getByRole('button', { name: 'Open Strategies from BACKTEST context', exact: true }).press('Enter');
@@ -50,6 +60,16 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByRole('button', { name: 'Strategies', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Complete a second backtest to compare runs.', { exact: true }).waitFor({ state: 'visible' });
+  await setBacktestMode('list-error');
+  await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
+  await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
+  await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Saved backtests are unavailable.', { exact: true }).waitFor({ state: 'visible' });
+  await setBacktestMode('normal');
+  await ui.getByRole('button', { name: 'Reload saved backtests', exact: true }).press('Enter');
+  await ui.getByText('Complete a second backtest to compare runs.', { exact: true }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Strategies', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: /My strategy/ }).press('Enter');
   const scenario = ui.getByRole('combobox', { name: 'Integration scenario', exact: true });
   const run = ui.getByRole('button', { name: 'Run selected version', exact: true });
@@ -68,7 +88,12 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByText('Completed result · historical simulation', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByLabel('Compare left run', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByLabel('Compare right run', { exact: true }).waitFor({ state: 'visible' });
+  await setBacktestMode('compare-error');
   await ui.getByRole('button', { name: 'Compare runs', exact: true }).press('Enter');
+  await ui.getByText('The backtest runtime failed closed without producing synthetic results.', { exact: false }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Retry compare', exact: true }).waitFor({ state: 'visible' });
+  await setBacktestMode('normal');
+  await ui.getByRole('button', { name: 'Retry compare', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Backtest comparison', exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Equity curve summary', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Run identity', { exact: true }).waitFor({ state: 'visible' });
