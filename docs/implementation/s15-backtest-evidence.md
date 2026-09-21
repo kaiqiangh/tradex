@@ -7,6 +7,7 @@
 #49 结果完整性修复 SHA：`6cd0af7`（`dev`）
 #49 signed-metric validation SHA：`9655290`（`dev`）
 #49 review-fix SHA：`c2e7c33`（`dev`）
+#49 fixture-boundary fix SHA：`ee13d7b`（`dev`）
 
 ## 本票范围
 
@@ -27,7 +28,7 @@
 
 | 检查 | 结果 |
 |---|---|
-| `cargo test --workspace --all-features -- --test-threads=1` | PASS：108 个库测试及全部 workspace 集成测试通过；新增 backtest 测试覆盖成功结果完整性、稳定 manifest/metrics/curve/trades/result hash、guard typed failures、SELL/loss trade、fixture coverage 和 UTC identity normalization、tampered result fail-closed |
+| `cargo test --workspace --all-features -- --test-threads=1` | PASS：108 个库测试及全部 workspace 集成测试通过；新增 backtest 测试覆盖成功结果完整性、稳定 manifest/metrics/curve/trades/result hash、guard typed failures、SELL/loss trade、fixture coverage/bar interval 和 UTC identity normalization、tampered result fail-closed |
 | `cargo check --workspace --all-targets --all-features` | PASS |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
 | `cargo fmt --all -- --check`、`git diff --check` | PASS |
