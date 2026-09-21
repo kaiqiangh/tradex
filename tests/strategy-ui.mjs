@@ -8,6 +8,7 @@ export async function checkStrategyUI(tab, browser) {
   };
   const viewport = await browser.capabilities.get('viewport');
   await viewport.set({ width: 1280, height: 900 });
+  await ui.getByText('Model not configured', { exact: false }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
   await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
   await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
@@ -48,6 +49,7 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByRole('heading', { name: 'Frozen configuration', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Strategies', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByText('Complete a second backtest to compare runs.', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: /My strategy/ }).press('Enter');
   const scenario = ui.getByRole('combobox', { name: 'Integration scenario', exact: true });
   const run = ui.getByRole('button', { name: 'Run selected version', exact: true });
