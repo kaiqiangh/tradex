@@ -81,6 +81,7 @@ export async function checkStrategyUI(tab, browser) {
   const retry = ui.getByRole('button', { name: 'Retry run', exact: true });
   await retry.press('Enter');
   await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry run');
   await scenario.selectOption('CANCELLED');
   await run.press('Enter');
