@@ -9,7 +9,7 @@
 #49 review-fix SHA：`c2e7c33`（`dev`）
 #49 fixture-boundary fix SHA：`ee13d7b`（`dev`）
 #50 compare implementation SHA：`92f3de2e0aec4899aceb81fc82c41e2254595a35`（`dev`）
-#50 browser assertion SHA：`724b0c1`（`dev`）
+#50 browser assertion SHA：`a2a25f5`（`dev`）
 
 ## 本票范围
 
@@ -52,6 +52,6 @@
 - SUCCESS 结果显示 run ID、request hash、metrics、equity curve、trade list、manifest、limitations 和 fixture label；页面没有 Trade、Approve、Reserve 或 provider 操作。
 - 1280、768、390 视口的 `scrollWidth` 分别为 `1265/1265`、`753/753`、`375/375`；浏览器 error 日志为零。
 
-2026-09-21 在 `npm run dev:browser` 的真实 Rust stdio/SQLite bridge 中使用新临时 workspace `75c4f9b5-29ae-4687-ac5f-a78de46643bf`，在当前 `724b0c1` 工作树运行 `checkStrategyUI` 全量脚本并通过。脚本覆盖 Thread→Strategies 双入口、模型未配置时的确定性回测分流、第二条持久 completed run 前的空 compare、Compare/Back、failure/retry/cancel/focus 和 768/390 no-overflow；手动复核确认离开 Strategies 后重新进入仍显示两个已保存 run，Compare 展示 strategy/data/engine identity、指标与曲线，页面不含 broker action，warn/error console 为空。
+2026-09-21 在 `npm run dev:browser` 的真实 Rust stdio/SQLite bridge 中使用新临时 workspace `7ba2267d-2b02-439b-9fe5-daecbd0d5ac1`，在当前 `a2a25f5` 工作树运行 `checkStrategyUI` 全量脚本并通过。脚本覆盖 Thread→Strategies 双入口、模型未配置时的确定性回测分流、第二条持久 completed run 前的空 compare、Compare/Back 焦点恢复、failure/retry/cancel/focus 和 768/390 no-overflow；手动复核确认离开 Strategies 后重新进入仍显示两个已保存 run，Compare 展示 strategy/data/engine、dataset hash/provider/calendar identity、指标与曲线，页面不含 broker action，warn/error console 为空。
 
 该 fixture 和 deterministic engine 只证明本地 schema、状态、持久化、结果 hash、Compare UI 和 no-broker 边界；它不证明真实历史数据授权、外部 provider entitlement 或生产数据引擎。`TRADEX_BACKTEST_FIXTURE` 明确标记 synthetic fixture；真实数据不可用时生产路径仍返回 `MARKET_HISTORY_UNAVAILABLE`/`BACKTEST_RUNTIME_UNAVAILABLE`。S33 完整回归、原生 macOS 窗口复核以及真实 provider/data 验收仍待后续工作，S14 的原生 Strategies 证据仍单独记录。
