@@ -6390,7 +6390,7 @@ mod paper_tests {
     }
 
     #[test]
-    fn portfolio_reads_local_paper_projection_instead_of_account_seed() {
+    fn local_paper_rejects_tampered_cash_projection() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("workspace");
         let mut control = ControlPlane::new(path.clone());
@@ -6417,19 +6417,122 @@ mod paper_tests {
         drop(database);
 
         let mut reopened = ControlPlane::new(path);
+        let corrupted_open = reopened.dispatch(request("workspace.open", json!({})));
+        assert_eq!(corrupted_open["ok"], false, "{corrupted_open}");
         assert_eq!(
-            reopened.dispatch(request("workspace.open", json!({})))["ok"],
-            true
+            corrupted_open["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
         );
-        let portfolio = reopened.dispatch(request(
-            "portfolio.get",
-            json!({"workspaceId": workspace_id}),
-        ));
-        assert_eq!(portfolio["ok"], true, "{portfolio}");
-        assert_eq!(
-            portfolio["data"]["totals"]["cash"]["workspaceValue"],
-            "1234"
-        );
+    }
+
+    #[test]
+    fn local_paper_rejects_tampered_fill_position_and_pnl_without_mutation() {
+        for tamper in ["fill", "position", "pnl"] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("workspace");
+            let mut control = ControlPlane::new(path.clone());
+            let opened = control.dispatch(request("workspace.open", json!({})));
+            let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+            let account_id = control
+                .store
+                .as_ref()
+                .unwrap()
+                .accounts()
+                .unwrap()
+                .into_iter()
+                .find(|account| account.is_local_paper())
+                .unwrap()
+                .connection_id;
+            let proposal = local_paper_proposal(
+                &mut control,
+                &workspace_id,
+                &account_id,
+                "equity:US:AAPL",
+                "BUY",
+                "LIMIT",
+                "2",
+                Some("100"),
+                "DAY",
+            );
+            let submitted = control.dispatch(request(
+                "paper.order.submit",
+                json!({
+                    "workspaceId": workspace_id,
+                    "proposalId": proposal["proposalId"],
+                    "expectedProposalStateVersion": proposal["stateVersion"],
+                    "idempotencyKey": format!("paper-tamper-{tamper}")
+                }),
+            ));
+            assert_eq!(submitted["ok"], true, "{submitted}");
+            drop(control);
+
+            let database = rusqlite::Connection::open(path.join("workspace.sqlite3")).unwrap();
+            let tampered_projection = if tamper == "fill" {
+                database
+                    .execute(
+                        "UPDATE paper_fills SET projection=json_set(projection, '$.value', '201') WHERE workspace_id=?1",
+                        [&workspace_id],
+                    )
+                    .unwrap();
+                database
+                    .query_row(
+                        "SELECT projection FROM paper_fills WHERE workspace_id=?1",
+                        [&workspace_id],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .unwrap()
+            } else {
+                let projection: String = database
+                    .query_row(
+                        "SELECT projection FROM paper_state WHERE workspace_id=?1",
+                        [&workspace_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap();
+                let mut state: Value = serde_json::from_str(&projection).unwrap();
+                match tamper {
+                    "position" => state["positions"][0]["quantity"] = "3".into(),
+                    "pnl" => state["unrealizedPnl"]["value"] = "1".into(),
+                    _ => unreachable!(),
+                }
+                let tampered = serde_json::to_string(&state).unwrap();
+                database
+                    .execute(
+                        "UPDATE paper_state SET projection=?1 WHERE workspace_id=?2",
+                        rusqlite::params![&tampered, &workspace_id],
+                    )
+                    .unwrap();
+                tampered
+            };
+            drop(database);
+
+            let mut reopened = ControlPlane::new(path.clone());
+            let corrupted_open = reopened.dispatch(request("workspace.open", json!({})));
+            assert_eq!(corrupted_open["ok"], false, "{corrupted_open}");
+            assert_eq!(
+                corrupted_open["error"]["code"],
+                "WORKSPACE_INTEGRITY_FAILED"
+            );
+            let database = rusqlite::Connection::open(path.join("workspace.sqlite3")).unwrap();
+            let persisted_projection: String = if tamper == "fill" {
+                database
+                    .query_row(
+                        "SELECT projection FROM paper_fills WHERE workspace_id=?1",
+                        [&workspace_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap()
+            } else {
+                database
+                    .query_row(
+                        "SELECT projection FROM paper_state WHERE workspace_id=?1",
+                        [&workspace_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap()
+            };
+            assert_eq!(persisted_projection, tampered_projection);
+        }
     }
 
     #[test]
@@ -6463,7 +6566,7 @@ mod paper_tests {
             )
             .unwrap();
         let mut corrupted: Value = serde_json::from_str(&projection).unwrap();
-        corrupted["cash"]["value"] = "1e3".into();
+        corrupted["cash"]["value"] = "1234".into();
         database
             .execute(
                 "UPDATE paper_state SET projection=?1 WHERE workspace_id=?2",

@@ -5345,6 +5345,7 @@ fn validate_local_paper_state(
         || !valid_local_paper_text(&state.disclosure, 256)
         || !valid_local_paper_currency(base_currency)
         || !valid_local_paper_decimal(&state.profile.starting_cash, true)
+        || state.profile.starting_cash != crate::paper::DEFAULT_STARTING_CASH
         || money.iter().any(|(value, nonnegative)| {
             value.currency != base_currency
                 || !valid_local_paper_currency(&value.currency)
@@ -5459,7 +5460,225 @@ fn validate_local_paper_state(
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
+    validate_local_paper_ledger(state)
+}
+
+fn validate_local_paper_ledger(state: &LocalPaperState) -> Result<()> {
+    #[derive(Clone)]
+    struct LedgerPosition {
+        instrument_id: String,
+        quantity: String,
+        cost: String,
+    }
+
+    let integrity = || TradeXError::new("WORKSPACE_INTEGRITY_FAILED");
+    let mut cash = state.profile.starting_cash.clone();
+    let mut realized_pnl = "0".to_owned();
+    let mut positions: Vec<LedgerPosition> = Vec::new();
+
+    for fill in &state.fills {
+        let order = state
+            .orders
+            .iter()
+            .find(|order| order.order_id == fill.order_id)
+            .ok_or_else(integrity)?;
+        if fill.instrument_id != order.instrument_id
+            || fill.side != order.side
+            || fill.currency != state.profile.base_currency
+        {
+            return Err(integrity());
+        }
+        let expected_value =
+            crate::portfolio::decimal_mul(&fill.quantity, &fill.price).map_err(|_| integrity())?;
+        if expected_value != fill.value {
+            return Err(integrity());
+        }
+        let position_index = positions
+            .iter()
+            .position(|position| position.instrument_id == fill.instrument_id);
+        match fill.side {
+            crate::protocol::OrderSide::Buy => {
+                cash = crate::portfolio::decimal_add(&cash, &format!("-{}", fill.value))
+                    .map_err(|_| integrity())?;
+                if let Some(index) = position_index {
+                    let position = &mut positions[index];
+                    position.quantity =
+                        crate::portfolio::decimal_add(&position.quantity, &fill.quantity)
+                            .map_err(|_| integrity())?;
+                    position.cost = crate::portfolio::decimal_add(&position.cost, &fill.value)
+                        .map_err(|_| integrity())?;
+                } else {
+                    positions.push(LedgerPosition {
+                        instrument_id: fill.instrument_id.clone(),
+                        quantity: fill.quantity.clone(),
+                        cost: fill.value.clone(),
+                    });
+                }
+            }
+            crate::protocol::OrderSide::Sell => {
+                let Some(index) = position_index else {
+                    return Err(integrity());
+                };
+                let position = &mut positions[index];
+                if compare_local_paper_nonnegative(&position.quantity, &fill.quantity)
+                    .map_err(|_| integrity())?
+                    == std::cmp::Ordering::Less
+                {
+                    return Err(integrity());
+                }
+                let average = crate::portfolio::decimal_div(&position.cost, &position.quantity)
+                    .map_err(|_| integrity())?;
+                let realized = crate::portfolio::decimal_mul(
+                    &crate::portfolio::decimal_add(&fill.price, &format!("-{average}"))
+                        .map_err(|_| integrity())?,
+                    &fill.quantity,
+                )
+                .map_err(|_| integrity())?;
+                realized_pnl = crate::portfolio::decimal_add(&realized_pnl, &realized)
+                    .map_err(|_| integrity())?;
+                cash =
+                    crate::portfolio::decimal_add(&cash, &fill.value).map_err(|_| integrity())?;
+                let sold_cost = crate::portfolio::decimal_mul(&average, &fill.quantity)
+                    .map_err(|_| integrity())?;
+                position.quantity = crate::portfolio::decimal_add(
+                    &position.quantity,
+                    &format!("-{}", fill.quantity),
+                )
+                .map_err(|_| integrity())?;
+                position.cost =
+                    crate::portfolio::decimal_add(&position.cost, &format!("-{sold_cost}"))
+                        .map_err(|_| integrity())?;
+                if position.quantity == "0" {
+                    positions.remove(index);
+                }
+            }
+        }
+    }
+
+    for order in &state.orders {
+        let filled = state
+            .fills
+            .iter()
+            .filter(|fill| fill.order_id == order.order_id)
+            .try_fold("0".to_owned(), |total, fill| {
+                crate::portfolio::decimal_add(&total, &fill.quantity).map_err(|_| integrity())
+            })?;
+        let expected_remaining =
+            crate::portfolio::decimal_add(&order.requested_quantity, &format!("-{filled}"))
+                .map_err(|_| integrity())?;
+        if filled != order.filled_quantity || expected_remaining != order.remaining_quantity {
+            return Err(integrity());
+        }
+        if compare_local_paper_nonnegative(&order.requested_quantity, &filled)
+            .map_err(|_| integrity())?
+            == std::cmp::Ordering::Less
+        {
+            return Err(integrity());
+        }
+    }
+
+    let mut reserved = "0".to_owned();
+    for order in &state.open_orders {
+        if matches!(order.side, crate::protocol::OrderSide::Buy) {
+            let price = order
+                .limit_price
+                .as_deref()
+                .or_else(|| order.quote.as_ref().map(|quote| quote.price.as_str()))
+                .ok_or_else(integrity)?;
+            let amount = crate::portfolio::decimal_mul(&order.remaining_quantity, price)
+                .map_err(|_| integrity())?;
+            reserved =
+                crate::portfolio::decimal_add(&reserved, &amount).map_err(|_| integrity())?;
+        }
+    }
+    cash =
+        crate::portfolio::decimal_add(&cash, &format!("-{reserved}")).map_err(|_| integrity())?;
+
+    if cash != state.cash.value
+        || reserved != state.reserved_cash.value
+        || realized_pnl != state.realized_pnl.value
+    {
+        return Err(integrity());
+    }
+
+    let mark_price = state.profile.quote_price.as_deref();
+    if !positions.is_empty() && mark_price.is_none() {
+        return Err(integrity());
+    }
+    let mut exposure = "0".to_owned();
+    let mut unrealized_pnl = "0".to_owned();
+    if let Some(mark_price) = mark_price {
+        for expected in &positions {
+            let position = state
+                .positions
+                .iter()
+                .find(|position| position.instrument_id == expected.instrument_id)
+                .ok_or_else(integrity)?;
+            let average = crate::portfolio::decimal_div(&expected.cost, &expected.quantity)
+                .map_err(|_| integrity())?;
+            let market_value = crate::portfolio::decimal_mul(&expected.quantity, mark_price)
+                .map_err(|_| integrity())?;
+            let position_pnl = crate::portfolio::decimal_mul(
+                &crate::portfolio::decimal_add(mark_price, &format!("-{average}"))
+                    .map_err(|_| integrity())?,
+                &expected.quantity,
+            )
+            .map_err(|_| integrity())?;
+            if position.quantity != expected.quantity
+                || position.average_entry_price != average
+                || position.market_value.as_deref() != Some(market_value.as_str())
+                || position.unrealized_pnl.as_deref() != Some(position_pnl.as_str())
+                || position.currency != state.profile.base_currency
+            {
+                return Err(integrity());
+            }
+            exposure =
+                crate::portfolio::decimal_add(&exposure, &market_value).map_err(|_| integrity())?;
+            unrealized_pnl = crate::portfolio::decimal_add(&unrealized_pnl, &position_pnl)
+                .map_err(|_| integrity())?;
+        }
+    }
+    if state.positions.len() != positions.len()
+        || exposure != state.exposure.value
+        || unrealized_pnl != state.unrealized_pnl.value
+    {
+        return Err(integrity());
+    }
+    let equity = crate::portfolio::decimal_add(
+        &crate::portfolio::decimal_add(&state.cash.value, &state.reserved_cash.value)
+            .map_err(|_| integrity())?,
+        &state.exposure.value,
+    )
+    .map_err(|_| integrity())?;
+    if equity != state.equity.value {
+        return Err(integrity());
+    }
+    let balance = state
+        .balances
+        .iter()
+        .find(|balance| balance.asset == state.profile.base_currency)
+        .ok_or_else(integrity)?;
+    let balance_total =
+        crate::portfolio::decimal_add(&state.cash.value, &state.reserved_cash.value)
+            .map_err(|_| integrity())?;
+    if balance.available != state.cash.value
+        || balance.total != balance_total
+        || balance.reserved != state.reserved_cash.value
+    {
+        return Err(integrity());
+    }
     Ok(())
+}
+
+fn compare_local_paper_nonnegative(left: &str, right: &str) -> Result<std::cmp::Ordering> {
+    let difference = crate::portfolio::decimal_add(left, &format!("-{right}"))?;
+    Ok(if difference == "0" {
+        std::cmp::Ordering::Equal
+    } else if difference.starts_with('-') {
+        std::cmp::Ordering::Less
+    } else {
+        std::cmp::Ordering::Greater
+    })
 }
 
 fn valid_local_paper_text(value: &str, max: usize) -> bool {
