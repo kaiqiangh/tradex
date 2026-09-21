@@ -359,6 +359,16 @@ pub fn instrument_context_ref(workspace_id: &str, instrument_id: &str) -> Thread
 }
 
 fn account_availability(account: &AccountConnection) -> (bool, Option<String>) {
+    if account.provider_id == "local-paper" && account.environment == "LOCAL" {
+        return if account.connection_state == ConnectionState::Connected {
+            (true, Some(crate::paper::DISCLOSURE.into()))
+        } else {
+            (
+                false,
+                Some("Local Paper simulation state is unavailable; reload the workspace.".into()),
+            )
+        };
+    }
     if account.health.credential == "MISSING" {
         return (
             false,
@@ -639,7 +649,7 @@ fn validate_account_environment(
         ExecutionContext::BitgetDemo => Some(("bitget", "DEMO")),
         ExecutionContext::BitgetLive => Some(("bitget", "LIVE")),
         ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => None,
-        ExecutionContext::LocalPaper => return Err(TradeXError::new("TURN_ACCOUNT_INVALID")),
+        ExecutionContext::LocalPaper => Some(("local-paper", "LOCAL")),
     };
     if let Some((provider, environment)) = expected
         && (account.provider_id != provider || account.environment != environment)

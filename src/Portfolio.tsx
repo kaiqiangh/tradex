@@ -56,11 +56,13 @@ export function Portfolio({ workspaceId }: { workspaceId: string }) {
   if (query.isPending) return <section className="card portfolio-section" aria-live="polite"><p role="status">Loading portfolio…</p></section>;
   if (query.isError) return <section className="card portfolio-section error-banner" role="alert"><div><strong>Portfolio needs attention</strong><p>{explainError(query.error)}</p></div><button type="button" onClick={() => void query.refetch()}>Reload portfolio</button></section>;
   const snapshot = query.data;
+  const hasLocalPaper = snapshot.accounts.some(account => account.providerId === 'local-paper' && account.environment === 'LOCAL');
   return <section className="portfolio-panel" aria-labelledby="portfolio-title">
     <div className={`card portfolio-summary portfolio-status-${snapshot.status.toLowerCase()}`} role="status" aria-live="polite">
       <div className="section-heading"><div><p className="eyebrow">Portfolio</p><h2 id="portfolio-title">Workspace valuation</h2><p>{snapshot.availabilityReason}</p></div><span className="badge">{statusLabel[snapshot.status]}</span></div>
       <dl className="portfolio-totals"><div><dt>Workspace equity</dt><dd>{valueText(snapshot.totals.equity)}</dd></div><div><dt>Cash</dt><dd>{valueText(snapshot.totals.cash)}</dd></div><div><dt>Exposure</dt><dd>{valueText(snapshot.totals.exposure)}</dd></div><div><dt>Unrealized P&amp;L</dt><dd>{valueText(snapshot.totals.unrealizedPnl)}</dd></div><div><dt>Realized P&amp;L</dt><dd>{valueText(snapshot.totals.realizedPnl)}</dd></div></dl>
       <p className="muted">Base currency: <strong>{snapshot.baseCurrency}</strong> · Observed {snapshot.observedAt}</p>
+      {hasLocalPaper && <p className="notice">TRADEX_SIMULATION · LOCAL_PAPER: Local Paper is TradeX simulation; its balances and results are not provider truth or Live execution.</p>}
       <p className="notice">Live risk: {snapshot.liveRisk.eligible ? 'Eligible' : 'Blocked'} — {snapshot.liveRisk.reason}</p>
     </div>
     <section className="card portfolio-section" aria-labelledby="portfolio-fx-title"><div className="section-heading"><div><p className="eyebrow">Provenance</p><h2 id="portfolio-fx-title">FX and stablecoin routes</h2></div><span className="badge">{snapshot.fxRoutes.length} routes</span></div>{snapshot.fxRoutes.length ? <ul className="portfolio-provenance">{snapshot.fxRoutes.map(provenance)}</ul> : <p className="muted">No conversion routes were required or observed.</p>}</section>

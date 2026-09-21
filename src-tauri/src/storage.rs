@@ -26,8 +26,8 @@ use crate::protocol::{
     Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
     ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
     BacktestRunState, BacktestRunSummary, DomainEvent, DomainProjection, EventSink,
-    ExecutionContext, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary,
-    OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
+    ExecutionContext, LocalPaperState, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields,
+    OrderDraftLibrary, OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
     OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
     OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
     OrderProposalStatus, OrderProposalSummary, OrderType, ProposalReferenceStatus, Result,
@@ -40,7 +40,7 @@ use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 13;
+pub(crate) const SCHEMA_VERSION: u32 = 14;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -347,6 +347,16 @@ impl Store {
                 CREATE INDEX IF NOT EXISTS backtest_runs_workspace_order ON backtest_runs(workspace_id,sequence DESC,run_id);
                 PRAGMA user_version=13;").map_err(storage_error)?;
             }
+            if version < 14 {
+                tx.execute_batch("CREATE TABLE IF NOT EXISTS paper_state (
+                    workspace_id TEXT PRIMARY KEY,
+                    account_id TEXT NOT NULL UNIQUE,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS paper_state_workspace_order ON paper_state(workspace_id,sequence DESC);
+                PRAGMA user_version=14;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -514,6 +524,12 @@ impl Store {
             .map_err(storage_error)
     }
 
+    pub fn base_currency(&self) -> Result<String> {
+        self.connection
+            .query_row("SELECT base_currency FROM workspace", [], |r| r.get(0))
+            .map_err(storage_error)
+    }
+
     pub fn accounts(&self) -> Result<Vec<AccountConnection>> {
         let workspace_id = self.workspace_id()?;
         let mut query = self
@@ -536,6 +552,82 @@ impl Store {
             Ok(account)
         })
         .collect()
+    }
+
+    pub fn ensure_local_paper(
+        &mut self,
+        base_currency: &str,
+    ) -> Result<(AccountConnection, Option<DomainEvent>)> {
+        let workspace_id = self.workspace_id()?;
+        let existing_id: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT connection_id FROM accounts WHERE provider_id='local-paper' AND environment='LOCAL' LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let (account, event) = if let Some(connection_id) = existing_id {
+            (self.account(&connection_id)?, None)
+        } else {
+            let account = crate::paper::account(&workspace_id, base_currency)?;
+            let event = self.save_account(account)?;
+            let account = match &event.payload {
+                DomainProjection::Account(account) => (**account).clone(),
+                _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+            };
+            (account, Some(event))
+        };
+        let state_exists: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT projection FROM paper_state WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if let Some(encoded) = state_exists {
+            let state: LocalPaperState = serde_json::from_str(&encoded).map_err(storage_error)?;
+            validate_local_paper_state(&state, &workspace_id, &account.connection_id)?;
+        } else {
+            let state = crate::paper::initial_state(
+                &workspace_id,
+                &account.connection_id,
+                &account.label,
+                base_currency,
+                timestamp()?,
+            )?;
+            let encoded = serde_json::to_string(&state).map_err(storage_error)?;
+            let tx = self
+                .connection
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(storage_error)?;
+            tx.execute(
+                "INSERT INTO paper_state(workspace_id,account_id,sequence,projection) VALUES(?1,?2,1,?3)",
+                params![workspace_id, account.connection_id, encoded],
+            )
+            .map_err(storage_error)?;
+            tx.commit().map_err(storage_error)?;
+        }
+        Ok((account, event))
+    }
+
+    pub fn local_paper_state(&self) -> Result<LocalPaperState> {
+        let workspace_id = self.workspace_id()?;
+        let encoded: String = self
+            .connection
+            .query_row(
+                "SELECT projection FROM paper_state WHERE workspace_id=?1",
+                [&workspace_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let state: LocalPaperState = serde_json::from_str(&encoded).map_err(storage_error)?;
+        let account = self.account(&state.account_id)?;
+        validate_local_paper_state(&state, &workspace_id, &account.connection_id)?;
+        Ok(state)
     }
 
     pub fn account(&self, id: &str) -> Result<AccountConnection> {
@@ -4513,6 +4605,112 @@ fn read_workspace(connection: &Connection, path: &Path) -> Result<Workspace> {
         workspace_id: row.get(0)?, name: row.get(1)?, created_at: row.get(2)?, last_opened_at: row.get(3)?,
         base_currency: row.get(4)?, path: path.to_string_lossy().into_owned(), storage_schema_version: SCHEMA_VERSION,
     })).map_err(storage_error)
+}
+
+fn validate_local_paper_state(
+    state: &LocalPaperState,
+    workspace_id: &str,
+    account_id: &str,
+) -> Result<()> {
+    let base_currency = state.profile.base_currency.as_str();
+    let money = [
+        (&state.cash, true),
+        (&state.reserved_cash, true),
+        (&state.equity, true),
+        (&state.realized_pnl, false),
+        (&state.unrealized_pnl, false),
+        (&state.exposure, true),
+    ];
+    if state.workspace_id != workspace_id
+        || state.account_id != account_id
+        || state.provider_id != crate::paper::PROVIDER_ID
+        || state.environment != crate::paper::ENVIRONMENT
+        || !valid_local_paper_text(&state.account_label, 120)
+        || !valid_local_paper_text(&state.profile.quote_source, 64)
+        || !valid_local_paper_text(&state.profile.scenario_id, 128)
+        || !valid_local_paper_text(&state.profile.engine_version, 64)
+        || !valid_local_paper_text(&state.state_version, 256)
+        || !valid_local_paper_text(&state.updated_at, 64)
+        || !valid_local_paper_text(&state.disclosure, 256)
+        || !valid_local_paper_currency(base_currency)
+        || !valid_local_paper_decimal(&state.profile.starting_cash, true)
+        || money.iter().any(|(value, nonnegative)| {
+            value.currency != base_currency
+                || !valid_local_paper_currency(&value.currency)
+                || !valid_local_paper_decimal(&value.value, *nonnegative)
+        })
+        || state.balances.iter().any(|balance| {
+            !valid_local_paper_text(&balance.asset, 64)
+                || !valid_local_paper_decimal(&balance.available, true)
+                || !valid_local_paper_decimal(&balance.total, true)
+                || !valid_local_paper_decimal(&balance.reserved, true)
+        })
+        || state.positions.iter().any(|position| {
+            !valid_local_paper_text(&position.instrument_id, 128)
+                || !valid_local_paper_decimal(&position.quantity, true)
+                || !valid_local_paper_decimal(&position.average_entry_price, true)
+                || position
+                    .market_value
+                    .as_deref()
+                    .is_some_and(|value| !valid_local_paper_decimal(value, true))
+                || !valid_local_paper_currency(&position.currency)
+                || position
+                    .unrealized_pnl
+                    .as_deref()
+                    .is_some_and(|value| !valid_local_paper_decimal(value, false))
+        })
+        || state.open_orders.iter().any(|order| {
+            !valid_local_paper_text(&order.order_id, 128)
+                || !valid_local_paper_text(&order.proposal_id, 128)
+                || !valid_local_paper_hash(&order.proposal_hash)
+                || !valid_local_paper_text(&order.instrument_id, 128)
+                || !valid_local_paper_decimal(&order.requested_quantity, true)
+                || !valid_local_paper_decimal(&order.filled_quantity, true)
+                || !valid_local_paper_decimal(&order.remaining_quantity, true)
+                || order
+                    .average_fill_price
+                    .as_deref()
+                    .is_some_and(|value| !valid_local_paper_decimal(value, true))
+                || !valid_local_paper_text(&order.created_at, 64)
+                || !valid_local_paper_text(&order.updated_at, 64)
+        })
+        || state.fills.iter().any(|fill| {
+            !valid_local_paper_text(&fill.fill_id, 128)
+                || !valid_local_paper_text(&fill.order_id, 128)
+                || !valid_local_paper_text(&fill.instrument_id, 128)
+                || !valid_local_paper_decimal(&fill.quantity, true)
+                || !valid_local_paper_decimal(&fill.price, true)
+                || !valid_local_paper_decimal(&fill.value, true)
+                || !valid_local_paper_currency(&fill.currency)
+                || !valid_local_paper_text(&fill.observed_at, 64)
+        })
+        || state.balances.len() > 512
+        || state.positions.len() > 512
+        || state.open_orders.len() > 512
+        || state.fills.len() > 512
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(())
+}
+
+fn valid_local_paper_text(value: &str, max: usize) -> bool {
+    !value.is_empty() && value.chars().count() <= max && !value.chars().any(char::is_control)
+}
+
+fn valid_local_paper_currency(value: &str) -> bool {
+    value.len() == 3 && value.bytes().all(|byte| byte.is_ascii_uppercase())
+}
+
+fn valid_local_paper_hash(value: &str) -> bool {
+    value.len() == 71
+        && value.starts_with("sha256:")
+        && value[7..].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn valid_local_paper_decimal(value: &str, nonnegative: bool) -> bool {
+    crate::provider_io::decimal(&serde_json::Value::String(value.to_owned()))
+        .is_ok_and(|normalized| normalized == value && (!nonnegative || !value.starts_with('-')))
 }
 
 pub(crate) fn timestamp() -> Result<String> {

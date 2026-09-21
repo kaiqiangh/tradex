@@ -163,9 +163,9 @@ export type TurnStatus = "RUNNING" | "COMPLETED" | "CANCELLED" | "INTERRUPTED" |
 export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketTier".
+ * via the `definition` "OrderSide".
  */
-export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
+export type OrderSide = "BUY" | "SELL";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderType".
@@ -173,14 +173,20 @@ export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
 export type OrderType = "MARKET" | "LIMIT";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperOrderState".
+ */
+export type LocalPaperOrderState =
+  "PROPOSED" | "ACCEPTED" | "PARTIALLY_FILLED" | "FILLED" | "REJECTED" | "CANCEL_PENDING" | "CANCELLED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketTier".
+ */
+export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderQuantityType".
  */
 export type OrderQuantityType = "BASE" | "QUOTE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderSide".
- */
-export type OrderSide = "BUY" | "SELL";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeInForce".
@@ -261,6 +267,7 @@ export type ReplyData =
   | MarketCatalog
   | MarketDetail
   | PortfolioSnapshot
+  | LocalPaperState
   | Watchlist
   | Watchlists
   | ResearchToolResult
@@ -448,6 +455,7 @@ export interface IpcSchema {
   equityPoint: EquityPoint;
   event: DomainEvent;
   gatewayMutation: GatewayMutation;
+  localPaperState: LocalPaperState;
   marketCatalogQuery: MarketCatalogQuery;
   marketGetQuery: MarketGetQuery;
   modelQuery: ModelQuery;
@@ -1601,6 +1609,119 @@ export interface GatewayMutation {
   action: GatewayAction;
   expectedStateVersion: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperState".
+ */
+export interface LocalPaperState {
+  accountId: string;
+  accountLabel: string;
+  /**
+   * @maxItems 512
+   */
+  balances: LocalPaperBalance[];
+  cash: LocalPaperMoney;
+  disclosure: string;
+  environment: string;
+  equity: LocalPaperMoney;
+  eventCursor: number;
+  exposure: LocalPaperMoney;
+  /**
+   * @maxItems 512
+   */
+  fills: LocalPaperFill[];
+  /**
+   * @maxItems 512
+   */
+  openOrders: LocalPaperOrder[];
+  /**
+   * @maxItems 512
+   */
+  positions: LocalPaperPosition[];
+  profile: LocalPaperProfile;
+  providerId: string;
+  realizedPnl: LocalPaperMoney;
+  reservedCash: LocalPaperMoney;
+  stateVersion: string;
+  unrealizedPnl: LocalPaperMoney;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperBalance".
+ */
+export interface LocalPaperBalance {
+  asset: string;
+  available: string;
+  reserved: string;
+  total: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperMoney".
+ */
+export interface LocalPaperMoney {
+  currency: string;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperFill".
+ */
+export interface LocalPaperFill {
+  currency: string;
+  fillId: string;
+  instrumentId: string;
+  observedAt: string;
+  orderId: string;
+  price: string;
+  quantity: string;
+  side: OrderSide;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperOrder".
+ */
+export interface LocalPaperOrder {
+  averageFillPrice?: string;
+  createdAt: string;
+  filledQuantity: string;
+  instrumentId: string;
+  orderId: string;
+  orderType: OrderType;
+  proposalHash: string;
+  proposalId: string;
+  remainingQuantity: string;
+  requestedQuantity: string;
+  side: OrderSide;
+  state: LocalPaperOrderState;
+  updatedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperPosition".
+ */
+export interface LocalPaperPosition {
+  averageEntryPrice: string;
+  currency: string;
+  instrumentId: string;
+  marketValue?: string;
+  quantity: string;
+  unrealizedPnl?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperProfile".
+ */
+export interface LocalPaperProfile {
+  baseCurrency: string;
+  engineVersion: string;
+  quoteSource: string;
+  scenarioId: string;
+  startingCash: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

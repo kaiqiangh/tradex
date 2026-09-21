@@ -109,6 +109,9 @@
     "gatewayMutation": {
       "$ref": "#/$defs/GatewayMutation"
     },
+    "localPaperState": {
+      "$ref": "#/$defs/LocalPaperState"
+    },
     "marketCatalogQuery": {
       "$ref": "#/$defs/MarketCatalogQuery"
     },
@@ -332,6 +335,7 @@
     "artifactQuery",
     "artifactExport",
     "portfolioQuery",
+    "localPaperState",
     "strategyDefinition",
     "strategyVersion",
     "strategySave",
@@ -3216,6 +3220,407 @@
         "FAILED"
       ]
     },
+    "LocalPaperBalance": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "available": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reserved": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "total": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "available",
+        "total",
+        "reserved"
+      ]
+    },
+    "LocalPaperFill": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "fillId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "price": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "fillId",
+        "orderId",
+        "instrumentId",
+        "side",
+        "quantity",
+        "price",
+        "value",
+        "currency",
+        "observedAt"
+      ]
+    },
+    "LocalPaperMoney": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "currency"
+      ]
+    },
+    "LocalPaperOrder": {
+      "type": "object",
+      "properties": {
+        "averageFillPrice": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "filledQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "orderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "orderType": {
+          "$ref": "#/$defs/OrderType"
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "remainingQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requestedQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "state": {
+          "$ref": "#/$defs/LocalPaperOrderState"
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "orderId",
+        "proposalId",
+        "proposalHash",
+        "instrumentId",
+        "side",
+        "orderType",
+        "state",
+        "requestedQuantity",
+        "filledQuantity",
+        "remainingQuantity",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LocalPaperOrderState": {
+      "type": "string",
+      "enum": [
+        "PROPOSED",
+        "ACCEPTED",
+        "PARTIALLY_FILLED",
+        "FILLED",
+        "REJECTED",
+        "CANCEL_PENDING",
+        "CANCELLED"
+      ]
+    },
+    "LocalPaperPosition": {
+      "type": "object",
+      "properties": {
+        "averageEntryPrice": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "marketValue": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "unrealizedPnl": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instrumentId",
+        "quantity",
+        "averageEntryPrice",
+        "currency"
+      ]
+    },
+    "LocalPaperProfile": {
+      "type": "object",
+      "properties": {
+        "baseCurrency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "engineVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quoteSource": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "scenarioId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "startingCash": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "baseCurrency",
+        "startingCash",
+        "quoteSource",
+        "scenarioId",
+        "engineVersion"
+      ]
+    },
+    "LocalPaperState": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "accountLabel": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocalPaperBalance"
+          },
+          "maxItems": 512
+        },
+        "cash": {
+          "$ref": "#/$defs/LocalPaperMoney"
+        },
+        "disclosure": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "equity": {
+          "$ref": "#/$defs/LocalPaperMoney"
+        },
+        "eventCursor": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "exposure": {
+          "$ref": "#/$defs/LocalPaperMoney"
+        },
+        "fills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocalPaperFill"
+          },
+          "maxItems": 512
+        },
+        "openOrders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocalPaperOrder"
+          },
+          "maxItems": 512
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocalPaperPosition"
+          },
+          "maxItems": 512
+        },
+        "profile": {
+          "$ref": "#/$defs/LocalPaperProfile"
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "realizedPnl": {
+          "$ref": "#/$defs/LocalPaperMoney"
+        },
+        "reservedCash": {
+          "$ref": "#/$defs/LocalPaperMoney"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "unrealizedPnl": {
+          "$ref": "#/$defs/LocalPaperMoney"
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "providerId",
+        "environment",
+        "accountLabel",
+        "profile",
+        "cash",
+        "reservedCash",
+        "equity",
+        "realizedPnl",
+        "unrealizedPnl",
+        "exposure",
+        "balances",
+        "positions",
+        "openOrders",
+        "fills",
+        "eventCursor",
+        "stateVersion",
+        "updatedAt",
+        "disclosure"
+      ]
+    },
     "MarketCatalog": {
       "type": "object",
       "properties": {
@@ -5490,6 +5895,9 @@
         },
         {
           "$ref": "#/$defs/PortfolioSnapshot"
+        },
+        {
+          "$ref": "#/$defs/LocalPaperState"
         },
         {
           "$ref": "#/$defs/Watchlist"
@@ -8911,7 +9319,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 13,
+          "maximum": 14,
           "minimum": 1
         },
         "workspaceId": {

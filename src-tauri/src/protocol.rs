@@ -182,6 +182,7 @@ pub enum ReplyData {
     MarketCatalog(MarketCatalog),
     MarketDetail(Box<MarketDetail>),
     Portfolio(Box<PortfolioSnapshot>),
+    Paper(Box<LocalPaperState>),
     Watchlist(Box<Watchlist>),
     Watchlists(Watchlists),
     ResearchResult(ResearchToolResult),
@@ -283,6 +284,7 @@ pub struct IpcSchema {
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
     pub portfolio_query: PortfolioQuery,
+    pub local_paper_state: LocalPaperState,
     pub strategy_definition: StrategyDefinition,
     pub strategy_version: StrategyVersion,
     pub strategy_save: StrategySave,
@@ -329,7 +331,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 13))]
+    #[schemars(range(min = 1, max = 14))]
     pub storage_schema_version: u32,
 }
 
@@ -3821,6 +3823,163 @@ impl TradeXError {
         self.field = Some(field.to_owned().into_boxed_str());
         self
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperMoney {
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub value: String,
+    #[schemars(regex(pattern = "^[A-Z]{3}$"))]
+    pub currency: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperProfile {
+    #[schemars(regex(pattern = "^[A-Z]{3}$"))]
+    pub base_currency: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub starting_cash: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub quote_source: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub scenario_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub engine_version: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LocalPaperOrderState {
+    Proposed,
+    Accepted,
+    PartiallyFilled,
+    Filled,
+    Rejected,
+    CancelPending,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperBalance {
+    #[schemars(length(min = 1, max = 64))]
+    pub asset: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub available: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub total: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub reserved: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperPosition {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quantity: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub average_entry_price: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub market_value: Option<String>,
+    #[schemars(regex(pattern = "^[A-Z]{3}$"))]
+    pub currency: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub unrealized_pnl: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperOrder {
+    #[schemars(length(min = 1, max = 128))]
+    pub order_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub side: OrderSide,
+    pub order_type: OrderType,
+    pub state: LocalPaperOrderState,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub requested_quantity: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub filled_quantity: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub remaining_quantity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub average_fill_price: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperFill {
+    #[schemars(length(min = 1, max = 128))]
+    pub fill_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub order_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    pub side: OrderSide,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quantity: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub price: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub value: String,
+    #[schemars(regex(pattern = "^[A-Z]{3}$"))]
+    pub currency: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperState {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub account_label: String,
+    pub profile: LocalPaperProfile,
+    pub cash: LocalPaperMoney,
+    pub reserved_cash: LocalPaperMoney,
+    pub equity: LocalPaperMoney,
+    pub realized_pnl: LocalPaperMoney,
+    pub unrealized_pnl: LocalPaperMoney,
+    pub exposure: LocalPaperMoney,
+    #[schemars(length(max = 512))]
+    pub balances: Vec<LocalPaperBalance>,
+    #[schemars(length(max = 512))]
+    pub positions: Vec<LocalPaperPosition>,
+    #[schemars(length(max = 512))]
+    pub open_orders: Vec<LocalPaperOrder>,
+    #[schemars(length(max = 512))]
+    pub fills: Vec<LocalPaperFill>,
+    #[schemars(range(min = 0, max = 9_007_199_254_740_991_u64))]
+    pub event_cursor: u64,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub disclosure: String,
 }
 
 pub type Result<T> = std::result::Result<T, TradeXError>;

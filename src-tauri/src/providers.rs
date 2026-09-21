@@ -47,22 +47,22 @@ pub fn catalog() -> ProviderCatalog {
             ("bitget", "Bitget Spot Demo", "DEMO"),
             ("bitget", "Bitget Spot Live", "LIVE"),
         ].into_iter().map(|(id, label, environment)| {
-            let available = matches!(id, "alpaca" | "trading212" | "binance" | "bitget");
+            let available = matches!(id, "local-paper" | "alpaca" | "trading212" | "binance" | "bitget");
             ProviderDefinition {
                 provider_id: id.into(), display_name: label.into(), environment: environment.into(), available,
-                help_text: if id == "local-paper" { "Built-in; no external credentials. Simulation is not configured yet." }
+                help_text: if id == "local-paper" { "Built-in TradeX simulation; no external credentials, provider probe, network or Live Gateway." }
                     else if id == "trading212" { "Use the API key and secret for this exact Demo or Live account. Invest/Stocks ISA only; the API does not expose the subtype. Account values use the primary currency; prices retain instrument currency. Scope and IP restrictions cannot be fully inspected. Connection testing only reads data and never arms Live execution." }
                     else if id == "bitget" { "Classic Spot HMAC credentials require API key, secret and passphrase. Demo requires its own key; unsupported Demo account reads remain unavailable, with no Live fallback. Testing reads data only; Live stays disarmed." }
                     else if id == "binance" { "Use a separate HMAC API key and secret for this exact Spot Testnet or Live account. Native asset balances are not USD valuations. Live key scope is inspected separately; Testnet scope remains unverified. Withdrawals, transfers and unsupported margin/derivative permissions block confirmation. Testing only reads data; Live stays disarmed." }
                     else if available { "Use separate Alpaca Paper credentials. TradeX reads account, positions and open orders. Key scope cannot be fully inspected. No withdrawals, transfers, custody, margin borrowing or leverage management are required or implemented." }
                     else { "This provider connection is not available in this build." }.into(),
-                fields: if available { [("apiKey", "Paper API key ID"), ("secret", "Paper API secret"), ("passphrase", "Passphrase")].into_iter().filter(|(field,_)| *field != "passphrase" || id == "bitget").map(|(id,label)| ProviderField {
+                fields: if available && id != "local-paper" { [("apiKey", "Paper API key ID"), ("secret", "Paper API secret"), ("passphrase", "Passphrase")].into_iter().filter(|(field,_)| *field != "passphrase" || id == "bitget").map(|(id,label)| ProviderField {
                     id:id.into(), label:if id == "passphrase" { "Passphrase".into() } else if id == "apiKey" && environment != "PAPER" { "API key".into() } else if environment != "PAPER" { "API secret".into() } else { label.into() }, input_type:"password".into(), required:true, secret:true, max_length:512,
                     help_text:format!("Enter the value for this {environment} account in the native secure window. Never reuse another environment’s credentials."), environment:environment.into(),
                 }).collect() } else { vec![] },
-                required_permissions: vec!["account.read".into(),"positions.read".into(),"orders.read".into()],
+                required_permissions: if id == "local-paper" { vec![] } else { vec!["account.read".into(),"positions.read".into(),"orders.read".into()] },
                 optional_permissions: vec![],
-                forbidden_permissions: vec!["withdrawal".into(),"transfer".into(),"custody".into(),"margin.borrow".into(),"leverage.manage".into()],
+                forbidden_permissions: if id == "local-paper" { vec![] } else { vec!["withdrawal".into(),"transfer".into(),"custody".into(),"margin.borrow".into(),"leverage.manage".into()] },
             }
         }).collect(),
     }
@@ -319,6 +319,7 @@ impl AccountConnection {
         let valid_arming = match self.environment.as_str() {
             "LIVE" => self.health.arming == "DISARMED",
             "PAPER" | "DEMO" | "TESTNET" => self.health.arming == "NOT_APPLICABLE",
+            "LOCAL" => self.provider_id == "local-paper" && self.health.arming == "NOT_APPLICABLE",
             _ => false,
         };
         if self.workspace_id != workspace_id || !known_provider || !valid_arming {

@@ -74,6 +74,9 @@ fn actual_snapshot(
     let mut any_observation = false;
     let mut conversion_missing = false;
     let mut data_incomplete = false;
+    let has_local_paper = accounts
+        .iter()
+        .any(|account| account.provider_id == "local-paper" && account.environment == "LOCAL");
     for account in accounts {
         let Some(data) = account.data.as_ref() else {
             portfolio_accounts.push(account_row(account, base_currency, None, None, 0, 0, None));
@@ -108,7 +111,9 @@ fn actual_snapshot(
             return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
         }
         any_observation = true;
-        data_incomplete = true;
+        if account.provider_id != "local-paper" {
+            data_incomplete = true;
+        }
         let account_currency = data.currency.as_deref();
         let cash_balance = data
             .balances
@@ -253,7 +258,11 @@ fn actual_snapshot(
     };
     let reason = match status {
         PortfolioStatus::Available => {
-            "Provider observations are shown with workspace-currency values where the route is trusted."
+            if has_local_paper {
+                "TRADEX_SIMULATION; Local Paper is TradeX-managed simulation; its state is not provider truth or Live execution."
+            } else {
+                "Provider observations are shown with workspace-currency values where the route is trusted."
+            }
         }
         PortfolioStatus::Degraded => {
             "Some provider fields or FX routes are unavailable; affected values remain unavailable."
@@ -281,11 +290,20 @@ fn actual_snapshot(
         accounts: portfolio_accounts,
         holdings,
         open_orders,
-        fills: None,
+        fills: if has_local_paper {
+            Some(Vec::new())
+        } else {
+            None
+        },
         fx_routes,
         live_risk: PortfolioLiveRisk {
             eligible: false,
-            reason: "S09 is read-only; Live risk requires a later consumer to revalidate every account, market, time and FX gate.".into(),
+            reason: if has_local_paper {
+                "TRADEX_SIMULATION_NOT_LIVE; simulation is never Live risk or provider truth."
+                    .into()
+            } else {
+                "S09 is read-only; Live risk requires a later consumer to revalidate every account, market, time and FX gate.".into()
+            },
         },
     })
 }

@@ -11,6 +11,7 @@ pub mod model;
 pub mod model_credentials;
 #[cfg(all(feature = "desktop", target_os = "macos"))]
 pub mod native_credentials;
+pub mod paper;
 pub mod portfolio;
 pub mod protocol;
 pub mod provider_io;
@@ -560,6 +561,8 @@ impl ControlPlane {
                     self.store.as_mut().unwrap().reconcile_strategy_runs()?;
                     self.store.as_mut().unwrap().reconcile_backtest_runs()?;
                     self.reconcile_running_turns()?;
+                    let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
+                    self.ensure_local_paper(&workspace_id)?;
                     let event = self.store.as_mut().unwrap().record_open()?;
                     let workspace_id = event.aggregate_id.clone();
                     self.time.reset(&workspace_id);
@@ -594,6 +597,8 @@ impl ControlPlane {
                         }
                     }
                     self.store = Some(store);
+                    let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
+                    self.ensure_local_paper(&workspace_id)?;
                     self.reconcile_running_turns()?;
                     let event = self.store.as_mut().unwrap().record_open()?;
                     let workspace_id = event.aggregate_id.clone();
@@ -844,6 +849,17 @@ impl ControlPlane {
             "context.catalog" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
                 Ok((json!(self.context_catalog(&input)?), None))
+            }
+            "paper.account.ensure" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                let account = self.ensure_local_paper(&input.workspace_id)?;
+                Ok((json!(account), Some(account.state_version)))
+            }
+            "paper.get" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.ensure_local_paper(&input.workspace_id)?;
+                let state = self.store.as_ref().unwrap().local_paper_state()?;
+                Ok((json!(state), Some(state.state_version.clone())))
             }
             "strategy.list" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
@@ -1145,6 +1161,7 @@ impl ControlPlane {
             "portfolio.get" => {
                 let input: PortfolioQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
+                self.ensure_local_paper(&input.workspace_id)?;
                 let workspace_snapshot = self.store.as_mut().unwrap().snapshot()?;
                 let base_currency = match workspace_snapshot.projection {
                     DomainProjection::Workspace(workspace) => workspace.base_currency,
@@ -1237,6 +1254,7 @@ impl ControlPlane {
             "account.list" => {
                 let p: WorkspaceQuery = payload(request.payload)?;
                 self.require_workspace(&p.workspace_id)?;
+                self.ensure_local_paper(&p.workspace_id)?;
                 Ok((
                     json!(Accounts {
                         accounts: self.store.as_ref().unwrap().accounts()?
@@ -1711,8 +1729,23 @@ impl ControlPlane {
         }
     }
 
-    fn context_catalog(&self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
+    fn ensure_local_paper(&mut self, workspace_id: &str) -> Result<AccountConnection> {
+        self.require_workspace(workspace_id)?;
+        let base_currency = self.store.as_ref().unwrap().base_currency()?;
+        let (account, event) = self
+            .store
+            .as_mut()
+            .unwrap()
+            .ensure_local_paper(&base_currency)?;
+        if let Some(event) = event {
+            self.publish(&event);
+        }
+        Ok(account)
+    }
+
+    fn context_catalog(&mut self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
         self.require_workspace(&input.workspace_id)?;
+        self.ensure_local_paper(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
         let mut catalog = capability::context_catalog(&accounts)?;
         let strategies = self.store.as_ref().unwrap().strategies()?;
@@ -3395,6 +3428,9 @@ impl ControlPlane {
     ) -> Result<()> {
         self.require_workspace(workspace)?;
         definition(provider, environment)?;
+        if provider == paper::PROVIDER_ID && environment == paper::ENVIRONMENT {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
         if label.trim().is_empty()
             || label.chars().count() > 120
             || label.chars().any(char::is_control)
@@ -4590,15 +4626,24 @@ mod thread_tests {
         assert_eq!(catalog["ok"], true);
         let fixture_enabled = capability::synthetic_research_fixture_enabled();
         let entries = catalog["data"]["entries"].as_array().unwrap();
-        assert_eq!(entries.len(), usize::from(fixture_enabled));
+        assert_eq!(entries.len(), 1 + usize::from(fixture_enabled));
+        assert_eq!(entries[0]["providerId"], "local-paper");
+        assert_eq!(entries[0]["environment"], "LOCAL");
+        assert_eq!(entries[0]["available"], true);
+        assert!(
+            entries[0]["availabilityReason"]
+                .as_str()
+                .unwrap()
+                .contains("TradeX simulation")
+        );
         if fixture_enabled {
             assert_eq!(
-                entries[0]["contextRef"],
+                entries[1]["contextRef"],
                 serde_json::to_value(capability::synthetic_research_artifact_context()).unwrap()
             );
         }
         let empty_states = catalog["data"]["emptyStates"].as_array().unwrap();
-        assert!(empty_states.iter().any(|state| state["kind"] == "account"));
+        assert!(!empty_states.iter().any(|state| state["kind"] == "account"));
         assert!(
             empty_states
                 .iter()
@@ -6032,6 +6077,175 @@ mod thread_tests {
         ));
         assert_eq!(cross_workspace["ok"], false);
         assert_eq!(cross_workspace["error"]["code"], "ORDER_DRAFT_NOT_FOUND");
+    }
+}
+
+#[cfg(test)]
+mod paper_tests {
+    use super::*;
+
+    fn request(command: &str, payload: Value) -> Value {
+        json!({
+            "requestId": format!("paper-{command}"),
+            "schemaVersion": 1,
+            "command": command,
+            "payload": payload,
+        })
+    }
+
+    #[test]
+    fn local_paper_is_provisioned_and_exposed_without_provider_io() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path);
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+
+        let account = control.dispatch(request(
+            "paper.account.ensure",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(account["ok"], true, "{account}");
+        assert_eq!(account["data"]["providerId"], "local-paper");
+        assert_eq!(account["data"]["environment"], "LOCAL");
+        assert_eq!(
+            account["data"]["health"]["executionEligibility"],
+            "SIMULATION_ONLY"
+        );
+        let connect = control.dispatch(request(
+            "provider.connect",
+            json!({
+                "step": "test",
+                "workspaceId": workspace_id,
+                "providerId": "local-paper",
+                "environment": "LOCAL",
+                "label": "Should be rejected"
+            }),
+        ));
+        assert_eq!(connect["ok"], false);
+        assert_eq!(connect["error"]["code"], "PROVIDER_UNSUPPORTED");
+
+        let paper = control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        assert_eq!(paper["ok"], true, "{paper}");
+        assert_eq!(paper["data"]["profile"]["startingCash"], "100000");
+        assert_eq!(paper["data"]["cash"]["currency"], "USD");
+        assert_eq!(paper["data"]["positions"].as_array().unwrap().len(), 0);
+        assert_eq!(paper["data"]["openOrders"].as_array().unwrap().len(), 0);
+        assert_eq!(paper["data"]["fills"].as_array().unwrap().len(), 0);
+        assert!(
+            paper["data"]["disclosure"]
+                .as_str()
+                .unwrap()
+                .contains("not provider truth")
+        );
+
+        let accounts = control.dispatch(request(
+            "account.list",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(accounts["ok"], true, "{accounts}");
+        assert_eq!(accounts["data"]["accounts"].as_array().unwrap().len(), 1);
+
+        let catalog = control.dispatch(request(
+            "context.catalog",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(catalog["ok"], true, "{catalog}");
+        assert!(
+            catalog["data"]["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["providerId"] == "local-paper")
+        );
+
+        let portfolio = control.dispatch(request(
+            "portfolio.get",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(portfolio["ok"], true, "{portfolio}");
+        assert_eq!(portfolio["data"]["status"], "AVAILABLE");
+        assert!(
+            portfolio["data"]["availabilityReason"]
+                .as_str()
+                .unwrap()
+                .contains("not provider truth")
+        );
+        assert_eq!(portfolio["data"]["liveRisk"]["eligible"], false);
+    }
+
+    #[test]
+    fn local_paper_state_reopens_without_duplication() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let first = control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        let first_state = first["data"].clone();
+        drop(control);
+
+        let mut reopened = ControlPlane::new(path);
+        assert_eq!(
+            reopened.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let second = reopened.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        assert_eq!(second["data"], first_state);
+        let accounts = reopened.dispatch(request(
+            "account.list",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(accounts["data"]["accounts"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn local_paper_rejects_unknown_and_foreign_queries() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+        let unknown = control.dispatch(request(
+            "paper.get",
+            json!({"workspaceId": workspace_id, "extra": true}),
+        ));
+        assert_eq!(unknown["ok"], false);
+        assert_eq!(unknown["error"]["code"], "IPC_PAYLOAD_INVALID");
+
+        let foreign = control.dispatch(request(
+            "paper.get",
+            json!({"workspaceId": "00000000-0000-4000-8000-000000000000"}),
+        ));
+        assert_eq!(foreign["ok"], false);
+        assert_eq!(foreign["error"]["code"], "IPC_AGGREGATE_NOT_FOUND");
+
+        drop(control);
+        let database = rusqlite::Connection::open(path.join("workspace.sqlite3")).unwrap();
+        let projection: String = database
+            .query_row(
+                "SELECT projection FROM paper_state WHERE workspace_id=?1",
+                [workspace_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut corrupted: Value = serde_json::from_str(&projection).unwrap();
+        corrupted["cash"]["value"] = "1e3".into();
+        database
+            .execute(
+                "UPDATE paper_state SET projection=?1 WHERE workspace_id=?2",
+                rusqlite::params![serde_json::to_string(&corrupted).unwrap(), workspace_id],
+            )
+            .unwrap();
+        drop(database);
+        let mut reopened = ControlPlane::new(path);
+        let corrupted_open = reopened.dispatch(request("workspace.open", json!({})));
+        assert_eq!(corrupted_open["ok"], false);
+        assert_eq!(
+            corrupted_open["error"]["code"],
+            "WORKSPACE_INTEGRITY_FAILED"
+        );
     }
 }
 

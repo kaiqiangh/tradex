@@ -80,6 +80,14 @@ declare const validators: {
   Instrument: (value: unknown) => boolean;
   InstrumentProviderMapping: (value: unknown) => boolean;
   ItemStatus: (value: unknown) => boolean;
+  LocalPaperBalance: (value: unknown) => boolean;
+  LocalPaperFill: (value: unknown) => boolean;
+  LocalPaperMoney: (value: unknown) => boolean;
+  LocalPaperOrder: (value: unknown) => boolean;
+  LocalPaperOrderState: (value: unknown) => boolean;
+  LocalPaperPosition: (value: unknown) => boolean;
+  LocalPaperProfile: (value: unknown) => boolean;
+  LocalPaperState: (value: unknown) => boolean;
   MarketCatalog: (value: unknown) => boolean;
   MarketCatalogQuery: (value: unknown) => boolean;
   MarketDataStatus: (value: unknown) => boolean;

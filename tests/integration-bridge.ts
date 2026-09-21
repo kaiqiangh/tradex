@@ -14,9 +14,11 @@ export function integrationBridge(): Plugin {
     apply: 'serve',
     configureServer(server) {
       const directory = realpathSync(mkdtempSync(join(tmpdir(), 'tradex-browser-')));
+      const childEnv: NodeJS.ProcessEnv = { ...process.env, TRADEX_BACKTEST_FIXTURE: '1', TRADEX_MARKET_FIXTURE: '1', TRADEX_PORTFOLIO_FIXTURE: '1', TRADEX_RESEARCH_FIXTURE: '1', TRADEX_SCREENER_FIXTURE: '1', TRADEX_STRATEGY_FIXTURE: '1' };
+      if (process.env.TRADEX_LOCAL_PAPER_ONLY === '1') childEnv.TRADEX_PORTFOLIO_FIXTURE = undefined;
       const child = spawn(resolve('target/debug/tradex-ipc'), [join(directory, 'workspace')], {
         stdio: ['pipe', 'pipe', 'inherit'],
-        env: { ...process.env, TRADEX_BACKTEST_FIXTURE: '1', TRADEX_MARKET_FIXTURE: '1', TRADEX_PORTFOLIO_FIXTURE: '1', TRADEX_RESEARCH_FIXTURE: '1', TRADEX_SCREENER_FIXTURE: '1', TRADEX_STRATEGY_FIXTURE: '1' },
+        env: childEnv,
       });
       const blockedDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'tradex-browser-blocked-')));
       const blockedEnv = { ...process.env };
