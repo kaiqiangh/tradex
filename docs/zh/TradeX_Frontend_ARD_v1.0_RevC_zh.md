@@ -580,6 +580,12 @@ Settings / Account Health 展示 workspace-scoped 的 `time.status`，以语义�
 
 前端不得在没有后端 conversion state 的情况下把 USDT 静默展示为 USD 等价物。
 
+### 13.6 Local Paper surface（S16）
+
+Local Paper account 必须显示为 `Local Paper · LOCAL_PAPER` 与 `TradeX simulation · TRADEX_SIMULATION`。Accounts surface 读取 `paper.get`，展示确定性 scenario/quote 状态、cash、reserved cash、positions、open orders、fills 与 event history，并只提供 simulation action。Order Drafts surface 通过 `paper.order.submit` 提交已选择的 immutable Local Paper proposal；resting 或 partial order 必须先经过显式 cancellation dialog，再调用 `paper.order.cancel`。`paper.quote.refresh` 与 `paper.scenario.set` 只能由 Trade surface 显式触发，不能成为 Agent action。
+
+Renderer 在 reload/reopen 后把 Local Paper projection 作为权威状态。Loading、empty、error 与 retry 使用 status/alert 语义；submit/cancel dialog 使用 `role="dialog"`、`aria-modal`、accessible name，仅显式 action 接受键盘 Enter，并把焦点恢复到触发 proposal 或 Local Paper summary。每个 simulation result 保留 `LOCAL`、`TRADEX_SIMULATION` 与 `not provider truth` 文本披露。Portfolio 展示 simulation provenance 与 `Live risk: Blocked`；Local Paper control 不渲染 approval、arming、reservation、broker acknowledgement 或 Live readiness。
+
 ---
 
 ## 14. Live Execution UI 架构

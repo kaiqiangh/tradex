@@ -580,6 +580,12 @@ Portfolio normalization surfaces:
 
 The frontend must not silently display USDT as USD-equivalent without the backend-provided conversion state.
 
+### 13.6 Local Paper surface (S16)
+
+The Local Paper account is rendered as `Local Paper · LOCAL_PAPER` and `TradeX simulation · TRADEX_SIMULATION`. The Accounts surface reads `paper.get`, shows deterministic scenario/quote state, cash, reserved cash, positions, open orders, fills and event history, and exposes only simulation actions. The Order Drafts surface submits the selected immutable Local Paper proposal through `paper.order.submit`; resting or partial orders use an explicit cancellation dialog before `paper.order.cancel`. `paper.quote.refresh` and `paper.scenario.set` are explicit Trade-surface actions and never an Agent action.
+
+The renderer treats the Local Paper projection as authoritative after reload/reopen. Loading, empty, error and retry states use status/alert semantics; submit/cancel dialogs use `role="dialog"`, `aria-modal`, an accessible name, keyboard Enter for the explicit action only, and focus restoration to the triggering proposal or Local Paper summary. Every simulation result keeps the textual `LOCAL`, `TRADEX_SIMULATION`, and `not provider truth` disclosure. Portfolio shows simulation provenance and `Live risk: Blocked`; no Local Paper control renders approval, arming, reservation, broker acknowledgement, or Live readiness.
+
 ---
 
 ## 14. Live Execution UI Architecture

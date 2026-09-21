@@ -67,7 +67,7 @@ FAILED/PARTIAL 原型项修复后仍可能需要运行时验证。SOURCE_ONLY �
 | FR-030 | 实现提供方限流 | P0 | RUNTIME_PENDING | 按 PRD/ARD 验证真实进程、提供方或持久化行为；独立 fixture 不证明本项完成。 |
 | FR-031 | 实现本地回测 | P0 | PARTIAL | 关联场景的实际观察与验收条件见 [QA-09](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-09)；修复后重新验证，不以界面存在代替通过。 |
 | FR-032 | 实现策略沙箱 | P0 | RUNTIME_PENDING | 按 PRD/ARD 验证真实进程、提供方或持久化行为；独立 fixture 不证明本项完成。 |
-| FR-033 | 实现 paper/demo/testnet 交易工作流 | P0 | RUNTIME_PENDING | 按 PRD/ARD 验证真实进程、提供方或持久化行为；独立 fixture 不证明本项完成。 |
+| FR-033 | 实现 paper/demo/testnet 交易工作流 | P0 | IMPLEMENTED_UNVERIFIED | S16 Local Paper 实现证据见 `docs/implementation/s16-local-paper-isolation-evidence.md`；S17–S20 provider lifecycle 与 S33 回归仍待完成。 |
 | FR-034 | 实现确定性错误分类与 UI 映射 | P1 | SOURCE_ONLY | 仅源码界面存在性记录；完整交互仍待验证。原记录：Canonical error categories 映射到可见 recovery panels。 |
 | FR-035 | 实现自然语言筛选器 | P1 | FAILED | 关联场景的实际观察与验收条件见 [QA-08](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-08)；修复后重新验证，不以界面存在代替通过。 |
 | FR-036 | 实现产物(artifacts) | P1 | PARTIAL | 关联场景的实际观察与验收条件见 [QA-06](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-06)；修复后重新验证，不以界面存在代替通过。 |
@@ -183,7 +183,7 @@ FAILED/PARTIAL 原型项修复后仍可能需要运行时验证。SOURCE_ONLY �
 | AC-061 | 模糊 Live submission 超过自动对账窗口后 reservation 继续冻结,仅暴露 §23 的 evidence-based Manual Resolution;不存在可恢复 Live readiness 的通用 release 操作。 | FAILED | 关联场景的实际观察与验收条件见 [QA-03](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-03)；修复后重新验证，不以界面存在代替通过。 |
 | AC-062 | Live broker credential 检测到 withdrawal/transfer/custody 权限时阻止 execution-ready 直至移除;无法 introspect 的权限持续标记 `UNVERIFIED`。 | PARTIAL | 关联场景的实际观察与验收条件见 [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-04)；修复后重新验证，不以界面存在代替通过。 |
 | AC-063 | 当 TimeService 报告不可接受 clock uncertainty 时,quote age、approval expiry 与 reconciliation timer 对 Live 权限判断必须 fail closed。 | FAILED | 关联场景的实际观察与验收条件见 [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-04)；修复后重新验证，不以界面存在代替通过。 |
-| AC-064 | Local Paper 明确标记为 TradeX simulation,不得与 provider-hosted Paper/Demo/Testnet 或 Live 混淆。 | SOURCE_ONLY | 仅源码界面存在性记录；完整交互仍待验证。原记录：对应 UI/状态已在 RevC prototype 与 UI Spec 中实现；涉及真实 broker、持久化或运行时隔离的部分按状态列保留为实现阶段验收。 |
+| AC-064 | Local Paper 明确标记为 TradeX simulation,不得与 provider-hosted Paper/Demo/Testnet 或 Live 混淆。 | IMPLEMENTED_UNVERIFIED | S16 实现证据见 `docs/implementation/s16-local-paper-isolation-evidence.md`，覆盖 LOCAL/TRADEX_SIMULATION 身份、持久化/隔离、篡改拒绝以及浏览器/Rust 检查；S33 完整回归仍待完成。 |
 | AC-065 | 编辑已生成订单会创建新的不可变 `OrderProposal` identity,并使旧 proposal 的 approval 失效。 | FAILED | 关联场景的实际观察与验收条件见 [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-07)；修复后重新验证，不以界面存在代替通过。 |
 | AC-066 | 涉及 stablecoin/FX 的跨账户估值展示 source/path/timestamps/freshness 与 quality/depeg 状态;不可靠转换不得静默驱动 Live 风控。 | PARTIAL | 关联场景的实际观察与验收条件见 [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-04)；修复后重新验证，不以界面存在代替通过。 |
 
@@ -198,7 +198,7 @@ FAILED/PARTIAL 原型项修复后仍可能需要运行时验证。SOURCE_ONLY �
 | D | Watchlists | SOURCE_ONLY | 仅源码存在性 |
 | E | 账户 / 组合 / 就绪 | PARTIAL | QA-04, QA-05 |
 | F | Live 审批 / 撤单 / 处置 | FAILED | QA-01–QA-07 |
-| G | 非 Live 执行变体 | SOURCE_ONLY | 仅源码存在性 |
+| G | 非 Live 执行变体 | IMPLEMENTED_UNVERIFIED | S16 Local Paper 实现证据见 `docs/implementation/s16-local-paper-isolation-evidence.md`；provider 变体与 S33 完整回归仍待完成。 |
 | H | 策略 / 回测 | PARTIAL | QA-09 |
 | I | 产物 / 溯源 | FAILED | QA-06 |
 | J | 设置 / 模型恢复 / 窄屏操作 | PARTIAL | QA-10, QA-12 |

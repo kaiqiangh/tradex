@@ -40,7 +40,7 @@ F9,Ambiguous Submission / Manual Resolution,docs/TradeX_UI_Prototype_Spec_v1.0_R
 F10,Live Cancellation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,632,"S26,S33",NOT_STARTED,
 F11,Reservation Conflict,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,638,"S23,S33",NOT_STARTED,
 F12,Risk-policy Change Invalidation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,651,"S21,S23,S27,S33",NOT_STARTED,
-G1,Local Paper,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,664,"S16,S33",NOT_STARTED,
+G1,Local Paper,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,664,"S16,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s16-local-paper-isolation-evidence.md; S16 Local Paper browser/Rust evidence on final dev SHA; S33 full regression remains pending"
 G2,Alpaca Paper,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,668,"S17,S33",NOT_STARTED,
 G3,Trading 212 Demo,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,672,"S18,S33",NOT_STARTED,
 G4,Binance Testnet,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,673,"S19,S33",NOT_STARTED,

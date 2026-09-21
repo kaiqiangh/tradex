@@ -1745,6 +1745,17 @@ trade.manual_resolution
 trade.resolution_evidence
 ```
 
+### Local Paper simulation（S16）
+
+```text
+paper.account.ensure
+paper.get
+paper.order.submit
+paper.order.cancel
+paper.quote.refresh
+paper.scenario.set
+```
+
 ### Strategy/backtest
 
 ```text
@@ -2399,6 +2410,23 @@ Equity 状态和 action 数据使用 OD-005 calendar/corporate-action gate；在
 当 typed research producer 提供这些信息时，`ResearchToolResult.payload` 会携带有界的 `marketSnapshotRefs`、`datasetRefs` 和 `orderRefs`；`artifact.save` 将 producer 自有值复制到对应 provenance 字段。Renderer 的 context reference 不会被重新解释为 market snapshot、dataset 或 order identity。
 
 Projection 拒绝未知或跨 workspace 引用、不支持的 kind、超限集合、控制字符和敏感 marker。它不会保存 broker credentials、model keys、Keychain bytes、Authorization header、原始 provider response 或完整账户/订单 payload。`artifact.export` 写入包含 schema version、artifact/version/hash、导出时间和 provenance 引用的 manifest，以及脱敏后的 artifact JSON；路径穿越、符号链接目标、已存在文件、脱敏失败和部分写入都会被拒绝，返回的 manifest hash 与 content hash 用于后续完整性检查。产物操作不授予执行权限，也不改变金融状态。
+
+### 41.17 Local Paper payload（S16）
+
+Local Paper 使用版本 1 envelope，且始终是按 workspace 作用域的 TradeX projection。它无 credential，不调用 provider adapter、Keychain/native credential input、network、model gateway、approval authority、arming service、reservation service、broker gateway 或 reconciliation service。
+
+| 命令 | 载荷 | 成功 data | 写入/事件行为 |
+|---|---|---|---|
+| `paper.account.ensure` | `{workspaceId}` | 内置 `AccountConnection`，包含 `providerId: "local-paper"`、`environment: "LOCAL"`、`TRADEX_SIMULATION` 与 `SIMULATION_ONLY` eligibility | 幂等创建 Local Paper account 和初始 SQLite projection；不读取 credential、不做 provider probe |
+| `paper.get` | `{workspaceId}` | `LocalPaperState` | 读取权威 SQLite；重建 orders、fills、events，校验确定性 ledger，不产生 event |
+| `paper.order.submit` | `{workspaceId, proposalId, expectedProposalStateVersion, idempotencyKey}` | `PaperOrderResult`，包含 `LocalPaperOrder`、可选 `LocalPaperFill`、确定性 `LocalPaperQuote` 和更新后的 `LocalPaperState` | 只消费当前已选择、绑定 workspace 且为 `NEEDS_APPROVAL` 的 Local Paper proposal；在一个 immediate transaction 中持久化 order/fill/event/projection；同一 idempotency key 只重放结果、不产生修改 |
+| `paper.order.cancel` | `{workspaceId, orderId, expectedStateVersion, idempotencyKey}` | `PaperOrderResult` | 只取消 open Local Paper order，释放模拟现金 reservation，保留 fills，并在同一事务持久化一次 cancellation event；重复取消只重放、不产生修改 |
+| `paper.quote.refresh` | `{workspaceId, expectedStateVersion}` | `LocalPaperState` | 仅 Trade surface 可调用，刷新有界确定性 quote 时间；有 open order 或 Agent consumer 时拒绝 |
+| `paper.scenario.set` | `{workspaceId, expectedStateVersion, profile}` | `LocalPaperState` | 仅 Trade surface 可在有界 S16 scenario 中切换；有 open order、policy 字段被篡改、版本过期、未知字段或 Agent consumer 时拒绝 |
+
+`LocalPaperState` 保留 `local-paper` / `LOCAL` / `TRADEX_SIMULATION` identity、确定性 scenario 和 quote provenance、规范化现金/reservation/position/P&L projection，以及有序 event 列表（`ACCEPTED`、`PARTIALLY_FILLED`、`FILLED`、`REJECTED`、`CANCELLED`、`SCENARIO_CHANGED`、`QUOTE_REFRESHED`）。Storage boundary 拒绝外部 workspace/proposal、格式错误或未知字段、过期版本、已 invalidated proposal、被篡改的 fill/cash/position/P&L projection，以及任何无法从 canonical fills 与 open-order reservation 重新计算的状态，返回 `WORKSPACE_INTEGRITY_FAILED` 且不产生部分修改。重新打开同一 workspace 后，account、profile、orders、fills、cash、positions、open orders、P&L、events 和只读 portfolio aggregate 必须一致。
+
+Local Paper result 是 simulation observation，不是 provider order ID、broker acknowledgement、reconciliation truth、approval state、arming state、Live readiness 或 Live execution authority。这些命令不发布 provider 或 Live domain event；内嵌的 Local Paper event list 是权威模拟时间线。
 
 ## 42. Backend-to-Frontend Event Surface
 

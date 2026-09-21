@@ -1745,6 +1745,17 @@ trade.manual_resolution
 trade.resolution_evidence
 ```
 
+### Local Paper simulation (S16)
+
+```text
+paper.account.ensure
+paper.get
+paper.order.submit
+paper.order.cancel
+paper.quote.refresh
+paper.scenario.set
+```
+
 ### Strategy/backtest
 
 ```text
@@ -2399,6 +2410,23 @@ Version 1 adds a workspace-scoped, read-only-to-financial-state artifact project
 When a typed research producer has them, `ResearchToolResult.payload` carries bounded `marketSnapshotRefs`, `datasetRefs` and `orderRefs`; `artifact.save` copies those producer-owned values into the corresponding provenance fields. Renderer context references are not reinterpreted as market snapshots, datasets or order identities.
 
 The projection rejects unknown or cross-workspace references, unsupported kinds, over-limit collections, control characters and sensitive markers. It never stores broker credentials, model keys, Keychain bytes, Authorization headers, raw provider responses or complete account/order payloads. `artifact.export` writes a manifest containing schema version, artifact/version/hash, export time and provenance references together with the sanitized artifact JSON. It rejects path traversal, symlinked destinations, existing files, redaction failures and partial writes; the returned manifest hash and content hash support later integrity checks. Artifact operations do not grant execution authority and do not change financial state.
+
+### 41.17 Local Paper payloads (S16)
+
+Local Paper uses the version-1 envelope and remains a workspace-scoped TradeX projection. It is credential-free and does not call a provider adapter, Keychain/native credential input, network, model gateway, approval authority, arming service, reservation service, broker gateway, or reconciliation service.
+
+| Command | Payload | Success data | Mutation/event behavior |
+|---|---|---|---|
+| `paper.account.ensure` | `{workspaceId}` | built-in `AccountConnection` with `providerId: "local-paper"`, `environment: "LOCAL"`, `TRADEX_SIMULATION`, and `SIMULATION_ONLY` eligibility | idempotently creates the Local Paper account and initial SQLite projection; no credential or provider probe |
+| `paper.get` | `{workspaceId}` | `LocalPaperState` | authoritative SQLite read; rehydrates orders, fills and events, validates the deterministic ledger, and emits no event |
+| `paper.order.submit` | `{workspaceId, proposalId, expectedProposalStateVersion, idempotencyKey}` | `PaperOrderResult` with `LocalPaperOrder`, optional `LocalPaperFill`, deterministic `LocalPaperQuote`, and the updated `LocalPaperState` | consumes only the currently selected, workspace-bound `NEEDS_APPROVAL` Local Paper proposal; one immediate transaction persists the order/fill/event/projection; the same idempotency key replays the result without mutation |
+| `paper.order.cancel` | `{workspaceId, orderId, expectedStateVersion, idempotencyKey}` | `PaperOrderResult` | cancels only an open Local Paper order, releases simulated cash reservation, preserves fills, and persists one cancellation event transactionally; duplicate cancellation replays without mutation |
+| `paper.quote.refresh` | `{workspaceId, expectedStateVersion}` | `LocalPaperState` | Trade-surface-only refresh of the bounded deterministic quote timestamp; rejects open orders and Agent consumers |
+| `paper.scenario.set` | `{workspaceId, expectedStateVersion, profile}` | `LocalPaperState` | Trade-surface-only change among the bounded S16 scenarios; rejects open orders, tampered policy fields, stale versions, unknown fields, and Agent consumers |
+
+`LocalPaperState` retains `local-paper` / `LOCAL` / `TRADEX_SIMULATION` identity, deterministic scenario and quote provenance, normalized cash/reservation/position/P&L projections, and an ordered event list (`ACCEPTED`, `PARTIALLY_FILLED`, `FILLED`, `REJECTED`, `CANCELLED`, `SCENARIO_CHANGED`, `QUOTE_REFRESHED`). The storage boundary rejects foreign workspaces/proposals, malformed or unknown fields, stale versions, invalidated proposals, tampered fill/cash/position/P&L projections, and any state that cannot be recomputed from the canonical fills and open-order reservations, returning `WORKSPACE_INTEGRITY_FAILED` without partial mutation. Reopening the same workspace rehydrates the same account, profile, orders, fills, cash, positions, open orders, P&L, events, and read-only portfolio aggregate.
+
+Local Paper results are simulation observations, never provider order IDs, broker acknowledgements, reconciliation truth, approval state, arming state, Live readiness, or Live execution authority. These commands do not publish provider or Live domain events; the embedded Local Paper event list is the authoritative simulation timeline.
 
 ## 42. Backend-to-Frontend Event Surface
 
