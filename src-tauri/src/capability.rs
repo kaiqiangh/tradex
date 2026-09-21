@@ -359,7 +359,7 @@ pub fn instrument_context_ref(workspace_id: &str, instrument_id: &str) -> Thread
 }
 
 fn account_availability(account: &AccountConnection) -> (bool, Option<String>) {
-    if account.provider_id == "local-paper" && account.environment == "LOCAL" {
+    if account.is_local_paper() {
         return if account.connection_state == ConnectionState::Connected {
             (true, Some(crate::paper::DISCLOSURE.into()))
         } else {
@@ -512,21 +512,22 @@ fn decide_policy(
                 return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
             }
             let Some(account) = account else {
-                if matches!(context, ExecutionContext::LocalPaper) {
-                    return Ok(with_research_tools(CapabilityDecision {
-                        level: CapabilityLevel::C3,
-                        research_tools: Vec::new(),
-                        allowed_tools: vec![
-                            ToolId::PublicMarketRead,
-                            ToolId::PaperDemoTestnetExecution,
-                        ],
-                        execution_allowed: true,
-                        reason: Some("LOCAL_PAPER_SIMULATION".into()),
-                    }));
-                }
                 return Err(TradeXError::new("TURN_ACCOUNT_REQUIRED"));
             };
             validate_account_environment(context, account)?;
+            if matches!(context, ExecutionContext::LocalPaper) {
+                return Ok(with_research_tools(CapabilityDecision {
+                    level: CapabilityLevel::C3,
+                    research_tools: Vec::new(),
+                    allowed_tools: vec![
+                        ToolId::PublicMarketRead,
+                        ToolId::AccountRead,
+                        ToolId::PaperDemoTestnetExecution,
+                    ],
+                    execution_allowed: true,
+                    reason: Some("LOCAL_PAPER_SIMULATION".into()),
+                }));
+            }
             let live = is_live(context);
             Ok(with_research_tools(CapabilityDecision {
                 level: if live {
@@ -817,10 +818,27 @@ mod tests {
             assert!(decide(&AgentMode::Backtest, context, None, &[]).is_err());
         }
 
-        let local_paper =
-            decide(&AgentMode::Trade, &ExecutionContext::LocalPaper, None, &[]).unwrap();
+        assert_eq!(
+            decide(&AgentMode::Trade, &ExecutionContext::LocalPaper, None, &[])
+                .unwrap_err()
+                .code,
+            "TURN_ACCOUNT_REQUIRED"
+        );
+        let local_account = account("local-paper", "LOCAL");
+        let local_paper = decide(
+            &AgentMode::Trade,
+            &ExecutionContext::LocalPaper,
+            Some(&local_account),
+            &[],
+        )
+        .unwrap();
         assert_eq!(local_paper.level, CapabilityLevel::C3);
         assert!(local_paper.execution_allowed);
+        assert!(
+            local_paper
+                .allowed_tools
+                .contains(&ToolId::PaperDemoTestnetExecution)
+        );
         for (context, provider, environment) in &provider_contexts {
             let account = account(provider, environment);
             let decision = decide(&AgentMode::Trade, context, Some(&account), &[]);

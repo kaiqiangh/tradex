@@ -74,9 +74,7 @@ fn actual_snapshot(
     let mut any_observation = false;
     let mut conversion_missing = false;
     let mut data_incomplete = false;
-    let has_local_paper = accounts
-        .iter()
-        .any(|account| account.provider_id == "local-paper" && account.environment == "LOCAL");
+    let has_local_paper = accounts.iter().any(AccountConnection::is_local_paper);
     for account in accounts {
         let Some(data) = account.data.as_ref() else {
             portfolio_accounts.push(account_row(account, base_currency, None, None, 0, 0, None));
@@ -111,7 +109,7 @@ fn actual_snapshot(
             return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
         }
         any_observation = true;
-        if account.provider_id != "local-paper" {
+        if !account.is_local_paper() {
             data_incomplete = true;
         }
         let account_currency = data.currency.as_deref();

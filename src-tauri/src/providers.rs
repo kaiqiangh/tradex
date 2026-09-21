@@ -310,6 +310,9 @@ impl AccountConnection {
             self.workspace_id, self.provider_id, self.environment, self.connection_id
         )
     }
+    pub fn is_local_paper(&self) -> bool {
+        self.provider_id == "local-paper" && self.environment == "LOCAL"
+    }
     pub fn validate_persisted(&self, workspace_id: &str) -> Result<()> {
         let known_provider = catalog().providers.iter().any(|provider| {
             provider.available
@@ -319,7 +322,7 @@ impl AccountConnection {
         let valid_arming = match self.environment.as_str() {
             "LIVE" => self.health.arming == "DISARMED",
             "PAPER" | "DEMO" | "TESTNET" => self.health.arming == "NOT_APPLICABLE",
-            "LOCAL" => self.provider_id == "local-paper" && self.health.arming == "NOT_APPLICABLE",
+            "LOCAL" => self.is_local_paper() && self.health.arming == "NOT_APPLICABLE",
             _ => false,
         };
         if self.workspace_id != workspace_id || !known_provider || !valid_arming {

@@ -14,18 +14,34 @@ export async function checkPortfolioUI(tab, browser) {
     await ui.getByRole('heading', { name: 'Workspace valuation', exact: true }).waitFor({ state: 'visible' });
 
     const summary = ui.locator('.portfolio-summary');
-    assert.match(await summary.innerText(), /Degraded/);
-    assert.match(await summary.innerText(), /3867\.6 USD/);
+    const summaryText = await summary.innerText();
+    if (/TRADEX_SIMULATION/.test(summaryText)) {
+      assert.match(summaryText, /LOCAL_PAPER/);
+      assert.match(summaryText, /not provider truth/);
+      assert.match(summaryText, /not Live execution/);
+      assert.match(await ui.getByText(/Live risk: Blocked/).innerText(), /TRADEX_SIMULATION_NOT_LIVE/);
+      assert.match(await ui.getByText(/TradeX simulation/).first().innerText(), /TRADEX_SIMULATION/);
+      observed.push('Local Paper identity, simulation disclosure, empty projection and blocked Live risk render in the Rust-backed Portfolio path.');
+    } else {
+      assert.match(summaryText, /Degraded/);
+      assert.match(summaryText, /3867\.6 USD/);
+    }
     assert.match(await ui.getByText(/Live risk: Blocked/).innerText(), /Live risk: Blocked/);
     const provenance = ui.locator('.portfolio-provenance');
-    assert.match(await provenance.innerText(), /USDT -> USD/);
-    assert.match(await provenance.innerText(), /USDT is not USD/);
     const holdings = ui.locator('section[aria-labelledby="portfolio-holdings-title"]');
-    assert.match(await holdings.innerText(), /equity:US:AAPL/);
-    assert.match(await holdings.innerText(), /crypto:BTC\/USDT:spot/);
-    assert.match(await holdings.innerText(), /UNAVAILABLE/);
+    if (/TRADEX_SIMULATION/.test(summaryText)) {
+      assert.match(await holdings.innerText(), /Local Paper/);
+      assert.match(await holdings.innerText(), /100000 USD/);
+      assert.match(await provenance.innerText(), /USD -> USD/);
+    } else {
+      assert.match(await provenance.innerText(), /USDT -> USD/);
+      assert.match(await provenance.innerText(), /USDT is not USD/);
+      assert.match(await holdings.innerText(), /equity:US:AAPL/);
+      assert.match(await holdings.innerText(), /crypto:BTC\/USDT:spot/);
+      assert.match(await holdings.innerText(), /UNAVAILABLE/);
+    }
     assert.ok((await ui.locator('.table-scroll').count()) >= 3);
-    observed.push('Fixture portfolio totals, canonical identities, unavailable balance, FX provenance and blocked Live risk render in Accounts.');
+    if (!/TRADEX_SIMULATION/.test(summaryText)) observed.push('Fixture portfolio totals, canonical identities, unavailable balance, FX provenance and blocked Live risk render in Accounts.');
 
     for (const width of [768, 390]) {
       await viewport.set({ width, height: 900 });

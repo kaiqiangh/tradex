@@ -857,7 +857,7 @@ impl ControlPlane {
             }
             "paper.get" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
-                self.ensure_local_paper(&input.workspace_id)?;
+                self.require_workspace(&input.workspace_id)?;
                 let state = self.store.as_ref().unwrap().local_paper_state()?;
                 Ok((json!(state), Some(state.state_version.clone())))
             }
@@ -1161,7 +1161,6 @@ impl ControlPlane {
             "portfolio.get" => {
                 let input: PortfolioQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
-                self.ensure_local_paper(&input.workspace_id)?;
                 let workspace_snapshot = self.store.as_mut().unwrap().snapshot()?;
                 let base_currency = match workspace_snapshot.projection {
                     DomainProjection::Workspace(workspace) => workspace.base_currency,
@@ -1254,7 +1253,6 @@ impl ControlPlane {
             "account.list" => {
                 let p: WorkspaceQuery = payload(request.payload)?;
                 self.require_workspace(&p.workspace_id)?;
-                self.ensure_local_paper(&p.workspace_id)?;
                 Ok((
                     json!(Accounts {
                         accounts: self.store.as_ref().unwrap().accounts()?
@@ -1315,7 +1313,14 @@ impl ControlPlane {
             },
             "provider.probe" | "account.refresh" | "provider.disconnect" => {
                 let p: AccountMutation = payload(request.payload)?;
-                self.current_account(&p.workspace_id, &p.connection_id, &p.expected_state_version)?;
+                let account = self.current_account(
+                    &p.workspace_id,
+                    &p.connection_id,
+                    &p.expected_state_version,
+                )?;
+                if account.is_local_paper() {
+                    return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+                }
                 Err(TradeXError::new("PROVIDER_NATIVE_ENTRY_REQUIRED"))
             }
             _ => Err(TradeXError::new("IPC_COMMAND_UNKNOWN")),
@@ -1743,9 +1748,8 @@ impl ControlPlane {
         Ok(account)
     }
 
-    fn context_catalog(&mut self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
+    fn context_catalog(&self, input: &WorkspaceQuery) -> Result<capability::ContextCatalog> {
         self.require_workspace(&input.workspace_id)?;
-        self.ensure_local_paper(&input.workspace_id)?;
         let accounts = self.store.as_ref().unwrap().accounts()?;
         let mut catalog = capability::context_catalog(&accounts)?;
         let strategies = self.store.as_ref().unwrap().strategies()?;
@@ -3676,6 +3680,9 @@ impl ControlPlane {
                     &p.connection_id,
                     &p.expected_state_version,
                 )?;
+                if a.is_local_paper() {
+                    return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+                }
                 if request.command == "provider.disconnect" {
                     a.connection_state = ConnectionState::Disconnected;
                     a.permissions.acknowledged = false;
@@ -5056,18 +5063,27 @@ mod thread_tests {
             "TURN_CONTEXT_INVALID"
         );
 
+        let local_account = control.dispatch(request(
+            "account.list",
+            json!({"workspaceId": workspace_id}),
+        ));
+        let local_account_id = local_account["data"]["accounts"][0]["connectionId"]
+            .as_str()
+            .unwrap();
         let paper = control.dispatch(request(
             "agent.capabilities",
             json!({
                 "workspaceId": workspace_id,
                 "agentMode": "TRADE",
                 "executionContext": "LOCAL_PAPER",
+                "accountId": local_account_id,
                 "attachedContexts": []
             }),
         ));
         assert_eq!(paper["ok"], true);
         assert_eq!(paper["data"]["level"], "C3");
         assert_eq!(paper["data"]["executionAllowed"], true);
+        assert_eq!(paper["data"]["reason"], "LOCAL_PAPER_SIMULATION");
 
         #[cfg(feature = "integration-test")]
         {
@@ -5078,6 +5094,7 @@ mod thread_tests {
                     "title": "Capability boundary",
                     "defaultAgentMode": "TRADE",
                     "defaultExecutionContext": "LOCAL_PAPER",
+                    "accountId": local_account_id,
                     "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
                     "linkedContexts": []
                 }),
@@ -5094,6 +5111,7 @@ mod thread_tests {
                     "message": "Check the paper boundary",
                     "agentMode": "TRADE",
                     "executionContext": "LOCAL_PAPER",
+                    "accountId": local_account_id,
                     "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
                     "attachedContexts": []
                 }),
@@ -6125,6 +6143,25 @@ mod paper_tests {
         ));
         assert_eq!(connect["ok"], false);
         assert_eq!(connect["error"]["code"], "PROVIDER_UNSUPPORTED");
+        let connection_id = account["data"]["connectionId"].as_str().unwrap();
+        let state_version = account["data"]["stateVersion"].as_str().unwrap();
+        for command in ["provider.probe", "account.refresh", "provider.disconnect"] {
+            let operation = control.dispatch(request(
+                command,
+                json!({
+                    "workspaceId": workspace_id,
+                    "connectionId": connection_id,
+                    "expectedStateVersion": state_version,
+                }),
+            ));
+            assert_eq!(operation["ok"], false, "{operation}");
+            assert_eq!(operation["error"]["code"], "PROVIDER_UNSUPPORTED");
+        }
+        let account_after = control.dispatch(request(
+            "account.get",
+            json!({"workspaceId": workspace_id, "connectionId": connection_id}),
+        ));
+        assert_eq!(account_after["data"]["connectionState"], "CONNECTED");
 
         let paper = control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
         assert_eq!(paper["ok"], true, "{paper}");
