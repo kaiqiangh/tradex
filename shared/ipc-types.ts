@@ -1768,6 +1768,8 @@ export interface LocalPaperPosition {
 export interface LocalPaperProfile {
   baseCurrency: string;
   engineVersion: string;
+  quoteFreshness?: string | null;
+  quotePrice?: string;
   quoteSource: string;
   scenarioId: string;
   startingCash: string;
@@ -1986,6 +1988,7 @@ export interface OrderProposalRefresh {
 export interface PaperOrderResult {
   accountId: string;
   disclosure: string;
+  environment: string;
   eventSequence: number;
   fill: LocalPaperFill;
   order: LocalPaperOrder;

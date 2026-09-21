@@ -3593,6 +3593,19 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "quoteFreshness": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "quotePrice": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
         "quoteSource": {
           "type": "string",
           "maxLength": 64,
@@ -5254,6 +5267,11 @@
           "maxLength": 256,
           "minLength": 1
         },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
         "eventSequence": {
           "type": "integer",
           "format": "uint64",
@@ -5301,6 +5319,7 @@
       "required": [
         "workspaceId",
         "accountId",
+        "environment",
         "proposalId",
         "proposalHash",
         "order",

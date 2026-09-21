@@ -6418,8 +6418,14 @@ mod paper_tests {
             "expectedProposalStateVersion": proposal["data"]["stateVersion"],
             "idempotencyKey": "paper-submit-full-1"
         });
+        let gateway_before = control.dispatch(request(
+            "model.get_gateway",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(gateway_before["ok"], true, "{gateway_before}");
         let submitted = control.dispatch(request("paper.order.submit", submit_payload.clone()));
         assert_eq!(submitted["ok"], true, "{submitted}");
+        assert_eq!(submitted["data"]["environment"], "LOCAL");
         assert_eq!(submitted["data"]["order"]["state"], "FILLED");
         assert_eq!(submitted["data"]["order"]["filledQuantity"], "2");
         assert_eq!(submitted["data"]["fill"]["value"], "200");
@@ -6534,6 +6540,21 @@ mod paper_tests {
                 .iter()
                 .any(|row| row["instrumentId"] == "equity:US:MSFT" && row["quantity"] == "2"),
         );
+        let gateway_after = reopened.dispatch(request(
+            "model.get_gateway",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(gateway_after["ok"], true, "{gateway_after}");
+        for field in [
+            "status",
+            "desiredRunning",
+            "installed",
+            "modelAvailable",
+            "discoveredModelCount",
+            "lastProbeAt",
+        ] {
+            assert_eq!(gateway_after["data"][field], gateway_before["data"][field]);
+        }
     }
 
     #[test]

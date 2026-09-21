@@ -3910,6 +3910,12 @@ pub struct LocalPaperProfile {
     pub scenario_id: String,
     #[schemars(length(min = 1, max = 64))]
     pub engine_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quote_price: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 32))]
+    pub quote_freshness: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -4135,6 +4141,8 @@ pub struct PaperOrderResult {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
     #[schemars(length(min = 1, max = 128))]
     pub proposal_id: String,
     #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]

@@ -114,6 +114,8 @@ pub fn initial_state(
             quote_source: QUOTE_SOURCE.into(),
             scenario_id: SCENARIO_ID.into(),
             engine_version: ENGINE_VERSION.into(),
+            quote_price: Some("100".into()),
+            quote_freshness: Some("FRESH".into()),
         },
         cash: money(DEFAULT_STARTING_CASH),
         reserved_cash: money("0"),
@@ -310,6 +312,7 @@ pub(crate) fn result_for_order(
     Ok(PaperOrderResult {
         workspace_id: state.workspace_id.clone(),
         account_id: state.account_id.clone(),
+        environment: ENVIRONMENT.into(),
         proposal_id: order.proposal_id.clone(),
         proposal_hash: order.proposal_hash.clone(),
         order: order.clone(),
@@ -331,23 +334,34 @@ fn deterministic_quote(
     if instrument_id.is_empty()
         || instrument_id.len() > 128
         || instrument_id.chars().any(char::is_control)
+        || state.profile.quote_source != QUOTE_SOURCE
+        || state.profile.quote_freshness.as_deref() != Some("FRESH")
     {
         return Err(TradeXError::new("PAPER_QUOTE_UNAVAILABLE"));
     }
+    let price = state
+        .profile
+        .quote_price
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("PAPER_QUOTE_UNAVAILABLE"))
+        .and_then(normalize_positive)
+        .map_err(|_| TradeXError::new("PAPER_QUOTE_UNAVAILABLE"))?;
     let mut hasher = Sha256::new();
     hasher.update(state.profile.scenario_id.as_bytes());
     hasher.update(b"\0");
     hasher.update(instrument_id.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(price.as_bytes());
     let quote_id = format!("quote:sha256:{}", hex::encode(hasher.finalize()));
     Ok(LocalPaperQuote {
         quote_id,
         instrument_id: instrument_id.into(),
-        price: "100".into(),
+        price,
         currency: state.profile.base_currency.clone(),
         observed_at: observed_at.into(),
         scenario_id: state.profile.scenario_id.clone(),
         source: state.profile.quote_source.clone(),
-        freshness: "FRESH".into(),
+        freshness: state.profile.quote_freshness.clone().unwrap_or_default(),
     })
 }
 
@@ -507,5 +521,35 @@ mod tests {
         assert_eq!(state.cash.value, DEFAULT_STARTING_CASH);
         assert_eq!(state.positions.len(), 0);
         assert!(state.disclosure.contains("not provider truth"));
+        assert_eq!(state.profile.quote_price.as_deref(), Some("100"));
+        assert_eq!(state.profile.quote_freshness.as_deref(), Some("FRESH"));
+    }
+
+    #[test]
+    fn quote_requires_fresh_bounded_profile_input() {
+        let mut state = initial_state(
+            "workspace:quote",
+            "local-paper:quote",
+            "Local Paper · TradeX simulation",
+            "USD",
+            "2026-01-01T00:00:00Z".into(),
+        )
+        .unwrap();
+        assert!(deterministic_quote(&state, "equity:US:AAPL", "2026-01-01T00:00:00Z").is_ok());
+        state.profile.quote_freshness = Some("STALE".into());
+        assert_eq!(
+            deterministic_quote(&state, "equity:US:AAPL", "2026-01-01T00:00:00Z")
+                .unwrap_err()
+                .code,
+            "PAPER_QUOTE_UNAVAILABLE"
+        );
+        state.profile.quote_freshness = Some("FRESH".into());
+        state.profile.quote_price = None;
+        assert_eq!(
+            deterministic_quote(&state, "equity:US:AAPL", "2026-01-01T00:00:00Z")
+                .unwrap_err()
+                .code,
+            "PAPER_QUOTE_UNAVAILABLE"
+        );
     }
 }

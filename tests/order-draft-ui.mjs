@@ -66,3 +66,38 @@ export async function checkOrderDraftUI(tab, browser) {
     return observed;
   } finally { await viewport.reset(); }
 }
+
+export async function checkLocalPaperSubmitUI(tab, browser) {
+  const ui = tab.playwright;
+  const viewport = await browser.capabilities.get('viewport');
+  const observed = [];
+  try {
+    await viewport.set({ width: 1280, height: 900 });
+    await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+    await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('2');
+    await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('100');
+    await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'is FILLED' }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText('TRADEX_SIMULATION · FILLED', { exact: true }).count(), 1);
+    assert.equal(await ui.getByText(/2 filled · 0 remaining · quote 100 USD/, { exact: false }).count(), 1);
+    assert.equal(await ui.getByText(/Proposal hash: sha256:/, { exact: false }).count(), 1);
+    observed.push('A Local Paper Proposal submits through the Rust-backed browser dispatcher and renders deterministic full-fill, quote, hash and simulation disclosure.');
+
+    await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    const openPortfolio = ui.getByRole('button', { name: 'Open portfolio', exact: true });
+    if (await openPortfolio.count()) await openPortfolio.press('Enter');
+    await ui.getByRole('heading', { name: 'Workspace valuation', exact: true }).waitFor({ state: 'visible' });
+    assert.match(await ui.getByText(/Live risk: Blocked/).innerText(), /TRADEX_SIMULATION_NOT_LIVE/);
+    assert.match(await ui.getByRole('region', { name: 'Open orders', exact: true }).innerText(), /Fills/);
+    observed.push('Portfolio refresh preserves Local Paper simulation provenance and blocked Live risk after the fill.');
+    assert.equal((await tab.dev.logs({ levels: ['error'], limit: 20 })).length, 0);
+    return observed;
+  } finally { await viewport.reset(); }
+}

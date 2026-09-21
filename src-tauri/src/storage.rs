@@ -4796,6 +4796,16 @@ fn validate_local_paper_state(
         || state.environment != crate::paper::ENVIRONMENT
         || !valid_local_paper_text(&state.account_label, 120)
         || !valid_local_paper_text(&state.profile.quote_source, 64)
+        || state
+            .profile
+            .quote_price
+            .as_deref()
+            .is_some_and(|value| !valid_local_paper_decimal(value, true))
+        || state
+            .profile
+            .quote_freshness
+            .as_deref()
+            .is_some_and(|value| !valid_local_paper_text(value, 32))
         || !valid_local_paper_text(&state.profile.scenario_id, 128)
         || !valid_local_paper_text(&state.profile.engine_version, 64)
         || !valid_local_paper_text(&state.state_version, 256)
