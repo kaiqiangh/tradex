@@ -21,6 +21,7 @@ export async function checkOrderDraftUI(tab, browser) {
 
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Loading proposal…' }).waitFor({ state: 'visible' });
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText('NEEDS_APPROVAL', { exact: true }).count() > 0, true);
     assert.equal(await ui.getByText('GENERATED', { exact: true }).count() > 0, true);
@@ -104,6 +105,7 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'Simulation quote refreshed at' }).waitFor({ state: 'visible' });
     observed.push('The Trade surface can refresh the bounded Local Paper quote through Control Plane state.');
     const openPortfolio = ui.getByRole('button', { name: 'Open portfolio', exact: true });
+    assert.equal(await openPortfolio.getAttribute('aria-expanded'), 'false');
     if (await openPortfolio.count()) await openPortfolio.press('Enter');
     await ui.getByRole('heading', { name: 'Workspace valuation', exact: true }).waitFor({ state: 'visible' });
     assert.match(await ui.getByText(/Live risk: Blocked/).innerText(), /TRADEX_SIMULATION_NOT_LIVE/);
@@ -141,6 +143,7 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     const historyDetails = ui.locator('summary').filter({ hasText: 'View fills and events' });
+    assert.equal(await ui.getByRole('region', { name: 'Local Paper order history', exact: true }).count(), 1);
     assert.equal(await historyDetails.count() > 1, true);
     await historyDetails.nth(1).click();
     assert.equal(await ui.evaluate(() => [...document.querySelectorAll('details')]
@@ -222,6 +225,21 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('alert').filter({ hasText: /enough simulation cash/i }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('status').filter({ hasText: 'is FILLED' }).count(), 0);
     observed.push('Insufficient Local Paper cash fails closed in the Rust-backed browser flow without rendering a fill.');
+
+    assert.equal(await ui.getByText('No open orders returned by the provider.', { exact: true }).count(), 1);
+    assert.equal(await ui.getByRole('region', { name: 'Local Paper order history', exact: true }).count(), 1);
+    assert.equal(await ui.getByRole('button', { name: 'Open portfolio', exact: true }).getAttribute('aria-expanded'), 'false');
+    observed.push('The empty open-order state remains explicit after cancellation, while the persisted Local Paper history remains available with semantic region and disclosure controls.');
+
+    assert.equal((await fetch('http://127.0.0.1:1420/__integration/disconnect', { method: 'POST' })).status, 204);
+    await ui.getByRole('alert').waitFor({ state: 'visible' });
+    const retryConnection = ui.getByRole('button', { name: 'Retry connection', exact: true });
+    const reloadWorkspace = ui.getByRole('button', { name: 'Reload workspace state', exact: true });
+    if (await retryConnection.count()) await retryConnection.click();
+    else { assert.equal(await reloadWorkspace.count(), 1); await reloadWorkspace.click(); }
+    await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByRole('alert').count(), 0);
+    observed.push('A controlled event-stream failure renders an accessible error and the explicit retry/reload action restores the Local Paper surface.');
 
     for (const width of [1280, 768, 390]) {
       await viewport.set({ width, height: 900 });
