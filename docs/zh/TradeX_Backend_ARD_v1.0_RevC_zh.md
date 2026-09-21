@@ -1874,7 +1874,16 @@ interface BacktestComparison {
   rightCurve: {pointCount: number; startAt: string; endAt: string; startEquity: string; endEquity: string; maxDrawdown: string};
   inputDifferences: Array<{field: string; left: string; right: string}>;
   manifestDifferences: Array<{field: string; left: string; right: string}>;
-  metrics: Record<string, {left: string; right: string; difference: string}>;
+  metrics: {
+    return: {left: string; right: string; difference: string};
+    sharpe: {left: string; right: string; difference: string};
+    sortino: {left: string; right: string; difference: string};
+    maxDrawdown: {left: string; right: string; difference: string};
+    winRate: {left: string; right: string; difference: string};
+    profitFactor: {left: string; right: string; difference: string};
+    turnover: {left: string; right: string; difference: string};
+    tradeCount: {left: string; right: string; difference: string};
+  };
   historicalSimulation: boolean;
   limitations: string[];
 }
