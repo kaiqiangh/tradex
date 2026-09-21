@@ -1,9 +1,14 @@
 use crate::protocol::{
-    LocalPaperBalance, LocalPaperMoney, LocalPaperProfile, LocalPaperState, Result, TradeXError,
+    LocalPaperBalance, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperMoney,
+    LocalPaperOrder, LocalPaperOrderState, LocalPaperPosition, LocalPaperProfile, LocalPaperQuote,
+    LocalPaperState, OrderProposal, OrderProposalStatus, OrderQuantityType, OrderSide, OrderType,
+    PaperOrderResult, Result, TradeXError,
 };
 use crate::providers::{
     AccountConnection, AccountData, AccountHealth, Balance, ConnectionState, PermissionReview,
 };
+use sha2::{Digest, Sha256};
+use std::cmp::Ordering;
 
 pub const PROVIDER_ID: &str = "local-paper";
 pub const ENVIRONMENT: &str = "LOCAL";
@@ -122,13 +127,356 @@ pub fn initial_state(
             total: DEFAULT_STARTING_CASH.into(),
             reserved: "0".into(),
         }],
+        orders: vec![],
         positions: vec![],
         open_orders: vec![],
         fills: vec![],
+        events: vec![],
         event_cursor: 0,
         state_version: format!("paper:{workspace_id}:1"),
         updated_at,
         disclosure: DISCLOSURE.into(),
+    })
+}
+
+pub fn submit(
+    state: &mut LocalPaperState,
+    proposal: &OrderProposal,
+    idempotency_key: &str,
+    proposal_state_version: &str,
+    now: String,
+) -> Result<PaperOrderResult> {
+    if proposal.status != OrderProposalStatus::NeedsApproval
+        || proposal.workspace_id != state.workspace_id
+        || proposal.fields.account_id.as_deref() != Some(state.account_id.as_str())
+        || proposal.fields.environment != crate::protocol::ExecutionContext::LocalPaper
+        || proposal.fields.venue != "TRADEX_SIM"
+        || idempotency_key.is_empty()
+        || idempotency_key.len() > 128
+        || idempotency_key.chars().any(char::is_control)
+    {
+        return Err(TradeXError::new("PAPER_PROPOSAL_INVALID"));
+    }
+    if let Some(existing) = state
+        .orders
+        .iter()
+        .find(|order| order.proposal_id == proposal.proposal_id)
+        .cloned()
+    {
+        if existing.idempotency_key.as_deref() == Some(idempotency_key) {
+            return result_for_order(state, &existing, proposal_state_version);
+        }
+        return Err(TradeXError::new("PAPER_PROPOSAL_CONSUMED"));
+    }
+    if state
+        .orders
+        .iter()
+        .any(|order| order.idempotency_key.as_deref() == Some(idempotency_key))
+    {
+        return Err(TradeXError::new("PAPER_IDEMPOTENCY_CONFLICT"));
+    }
+
+    let quote = deterministic_quote(state, &proposal.fields.instrument_id, &now)?;
+    if matches!(proposal.fields.order_type, OrderType::Limit) {
+        let limit = proposal
+            .fields
+            .limit_price
+            .as_deref()
+            .ok_or_else(|| TradeXError::new("PAPER_PROPOSAL_INVALID"))?;
+        let crossing = match proposal.fields.side {
+            OrderSide::Buy => compare_nonnegative(limit, &quote.price)? != Ordering::Less,
+            OrderSide::Sell => compare_nonnegative(limit, &quote.price)? != Ordering::Greater,
+        };
+        if !crossing {
+            return Err(TradeXError::new("PAPER_LIMIT_NOT_CROSSED"));
+        }
+    }
+
+    let (filled_quantity, value) = match proposal.fields.quantity.r#type {
+        OrderQuantityType::Base => {
+            let quantity = normalize_positive(&proposal.fields.quantity.value)?;
+            (
+                quantity.clone(),
+                crate::portfolio::decimal_mul(&quantity, &quote.price)?,
+            )
+        }
+        OrderQuantityType::Quote => {
+            let value = normalize_positive(&proposal.fields.quantity.value)?;
+            let quantity = crate::portfolio::decimal_div(&value, &quote.price)?;
+            if quantity == "0" || crate::portfolio::decimal_mul(&quantity, &quote.price)? != value {
+                return Err(TradeXError::new("PAPER_QUANTITY_UNREPRESENTABLE"));
+            }
+            (quantity, value)
+        }
+    };
+    if let Some(maximum_spend) = proposal.fields.maximum_spend.as_deref()
+        && compare_nonnegative(&value, maximum_spend)? == Ordering::Greater
+    {
+        return Err(TradeXError::new("PAPER_MAXIMUM_SPEND_EXCEEDED"));
+    }
+
+    apply_fill(
+        state,
+        &proposal.fields.side,
+        &proposal.fields.instrument_id,
+        &filled_quantity,
+        &quote.price,
+        &value,
+    )?;
+    let accepted_sequence = state
+        .event_cursor
+        .checked_add(1)
+        .filter(|sequence| *sequence <= crate::protocol::MAX_SEQUENCE)
+        .ok_or_else(|| TradeXError::new("PAPER_STATE_LIMIT"))?;
+    let filled_sequence = accepted_sequence
+        .checked_add(1)
+        .filter(|sequence| *sequence <= crate::protocol::MAX_SEQUENCE)
+        .ok_or_else(|| TradeXError::new("PAPER_STATE_LIMIT"))?;
+    let order_id = format!("paper-order:{}", uuid::Uuid::new_v4());
+    let fill_id = format!("paper-fill:{}", uuid::Uuid::new_v4());
+    let order = LocalPaperOrder {
+        order_id: order_id.clone(),
+        proposal_id: proposal.proposal_id.clone(),
+        proposal_hash: proposal.proposal_hash.clone(),
+        instrument_id: proposal.fields.instrument_id.clone(),
+        side: proposal.fields.side,
+        order_type: proposal.fields.order_type,
+        state: LocalPaperOrderState::Filled,
+        requested_quantity: filled_quantity.clone(),
+        filled_quantity: filled_quantity.clone(),
+        remaining_quantity: "0".into(),
+        quantity_type: Some(proposal.fields.quantity.r#type),
+        time_in_force: Some(proposal.fields.time_in_force),
+        limit_price: proposal.fields.limit_price.clone(),
+        average_fill_price: Some(quote.price.clone()),
+        quote: Some(quote.clone()),
+        idempotency_key: Some(idempotency_key.into()),
+        event_sequence: Some(filled_sequence),
+        created_at: now.clone(),
+        updated_at: now.clone(),
+    };
+    let fill = LocalPaperFill {
+        fill_id: fill_id.clone(),
+        order_id: order_id.clone(),
+        instrument_id: proposal.fields.instrument_id.clone(),
+        side: proposal.fields.side,
+        quantity: filled_quantity,
+        price: quote.price.clone(),
+        value,
+        currency: quote.currency.clone(),
+        observed_at: now.clone(),
+    };
+    state.orders.push(order.clone());
+    state.fills.push(fill.clone());
+    state.event_cursor = filled_sequence;
+    state.state_version = format!("paper:{}:{}", state.workspace_id, state.event_cursor);
+    state.updated_at = now.clone();
+    state.events.push(LocalPaperEvent {
+        event_id: format!("paper-event:{}", uuid::Uuid::new_v4()),
+        sequence: accepted_sequence,
+        kind: LocalPaperEventKind::Accepted,
+        order_id: order_id.clone(),
+        fill_id: None,
+        occurred_at: now.clone(),
+        state_version: format!("paper:{}:{}", state.workspace_id, accepted_sequence),
+    });
+    state.events.push(LocalPaperEvent {
+        event_id: format!("paper-event:{}", uuid::Uuid::new_v4()),
+        sequence: filled_sequence,
+        kind: LocalPaperEventKind::Filled,
+        order_id,
+        fill_id: Some(fill_id),
+        occurred_at: now,
+        state_version: state.state_version.clone(),
+    });
+    result_for_order(state, &order, proposal_state_version)
+}
+
+pub(crate) fn result_for_order(
+    state: &LocalPaperState,
+    order: &LocalPaperOrder,
+    proposal_state_version: &str,
+) -> Result<PaperOrderResult> {
+    let quote = order
+        .quote
+        .clone()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let fill = state
+        .fills
+        .iter()
+        .find(|fill| fill.order_id == order.order_id)
+        .cloned()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    Ok(PaperOrderResult {
+        workspace_id: state.workspace_id.clone(),
+        account_id: state.account_id.clone(),
+        proposal_id: order.proposal_id.clone(),
+        proposal_hash: order.proposal_hash.clone(),
+        order: order.clone(),
+        fill,
+        quote,
+        proposal_state_version: proposal_state_version.into(),
+        state_version: state.state_version.clone(),
+        event_sequence: order.event_sequence.unwrap_or(state.event_cursor),
+        disclosure: state.disclosure.clone(),
+        paper_state: Box::new(state.clone()),
+    })
+}
+
+fn deterministic_quote(
+    state: &LocalPaperState,
+    instrument_id: &str,
+    observed_at: &str,
+) -> Result<LocalPaperQuote> {
+    if instrument_id.is_empty()
+        || instrument_id.len() > 128
+        || instrument_id.chars().any(char::is_control)
+    {
+        return Err(TradeXError::new("PAPER_QUOTE_UNAVAILABLE"));
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(state.profile.scenario_id.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(instrument_id.as_bytes());
+    let quote_id = format!("quote:sha256:{}", hex::encode(hasher.finalize()));
+    Ok(LocalPaperQuote {
+        quote_id,
+        instrument_id: instrument_id.into(),
+        price: "100".into(),
+        currency: state.profile.base_currency.clone(),
+        observed_at: observed_at.into(),
+        scenario_id: state.profile.scenario_id.clone(),
+        source: state.profile.quote_source.clone(),
+        freshness: "FRESH".into(),
+    })
+}
+
+fn apply_fill(
+    state: &mut LocalPaperState,
+    side: &OrderSide,
+    instrument_id: &str,
+    quantity: &str,
+    price: &str,
+    value: &str,
+) -> Result<()> {
+    match side {
+        OrderSide::Buy => {
+            if compare_nonnegative(&state.cash.value, value)? == Ordering::Less {
+                return Err(TradeXError::new("PAPER_INSUFFICIENT_CASH"));
+            }
+            state.cash.value =
+                crate::portfolio::decimal_add(&state.cash.value, &format!("-{value}"))?;
+        }
+        OrderSide::Sell => {
+            let index = state
+                .positions
+                .iter()
+                .position(|position| position.instrument_id == instrument_id)
+                .ok_or_else(|| TradeXError::new("PAPER_INSUFFICIENT_POSITION"))?;
+            let position = &state.positions[index];
+            if compare_nonnegative(&position.quantity, quantity)? == Ordering::Less {
+                return Err(TradeXError::new("PAPER_INSUFFICIENT_POSITION"));
+            }
+            let realized = crate::portfolio::decimal_mul(
+                &crate::portfolio::decimal_add(
+                    price,
+                    &format!("-{}", position.average_entry_price),
+                )?,
+                quantity,
+            )?;
+            state.realized_pnl.value =
+                crate::portfolio::decimal_add(&state.realized_pnl.value, &realized)?;
+            state.cash.value = crate::portfolio::decimal_add(&state.cash.value, value)?;
+        }
+    }
+
+    let existing_index = state
+        .positions
+        .iter()
+        .position(|position| position.instrument_id == instrument_id);
+    match side {
+        OrderSide::Buy => {
+            if let Some(index) = existing_index {
+                let position = &mut state.positions[index];
+                let old_cost = crate::portfolio::decimal_mul(
+                    &position.quantity,
+                    &position.average_entry_price,
+                )?;
+                let new_cost = crate::portfolio::decimal_add(&old_cost, value)?;
+                position.quantity = crate::portfolio::decimal_add(&position.quantity, quantity)?;
+                position.average_entry_price =
+                    crate::portfolio::decimal_div(&new_cost, &position.quantity)?;
+            } else {
+                state.positions.push(LocalPaperPosition {
+                    instrument_id: instrument_id.into(),
+                    quantity: quantity.into(),
+                    average_entry_price: price.into(),
+                    market_value: None,
+                    currency: state.profile.base_currency.clone(),
+                    unrealized_pnl: None,
+                });
+            }
+        }
+        OrderSide::Sell => {
+            let index =
+                existing_index.ok_or_else(|| TradeXError::new("PAPER_INSUFFICIENT_POSITION"))?;
+            let position = &mut state.positions[index];
+            position.quantity =
+                crate::portfolio::decimal_add(&position.quantity, &format!("-{quantity}"))?;
+            if position.quantity == "0" {
+                state.positions.remove(index);
+            }
+        }
+    }
+
+    let mut exposure = "0".to_owned();
+    let mut unrealized = "0".to_owned();
+    for position in &mut state.positions {
+        position.market_value = Some(crate::portfolio::decimal_mul(&position.quantity, price)?);
+        position.unrealized_pnl = Some(crate::portfolio::decimal_mul(
+            &crate::portfolio::decimal_add(price, &format!("-{}", position.average_entry_price))?,
+            &position.quantity,
+        )?);
+        exposure = crate::portfolio::decimal_add(
+            &exposure,
+            position.market_value.as_deref().unwrap_or("0"),
+        )?;
+        unrealized = crate::portfolio::decimal_add(
+            &unrealized,
+            position.unrealized_pnl.as_deref().unwrap_or("0"),
+        )?;
+    }
+    state.exposure.value = exposure;
+    state.unrealized_pnl.value = unrealized;
+    state.equity.value = crate::portfolio::decimal_add(&state.cash.value, &state.exposure.value)?;
+    if let Some(balance) = state
+        .balances
+        .iter_mut()
+        .find(|balance| balance.asset == state.cash.currency)
+    {
+        balance.available = state.cash.value.clone();
+        balance.total = state.cash.value.clone();
+    }
+    Ok(())
+}
+
+fn normalize_positive(value: &str) -> Result<String> {
+    let normalized = crate::provider_io::decimal(&serde_json::Value::String(value.into()))
+        .map_err(|_| TradeXError::new("PAPER_QUOTE_UNAVAILABLE"))?;
+    if normalized == "0" || normalized.starts_with('-') {
+        return Err(TradeXError::new("PAPER_QUOTE_UNAVAILABLE"));
+    }
+    Ok(normalized)
+}
+
+fn compare_nonnegative(left: &str, right: &str) -> Result<Ordering> {
+    let difference = crate::portfolio::decimal_add(left, &format!("-{right}"))?;
+    Ok(if difference == "0" {
+        Ordering::Equal
+    } else if difference.starts_with('-') {
+        Ordering::Less
+    } else {
+        Ordering::Greater
     })
 }
 

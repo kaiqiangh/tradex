@@ -30,12 +30,12 @@ use protocol::{
     BacktestFailure, BacktestFieldDifference, BacktestMetricComparison, BacktestMetricDelta,
     BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestRunState, CommandEnvelope,
     DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
-    MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace, PortfolioQuery, ResearchFinding,
-    ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel,
-    StrategyFailure, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest,
-    StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
-    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, TurnCancel, TurnRetry,
-    TurnSnapshot, TurnStart,
+    MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace, PaperOrderSubmit,
+    PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus,
+    ScreenerRequest, StrategyCancel, StrategyFailure, StrategyQuery, StrategyRun, StrategyRunQuery,
+    StrategyRunRequest, StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate,
+    ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError,
+    TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -860,6 +860,16 @@ impl ControlPlane {
                 self.require_workspace(&input.workspace_id)?;
                 let state = self.store.as_ref().unwrap().local_paper_state()?;
                 Ok((json!(state), Some(state.state_version.clone())))
+            }
+            "paper.order.submit" => {
+                let input: PaperOrderSubmit = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .submit_local_paper_order(&input)?;
+                Ok((json!(result), Some(result.state_version.clone())))
             }
             "strategy.list" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
@@ -6356,6 +6366,244 @@ mod paper_tests {
             corrupted_open["error"]["code"],
             "WORKSPACE_INTEGRITY_FAILED"
         );
+    }
+
+    #[test]
+    fn local_paper_submit_full_fill_is_idempotent_and_reopenable() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+        let saved = control.dispatch(request(
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "fields": {
+                    "accountId": account_id,
+                    "venue": "TRADEX_SIM",
+                    "environment": "LOCAL_PAPER",
+                    "instrumentId": "equity:US:AAPL",
+                    "side": "BUY",
+                    "orderType": "LIMIT",
+                    "quantity": {"type": "BASE", "value": "2"},
+                    "limitPrice": "100",
+                    "timeInForce": "DAY"
+                }
+            }),
+        ));
+        assert_eq!(saved["ok"], true, "{saved}");
+        let proposal = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": saved["data"]["draftId"],
+                "expectedDraftVersion": 1
+            }),
+        ));
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        let submit_payload = json!({
+            "workspaceId": workspace_id,
+            "proposalId": proposal["data"]["proposalId"],
+            "expectedProposalStateVersion": proposal["data"]["stateVersion"],
+            "idempotencyKey": "paper-submit-full-1"
+        });
+        let submitted = control.dispatch(request("paper.order.submit", submit_payload.clone()));
+        assert_eq!(submitted["ok"], true, "{submitted}");
+        assert_eq!(submitted["data"]["order"]["state"], "FILLED");
+        assert_eq!(submitted["data"]["order"]["filledQuantity"], "2");
+        assert_eq!(submitted["data"]["fill"]["value"], "200");
+        assert_eq!(submitted["data"]["quote"]["price"], "100");
+        assert_eq!(submitted["data"]["paperState"]["cash"]["value"], "99800");
+        assert_eq!(
+            submitted["data"]["paperState"]["positions"][0]["quantity"],
+            "2"
+        );
+        assert_eq!(
+            submitted["data"]["paperState"]["events"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        let duplicate = control.dispatch(request("paper.order.submit", submit_payload));
+        assert_eq!(duplicate["ok"], true, "{duplicate}");
+        assert_eq!(
+            duplicate["data"]["order"]["orderId"],
+            submitted["data"]["order"]["orderId"]
+        );
+        assert_eq!(
+            duplicate["data"]["paperState"]["eventCursor"],
+            submitted["data"]["paperState"]["eventCursor"]
+        );
+        let different_key = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["data"]["proposalId"],
+                "expectedProposalStateVersion": submitted["data"]["proposalStateVersion"],
+                "idempotencyKey": "paper-submit-full-2"
+            }),
+        ));
+        assert_eq!(different_key["ok"], false);
+        assert_eq!(different_key["error"]["code"], "PAPER_PROPOSAL_CONSUMED");
+        let consumed = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["data"]["proposalId"]}),
+        ));
+        assert_eq!(consumed["data"]["status"], "CONSUMED");
+        assert_eq!(consumed["data"]["history"][1]["event"], "CONSUMED");
+
+        let quote_saved = control.dispatch(request(
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "fields": {
+                    "accountId": account_id,
+                    "venue": "TRADEX_SIM",
+                    "environment": "LOCAL_PAPER",
+                    "instrumentId": "equity:US:MSFT",
+                    "side": "BUY",
+                    "orderType": "MARKET",
+                    "quantity": {"type": "QUOTE", "value": "200"},
+                    "timeInForce": "DAY"
+                }
+            }),
+        ));
+        assert_eq!(quote_saved["ok"], true, "{quote_saved}");
+        let quote_proposal = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": quote_saved["data"]["draftId"],
+                "expectedDraftVersion": 1
+            }),
+        ));
+        assert_eq!(quote_proposal["ok"], true, "{quote_proposal}");
+        let quote_submitted = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": quote_proposal["data"]["proposalId"],
+                "expectedProposalStateVersion": quote_proposal["data"]["stateVersion"],
+                "idempotencyKey": "paper-submit-quote-market-1"
+            }),
+        ));
+        assert_eq!(quote_submitted["ok"], true, "{quote_submitted}");
+        assert_eq!(quote_submitted["data"]["order"]["orderType"], "MARKET");
+        assert_eq!(quote_submitted["data"]["order"]["quantityType"], "QUOTE");
+        assert_eq!(quote_submitted["data"]["order"]["filledQuantity"], "2");
+        assert_eq!(quote_submitted["data"]["fill"]["value"], "200");
+        drop(control);
+
+        let mut reopened = ControlPlane::new(path);
+        assert_eq!(
+            reopened.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let paper = reopened.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        assert_eq!(paper["data"]["orders"].as_array().unwrap().len(), 2);
+        assert_eq!(paper["data"]["fills"].as_array().unwrap().len(), 2);
+        assert_eq!(paper["data"]["cash"]["value"], "99600");
+        let portfolio = reopened.dispatch(request(
+            "portfolio.get",
+            json!({"workspaceId": workspace_id}),
+        ));
+        assert_eq!(portfolio["data"]["fills"].as_array().unwrap().len(), 2);
+        assert!(
+            portfolio["data"]["holdings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|row| row["instrumentId"] == "equity:US:AAPL" && row["quantity"] == "2"),
+        );
+        assert!(
+            portfolio["data"]["holdings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|row| row["instrumentId"] == "equity:US:MSFT" && row["quantity"] == "2"),
+        );
+    }
+
+    #[test]
+    fn local_paper_submit_rejects_insufficient_and_foreign_proposals() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+        let saved = control.dispatch(request(
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "fields": {
+                    "accountId": account_id,
+                    "venue": "TRADEX_SIM",
+                    "environment": "LOCAL_PAPER",
+                    "instrumentId": "equity:US:AAPL",
+                    "side": "SELL",
+                    "orderType": "MARKET",
+                    "quantity": {"type": "BASE", "value": "1"},
+                    "timeInForce": "DAY"
+                }
+            }),
+        ));
+        let proposal = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({"workspaceId": workspace_id, "draftId": saved["data"]["draftId"], "expectedDraftVersion": 1}),
+        ));
+        let rejected = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["data"]["proposalId"],
+                "expectedProposalStateVersion": proposal["data"]["stateVersion"],
+                "idempotencyKey": "paper-submit-sell-empty"
+            }),
+        ));
+        assert_eq!(rejected["ok"], false);
+        assert_eq!(rejected["error"]["code"], "PAPER_INSUFFICIENT_POSITION");
+        let unchanged =
+            control.dispatch(request("paper.get", json!({"workspaceId": workspace_id})));
+        assert_eq!(unchanged["data"]["orders"].as_array().unwrap().len(), 0);
+        assert_eq!(unchanged["data"]["cash"]["value"], "100000");
+
+        let other_path = directory.path().join("other");
+        let mut other = ControlPlane::new(other_path);
+        let other_opened = other.dispatch(request("workspace.open", json!({})));
+        let other_workspace_id = other_opened["data"]["workspaceId"].as_str().unwrap();
+        let foreign = other.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId": other_workspace_id,
+                "proposalId": proposal["data"]["proposalId"],
+                "expectedProposalStateVersion": proposal["data"]["stateVersion"],
+                "idempotencyKey": "paper-submit-foreign"
+            }),
+        ));
+        assert_eq!(foreign["ok"], false);
+        assert_eq!(foreign["error"]["code"], "ORDER_PROPOSAL_NOT_FOUND");
     }
 }
 

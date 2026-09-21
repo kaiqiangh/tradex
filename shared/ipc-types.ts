@@ -163,6 +163,11 @@ export type TurnStatus = "RUNNING" | "COMPLETED" | "CANCELLED" | "INTERRUPTED" |
 export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperEventKind".
+ */
+export type LocalPaperEventKind = "ACCEPTED" | "FILLED" | "REJECTED" | "CANCELLED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderSide".
  */
 export type OrderSide = "BUY" | "SELL";
@@ -173,20 +178,15 @@ export type OrderSide = "BUY" | "SELL";
 export type OrderType = "MARKET" | "LIMIT";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderQuantityType".
+ */
+export type OrderQuantityType = "BASE" | "QUOTE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LocalPaperOrderState".
  */
 export type LocalPaperOrderState =
   "PROPOSED" | "ACCEPTED" | "PARTIALLY_FILLED" | "FILLED" | "REJECTED" | "CANCEL_PENDING" | "CANCELLED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketTier".
- */
-export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderQuantityType".
- */
-export type OrderQuantityType = "BASE" | "QUOTE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "TimeInForce".
@@ -194,9 +194,14 @@ export type OrderQuantityType = "BASE" | "QUOTE";
 export type TimeInForce = "DAY" | "GTC" | "IOC" | "FOK";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketTier".
+ */
+export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderProposalHistoryEvent".
  */
-export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED" | "REFRESHED";
+export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED" | "REFRESHED" | "CONSUMED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketDataStatus".
@@ -211,7 +216,7 @@ export type ProposalReferenceStatus = "AVAILABLE" | "UNCONFIGURED" | "UNAVAILABL
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderProposalStatus".
  */
-export type OrderProposalStatus = "NEEDS_APPROVAL" | "INVALIDATED";
+export type OrderProposalStatus = "NEEDS_APPROVAL" | "CONSUMED" | "INVALIDATED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderProposalRefreshStatus".
@@ -279,6 +284,7 @@ export type ReplyData =
   | OrderProposal
   | OrderProposalLibrary
   | OrderProposalRefreshResult
+  | PaperOrderResult
   | Artifact
   | ArtifactLibrary
   | ArtifactExportResult
@@ -469,6 +475,8 @@ export interface IpcSchema {
   orderProposalQuery: OrderProposalQuery;
   orderProposalRefresh: OrderProposalRefreshResult;
   orderProposalRefreshRequest: OrderProposalRefresh;
+  paperOrderResult: PaperOrderResult;
+  paperOrderSubmit: PaperOrderSubmit;
   portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
   providerSelection: ProviderSelection;
@@ -1626,6 +1634,10 @@ export interface LocalPaperState {
   environment: string;
   equity: LocalPaperMoney;
   eventCursor: number;
+  /**
+   * @maxItems 1024
+   */
+  events?: LocalPaperEvent[];
   exposure: LocalPaperMoney;
   /**
    * @maxItems 512
@@ -1635,6 +1647,10 @@ export interface LocalPaperState {
    * @maxItems 512
    */
   openOrders: LocalPaperOrder[];
+  /**
+   * @maxItems 512
+   */
+  orders?: LocalPaperOrder[];
   /**
    * @maxItems 512
    */
@@ -1668,6 +1684,19 @@ export interface LocalPaperMoney {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperEvent".
+ */
+export interface LocalPaperEvent {
+  eventId: string;
+  fillId?: string | null;
+  kind: LocalPaperEventKind;
+  occurredAt: string;
+  orderId: string;
+  sequence: number;
+  stateVersion: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LocalPaperFill".
  */
 export interface LocalPaperFill {
@@ -1688,17 +1717,37 @@ export interface LocalPaperFill {
 export interface LocalPaperOrder {
   averageFillPrice?: string;
   createdAt: string;
+  eventSequence?: number | null;
   filledQuantity: string;
+  idempotencyKey?: string | null;
   instrumentId: string;
+  limitPrice?: string;
   orderId: string;
   orderType: OrderType;
   proposalHash: string;
   proposalId: string;
+  quantityType?: OrderQuantityType | null;
+  quote?: LocalPaperQuote | null;
   remainingQuantity: string;
   requestedQuantity: string;
   side: OrderSide;
   state: LocalPaperOrderState;
+  timeInForce?: TimeInForce | null;
   updatedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LocalPaperQuote".
+ */
+export interface LocalPaperQuote {
+  currency: string;
+  freshness: string;
+  instrumentId: string;
+  observedAt: string;
+  price: string;
+  quoteId: string;
+  scenarioId: string;
+  source: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1927,6 +1976,34 @@ export interface OrderProposalRefreshResult {
  */
 export interface OrderProposalRefresh {
   expectedStateVersion: string;
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PaperOrderResult".
+ */
+export interface PaperOrderResult {
+  accountId: string;
+  disclosure: string;
+  eventSequence: number;
+  fill: LocalPaperFill;
+  order: LocalPaperOrder;
+  paperState: LocalPaperState;
+  proposalHash: string;
+  proposalId: string;
+  proposalStateVersion: string;
+  quote: LocalPaperQuote;
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PaperOrderSubmit".
+ */
+export interface PaperOrderSubmit {
+  expectedProposalStateVersion: string;
+  idempotencyKey: string;
   proposalId: string;
   workspaceId: string;
 }

@@ -194,6 +194,7 @@ pub enum ReplyData {
     OrderProposal(Box<OrderProposal>),
     OrderProposalLibrary(OrderProposalLibrary),
     OrderProposalRefresh(Box<OrderProposalRefreshResult>),
+    PaperOrderResult(Box<PaperOrderResult>),
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
     ArtifactExport(ArtifactExportResult),
@@ -285,6 +286,8 @@ pub struct IpcSchema {
     pub artifact_export: ArtifactExport,
     pub portfolio_query: PortfolioQuery,
     pub local_paper_state: LocalPaperState,
+    pub paper_order_submit: PaperOrderSubmit,
+    pub paper_order_result: PaperOrderResult,
     pub strategy_definition: StrategyDefinition,
     pub strategy_version: StrategyVersion,
     pub strategy_save: StrategySave,
@@ -2468,6 +2471,7 @@ pub struct OrderDraftQuery {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum OrderProposalStatus {
     NeedsApproval,
+    Consumed,
     Invalidated,
 }
 
@@ -2485,6 +2489,7 @@ pub enum OrderProposalHistoryEvent {
     Generated,
     DraftChanged,
     Refreshed,
+    Consumed,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -3151,6 +3156,61 @@ impl TradeXError {
                 "reload_snapshot",
                 "Reload proposal history",
             ),
+            "PAPER_PROPOSAL_INVALID" => (
+                "Only a current Local Paper proposal can be submitted by the simulation engine.",
+                "reload_snapshot",
+                "Reload proposal",
+            ),
+            "PAPER_PROPOSAL_CONSUMED" => (
+                "This proposal has already been consumed by a Local Paper order.",
+                "reload_snapshot",
+                "Reload order history",
+            ),
+            "PAPER_IDEMPOTENCY_CONFLICT" => (
+                "That idempotency key belongs to another Local Paper order.",
+                "retry_request",
+                "Retry with a new key",
+            ),
+            "PAPER_QUOTE_UNAVAILABLE" => (
+                "The deterministic Local Paper quote is unavailable for this proposal.",
+                "retry_request",
+                "Retry submission",
+            ),
+            "PAPER_LIMIT_NOT_CROSSED" => (
+                "The Local Paper limit price does not cross the deterministic simulation quote.",
+                "edit_order_amount",
+                "Review limit price",
+            ),
+            "PAPER_MAXIMUM_SPEND_EXCEEDED" => (
+                "The deterministic Local Paper fill exceeds the proposal maximum spend.",
+                "edit_order_amount",
+                "Review maximum spend",
+            ),
+            "PAPER_INSUFFICIENT_CASH" => (
+                "The Local Paper account does not have enough simulation cash for this order.",
+                "reload_snapshot",
+                "Review simulation balance",
+            ),
+            "PAPER_INSUFFICIENT_POSITION" => (
+                "The Local Paper account does not have enough simulated position to sell.",
+                "reload_snapshot",
+                "Review simulation position",
+            ),
+            "PAPER_QUANTITY_UNREPRESENTABLE" => (
+                "The requested quote quantity cannot be represented at the simulation quote precision.",
+                "edit_order_amount",
+                "Review order quantity",
+            ),
+            "PAPER_ACCOUNT_INVALID" => (
+                "The Local Paper account is not valid for this workspace.",
+                "reload_snapshot",
+                "Reload account state",
+            ),
+            "PAPER_STATE_LIMIT" => (
+                "The Local Paper event history reached its bounded limit.",
+                "reload_snapshot",
+                "Reload simulation state",
+            ),
             "MARKET_HISTORY_LIMIT" => (
                 "The local historical cache reached its bounded storage limit.",
                 "retry_request",
@@ -3738,6 +3798,8 @@ impl TradeXError {
                 "AUTH_ERROR"
             } else if code.starts_with("RISK_") || code.starts_with("ONBOARDING_") {
                 "POLICY_ERROR"
+            } else if code.starts_with("PAPER_") {
+                "SIMULATION_ERROR"
             } else if code == "PROVIDER_RATE_LIMITED" {
                 "RATE_LIMITED"
             } else if matches!(
@@ -3793,6 +3855,7 @@ impl TradeXError {
                     | "MODEL_UNAVAILABLE"
                     | "MODEL_OAUTH_EXPIRED"
                     | "MODEL_QUOTA_EXCEEDED"
+                    | "PAPER_QUOTE_UNAVAILABLE"
                     | "MODEL_LOGIN_FAILED"
                     | "MODEL_LOGIN_TIMEOUT"
                     | "MODEL_TEST_INFERENCE_FAILED"
@@ -3847,6 +3910,27 @@ pub struct LocalPaperProfile {
     pub scenario_id: String,
     #[schemars(length(min = 1, max = 64))]
     pub engine_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperQuote {
+    #[schemars(length(min = 1, max = 128))]
+    pub quote_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub price: String,
+    #[schemars(regex(pattern = "^[A-Z]{3}$"))]
+    pub currency: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub scenario_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub source: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub freshness: String,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -3914,8 +3998,23 @@ pub struct LocalPaperOrder {
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub remaining_quantity: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantity_type: Option<OrderQuantityType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_in_force: Option<TimeInForce>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub limit_price: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub average_fill_price: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quote: Option<LocalPaperQuote>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub event_sequence: Option<u64>,
     #[schemars(length(min = 1, max = 64))]
     pub created_at: String,
     #[schemars(length(min = 1, max = 64))]
@@ -3944,6 +4043,34 @@ pub struct LocalPaperFill {
     pub observed_at: String,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LocalPaperEventKind {
+    Accepted,
+    Filled,
+    Rejected,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalPaperEvent {
+    #[schemars(length(min = 1, max = 128))]
+    pub event_id: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub sequence: u64,
+    pub kind: LocalPaperEventKind,
+    #[schemars(length(min = 1, max = 128))]
+    pub order_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub fill_id: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub occurred_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LocalPaperState {
@@ -3966,12 +4093,18 @@ pub struct LocalPaperState {
     pub exposure: LocalPaperMoney,
     #[schemars(length(max = 512))]
     pub balances: Vec<LocalPaperBalance>,
+    #[serde(default)]
+    #[schemars(length(max = 512))]
+    pub orders: Vec<LocalPaperOrder>,
     #[schemars(length(max = 512))]
     pub positions: Vec<LocalPaperPosition>,
     #[schemars(length(max = 512))]
     pub open_orders: Vec<LocalPaperOrder>,
     #[schemars(length(max = 512))]
     pub fills: Vec<LocalPaperFill>,
+    #[serde(default)]
+    #[schemars(length(max = 1024))]
+    pub events: Vec<LocalPaperEvent>,
     #[schemars(range(min = 0, max = 9_007_199_254_740_991_u64))]
     pub event_cursor: u64,
     #[schemars(length(min = 1, max = 256))]
@@ -3980,6 +4113,44 @@ pub struct LocalPaperState {
     pub updated_at: String,
     #[schemars(length(min = 1, max = 256))]
     pub disclosure: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaperOrderSubmit {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_proposal_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaperOrderResult {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    pub order: LocalPaperOrder,
+    pub fill: LocalPaperFill,
+    pub quote: LocalPaperQuote,
+    #[schemars(length(min = 1, max = 256))]
+    pub proposal_state_version: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub event_sequence: u64,
+    #[schemars(length(min = 1, max = 256))]
+    pub disclosure: String,
+    pub paper_state: Box<LocalPaperState>,
 }
 
 pub type Result<T> = std::result::Result<T, TradeXError>;

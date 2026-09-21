@@ -1199,6 +1199,22 @@ pub(crate) fn decimal_mul(left: &str, right: &str) -> Result<String> {
     )
 }
 
+pub(crate) fn decimal_div(left: &str, right: &str) -> Result<String> {
+    let (left_negative, left_digits, left_scale) = decimal_parts(left)?;
+    let (right_negative, right_digits, right_scale) = decimal_parts(right)?;
+    if right_digits.chars().all(|digit| digit == '0') {
+        return Err(TradeXError::new("PAPER_QUOTE_UNAVAILABLE"));
+    }
+    let target_scale = 18usize;
+    let shift = target_scale
+        .checked_add(right_scale)
+        .and_then(|value| value.checked_sub(left_scale))
+        .ok_or_else(|| TradeXError::new("PAPER_QUANTITY_UNREPRESENTABLE"))?;
+    let numerator = format!("{left_digits}{}", "0".repeat(shift));
+    let quotient = div_abs(&numerator, &right_digits)?;
+    format_decimal(left_negative != right_negative, &quotient, target_scale)
+}
+
 fn decimal_parts(value: &str) -> Result<(bool, String, usize)> {
     let normalized = normalize_decimal(value)?;
     let (negative, unsigned) = normalized
@@ -1267,6 +1283,35 @@ fn sub_abs(left: &str, right: &str) -> String {
     String::from_utf8(output).unwrap_or_else(|_| "0".into())
 }
 
+fn div_abs(numerator: &str, denominator: &str) -> Result<String> {
+    let mut remainder = String::from("0");
+    let mut quotient = String::new();
+    for digit in numerator.bytes() {
+        if !digit.is_ascii_digit() {
+            return Err(TradeXError::new("PAPER_QUANTITY_UNREPRESENTABLE"));
+        }
+        remainder = if remainder == "0" {
+            char::from(digit).to_string()
+        } else {
+            format!("{remainder}{}", char::from(digit))
+        };
+        let mut count = 0u8;
+        while cmp_abs(&remainder, denominator) != std::cmp::Ordering::Less {
+            remainder = sub_abs(&remainder, denominator);
+            count = count
+                .checked_add(1)
+                .ok_or_else(|| TradeXError::new("PAPER_QUANTITY_UNREPRESENTABLE"))?;
+        }
+        quotient.push(char::from(b'0' + count));
+    }
+    let quotient = quotient.trim_start_matches('0');
+    Ok(if quotient.is_empty() {
+        "0".into()
+    } else {
+        quotient.into()
+    })
+}
+
 fn format_decimal(negative: bool, digits: &str, scale: usize) -> Result<String> {
     if digits.len() > 128 {
         return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
@@ -1329,6 +1374,8 @@ mod tests {
         assert_eq!(decimal_add("10", "-2.5").unwrap(), "7.5");
         assert_eq!(decimal_add("-10", "2.5").unwrap(), "-7.5");
         assert_eq!(decimal_mul("100", "0.982").unwrap(), "98.2");
+        assert_eq!(decimal_div("200", "100").unwrap(), "2");
+        assert_eq!(decimal_div("1.25", "100").unwrap(), "0.0125");
     }
 
     #[test]

@@ -81,12 +81,15 @@ declare const validators: {
   InstrumentProviderMapping: (value: unknown) => boolean;
   ItemStatus: (value: unknown) => boolean;
   LocalPaperBalance: (value: unknown) => boolean;
+  LocalPaperEvent: (value: unknown) => boolean;
+  LocalPaperEventKind: (value: unknown) => boolean;
   LocalPaperFill: (value: unknown) => boolean;
   LocalPaperMoney: (value: unknown) => boolean;
   LocalPaperOrder: (value: unknown) => boolean;
   LocalPaperOrderState: (value: unknown) => boolean;
   LocalPaperPosition: (value: unknown) => boolean;
   LocalPaperProfile: (value: unknown) => boolean;
+  LocalPaperQuote: (value: unknown) => boolean;
   LocalPaperState: (value: unknown) => boolean;
   MarketCatalog: (value: unknown) => boolean;
   MarketCatalogQuery: (value: unknown) => boolean;
@@ -134,6 +137,8 @@ declare const validators: {
   OrderQuantityType: (value: unknown) => boolean;
   OrderSide: (value: unknown) => boolean;
   OrderType: (value: unknown) => boolean;
+  PaperOrderResult: (value: unknown) => boolean;
+  PaperOrderSubmit: (value: unknown) => boolean;
   PermissionReview: (value: unknown) => boolean;
   PortfolioAccount: (value: unknown) => boolean;
   PortfolioFill: (value: unknown) => boolean;

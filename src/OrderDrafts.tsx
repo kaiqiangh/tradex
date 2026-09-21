@@ -10,6 +10,7 @@ import type {
   OrderDraftSummary,
   OrderProposal,
   OrderProposalSummary,
+  PaperOrderResult,
   OrderQuantityType,
   OrderSide,
   OrderType,
@@ -107,6 +108,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [fieldError, setFieldError] = useState<{ field: DraftField; message: string }>();
   const [notice, setNotice] = useState('');
   const [proposalBusy, setProposalBusy] = useState(false);
+  const [paperBusy, setPaperBusy] = useState(false);
+  const [paperResult, setPaperResult] = useState<PaperOrderResult>();
+  const [paperIdempotencyKey, setPaperIdempotencyKey] = useState<string>();
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
   const proposalDetail = useQuery({ queryKey: ['order-proposal', workspaceId, selectedProposalId], queryFn: () => request('trade.proposal.get', { workspaceId, proposalId: selectedProposalId! }), enabled: Boolean(selectedProposalId) });
   const selected = useMemo(() => newMode ? undefined : library.data?.drafts.find(draft => draft.draftId === selectedId), [library.data?.drafts, newMode, selectedId]);
@@ -127,6 +131,10 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   useEffect(() => {
     if (!selectedId || newMode || !selectedProposals.some(proposal => proposal.proposalId === selectedProposalId)) setSelectedProposalId(undefined);
   }, [newMode, selectedId, selectedProposalId, selectedProposals]);
+  useEffect(() => {
+    setPaperResult(undefined);
+    setPaperIdempotencyKey(undefined);
+  }, [selectedProposalId]);
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
@@ -211,6 +219,29 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setProposalBusy(false); }
   };
 
+  const submitProposal = async () => {
+    const proposal = proposalDetail.data;
+    if (!proposal || proposal.fields.environment !== 'LOCAL_PAPER') return;
+    setPaperBusy(true); setError(undefined); setNotice('');
+    const idempotencyKey = paperIdempotencyKey ?? crypto.randomUUID();
+    setPaperIdempotencyKey(idempotencyKey);
+    try {
+      const result = await request('paper.order.submit', {
+        workspaceId,
+        proposalId: proposal.proposalId,
+        expectedProposalStateVersion: proposal.stateVersion,
+        idempotencyKey,
+      });
+      setPaperResult(result);
+      await queryClient.invalidateQueries({ queryKey: ['paper', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['portfolio', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId] });
+      setNotice(`Local Paper order ${result.order.orderId} is FILLED.`);
+    } catch (cause) { setError(cause); }
+    finally { setPaperBusy(false); }
+  };
+
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
   if (library.isError) return <div className="error-banner" role="alert"><div><strong>Order drafts are unavailable.</strong><p>{explainError(library.error)}</p></div><button type="button" onClick={() => void library.refetch()}>Reload drafts</button></div>;
   return <>
@@ -249,12 +280,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {proposals.isPending && <p role="status">Loading proposal history…</p>}
       {proposals.isError && <p className="error-text" role="alert">{explainError(proposals.error)}</p>}
       {!proposals.isPending && !proposals.isError && !selectedProposals.length && <p className="muted">Save a draft, then generate a proposal for its immutable snapshot.</p>}
-      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{proposalDetail.isPending && <p role="status">Loading proposal…</p>}{proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} />}</div></div>}
+      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{proposalDetail.isPending && <p role="status">Loading proposal…</p>}{proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={submitProposal} submitBusy={paperBusy} result={paperResult} />}</div></div>}
     </section>
   </>;
 }
 
-function ProposalDetail({ proposal, onRefresh, refreshBusy }: { proposal: OrderProposal; onRefresh: () => void; refreshBusy: boolean }) {
+function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, submitBusy, result }: { proposal: OrderProposal; onRefresh: () => void; refreshBusy: boolean; onSubmit: () => void; submitBusy: boolean; result?: PaperOrderResult }) {
   return <div className="proposal-read-only" aria-label="Proposal detail">
     <div className="proposal-meta"><strong>{proposal.status}</strong><span>Draft v{proposal.draftVersion}</span><span>{proposal.proposalId}</span><span>{proposal.proposalHash}</span></div>
     <dl className="proposal-fields"><div><dt>Instrument</dt><dd>{proposal.fields.instrumentId}</dd></div><div><dt>Account</dt><dd>{proposal.fields.accountId ?? 'Local Paper account'}</dd></div><div><dt>Side / type</dt><dd>{proposal.fields.side} · {proposal.fields.orderType}</dd></div><div><dt>Quantity</dt><dd>{proposal.fields.quantity.value} {proposal.fields.quantity.type}</dd></div><div><dt>Limit price</dt><dd>{proposal.fields.limitPrice ?? '—'}</dd></div><div><dt>Maximum spend</dt><dd>{proposal.fields.maximumSpend ?? '—'}</dd></div><div><dt>Venue / context</dt><dd>{proposal.fields.venue} · {proposal.fields.environment}</dd></div><div><dt>Time in force</dt><dd>{proposal.fields.timeInForce}</dd></div><div><dt>Client label</dt><dd>{proposal.fields.clientLabel ?? '—'}</dd></div><div><dt>Estimated notional</dt><dd>{proposal.estimatedNotional ? `${proposal.estimatedNotional} ${proposal.estimatedNotionalCurrency ?? ''}` : proposal.estimatedNotionalReason ?? 'Unavailable'}</dd></div></dl>
@@ -262,6 +293,8 @@ function ProposalDetail({ proposal, onRefresh, refreshBusy }: { proposal: OrderP
     <p className="proposal-reference"><strong>Market:</strong> {proposal.marketStatus} · snapshot {proposal.marketSnapshotId ?? '—'} · {proposal.marketReferenceReason}</p>
     {proposal.invalidationReason && <p className="error-text">{proposal.invalidationReason}</p>}
     {proposal.status === 'NEEDS_APPROVAL' && <button type="button" onClick={onRefresh} disabled={refreshBusy}>{refreshBusy ? 'Refreshing proposal…' : 'Refresh proposal'}</button>}
+    {proposal.status === 'NEEDS_APPROVAL' && proposal.fields.environment === 'LOCAL_PAPER' && <button type="button" className="primary" onClick={onSubmit} disabled={submitBusy}>{submitBusy ? 'Submitting Local Paper order…' : 'Submit Local Paper order'}</button>}
+    {result?.proposalId === proposal.proposalId && <section className="notice" aria-label="Local Paper order result"><strong>TRADEX_SIMULATION · FILLED</strong><p>{result.disclosure}</p><p>Order {result.order.orderId} · {result.order.filledQuantity} filled · {result.order.remainingQuantity} remaining · quote {result.quote.price} {result.quote.currency} · {result.quote.scenarioId}</p><p>Proposal hash: {result.proposalHash}</p></section>}
     <h3>History</h3><ol className="proposal-history">{proposal.history.map((entry, index) => <li key={`${entry.event}-${entry.occurredAt}-${index}`}><strong>{entry.event}</strong><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time>{entry.reason && <span>{entry.reason}</span>}</li>)}</ol>
   </div>;
 }

@@ -151,6 +151,12 @@
     "orderProposalRefreshRequest": {
       "$ref": "#/$defs/OrderProposalRefresh"
     },
+    "paperOrderResult": {
+      "$ref": "#/$defs/PaperOrderResult"
+    },
+    "paperOrderSubmit": {
+      "$ref": "#/$defs/PaperOrderSubmit"
+    },
     "portfolioQuery": {
       "$ref": "#/$defs/PortfolioQuery"
     },
@@ -336,6 +342,8 @@
     "artifactExport",
     "portfolioQuery",
     "localPaperState",
+    "paperOrderSubmit",
+    "paperOrderResult",
     "strategyDefinition",
     "strategyVersion",
     "strategySave",
@@ -3252,6 +3260,66 @@
         "reserved"
       ]
     },
+    "LocalPaperEvent": {
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "fillId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/LocalPaperEventKind"
+        },
+        "occurredAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "sequence",
+        "kind",
+        "orderId",
+        "occurredAt",
+        "stateVersion"
+      ]
+    },
+    "LocalPaperEventKind": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "FILLED",
+        "REJECTED",
+        "CANCELLED"
+      ]
+    },
     "LocalPaperFill": {
       "type": "object",
       "properties": {
@@ -3343,12 +3411,34 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "eventSequence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
         "filledQuantity": {
           "type": "string",
           "maxLength": 128,
           "minLength": 1
         },
+        "idempotencyKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
         "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "limitPrice": {
           "type": "string",
           "maxLength": 128,
           "minLength": 1
@@ -3370,6 +3460,26 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "quantityType": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OrderQuantityType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalPaperQuote"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "remainingQuantity": {
           "type": "string",
           "maxLength": 128,
@@ -3385,6 +3495,16 @@
         },
         "state": {
           "$ref": "#/$defs/LocalPaperOrderState"
+        },
+        "timeInForce": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeInForce"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "updatedAt": {
           "type": "string",
@@ -3498,6 +3618,61 @@
         "engineVersion"
       ]
     },
+    "LocalPaperQuote": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "freshness": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "price": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "scenarioId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "quoteId",
+        "instrumentId",
+        "price",
+        "currency",
+        "observedAt",
+        "scenarioId",
+        "source",
+        "freshness"
+      ]
+    },
     "LocalPaperState": {
       "type": "object",
       "properties": {
@@ -3540,6 +3715,14 @@
           "maximum": 9007199254740991,
           "minimum": 0
         },
+        "events": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LocalPaperEvent"
+          },
+          "maxItems": 1024
+        },
         "exposure": {
           "$ref": "#/$defs/LocalPaperMoney"
         },
@@ -3552,6 +3735,14 @@
         },
         "openOrders": {
           "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocalPaperOrder"
+          },
+          "maxItems": 512
+        },
+        "orders": {
+          "type": "array",
+          "default": [],
           "items": {
             "$ref": "#/$defs/LocalPaperOrder"
           },
@@ -4828,7 +5019,8 @@
       "enum": [
         "GENERATED",
         "DRAFT_CHANGED",
-        "REFRESHED"
+        "REFRESHED",
+        "CONSUMED"
       ]
     },
     "OrderProposalLibrary": {
@@ -4944,6 +5136,7 @@
       "type": "string",
       "enum": [
         "NEEDS_APPROVAL",
+        "CONSUMED",
         "INVALIDATED"
       ]
     },
@@ -5046,6 +5239,110 @@
       "enum": [
         "MARKET",
         "LIMIT"
+      ]
+    },
+    "PaperOrderResult": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "disclosure": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "eventSequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "fill": {
+          "$ref": "#/$defs/LocalPaperFill"
+        },
+        "order": {
+          "$ref": "#/$defs/LocalPaperOrder"
+        },
+        "paperState": {
+          "$ref": "#/$defs/LocalPaperState"
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "quote": {
+          "$ref": "#/$defs/LocalPaperQuote"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "proposalId",
+        "proposalHash",
+        "order",
+        "fill",
+        "quote",
+        "proposalStateVersion",
+        "stateVersion",
+        "eventSequence",
+        "disclosure",
+        "paperState"
+      ]
+    },
+    "PaperOrderSubmit": {
+      "type": "object",
+      "properties": {
+        "expectedProposalStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "expectedProposalStateVersion",
+        "idempotencyKey"
       ]
     },
     "PermissionReview": {
@@ -5931,6 +6228,9 @@
         },
         {
           "$ref": "#/$defs/OrderProposalRefreshResult"
+        },
+        {
+          "$ref": "#/$defs/PaperOrderResult"
         },
         {
           "$ref": "#/$defs/Artifact"
