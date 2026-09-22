@@ -3,7 +3,8 @@
 - Scope: issue #55, the S16 acceptance ticket after #53 and #54.
 - Branch: `dev`.
 - Implementation SHA: `306275b` (`fix: reject tampered Local Paper projections`).
-- Verification SHA: `5c2575e55af23f3c94a7e70fe9e15de2dc76a828` (final `dev` commit before this evidence-only amendment).
+- Browser-state follow-up SHA: `52ab2760953b04b5f0e04992122f5d186656e00d`.
+- Full verification SHA: `100db3d0fa0e7718174e1f335e095517833a3efc` (full check set rerun on this exact implementation commit; it removes only a flaky transient proposal-loading assertion from the UI helper).
 - Boundary: Local Paper is a TradeX-owned simulation. This evidence does not claim provider Paper/Demo/Testnet, Live authority, native credential, or S33 completion.
 
 ## Acceptance evidence
@@ -28,7 +29,7 @@ RUST_TEST_THREADS=1 cargo test -q paper_tests --workspace --all-targets --all-fe
 11 passed
 ```
 
-The complete checks were rerun at verification SHA `5c2575e55af23f3c94a7e70fe9e15de2dc76a828`:
+The complete checks were rerun at verification SHA `100db3d0fa0e7718174e1f335e095517833a3efc`:
 
 | Check | Result |
 | --- | --- |
@@ -63,6 +64,8 @@ The current Local Paper browser path covers:
 The disposable browser workspace `39950613-fb34-4b18-8422-fdaa28f45beb` was manually exercised through the same Rust-backed route: full fill, partial fill, explicit cancellation, persisted account history, simulation provenance, and the no-provider boundary were observed. The remaining scenario branches are covered by `local_paper_outcomes_cancel_and_reopen_are_authoritative` and the helper flow above. A separate native Tauri package/signing run and the S33 cross-application regression remain pending.
 
 ### 2026-09-22 browser state and accessibility follow-up
+
+Runtime evidence was observed at browser-state follow-up SHA `52ab2760953b04b5f0e04992122f5d186656e00d`.
 
 The Rust-backed browser flow was rechecked in disposable workspace `d8dfe5f5-6107-4ba3-a5c0-83baa2cf9a0c` at `/private/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-browser-LdHuy6/workspace`. The browser bridge contains only fixture setup; no OAuth token, DeepSeek key, broker credential, Keychain entry, or user workspace was read or changed.
 
