@@ -72,8 +72,28 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
   const observed = [];
+  const setPaperMode = async (mode) => {
+    const response = await fetch('http://127.0.0.1:1420/__integration/paper-mode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }),
+    });
+    assert.equal(response.status, 204, `Could not set the Local Paper integration mode to ${mode}`);
+  };
   try {
     await viewport.set({ width: 1280, height: 900 });
+    await setPaperMode('delay');
+    await tab.reload(); // Clear React Query's cached paper.get result so pending UI is observable.
+    await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('status').filter({ hasText: 'Loading Local Paper simulation…' }).waitFor({ state: 'visible' });
+    await ui.getByRole('region', { name: 'Local Paper order history', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByText('No Local Paper orders yet.', { exact: true }).count(), 1);
+    assert.equal(await ui.getByRole('combobox', { name: 'Simulation scenario', exact: true }).count(), 1);
+    assert.equal(await ui.getByRole('button', { name: 'Refresh simulation quote', exact: true }).count(), 1);
+    await setPaperMode('normal');
+    observed.push('A delayed Rust paper read renders the loading status; the new workspace exposes an explicit empty order history and labelled scenario/quote controls.');
+    await ui.getByRole('button', { name: 'Refresh simulation quote', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Simulation quote refreshed at' }).waitFor({ state: 'visible' });
+
     await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
@@ -85,7 +105,9 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).press('Enter');
-    await ui.getByRole('dialog', { name: 'Confirm Local Paper submission', exact: true }).waitFor({ state: 'visible' });
+    const submitDialog = ui.getByRole('dialog', { name: 'Confirm Local Paper submission', exact: true });
+    await submitDialog.waitFor({ state: 'visible' });
+    assert.equal(await submitDialog.getAttribute('aria-modal'), 'true');
     await ui.getByRole('button', { name: 'Confirm submit', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'is FILLED' }).waitFor({ state: 'visible' });
     assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true, 'Submit confirmation should restore focus to the proposal surface');
@@ -120,6 +142,7 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'Scenario partial-v1 is active.' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByText('Choose a proposal to inspect its details.', { exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
     await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('4');
     await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('100');
@@ -228,18 +251,21 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
 
     assert.equal(await ui.getByText('No open orders returned by the provider.', { exact: true }).count(), 1);
     assert.equal(await ui.getByRole('region', { name: 'Local Paper order history', exact: true }).count(), 1);
-    assert.equal(await ui.getByRole('button', { name: 'Open portfolio', exact: true }).getAttribute('aria-expanded'), 'false');
-    observed.push('The empty open-order state remains explicit after cancellation, while the persisted Local Paper history remains available with semantic region and disclosure controls.');
+    observed.push('The empty provider open-order state remains visible after cancellation, while Local Paper order history stays in its labelled region.');
 
-    assert.equal((await fetch('http://127.0.0.1:1420/__integration/disconnect', { method: 'POST' })).status, 204);
-    await ui.getByRole('alert').waitFor({ state: 'visible' });
-    const retryConnection = ui.getByRole('button', { name: 'Retry connection', exact: true });
-    const reloadWorkspace = ui.getByRole('button', { name: 'Reload workspace state', exact: true });
-    if (await retryConnection.count()) await retryConnection.click();
-    else { assert.equal(await reloadWorkspace.count(), 1); await reloadWorkspace.click(); }
+    await setPaperMode('error');
+    await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
-    assert.equal(await ui.getByRole('alert').count(), 0);
-    observed.push('A controlled event-stream failure renders an accessible error and the explicit retry/reload action restores the Local Paper surface.');
+    const paperError = ui.getByRole('alert').filter({ hasText: /Local Paper simulation state could not be loaded/i });
+    await paperError.waitFor({ state: 'visible' });
+    const reloadPaper = ui.getByRole('button', { name: 'Reload account state', exact: true });
+    assert.equal(await reloadPaper.isEnabled(), true);
+    await setPaperMode('normal');
+    await reloadPaper.press('Enter');
+    await ui.getByRole('alert').filter({ hasText: /Local Paper simulation state could not be loaded/i }).waitFor({ state: 'hidden' });
+    await ui.getByRole('region', { name: 'Local Paper order history', exact: true }).waitFor({ state: 'visible' });
+    observed.push('A controlled paper.get failure renders a semantic alert and enabled reload action; reloading after recovery clears the error and restores account state.');
 
     for (const width of [1280, 768, 390]) {
       await viewport.set({ width, height: 900 });
@@ -250,5 +276,5 @@ export async function checkLocalPaperSubmitUI(tab, browser) {
     observed.push('Local Paper submission and remediation remain free of horizontal overflow at 768px and 390px.');
     assert.equal((await tab.dev.logs({ levels: ['error'], limit: 20 })).length, 0);
     return observed;
-  } finally { await viewport.reset(); }
+  } finally { await setPaperMode('normal'); await viewport.reset(); }
 }

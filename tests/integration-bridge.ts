@@ -32,6 +32,7 @@ export function integrationBridge(): Plugin {
       let blockedChildAvailable = true;
       let screenerBlocked = false;
       let backtestMode: 'normal' | 'delay' | 'list-error' | 'compare-error' = 'normal';
+      let paperMode: 'normal' | 'delay' | 'error' = 'normal';
       const blockedBootstrapRequestId = randomUUID();
       let resolveBlockedBootstrap!: () => void;
       const blockedBootstrapReady = new Promise<void>(resolve => { resolveBlockedBootstrap = resolve; });
@@ -53,7 +54,8 @@ export function integrationBridge(): Plugin {
               pending.delete(frame.result.requestId);
               if (!pendingResult.response.destroyed) pendingResult.response.end(JSON.stringify(frame.result));
             };
-            if (backtestMode === 'delay' && pendingResult.command === 'backtest.list') setTimeout(finish, 800);
+            if ((backtestMode === 'delay' && pendingResult.command === 'backtest.list')
+              || (paperMode === 'delay' && pendingResult.command === 'paper.get')) setTimeout(finish, 800);
             else finish();
           }
         }
@@ -157,6 +159,21 @@ export function integrationBridge(): Plugin {
           } catch { response.writeHead(400); response.end(); }
           return;
         }
+        if (request.url === '/paper-mode' && request.method === 'POST') {
+          try {
+            const parts: Buffer[] = []; let size = 0;
+            for await (const chunk of request) {
+              size += chunk.length;
+              if (size > 100) { response.writeHead(413); response.end(); return; }
+              parts.push(chunk);
+            }
+            const payload = JSON.parse(Buffer.concat(parts).toString());
+            if (!['normal', 'delay', 'error'].includes(payload.mode)) { response.writeHead(400); response.end(); return; }
+            paperMode = payload.mode;
+            response.writeHead(204); response.end();
+          } catch { response.writeHead(400); response.end(); }
+          return;
+        }
         if (request.url !== '/command' || request.method !== 'POST') { response.writeHead(404); response.end(); return; }
         try {
           const parts: Buffer[] = []; let size = 0;
@@ -186,6 +203,22 @@ export function integrationBridge(): Plugin {
           response.setHeader('Cache-Control', 'no-store');
           const failedBacktestQuery = (backtestMode === 'list-error' && envelope.command === 'backtest.list')
             || (backtestMode === 'compare-error' && envelope.command === 'backtest.compare');
+          if (paperMode === 'error' && envelope.command === 'paper.get') {
+            response.end(JSON.stringify({
+              requestId: envelope.requestId,
+              schemaVersion: 1,
+              ok: false,
+              error: {
+                category: 'RUNTIME_ERROR',
+                code: 'PAPER_STATE_UNAVAILABLE',
+                message: 'The Local Paper simulation state could not be loaded; retry to restore it.',
+                retryable: true,
+                blocking: true,
+                remediationActions: [{ id: 'retry_paper_state', label: 'Reload account state' }],
+              },
+            }));
+            return;
+          }
           if (failedBacktestQuery) {
             response.end(JSON.stringify({
               requestId: envelope.requestId,

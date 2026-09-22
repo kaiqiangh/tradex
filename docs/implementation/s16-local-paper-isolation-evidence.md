@@ -60,7 +60,19 @@ The current Local Paper browser path covers:
 - resting `ACCEPTED` order, history cancellation, rejection, and insufficient simulation cash;
 - keyboard `Enter`, submit/cancel dialog focus restoration, 1280/768/390 no-overflow, and zero browser console errors.
 
-The disposable browser workspace `39950613-fb34-4b18-8422-fdaa28f45beb` was manually exercised through the same Rust-backed route: full fill, partial fill, explicit cancellation, persisted account history, simulation provenance, and the no-provider boundary were observed. The remaining scenario branches are covered by `local_paper_outcomes_cancel_and_reopen_are_authoritative` and the helper flow above; the current native package could not be inspected while macOS reported itself locked to the desktop automation surface.
+The disposable browser workspace `39950613-fb34-4b18-8422-fdaa28f45beb` was manually exercised through the same Rust-backed route: full fill, partial fill, explicit cancellation, persisted account history, simulation provenance, and the no-provider boundary were observed. The remaining scenario branches are covered by `local_paper_outcomes_cancel_and_reopen_are_authoritative` and the helper flow above. A separate native Tauri package/signing run and the S33 cross-application regression remain pending.
+
+### 2026-09-22 browser state and accessibility follow-up
+
+The Rust-backed browser flow was rechecked in disposable workspace `d8dfe5f5-6107-4ba3-a5c0-83baa2cf9a0c` at `/private/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-browser-LdHuy6/workspace`. The browser bridge contains only fixture setup; no OAuth token, DeepSeek key, broker credential, Keychain entry, or user workspace was read or changed.
+
+- After a full-page reload cleared query cache, a delayed `paper.get` displayed the semantic `Loading Local Paper simulation…` status; the resolved empty state exposed the labelled `Local Paper order history` region and `No Local Paper orders yet.`
+- A controlled retryable `paper.get` failure displayed a semantic alert and enabled `Reload account state`; restoring the bridge and activating the button cleared the alert and restored the history region.
+- Re-entering Order Drafts with an existing proposal now shows `Choose a proposal to inspect its details.` instead of leaving a disabled query in a permanent loading state. Selecting the proposal loads its details.
+- Keyboard submit and cancellation dialogs expose `aria-modal="true"`; focus returns to the proposal panel after submit and the Local Paper summary after cancellation. A partial fill remained visible after the confirmed cancellation.
+- At 1280, 768, and 390 CSS pixels, `document.documentElement.scrollWidth` equalled `clientWidth`. The browser console had no errors.
+
+The direct CUA run reproduced the state assertions in `checkLocalPaperSubmitUI`; that helper remains a manually invoked browser scenario, not part of `npm run test:unit`.
 
 The browser bridge uses a temporary SQLite tree and the Rust IPC binary. It does not read or write ChatGPT OAuth, DeepSeek keys, broker credentials, Keychain data, or a real user workspace. The model route used by the integration bridge is disposable setup data and is not Local Paper authority.
 
