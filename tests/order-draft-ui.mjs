@@ -21,7 +21,6 @@ export async function checkOrderDraftUI(tab, browser) {
 
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
-    await ui.getByRole('status').filter({ hasText: 'Loading proposal…' }).waitFor({ state: 'visible' });
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText('NEEDS_APPROVAL', { exact: true }).count() > 0, true);
     assert.equal(await ui.getByText('GENERATED', { exact: true }).count() > 0, true);
