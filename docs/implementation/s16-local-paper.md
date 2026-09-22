@@ -2,13 +2,13 @@
 
 日期：2026-09-21  
 前置：S09 组合与 FX 只读切片、S13 Draft/Proposal 切片  
-状态：规格阶段；实现、S17–S20 provider lifecycle、S21+ financial authority 与 S33 全量回归仍未完成
+状态：S16 实现与父 Spec 验收已完成。代码检查 SHA：`100db3d0fa0e7718174e1f335e095517833a3efc`；证据索引 SHA：`4ad4d4a581b428dbb80dadb4f7f18eda5d4f86c5`。验证细节见 [S16 Local Paper 隔离验收](s16-local-paper-isolation-evidence.md)。S17–S20 provider lifecycle、S21+ financial authority 与 S33 全量回归仍属于后续范围。
 
 ## Problem Statement
 
-TradeX 当前已经能够把订单草稿保存为不可变 Proposal，也能在能力层把 `LOCAL_PAPER` 识别为 C3 simulation context，但 Local Paper 仍是不可用的 provider catalog 占位。账户页明确写着 simulation engine 未配置，`portfolio.get` 只能读取 provider 观察结果或 fixture，Control Plane 没有本地订单、成交、现金、持仓、未完成订单和填充记录的权威持久化模型。
+S16 开始实施前，TradeX 已能够把订单草稿保存为不可变 Proposal，也能在能力层把 `LOCAL_PAPER` 识别为 C3 simulation context，但 Local Paper 仍是不可用的 provider catalog 占位。账户页明确写着 simulation engine 未配置，`portfolio.get` 只能读取 provider 观察结果或 fixture，Control Plane 没有本地订单、成交、现金、持仓、未完成订单和填充记录的权威持久化模型。
 
-这造成三个产品缺口：用户不能从一个明确标为 TradeX simulation 的 Local Paper 账户执行已审阅 Proposal；重开 workspace 后没有可恢复的模拟状态；任何原型中的状态或固定 broker-like 数值都可能被误读成 provider execution truth。S16 必须补齐一个完全由 TradeX 管理的、可重复的本地执行边界，同时保持它与 broker Paper/Demo/Testnet 和 Live Gateway 的架构隔离。
+这在 S16 开始时造成三个产品缺口：用户不能从一个明确标为 TradeX simulation 的 Local Paper 账户执行已审阅 Proposal；重开 workspace 后没有可恢复的模拟状态；任何原型中的状态或固定 broker-like 数值都可能被误读成 provider execution truth。S16 补齐了由 TradeX 管理的可重复本地执行边界，同时保持它与 broker Paper/Demo/Testnet 和 Live Gateway 的架构隔离。
 
 Local Paper 不是真实市场、券商账户或预期 Live 结果的代理。它只消费 Local Paper Proposal 和本地可审计的 simulation input，所有结果都标记为 `TRADEX_SIMULATION`，并在 UI、IPC、持久化投影和 portfolio 汇总中保留该身份。
 
@@ -71,7 +71,7 @@ Local Paper 不是真实市场、券商账户或预期 Live 结果的代理。�
 - UI 复用 Accounts、Portfolio 和 Order Draft/Proposal 页面，增加 Local Paper simulator panel、submit/cancel confirmation、scenario/profile disclosure、order/fill/history 和 empty/loading/error/stale/retry states。所有状态使用文本 + 状态标识；modal 关闭后恢复触发控件焦点，390/768/1280 不能隐藏 environment 或 remediation。
 - Local Paper actions 只能从明确选中的 Local Paper Proposal 发起。Agent mode/context picker 可以展示 C3 capability，但 typed research/model/thread tools 不获得 `paper.order.submit`；只有用户在 Trade surface 明确触发，Control Plane 才能消费 Proposal。
 - 任何 integration fixture、synthetic quote 或 seeded scenario 都必须在 response/UI/event 中标记 `TRADEX_SIMULATION` 与 scenario identity。固定 ID、浏览器 fixture、截图或 React local state 不能作为完成证据。
-- 中文/英文 Backend ARD §30、§32、§41–42，Frontend ARD 的 order/portfolio surfaces，requirements.csv（FR-033、AC-064、UX-004）、surfaces.csv（G1）和 coverage/evidence 文档在实现验收时同步；本规格阶段不宣称这些需求已完成。
+- 中文/英文 Backend ARD §30、§32、§41–42，Frontend ARD 的 order/portfolio surfaces，requirements.csv（FR-033、AC-064、UX-004）、surfaces.csv（G1）和 coverage/evidence 文档在 S16 实现验收时同步；实现状态、SHA 和验证边界见 [S16 Local Paper 隔离验收](s16-local-paper-isolation-evidence.md)。S16 的局部验收不代表 S17–S20 provider lifecycle、S21+ financial authority、S33 全量回归或跨阶段需求状态已完成。
 
 ## Testing Decisions
 
