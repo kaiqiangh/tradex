@@ -1,6 +1,6 @@
 # TradeX Prototype QA Report — v1.0 RevC
 
-**Revision date:** 2026-09-23\
+**Revision date:** 2026-09-24\
 **Evidence baseline:** docs/prototype reviewed at main@6c4b267; this revision changes documentation only, not HTML/CSS/JS\
 **Scope:** document consistency, source inspection, standalone fixture interaction, and limited browser checks
 
@@ -162,7 +162,7 @@ Each case separates observation from post-repair acceptance. Source line referen
 **Status: FAILED** · **Method:** Final source inspection · **Traceability:** FR-081; AC-067
 
 - Steps: Select a failed or disconnected Trading 212 Demo account; inspect the account detail and keyboard interaction for a permanent local-removal action.
-- Expected/post-repair acceptance: Offer deletion only with credential health `MISSING`; show an accessible confirmation naming the exact Demo connection and local-only scope; dismissal makes no change; confirmation removes only that account and its account/order-book observations atomically. Live, unrelated accounts, provider state, and terminal proposal/attempt history remain unchanged. Verify backend guards and 390/768 px focus/layout behavior.
+- Expected/post-repair acceptance: Offer deletion only with credential health `MISSING`; show an accessible confirmation naming the full connection ID, label, provider/environment, and local-only scope; dismissal makes no change; confirmation removes only that account and its account/order-book observations atomically. Live, unrelated accounts, provider state, and terminal proposal/attempt history remain unchanged. Verify backend guards and 390/768 px focus/layout behavior.
 - Observed: The clickable prototype's effective account-detail renderer has only Live arming or simulated-trade controls and no permanent-removal action or confirmation. Runtime implementation/test evidence for S18 #66 is tracked separately and does not establish prototype acceptance.
 - Evidence: [app.js:668–672](./prototype/app.js); target: [UI Spec §14.11](./TradeX_UI_Prototype_Spec_v1.0_RevC.md#1411-trading-212-demo-local-account-deletion-s18-66).
 

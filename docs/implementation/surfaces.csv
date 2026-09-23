@@ -81,4 +81,4 @@ QA-09,Backtest entry and frozen run inputs,docs/TradeX_Prototype_QA_Report_v1.0_
 QA-10,Model setup and remediation,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,127,"S03,S04,S27,S33",NOT_STARTED,
 QA-11,Keyboard and modal focus,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,138,"S33,S33",NOT_STARTED,
 QA-12,Narrow navigation and retained actions,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,149,"S33,S33",NOT_STARTED,
-QA-13,Permanent Trading 212 Demo account removal,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,160,"S18,S33",IMPLEMENTED_UNVERIFIED,Runtime S18 #66 evidence: docs/implementation/s18-trading212-demo-delete-evidence.md at d093a124c59dcc1134122d70848b80e4ea586e14; clickable prototype remains FAILED; S33 full regression pending
+QA-13,Permanent Trading 212 Demo account removal,docs/TradeX_Prototype_QA_Report_v1.0_RevC.md,160,"S18,S33",IMPLEMENTED_UNVERIFIED,Runtime S18 #66 evidence: docs/implementation/s18-trading212-demo-delete-evidence.md at 383e4c60dad4164f6fc7aab1d8869e2fe6d2b8a3; clickable prototype remains FAILED; S33 full regression pending

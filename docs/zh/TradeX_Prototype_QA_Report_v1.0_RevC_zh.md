@@ -1,6 +1,6 @@
 # TradeX Prototype QA 报告 — v1.0 RevC
 
-**修订日期：** 2026-09-23\
+**修订日期：** 2026-09-24\
 **证据基线：** 审查时 main@6c4b267 的 docs/prototype；本次仅修改文档，HTML/CSS/JS 未变\
 **范围：** 文档一致性、源码、独立原型交互与有限浏览器检查
 
@@ -162,7 +162,7 @@
 **状态：FAILED** · **方法：** 最终源码检查 · **追溯：** FR-081; AC-067
 
 - 操作：选择失败或已断开的 Trading 212 Demo 账户；检查详情页和键盘交互中是否提供永久本地移除操作。
-- 预期/修复后验收：仅当 credential health 为 `MISSING` 时提供删除；显示可访问的确认框并指明准确 Demo connection 与本地作用范围；关闭不产生变更；确认后原子删除且仅删除该账户及账户/订单簿观察。Live、无关账户、provider 状态与终态 proposal/attempt 历史保持不变。验证后端守卫及 390/768 px 焦点/布局。
+- 预期/修复后验收：仅当 credential health 为 `MISSING` 时提供删除；显示可访问的确认框并指明完整 connection ID、label、provider/environment 与本地作用范围；关闭不产生变更；确认后原子删除且仅删除该账户及账户/订单簿观察。Live、无关账户、provider 状态与终态 proposal/attempt 历史保持不变。验证后端守卫及 390/768 px 焦点/布局。
 - 实际：点击式原型最终生效的账户详情 renderer 只有 Live arming 或模拟交易操作，没有永久移除操作或确认框。S18 #66 的运行时实现/测试证据单独跟踪，不能证明原型已验收。
 - 证据：[app.js:668–672](../prototype/app.js)；目标：UI Spec §14.11。
 

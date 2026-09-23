@@ -23,7 +23,7 @@
 | 1.0 RevB | 2026-09-04 | LLM 网关架构重构:模型接入限定为两个来源——本地 CLIProxyAPI(ChatGPT 订阅 OAuth → GPT-5.6)与 DeepSeek 官方 API key——统一经由单一本地 OpenAI 兼容端点(§16、§26.3、§27、§58、§64);OD-009/OD-015 转为已决议(§72);安全增补 SEC-007/SEC-008 与 Model-credential zone(§17、§62.2);审批/预留时序加固(§15、§18、§21.3、§22、§23、§45、§46、§47);MVP 存储画像简化(§32、§54);适配器合并(§24);LLM 错误分类(§51);FR-068–FR-073 与 AC-055–AC-058(§61、§69);隐私披露(§56);JTBD/范围/成功标准更新(§8、§68、§73)。 |
 | 1.0 RevC | 2026-09-04 | 产品状态模型与原型统一:将 Agent Mode 与 Execution Context 分离(§12–§15);新增每轮不可变上下文/模型快照、OrderDraft→OrderProposal 语义、兼容矩阵、账户级布防、基于证据的对账人工处置、提供方权限安全门、时间/FX 溯源与更细粒度能力描述;跨提供方 LLM 自动回退默认关闭并改为显式 opt-in/默认手动(§16、§26.3、§51、§56);统一 DuckDB/Parquet 与市场数据分层语义(§32、§54、§63);强化 FR/AC/NFR/SEC/DATA/OPS/UX 追溯、Phase 0 门槛、成功指标与开放决策治理;同步英文/中文 PRD、UI Spec、Coverage Matrix、QA Report 与独立原型。 |
 | 1.0 RevC 澄清 | 2026-09-05 | 按提交状态限定过期/预留释放，明确全局 disarm 范围与撤单身份，补充 Gateway/IPC 契约引用，校正证据等级并同步双语；原型代码未变。 |
-| 1.0 RevC S18 本地账户删除增补 | 2026-09-23 | 新增 FR-081 / AC-067：经确认、原子地删除符合条件且无本地凭据的 Trading 212 Demo 账户；保护 Live、其他连接、提供方状态及终态金融审计历史。 |
+| 1.0 RevC S18 本地账户删除增补 | 2026-09-24 | 新增 FR-081 / AC-067：经确认、原子地删除符合条件且无本地凭据的 Trading 212 Demo 账户；确认框显示完整 connection ID 以区分同名记录，并保护 Live、其他连接、提供方状态及终态金融审计历史。 |
 
 ## 目录
 
@@ -3321,7 +3321,7 @@ Demo 与 live 账户表示为独立的连接。
 提供方连接 UI 由提供方凭证/能力 schema 渲染,不假设每个提供方使用相同的凭证字段。
 
 **AC-067**
-只有没有本地凭据且处于 `FAILED` 或 `DISCONNECTED` 状态的 `trading212` / `DEMO` 连接，才可在用户明确确认并看到准确所选记录后永久删除。确认说明提供方密钥、提供方订单及其他所有连接均不受影响。后端重新检查活动 workspace、身份、状态版本、凭据健康、未完成订单、待审批 proposal 与未解决 attempt，然后在同一事务中删除账户 projection、账户观察及 Demo 订单簿观察。`SUBMITTING` 和 `UNKNOWN_RECONCILING` attempt 仍未解决；`ACKNOWLEDGED` attempt 只有在其准确关联订单已持久化为已识别终态且 `pending: false` 后，才视为删除前已解决。保留终态 proposal/attempt 审计历史。取消不产生变更；成功后刷新列表/上下文并播报完成；焦点返回触发控件或逻辑替代位置；失败时目标数据保持完整。
+只有没有本地凭据且处于 `FAILED` 或 `DISCONNECTED` 状态的 `trading212` / `DEMO` 连接，才可在用户明确确认并通过完整 connection ID、label、provider 和 environment 识别准确记录后永久删除。确认说明提供方密钥、提供方订单及其他所有连接均不受影响。后端重新检查活动 workspace、身份、状态版本、凭据健康、未完成订单、待审批 proposal 与未解决 attempt，然后在同一事务中删除账户 projection、账户观察及 Demo 订单簿观察。`SUBMITTING` 和 `UNKNOWN_RECONCILING` attempt 仍未解决；`ACKNOWLEDGED` attempt 只有在其准确关联订单已持久化为已识别终态且 `pending: false` 后，才视为删除前已解决。保留终态 proposal/attempt 审计历史。取消不产生变更；成功后刷新列表/上下文并播报完成；焦点返回触发控件或逻辑替代位置；失败时目标数据保持完整。
 
 ---
 

@@ -1,7 +1,7 @@
 # TradeX High-Fidelity Prototype / UI Specification
 
 **Version:** 1.0 Final — Revision C  
-**Date:** 2026-09-23 (S18 account-deletion addendum)\
+**Date:** 2026-09-24 (S18 exact-record confirmation clarification)\
 **Source of truth:** `TradeX_PRD_v1.0_RevC.md`  
 **Prototype type:** Desktop-first interactive product prototype target specification  
 **Prototype implementation:** `prototype/index.html`, `prototype/styles.css`, `prototype/app.js`  
@@ -1168,6 +1168,6 @@ The QA Report's QA-01–QA-13 scenarios define the minimum regression set for th
 
 ## 14.11 Trading 212 Demo local account deletion (S18 #66)
 
-The Accounts detail offers “Delete local account” only for the selected `trading212` / `DEMO` record when its connection state is `FAILED` or `DISCONNECTED` and credential health is `MISSING`. Open a native accessible confirmation dialog that identifies the captured account label, provider and environment and states that TradeX-local account details plus account/order-book observations are permanently removed. It explicitly says the operation makes no Trading 212 request, does not revoke a provider key or cancel provider orders, and leaves every other account unchanged. The initial focus is on Cancel; the dialog traps keyboard focus and Escape/Cancel send no command. Failure explains the backend rejection/storage result and keeps the dialog actionable; success announces completion, refreshes the list/context, removes the deleted detail, and restores focus to its trigger or the Account connections heading. Verify 390 px and 768 px layouts.
+The Accounts detail offers “Delete local account” only for the selected `trading212` / `DEMO` record when its connection state is `FAILED` or `DISCONNECTED` and credential health is `MISSING`. Open a native accessible confirmation dialog that identifies the captured record by its full connection ID, label, provider and environment and states that TradeX-local account details plus account/order-book observations are permanently removed. It explicitly says the operation makes no Trading 212 request, does not revoke a provider key or cancel provider orders, and leaves every other account unchanged. The initial focus is on Cancel; the dialog traps keyboard focus and Escape/Cancel send no command. Failure explains the backend rejection/storage result and keeps the dialog actionable; success announces completion, refreshes the list/context, removes the deleted detail, and restores focus to its trigger or the Account connections heading. Verify 390 px and 768 px layouts.
 
 This UI calls only version-1 `account.delete` with workspace, exact connection ID and expected state version. It does not send a Keychain reference or invoke provider I/O. The backend independently checks deletion eligibility and unresolved financial activity; an `ACKNOWLEDGED` attempt stays unresolved until its exact linked order has a durable recognized terminal observation with `pending: false`. Keep clickable-prototype evidence separate from runtime integration evidence.

@@ -1,6 +1,6 @@
 # TradeX 前端架构需求与设计（ARD）
 
-**契约澄清日期：** 2026-09-05（RevC）；S18 本地账户删除契约于 2026-09-23 增补。原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
+**契约澄清日期：** 2026-09-05（RevC）；S18 本地账户删除契约于 2026-09-24 澄清为通过完整 connection ID 识别同名记录。原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
 
 **版本：** v1.0 Revision C (RevC)  
 **状态：** 工程基线  
@@ -620,7 +620,7 @@ UI 区分尚未同步、加载、空、当前、stale/degraded 和限流读取�
 
 ### 13.13 Trading 212 Demo 本地账户删除（S18 #66）
 
-Accounts 仅在所选 Trading 212 Demo connection 处于 FAILED 或 DISCONNECTED 且 credential health 为 MISSING 时提供“删除本地账户”。原生确认框标出捕获的账户 label/provider/environment，明确说明将删除 TradeX 本地账户及账户/订单簿观察，并说明 provider key/order 与其他所有连接保持不变。Cancel/Escape 为只读操作。确认只调用 `account.delete`；后端资格校验仍是权威边界。`ACKNOWLEDGED` attempt 在其准确关联订单获得持久化且已识别的终态观察、`pending: false` 前仍属未解决。成功后失效 account list/detail/context 查询，移除所选详情，播报完成，并将焦点返回触发控件或 `Account connections`。若状态陈旧、存在未解决活动或存储失败，显示 accessible 错误并保留账户视图供恢复。已有连接选择与安全的新账户输入仍可使用。
+Accounts 仅在所选 Trading 212 Demo connection 处于 FAILED 或 DISCONNECTED 且 credential health 为 MISSING 时提供“删除本地账户”。原生确认框通过完整 connection ID、账户 label、provider 和 environment 标识捕获的准确记录，明确说明将删除 TradeX 本地账户及账户/订单簿观察，并说明 provider key/order 与其他所有连接保持不变。Cancel/Escape 为只读操作。确认只调用 `account.delete`；后端资格校验仍是权威边界。`ACKNOWLEDGED` attempt 在其准确关联订单获得持久化且已识别的终态观察、`pending: false` 前仍属未解决。成功后失效 account list/detail/context 查询，移除所选详情，播报完成，并将焦点返回触发控件或 `Account connections`。若状态陈旧、存在未解决活动或存储失败，显示 accessible 错误并保留账户视图供恢复。已有连接选择与安全的新账户输入仍可使用。
 
 ---
 

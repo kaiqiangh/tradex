@@ -1,7 +1,7 @@
 # TradeX 高保真原型 / UI 规范
 
 **版本:** 1.0 Final — Revision C(中文版)  
-**日期:** 2026-09-23（S18 本地账户删除增补）\
+**日期:** 2026-09-24（S18 准确记录确认澄清）\
 **英文权威版:** `TradeX_UI_Prototype_Spec_v1.0_RevC.md`  
 **PRD:** `TradeX_PRD_v1.0_RevC_zh.md`  
 **原型实现:** `../prototype/index.html`、`../prototype/styles.css`、`../prototype/app.js`\
@@ -877,6 +877,6 @@ QA Report 的 QA-01–QA-13 是本章细化要求的最低回归集合。通过�
 
 ## 14.11 Trading 212 Demo 本地账户删除（S18 #66）
 
-Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection state=`FAILED` 或 `DISCONNECTED` 且 credential health=`MISSING` 时提供“删除本地账户”。打开原生 accessible confirmation dialog，明确显示捕获的账户 label、provider 和 environment，并说明会永久删除 TradeX 本地账户详情与账户/订单簿观察。明确说明不会向 Trading 212 发请求、不会撤销 provider key 或取消 provider order，也不改变其他任何账户。初始焦点位于 Cancel；dialog 限制键盘焦点，Escape/Cancel 不发送 command。失败时显示后端拒绝/存储结果且保持可操作；成功后播报完成、刷新列表/上下文、移除已删除详情，并将焦点还给触发控件或 Account connections 标题。验证 390 px 与 768 px 布局。
+Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection state=`FAILED` 或 `DISCONNECTED` 且 credential health=`MISSING` 时提供“删除本地账户”。打开原生 accessible confirmation dialog，通过完整 connection ID、账户 label、provider 和 environment 明确标识捕获的准确记录，并说明会永久删除 TradeX 本地账户详情与账户/订单簿观察。明确说明不会向 Trading 212 发请求、不会撤销 provider key 或取消 provider order，也不改变其他任何账户。初始焦点位于 Cancel；dialog 限制键盘焦点，Escape/Cancel 不发送 command。失败时显示后端拒绝/存储结果且保持可操作；成功后播报完成、刷新列表/上下文、移除已删除详情，并将焦点还给触发控件或 Account connections 标题。验证 390 px 与 768 px 布局。
 
 该 UI 仅调用版本 1 的 `account.delete`，携带 workspace、准确 connection ID 与预期 state version。不发送 Keychain 引用，也不调用 provider I/O。后端独立检查删除资格与未解决金融活动；`ACKNOWLEDGED` attempt 在其准确关联订单获得持久化且已识别的终态观察、`pending: false` 前仍属未解决。点击原型证据必须与运行时集成证据分开。
