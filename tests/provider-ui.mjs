@@ -516,20 +516,28 @@ export async function checkTrading212DemoLocalDeleteUI(tab, browser) {
     const label = `S18 delete QA ${Date.now()}`;
     const seeded = await sendIntegrationCommand('account.delete.fixture.seed', { workspaceId, label });
     const account = seeded.data;
+    const duplicate = await sendIntegrationCommand('account.delete.fixture.seed', { workspaceId, label });
+    const third = await sendIntegrationCommand('account.delete.fixture.seed', { workspaceId, label });
     assert.equal(account.providerId, 'trading212');
     assert.equal(account.environment, 'DEMO');
     assert.equal(account.connectionState, 'DISCONNECTED');
     assert.equal(account.health.credential, 'MISSING');
+    assert.notEqual(account.connectionId, duplicate.data.connectionId);
+    assert.notEqual(account.connectionId, third.data.connectionId);
+    assert.notEqual(duplicate.data.connectionId, third.data.connectionId);
     await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.locator('input[type="password"]').count(), 0);
-    await ui.locator('.account-row').filter({ hasText: label }).press('Enter');
+    const accounts = await sendIntegrationCommand('account.list', { workspaceId });
+    assert.equal(await ui.locator('.account-row').filter({ hasText: label }).count(), 3, 'Same-label Demo records render as separate rows');
+    const targetIndex = accounts.data.accounts.findIndex(candidate => candidate.connectionId === account.connectionId);
+    assert.ok(targetIndex >= 0, 'The selected deletion target is in the account list');
+    await ui.locator('.account-row').nth(targetIndex).press('Enter');
     const detail = ui.getByRole('region', { name: label, exact: true });
     assert.match(await detail.innerText(), /DISCONNECTED/);
-
-    const accounts = await sendIntegrationCommand('account.list', { workspaceId });
     assert.ok(accounts.data.accounts.some(candidate => candidate.connectionId === account.connectionId), 'The isolated disconnected Demo record remains before deletion');
     const accountIdsBeforeDelete = accounts.data.accounts.map(candidate => candidate.connectionId).sort();
+    const currentAccountIds = async () => (await sendIntegrationCommand('account.list', { workspaceId })).data.accounts.map(candidate => candidate.connectionId).sort();
     const deleteButton = ui.getByRole('button', { name: 'Delete local account', exact: true });
     await deleteButton.waitFor({ state: 'visible' });
     const dialog = ui.getByRole('dialog', { name: 'Delete local account?', exact: true });
@@ -539,6 +547,7 @@ export async function checkTrading212DemoLocalDeleteUI(tab, browser) {
       const text = await dialog.innerText();
       assert.ok(text.includes(label));
       assert.match(text, /trading212 · DEMO/);
+      assert.ok(text.includes(account.connectionId), 'The confirmation identifies the exact selected connection');
       assert.match(text, /permanently removes TradeX-local account details and account\/order-book observations/);
       assert.match(text, /does not contact Trading 212, revoke its API key, cancel provider orders, or change any other account/);
       assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Cancel');
@@ -551,12 +560,12 @@ export async function checkTrading212DemoLocalDeleteUI(tab, browser) {
     }
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).press('Enter');
     assert.equal(await dialog.isVisible(), false);
-    assert.ok((await sendIntegrationCommand('account.list', { workspaceId })).data.accounts.some(candidate => candidate.connectionId === account.connectionId));
+    assert.deepEqual(await currentAccountIds(), accountIdsBeforeDelete, 'Cancel preserves every same-label connection');
     await review();
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).press('Escape');
     assert.equal(await dialog.isVisible(), false);
-    assert.ok((await sendIntegrationCommand('account.list', { workspaceId })).data.accounts.some(candidate => candidate.connectionId === account.connectionId));
-    observed.push('Dialog names the exact Demo record and local-only scope; Cancel and Escape preserve the record; keyboard focus starts on Cancel and the dialog fits 768px/390px.');
+    assert.deepEqual(await currentAccountIds(), accountIdsBeforeDelete, 'Escape preserves every same-label connection');
+    observed.push('Dialog names the exact connection ID despite duplicate labels; Cancel and Escape preserve every record; keyboard focus starts on Cancel and the dialog fits 768px/390px.');
 
     await viewport.set({ width: 1280, height: 900 });
     await review();
@@ -572,7 +581,7 @@ export async function checkTrading212DemoLocalDeleteUI(tab, browser) {
       const snapshot = await sendIntegrationCommand('domain.snapshot', { aggregateType, aggregateId: account.connectionId }, false);
       assert.equal(snapshot.error.code, 'IPC_AGGREGATE_NOT_FOUND');
     }
-    observed.push('Explicit confirmation removes only the disposable Demo account through the Account UI and Rust dispatcher.');
+    observed.push('Explicit confirmation removes only the selected same-label disposable Demo account through the Account UI and Rust dispatcher.');
     const browserErrors = await tab.dev.logs({ levels: ['error'], limit: 100 });
     assert.equal(browserErrors.filter(error => !error.message.includes('chrome-extension://')).length, 0);
     return observed;
