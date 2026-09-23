@@ -4,7 +4,7 @@
 
 前置：S02 提供方连接、S13 OrderDraft/OrderProposal、S16 Local Paper
 
-状态：S17 规范已完成；#57 已完成，#58 实现、本地验收、双语 ARD 和 Standards/Spec 复核均已完成，证据见 [S17 #58 订单/成交/撤单验收](s17-alpaca-paper-orderbook-evidence.md)；#59 私有流、断线/重连、重启 REST 对账及订单/账户 UI 已通过本地验收，证据见 [S17 #59 私有流验收](s17-alpaca-paper-stream-evidence.md)，GitHub issue 仍为 OPEN。S17 整体验收尚未完成：真实 Paper sandbox lifecycle gate 仍待完成；S18–S20、S21+ financial authority 和 S33 全量回归仍属于后续工作项。
+状态：S17 规范已完成；#57 已完成，#58 实现、本地验收、双语 ARD 和 Standards/Spec 复核均已完成，证据见 [S17 #58 订单/成交/撤单验收](s17-alpaca-paper-orderbook-evidence.md)；#59 私有流、断线/重连、重启 REST 对账及订单/账户 UI 已通过本地验收并关闭，证据见 [S17 #59 私有流验收](s17-alpaca-paper-stream-evidence.md)。S17 整体验收尚未完成：真实 Paper sandbox lifecycle gate 仍待完成；S18–S20、S21+ financial authority 和 S33 全量回归仍属于后续工作项。
 
 ## Problem Statement
 
