@@ -53,6 +53,13 @@ pub struct Http {
     pub calls: RefCell<Vec<String>>,
     pub alpaca_posts: RefCell<Vec<Value>>,
     pub alpaca_order: RefCell<Option<Value>>,
+    pub alpaca_order_history: RefCell<Vec<Value>>,
+    pub alpaca_fills: RefCell<Vec<Value>>,
+    pub alpaca_repeat_order_cursor: Cell<bool>,
+    pub alpaca_delete_calls: RefCell<Vec<String>>,
+    pub alpaca_delete_status: Cell<Option<u16>>,
+    pub alpaca_delete_confirms_cancel: Cell<bool>,
+    pub alpaca_delete_order_status: RefCell<Option<String>>,
     pub alpaca_lookup_misses: Cell<u32>,
     pub alpaca_post_timeout: Cell<bool>,
     pub alpaca_order_currency: RefCell<String>,
@@ -68,6 +75,13 @@ impl Default for Http {
             calls: RefCell::new(vec![]),
             alpaca_posts: RefCell::new(vec![]),
             alpaca_order: RefCell::new(None),
+            alpaca_order_history: RefCell::new(vec![]),
+            alpaca_fills: RefCell::new(vec![]),
+            alpaca_repeat_order_cursor: Cell::new(false),
+            alpaca_delete_calls: RefCell::new(vec![]),
+            alpaca_delete_status: Cell::new(None),
+            alpaca_delete_confirms_cancel: Cell::new(false),
+            alpaca_delete_order_status: RefCell::new(None),
             alpaca_lookup_misses: Cell::new(0),
             alpaca_post_timeout: Cell::new(false),
             alpaca_order_currency: RefCell::new("USD".into()),
@@ -137,6 +151,51 @@ impl ProviderHttp for Http {
                 }
             }
             (ProviderHttpMethod::Get, path, None)
+                if path == "/v2/orders?status=all&limit=100&direction=desc&nested=false"
+                    || path.starts_with("/v2/orders?status=all&limit=100&direction=desc&nested=false&before_order_id=") =>
+            {
+                let mut orders = self.alpaca_order_history.borrow().clone();
+                if let Some(order) = self.alpaca_order.borrow().clone()
+                    && !orders.iter().any(|item| item["id"] == order["id"])
+                {
+                    orders.push(order);
+                }
+                orders.sort_by(|left, right| right["submitted_at"].as_str().cmp(&left["submitted_at"].as_str()));
+                let start = path
+                    .split_once("before_order_id=")
+                    .and_then(|(_, cursor)| {
+                        if self.alpaca_repeat_order_cursor.get() {
+                            Some(0)
+                        } else {
+                            orders.iter().position(|order| order["id"] == cursor).map(|index| index + 1)
+                        }
+                    })
+                    .unwrap_or(0);
+                let values = orders.into_iter().skip(start).take(100).collect::<Vec<_>>();
+                Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&values).unwrap() })
+            }
+            (ProviderHttpMethod::Get, path, None) if path.starts_with("/v2/orders/") => {
+                let order_id = path.trim_start_matches("/v2/orders/");
+                let order = self.alpaca_order_history.borrow().iter().find(|order| order["id"] == order_id).cloned()
+                    .or_else(|| self.alpaca_order.borrow().clone().filter(|order| order["id"] == order_id));
+                match order {
+                    Some(order) => Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&order).unwrap() }),
+                    None => Ok(ProviderHttpResponse { status: 404, body: Vec::new() }),
+                }
+            }
+            (ProviderHttpMethod::Get, path, None)
+                if path == "/v2/account/activities/FILL?page_size=100&direction=desc"
+                    || path.starts_with("/v2/account/activities/FILL?page_size=100&direction=desc&page_token=") =>
+            {
+                let fills = self.alpaca_fills.borrow().clone();
+                let start = path
+                    .split_once("page_token=")
+                    .and_then(|(_, cursor)| fills.iter().position(|fill| fill["id"] == cursor).map(|index| index + 1))
+                    .unwrap_or(0);
+                let values = fills.into_iter().skip(start).take(100).collect::<Vec<_>>();
+                Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&values).unwrap() })
+            }
+            (ProviderHttpMethod::Get, path, None)
                 if path.starts_with("/v2/orders:by_client_order_id?client_order_id=") =>
             {
                 if self.alpaca_lookup_misses.get() > 0 {
@@ -174,7 +233,8 @@ impl ProviderHttp for Http {
                     "asset_class":"us_equity","side":request["side"],
                     "type":request["type"],"time_in_force":request["time_in_force"],
                     "qty":request.get("qty"),"notional":request.get("notional"),
-                    "limit_price":request.get("limit_price"),"status":"accepted"
+                    "limit_price":request.get("limit_price"),"status":"accepted",
+                    "filled_qty":"0","submitted_at":"2026-09-23T10:00:00Z","created_at":"2026-09-23T10:00:00Z"
                 });
                 *self.alpaca_order.borrow_mut() = Some(order);
                 if self.alpaca_post_timeout.get() {
@@ -186,6 +246,27 @@ impl ProviderHttp for Http {
                             .unwrap(),
                     })
                 }
+            }
+            (ProviderHttpMethod::Delete, path, None) if path.starts_with("/v2/orders/") => {
+                let order_id = path.trim_start_matches("/v2/orders/").to_owned();
+                self.alpaca_delete_calls.borrow_mut().push(order_id.clone());
+                let status = self.alpaca_delete_status.get().unwrap_or(204);
+                if status == 204 && (self.alpaca_delete_confirms_cancel.get() || self.alpaca_delete_order_status.borrow().is_some()) {
+                    let provider_status = self.alpaca_delete_order_status.borrow().clone().unwrap_or_else(|| "canceled".into());
+                    if let Some(order) = self.alpaca_order.borrow_mut().as_mut().filter(|order| order["id"] == order_id) {
+                        order["status"] = provider_status.clone().into();
+                        if provider_status == "filled" {
+                            order["filled_qty"] = order["qty"].clone();
+                        }
+                    }
+                    if let Some(order) = self.alpaca_order_history.borrow_mut().iter_mut().find(|order| order["id"] == order_id) {
+                        order["status"] = provider_status.clone().into();
+                        if provider_status == "filled" {
+                            order["filled_qty"] = order["qty"].clone();
+                        }
+                    }
+                }
+                Ok(ProviderHttpResponse { status, body: Vec::new() })
             }
             _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
         }

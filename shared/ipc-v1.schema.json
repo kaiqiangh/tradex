@@ -13,6 +13,12 @@
     "aggregate": {
       "$ref": "#/$defs/Aggregate"
     },
+    "alpacaPaperFill": {
+      "$ref": "#/$defs/AlpacaPaperFill"
+    },
+    "alpacaPaperOrder": {
+      "$ref": "#/$defs/AlpacaPaperOrder"
+    },
     "alpacaPaperOrderAttempt": {
       "$ref": "#/$defs/AlpacaPaperOrderAttempt"
     },
@@ -22,8 +28,26 @@
     "alpacaPaperOrderAttemptQueryResult": {
       "$ref": "#/$defs/AlpacaPaperOrderAttemptQueryResult"
     },
+    "alpacaPaperOrderBook": {
+      "$ref": "#/$defs/AlpacaPaperOrderBook"
+    },
+    "alpacaPaperOrderBookQuery": {
+      "$ref": "#/$defs/AlpacaPaperOrderBookQuery"
+    },
+    "alpacaPaperOrderBookQueryResult": {
+      "$ref": "#/$defs/AlpacaPaperOrderBookQueryResult"
+    },
+    "alpacaPaperOrderBookRefresh": {
+      "$ref": "#/$defs/AlpacaPaperOrderBookRefresh"
+    },
+    "alpacaPaperOrderCancel": {
+      "$ref": "#/$defs/AlpacaPaperOrderCancel"
+    },
     "alpacaPaperOrderReconcile": {
       "$ref": "#/$defs/AlpacaPaperOrderReconcile"
+    },
+    "alpacaPaperOrderReview": {
+      "$ref": "#/$defs/AlpacaPaperOrderReview"
     },
     "alpacaPaperOrderSubmit": {
       "$ref": "#/$defs/AlpacaPaperOrderSubmit"
@@ -366,6 +390,14 @@
     "alpacaPaperOrderAttemptQueryResult",
     "alpacaPaperOrderReconcile",
     "alpacaPaperOrderAttempt",
+    "alpacaPaperOrderBookQuery",
+    "alpacaPaperOrderBookQueryResult",
+    "alpacaPaperOrderBookRefresh",
+    "alpacaPaperOrderReview",
+    "alpacaPaperOrderCancel",
+    "alpacaPaperOrderBook",
+    "alpacaPaperOrder",
+    "alpacaPaperFill",
     "artifactSave",
     "artifactQuery",
     "artifactExport",
@@ -685,6 +717,194 @@
         "aggregateId"
       ]
     },
+    "AlpacaPaperCancelState": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "SUBMITTING",
+        "PENDING"
+      ]
+    },
+    "AlpacaPaperFill": {
+      "type": "object",
+      "properties": {
+        "activityId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "price": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 36
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "activityId",
+        "providerOrderId",
+        "symbol",
+        "side",
+        "quantity",
+        "price",
+        "executedAt",
+        "observedAt"
+      ]
+    },
+    "AlpacaPaperOrder": {
+      "type": "object",
+      "properties": {
+        "cancelError": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "cancelIdempotencyKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cancelState": {
+          "$ref": "#/$defs/AlpacaPaperCancelState"
+        },
+        "clientOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "filledQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderType": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "origin": {
+          "$ref": "#/$defs/AlpacaPaperOrderOrigin"
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 36
+        },
+        "providerStatus": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "remainingQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "submittedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "timeInForce": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerOrderId",
+        "clientOrderId",
+        "symbol",
+        "side",
+        "orderType",
+        "timeInForce",
+        "providerStatus",
+        "filledQuantity",
+        "submittedAt",
+        "observedAt",
+        "origin",
+        "cancelState"
+      ]
+    },
     "AlpacaPaperOrderAttempt": {
       "type": "object",
       "properties": {
@@ -831,6 +1051,206 @@
         "REJECTED"
       ]
     },
+    "AlpacaPaperOrderBook": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "fills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AlpacaPaperFill"
+          },
+          "maxItems": 1000
+        },
+        "lastSuccessfulSyncAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AlpacaPaperOrder"
+          },
+          "maxItems": 500
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/AlpacaPaperOrderBookStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "remoteAccountId",
+        "status",
+        "stateVersion",
+        "observedAt",
+        "orders",
+        "fills"
+      ]
+    },
+    "AlpacaPaperOrderBookQuery": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId"
+      ]
+    },
+    "AlpacaPaperOrderBookQueryResult": {
+      "type": "object",
+      "properties": {
+        "book": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaPaperOrderBook"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "AlpacaPaperOrderBookRefresh": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion"
+      ]
+    },
+    "AlpacaPaperOrderBookStatus": {
+      "type": "string",
+      "enum": [
+        "NEVER_SYNCED",
+        "CURRENT",
+        "DEGRADED",
+        "STALE"
+      ]
+    },
+    "AlpacaPaperOrderCancel": {
+      "type": "object",
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedBookStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 36
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "providerOrderId",
+        "expectedBookStateVersion",
+        "idempotencyKey",
+        "confirmed"
+      ]
+    },
+    "AlpacaPaperOrderOrigin": {
+      "type": "string",
+      "enum": [
+        "TRADE_X",
+        "EXTERNAL"
+      ]
+    },
     "AlpacaPaperOrderReconcile": {
       "type": "object",
       "properties": {
@@ -861,6 +1281,38 @@
         "connectionId",
         "expectedConnectionStateVersion",
         "proposalId"
+      ]
+    },
+    "AlpacaPaperOrderReview": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 36
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "providerOrderId"
       ]
     },
     "AlpacaPaperOrderSubmit": {
@@ -3025,7 +3477,8 @@
             "model",
             "risk",
             "thread",
-            "alpaca-paper-order-attempt"
+            "alpaca-paper-order-attempt",
+            "alpaca-paper-order-book"
           ]
         },
         "eventId": {
@@ -3043,7 +3496,8 @@
             "risk.policy.changed",
             "thread.created",
             "thread.updated",
-            "alpaca.paper.order.attempt.changed"
+            "alpaca.paper.order.attempt.changed",
+            "alpaca.paper.order.book.changed"
           ]
         },
         "occurredAt": {
@@ -3099,6 +3553,9 @@
         },
         {
           "$ref": "#/$defs/AlpacaPaperOrderAttempt"
+        },
+        {
+          "$ref": "#/$defs/AlpacaPaperOrderBook"
         }
       ]
     },
@@ -6660,6 +7117,12 @@
           "$ref": "#/$defs/AlpacaPaperOrderAttemptQueryResult"
         },
         {
+          "$ref": "#/$defs/AlpacaPaperOrderBook"
+        },
+        {
+          "$ref": "#/$defs/AlpacaPaperOrderBookQueryResult"
+        },
+        {
           "$ref": "#/$defs/PaperOrderResult"
         },
         {
@@ -8222,7 +8685,8 @@
             "model",
             "risk",
             "thread",
-            "alpaca-paper-order-attempt"
+            "alpaca-paper-order-attempt",
+            "alpaca-paper-order-book"
           ]
         },
         "lastSequence": {
@@ -10050,7 +10514,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 16,
+          "maximum": 17,
           "minimum": 1
         },
         "workspaceId": {

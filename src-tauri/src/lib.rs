@@ -26,13 +26,15 @@ pub mod time;
 use capability::{CapabilityQuery, ResearchToolId};
 use protocol::{
     Aggregate, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult,
-    AlpacaPaperOrderAttemptState, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, Artifact,
-    ArtifactContent, ArtifactExport, ArtifactProvenance, ArtifactQuery, ArtifactSave,
-    BacktestCancel, BacktestCompareRequest, BacktestComparison, BacktestCurveSummary,
-    BacktestFailure, BacktestFieldDifference, BacktestMetricComparison, BacktestMetricDelta,
-    BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestRunState, CommandEnvelope,
-    DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
-    MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace, PaperOrderSubmit,
+    AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery,
+    AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderBookStatus,
+    AlpacaPaperOrderCancel, AlpacaPaperOrderReconcile, AlpacaPaperOrderReview,
+    AlpacaPaperOrderSubmit, Artifact, ArtifactContent, ArtifactExport, ArtifactProvenance,
+    ArtifactQuery, ArtifactSave, BacktestCancel, BacktestCompareRequest, BacktestComparison,
+    BacktestCurveSummary, BacktestFailure, BacktestFieldDifference, BacktestMetricComparison,
+    BacktestMetricDelta, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestRunState,
+    CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload, EventSink,
+    MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace, PaperOrderSubmit,
     PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus,
     ScreenerRequest, StrategyCancel, StrategyFailure, StrategyQuery, StrategyRun, StrategyRunQuery,
     StrategyRunRequest, StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate,
@@ -439,6 +441,26 @@ fn failure_reply(id: String, error: TradeXError) -> Value {
 
 fn provider_order_consumer_allowed(consumer: &str) -> bool {
     consumer == "main" || (cfg!(feature = "integration-test") && consumer == "stdio")
+}
+
+fn empty_alpaca_paper_order_book(account: &AccountConnection) -> Result<AlpacaPaperOrderBook> {
+    let remote_account_id = account
+        .data
+        .as_ref()
+        .map(|data| data.remote_account_id.clone())
+        .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+    Ok(AlpacaPaperOrderBook {
+        workspace_id: account.workspace_id.clone(),
+        connection_id: account.connection_id.clone(),
+        remote_account_id,
+        status: AlpacaPaperOrderBookStatus::NeverSynced,
+        state_version: format!("alpaca-paper-order-book:{}:0", account.connection_id),
+        last_successful_sync_at: None,
+        observed_at: storage::timestamp()?,
+        reason: None,
+        orders: Vec::new(),
+        fills: Vec::new(),
+    })
 }
 
 pub struct ControlPlane {
@@ -880,6 +902,16 @@ impl ControlPlane {
                     .unwrap()
                     .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?;
                 Ok((json!(AlpacaPaperOrderAttemptQueryResult { attempt }), None))
+            }
+            "alpaca.paper.orders.get" => {
+                let input: AlpacaPaperOrderBookQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let book = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .alpaca_paper_order_book(&input.workspace_id, &input.connection_id)?;
+                Ok((json!(AlpacaPaperOrderBookQueryResult { book }), None))
             }
             "alpaca.paper.order.submit" => {
                 if !provider_order_consumer_allowed(consumer) {
@@ -3797,6 +3829,15 @@ impl ControlPlane {
             "alpaca.paper.order.reconcile" => {
                 return self.prepare_alpaca_paper_order_reconcile(request, consumer);
             }
+            "alpaca.paper.orders.refresh" => {
+                return self.prepare_alpaca_paper_order_book_refresh(request, consumer);
+            }
+            "alpaca.paper.order.review" => {
+                return self.prepare_alpaca_paper_order_review(request, consumer);
+            }
+            "alpaca.paper.order.cancel" => {
+                return self.prepare_alpaca_paper_order_cancel(request, consumer);
+            }
             _ => (),
         }
         let (account, kind) = match request.command.as_str() {
@@ -3858,6 +3899,9 @@ impl ControlPlane {
             request_id: request.request_id,
             alpaca_attempt: None,
             alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
         }))
     }
 
@@ -3928,6 +3972,9 @@ impl ControlPlane {
             request_id: request.request_id,
             alpaca_attempt: Some(attempt),
             alpaca_proposal: Some(proposal),
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
         }))
     }
 
@@ -3973,6 +4020,134 @@ impl ControlPlane {
             request_id: request.request_id,
             alpaca_attempt: Some(attempt),
             alpaca_proposal: Some(proposal),
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+        }))
+    }
+
+    fn prepare_alpaca_paper_order_book_refresh(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: AlpacaPaperOrderBookRefresh = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "alpaca" || account.environment != "PAPER" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.credential != "CONFIGURED"
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let book = self
+            .store
+            .as_ref()
+            .unwrap()
+            .alpaca_paper_order_book(&input.workspace_id, &input.connection_id)?
+            .unwrap_or(empty_alpaca_paper_order_book(&account)?);
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::AlpacaPaperOrderBookRefresh,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: Some(book),
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+        }))
+    }
+
+    fn prepare_alpaca_paper_order_review(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: AlpacaPaperOrderReview = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "alpaca" || account.environment != "PAPER" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let book = self
+            .store
+            .as_ref()
+            .unwrap()
+            .alpaca_paper_order_book(&input.workspace_id, &input.connection_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+        if !book
+            .orders
+            .iter()
+            .any(|order| order.provider_order_id == input.provider_order_id)
+        {
+            return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+        }
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::AlpacaPaperOrderReview,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: Some(book),
+            alpaca_order_id: Some(input.provider_order_id),
+            alpaca_expected_order: None,
+        }))
+    }
+
+    fn prepare_alpaca_paper_order_cancel(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: AlpacaPaperOrderCancel = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "alpaca" || account.environment != "PAPER" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let (book, reviewed, created) = self
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_alpaca_paper_order_cancel(&input)?;
+        if !created {
+            return Ok(None);
+        }
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::AlpacaPaperOrderCancel,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: Some(book),
+            alpaca_order_id: Some(input.provider_order_id),
+            alpaca_expected_order: Some(reviewed),
         }))
     }
 
@@ -4031,6 +4206,47 @@ impl ControlPlane {
     }
 
     pub fn complete_provider(&mut self, job: &ProviderJob, outcome: ProviderOutcome) -> Value {
+        if matches!(
+            job.kind,
+            JobKind::AlpacaPaperOrderBookRefresh
+                | JobKind::AlpacaPaperOrderReview
+                | JobKind::AlpacaPaperOrderCancel
+        ) {
+            if job.session != self.session || !self.provider_job_current(job) {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("STATE_VERSION_CONFLICT"),
+                );
+            }
+            let book = outcome.alpaca_paper_order_book.or_else(|| {
+                job.alpaca_order_book.clone().map(|mut book| {
+                    book.status = AlpacaPaperOrderBookStatus::Degraded;
+                    book.reason = Some("ORDER_STATUS_UNKNOWN".into());
+                    book
+                })
+            });
+            let Some(book) = book else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_STATUS_UNKNOWN"),
+                );
+            };
+            return match self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_alpaca_paper_order_book(book)
+            {
+                Ok(book) => json!({
+                    "requestId":job.request_id,
+                    "schemaVersion":1,
+                    "ok":true,
+                    "stateVersion":book.state_version,
+                    "data":book
+                }),
+                Err(error) => failure_reply(job.request_id.clone(), error),
+            };
+        }
         if matches!(
             job.kind,
             JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
@@ -5915,6 +6131,9 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute("DROP TABLE alpaca_paper_order_attempts", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE alpaca_paper_order_books", [])
             .unwrap();
         migration_database
             .pragma_update(None, "user_version", 8)

@@ -592,6 +592,12 @@ The Accounts surface renders Alpaca Paper buying power only from the provider ob
 
 After submission, the renderer reads the durable attempt projection and distinguishes `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, and `REJECTED`. Acknowledgement is labeled as provider acceptance, never as fill evidence. Reload restores the saved attempt; an unknown attempt offers query-only reconciliation by its saved client order ID, while duplicate submission shows the existing attempt and cannot issue another POST. Errors retain their bounded remediation text. Loading and error states use status/alert semantics, the confirmation dialog restores focus, and the Paper account/order identity remains readable at 390, 768, and 1280 px. No Alpaca Paper control grants Live or Agent submission authority.
 
+### 13.8 Alpaca Paper order book and cancel review (S17 #58)
+
+The Order Drafts surface reads the persisted `alpaca-paper-order-book` for the selected Alpaca Paper account and offers an explicit refresh. It labels the `ALPACA_PAPER` environment, `TRADE_X` versus `EXTERNAL` origin, provider order status, filled/remaining quantity, provider time, TradeX observation time, and whether the last complete read is current, stale, degraded, or not yet available. Open orders, order history, and `FILL` activities remain separate lists; incomplete reads retain the last complete data and explain the degraded state.
+
+Cancel is available only for a currently open provider order. Before showing the confirmation dialog, the frontend asks the backend to re-read that exact order. The dialog identifies the account, Paper environment, provider order, instrument, filled quantity, and remaining quantity. Only an explicit confirmation invokes the typed cancel command. Provider acknowledgement is displayed as `CANCEL_PENDING`; the UI shows `CANCELLED` only after a later provider observation confirms a terminal state. Changed order identity/status requires a new review. Keyboard dismissal sends no request, and focus returns to the triggering order control. These controls never cancel Local Paper or Live orders.
+
 ---
 
 ## 14. Live Execution UI Architecture

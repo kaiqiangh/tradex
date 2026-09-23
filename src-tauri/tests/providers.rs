@@ -24,6 +24,59 @@ fn mutation(account: &Value) -> Value {
     p["expectedStateVersion"] = account["stateVersion"].clone();
     p
 }
+fn alpaca_order(id: usize, quantity: &str, filled: &str, status: &str) -> Value {
+    json!({
+        "id":format!("00000000-0000-4000-8000-{id:012}"),
+        "client_order_id":format!("manual-{id}"),
+        "symbol":"AAPL","asset_class":"us_equity","side":"buy",
+        "type":"limit","time_in_force":"day","qty":quantity,
+        "filled_qty":filled,"status":status,
+        "submitted_at":"2026-09-23T10:00:00Z","created_at":"2026-09-23T10:00:00Z"
+    })
+}
+fn alpaca_fill(id: usize, order_id: &str, quantity: &str, price: &str) -> Value {
+    json!({
+        "id":format!("20260923100000000::00000000-0000-4000-8000-{id:012}"),
+        "order_id":order_id,"symbol":"AAPL","side":"buy","qty":quantity,
+        "price":price,"transaction_time":"2026-09-23T10:00:00Z"
+    })
+}
+fn refresh_alpaca_orders(workspace: &Value, account: &Value) -> Value {
+    envelope(
+        "alpaca.paper.orders.refresh",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"]
+        }),
+    )
+}
+fn review_alpaca_order(workspace: &Value, account: &Value, order_id: &str) -> Value {
+    envelope(
+        "alpaca.paper.order.review",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "providerOrderId":order_id
+        }),
+    )
+}
+fn cancel_alpaca_order(
+    workspace: &Value,
+    account: &Value,
+    book: &Value,
+    order_id: &str,
+    key: &str,
+) -> Value {
+    envelope(
+        "alpaca.paper.order.cancel",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "providerOrderId":order_id,"expectedBookStateVersion":book["stateVersion"],
+            "idempotencyKey":key,"confirmed":true
+        }),
+    )
+}
 fn execute(
     cp: &mut ControlPlane,
     input: Value,
@@ -42,6 +95,22 @@ fn execute(
         cp.record_credential_cleanup(&job, cleanup);
     }
     reply
+}
+
+fn execute_main(
+    cp: &mut ControlPlane,
+    input: Value,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+) -> Value {
+    let job = cp.prepare_provider_for(&input, "main").unwrap().unwrap();
+    let outcome = job.run(
+        vault,
+        |_| credentials(),
+        http,
+        || cp.provider_job_current(&job),
+    );
+    cp.complete_provider(&job, outcome)
 }
 
 fn command(cp: &mut ControlPlane, command: &str, payload: Value) -> Value {
@@ -1181,4 +1250,536 @@ fn provider_schema_precedes_native_entry_and_never_accepts_renderer_secrets() {
     let accounts = command(&mut cp, "account.list", json!({"workspaceId":workspace}));
     assert_eq!(accounts["data"]["accounts"].as_array().unwrap().len(), 1);
     assert_eq!(accounts["data"]["accounts"][0]["providerId"], "local-paper");
+}
+
+#[test]
+fn alpaca_order_book_reads_max_complete_pages_exactly_and_survives_reopen() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let orders = (1..=500)
+        .map(|id| {
+            alpaca_order(
+                id,
+                if id == 1 { "3.5000" } else { "1" },
+                if id == 1 { "1.2500" } else { "0" },
+                if id == 1 { "partially_filled" } else { "new" },
+            )
+        })
+        .collect::<Vec<_>>();
+    let fills = (1..=1000)
+        .map(|id| {
+            alpaca_fill(
+                id,
+                &format!("00000000-0000-4000-8000-{:012}", ((id - 1) % 500) + 1),
+                "0.1",
+                "100.25",
+            )
+        })
+        .collect::<Vec<_>>();
+    *http.alpaca_order_history.borrow_mut() = orders;
+    *http.alpaca_fills.borrow_mut() = fills;
+
+    let refreshed = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(refreshed["ok"], true, "{refreshed}");
+    let book = &refreshed["data"];
+    assert_eq!(book["status"], "CURRENT");
+    assert_eq!(book["orders"].as_array().unwrap().len(), 500);
+    assert_eq!(book["fills"].as_array().unwrap().len(), 1000);
+    let partial = book["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "00000000-0000-4000-8000-000000000001")
+        .unwrap();
+    assert_eq!(partial["quantity"], "3.5");
+    assert_eq!(partial["filledQuantity"], "1.25");
+    assert_eq!(partial["remainingQuantity"], "2.25");
+    assert_eq!(partial["origin"], "EXTERNAL");
+    assert_eq!(partial["instrumentId"], "equity:US:AAPL");
+    assert!(
+        book["fills"][0]["activityId"]
+            .as_str()
+            .unwrap()
+            .contains("::")
+    );
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .any(|path| path.contains("page_token=20260923100000000::"))
+    );
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|path| path.contains("/v2/orders?status=all"))
+            .count(),
+        6
+    );
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|path| path.contains("/v2/account/activities/FILL"))
+            .count(),
+        11
+    );
+    let repeated = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(repeated["data"]["orders"].as_array().unwrap().len(), 500);
+    assert_eq!(repeated["data"]["fills"].as_array().unwrap().len(), 1000);
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|path| path.contains("/v2/orders?status=all"))
+            .count(),
+        12
+    );
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|path| path.contains("/v2/account/activities/FILL"))
+            .count(),
+        22
+    );
+
+    let snapshot = command(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"alpaca-paper-order-book","aggregateId":account["connectionId"]}),
+    );
+    assert_eq!(snapshot["ok"], true, "{snapshot}");
+    assert_eq!(snapshot["data"]["lastSequence"], 2);
+    let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = events.clone();
+    let subscribed = cp.dispatch_with_events(
+        envelope(
+            "domain.subscribe",
+            json!({"aggregateType":"alpaca-paper-order-book","aggregateId":account["connectionId"],"afterSequence":0}),
+        ),
+        "main",
+        Some(std::sync::Arc::new(move |event| {
+            sink.lock()
+                .unwrap()
+                .push(serde_json::to_value(event).unwrap());
+            true
+        })),
+    );
+    assert_eq!(subscribed["ok"], true, "{subscribed}");
+    assert_eq!(subscribed["data"]["replayedCount"], 2);
+    assert_eq!(
+        events.lock().unwrap()[1]["eventType"],
+        "alpaca.paper.order.book.changed"
+    );
+    drop(cp);
+
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored = command(
+        &mut reopened,
+        "alpaca.paper.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(restored["ok"], true, "{restored}");
+    assert_eq!(restored["data"]["book"]["status"], "STALE");
+    assert_eq!(
+        restored["data"]["book"]["orders"].as_array().unwrap().len(),
+        500
+    );
+    assert_eq!(
+        restored["data"]["book"]["fills"].as_array().unwrap().len(),
+        1000
+    );
+}
+
+#[test]
+fn alpaca_order_book_degrades_without_replacing_last_complete_data() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let mut order = alpaca_order(1, "3.5", "1", "partially_filled");
+    let fill = alpaca_fill(1, order["id"].as_str().unwrap(), "1", "100");
+    *http.alpaca_order_history.borrow_mut() = vec![order.clone()];
+    *http.alpaca_fills.borrow_mut() = vec![fill.clone()];
+    let first = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(first["data"]["status"], "CURRENT");
+    let last_successful_sync = first["data"]["lastSuccessfulSyncAt"].clone();
+    let prior_order = first["data"]["orders"][0].clone();
+    let prior_fill = first["data"]["fills"][0].clone();
+
+    order["status"] = "filled".into();
+    order["filled_qty"] = "3.5".into();
+    *http.alpaca_order_history.borrow_mut() = vec![order];
+    let mut conflicting_fill = fill;
+    conflicting_fill["price"] = "101".into();
+    *http.alpaca_fills.borrow_mut() = vec![conflicting_fill];
+    let degraded = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(degraded["ok"], true, "{degraded}");
+    assert_eq!(degraded["data"]["status"], "DEGRADED");
+    assert_eq!(degraded["data"]["reason"], "PROVIDER_RESPONSE_INCOMPLETE");
+    assert_eq!(degraded["data"]["orders"][0], prior_order);
+    assert_eq!(degraded["data"]["fills"][0], prior_fill);
+    assert_eq!(
+        degraded["data"]["lastSuccessfulSyncAt"],
+        last_successful_sync
+    );
+
+    let mut conflicting_order = alpaca_order(1, "3.5", "3.5", "filled");
+    conflicting_order["client_order_id"] = "changed-provider-identity".into();
+    *http.alpaca_order_history.borrow_mut() = vec![conflicting_order];
+    *http.alpaca_fills.borrow_mut() = vec![alpaca_fill(
+        1,
+        "00000000-0000-4000-8000-000000000001",
+        "1",
+        "100",
+    )];
+    let identity_conflict = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(identity_conflict["data"]["status"], "DEGRADED");
+    assert_eq!(identity_conflict["data"]["orders"][0], prior_order);
+    assert_eq!(identity_conflict["data"]["fills"][0], prior_fill);
+
+    let mut reflected_secret = alpaca_order(1, "3.5", "3.5", "filled");
+    reflected_secret["status"] = KEY.into();
+    *http.alpaca_order_history.borrow_mut() = vec![reflected_secret];
+    *http.alpaca_fills.borrow_mut() = Vec::new();
+    let redacted = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(redacted["data"]["status"], "DEGRADED");
+    assert_eq!(redacted["data"]["reason"], "PROVIDER_RESPONSE_INVALID");
+    assert_eq!(redacted["data"]["orders"][0], prior_order);
+    let encoded = serde_json::to_string(&redacted).unwrap();
+    assert!(!encoded.contains(KEY));
+    assert!(!encoded.contains(SECRET));
+}
+
+#[test]
+fn alpaca_order_book_rejects_repeated_cursor_and_over_cap_without_false_empty() {
+    for mode in ["repeat", "over-orders", "over-fills"] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().to_path_buf());
+        let workspace =
+            command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let http = Http::default();
+        let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+        *http.alpaca_order_history.borrow_mut() = if mode == "over-fills" {
+            Vec::new()
+        } else {
+            (1..=if mode == "repeat" { 100 } else { 501 })
+                .map(|id| alpaca_order(id, "1", "0", "new"))
+                .collect()
+        };
+        if mode == "over-fills" {
+            *http.alpaca_fills.borrow_mut() = (1..=1001)
+                .map(|id| alpaca_fill(id, "00000000-0000-4000-8000-000000000001", "0.1", "100"))
+                .collect();
+        }
+        http.alpaca_repeat_order_cursor.set(mode == "repeat");
+
+        let result = execute_main(
+            &mut cp,
+            refresh_alpaca_orders(&workspace, &account),
+            &vault,
+            &http,
+        );
+        assert_eq!(result["ok"], true, "{result}");
+        assert_eq!(result["data"]["status"], "DEGRADED");
+        assert_eq!(result["data"]["reason"], "PROVIDER_RESPONSE_INCOMPLETE");
+        assert!(result["data"]["orders"].as_array().unwrap().is_empty());
+        assert!(
+            http.calls
+                .borrow()
+                .iter()
+                .filter(|path| path.contains("/v2/orders?status=all"))
+                .count()
+                <= 6
+        );
+        assert!(
+            http.calls
+                .borrow()
+                .iter()
+                .filter(|path| path.contains("/v2/account/activities/FILL"))
+                .count()
+                <= 11
+        );
+    }
+}
+
+#[test]
+fn alpaca_cancel_review_records_intent_before_io_and_waits_for_provider_truth() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let order = alpaca_order(1, "3.5", "1.25", "partially_filled");
+    let order_id = order["id"].as_str().unwrap().to_owned();
+    *http.alpaca_order_history.borrow_mut() = vec![order];
+    let initial = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(initial["data"]["status"], "CURRENT");
+
+    let reviewed = execute_main(
+        &mut cp,
+        review_alpaca_order(&workspace, &account, &order_id),
+        &vault,
+        &http,
+    );
+    assert_eq!(reviewed["ok"], true, "{reviewed}");
+    let review_book = &reviewed["data"];
+    let reviewed_order = review_book["orders"].as_array().unwrap().first().unwrap();
+    assert_eq!(review_book["status"], "STALE");
+    assert_eq!(reviewed_order["providerStatus"], "partially_filled");
+    assert_eq!(reviewed_order["filledQuantity"], "1.25");
+    assert_eq!(reviewed_order["remainingQuantity"], "2.25");
+    assert!(http.alpaca_delete_calls.borrow().is_empty());
+
+    let cancel = cancel_alpaca_order(&workspace, &account, review_book, &order_id, "cancel-qa-1");
+    let job = cp.prepare_provider_for(&cancel, "main").unwrap().unwrap();
+    let submitting = command(
+        &mut cp,
+        "alpaca.paper.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    let order_state = &submitting["data"]["book"]["orders"][0];
+    assert_eq!(order_state["cancelState"], "SUBMITTING");
+    assert_eq!(order_state["providerStatus"], "partially_filled");
+    assert_eq!(order_state["remainingQuantity"], "2.25");
+    assert!(
+        http.alpaca_delete_calls.borrow().is_empty(),
+        "durable intent precedes DELETE"
+    );
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let accepted = cp.complete_provider(&job, outcome);
+    assert_eq!(accepted["ok"], true, "{accepted}");
+    assert_eq!(accepted["data"]["orders"][0]["cancelState"], "PENDING");
+    assert_eq!(
+        accepted["data"]["orders"][0]["providerStatus"],
+        "partially_filled"
+    );
+    assert_eq!(http.alpaca_delete_calls.borrow().len(), 1);
+
+    let persisted = command(
+        &mut cp,
+        "alpaca.paper.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    )["data"]["book"]
+        .clone();
+    let repeated = cp
+        .prepare_provider_for(
+            &cancel_alpaca_order(&workspace, &account, &persisted, &order_id, "cancel-qa-1"),
+            "main",
+        )
+        .unwrap();
+    assert!(repeated.is_none(), "pending cancel is idempotent");
+    assert_eq!(http.alpaca_delete_calls.borrow().len(), 1);
+
+    http.alpaca_order_history.borrow_mut()[0]["status"] = "canceled".into();
+    let reconciled = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(reconciled["data"]["status"], "CURRENT");
+    assert_eq!(
+        reconciled["data"]["orders"][0]["providerStatus"],
+        "canceled"
+    );
+    assert_eq!(reconciled["data"]["orders"][0]["cancelState"], "NONE");
+    assert_eq!(
+        reconciled["data"]["orders"][0]["cancelIdempotencyKey"],
+        Value::Null
+    );
+}
+
+#[test]
+fn alpaca_cancel_rejection_and_fill_race_preserve_provider_truth() {
+    for (delete_status, with_fill) in [(Some(422), false), (None, true)] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().to_path_buf());
+        let workspace =
+            command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let http = Http::default();
+        let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+        let order = alpaca_order(1, "3.5", "1.25", "partially_filled");
+        let order_id = order["id"].as_str().unwrap().to_owned();
+        *http.alpaca_order_history.borrow_mut() = vec![order];
+        if with_fill {
+            *http.alpaca_fills.borrow_mut() = vec![alpaca_fill(1, &order_id, "2.25", "100.25")];
+            http.alpaca_delete_order_status
+                .borrow_mut()
+                .replace("filled".into());
+        } else {
+            http.alpaca_delete_status.set(delete_status);
+        }
+        let initial = execute_main(
+            &mut cp,
+            refresh_alpaca_orders(&workspace, &account),
+            &vault,
+            &http,
+        );
+        let reviewed = execute_main(
+            &mut cp,
+            review_alpaca_order(&workspace, &account, &order_id),
+            &vault,
+            &http,
+        );
+        let cancel = cancel_alpaca_order(
+            &workspace,
+            &account,
+            &reviewed["data"],
+            &order_id,
+            "cancel-qa-race",
+        );
+        let result = execute_main(&mut cp, cancel, &vault, &http);
+        assert_eq!(result["ok"], true, "{result}; initial={initial}");
+        let current = result["data"]["orders"]
+            .as_array()
+            .unwrap()
+            .first()
+            .unwrap();
+        assert_eq!(http.alpaca_delete_calls.borrow().len(), 1);
+        if with_fill {
+            assert_eq!(current["providerStatus"], "filled");
+            assert_eq!(current["filledQuantity"], "3.5");
+            assert_eq!(current["remainingQuantity"], "0");
+            assert_eq!(current["cancelState"], "NONE");
+            assert_eq!(result["data"]["fills"].as_array().unwrap().len(), 1);
+            assert_eq!(result["data"]["fills"][0]["quantity"], "2.25");
+        } else {
+            assert_eq!(current["providerStatus"], "partially_filled");
+            assert_eq!(current["cancelState"], "NONE");
+            assert_eq!(current["cancelError"], "PROVIDER_CANCEL_REJECTED");
+        }
+    }
+}
+
+#[test]
+fn alpaca_cancel_identity_mismatch_and_workspace_reopen_never_delete() {
+    for reopen in [false, true] {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().to_path_buf();
+        let mut cp = ControlPlane::new(path.clone());
+        let workspace =
+            command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let mut http = Http::default();
+        let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+        let order = alpaca_order(1, "1", "0", "new");
+        let order_id = order["id"].as_str().unwrap().to_owned();
+        *http.alpaca_order_history.borrow_mut() = vec![order];
+        let _ = execute_main(
+            &mut cp,
+            refresh_alpaca_orders(&workspace, &account),
+            &vault,
+            &http,
+        );
+        let reviewed = execute_main(
+            &mut cp,
+            review_alpaca_order(&workspace, &account, &order_id),
+            &vault,
+            &http,
+        );
+        let input = cancel_alpaca_order(
+            &workspace,
+            &account,
+            &reviewed["data"],
+            &order_id,
+            "cancel-qa-reopen",
+        );
+        let job = cp.prepare_provider_for(&input, "main").unwrap().unwrap();
+        if reopen {
+            drop(job);
+            drop(cp);
+            let mut reopened = ControlPlane::new(path);
+            assert_eq!(
+                command(&mut reopened, "workspace.open", json!({}))["ok"],
+                true
+            );
+            let restored = command(
+                &mut reopened,
+                "alpaca.paper.orders.get",
+                json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+            );
+            assert_eq!(
+                restored["data"]["book"]["orders"][0]["cancelState"],
+                "PENDING"
+            );
+            assert_eq!(
+                restored["data"]["book"]["orders"][0]["cancelError"],
+                "ORDER_CANCEL_STATUS_UNKNOWN"
+            );
+            assert!(http.alpaca_delete_calls.borrow().is_empty());
+        } else {
+            http.identity = "b1a3c22f-4ad7-47aa-912b-cda43b22ce44".into();
+            let outcome = job.run(
+                &vault,
+                |_| credentials(),
+                &http,
+                || cp.provider_job_current(&job),
+            );
+            let failed_closed = cp.complete_provider(&job, outcome);
+            assert_eq!(failed_closed["ok"], true, "{failed_closed}");
+            assert_eq!(failed_closed["data"]["status"], "DEGRADED");
+            assert_eq!(failed_closed["data"]["orders"][0]["cancelState"], "NONE");
+            assert_eq!(
+                failed_closed["data"]["orders"][0]["cancelError"],
+                "PROVIDER_REVIEW_REQUIRED"
+            );
+            assert!(http.alpaca_delete_calls.borrow().is_empty());
+        }
+    }
 }

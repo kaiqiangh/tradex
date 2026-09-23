@@ -77,6 +77,52 @@ fn alpaca_asset_and_position_paths_allow_only_bounded_symbols() {
 }
 
 #[test]
+fn alpaca_order_book_paths_and_delete_are_bounded_to_paper_uuid_routes() {
+    let order = "/v2/orders/18c65e3e-feb0-4576-99e2-36e6f047d84d";
+    assert!(ProviderEndpoint::AlpacaPaper.allows(order));
+    assert!(ProviderEndpoint::AlpacaPaper.allows_method(ProviderHttpMethod::Delete, order));
+    assert!(
+        ProviderEndpoint::AlpacaPaper
+            .allows("/v2/orders?status=all&limit=100&direction=desc&nested=false")
+    );
+    assert!(
+        ProviderEndpoint::AlpacaPaper
+            .allows("/v2/account/activities/FILL?page_size=100&direction=desc&page_token=abc-123")
+    );
+    assert!(ProviderEndpoint::AlpacaPaper.allows(
+        "/v2/account/activities/FILL?page_size=100&direction=desc&page_token=20190801011955195::5f596936-6f23-4cef-bdf1-3806aae57dbf"
+    ));
+    for path in [
+        "/v2/orders/../account",
+        "/v2/orders/not-a-uuid",
+        "/v2/orders?status=all&limit=1000&direction=desc&nested=false",
+        "/v2/account/activities/FILL?page_size=100&direction=desc&page_token=abc&other=1",
+    ] {
+        assert!(!ProviderEndpoint::AlpacaPaper.allows(path), "{path}");
+        assert!(
+            !ProviderEndpoint::AlpacaPaper.allows_method(ProviderHttpMethod::Delete, path),
+            "{path}"
+        );
+    }
+    assert!(!ProviderEndpoint::Trading212Live.allows_method(ProviderHttpMethod::Delete, order));
+}
+
+#[test]
+fn provider_order_remaining_quantity_uses_exact_decimal_subtraction() {
+    assert_eq!(decimal_subtract("10", "2.5").unwrap(), "7.5");
+    assert_eq!(decimal_subtract("0.05", "0.04").unwrap(), "0.01");
+    assert_eq!(
+        decimal_subtract(
+            "999999999999999999999.0000000000000000001",
+            "0.0000000000000000001"
+        )
+        .unwrap(),
+        "999999999999999999999"
+    );
+    assert!(decimal_subtract("1", "1.01").is_err());
+}
+
+#[test]
 fn real_https_transport_posts_only_to_the_fixed_alpaca_paper_order_route() {
     let endpoint = ProviderEndpoint::AlpacaPaper;
     let fixture = HttpsFixture::new("order", endpoint);
@@ -102,6 +148,35 @@ fn real_https_transport_posts_only_to_the_fixed_alpaca_paper_order_route() {
         .unwrap();
     assert_eq!(response.status, 201);
     assert!(response.body.starts_with(b"{\"id\":"));
+    assert_eq!(
+        std::fs::read_to_string(fixture.directory.path().join("requests")).unwrap(),
+        "1"
+    );
+}
+
+#[test]
+fn real_https_transport_deletes_only_the_fixed_alpaca_paper_order_route() {
+    let endpoint = ProviderEndpoint::AlpacaPaper;
+    let fixture = HttpsFixture::new("cancel", endpoint);
+    let http = fixture.http();
+    let mut headers = HeaderMap::new();
+    let mut key = HeaderValue::from_static("synthetic-network-test");
+    key.set_sensitive(true);
+    headers.insert("APCA-API-KEY-ID", key);
+    let mut secret = HeaderValue::from_static("synthetic-secret");
+    secret.set_sensitive(true);
+    headers.insert("APCA-API-SECRET-KEY", secret);
+    let response = http
+        .request(
+            endpoint,
+            ProviderHttpMethod::Delete,
+            "/v2/orders/18c65e3e-feb0-4576-99e2-36e6f047d84d",
+            headers,
+            None,
+        )
+        .unwrap();
+    assert_eq!(response.status, 204);
+    assert!(response.body.is_empty());
     assert_eq!(
         std::fs::read_to_string(fixture.directory.path().join("requests")).unwrap(),
         "1"

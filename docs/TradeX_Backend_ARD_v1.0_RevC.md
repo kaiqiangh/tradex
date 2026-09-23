@@ -2450,6 +2450,23 @@ These version-1 commands are available only to the primary UI consumer and use t
 
 The attempt changes publish `alpaca.paper.order.attempt.changed` with aggregate type `alpaca-paper-order-attempt`, stable attempt identity and monotonic sequence. Secret values, Authorization headers and raw provider payloads never enter the attempt projection or event. Order listing/fills/cancel and private-stream recovery belong to later S17 child tickets; these commands do not add Live authority or change Local Paper behavior.
 
+### 41.19 Alpaca Paper orders, fills, and cancellation (S17 #58)
+
+These commands remain fixed to the existing `alpaca` / `PAPER` connection, its remote account identity, Keychain reference, and Paper host. `alpaca-paper-order-book` is a workspace-and-connection-scoped persisted aggregate; its projection contains normalized provider orders and `FILL` activity observations, not renderer-owned order state.
+
+| Command | Payload | Success data | Mutation/provider behavior |
+|---|---|---|---|
+| `alpaca.paper.orders.get` | `{workspaceId, connectionId}` | `{book?: AlpacaPaperOrderBook}` | workspace-scoped read of the last persisted order book |
+| `alpaca.paper.orders.refresh` | `{workspaceId, connectionId, expectedConnectionStateVersion}` | `AlpacaPaperOrderBook` | verifies the same Paper account, reads bounded order-history and fill-activity pages, and commits the complete merged projection with `alpaca.paper.order.book.changed` |
+| `alpaca.paper.order.review` | `{workspaceId, connectionId, expectedConnectionStateVersion, providerOrderId}` | `AlpacaPaperOrderBook` | re-reads the exact provider order and returns its current identity, status, filled and remaining quantity before user confirmation; marks the book stale until a full refresh |
+| `alpaca.paper.order.cancel` | `{workspaceId, connectionId, expectedConnectionStateVersion, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}` | `AlpacaPaperOrderBook` | requires explicit confirmation and the reviewed book version; persists `SUBMITTING` before DELETE, then keeps provider state and local cancellation state distinct |
+
+The Rust transport allows only bounded Paper routes. A complete refresh is limited to 500 orders and 1,000 fills; repeated cursors, conflicting identities, malformed rows, or exceeded limits fail closed and retain the last complete observations with `DEGRADED` status. Orders and fills use stable provider IDs, canonical instrument IDs when resolvable, exact decimal strings, provider timestamps, and TradeX observation timestamps. `origin` distinguishes `TRADE_X` from `EXTERNAL`, so orders created outside TradeX remain visible. Duplicate observations merge by provider identity without replacing a fill with an order status.
+
+Cancellation first re-reads the exact order and compares the reviewed identity and quantities. If that snapshot changed or is no longer cancelable, no DELETE is sent and the user must review again. A provider 204 is only an acknowledgement: the order remains `CANCEL_PENDING` until a later authoritative order read reports terminal state. A transport failure after DELETE may have been sent also stays pending and is reconciled by read; it is never blindly retried. Provider rejection and fill/cancel races preserve the provider order and fill facts. On reopen, interrupted `SUBMITTING` cancellation is recovered as pending. Partial reads and an order-only review are explicitly `DEGRADED` or `STALE`, never an empty/current book.
+
+Order-book projection changes and their outbox event commit atomically. The primary Trade surface alone can refresh, review, or cancel; these commands do not add Agent, Local Paper, Live, approval, arming, reservation, or gateway authority. S17 private `trade_updates` streaming and reconnect reconciliation remain #59.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
@@ -2466,6 +2483,7 @@ turn.item.completed
 turn.failed
 market.snapshot.updated
 account.health.changed
+alpaca.paper.order.book.changed
 account.arming.changed
 risk.policy.changed
 trade.proposal.created

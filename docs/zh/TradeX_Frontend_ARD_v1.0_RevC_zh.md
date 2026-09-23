@@ -592,6 +592,12 @@ Accounts surface 只从 provider observation 展示 Alpaca Paper buying power，
 
 提交后 renderer 从持久化 attempt projection 读取状态，并区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 与 `REJECTED`。Acknowledgement 标记为 provider 已接受，不能称为成交证据。Reload 后恢复已保存 attempt；unknown attempt 只允许按已保存 client order ID 查询式对账；重复提交展示已有 attempt，不能再发 POST。错误保留有界的 remediation 文本。Loading/error 使用 status/alert 语义，确认 dialog 会恢复焦点；在 390、768、1280 px 下账户与订单的 Paper identity 均保持可读。Alpaca Paper control 不授予 Live 或 Agent 提交权限。
 
+### 13.8 Alpaca Paper 订单簿与撤单审阅（S17 #58）
+
+Order Drafts surface 读取当前 Alpaca Paper account 持久化的 `alpaca-paper-order-book`，并提供显式刷新。界面标记 `ALPACA_PAPER` 环境、`TRADE_X` 或 `EXTERNAL` 来源、provider order status、filled/remaining quantity、provider 时间、TradeX observation 时间，以及最近一次完整读取为 current、stale、degraded 或尚未读取。Open orders、订单历史和 `FILL` activities 分开显示；读取不完整时保留最近一次完整数据并说明 degraded 原因。
+
+只有当前仍 open 的 provider order 才显示撤单操作。弹出确认框前，前端先请求后端重新读取该订单。确认框显示 account、Paper 环境、provider order、标的、filled quantity 与 remaining quantity。只有用户明确确认后才调用 typed cancel command。Provider acknowledgement 显示为 `CANCEL_PENDING`；后续 provider observation 确认终态后才显示 `CANCELLED`。订单 identity/status 已变化时要求重新审阅。键盘关闭确认框不会发送请求，焦点返回触发撤单的订单控件。这些操作不会撤销 Local Paper 或 Live 订单。
+
 ---
 
 ## 14. Live Execution UI 架构

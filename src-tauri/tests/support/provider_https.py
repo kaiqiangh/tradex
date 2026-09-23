@@ -14,6 +14,9 @@ method = "GET"
 if mode == "order":
     assert host == "paper-api.alpaca.markets"
     path, method = "/v2/orders", "POST"
+if mode == "cancel":
+    assert host == "paper-api.alpaca.markets"
+    path, method = "/v2/orders/18c65e3e-feb0-4576-99e2-36e6f047d84d", "DELETE"
 if host in {"api.binance.com", "testnet.binance.vision"}:
     path = "/api/v3/time"
 if host == "api.bitget.com":
@@ -75,6 +78,8 @@ with socket.socket() as listener:
                     assert b"client_order_id" in request
                     body = b'{"id":"18c65e3e-feb0-4576-99e2-36e6f047d84d"}'
                     connection.sendall(b"HTTP/1.1 201 Created\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
+                elif mode == "cancel":
+                    connection.sendall(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
                 elif mode.startswith("bitget-"):
                     code = {"bitget-clock": "40008", "bitget-passphrase": "40012", "bitget-demo": "40081", "bitget-false-success": "00000"}[mode]
                     body = ('{"code":"' + code + '","msg":"untrusted diagnostic"}').encode()

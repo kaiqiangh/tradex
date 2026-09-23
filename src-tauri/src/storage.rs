@@ -23,7 +23,9 @@ use crate::gateway::GatewayState;
 use crate::market;
 use crate::model::ModelState;
 use crate::protocol::{
-    AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderSubmit, Artifact,
+    AlpacaPaperCancelState, AlpacaPaperOrder, AlpacaPaperOrderAttempt,
+    AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook, AlpacaPaperOrderBookStatus,
+    AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit, Artifact,
     ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
     ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
     BacktestRunState, BacktestRunSummary, DomainEvent, DomainProjection, EventSink,
@@ -43,7 +45,7 @@ use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 16;
+pub(crate) const SCHEMA_VERSION: u32 = 17;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -414,6 +416,17 @@ impl Store {
                 CREATE INDEX alpaca_paper_attempts_connection_state ON alpaca_paper_order_attempts(connection_id,state);
                 PRAGMA user_version=16;").map_err(storage_error)?;
             }
+            if version < 17 {
+                tx.execute_batch("CREATE TABLE alpaca_paper_order_books (
+                    workspace_id TEXT NOT NULL,
+                    connection_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,connection_id)
+                );
+                CREATE INDEX alpaca_paper_order_books_connection ON alpaca_paper_order_books(connection_id);
+                PRAGMA user_version=17;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -438,7 +451,69 @@ impl Store {
             path,
         };
         store.recover_interrupted_alpaca_paper_attempts()?;
+        store.recover_interrupted_alpaca_paper_cancels()?;
         Ok(store)
+    }
+
+    fn recover_interrupted_alpaca_paper_cancels(&mut self) -> Result<()> {
+        let mut query = self.connection.prepare(
+            "SELECT workspace_id,connection_id,sequence,projection FROM alpaca_paper_order_books",
+        ).map_err(storage_error)?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let books = rows
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(query);
+        for (workspace_id, connection_id, sequence, projection) in books {
+            let mut book: AlpacaPaperOrderBook = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || sequence >= MAX_SEQUENCE as i64
+                || book.workspace_id != workspace_id
+                || book.connection_id != connection_id
+                || book.state_version != alpaca_order_book_version(&connection_id, sequence as u64)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let mut changed = false;
+            for order in &mut book.orders {
+                if order.cancel_state == AlpacaPaperCancelState::Submitting {
+                    order.cancel_state = AlpacaPaperCancelState::Pending;
+                    order.cancel_error = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+                    changed = true;
+                }
+            }
+            if changed {
+                let next_sequence = sequence + 1;
+                book.status = AlpacaPaperOrderBookStatus::Degraded;
+                book.reason = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+                book.observed_at = timestamp()?;
+                book.state_version =
+                    alpaca_order_book_version(&connection_id, next_sequence as u64);
+                let tx = self
+                    .connection
+                    .transaction_with_behavior(TransactionBehavior::Immediate)
+                    .map_err(storage_error)?;
+                let updated = tx.execute(
+                    "UPDATE alpaca_paper_order_books SET sequence=?1,projection=?2 WHERE workspace_id=?3 AND connection_id=?4 AND sequence=?5",
+                    params![next_sequence, serde_json::to_string(&book).map_err(storage_error)?, workspace_id, connection_id, sequence],
+                ).map_err(storage_error)?;
+                if updated == 1 {
+                    write_alpaca_order_book_event(&tx, &book, next_sequence)?;
+                }
+                tx.commit().map_err(storage_error)?;
+            }
+        }
+        Ok(())
     }
 
     fn recover_interrupted_alpaca_paper_attempts(&mut self) -> Result<()> {
@@ -609,6 +684,9 @@ impl Store {
                     ),
                     "alpaca-paper-order-attempt" => {
                         event.event_type != "alpaca.paper.order.attempt.changed"
+                    }
+                    "alpaca-paper-order-book" => {
+                        event.event_type != "alpaca.paper.order.book.changed"
                     }
                     _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
                 }
@@ -1369,6 +1447,22 @@ impl Store {
                 aggregate_type: kind.into(),
                 aggregate_id: id.into(),
                 projection: DomainProjection::AlpacaPaperOrderAttempt(Box::new(attempt)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "alpaca-paper-order-book" {
+            let workspace_id = self.workspace_id()?;
+            let book = load_alpaca_paper_order_book(&self.connection, &workspace_id, id)?
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            let sequence: i64 = self.connection.query_row(
+                "SELECT sequence FROM alpaca_paper_order_books WHERE workspace_id=?1 AND connection_id=?2",
+                params![workspace_id, id],
+                |row| row.get(0),
+            ).map_err(storage_error)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::AlpacaPaperOrderBook(Box::new(book)),
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
@@ -2967,6 +3061,237 @@ impl Store {
         load_alpaca_paper_attempt(&self.connection, workspace_id, proposal_id)
     }
 
+    pub fn alpaca_paper_order_book(
+        &self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<Option<AlpacaPaperOrderBook>> {
+        if workspace_id != self.workspace_id()? || !valid_order_text(connection_id, 128) {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let account = self.account(connection_id)?;
+        account.validate_persisted(workspace_id)?;
+        if account.provider_id != "alpaca" || account.environment != "PAPER" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let remote_account_id = account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.as_str())
+            .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+        let mut book = load_alpaca_paper_order_book(&self.connection, workspace_id, connection_id)?;
+        if book
+            .as_ref()
+            .is_some_and(|book| book.remote_account_id != remote_account_id)
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        if let Some(book) = &mut book
+            && book.status == AlpacaPaperOrderBookStatus::Current
+        {
+            book.status = AlpacaPaperOrderBookStatus::Stale;
+            book.reason = Some("FULL_ORDER_BOOK_REFRESH_REQUIRED".into());
+        }
+        Ok(book)
+    }
+
+    pub fn begin_alpaca_paper_order_cancel(
+        &mut self,
+        input: &AlpacaPaperOrderCancel,
+    ) -> Result<(AlpacaPaperOrderBook, AlpacaPaperOrder, bool)> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id
+            || !input.confirmed
+            || !valid_order_text(&input.expected_connection_state_version, 256)
+            || !valid_order_text(&input.expected_book_state_version, 256)
+            || !valid_order_text(&input.idempotency_key, 128)
+            || !provider_order_id_valid(&input.provider_order_id)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&input.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.state_version != input.expected_connection_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if account.provider_id != "alpaca" || account.environment != "PAPER" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.credential != "CONFIGURED"
+            || account.health.authentication != "VALID"
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let mut book = load_alpaca_paper_order_book(&tx, &workspace_id, &input.connection_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+        if book.state_version != input.expected_book_state_version
+            || book.remote_account_id
+                != account
+                    .data
+                    .as_ref()
+                    .map(|data| data.remote_account_id.as_str())
+                    .unwrap_or_default()
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let index = book
+            .orders
+            .iter()
+            .position(|order| order.provider_order_id == input.provider_order_id)
+            .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+        let reviewed = book.orders[index].clone();
+        if matches!(
+            reviewed.cancel_state,
+            AlpacaPaperCancelState::Submitting | AlpacaPaperCancelState::Pending
+        ) {
+            tx.commit().map_err(storage_error)?;
+            return Ok((book, reviewed, false));
+        }
+        if !matches!(
+            reviewed.provider_status.as_str(),
+            "new" | "accepted" | "pending_new" | "partially_filled"
+        ) {
+            return Err(TradeXError::new("ORDER_NOT_CANCELABLE"));
+        }
+        book.orders[index].cancel_state = AlpacaPaperCancelState::Submitting;
+        book.orders[index].cancel_idempotency_key = Some(input.idempotency_key.clone());
+        book.orders[index].cancel_error = None;
+        let sequence: i64 = tx.query_row(
+            "SELECT sequence FROM alpaca_paper_order_books WHERE workspace_id=?1 AND connection_id=?2",
+            params![workspace_id, input.connection_id],
+            |row| row.get(0),
+        ).map_err(storage_error)?;
+        let next_sequence = sequence
+            .checked_add(1)
+            .filter(|next| *next <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        book.state_version = alpaca_order_book_version(&input.connection_id, next_sequence as u64);
+        book.observed_at = timestamp()?;
+        let changed = tx.execute(
+            "UPDATE alpaca_paper_order_books SET sequence=?1,projection=?2 WHERE workspace_id=?3 AND connection_id=?4 AND sequence=?5",
+            params![next_sequence, serde_json::to_string(&book).map_err(storage_error)?, workspace_id, input.connection_id, sequence],
+        ).map_err(storage_error)?;
+        if changed != 1 {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        write_alpaca_order_book_event(&tx, &book, next_sequence)?;
+        tx.commit().map_err(storage_error)?;
+        Ok((book, reviewed, true))
+    }
+
+    pub fn complete_alpaca_paper_order_book(
+        &mut self,
+        mut book: AlpacaPaperOrderBook,
+    ) -> Result<AlpacaPaperOrderBook> {
+        let workspace_id = self.workspace_id()?;
+        if book.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&book.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.provider_id != "alpaca"
+            || account.environment != "PAPER"
+            || account
+                .data
+                .as_ref()
+                .map(|data| data.remote_account_id.as_str())
+                != Some(book.remote_account_id.as_str())
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let row: Option<(i64, String)> = tx.query_row(
+            "SELECT sequence,projection FROM alpaca_paper_order_books WHERE workspace_id=?1 AND connection_id=?2",
+            params![workspace_id, book.connection_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).optional().map_err(storage_error)?;
+        let sequence = if let Some((sequence, projection)) = row {
+            let current: AlpacaPaperOrderBook = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || current.state_version
+                    != alpaca_order_book_version(&book.connection_id, sequence as u64)
+                || book.state_version != current.state_version
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            sequence
+        } else {
+            if book.state_version != alpaca_order_book_version(&book.connection_id, 0) {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            0
+        };
+        let mut attempts = tx.prepare(
+            "SELECT client_order_id FROM alpaca_paper_order_attempts WHERE workspace_id=?1 AND connection_id=?2",
+        ).map_err(storage_error)?;
+        let known_orders = attempts
+            .query_map(params![workspace_id, book.connection_id], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(storage_error)?
+            .collect::<std::result::Result<std::collections::HashSet<_>, _>>()
+            .map_err(storage_error)?;
+        drop(attempts);
+        for order in &mut book.orders {
+            order.origin = if known_orders.contains(&order.client_order_id) {
+                AlpacaPaperOrderOrigin::TradeX
+            } else {
+                AlpacaPaperOrderOrigin::External
+            };
+        }
+        validate_alpaca_order_book(&book)?;
+        let next_sequence = sequence
+            .checked_add(1)
+            .filter(|next| *next <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        book.state_version = alpaca_order_book_version(&book.connection_id, next_sequence as u64);
+        let encoded = serde_json::to_string(&book).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO alpaca_paper_order_books(workspace_id,connection_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(workspace_id,connection_id) DO UPDATE SET sequence=excluded.sequence,projection=excluded.projection",
+            params![workspace_id, book.connection_id, next_sequence, encoded],
+        ).map_err(storage_error)?;
+        write_alpaca_order_book_event(&tx, &book, next_sequence)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(book)
+    }
+
     pub fn begin_alpaca_paper_order_attempt(
         &mut self,
         input: &AlpacaPaperOrderSubmit,
@@ -4499,6 +4824,174 @@ fn write_alpaca_paper_attempt_event(
         aggregate_id: attempt.attempt_id.clone(),
         sequence: u64::try_from(sequence).map_err(storage_error)?,
         payload: DomainProjection::AlpacaPaperOrderAttempt(Box::new(attempt.clone())),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES(?1,?2,?3,?4,?5)",
+        params![
+            event.aggregate_type,
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?,
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(())
+}
+
+fn alpaca_order_book_version(connection_id: &str, sequence: u64) -> String {
+    format!("alpaca-paper-order-book:{connection_id}:{sequence}")
+}
+
+fn provider_order_id_valid(id: &str) -> bool {
+    id.len() == 36 && Uuid::parse_str(id).is_ok()
+}
+
+fn validate_alpaca_order_book(book: &AlpacaPaperOrderBook) -> Result<()> {
+    if !valid_order_text(&book.workspace_id, 128)
+        || !valid_order_text(&book.connection_id, 128)
+        || !valid_order_text(&book.remote_account_id, 128)
+        || !valid_order_text(&book.state_version, 256)
+        || !valid_order_text(&book.observed_at, 64)
+        || book.orders.len() > 500
+        || book.fills.len() > 1000
+        || book
+            .reason
+            .as_deref()
+            .is_some_and(|value| !valid_order_text(value, 256))
+        || book
+            .last_successful_sync_at
+            .as_deref()
+            .is_some_and(|value| !valid_order_text(value, 64))
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let mut order_ids = std::collections::HashSet::new();
+    for order in &book.orders {
+        if !provider_order_id_valid(&order.provider_order_id)
+            || !valid_order_text(&order.client_order_id, 128)
+            || !valid_order_text(&order.symbol, 16)
+            || !valid_order_text(&order.side, 16)
+            || !valid_order_text(&order.order_type, 32)
+            || !valid_order_text(&order.time_in_force, 32)
+            || !valid_order_text(&order.provider_status, 64)
+            || !valid_order_text(&order.filled_quantity, 64)
+            || !valid_order_text(&order.submitted_at, 64)
+            || !valid_order_text(&order.observed_at, 64)
+            || !order_ids.insert(order.provider_order_id.as_str())
+            || !valid_provider_time(&order.submitted_at)
+            || !valid_provider_time(&order.observed_at)
+            || !valid_provider_decimal(&order.filled_quantity, true)
+            || order
+                .quantity
+                .as_deref()
+                .is_some_and(|value| !valid_provider_decimal(value, true))
+            || order
+                .remaining_quantity
+                .as_deref()
+                .is_some_and(|value| !valid_provider_decimal(value, true))
+            || order
+                .instrument_id
+                .as_deref()
+                .is_some_and(|value| !market::validate_instrument_id(value))
+            || order
+                .cancel_idempotency_key
+                .as_deref()
+                .is_some_and(|value| !valid_order_text(value, 128))
+            || order
+                .cancel_error
+                .as_deref()
+                .is_some_and(|value| !valid_order_text(value, 64))
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        if let (Some(quantity), Some(remaining)) = (&order.quantity, &order.remaining_quantity) {
+            let calculated = crate::provider_io::decimal_subtract(quantity, &order.filled_quantity)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if &calculated != remaining {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+    }
+    let mut fill_ids = std::collections::HashSet::new();
+    for fill in &book.fills {
+        if !valid_order_text(&fill.activity_id, 128)
+            || !valid_order_text(&fill.symbol, 16)
+            || !valid_order_text(&fill.side, 16)
+            || !valid_order_text(&fill.quantity, 64)
+            || !valid_order_text(&fill.price, 64)
+            || !valid_order_text(&fill.executed_at, 64)
+            || !valid_order_text(&fill.observed_at, 64)
+            || !provider_order_id_valid(&fill.provider_order_id)
+            || !fill_ids.insert(fill.activity_id.as_str())
+            || !valid_provider_decimal(&fill.quantity, false)
+            || !valid_provider_decimal(&fill.price, false)
+            || !valid_provider_time(&fill.executed_at)
+            || !valid_provider_time(&fill.observed_at)
+            || fill
+                .instrument_id
+                .as_deref()
+                .is_some_and(|value| !market::validate_instrument_id(value))
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+    }
+    Ok(())
+}
+
+fn valid_provider_time(value: &str) -> bool {
+    time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).is_ok()
+}
+
+fn valid_provider_decimal(value: &str, allow_zero: bool) -> bool {
+    crate::provider_io::decimal(&serde_json::Value::String(value.to_owned())).is_ok_and(
+        |normalized| normalized == value && !value.starts_with('-') && (allow_zero || value != "0"),
+    )
+}
+
+fn load_alpaca_paper_order_book(
+    connection: &Connection,
+    workspace_id: &str,
+    connection_id: &str,
+) -> Result<Option<AlpacaPaperOrderBook>> {
+    let row: Option<(i64, String)> = connection.query_row(
+        "SELECT sequence,projection FROM alpaca_paper_order_books WHERE workspace_id=?1 AND connection_id=?2",
+        params![workspace_id, connection_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    ).optional().map_err(storage_error)?;
+    let Some((sequence, projection)) = row else {
+        return Ok(None);
+    };
+    let book: AlpacaPaperOrderBook = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || book.workspace_id != workspace_id
+        || book.connection_id != connection_id
+        || book.state_version != alpaca_order_book_version(connection_id, sequence as u64)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    validate_alpaca_order_book(&book)?;
+    Ok(Some(book))
+}
+
+fn write_alpaca_order_book_event(
+    tx: &Transaction<'_>,
+    book: &AlpacaPaperOrderBook,
+    sequence: i64,
+) -> Result<()> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "alpaca.paper.order.book.changed".into(),
+        schema_version: 1,
+        occurred_at: book.observed_at.clone(),
+        aggregate_type: "alpaca-paper-order-book".into(),
+        aggregate_id: book.connection_id.clone(),
+        sequence: u64::try_from(sequence).map_err(storage_error)?,
+        payload: DomainProjection::AlpacaPaperOrderBook(Box::new(book.clone())),
     };
     tx.execute(
         "INSERT INTO outbox VALUES(?1,?2,?3,?4,?5)",

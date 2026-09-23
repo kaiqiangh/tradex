@@ -2450,6 +2450,23 @@ Local Paper result 是 simulation observation，不是 provider order ID、broke
 
 Attempt 状态变化通过 aggregate type `alpaca-paper-order-attempt` 发布 `alpaca.paper.order.attempt.changed`，包含稳定的 attempt identity 和单调递增序号。秘密、Authorization header 和原始 provider payload 不进入 attempt projection 或 event。订单列表、fills、撤单与私有流恢复属于后续 S17 子票；这些命令不增加 Live authority，也不改变 Local Paper 行为。
 
+### 41.19 Alpaca Paper 订单、成交与撤单（S17 #58）
+
+这些命令始终绑定现有 `alpaca` / `PAPER` connection、remote account identity、Keychain 引用及固定 Paper host。`alpaca-paper-order-book` 是按 workspace 与 connection 隔离的持久化 aggregate；projection 包含规范化 provider orders 和 `FILL` activity observations，不是 renderer 自有订单状态。
+
+| Command | Payload | 成功 data | 写入/provider 行为 |
+|---|---|---|---|
+| `alpaca.paper.orders.get` | `{workspaceId, connectionId}` | `{book?: AlpacaPaperOrderBook}` | 读取 workspace 内最近持久化的订单簿 |
+| `alpaca.paper.orders.refresh` | `{workspaceId, connectionId, expectedConnectionStateVersion}` | `AlpacaPaperOrderBook` | 核验仍为同一 Paper account，分页读取有界订单历史和 fill activities，并提交完整合并 projection 及 `alpaca.paper.order.book.changed` |
+| `alpaca.paper.order.review` | `{workspaceId, connectionId, expectedConnectionStateVersion, providerOrderId}` | `AlpacaPaperOrderBook` | 用户确认前重新读取指定 provider order，返回当前 identity、status、filled/remaining quantity；完整刷新前标记 order book 为 stale |
+| `alpaca.paper.order.cancel` | `{workspaceId, connectionId, expectedConnectionStateVersion, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}` | `AlpacaPaperOrderBook` | 要求显式确认及已审阅的 book version；DELETE 前持久化 `SUBMITTING`，并将 provider status 与本地撤单状态分开保存 |
+
+Rust transport 仅允许有界 Paper routes。一次完整刷新最多读取 500 个 orders 与 1,000 个 fills；重复 cursor、冲突 identity、格式错误 row 或超限时 fail closed，保留最近一次完整观察并标记 `DEGRADED`。Order 与 fill 使用稳定 provider ID、可解析时的 canonical instrument ID、精确 decimal 字符串、provider timestamp 和 TradeX observation timestamp。`origin` 区分 `TRADE_X` 与 `EXTERNAL`，因此也显示 TradeX 以外创建的订单。重复 observations 按 provider identity 合并；fill 不会被 order status 覆盖。
+
+撤单前会重新读取指定订单，并比较此前审阅的 identity 与数量。如果快照发生变化或订单已不可撤销，则不发送 DELETE，要求用户重新审阅。Provider 返回 HTTP 204 只表示请求已受理：订单保持 `CANCEL_PENDING`，直到后续权威订单读取确认终态。DELETE 可能已发送后的传输故障也保持 pending，并通过读取对账；绝不盲目重发。Provider 拒绝及成交/撤单竞态保留 provider order 与 fill 两类事实。Workspace 重开时，中断的 `SUBMITTING` 撤单恢复为 pending。部分读取和仅单笔订单审阅会明确显示 `DEGRADED` 或 `STALE`，不能显示为空或 current order book。
+
+订单簿 projection 与对应 outbox event 在同一事务内提交。仅主 Trade surface 可以刷新、审阅或撤单；这些命令不增加 Agent、Local Paper、Live、approval、arming、reservation 或 gateway 权限。S17 私有 `trade_updates` 流与重连对账仍由 #59 负责。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
@@ -2466,6 +2483,7 @@ turn.item.completed
 turn.failed
 market.snapshot.updated
 account.health.changed
+alpaca.paper.order.book.changed
 account.arming.changed
 risk.policy.changed
 trade.proposal.created

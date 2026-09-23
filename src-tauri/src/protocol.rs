@@ -196,6 +196,8 @@ pub enum ReplyData {
     OrderProposalRefresh(Box<OrderProposalRefreshResult>),
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
     AlpacaPaperOrderAttemptQuery(Box<AlpacaPaperOrderAttemptQueryResult>),
+    AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
+    AlpacaPaperOrderBookQuery(Box<AlpacaPaperOrderBookQueryResult>),
     PaperOrderResult(Box<PaperOrderResult>),
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
@@ -288,6 +290,14 @@ pub struct IpcSchema {
     pub alpaca_paper_order_attempt_query_result: AlpacaPaperOrderAttemptQueryResult,
     pub alpaca_paper_order_reconcile: AlpacaPaperOrderReconcile,
     pub alpaca_paper_order_attempt: AlpacaPaperOrderAttempt,
+    pub alpaca_paper_order_book_query: AlpacaPaperOrderBookQuery,
+    pub alpaca_paper_order_book_query_result: AlpacaPaperOrderBookQueryResult,
+    pub alpaca_paper_order_book_refresh: AlpacaPaperOrderBookRefresh,
+    pub alpaca_paper_order_review: AlpacaPaperOrderReview,
+    pub alpaca_paper_order_cancel: AlpacaPaperOrderCancel,
+    pub alpaca_paper_order_book: AlpacaPaperOrderBook,
+    pub alpaca_paper_order: AlpacaPaperOrder,
+    pub alpaca_paper_fill: AlpacaPaperFill,
     pub artifact_save: ArtifactSave,
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
@@ -344,7 +354,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 16))]
+    #[schemars(range(min = 1, max = 17))]
     pub storage_schema_version: u32,
 }
 
@@ -2743,6 +2753,179 @@ pub struct AlpacaPaperOrderReconcile {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AlpacaPaperOrderBookStatus {
+    NeverSynced,
+    Current,
+    Degraded,
+    Stale,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AlpacaPaperOrderOrigin {
+    TradeX,
+    External,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AlpacaPaperCancelState {
+    None,
+    Submitting,
+    Pending,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrder {
+    #[schemars(length(min = 36, max = 36))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub client_order_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
+    #[schemars(length(min = 1, max = 16))]
+    pub side: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub order_type: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub time_in_force: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub quantity: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub filled_quantity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub remaining_quantity: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub submitted_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub origin: AlpacaPaperOrderOrigin,
+    pub cancel_state: AlpacaPaperCancelState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub cancel_idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub cancel_error: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperFill {
+    #[schemars(length(min = 1, max = 128))]
+    pub activity_id: String,
+    #[schemars(length(min = 36, max = 36))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
+    #[schemars(length(min = 1, max = 16))]
+    pub side: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub quantity: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub executed_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderBook {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub remote_account_id: String,
+    pub status: AlpacaPaperOrderBookStatus,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub last_successful_sync_at: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: Option<String>,
+    #[schemars(length(max = 500))]
+    pub orders: Vec<AlpacaPaperOrder>,
+    #[schemars(length(max = 1000))]
+    pub fills: Vec<AlpacaPaperFill>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderBookQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderBookQueryResult {
+    pub book: Option<AlpacaPaperOrderBook>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderBookRefresh {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderReview {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(length(min = 36, max = 36))]
+    pub provider_order_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderCancel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(length(min = 36, max = 36))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_book_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: String,
+    pub confirmed: bool,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ArtifactKind {
     Research,
     Decision,
@@ -3035,6 +3218,7 @@ pub enum DomainProjection {
     Risk(RiskPolicyState),
     Thread(Box<Thread>),
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
+    AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
 }
 
 impl DomainProjection {
@@ -3047,6 +3231,7 @@ impl DomainProjection {
             Self::Risk(r) => &r.workspace_id,
             Self::Thread(t) => &t.thread_id,
             Self::AlpacaPaperOrderAttempt(a) => &a.attempt_id,
+            Self::AlpacaPaperOrderBook(b) => &b.connection_id,
         }
     }
     pub fn kind(&self) -> &str {
@@ -3058,6 +3243,7 @@ impl DomainProjection {
             Self::Risk(_) => "risk",
             Self::Thread(_) => "thread",
             Self::AlpacaPaperOrderAttempt(_) => "alpaca-paper-order-attempt",
+            Self::AlpacaPaperOrderBook(_) => "alpaca-paper-order-book",
         }
     }
 }
@@ -3067,12 +3253,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "alpaca.paper.order.attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -3084,7 +3270,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,

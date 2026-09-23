@@ -176,6 +176,40 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
         .getByText('ALPACA_PAPER · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
       assert.equal(await ui.getByRole('button', { name: 'Submit Alpaca Paper order', exact: true }).count(), 0);
       observed.push('Reload restores the saved provider attempt and removes the submit action, preventing a second UI submission.');
+
+      await ui.getByRole('button', { name: 'Refresh orders and fills', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Open orders (1)', exact: true }).waitFor({ state: 'visible' });
+      await ui.getByText(/Current provider observations/).waitFor({ state: 'visible' });
+      const providerOrder = ui.locator('.order-book-order').filter({ hasText: '18c65e3e-feb0-4576-99e2-36e6f047d84d' });
+      await providerOrder.waitFor({ state: 'visible' });
+      assert.match(await providerOrder.innerText(), /ALPACA_PAPER · TradeX proposal/);
+      assert.match(await providerOrder.innerText(), /Filled \/ remaining 0 \/ 1/);
+      await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      const cancelDialog = ui.getByRole('dialog', { name: 'Confirm Alpaca Paper cancellation', exact: true });
+      await cancelDialog.waitFor({ state: 'visible' });
+      await ui.getByText(/Provider read is stale/).waitFor({ state: 'visible' });
+      const cancelFacts = await cancelDialog.innerText();
+      assert.ok(cancelFacts.includes(label));
+      assert.match(cancelFacts, /ALPACA_PAPER/);
+      assert.match(cancelFacts, /18c65e3e-feb0-4576-99e2-36e6f047d84d/);
+      assert.match(cancelFacts, /Filled quantity\s+0/);
+      assert.match(cancelFacts, /Remaining quantity\s+1/);
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
+      assert.equal(await cancelDialog.isVisible(), false, 'Closing the review must not request cancellation');
+      assert.equal(await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).isVisible(), true);
+
+      await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      await cancelDialog.waitFor({ state: 'visible' });
+      for (const width of [768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Alpaca cancel confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      await ui.getByRole('button', { name: 'Confirm cancellation request', exact: true }).press('Enter');
+      await providerOrder.getByRole('button', { name: 'Cancellation pending provider confirmation', exact: true }).waitFor({ state: 'visible' });
+      assert.match(await providerOrder.innerText(), /CANCEL_PENDING · provider confirmation required/);
+      observed.push('Order refresh identifies the TradeX order; cancel review shows account and exact fill remainder, dismissal sends nothing, and HTTP 204 stays pending.');
+
       await viewport.set({ width: 1280, height: 900 });
       await tab.reload();
       await tab.getAXState();

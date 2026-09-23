@@ -12,6 +12,8 @@ import type {
   OrderProposalSummary,
   PaperOrderResult,
   AlpacaPaperOrderAttempt,
+  AlpacaPaperOrder,
+  AlpacaPaperOrderBook,
   OrderQuantityType,
   OrderSide,
   OrderType,
@@ -31,6 +33,15 @@ const environments: { value: ExecutionContext; label: string }[] = [
   { value: 'BITGET_LIVE', label: 'Bitget Live' },
 ];
 const marketTier: MarketTier = 'CENSUS';
+
+function isOpenAlpacaOrder(order: AlpacaPaperOrder) {
+  return ['new', 'accepted', 'pending_new', 'partially_filled', 'pending_cancel'].includes(order.providerStatus);
+}
+
+function canCancelAlpacaOrder(order: AlpacaPaperOrder) {
+  return ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.providerStatus)
+    && order.cancelState === 'NONE';
+}
 
 type DraftForm = {
   accountId: string;
@@ -112,6 +123,15 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const library = useQuery({ queryKey: ['order-drafts', workspaceId], queryFn: () => request('trade.draft.list', { workspaceId }), refetchOnMount: 'always' });
   const proposals = useQuery({ queryKey: ['order-proposals', workspaceId], queryFn: () => request('trade.proposal.list', { workspaceId }), refetchOnMount: 'always' });
   const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'order-draft'], queryFn: () => request('account.list', { workspaceId }) });
+  const alpacaAccounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'alpaca' && account.environment === 'PAPER') ?? [], [accounts.data?.accounts]);
+  const [ordersConnectionId, setOrdersConnectionId] = useState('');
+  const ordersQuery = useQuery({
+    queryKey: ['alpaca-paper-orders', workspaceId, ordersConnectionId],
+    queryFn: () => request('alpaca.paper.orders.get', { workspaceId, connectionId: ordersConnectionId }),
+    enabled: Boolean(ordersConnectionId),
+    refetchOnMount: 'always',
+  });
+  const ordersAccount = alpacaAccounts.find(account => account.connectionId === ordersConnectionId);
   const catalog = useQuery({ queryKey: ['market-catalog', workspaceId, 'order-draft'], queryFn: () => request('market.catalog', { workspaceId, query: '', tier: marketTier }) });
   const [selectedId, setSelectedId] = useState<string>();
   const [selectedProposalId, setSelectedProposalId] = useState<string>();
@@ -126,7 +146,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [paperIdempotencyKey, setPaperIdempotencyKey] = useState<string>();
   const [paperCancelIdempotencyKey, setPaperCancelIdempotencyKey] = useState<string>();
   const [alpacaIdempotencyKey, setAlpacaIdempotencyKey] = useState<string>();
-  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit'>();
+  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel'>();
+  const [ordersBusy, setOrdersBusy] = useState(false);
+  const [cancelReview, setCancelReview] = useState<{ book: AlpacaPaperOrderBook; order: AlpacaPaperOrder }>();
   const confirmationRef = useRef<HTMLDivElement>(null);
   const confirmationTriggerRef = useRef<HTMLElement | null>(null);
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
@@ -140,6 +162,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const selected = useMemo(() => newMode ? undefined : library.data?.drafts.find(draft => draft.draftId === selectedId), [library.data?.drafts, newMode, selectedId]);
   const selectedProposals = useMemo(() => proposals.data?.proposals.filter(proposal => proposal.draftId === selectedId) ?? [], [proposals.data?.proposals, selectedId]);
   const detailLoading = Boolean(selectedId) && !newMode && detail.isPending;
+  const orderBook = ordersQuery.data?.book;
 
   useEffect(() => {
     if (!newMode && !selectedId && library.data?.drafts.length) setSelectedId(library.data.drafts[0].draftId);
@@ -151,6 +174,10 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       if (localPaper) update('accountId', localPaper.connectionId);
     }
   }, [accounts.data, form.accountId]);
+  useEffect(() => {
+    if (!ordersConnectionId && alpacaAccounts.length) setOrdersConnectionId(alpacaAccounts[0].connectionId);
+    if (ordersConnectionId && accounts.data && !alpacaAccounts.some(account => account.connectionId === ordersConnectionId)) setOrdersConnectionId('');
+  }, [accounts.data, alpacaAccounts, ordersConnectionId]);
   useEffect(() => { if (detail.data) setForm(fromDraft(detail.data)); }, [detail.data]);
   useEffect(() => {
     if (!selectedId || newMode || !selectedProposals.some(proposal => proposal.proposalId === selectedProposalId)) setSelectedProposalId(undefined);
@@ -344,6 +371,67 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setPaperBusy(false); }
   };
 
+  const refreshAlpacaOrders = async () => {
+    if (!ordersAccount) return;
+    setOrdersBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId: ordersAccount.connectionId });
+      const result = await request('alpaca.paper.orders.refresh', {
+        workspaceId, connectionId: account.connectionId, expectedConnectionStateVersion: account.stateVersion,
+      });
+      queryClient.setQueryData(['alpaca-paper-orders', workspaceId, account.connectionId], { book: result });
+      setNotice(result.status === 'CURRENT'
+        ? `Alpaca Paper orders and fills refreshed at ${new Date(result.lastSuccessfulSyncAt ?? result.observedAt).toLocaleString()}.`
+        : `Alpaca Paper data is incomplete: ${result.reason ?? 'provider response was not complete'}. Existing observations were kept.`);
+    } catch (cause) { setError(cause); }
+    finally { setOrdersBusy(false); }
+  };
+
+  const reviewAlpacaOrder = async (order: AlpacaPaperOrder) => {
+    if (!ordersAccount) return;
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setOrdersBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId: ordersAccount.connectionId });
+      const book = await request('alpaca.paper.order.review', {
+        workspaceId, connectionId: account.connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        providerOrderId: order.providerOrderId,
+      });
+      queryClient.setQueryData(['alpaca-paper-orders', workspaceId, account.connectionId], { book });
+      if (book.status === 'DEGRADED') throw localGuardError('ORDER_STATUS_UNKNOWN', 'Alpaca could not verify the selected order. Refresh and review again before requesting cancellation.');
+      const reviewed = book.orders.find(item => item.providerOrderId === order.providerOrderId);
+      if (!reviewed) throw localGuardError('ORDER_STATUS_UNKNOWN', 'The provider order is no longer in the current account history. Refresh and review again.');
+      setCancelReview({ book, order: reviewed });
+      setPaperConfirmation('alpaca-cancel');
+    } catch (cause) { setError(cause); }
+    finally { setOrdersBusy(false); }
+  };
+
+  const cancelAlpacaOrder = async () => {
+    if (!ordersAccount || !cancelReview) return;
+    setOrdersBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId: ordersAccount.connectionId });
+      const book = await request('alpaca.paper.order.cancel', {
+        workspaceId,
+        connectionId: account.connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        providerOrderId: cancelReview.order.providerOrderId,
+        expectedBookStateVersion: cancelReview.book.stateVersion,
+        idempotencyKey: crypto.randomUUID(),
+        confirmed: true,
+      });
+      setCancelReview(undefined);
+      queryClient.setQueryData(['alpaca-paper-orders', workspaceId, account.connectionId], { book });
+      const updated = book.orders.find(order => order.providerOrderId === cancelReview.order.providerOrderId);
+      setNotice(updated?.cancelState === 'PENDING'
+        ? 'Alpaca accepted the cancellation request. Status is CANCEL_PENDING until the provider confirms the order state.'
+        : `Alpaca Paper provider status: ${updated?.providerStatus ?? 'unknown'}.`);
+    } catch (cause) { setError(cause); }
+    finally { setOrdersBusy(false); }
+  };
+
   const cancelPaperOrder = async () => {
     if (!paperResult || !['ACCEPTED', 'PARTIALLY_FILLED'].includes(paperResult.order.state)) return;
     setPaperBusy(true); setError(undefined); setNotice('');
@@ -364,7 +452,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setPaperBusy(false); }
   };
 
-  const openPaperConfirmation = (action: 'submit' | 'cancel' | 'alpaca-submit') => {
+  const openPaperConfirmation = (action: 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel') => {
     confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPaperConfirmation(action);
   };
@@ -373,6 +461,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     if (!action) return;
     if (action === 'submit') await submitProposal();
     else if (action === 'alpaca-submit') await submitAlpacaProposal();
+    else if (action === 'alpaca-cancel') await cancelAlpacaOrder();
     else await cancelPaperOrder();
     setPaperConfirmation(undefined);
   };
@@ -417,7 +506,48 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {!proposals.isPending && !proposals.isError && !selectedProposals.length && <p className="muted">Save a draft, then generate a proposal for its immutable snapshot.</p>}
       {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{!selectedProposalId && <p className="muted">Choose a proposal to inspect its details.</p>}{selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}{selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
     </section>
-    {paperConfirmation && <div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}><div className="picker-dialog-heading"><div><h2 id="paper-confirm-title">{paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2><p className="muted">{paperConfirmation === 'alpaca-submit' ? 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.' : 'This changes the TradeX simulation only.'}</p></div></div><p>{paperConfirmation === 'alpaca-submit' ? 'Submit the exact Alpaca Paper Proposal shown below?' : paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p>{paperConfirmation === 'alpaca-submit' && proposalDetail.data && <dl className="proposal-fields"><div><dt>Paper account</dt><dd>{accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'} · {accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}</dd></div><div><dt>Instrument / side</dt><dd>{proposalDetail.data.fields.instrumentId} · {proposalDetail.data.fields.side}</dd></div><div><dt>Quantity / order</dt><dd>{proposalDetail.data.fields.quantity.value} {proposalDetail.data.fields.quantity.type} · {proposalDetail.data.fields.orderType} · {proposalDetail.data.fields.timeInForce}</dd></div><div><dt>Limit</dt><dd>{proposalDetail.data.fields.limitPrice ?? '—'}</dd></div><div><dt>Proposal</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div></dl>}<div className="picker-dialog-actions"><button type="button" onClick={() => setPaperConfirmation(undefined)} disabled={paperBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy}>{paperBusy ? 'Working…' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div></div></div>}
+    <section className="card order-book-panel" aria-labelledby="alpaca-order-book-title">
+      <div className="section-heading">
+        <div><h2 id="alpaca-order-book-title">Alpaca Paper orders and fills</h2><p className="muted">Provider observations · ALPACA_PAPER only</p></div>
+        <div className="order-book-actions">
+          <label className="field">Paper account<select aria-label="Alpaca Paper account" value={ordersConnectionId} onChange={event => setOrdersConnectionId(event.target.value)}><option value="">Select an Alpaca Paper account</option>{alpacaAccounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.data?.remoteAccountId ?? account.connectionId}</option>)}</select></label>
+          <button type="button" onClick={() => void refreshAlpacaOrders()} disabled={!ordersAccount || ordersAccount.connectionState !== 'CONNECTED' || ordersBusy}>{ordersBusy ? 'Checking Alpaca…' : 'Refresh orders and fills'}</button>
+        </div>
+      </div>
+      {accounts.isPending && <p role="status">Loading linked accounts…</p>}
+      {!accounts.isPending && !alpacaAccounts.length && <p className="muted">Connect an Alpaca Paper account to view its provider orders and fills.</p>}
+      {ordersAccount && ordersAccount.connectionState !== 'CONNECTED' && <p className="error-text" role="status">This Alpaca Paper account is disconnected. Reconnect it before refreshing provider observations.</p>}
+      {ordersQuery.isPending && ordersConnectionId && <p role="status">Loading saved Alpaca Paper observations…</p>}
+      {ordersQuery.isError && <div className="error-text" role="alert"><p>Saved Alpaca Paper orders are unavailable.</p><button type="button" onClick={() => void ordersQuery.refetch()}>Reload saved orders</button></div>}
+      {orderBook && <>
+        <p className={orderBook.status === 'DEGRADED' || orderBook.status === 'STALE' ? 'error-text' : 'muted'} role={orderBook.status === 'DEGRADED' ? 'alert' : 'status'}>
+          {orderBook.status === 'CURRENT' ? `Current provider observations · received ${new Date(orderBook.observedAt).toLocaleString()}` : orderBook.status === 'NEVER_SYNCED' ? 'No provider read has completed; refresh to load orders and fills.' : `Provider read is ${orderBook.status.toLowerCase()}: ${orderBook.reason ?? 'showing the last saved observations'}.`}
+          {orderBook.lastSuccessfulSyncAt && ` Last complete sync: ${new Date(orderBook.lastSuccessfulSyncAt).toLocaleString()}.`}
+        </p>
+        <h3>Open orders ({orderBook.orders.filter(isOpenAlpacaOrder).length})</h3>
+        {!orderBook.orders.some(isOpenAlpacaOrder) && orderBook.status === 'CURRENT' && <p className="muted">No open Alpaca Paper orders were returned.</p>}
+        {orderBook.orders.filter(isOpenAlpacaOrder).map(order => <article className="order-book-order" key={order.providerOrderId}>
+          <div><strong>{order.symbol} · {order.side.toUpperCase()} · {order.providerStatus}</strong><small>ALPACA_PAPER · {order.origin === 'TRADE_X' ? 'TradeX proposal' : 'External provider order'} · observed {new Date(order.observedAt).toLocaleString()}</small></div>
+          <dl className="order-book-facts"><div><dt>Provider order</dt><dd>{order.providerOrderId}</dd></div><div><dt>Instrument</dt><dd>{order.instrumentId ?? `${order.symbol} · canonical mapping unavailable`}</dd></div><div><dt>Filled / remaining</dt><dd>{order.filledQuantity} / {order.remainingQuantity ?? 'unavailable'}</dd></div><div><dt>Provider state</dt><dd>{order.cancelState === 'PENDING' ? 'CANCEL_PENDING · provider confirmation required' : order.cancelState === 'SUBMITTING' ? 'Cancellation is being checked' : order.providerStatus}</dd></div></dl>
+          {order.cancelError && <p className="error-text" role="status">{order.cancelError}</p>}
+          {canCancelAlpacaOrder(order) && <button type="button" onClick={() => void reviewAlpacaOrder(order)} disabled={ordersBusy}>{ordersBusy ? 'Refreshing selected order…' : 'Review cancellation'}</button>}
+          {order.cancelState !== 'NONE' && <button type="button" disabled>Cancellation pending provider confirmation</button>}
+        </article>)}
+        <h3>Order history ({orderBook.orders.filter(order => !isOpenAlpacaOrder(order)).length})</h3>
+        {orderBook.orders.filter(order => !isOpenAlpacaOrder(order)).map(order => <article className="order-book-order" key={order.providerOrderId}>
+          <div><strong>{order.symbol} · {order.side.toUpperCase()} · {order.providerStatus}</strong><small>ALPACA_PAPER · {order.origin === 'TRADE_X' ? 'TradeX proposal' : 'External provider order'} · observed {new Date(order.observedAt).toLocaleString()}</small></div>
+          <dl className="order-book-facts"><div><dt>Provider order</dt><dd>{order.providerOrderId}</dd></div><div><dt>Instrument</dt><dd>{order.instrumentId ?? `${order.symbol} · canonical mapping unavailable`}</dd></div><div><dt>Filled / remaining</dt><dd>{order.filledQuantity} / {order.remainingQuantity ?? 'unavailable'}</dd></div></dl>
+        </article>)}
+        {!orderBook.fills.length && orderBook.status === 'CURRENT' && <p className="muted">No Alpaca FILL activities were returned.</p>}
+        <h3>Fills ({orderBook.fills.length})</h3>
+        {orderBook.fills.map(fill => <article className="order-book-fill" key={fill.activityId}>
+          <strong>{fill.symbol} · {fill.side.toUpperCase()} · {fill.quantity} @ {fill.price}</strong>
+          <small>FILL activity {fill.activityId} · order {fill.providerOrderId} · executed {new Date(fill.executedAt).toLocaleString()}</small>
+          <small>ALPACA_PAPER · REST activity · received {new Date(fill.observedAt).toLocaleString()}</small>
+        </article>)}
+      </>}
+    </section>
+    {paperConfirmation && <div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}><div className="picker-dialog-heading"><div><h2 id="paper-confirm-title">{paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'alpaca-cancel' ? 'Confirm Alpaca Paper cancellation' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2><p className="muted">{paperConfirmation === 'alpaca-submit' ? 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.' : paperConfirmation === 'alpaca-cancel' ? 'The account and order were just reread from Alpaca Paper. Review the exact filled and remaining quantities before confirming.' : 'This changes the TradeX simulation only.'}</p></div></div><p>{paperConfirmation === 'alpaca-submit' ? 'Submit the exact Alpaca Paper Proposal shown below?' : paperConfirmation === 'alpaca-cancel' ? 'Send a cancellation request for this exact Alpaca Paper order?' : paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p>{paperConfirmation === 'alpaca-cancel' && cancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>ALPACA_PAPER · {ordersAccount?.label ?? 'Unavailable'} · {cancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{cancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{cancelReview.order.instrumentId ?? cancelReview.order.symbol} · {cancelReview.order.side.toUpperCase()}</dd></div><div><dt>Provider status</dt><dd>{cancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{cancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{cancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last observation</dt><dd>{new Date(cancelReview.order.observedAt).toLocaleString()}</dd></div></dl>}{paperConfirmation === 'alpaca-submit' && proposalDetail.data && <dl className="proposal-fields"><div><dt>Paper account</dt><dd>{accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'} · {accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}</dd></div><div><dt>Instrument / side</dt><dd>{proposalDetail.data.fields.instrumentId} · {proposalDetail.data.fields.side}</dd></div><div><dt>Quantity / order</dt><dd>{proposalDetail.data.fields.quantity.value} {proposalDetail.data.fields.quantity.type} · {proposalDetail.data.fields.orderType} · {proposalDetail.data.fields.timeInForce}</dd></div><div><dt>Limit</dt><dd>{proposalDetail.data.fields.limitPrice ?? '—'}</dd></div><div><dt>Proposal</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div></dl>}<div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); }} disabled={paperBusy || ordersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy}>{paperBusy || ordersBusy ? 'Working…' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'alpaca-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div></div></div>}
   </>;
 }
 
