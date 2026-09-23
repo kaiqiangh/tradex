@@ -586,6 +586,12 @@ Local Paper account 必须显示为 `Local Paper · LOCAL_PAPER` 与 `TradeX sim
 
 Renderer 在 reload/reopen 后把 Local Paper projection 作为权威状态。Loading、empty、error 与 retry 使用 status/alert 语义；submit/cancel dialog 使用 `role="dialog"`、`aria-modal`、accessible name，仅显式 action 接受键盘 Enter，并把焦点恢复到触发 proposal 或 Local Paper summary。每个 simulation result 保留 `LOCAL`、`TRADEX_SIMULATION` 与 `not provider truth` 文本披露。Portfolio 展示 simulation provenance 与 `Live risk: Blocked`；Local Paper control 不渲染 approval、arming、reservation、broker acknowledgement 或 Live readiness。
 
+### 13.7 Alpaca Paper 订单提交（S17 #57）
+
+Accounts surface 只从 provider observation 展示 Alpaca Paper buying power，并同时标注账户币种；缺失时显示 `Unavailable`。Order Drafts surface 在显式的 Paper-only 确认 dialog 前展示不可变的 `ALPACA_PAPER` Proposal 及其绑定账户、环境、canonical instrument、方向、数量/金额、订单类型、有效期和限价。用户必须确认审阅过的精确 Proposal；此路径与 Local Paper simulation 和 Live approval 分离。
+
+提交后 renderer 从持久化 attempt projection 读取状态，并区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 与 `REJECTED`。Acknowledgement 标记为 provider 已接受，不能称为成交证据。Reload 后恢复已保存 attempt；unknown attempt 只允许按已保存 client order ID 查询式对账；重复提交展示已有 attempt，不能再发 POST。错误保留有界的 remediation 文本。Loading/error 使用 status/alert 语义，确认 dialog 会恢复焦点；在 390、768、1280 px 下账户与订单的 Paper identity 均保持可读。Alpaca Paper control 不授予 Live 或 Agent 提交权限。
+
 ---
 
 ## 14. Live Execution UI 架构

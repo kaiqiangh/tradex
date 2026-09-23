@@ -194,6 +194,8 @@ pub enum ReplyData {
     OrderProposal(Box<OrderProposal>),
     OrderProposalLibrary(OrderProposalLibrary),
     OrderProposalRefresh(Box<OrderProposalRefreshResult>),
+    AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
+    AlpacaPaperOrderAttemptQuery(Box<AlpacaPaperOrderAttemptQueryResult>),
     PaperOrderResult(Box<PaperOrderResult>),
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
@@ -281,6 +283,11 @@ pub struct IpcSchema {
     pub order_proposal_library: OrderProposalLibrary,
     pub order_proposal_refresh_request: OrderProposalRefresh,
     pub order_proposal_refresh: OrderProposalRefreshResult,
+    pub alpaca_paper_order_submit: AlpacaPaperOrderSubmit,
+    pub alpaca_paper_order_attempt_query: AlpacaPaperOrderAttemptQuery,
+    pub alpaca_paper_order_attempt_query_result: AlpacaPaperOrderAttemptQueryResult,
+    pub alpaca_paper_order_reconcile: AlpacaPaperOrderReconcile,
+    pub alpaca_paper_order_attempt: AlpacaPaperOrderAttempt,
     pub artifact_save: ArtifactSave,
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
@@ -337,7 +344,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 15))]
+    #[schemars(range(min = 1, max = 16))]
     pub storage_schema_version: u32,
 }
 
@@ -2642,6 +2649,100 @@ pub struct OrderProposalRefreshResult {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AlpacaPaperOrderAttemptState {
+    Submitting,
+    Acknowledged,
+    UnknownReconciling,
+    Rejected,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderAttempt {
+    #[schemars(length(min = 1, max = 128))]
+    pub attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub remote_account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub client_order_id: String,
+    pub state: AlpacaPaperOrderAttemptState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 36))]
+    pub provider_order_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub error_code: Option<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderSubmit {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_proposal_state_version: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: String,
+    pub confirmed_paper_order: bool,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderAttemptQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderAttemptQueryResult {
+    pub attempt: Option<AlpacaPaperOrderAttempt>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaPaperOrderReconcile {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ArtifactKind {
     Research,
     Decision,
@@ -2933,6 +3034,7 @@ pub enum DomainProjection {
     Account(Box<AccountConnection>),
     Risk(RiskPolicyState),
     Thread(Box<Thread>),
+    AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
 }
 
 impl DomainProjection {
@@ -2944,6 +3046,7 @@ impl DomainProjection {
             Self::Account(a) => &a.connection_id,
             Self::Risk(r) => &r.workspace_id,
             Self::Thread(t) => &t.thread_id,
+            Self::AlpacaPaperOrderAttempt(a) => &a.attempt_id,
         }
     }
     pub fn kind(&self) -> &str {
@@ -2954,6 +3057,7 @@ impl DomainProjection {
             Self::Account(_) => "account",
             Self::Risk(_) => "risk",
             Self::Thread(_) => "thread",
+            Self::AlpacaPaperOrderAttempt(_) => "alpaca-paper-order-attempt",
         }
     }
 }
@@ -2963,12 +3067,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "alpaca.paper.order.attempt.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -2980,7 +3084,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -3143,6 +3247,66 @@ impl TradeXError {
                 "This time in force is not supported for the selected order type.",
                 "edit_order_type",
                 "Choose a compatible time in force",
+            ),
+            "ORDER_SUBMIT_FORBIDDEN" => (
+                "Confirm Alpaca Paper orders from the main Trade surface. Agents and research tools cannot submit orders.",
+                "open_trade_surface",
+                "Open Trade",
+            ),
+            "ORDER_ATTEMPT_NOT_FOUND" => (
+                "No saved Alpaca Paper attempt exists for this proposal. Reload its authoritative state.",
+                "reload_snapshot",
+                "Reload proposal",
+            ),
+            "ORDER_PROPOSAL_CONSUMED" => (
+                "This proposal already has a saved Alpaca Paper submission attempt. Check its status; do not submit it again.",
+                "reload_snapshot",
+                "Reload attempt",
+            ),
+            "ORDER_PROPOSAL_NOT_ELIGIBLE" => (
+                "Only a current Alpaca Paper proposal bound to its connected account can be submitted.",
+                "reload_snapshot",
+                "Reload proposal",
+            ),
+            "ORDER_ASSET_UNAVAILABLE" => (
+                "Alpaca could not find this canonical equity symbol for Paper trading.",
+                "select_instrument",
+                "Choose another instrument",
+            ),
+            "ORDER_ASSET_UNTRADABLE" => (
+                "Alpaca reports this asset as inactive or not tradable. Choose an eligible instrument.",
+                "select_instrument",
+                "Review instrument",
+            ),
+            "ORDER_ASSET_NOT_FRACTIONABLE" => (
+                "Alpaca does not allow fractional orders for this asset. Use a whole-share quantity or another instrument.",
+                "edit_order_amount",
+                "Review quantity",
+            ),
+            "ORDER_INSUFFICIENT_POSITION" => (
+                "The Alpaca Paper account does not have enough available long shares for this sell. Opening short positions is disabled.",
+                "reload_snapshot",
+                "Refresh positions",
+            ),
+            "ORDER_BUYING_POWER_INSUFFICIENT" => (
+                "The Alpaca Paper account's current buying power is below this order's requested notional.",
+                "reload_snapshot",
+                "Refresh account",
+            ),
+            "ORDER_CAPABILITY_UNSUPPORTED" => (
+                "TradeX cannot verify this Alpaca Paper order combination for this account. Review the order terms and account permissions.",
+                "edit_order_type",
+                "Review order terms",
+            ),
+            "ORDER_STATUS_UNKNOWN" => (
+                "Alpaca has not established this order's status. Reconcile by client order ID; do not submit it again.",
+                "retry_provider",
+                "Reconcile order",
+            ),
+            "PROVIDER_ORDER_REJECTED" => (
+                "Alpaca rejected the Paper order. Review the order terms and account restrictions before creating a new proposal.",
+                "reload_snapshot",
+                "Review provider status",
             ),
             "ORDER_DRAFT_NOT_FOUND" => (
                 "That order draft is no longer available. Reload the draft library.",
@@ -3852,18 +4016,36 @@ impl TradeXError {
                     | "RESEARCH_RESULT_INVALID"
                     | "DATA_SOURCE_UNKNOWN"
                     | "ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"
+                    | "ORDER_CAPABILITY_UNSUPPORTED"
+                    | "ORDER_ASSET_UNAVAILABLE"
+                    | "ORDER_ASSET_UNTRADABLE"
+                    | "ORDER_ASSET_NOT_FRACTIONABLE"
             ) {
                 "UNSUPPORTED_CAPABILITY"
             } else if matches!(code, "MARKET_CLOSED" | "INSTRUMENT_HALTED") {
                 code
-            } else if code == "PROVIDER_PERMISSION_BLOCKED" {
+            } else if matches!(
+                code,
+                "PROVIDER_PERMISSION_BLOCKED" | "ORDER_SUBMIT_FORBIDDEN"
+            ) {
                 "PERMISSION_ERROR"
+            } else if matches!(
+                code,
+                "PROVIDER_ORDER_REJECTED"
+                    | "ORDER_BUYING_POWER_INSUFFICIENT"
+                    | "ORDER_INSUFFICIENT_POSITION"
+            ) {
+                "PROVIDER_ORDER_REJECTED"
             } else if matches!(
                 code,
                 "IPC_AGGREGATE_NOT_FOUND"
                     | "ARTIFACT_NOT_FOUND"
                     | "ORDER_PROPOSAL_NOT_FOUND"
                     | "ORDER_PROPOSAL_NOT_REFRESHABLE"
+                    | "ORDER_ATTEMPT_NOT_FOUND"
+                    | "ORDER_PROPOSAL_CONSUMED"
+                    | "ORDER_PROPOSAL_NOT_ELIGIBLE"
+                    | "ORDER_STATUS_UNKNOWN"
                     | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"

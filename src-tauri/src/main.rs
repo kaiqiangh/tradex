@@ -168,7 +168,7 @@ async fn control(
             return backtest_supervisor.cancel(engine, request);
         }
         let prepared = match engine.lock() {
-            Ok(mut engine) => match engine.prepare_provider(&request) {
+            Ok(mut engine) => match engine.prepare_provider_for(&request, &consumer) {
                 Ok(Some(job)) => job,
                 Ok(None) => {
                     return engine.dispatch_with_runtime(

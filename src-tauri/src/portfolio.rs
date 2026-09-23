@@ -101,6 +101,7 @@ fn local_paper_data(account: &AccountConnection, state: &LocalPaperState) -> Acc
             .unwrap_or_else(|| format!("tradex-simulation:{}", state.workspace_id)),
         account_type: "TRADEX_SIMULATION".into(),
         currency: Some(state.cash.currency.clone()),
+        buying_power: None,
         balances,
         positions: state
             .positions
@@ -1442,6 +1443,7 @@ mod tests {
             remote_account_id: "remote".into(),
             account_type: "PAPER".into(),
             currency: Some("USD".into()),
+            buying_power: None,
             balances: vec![Balance {
                 asset: "USD".into(),
                 available: "10".into(),
@@ -1481,6 +1483,7 @@ mod tests {
             remote_account_id: "remote".into(),
             account_type: "PAPER".into(),
             currency: Some("USD".into()),
+            buying_power: None,
             balances: vec![],
             positions: vec![Position {
                 symbol: "UNKNOWN".into(),
@@ -1577,6 +1580,7 @@ mod tests {
             remote_account_id: "remote".into(),
             account_type: "PAPER".into(),
             currency: Some("USD".into()),
+            buying_power: None,
             balances: (0..=MAX_PORTFOLIO_ROWS)
                 .map(|index| Balance {
                     asset: format!("A{index}"),
@@ -1604,6 +1608,7 @@ mod tests {
             remote_account_id: "remote".into(),
             account_type: "PAPER".into(),
             currency: Some("USD".into()),
+            buying_power: None,
             balances: vec![Balance {
                 asset: "A".repeat(65),
                 available: "1".into(),
@@ -1633,6 +1638,7 @@ mod tests {
             remote_account_id: "remote".into(),
             account_type: "PAPER".into(),
             currency: Some("USD".into()),
+            buying_power: None,
             balances: vec![],
             positions: vec![Position {
                 symbol: "S".repeat(65),
@@ -1685,6 +1691,7 @@ mod tests {
             remote_account_id: "remote".into(),
             account_type: "PAPER".into(),
             currency: None,
+            buying_power: None,
             balances: vec![],
             positions: (0..=MAX_PORTFOLIO_FX_ROUTES)
                 .map(|index| Position {

@@ -192,6 +192,7 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
         remote_account_id: account_id(&account)?,
         account_type: "Invest / Stocks ISA — subtype unavailable".into(),
         currency: Some(account_currency.clone()),
+        buying_power: None,
         balances: vec![Balance { locked: None, restricted_available: None, asset: account_currency, available: number(&account["cash"]["availableToTrade"])?, total: optional(&account,"totalValue")?, reserved: optional(&account["cash"],"reservedForOrders")?, in_pies: optional(&account["cash"],"inPies")? }],
         positions, open_orders: orders, capabilities: permissions.detected.clone(),
         limitations: vec![

@@ -145,7 +145,7 @@ fn main() -> io::Result<()> {
             }
             #[cfg(feature = "integration-test")]
             let result = match control.lock() {
-                Ok(mut control) => match control.prepare_provider(&request) {
+                Ok(mut control) => match control.prepare_provider_for(&request, "stdio") {
                     Ok(Some(job)) => {
                         let outcome = job.run(
                             &vault,

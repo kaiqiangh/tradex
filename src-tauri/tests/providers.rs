@@ -61,6 +61,7 @@ fn lifecycle(vault: &impl CredentialVault) {
     assert_eq!(pending["connectionState"], "REVIEW_REQUIRED");
     assert_eq!(pending["data"]["balances"][0]["available"], "1000.25");
     assert_eq!(pending["data"]["openOrders"][0]["notional"], "10.5");
+    assert_eq!(pending["data"]["buyingPower"], "1100.9876543210123456789");
     assert_eq!(pending["permissions"]["scope"], "UNVERIFIED");
     assert_eq!(pending["health"]["privateStream"], "NOT_CONFIGURED");
     assert_eq!(pending["health"]["executionEligibility"], "BLOCKED");
@@ -160,6 +161,585 @@ fn lifecycle(vault: &impl CredentialVault) {
             assert!(!bytes.windows(secret.len()).any(|w| w == secret.as_bytes()));
         }
     }
+}
+
+fn connected_alpaca(
+    cp: &mut ControlPlane,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    workspace: &Value,
+) -> Value {
+    let tested = execute(cp, begin(workspace), vault, http);
+    assert_eq!(tested["ok"], true, "{tested}");
+    let mut confirm = mutation(&tested["data"]);
+    confirm["step"] = "confirm".into();
+    confirm["acknowledgeUnverified"] = true.into();
+    let confirmed = command(cp, "provider.connect", confirm);
+    assert_eq!(confirmed["ok"], true, "{confirmed}");
+    confirmed["data"].clone()
+}
+
+fn alpaca_paper_proposal(cp: &mut ControlPlane, workspace: &Value, account: &Value) -> Value {
+    alpaca_paper_proposal_with_order(
+        cp,
+        workspace,
+        account,
+        "BUY",
+        "BASE",
+        "1",
+        ("MARKET", "DAY"),
+    )
+}
+
+fn alpaca_paper_proposal_with_order(
+    cp: &mut ControlPlane,
+    workspace: &Value,
+    account: &Value,
+    side: &str,
+    quantity_type: &str,
+    quantity: &str,
+    (order_type, time_in_force): (&str, &str),
+) -> Value {
+    let mut fields = json!({
+        "accountId":account["connectionId"],"venue":"XNAS",
+        "environment":"ALPACA_PAPER","instrumentId":"equity:US:AAPL",
+        "side":side,"orderType":order_type,
+        "quantity":{"type":quantity_type,"value":quantity},"timeInForce":time_in_force
+    });
+    if order_type == "LIMIT" {
+        fields["limitPrice"] = "100".into();
+    }
+    let saved = command(
+        cp,
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":fields}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    let generated = command(
+        cp,
+        "trade.generate_proposal",
+        json!({
+            "workspaceId":workspace,"draftId":saved["data"]["draftId"],
+            "expectedDraftVersion":1
+        }),
+    );
+    assert_eq!(generated["ok"], true, "{generated}");
+    let selected = command(
+        cp,
+        "trade.proposal.get",
+        json!({"workspaceId":workspace,"proposalId":generated["data"]["proposalId"]}),
+    );
+    assert_eq!(selected["ok"], true, "{selected}");
+    selected["data"].clone()
+}
+
+fn alpaca_submit_request(workspace: &Value, account: &Value, proposal: &Value) -> Value {
+    envelope(
+        "alpaca.paper.order.submit",
+        json!({
+            "workspaceId":workspace,
+            "connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "proposalId":proposal["proposalId"],
+            "expectedProposalStateVersion":proposal["stateVersion"],
+            "proposalHash":proposal["proposalHash"],
+            "idempotencyKey":"paper-attempt-qa-1",
+            "confirmedPaperOrder":true
+        }),
+    )
+}
+
+#[test]
+fn alpaca_paper_order_submit_is_persisted_before_io_and_never_posts_twice() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    assert_eq!(account["data"]["currency"], "USD");
+    assert_eq!(account["data"]["balances"][0]["available"], "1000.25");
+    assert_eq!(account["data"]["balances"][0]["total"], "1200.55");
+    assert_eq!(account["data"]["buyingPower"], "1100.9876543210123456789");
+    let proposal = alpaca_paper_proposal(&mut cp, &workspace, &account);
+    let request = alpaca_submit_request(&workspace, &account, &proposal);
+
+    let forbidden = match cp.prepare_provider_for(&request, "research") {
+        Err(error) => error.code,
+        Ok(_) => panic!("research consumers cannot submit provider orders"),
+    };
+    assert_eq!(forbidden, "ORDER_SUBMIT_FORBIDDEN");
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    let attempt = command(
+        &mut cp,
+        "alpaca.paper.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    )["data"]["attempt"]
+        .clone();
+    assert_eq!(attempt["state"], "SUBMITTING");
+    assert!(attempt["clientOrderId"].as_str().unwrap().len() <= 128);
+    assert!(
+        http.alpaca_posts.borrow().is_empty(),
+        "POST must happen after durable attempt creation"
+    );
+
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "ACKNOWLEDGED");
+    assert_eq!(reply["data"]["providerStatus"], "accepted");
+    assert!(
+        reply["data"].get("fill").is_none(),
+        "HTTP acknowledgement is not fill evidence"
+    );
+    assert_eq!(http.alpaca_posts.borrow().len(), 1);
+    let sent = http.alpaca_posts.borrow()[0].clone();
+    assert_eq!(sent["client_order_id"], attempt["clientOrderId"]);
+    assert_eq!(sent["symbol"], "AAPL");
+    assert_eq!(sent["qty"], "1");
+    assert_eq!(sent["time_in_force"], "day");
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .any(|url| url.starts_with("https://paper-api.alpaca.markets/"))
+    );
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .all(|url| !url.contains("live-api"))
+    );
+
+    assert!(cp.prepare_provider_for(&request, "main").unwrap().is_none());
+    let duplicate = cp.dispatch_with_events(request.clone(), "main", None);
+    assert_eq!(duplicate["data"]["attemptId"], attempt["attemptId"]);
+    assert_eq!(
+        http.alpaca_posts.borrow().len(),
+        1,
+        "same immutable proposal must not create another POST"
+    );
+
+    let snapshot = command(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"alpaca-paper-order-attempt","aggregateId":attempt["attemptId"]}),
+    );
+    assert_eq!(snapshot["ok"], true, "{snapshot}");
+    assert_eq!(snapshot["data"]["lastSequence"], 2);
+    let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = events.clone();
+    let ack = cp.dispatch_with_events(
+        envelope(
+            "domain.subscribe",
+            json!({"aggregateType":"alpaca-paper-order-attempt","aggregateId":attempt["attemptId"],"afterSequence":0}),
+        ),
+        "main",
+        Some(std::sync::Arc::new(move |event| {
+            sink.lock().unwrap().push(serde_json::to_value(event).unwrap());
+            true
+        })),
+    );
+    assert_eq!(ack["data"]["replayedCount"], 2);
+    assert_eq!(
+        events.lock().unwrap()[1]["eventType"],
+        "alpaca.paper.order.attempt.changed"
+    );
+    let encoded =
+        serde_json::to_string(&json!([reply, duplicate, *events.lock().unwrap()])).unwrap();
+    assert!(!encoded.contains(KEY));
+    assert!(!encoded.contains(SECRET));
+}
+
+#[test]
+fn alpaca_paper_timeout_stays_unknown_after_empty_lookup_and_reconcile_never_reposts() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let proposal = alpaca_paper_proposal(&mut cp, &workspace, &account);
+    let request = alpaca_submit_request(&workspace, &account, &proposal);
+    http.alpaca_post_timeout.set(true);
+    http.alpaca_lookup_misses.set(1);
+
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "UNKNOWN_RECONCILING");
+    assert_eq!(reply["data"]["errorCode"], "ORDER_STATUS_UNKNOWN");
+    assert_eq!(http.alpaca_posts.borrow().len(), 1);
+    assert!(cp.prepare_provider_for(&request, "main").unwrap().is_none());
+    assert_eq!(http.alpaca_posts.borrow().len(), 1);
+
+    http.alpaca_post_timeout.set(false);
+    let reconcile = envelope(
+        "alpaca.paper.order.reconcile",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "proposalId":proposal["proposalId"]
+        }),
+    );
+    let reconcile_job = cp
+        .prepare_provider_for(&reconcile, "main")
+        .unwrap()
+        .unwrap();
+    let outcome = reconcile_job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&reconcile_job),
+    );
+    let recovered = cp.complete_provider(&reconcile_job, outcome);
+    assert_eq!(recovered["ok"], true, "{recovered}");
+    assert_eq!(recovered["data"]["state"], "ACKNOWLEDGED");
+    assert_eq!(
+        recovered["data"]["providerOrderId"],
+        "18c65e3e-feb0-4576-99e2-36e6f047d84d"
+    );
+    assert_eq!(
+        http.alpaca_posts.borrow().len(),
+        1,
+        "reconciliation is query-only"
+    );
+}
+
+#[test]
+fn alpaca_paper_reconcile_never_reads_an_order_from_a_different_account() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let mut http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let proposal = alpaca_paper_proposal(&mut cp, &workspace, &account);
+    let request = alpaca_submit_request(&workspace, &account, &proposal);
+    http.alpaca_post_timeout.set(true);
+    http.alpaca_lookup_misses.set(1);
+
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["data"]["state"], "UNKNOWN_RECONCILING");
+    let lookup_count = http
+        .calls
+        .borrow()
+        .iter()
+        .filter(|path| path.contains("/v2/orders:by_client_order_id?client_order_id="))
+        .count();
+
+    http.identity = "b1a3c22f-4ad7-47aa-912b-cda43b22ce44".into();
+    let reconcile = envelope(
+        "alpaca.paper.order.reconcile",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "proposalId":proposal["proposalId"]
+        }),
+    );
+    let reconcile_job = cp
+        .prepare_provider_for(&reconcile, "main")
+        .unwrap()
+        .unwrap();
+    let outcome = reconcile_job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&reconcile_job),
+    );
+    let unchanged = cp.complete_provider(&reconcile_job, outcome);
+    assert_eq!(unchanged["data"]["state"], "UNKNOWN_RECONCILING");
+    assert_eq!(unchanged["data"]["errorCode"], "PROVIDER_IDENTITY_CHANGED");
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|path| path.contains("/v2/orders:by_client_order_id?client_order_id="))
+            .count(),
+        lookup_count,
+        "a changed provider account must be rejected before querying its orders"
+    );
+    assert_eq!(http.alpaca_posts.borrow().len(), 1);
+}
+
+#[test]
+fn alpaca_paper_reopen_recovers_submitting_attempt_to_query_only_unknown_state() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let proposal = alpaca_paper_proposal(&mut cp, &workspace, &account);
+    let request = alpaca_submit_request(&workspace, &account, &proposal);
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    let before_restart = command(
+        &mut cp,
+        "alpaca.paper.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    )["data"]["attempt"]
+        .clone();
+    assert_eq!(before_restart["state"], "SUBMITTING");
+    assert!(http.alpaca_posts.borrow().is_empty());
+    drop(job);
+    drop(cp);
+
+    let mut reopened = ControlPlane::new(path);
+    let opened = command(&mut reopened, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    assert_eq!(opened["data"]["workspaceId"], workspace);
+    let recovered = command(
+        &mut reopened,
+        "alpaca.paper.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    )["data"]["attempt"]
+        .clone();
+    assert_eq!(recovered["state"], "UNKNOWN_RECONCILING");
+    assert_eq!(recovered["clientOrderId"], before_restart["clientOrderId"]);
+    let current_account = command(
+        &mut reopened,
+        "account.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    )["data"]
+        .clone();
+
+    let reconcile = envelope(
+        "alpaca.paper.order.reconcile",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":current_account["stateVersion"],
+            "proposalId":proposal["proposalId"]
+        }),
+    );
+    let reconcile_job = reopened
+        .prepare_provider_for(&reconcile, "main")
+        .unwrap()
+        .unwrap();
+    let outcome = reconcile_job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || reopened.provider_job_current(&reconcile_job),
+    );
+    let still_unknown = reopened.complete_provider(&reconcile_job, outcome);
+    assert_eq!(still_unknown["data"]["state"], "UNKNOWN_RECONCILING");
+    assert_eq!(
+        still_unknown["data"]["clientOrderId"],
+        before_restart["clientOrderId"]
+    );
+    assert!(
+        http.alpaca_posts.borrow().is_empty(),
+        "restart recovery must never resubmit"
+    );
+}
+
+#[test]
+fn alpaca_paper_rejects_notional_above_fresh_buying_power_before_order_io() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let proposal = alpaca_paper_proposal_with_order(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "QUOTE",
+        "1200",
+        ("MARKET", "DAY"),
+    );
+    let request = alpaca_submit_request(&workspace, &account, &proposal);
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "REJECTED");
+    assert_eq!(
+        reply["data"]["errorCode"],
+        "ORDER_BUYING_POWER_INSUFFICIENT"
+    );
+    assert_eq!(http.alpaca_posts.borrow().len(), 0);
+    assert!(
+        !http
+            .calls
+            .borrow()
+            .iter()
+            .any(|path| path.starts_with("/v2/assets/"))
+    );
+}
+
+#[test]
+fn alpaca_paper_definitive_http_rejections_are_persisted_without_resubmission() {
+    for (status, error_code) in [
+        (400, "PROVIDER_ORDER_REJECTED"),
+        (401, "PROVIDER_AUTH_FAILED"),
+        (403, "PROVIDER_PERMISSION_BLOCKED"),
+        (422, "PROVIDER_ORDER_REJECTED"),
+        (429, "PROVIDER_RATE_LIMITED"),
+    ] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().to_path_buf());
+        let workspace =
+            command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let http = Http::default();
+        let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+        let proposal = alpaca_paper_proposal(&mut cp, &workspace, &account);
+        let request = alpaca_submit_request(&workspace, &account, &proposal);
+        http.alpaca_post_status.set(Some(status));
+
+        let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+        let outcome = job.run(
+            &vault,
+            |_| credentials(),
+            &http,
+            || cp.provider_job_current(&job),
+        );
+        let reply = cp.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "HTTP {status}: {reply}");
+        assert_eq!(reply["data"]["state"], "REJECTED", "HTTP {status}");
+        assert_eq!(
+            reply["data"]["errorCode"], error_code,
+            "HTTP {status}: {reply}"
+        );
+        assert_eq!(http.alpaca_posts.borrow().len(), 1, "HTTP {status}");
+        assert!(cp.prepare_provider_for(&request, "main").unwrap().is_none());
+        assert_eq!(
+            http.alpaca_posts.borrow().len(),
+            1,
+            "replaying a definitively rejected Proposal cannot issue a second POST"
+        );
+    }
+}
+
+#[test]
+fn alpaca_paper_ioc_and_fok_without_verified_account_capability_never_post() {
+    for time_in_force in ["IOC", "FOK"] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().to_path_buf());
+        let workspace =
+            command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let http = Http::default();
+        let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+        let proposal = alpaca_paper_proposal_with_order(
+            &mut cp,
+            &workspace,
+            &account,
+            "BUY",
+            "BASE",
+            "1",
+            ("LIMIT", time_in_force),
+        );
+        let request = alpaca_submit_request(&workspace, &account, &proposal);
+        let error = match cp.prepare_provider_for(&request, "main") {
+            Err(error) => error,
+            Ok(_) => panic!("unverified {time_in_force} capability must fail closed"),
+        };
+        assert_eq!(
+            error.code, "ORDER_CAPABILITY_UNSUPPORTED",
+            "{time_in_force}: {error:?}"
+        );
+        assert!(http.alpaca_posts.borrow().is_empty(), "{time_in_force}");
+        assert!(
+            !http
+                .calls
+                .borrow()
+                .iter()
+                .any(|url| url.ends_with("/v2/assets/AAPL")),
+            "unsupported TIF must be rejected before asset lookup: {time_in_force}"
+        );
+    }
+}
+
+#[test]
+fn alpaca_paper_fractional_equity_orders_require_market_day() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let proposal = alpaca_paper_proposal_with_order(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "BASE",
+        "1.25",
+        ("LIMIT", "DAY"),
+    );
+    let request = alpaca_submit_request(&workspace, &account, &proposal);
+    let calls_before_submit = http.calls.borrow().len();
+    let error = match cp.prepare_provider_for(&request, "main") {
+        Err(error) => error,
+        Ok(_) => panic!("fractional Alpaca limit orders must fail before provider I/O"),
+    };
+    assert_eq!(error.code, "ORDER_CAPABILITY_UNSUPPORTED");
+    assert_eq!(http.calls.borrow().len(), calls_before_submit);
+    assert!(http.alpaca_posts.borrow().is_empty());
+}
+
+#[test]
+fn alpaca_paper_sell_cannot_open_or_increase_a_short_position() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    *http.alpaca_position.borrow_mut() = Some(json!({
+        "asset_id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e15b",
+        "symbol":"AAPL","asset_class":"us_equity","side":"long",
+        "qty":"1","qty_available":"0.5"
+    }));
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let proposal = alpaca_paper_proposal_with_order(
+        &mut cp,
+        &workspace,
+        &account,
+        "SELL",
+        "BASE",
+        "1",
+        ("MARKET", "DAY"),
+    );
+    let request = alpaca_submit_request(&workspace, &account, &proposal);
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["data"]["state"], "REJECTED");
+    assert_eq!(reply["data"]["errorCode"], "ORDER_INSUFFICIENT_POSITION");
+    assert!(http.alpaca_posts.borrow().is_empty());
 }
 
 #[test]

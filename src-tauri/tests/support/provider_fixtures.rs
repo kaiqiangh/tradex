@@ -1,13 +1,16 @@
 #[path = "bitget_fixtures.rs"]
 pub mod bitget;
-use serde_json::json;
+use serde_json::{Value, json};
 use std::{
     cell::{Cell, RefCell},
     collections::HashSet,
 };
 use tradex::{
     protocol::{Result, TradeXError},
-    provider_io::{CredentialVault, Credentials, ProviderHttp},
+    provider_io::{
+        CredentialVault, Credentials, ProviderEndpoint, ProviderHttp, ProviderHttpMethod,
+        ProviderHttpResponse,
+    },
 };
 pub const KEY: &str = "S02-FAKE-KEY-594791453";
 pub const SECRET: &str = "S02-FAKE-SECRET-704556921";
@@ -48,6 +51,14 @@ pub struct Http {
     pub fail: Cell<bool>,
     pub identity: String,
     pub calls: RefCell<Vec<String>>,
+    pub alpaca_posts: RefCell<Vec<Value>>,
+    pub alpaca_order: RefCell<Option<Value>>,
+    pub alpaca_lookup_misses: Cell<u32>,
+    pub alpaca_post_timeout: Cell<bool>,
+    pub alpaca_order_currency: RefCell<String>,
+    pub alpaca_asset: RefCell<Value>,
+    pub alpaca_position: RefCell<Option<Value>>,
+    pub alpaca_post_status: Cell<Option<u16>>,
 }
 impl Default for Http {
     fn default() -> Self {
@@ -55,10 +66,131 @@ impl Default for Http {
             fail: Cell::new(false),
             identity: "81161e77-bafd-44bb-b2a0-60b9055e3cd4".into(),
             calls: RefCell::new(vec![]),
+            alpaca_posts: RefCell::new(vec![]),
+            alpaca_order: RefCell::new(None),
+            alpaca_lookup_misses: Cell::new(0),
+            alpaca_post_timeout: Cell::new(false),
+            alpaca_order_currency: RefCell::new("USD".into()),
+            alpaca_asset: RefCell::new(json!({
+                "id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e15b",
+                "class":"us_equity","exchange":"NASDAQ","symbol":"AAPL",
+                "status":"active","tradable":true,"fractionable":true
+            })),
+            alpaca_position: RefCell::new(Some(json!({
+                "asset_id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e15b",
+                "symbol":"AAPL","asset_class":"us_equity","side":"long",
+                "qty":"10","qty_available":"10"
+            }))),
+            alpaca_post_status: Cell::new(None),
         }
     }
 }
 impl ProviderHttp for Http {
+    fn request(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<ProviderHttpResponse> {
+        if endpoint != ProviderEndpoint::AlpacaPaper {
+            return match (method, body) {
+                (ProviderHttpMethod::Get, None) => self
+                    .get(endpoint, path, headers)
+                    .map(|body| ProviderHttpResponse { status: 200, body }),
+                _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+        }
+        assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+        assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+        assert!(headers["APCA-API-KEY-ID"].is_sensitive());
+        assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+        assert!(!headers.contains_key("Authorization"));
+        self.calls
+            .borrow_mut()
+            .push(format!("{}{path}", endpoint.base_url()));
+        match (method, path, body) {
+            (ProviderHttpMethod::Get, "/v2/account", None) => {
+                let body = self.get(endpoint, path, headers)?;
+                let mut account: Value = serde_json::from_slice(&body).unwrap();
+                account["currency"] = self.alpaca_order_currency.borrow().clone().into();
+                Ok(ProviderHttpResponse {
+                    status: 200,
+                    body: serde_json::to_vec(&account).unwrap(),
+                })
+            }
+            (ProviderHttpMethod::Get, "/v2/assets/AAPL", None) => Ok(ProviderHttpResponse {
+                status: 200,
+                body: serde_json::to_vec(&self.alpaca_asset.borrow().clone()).unwrap(),
+            }),
+            (ProviderHttpMethod::Get, "/v2/positions/AAPL", None) => {
+                match self.alpaca_position.borrow().clone() {
+                    Some(position) => Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&position).unwrap(),
+                    }),
+                    None => Ok(ProviderHttpResponse {
+                        status: 404,
+                        body: Vec::new(),
+                    }),
+                }
+            }
+            (ProviderHttpMethod::Get, path, None)
+                if path.starts_with("/v2/orders:by_client_order_id?client_order_id=") =>
+            {
+                if self.alpaca_lookup_misses.get() > 0 {
+                    self.alpaca_lookup_misses
+                        .set(self.alpaca_lookup_misses.get() - 1);
+                    return Ok(ProviderHttpResponse {
+                        status: 404,
+                        body: Vec::new(),
+                    });
+                }
+                match self.alpaca_order.borrow().clone() {
+                    Some(order) => Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&order).unwrap(),
+                    }),
+                    None => Ok(ProviderHttpResponse {
+                        status: 404,
+                        body: Vec::new(),
+                    }),
+                }
+            }
+            (ProviderHttpMethod::Post, "/v2/orders", Some(request)) => {
+                self.alpaca_posts.borrow_mut().push(request.clone());
+                if let Some(status) = self.alpaca_post_status.get() {
+                    return Ok(ProviderHttpResponse {
+                        status,
+                        body: Vec::new(),
+                    });
+                }
+                let order = json!({
+                    "id":"18c65e3e-feb0-4576-99e2-36e6f047d84d",
+                    "asset_id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e15b",
+                    "client_order_id":request["client_order_id"],
+                    "symbol":request["symbol"],
+                    "asset_class":"us_equity","side":request["side"],
+                    "type":request["type"],"time_in_force":request["time_in_force"],
+                    "qty":request.get("qty"),"notional":request.get("notional"),
+                    "limit_price":request.get("limit_price"),"status":"accepted"
+                });
+                *self.alpaca_order.borrow_mut() = Some(order);
+                if self.alpaca_post_timeout.get() {
+                    Err(TradeXError::new("PROVIDER_UNAVAILABLE"))
+                } else {
+                    Ok(ProviderHttpResponse {
+                        status: 201,
+                        body: serde_json::to_vec(self.alpaca_order.borrow().as_ref().unwrap())
+                            .unwrap(),
+                    })
+                }
+            }
+            _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+        }
+    }
+
     fn get(
         &self,
         endpoint: tradex::provider_io::ProviderEndpoint,
@@ -143,7 +275,7 @@ impl ProviderHttp for Http {
         }
         let response = match path {
             "/v2/account" => {
-                json!({"id":self.identity,"currency":"USD","status":"ACTIVE","cash":"001000.2500","equity":"1200.5500","account_blocked":false,"trading_blocked":false,"shorting_enabled":true})
+                json!({"id":self.identity,"currency":"USD","status":"ACTIVE","cash":"001000.2500","equity":"1200.5500","buying_power":"1100.9876543210123456789","account_blocked":false,"trading_blocked":false,"trade_suspended_by_user":false,"shorting_enabled":true})
             }
             "/v2/positions" => {
                 json!([{"symbol":"AAPL","qty":"1.2500","market_value":"200.3000","avg_entry_price":"150.0"}])

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyEvent, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
+import { applyEvent, fromAlpacaPaperAttemptSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
 
 const workspace = {
   workspaceId: 'workspace-one', name: 'Equity research', baseCurrency: 'EUR', path: '/workspace',
@@ -110,4 +110,28 @@ test('thread projection preserves identity and contiguous event ordering', () =>
   assert.equal(applyEvent(next, structuredClone(event)), next);
   assert.throws(() => applyEvent(next, { ...event, sequence: 4 }));
   assert.throws(() => applyEvent(next, { ...event, payload: { ...event.payload, workspaceId: 'other-workspace' } }));
+});
+
+test('Alpaca Paper attempts use their own aggregate identity and preserve order bindings', () => {
+  const attempt = {
+    attemptId: 'attempt-one', workspaceId: 'workspace-one', connectionId: 'connection-one', remoteAccountId: 'paper-account-one',
+    proposalId: 'proposal-one', proposalHash: `sha256:${'a'.repeat(64)}`, clientOrderId: 'tradex-attempt-one',
+    state: 'SUBMITTING' as const, providerOrderId: null, providerStatus: null, errorCode: null, reason: 'Submitting',
+    stateVersion: 'attempt:attempt-one:1', createdAt: '2026-09-23T01:00:00Z', updatedAt: '2026-09-23T01:00:00Z',
+  };
+  const initial = fromAlpacaPaperAttemptSnapshot({
+    aggregateType: 'alpaca-paper-order-attempt', aggregateId: attempt.attemptId, projection: attempt, lastSequence: 1,
+  });
+  const event = {
+    eventId: 'attempt-two', eventType: 'alpaca.paper.order.attempt.changed' as const, schemaVersion: 1,
+    occurredAt: '2026-09-23T01:01:00Z', aggregateType: 'alpaca-paper-order-attempt' as const,
+    aggregateId: attempt.attemptId, sequence: 2,
+    payload: { ...attempt, state: 'ACKNOWLEDGED' as const, providerOrderId: 'provider-order-one', reason: 'Accepted', stateVersion: 'attempt:attempt-one:2', updatedAt: '2026-09-23T01:01:00Z' },
+  };
+  const next = applyEvent(initial, event);
+  assert.equal(next.snapshot.lastSequence, 2);
+  assert.equal(next.snapshot.projection.state, 'ACKNOWLEDGED');
+  assert.equal(applyEvent(next, structuredClone(event)), next);
+  assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, connectionId: 'connection-two' } }));
+  assert.throws(() => applyEvent(initial, { ...event, eventType: 'account.health.changed' }));
 });

@@ -1756,6 +1756,14 @@ paper.quote.refresh
 paper.scenario.set
 ```
 
+### Alpaca Paper order submission (S17)
+
+```text
+alpaca.paper.order.submit
+alpaca.paper.order.attempt.get
+alpaca.paper.order.reconcile
+```
+
 ### Strategy/backtest
 
 ```text
@@ -2005,7 +2013,7 @@ Version 1 adds the following exact operations. All input objects reject extra fi
 
 ProviderDefinition includes `providerId`, `displayName`, `environment`, `available`, `helpText`, `fields` (`id`, `label`, `inputType`, `required`, `secret`, `maxLength`, `helpText`, applicable environment), and permission requirements. Only supported implemented combinations can enter the connection workflow; unavailable catalog entries explain why. Local Paper is built-in and credential-free; it is not a successful external probe.
 
-AccountConnection includes immutable `connectionId`, `workspaceId`, `providerId`, `environment`, `createdAt`; `label`, opaque `stateVersion`, `updatedAt`, `connectionState` (CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED); separate connection/authentication/credential/private-stream/reconciliation/execution-eligibility/arming health; optional prior account data; optional last successful sync; and PermissionReview. Account data includes remote identity/type, currency where available, exact normalized decimal balances, positions and open orders, observed capabilities and explicit limitations. Missing values are unavailable, never zero by default. PermissionReview distinguishes scope VERIFIED/UNVERIFIED, detected permissions, forbidden/unsupported permissions, acknowledgement and IP restriction status. Read success cannot establish complete key scope or financial authority. All Live accounts remain DISARMED; S02 supplies no execution readiness.
+AccountConnection includes immutable `connectionId`, `workspaceId`, `providerId`, `environment`, `createdAt`; `label`, opaque `stateVersion`, `updatedAt`, `connectionState` (CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED); separate connection/authentication/credential/private-stream/reconciliation/execution-eligibility/arming health; optional prior account data; optional last successful sync; and PermissionReview. Account data includes remote identity/type, currency where available, exact normalized decimal balances, optional account-level buying power, positions and open orders, observed capabilities and explicit limitations. Missing values are unavailable, never zero by default. Alpaca Paper `buyingPower` is an exact decimal in the provider-reported account currency and is never inferred from cash or equity. PermissionReview distinguishes scope VERIFIED/UNVERIFIED, detected permissions, forbidden/unsupported permissions, acknowledgement and IP restriction status. Read success cannot establish complete key scope or financial authority. All Live accounts remain DISARMED; S02 supplies no execution readiness.
 
 Account observations add optional `reserved` and `inPies` decimal strings on each balance; optional `instrumentCurrency` and `marketValueCurrency` on positions; and optional `currency` / `filledValue` on open orders. `filledQuantity` is nullable/optional for provider value orders. Missing fields on stored older projections remain unavailable. Every monetary unit displayed comes from its observation currency; the workspace currency is not an implicit conversion. Trading 212 account subtype remains explicitly unavailable because the summary does not expose it. JSON-number provider values are normalized into exact decimal wire strings without binary-float conversion.
 
@@ -2428,6 +2436,20 @@ Local Paper uses the version-1 envelope and remains a workspace-scoped TradeX pr
 
 Local Paper results are simulation observations, never provider order IDs, broker acknowledgements, reconciliation truth, approval state, arming state, Live readiness, or Live execution authority. These commands do not publish provider or Live domain events; the embedded Local Paper event list is the authoritative simulation timeline.
 
+### 41.18 Alpaca Paper submission and recovery (S17 #57)
+
+These version-1 commands are available only to the primary UI consumer and use the existing `alpaca` / `PAPER` connection and Keychain credential. The provider transport fixes the host to `https://paper-api.alpaca.markets`, allows only the bounded required paths and methods, and never accepts a renderer-provided host, symbol, remote account ID, credential, or authority field.
+
+| Command | Payload | Success data | Mutation/event behavior |
+|---|---|---|---|
+| `alpaca.paper.order.submit` | `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId, expectedProposalStateVersion, proposalHash, idempotencyKey, confirmedPaperOrder}` | `AlpacaPaperOrderAttempt` | re-reads and binds the immutable Alpaca Paper Proposal to the current connection/account; persists one attempt and stable `clientOrderId` before provider I/O; duplicate submission returns the saved attempt without another POST |
+| `alpaca.paper.order.attempt.get` | `{workspaceId, proposalId}` | `{attempt?: AlpacaPaperOrderAttempt}` | workspace-scoped read only |
+| `alpaca.paper.order.reconcile` | `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId}` | `AlpacaPaperOrderAttempt` | only an `UNKNOWN_RECONCILING` attempt may reconcile; the provider account identity is rechecked before querying by saved client order ID; an empty or failed lookup remains unknown and never triggers another POST |
+
+`AlpacaPaperOrderAttempt` is a versioned, workspace-scoped projection with append-only state events and `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, or `REJECTED` state. Restart converts unresolved `SUBMITTING` to `UNKNOWN_RECONCILING`; provider acknowledgement remains distinct from fill evidence. Inputs are schema validated, unknown fields are rejected, and only the primary Trade surface can submit or reconcile. The provider job rechecks the returned account identity, account trading status, asset class/status/tradability/fractionability, exact Proposal identity and supported order combination before posting. Fractional equity `qty` and `notional` are restricted to Market/Day; order combinations not verified by the current contract fail closed.
+
+The attempt changes publish `alpaca.paper.order.attempt.changed` with aggregate type `alpaca-paper-order-attempt`, stable attempt identity and monotonic sequence. Secret values, Authorization headers and raw provider payloads never enter the attempt projection or event. Order listing/fills/cancel and private-stream recovery belong to later S17 child tickets; these commands do not add Live authority or change Local Paper behavior.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
@@ -2456,6 +2478,7 @@ trade.fill.observed
 trade.reconciliation.changed
 trade.manual_resolution.required
 provider.health.changed
+alpaca.paper.order.attempt.changed
 ```
 
 Event payloads carry canonical IDs and versioned schemas.

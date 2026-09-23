@@ -4,7 +4,7 @@
 
 前置：S02 提供方连接、S13 OrderDraft/OrderProposal、S16 Local Paper
 
-状态：S17 规范阶段；实现与验收尚未开始。S17 仅覆盖 Alpaca Paper；S18–S20、S21+ financial authority 和 S33 全量回归仍属于后续工作项。
+状态：S17 规范与拆票已完成；#57 正在实现并进行双轴审查，随后依序处理 #58/#59。S17 整体验收尚未完成，仅覆盖 Alpaca Paper；S18–S20、S21+ financial authority 和 S33 全量回归仍属于后续工作项。
 
 ## Problem Statement
 
@@ -54,7 +54,7 @@ TradeX 已能安全连接 Alpaca Paper 并读取账户、持仓和未完成订�
 - account observation 保留精确 decimal `buying_power` 与其币种；fills 是有稳定 provider identity、order/account/instrument identity、精确 qty/price、execution timestamp 和观测来源的持久化 provider observations。缺失 buying power、position 或 fill 字段保持 unavailable，不补零。
 - 使用只允许固定 Paper endpoint、受限 HTTP method/path 和有界响应的 Rust provider transport；凭据仍只经 native secure entry / OS Keychain 读取，HTTP headers 使用 sensitive 标记。secret、Authorization header、完整 raw payload 不进入 SQLite、UI、domain events 或日志。
 - 添加 typed、schema-validated provider order/asset IPC。submit 必须核对 workspace、connection、PAPER environment、连接版本、proposal identity/hash/state、proposal account/instrument/quantity、idempotency key 和已有 unresolved attempt。所有写入只由主 UI 对用户明确动作调用；Agent/研究/策略 runtime 没有提交或撤单能力。
-- 写入提交 attempt 和稳定、最多 128 字符的 `client_order_id` 后才进行 provider I/O；成功响应须核对远端 account/order/client identity，持久化 normalized order 与事件。相同 TradeX attempt 重放不得生成第二个 POST。超时、无法判定的响应或 stream gap 转 `UNKNOWN_RECONCILING`，按 client order ID 查询优先恢复；一次空查询不能证明未提交。明确的 provider validation/account rejection 显示为拒绝并要求用户修正；rate limit 展示 provider retry guidance，不自动重发尚未核实的 submission。
+- 写入提交 attempt 和稳定、最多 128 字符的 `client_order_id` 后才进行 provider I/O；成功响应须核对远端 account/order/client identity，持久化 normalized order 与事件。相同 TradeX attempt 重放不得生成第二个 POST。超时、无法判定的响应或 stream gap 转 `UNKNOWN_RECONCILING`；按 client order ID 查询前重新核对凭据当前对应的 provider account 与 attempt 保存身份一致，一次空查询不能证明未提交。明确的 provider validation/account rejection 显示为拒绝并要求用户修正；rate limit 展示 provider retry guidance，不自动重发尚未核实的 submission。
 - 支持 provider 返回的 HTTP order identity/client identity 查询、open/history order query 与 cursor pagination。响应数、页数、decimal、字符串、timestamps 和 JSON size 均有界；重复页/token、重复或冲突 ID、不完整读取返回明确的 incomplete/degraded 状态。
 - Paper order lifecycle 复用 Backend ARD 的 normalized order state/event model，并保留 provider status。REST、`trade_updates` 和活动 fill 同时到达时按 provider identity 去重；过期、done-for-day、replaced、suspended、held 等状态不能被错误映射为 filled 或 cancelled。未映射状态显式显示并阻止依赖该状态的操作。
 - 撤单必须定位当前 account 下的 provider order，刷新最新状态及 remaining quantity，显示不可变的 provider order/account/environment identity 后请求用户确认。HTTP 204 只记作取消已受理 / `CANCEL_PENDING`；只有 provider stream 或 REST 确认后才记录 terminal cancel。fill/cancel race、cancel rejection 和重复撤单均以 provider order truth 收敛。

@@ -1756,6 +1756,14 @@ paper.quote.refresh
 paper.scenario.set
 ```
 
+### Alpaca Paper 订单提交（S17）
+
+```text
+alpaca.paper.order.submit
+alpaca.paper.order.attempt.get
+alpaca.paper.order.reconcile
+```
+
 ### Strategy/backtest
 
 ```text
@@ -2005,7 +2013,7 @@ name（1–120 个字符，不含控制字符）与 baseCurrency（三个大写�
 
 ProviderDefinition 包含 `providerId`、`displayName`、`environment`、`available`、`helpText`、`fields`（`id`、`label`、`inputType`、`required`、`secret`、`maxLength`、`helpText`、适用环境）及权限要求。仅已实现的受支持组合可连接；不可用的目录项说明原因。Local Paper 内置且无需凭据，不代表外部探测成功。
 
-AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerId`、`environment`、`createdAt`；`label`、opaque `stateVersion`、`updatedAt`、`connectionState`（CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED）；分开的连接/认证/凭据/私有流/对账/执行资格/arming 健康状态；可选的既有账户数据、上次成功同步及 PermissionReview。数据包含远端身份/类型、可用时的币种、规范 decimal 字符串余额/持仓/未完成订单、已观察能力及明确限制。缺失值不可用，不能默认零。PermissionReview 区分 VERIFIED/UNVERIFIED、已检测权限、禁止/不支持权限、确认记录及 IP 限制状态。读取成功不代表完整密钥权限或金融授权。所有 Live 账户保持 DISARMED；S02 不授予执行资格。
+AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerId`、`environment`、`createdAt`；`label`、opaque `stateVersion`、`updatedAt`、`connectionState`（CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED）；分开的连接/认证/凭据/私有流/对账/执行资格/arming 健康状态；可选的既有账户数据、上次成功同步及 PermissionReview。数据包含远端身份/类型、可用时的币种、规范 decimal 字符串余额、可选账户级购买力、持仓/未完成订单、已观察能力及明确限制。缺失值不可用，不能默认零。Alpaca Paper 的 `buyingPower` 必须是提供方账户币种下的精确 decimal，不能从 cash 或 equity 推算。PermissionReview 区分 VERIFIED/UNVERIFIED、已检测权限、禁止/不支持权限、确认记录及 IP 限制状态。读取成功不代表完整密钥权限或金融授权。所有 Live 账户保持 DISARMED；S02 不授予执行资格。
 
 账户观察在 balance 上增加可选 decimal 字符串 `reserved`、`inPies`；在 position 上增加可选 `instrumentCurrency`、`marketValueCurrency`；在 open order 上增加可选 `currency`、`filledValue`。提供方金额型订单的 `filledQuantity` 可缺失/null。旧持久化投影缺少字段时保持不可用。显示的金额单位来自对应观察币种，不将工作区币种视为隐式换算。Trading 212 summary 不提供账户子类型，应明确显示不可观测。提供方 JSON number 必须无二进制浮点转换地规范为精确 decimal wire 字符串。
 
@@ -2428,6 +2436,20 @@ Local Paper 使用版本 1 envelope，且始终是按 workspace 作用域的 Tra
 
 Local Paper result 是 simulation observation，不是 provider order ID、broker acknowledgement、reconciliation truth、approval state、arming state、Live readiness 或 Live execution authority。这些命令不发布 provider 或 Live domain event；内嵌的 Local Paper event list 是权威模拟时间线。
 
+### 41.18 Alpaca Paper 提交与恢复（S17 #57）
+
+这些版本 1 命令仅供主 UI consumer 使用现有 `alpaca` / `PAPER` 连接和 Keychain 凭据。Provider transport 将 host 固定为 `https://paper-api.alpaca.markets`，只允许有界的必需路径与方法；renderer 不能提供 host、symbol、远端 account ID、credential 或 authority 字段。
+
+| 命令 | 载荷 | 成功 data | 写入/事件行为 |
+|---|---|---|---|
+| `alpaca.paper.order.submit` | `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId, expectedProposalStateVersion, proposalHash, idempotencyKey, confirmedPaperOrder}` | `AlpacaPaperOrderAttempt` | 重新读取并将不可变 Alpaca Paper Proposal 绑定到当前连接/账户；provider I/O 前持久化一次 attempt 和稳定 `clientOrderId`；重复提交返回已保存 attempt，不再 POST |
+| `alpaca.paper.order.attempt.get` | `{workspaceId, proposalId}` | `{attempt?: AlpacaPaperOrderAttempt}` | 仅按 workspace 读取 |
+| `alpaca.paper.order.reconcile` | `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId}` | `AlpacaPaperOrderAttempt` | 仅 `UNKNOWN_RECONCILING` attempt 可对账；按已保存 client order ID 查询前会重新核对 provider account identity；空查询或失败仍保持 unknown，绝不因此再次 POST |
+
+`AlpacaPaperOrderAttempt` 是带版本的 workspace projection，并附有追加式状态事件；状态为 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 或 `REJECTED`。重启会将未解决的 `SUBMITTING` 转为 `UNKNOWN_RECONCILING`；provider acknowledgement 与 fill evidence 保持区分。载荷经过 schema 校验，拒绝未知字段，且仅主 Trade surface 可提交或对账。Provider job 在 POST 前重新核对返回的 account identity、账户交易状态、资产类别/状态/可交易/可 fractional 能力、精确 Proposal identity 及受支持的订单组合。Fractional equity `qty` 与 `notional` 仅支持 Market/Day；当前契约无法验证的组合 fail closed。
+
+Attempt 状态变化通过 aggregate type `alpaca-paper-order-attempt` 发布 `alpaca.paper.order.attempt.changed`，包含稳定的 attempt identity 和单调递增序号。秘密、Authorization header 和原始 provider payload 不进入 attempt projection 或 event。订单列表、fills、撤单与私有流恢复属于后续 S17 子票；这些命令不增加 Live authority，也不改变 Local Paper 行为。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
@@ -2456,6 +2478,7 @@ trade.fill.observed
 trade.reconciliation.changed
 trade.manual_resolution.required
 provider.health.changed
+alpaca.paper.order.attempt.changed
 ```
 
 Event payload 使用 canonical IDs 和 versioned schemas。

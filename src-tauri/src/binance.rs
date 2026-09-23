@@ -307,6 +307,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
             remote_account_id: numeric_id(&account, "uid")?,
             account_type: "BINANCE_SPOT".into(),
             currency: None,
+            buying_power: None,
             balances,
             positions,
             open_orders: orders,

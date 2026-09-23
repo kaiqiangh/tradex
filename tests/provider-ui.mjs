@@ -15,6 +15,14 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     }
     throw new Error(message);
   };
+  const waitForButton = async name => {
+    const button = ui.getByRole('button', { name, exact: true });
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      if (await button.count() && await button.isVisible()) return button;
+      await ui.waitForTimeout(50);
+    }
+    throw new Error(`Button ${name} did not appear after workspace reload`);
+  };
   try {
     await viewport.set({ width: 1280, height: 900 });
     await tab.getAXState({ emit: false });
@@ -41,6 +49,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     const text = await detail.innerText();
     if (selection === 'alpaca/PAPER') {
       assert.match(text, /1000\.25/);
+      assert.match(text, /1100\.9876543210123456789 USD/);
       assert.match(text, /10\.5 USD/);
     } else if (selection.startsWith('bitget/')) {
       assert.match(text, /1000000000000000002/);
@@ -97,13 +106,82 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await ui.getByRole('button', { name: 'Use existing account', exact: true }).press('Enter');
     const afterReuseVersion = await waitForVersionChange(detail, beforeReuseVersion, 'Existing account reuse did not commit a new state');
     const refresh = ui.getByRole('button', { name: 'Refresh account', exact: true });
+    for (let attempt = 0; attempt < 600 && !(await refresh.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
     assert.equal(await refresh.isEnabled(), true);
     await refresh.press('Enter');
     await waitForVersionChange(detail, afterReuseVersion, 'Manual account refresh did not commit a new state');
     await tab.getAXState({ emit: false });
     assert.equal(await ui.getByRole('alert').count(), 0);
-    assert.equal(await ui.getByRole('complementary', { name: 'Workspace', exact: true }).isVisible(), true);
+    assert.equal(await ui.getByRole('heading', { name: 'Workspace', exact: true }).isVisible(), true);
     observed.push('Saved connection survives UI reload; account refresh and workspace subscriptions coexist without cross-aggregate errors.');
+
+    if (selection === 'alpaca/PAPER') {
+      await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+      await ui.getByLabel('Execution context').selectOption('ALPACA_PAPER');
+      const accountSelect = ui.getByLabel('Account');
+      const accountValue = await accountSelect.locator('option').filter({ hasText: label }).getAttribute('value');
+      assert.ok(accountValue, 'The saved Alpaca account should be selectable for a new Proposal');
+      await accountSelect.selectOption(accountValue);
+      await ui.getByLabel('Quantity', { exact: true }).fill('1');
+      await ui.getByLabel('Limit price', { exact: true }).fill('10.25');
+      await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+      const submit = ui.getByRole('button', { name: 'Submit Alpaca Paper order', exact: true });
+      await submit.waitFor({ state: 'visible' });
+      await submit.press('Enter');
+      const dialog = ui.getByRole('dialog', { name: 'Confirm Alpaca Paper submission', exact: true });
+      await dialog.waitFor({ state: 'visible' });
+      assert.equal(await dialog.getAttribute('aria-modal'), 'true');
+      const review = await dialog.innerText();
+      assert.match(review, /This sends the exact Proposal to Alpaca Paper simulation only/);
+      assert.ok(review.includes(label));
+      assert.match(review, /81161e77-bafd-44bb-b2a0-60b9055e3cd4/);
+      assert.match(review, /equity:US:AAPL · BUY/);
+      assert.match(review, /1 BASE · LIMIT · DAY/);
+      assert.match(review, /sha256:/);
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
+      assert.equal(await dialog.isVisible(), false, 'Review cancellation must not submit the order');
+      await submit.press('Enter');
+      await dialog.waitFor({ state: 'visible' });
+      for (const width of [768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Alpaca confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
+        assert.equal(await dialog.isVisible(), true);
+      }
+      await ui.getByRole('button', { name: 'Confirm Alpaca Paper submit', exact: true }).press('Enter');
+      const attempt = ui.locator('section[aria-label="Alpaca Paper order attempt"]');
+      await attempt.getByText('ALPACA_PAPER · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.match(await attempt.innerText(), /Alpaca acknowledged the order\. This is not fill evidence\./);
+      assert.equal(await attempt.locator('p').evaluateAll(elements => elements.some(element => element.textContent?.startsWith('Fill '))), false);
+      assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true);
+      observed.push('Alpaca Paper Proposal review requires explicit confirmation, shows the account/order/hash identity, and renders acknowledgement separately from fills.');
+
+      for (const width of [1280, 768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Alpaca Proposal detail overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      await viewport.set({ width: 1280, height: 900 });
+      await tab.reload();
+      await tab.getAXState();
+      await (await waitForButton('Order Drafts')).press('Enter');
+      await ui.locator('.order-proposal-row').first().waitFor({ state: 'visible' });
+      await ui.locator('.order-proposal-row').first().press('Enter');
+      await ui.locator('section[aria-label="Alpaca Paper order attempt"]')
+        .getByText('ALPACA_PAPER · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await ui.getByRole('button', { name: 'Submit Alpaca Paper order', exact: true }).count(), 0);
+      observed.push('Reload restores the saved provider attempt and removes the submit action, preventing a second UI submission.');
+      await viewport.set({ width: 1280, height: 900 });
+      await tab.reload();
+      await tab.getAXState();
+      await (await waitForButton('Accounts')).press('Enter');
+      await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    }
 
     for (const width of [768, 390]) {
       await viewport.set({ width, height: 900 });
@@ -145,7 +223,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     assert.match(await detail.innerText(), /DISCONNECTED/);
     assert.equal(await remove.isEnabled(), true);
     assert.equal(await ui.getByRole('alert').count(), 0);
-    assert.equal((await tab.dev.logs({ levels: ['error'], limit: 30 })).length, 0);
+    const browserErrors = await tab.dev.logs({ levels: ['error'], limit: 100 });
+    assert.equal(browserErrors.filter(error => !error.message.includes('chrome-extension://')).length, 0);
     observed.push('Disconnect removes local credential access; historical observations stay labeled disconnected and refresh is disabled.');
     return observed;
   } finally { await viewport.reset(); }

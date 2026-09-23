@@ -118,7 +118,7 @@ function AccountDetail({ account, busy, run }: { account: AccountConnection; bus
         <button className="primary" disabled={busy || blocked || account.health.authentication !== 'VALID' || account.health.connection !== 'ONLINE' || (p.scope === 'UNVERIFIED' && !acknowledged)} onClick={() => run(() => request('provider.connect', { step: 'confirm', ...mutation(account), acknowledgeUnverified: acknowledged }))}>Confirm connection</button>
       </>}
     </section>}
-    {account.data && <><dl className="health-grid"><div><dt>Account type</dt><dd>{account.data.accountType}</dd></div><div><dt>Provider account ID</dt><dd className="identity">{account.data.remoteAccountId}</dd></div><div><dt>Currency</dt><dd>{account.data.currency ?? 'Per asset'}</dd></div></dl>
+    {account.data && <><dl className="health-grid"><div><dt>Account type</dt><dd>{account.data.accountType}</dd></div><div><dt>Provider account ID</dt><dd className="identity">{account.data.remoteAccountId}</dd></div><div><dt>Currency</dt><dd>{account.data.currency ?? 'Per asset'}</dd></div>{account.providerId === 'alpaca' && <div><dt>Buying power</dt><dd>{money(account.data.buyingPower, account.data.currency)}</dd></div>}</dl>
       <h3>Balances</h3><div className="table-scroll" tabIndex={0} aria-label="Account balances"><table><thead><tr><th>Asset</th><th>Available / Free</th><th>Equity / Asset total</th><th>{account.providerId === 'bitget' ? 'Reserved / Frozen' : 'Reserved / Locked'}</th>{account.providerId === 'bitget' && <><th>Locked</th><th>Restricted available</th></>}<th>In Pies</th><th>Effective available</th></tr></thead><tbody>{account.data.balances.map(row => <tr key={row.asset}><td>{row.asset}</td><td>{row.available}</td><td>{row.total ?? 'Unavailable'}</td><td>{row.reserved ?? 'Unavailable'}</td>{account.providerId === 'bitget' && <><td>{row.locked ?? 'Unavailable'}</td><td>{row.restrictedAvailable ?? 'Unavailable'}</td></>}<td>{row.inPies ?? 'Unavailable'}</td><td>Not computed</td></tr>)}</tbody></table></div>
       <h3>Positions</h3>{account.data.positions.length ? <div className="table-scroll" tabIndex={0} aria-label="Account positions"><table><thead><tr><th>Symbol</th><th>Quantity</th><th>Market value</th><th>Average entry</th></tr></thead><tbody>{account.data.positions.map(row => <tr key={row.symbol}><td>{row.symbol}</td><td>{row.quantity}</td><td>{money(row.marketValue, row.marketValueCurrency)}</td><td>{money(row.averageEntryPrice, row.instrumentCurrency)}</td></tr>)}</tbody></table></div> : <p>No positions returned by the provider.</p>}
       <h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th></tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td></tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}
@@ -168,7 +168,6 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
     try {
       const result = await action();
       if (result.workspaceId !== workspaceId) throw new Error('IPC_IDENTITY_CONFLICT');
-      setSelectedId(result.connectionId);
       affectedId = result.connectionId;
       await queryClient.invalidateQueries({ queryKey: ['account', result.connectionId] });
     } catch (failure) {
@@ -179,6 +178,7 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
       await queryClient.invalidateQueries({ queryKey: ['context-catalog', workspaceId] });
       if (affectedId) await queryClient.invalidateQueries({ queryKey: ['account', affectedId] });
       await list.refetch();
+      if (affectedId) setSelectedId(affectedId);
       restoreFocus.current = (focusId ? document.getElementById(focusId) : trigger) ?? null;
       setBusy(false);
     }

@@ -78,6 +78,7 @@ pub fn account(workspace_id: &str, base_currency: &str) -> Result<AccountConnect
             remote_account_id: format!("tradex-simulation:{workspace_id}"),
             account_type: ACCOUNT_TYPE.into(),
             currency: Some(base_currency.into()),
+            buying_power: None,
             balances: vec![Balance {
                 asset: base_currency.into(),
                 available: DEFAULT_STARTING_CASH.into(),

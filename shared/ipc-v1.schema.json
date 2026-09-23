@@ -13,6 +13,21 @@
     "aggregate": {
       "$ref": "#/$defs/Aggregate"
     },
+    "alpacaPaperOrderAttempt": {
+      "$ref": "#/$defs/AlpacaPaperOrderAttempt"
+    },
+    "alpacaPaperOrderAttemptQuery": {
+      "$ref": "#/$defs/AlpacaPaperOrderAttemptQuery"
+    },
+    "alpacaPaperOrderAttemptQueryResult": {
+      "$ref": "#/$defs/AlpacaPaperOrderAttemptQueryResult"
+    },
+    "alpacaPaperOrderReconcile": {
+      "$ref": "#/$defs/AlpacaPaperOrderReconcile"
+    },
+    "alpacaPaperOrderSubmit": {
+      "$ref": "#/$defs/AlpacaPaperOrderSubmit"
+    },
     "artifactExport": {
       "$ref": "#/$defs/ArtifactExport"
     },
@@ -346,6 +361,11 @@
     "orderProposalLibrary",
     "orderProposalRefreshRequest",
     "orderProposalRefresh",
+    "alpacaPaperOrderSubmit",
+    "alpacaPaperOrderAttemptQuery",
+    "alpacaPaperOrderAttemptQueryResult",
+    "alpacaPaperOrderReconcile",
+    "alpacaPaperOrderAttempt",
     "artifactSave",
     "artifactQuery",
     "artifactExport",
@@ -474,6 +494,12 @@
           "items": {
             "$ref": "#/$defs/Balance"
           }
+        },
+        "buyingPower": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "capabilities": {
           "type": "array",
@@ -657,6 +683,237 @@
       "required": [
         "aggregateType",
         "aggregateId"
+      ]
+    },
+    "AlpacaPaperOrderAttempt": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "clientOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 36,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/AlpacaPaperOrderAttemptState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attemptId",
+        "workspaceId",
+        "connectionId",
+        "remoteAccountId",
+        "proposalId",
+        "proposalHash",
+        "clientOrderId",
+        "state",
+        "reason",
+        "stateVersion",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AlpacaPaperOrderAttemptQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "AlpacaPaperOrderAttemptQueryResult": {
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaPaperOrderAttempt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "AlpacaPaperOrderAttemptState": {
+      "type": "string",
+      "enum": [
+        "SUBMITTING",
+        "ACKNOWLEDGED",
+        "UNKNOWN_RECONCILING",
+        "REJECTED"
+      ]
+    },
+    "AlpacaPaperOrderReconcile": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "proposalId"
+      ]
+    },
+    "AlpacaPaperOrderSubmit": {
+      "type": "object",
+      "properties": {
+        "confirmedPaperOrder": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedProposalStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "proposalId",
+        "expectedProposalStateVersion",
+        "proposalHash",
+        "idempotencyKey",
+        "confirmedPaperOrder"
       ]
     },
     "Artifact": {
@@ -2767,7 +3024,8 @@
             "model-gateway",
             "model",
             "risk",
-            "thread"
+            "thread",
+            "alpaca-paper-order-attempt"
           ]
         },
         "eventId": {
@@ -2784,7 +3042,8 @@
             "model.provider_attempt.changed",
             "risk.policy.changed",
             "thread.created",
-            "thread.updated"
+            "thread.updated",
+            "alpaca.paper.order.attempt.changed"
           ]
         },
         "occurredAt": {
@@ -2837,6 +3096,9 @@
         },
         {
           "$ref": "#/$defs/Thread"
+        },
+        {
+          "$ref": "#/$defs/AlpacaPaperOrderAttempt"
         }
       ]
     },
@@ -6392,6 +6654,12 @@
           "$ref": "#/$defs/OrderProposalRefreshResult"
         },
         {
+          "$ref": "#/$defs/AlpacaPaperOrderAttempt"
+        },
+        {
+          "$ref": "#/$defs/AlpacaPaperOrderAttemptQueryResult"
+        },
+        {
           "$ref": "#/$defs/PaperOrderResult"
         },
         {
@@ -7953,7 +8221,8 @@
             "model-gateway",
             "model",
             "risk",
-            "thread"
+            "thread",
+            "alpaca-paper-order-attempt"
           ]
         },
         "lastSequence": {
@@ -9781,7 +10050,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 15,
+          "maximum": 16,
           "minimum": 1
         },
         "workspaceId": {

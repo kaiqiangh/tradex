@@ -25,8 +25,10 @@ pub mod time;
 
 use capability::{CapabilityQuery, ResearchToolId};
 use protocol::{
-    Aggregate, Artifact, ArtifactContent, ArtifactExport, ArtifactProvenance, ArtifactQuery,
-    ArtifactSave, BacktestCancel, BacktestCompareRequest, BacktestComparison, BacktestCurveSummary,
+    Aggregate, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult,
+    AlpacaPaperOrderAttemptState, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, Artifact,
+    ArtifactContent, ArtifactExport, ArtifactProvenance, ArtifactQuery, ArtifactSave,
+    BacktestCancel, BacktestCompareRequest, BacktestComparison, BacktestCurveSummary,
     BacktestFailure, BacktestFieldDifference, BacktestMetricComparison, BacktestMetricDelta,
     BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestRunState, CommandEnvelope,
     DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE,
@@ -433,6 +435,10 @@ fn success_reply(id: String, data: Value, version: Option<String>) -> Value {
 
 fn failure_reply(id: String, error: TradeXError) -> Value {
     json!({"requestId":id,"schemaVersion":1,"ok":false,"error":error})
+}
+
+fn provider_order_consumer_allowed(consumer: &str) -> bool {
+    consumer == "main" || (cfg!(feature = "integration-test") && consumer == "stdio")
 }
 
 pub struct ControlPlane {
@@ -863,6 +869,45 @@ impl ControlPlane {
                 self.require_workspace(&input.workspace_id)?;
                 let state = self.store.as_ref().unwrap().local_paper_state()?;
                 Ok((json!(state), Some(state.state_version.clone())))
+            }
+            "alpaca.paper.order.attempt.get" => {
+                let input: AlpacaPaperOrderAttemptQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                storage::validate_order_proposal_id(&input.proposal_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?;
+                Ok((json!(AlpacaPaperOrderAttemptQueryResult { attempt }), None))
+            }
+            "alpaca.paper.order.submit" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+                }
+                let input: AlpacaPaperOrderSubmit = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?
+                    .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+                Ok((json!(attempt), Some(attempt.state_version.clone())))
+            }
+            "alpaca.paper.order.reconcile" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+                }
+                let input: AlpacaPaperOrderReconcile = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?
+                    .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+                Ok((json!(attempt), Some(attempt.state_version.clone())))
             }
             "paper.order.submit" => {
                 let input: PaperOrderSubmit = payload(request.payload)?;
@@ -3728,6 +3773,14 @@ impl ControlPlane {
 
     /// Prepare under the domain lock, perform native/provider work outside it, then commit with the same session/version.
     pub fn prepare_provider(&mut self, value: &Value) -> Result<Option<ProviderJob>> {
+        self.prepare_provider_for(value, "headless")
+    }
+
+    pub fn prepare_provider_for(
+        &mut self,
+        value: &Value,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
         match value.get("schemaVersion").and_then(Value::as_u64) {
             Some(1) => (),
             Some(_) => return Err(TradeXError::new("IPC_SCHEMA_UNSUPPORTED")),
@@ -3736,6 +3789,15 @@ impl ControlPlane {
         let request: CommandEnvelope = payload(value.clone())?;
         if request.request_id.is_empty() || request.request_id.len() > 128 {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        match request.command.as_str() {
+            "alpaca.paper.order.submit" => {
+                return self.prepare_alpaca_paper_order_submit(request, consumer);
+            }
+            "alpaca.paper.order.reconcile" => {
+                return self.prepare_alpaca_paper_order_reconcile(request, consumer);
+            }
+            _ => (),
         }
         let (account, kind) = match request.command.as_str() {
             "provider.connect" => match payload::<Connect>(request.payload)? {
@@ -3794,6 +3856,123 @@ impl ControlPlane {
             kind,
             session: self.session.clone(),
             request_id: request.request_id,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+        }))
+    }
+
+    fn prepare_alpaca_paper_order_submit(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: AlpacaPaperOrderSubmit = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "alpaca" || account.environment != "PAPER" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let proposal = self
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&input.proposal_id)?;
+        if proposal.workspace_id != input.workspace_id
+            || proposal.proposal_hash != input.proposal_hash
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if let Some(existing) = self
+            .store
+            .as_ref()
+            .unwrap()
+            .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?
+        {
+            if existing.connection_id != input.connection_id
+                || existing.proposal_hash != input.proposal_hash
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let (_, created) = self
+                .store
+                .as_mut()
+                .unwrap()
+                .begin_alpaca_paper_order_attempt(&input)?;
+            if !created {
+                return Ok(None);
+            }
+        }
+        if proposal.state_version != input.expected_proposal_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        provider_io::validate_alpaca_paper_proposal(&proposal, &account.connection_id)?;
+        let (attempt, created) = self
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_alpaca_paper_order_attempt(&input)?;
+        if !created {
+            return Ok(None);
+        }
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::AlpacaPaperSubmit,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            alpaca_attempt: Some(attempt),
+            alpaca_proposal: Some(proposal),
+        }))
+    }
+
+    fn prepare_alpaca_paper_order_reconcile(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: AlpacaPaperOrderReconcile = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "alpaca" || account.environment != "PAPER" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let attempt = self
+            .store
+            .as_ref()
+            .unwrap()
+            .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+        if attempt.connection_id != account.connection_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if attempt.state != AlpacaPaperOrderAttemptState::UnknownReconciling {
+            return Ok(None);
+        }
+        let proposal = self
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&input.proposal_id)?;
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::AlpacaPaperReconcile,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            alpaca_attempt: Some(attempt),
+            alpaca_proposal: Some(proposal),
         }))
     }
 
@@ -3852,6 +4031,46 @@ impl ControlPlane {
     }
 
     pub fn complete_provider(&mut self, job: &ProviderJob, outcome: ProviderOutcome) -> Value {
+        if matches!(
+            job.kind,
+            JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
+        ) {
+            if job.session != self.session {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("STATE_VERSION_CONFLICT"),
+                );
+            }
+            let attempt = outcome.alpaca_paper_attempt.or_else(|| {
+                job.alpaca_attempt.clone().map(|mut attempt| {
+                    attempt.state = AlpacaPaperOrderAttemptState::UnknownReconciling;
+                    attempt.error_code = Some("ORDER_STATUS_UNKNOWN".into());
+                    attempt.reason = "Provider outcome was unavailable. Query by client order ID before taking any further action.".into();
+                    attempt
+                })
+            });
+            let Some(attempt) = attempt else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"),
+                );
+            };
+            return match self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_alpaca_paper_order_attempt(&attempt)
+            {
+                Ok(attempt) => json!({
+                    "requestId":job.request_id,
+                    "schemaVersion":1,
+                    "ok":true,
+                    "stateVersion":attempt.state_version,
+                    "data":attempt
+                }),
+                Err(error) => failure_reply(job.request_id.clone(), error),
+            };
+        }
         let result = (|| -> Result<AccountConnection> {
             if !self.provider_job_current(job) {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
@@ -5695,6 +5914,9 @@ mod thread_tests {
             .execute("DROP TABLE order_proposals", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE alpaca_paper_order_attempts", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -5703,7 +5925,7 @@ mod thread_tests {
             "workspace.open",
             json!({"path": workspace_path.to_string_lossy()}),
         ));
-        assert_eq!(migrated_open["ok"], true);
+        assert_eq!(migrated_open["ok"], true, "{migrated_open}");
         assert_eq!(
             migrated_open["data"]["storageSchemaVersion"],
             storage::SCHEMA_VERSION

@@ -232,6 +232,8 @@ pub struct AccountData {
     pub remote_account_id: String,
     pub account_type: String,
     pub currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buying_power: Option<String>,
     pub balances: Vec<Balance>,
     pub positions: Vec<Position>,
     pub open_orders: Vec<OpenOrder>,

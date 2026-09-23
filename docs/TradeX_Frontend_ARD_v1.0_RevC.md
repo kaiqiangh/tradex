@@ -586,6 +586,12 @@ The Local Paper account is rendered as `Local Paper · LOCAL_PAPER` and `TradeX 
 
 The renderer treats the Local Paper projection as authoritative after reload/reopen. Loading, empty, error and retry states use status/alert semantics; submit/cancel dialogs use `role="dialog"`, `aria-modal`, an accessible name, keyboard Enter for the explicit action only, and focus restoration to the triggering proposal or Local Paper summary. Every simulation result keeps the textual `LOCAL`, `TRADEX_SIMULATION`, and `not provider truth` disclosure. Portfolio shows simulation provenance and `Live risk: Blocked`; no Local Paper control renders approval, arming, reservation, broker acknowledgement, or Live readiness.
 
+### 13.7 Alpaca Paper order submission (S17 #57)
+
+The Accounts surface renders Alpaca Paper buying power only from the provider observation, paired with its account currency; missing values display `Unavailable`. The Order Drafts surface shows the immutable `ALPACA_PAPER` Proposal and its bound account, environment, canonical instrument, side, quantity/notional, order type, time in force, and limit price before presenting an explicit Paper-only confirmation dialog. The user must confirm the exact reviewed Proposal; this path is separate from Local Paper simulation and Live approval.
+
+After submission, the renderer reads the durable attempt projection and distinguishes `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, and `REJECTED`. Acknowledgement is labeled as provider acceptance, never as fill evidence. Reload restores the saved attempt; an unknown attempt offers query-only reconciliation by its saved client order ID, while duplicate submission shows the existing attempt and cannot issue another POST. Errors retain their bounded remediation text. Loading and error states use status/alert semantics, the confirmation dialog restores focus, and the Paper account/order identity remains readable at 390, 768, and 1280 px. No Alpaca Paper control grants Live or Agent submission authority.
+
 ---
 
 ## 14. Live Execution UI Architecture

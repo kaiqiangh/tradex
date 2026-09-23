@@ -10,6 +10,10 @@ mode, directory = sys.argv[1], Path(sys.argv[2])
 host = sys.argv[3]
 assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com", "api.binance.com", "testnet.binance.vision", "api.bitget.com"}
 path = "/v2/account" if host == "paper-api.alpaca.markets" else "/api/v0/equity/account/summary"
+method = "GET"
+if mode == "order":
+    assert host == "paper-api.alpaca.markets"
+    path, method = "/v2/orders", "POST"
 if host in {"api.binance.com", "testnet.binance.vision"}:
     path = "/api/v3/time"
 if host == "api.bitget.com":
@@ -32,7 +36,18 @@ def headers(connection):
         if not part or len(data) + len(part) > 16384:
             raise ValueError("Incomplete or oversized test request")
         data += part
-    return data
+    boundary = data.index(b"\r\n\r\n") + 4
+    content_length = next(
+        (int(line.split(b":", 1)[1]) for line in data[:boundary].split(b"\r\n") if line.lower().startswith(b"content-length:")),
+        0,
+    )
+    expected = boundary + content_length
+    while len(data) < expected:
+        part = connection.recv(4096)
+        if not part or len(data) + len(part) > 16384:
+            raise ValueError("Incomplete or oversized test request")
+        data += part
+    return data[:expected]
 
 
 with socket.socket() as listener:
@@ -48,7 +63,7 @@ with socket.socket() as listener:
             raw.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             with context.wrap_socket(raw, server_side=True) as connection:
                 request = headers(connection)
-                assert request.split(b"\r\n", 1)[0] == f"GET {path} HTTP/1.1".encode()
+                assert request.split(b"\r\n", 1)[0] == f"{method} {path} HTTP/1.1".encode()
                 assert b"apca-api-key-id: synthetic-network-test" in request.lower()
                 count += 1
                 (directory / "requests").write_text(str(count))
@@ -56,6 +71,10 @@ with socket.socket() as listener:
                     time.sleep(20)
                 elif mode == "large":
                     connection.sendall(b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n" + b"x" * (2 * 1024 * 1024 + 1))
+                elif mode == "order":
+                    assert b"client_order_id" in request
+                    body = b'{"id":"18c65e3e-feb0-4576-99e2-36e6f047d84d"}'
+                    connection.sendall(b"HTTP/1.1 201 Created\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
                 elif mode.startswith("bitget-"):
                     code = {"bitget-clock": "40008", "bitget-passphrase": "40012", "bitget-demo": "40081", "bitget-false-success": "00000"}[mode]
                     body = ('{"code":"' + code + '","msg":"untrusted diagnostic"}').encode()

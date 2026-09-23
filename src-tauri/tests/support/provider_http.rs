@@ -57,6 +57,58 @@ impl Drop for HttpsFixture {
 }
 
 #[test]
+fn alpaca_asset_and_position_paths_allow_only_bounded_symbols() {
+    for path in [
+        "/v2/assets/AAPL",
+        "/v2/positions/AAPL",
+        "/v2/positions/BRK.B",
+    ] {
+        assert!(ProviderEndpoint::AlpacaPaper.allows(path), "{path}");
+    }
+    for path in [
+        "/v2/assets/..",
+        "/v2/positions/",
+        "/v2/positions/../account",
+        "/v2/positions/aapl",
+        "/v2/positions/AAPL?status=open",
+    ] {
+        assert!(!ProviderEndpoint::AlpacaPaper.allows(path), "{path}");
+    }
+}
+
+#[test]
+fn real_https_transport_posts_only_to_the_fixed_alpaca_paper_order_route() {
+    let endpoint = ProviderEndpoint::AlpacaPaper;
+    let fixture = HttpsFixture::new("order", endpoint);
+    let http = fixture.http();
+    let mut headers = HeaderMap::new();
+    let mut key = HeaderValue::from_static("synthetic-network-test");
+    key.set_sensitive(true);
+    headers.insert("APCA-API-KEY-ID", key);
+    let mut secret = HeaderValue::from_static("synthetic-secret");
+    secret.set_sensitive(true);
+    headers.insert("APCA-API-SECRET-KEY", secret);
+    let response = http
+        .request(
+            endpoint,
+            ProviderHttpMethod::Post,
+            "/v2/orders",
+            headers,
+            Some(&serde_json::json!({
+                "symbol":"AAPL","side":"buy","type":"market",
+                "time_in_force":"day","qty":"1","client_order_id":"tradex-synthetic"
+            })),
+        )
+        .unwrap();
+    assert_eq!(response.status, 201);
+    assert!(response.body.starts_with(b"{\"id\":"));
+    assert_eq!(
+        std::fs::read_to_string(fixture.directory.path().join("requests")).unwrap(),
+        "1"
+    );
+}
+
+#[test]
 fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_auth_and_quota() {
     for (mode, error, endpoint) in [
         ("ok", None, ProviderEndpoint::AlpacaPaper),

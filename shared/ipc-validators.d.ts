@@ -9,6 +9,12 @@ declare const validators: {
   AdjustmentStatus: (value: unknown) => boolean;
   AgentMode: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
+  AlpacaPaperOrderAttempt: (value: unknown) => boolean;
+  AlpacaPaperOrderAttemptQuery: (value: unknown) => boolean;
+  AlpacaPaperOrderAttemptQueryResult: (value: unknown) => boolean;
+  AlpacaPaperOrderAttemptState: (value: unknown) => boolean;
+  AlpacaPaperOrderReconcile: (value: unknown) => boolean;
+  AlpacaPaperOrderSubmit: (value: unknown) => boolean;
   Artifact: (value: unknown) => boolean;
   ArtifactContent: (value: unknown) => boolean;
   ArtifactExport: (value: unknown) => boolean;

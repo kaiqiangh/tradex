@@ -2,6 +2,11 @@
 
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaPaperOrderAttemptState".
+ */
+export type AlpacaPaperOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ArtifactKind".
  */
 export type ArtifactKind = "RESEARCH" | "DECISION";
@@ -64,7 +69,8 @@ export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
  */
-export type DomainProjection = GatewayState | ModelState | Workspace | AccountConnection | RiskPolicyState | Thread;
+export type DomainProjection =
+  GatewayState | ModelState | Workspace | AccountConnection | RiskPolicyState | Thread | AlpacaPaperOrderAttempt;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayStatus".
@@ -285,6 +291,8 @@ export type ReplyData =
   | OrderProposal
   | OrderProposalLibrary
   | OrderProposalRefreshResult
+  | AlpacaPaperOrderAttempt
+  | AlpacaPaperOrderAttemptQueryResult
   | PaperOrderResult
   | Artifact
   | ArtifactLibrary
@@ -430,6 +438,11 @@ export interface IpcSchema {
   accountMutation: AccountMutation;
   accountQuery: AccountQuery;
   aggregate: Aggregate;
+  alpacaPaperOrderAttempt: AlpacaPaperOrderAttempt;
+  alpacaPaperOrderAttemptQuery: AlpacaPaperOrderAttemptQuery;
+  alpacaPaperOrderAttemptQueryResult: AlpacaPaperOrderAttemptQueryResult;
+  alpacaPaperOrderReconcile: AlpacaPaperOrderReconcile;
+  alpacaPaperOrderSubmit: AlpacaPaperOrderSubmit;
   artifactExport: ArtifactExport;
   artifactQuery: ArtifactQuery;
   artifactSave: ArtifactSave;
@@ -549,6 +562,66 @@ export interface AccountQuery {
 export interface Aggregate {
   aggregateId: string;
   aggregateType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaPaperOrderAttempt".
+ */
+export interface AlpacaPaperOrderAttempt {
+  attemptId: string;
+  clientOrderId: string;
+  connectionId: string;
+  createdAt: string;
+  errorCode?: string | null;
+  proposalHash: string;
+  proposalId: string;
+  providerOrderId?: string | null;
+  providerStatus?: string | null;
+  reason: string;
+  remoteAccountId: string;
+  state: AlpacaPaperOrderAttemptState;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaPaperOrderAttemptQuery".
+ */
+export interface AlpacaPaperOrderAttemptQuery {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaPaperOrderAttemptQueryResult".
+ */
+export interface AlpacaPaperOrderAttemptQueryResult {
+  attempt?: AlpacaPaperOrderAttempt | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaPaperOrderReconcile".
+ */
+export interface AlpacaPaperOrderReconcile {
+  connectionId: string;
+  expectedConnectionStateVersion: string;
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaPaperOrderSubmit".
+ */
+export interface AlpacaPaperOrderSubmit {
+  confirmedPaperOrder: boolean;
+  connectionId: string;
+  expectedConnectionStateVersion: string;
+  expectedProposalStateVersion: string;
+  idempotencyKey: string;
+  proposalHash: string;
+  proposalId: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1006,7 +1079,7 @@ export interface EmptyPayload {}
  */
 export interface DomainEvent {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread" | "alpaca-paper-order-attempt";
   eventId: string;
   eventType:
     | "workspace.opened"
@@ -1016,7 +1089,8 @@ export interface DomainEvent {
     | "model.provider_attempt.changed"
     | "risk.policy.changed"
     | "thread.created"
-    | "thread.updated";
+    | "thread.updated"
+    | "alpaca.paper.order.attempt.changed";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -1160,6 +1234,7 @@ export interface AccountConnection {
 export interface AccountData {
   accountType: string;
   balances: Balance[];
+  buyingPower?: string | null;
   capabilities: string[];
   currency?: string | null;
   limitations: string[];
@@ -2106,7 +2181,7 @@ export interface SuccessEnvelope {
  */
 export interface Snapshot {
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread";
+  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread" | "alpaca-paper-order-attempt";
   lastSequence: number;
   projection: DomainProjection;
 }

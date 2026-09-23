@@ -1,13 +1,16 @@
 use crate::{
     market,
-    protocol::{Result, TradeXError},
+    protocol::{
+        AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, ExecutionContext, OrderProposal,
+        OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
+    },
     providers::*,
 };
 use reqwest::{
     blocking::Client,
     header::{HeaderMap, HeaderValue},
 };
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::{io::Read, time::Duration};
 use zeroize::Zeroizing;
 
@@ -121,9 +124,42 @@ impl ProviderEndpoint {
             ),
         }
     }
+    fn allows_method(self, method: ProviderHttpMethod, path: &str) -> bool {
+        match method {
+            ProviderHttpMethod::Get => self.allows(path),
+            ProviderHttpMethod::Post => self == Self::AlpacaPaper && path == "/v2/orders",
+        }
+    }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProviderHttpMethod {
+    Get,
+    Post,
+}
+
+pub struct ProviderHttpResponse {
+    pub status: u16,
+    pub body: Vec<u8>,
+}
+
 pub trait ProviderHttp {
     fn get(&self, endpoint: ProviderEndpoint, path: &str, headers: HeaderMap) -> Result<Vec<u8>>;
+
+    fn request(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<ProviderHttpResponse> {
+        if method != ProviderHttpMethod::Get || body.is_some() {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        self.get(endpoint, path, headers)
+            .map(|body| ProviderHttpResponse { status: 200, body })
+    }
 }
 
 #[derive(Default)]
@@ -202,6 +238,59 @@ impl ProviderHttp for BrokerHttp {
         }
         Ok(bytes)
     }
+
+    fn request(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<ProviderHttpResponse> {
+        if !endpoint.allows_method(method, path) {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let request = match method {
+            ProviderHttpMethod::Get if body.is_none() => self
+                .client()?
+                .get(format!("{}{path}", endpoint.base_url()))
+                .headers(headers),
+            ProviderHttpMethod::Post if body.is_some() => {
+                let body = serde_json::to_vec(body.unwrap()).map_err(|_| invalid())?;
+                if body.len() > 16 * 1024 {
+                    return Err(invalid());
+                }
+                self.client()?
+                    .post(format!("{}{path}", endpoint.base_url()))
+                    .headers(headers)
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(body)
+            }
+            _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+        };
+        let response = request
+            .send()
+            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+        if response
+            .content_length()
+            .is_some_and(|length| length > MAX_RESPONSE)
+        {
+            return Err(invalid());
+        }
+        let status = response.status().as_u16();
+        let mut bytes = Vec::new();
+        response
+            .take(MAX_RESPONSE + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+        if bytes.len() as u64 > MAX_RESPONSE {
+            return Err(invalid());
+        }
+        Ok(ProviderHttpResponse {
+            status,
+            body: bytes,
+        })
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -209,6 +298,8 @@ pub(crate) enum JobKind {
     Connect,
     Probe,
     Disconnect,
+    AlpacaPaperSubmit,
+    AlpacaPaperReconcile,
 }
 
 pub struct ProviderJob {
@@ -216,6 +307,8 @@ pub struct ProviderJob {
     pub(crate) kind: JobKind,
     pub(crate) session: String,
     pub(crate) request_id: String,
+    pub(crate) alpaca_attempt: Option<AlpacaPaperOrderAttempt>,
+    pub(crate) alpaca_proposal: Option<OrderProposal>,
 }
 
 pub(crate) struct Observation {
@@ -235,6 +328,7 @@ pub struct ProviderOutcome {
     pub(crate) observation: Option<Observation>,
     pub(crate) error: Option<TradeXError>,
     pub(crate) credential: String,
+    pub(crate) alpaca_paper_attempt: Option<AlpacaPaperOrderAttempt>,
 }
 
 impl ProviderJob {
@@ -261,7 +355,14 @@ impl ProviderJob {
                 }
                 .into(),
                 error: result.err(),
+                alpaca_paper_attempt: None,
             };
+        }
+        if matches!(
+            self.kind,
+            JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
+        ) {
+            return self.run_alpaca_paper_order(vault, http, current);
         }
         let mut credential = "MISSING";
         let result = (|| -> Result<Observation> {
@@ -444,12 +545,202 @@ impl ProviderJob {
                 observation: Some(observation),
                 error: None,
                 credential: credential.into(),
+                alpaca_paper_attempt: None,
             },
             Err(error) => ProviderOutcome {
                 observation: None,
                 error: Some(error),
                 credential: credential.into(),
+                alpaca_paper_attempt: None,
             },
+        }
+    }
+
+    fn run_alpaca_paper_order(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let Some(mut attempt) = self.alpaca_attempt.clone() else {
+            return ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
+                credential: "MISSING".into(),
+                alpaca_paper_attempt: None,
+            };
+        };
+        let mut credential_state = "MISSING";
+        let outcome = (|| -> Result<AlpacaPaperOrderAttempt> {
+            if self.account.provider_id != "alpaca" || self.account.environment != "PAPER" {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            if !matches!(
+                self.kind,
+                JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
+            ) {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            let secret = vault.get(&self.account.credential_ref())?;
+            credential_state = "CONFIGURED";
+            let values = secret.values()?;
+            if values.len() != 2 {
+                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+            }
+            let auth = alpaca_headers(&values)?;
+            let endpoint = ProviderEndpoint::AlpacaPaper;
+            let proposal = self
+                .alpaca_proposal
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"))?;
+            if proposal.proposal_id != attempt.proposal_id
+                || proposal.proposal_hash != attempt.proposal_hash
+                || proposal.workspace_id != attempt.workspace_id
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if self.kind == JobKind::AlpacaPaperReconcile {
+                return Ok(reconcile_alpaca_attempt(
+                    http,
+                    &auth,
+                    attempt.clone(),
+                    proposal,
+                ));
+            }
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let (symbol, body, needs_fractional) = alpaca_order_request(proposal, &attempt)?;
+            let account_response = http.request(
+                endpoint,
+                ProviderHttpMethod::Get,
+                "/v2/account",
+                auth.clone(),
+                None,
+            )?;
+            if account_response.status != 200 {
+                return Err(alpaca_read_error(account_response.status));
+            }
+            let account: Value =
+                serde_json::from_slice(&account_response.body).map_err(|_| invalid())?;
+            if id(&account, "id")? != attempt.remote_account_id
+                || text(&account, "status", 32)? != "ACTIVE"
+                || flag(&account, "account_blocked")?
+                || flag(&account, "trading_blocked")?
+                || flag(&account, "trade_suspended_by_user")?
+            {
+                return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+            }
+            let currency = text(&account, "currency", 3)?;
+            if currency.len() != 3 || !currency.bytes().all(|byte| byte.is_ascii_uppercase()) {
+                return Err(invalid());
+            }
+            if let Some(notional) = body.get("notional").and_then(Value::as_str) {
+                if currency != "USD" {
+                    return Err(TradeXError::new("ORDER_CAPABILITY_UNSUPPORTED"));
+                }
+                let buying_power = decimal(&account["buying_power"])?;
+                if decimal_cmp(notional, &buying_power)? == std::cmp::Ordering::Greater {
+                    return Err(TradeXError::new("ORDER_BUYING_POWER_INSUFFICIENT"));
+                }
+            }
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let asset_path = format!("/v2/assets/{symbol}");
+            let asset_response = http.request(
+                endpoint,
+                ProviderHttpMethod::Get,
+                &asset_path,
+                auth.clone(),
+                None,
+            )?;
+            if asset_response.status != 200 {
+                return Err(if asset_response.status == 404 {
+                    TradeXError::new("ORDER_ASSET_UNAVAILABLE")
+                } else {
+                    alpaca_read_error(asset_response.status)
+                });
+            }
+            let asset: Value =
+                serde_json::from_slice(&asset_response.body).map_err(|_| invalid())?;
+            let asset_id = validate_alpaca_asset(&asset, &symbol, needs_fractional)?;
+            if body.get("side").and_then(Value::as_str) == Some("sell") {
+                let quantity = body
+                    .get("qty")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| TradeXError::new("ORDER_CAPABILITY_UNSUPPORTED"))?;
+                let position_response = http.request(
+                    endpoint,
+                    ProviderHttpMethod::Get,
+                    &format!("/v2/positions/{symbol}"),
+                    auth.clone(),
+                    None,
+                )?;
+                if position_response.status == 404 {
+                    return Err(TradeXError::new("ORDER_INSUFFICIENT_POSITION"));
+                }
+                if position_response.status != 200 {
+                    return Err(alpaca_read_error(position_response.status));
+                }
+                let position: Value =
+                    serde_json::from_slice(&position_response.body).map_err(|_| invalid())?;
+                validate_alpaca_sell_position(&position, &symbol, &asset_id, quantity)?;
+            }
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            match http.request(
+                endpoint,
+                ProviderHttpMethod::Post,
+                "/v2/orders",
+                auth.clone(),
+                Some(&body),
+            ) {
+                Ok(response) if matches!(response.status, 200 | 201) => {
+                    match alpaca_acknowledgement(
+                        &response.body,
+                        &body,
+                        &symbol,
+                        Some(&asset_id),
+                        &attempt,
+                    ) {
+                        Ok(ack) => Ok(ack),
+                        Err(_) => Ok(reconcile_alpaca_attempt(
+                            http,
+                            &auth,
+                            attempt.clone(),
+                            proposal,
+                        )),
+                    }
+                }
+                Ok(response) if matches!(response.status, 400 | 401 | 403 | 422 | 429) => {
+                    Err(alpaca_order_rejection(response.status))
+                }
+                Ok(_) | Err(_) => Ok(reconcile_alpaca_attempt(
+                    http,
+                    &auth,
+                    attempt.clone(),
+                    proposal,
+                )),
+            }
+        })();
+        match outcome {
+            Ok(updated) => attempt = updated,
+            Err(error) => {
+                attempt.state = AlpacaPaperOrderAttemptState::Rejected;
+                attempt.error_code = Some(error.code.clone());
+                attempt.reason = error.message;
+            }
+        }
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: credential_state.into(),
+            alpaca_paper_attempt: Some(attempt),
         }
     }
 
@@ -466,6 +757,415 @@ impl ProviderJob {
     }
 }
 
+fn alpaca_headers(values: &[String]) -> Result<HeaderMap> {
+    if values.len() != 2 {
+        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+    }
+    let mut headers = HeaderMap::new();
+    for (name, value) in [
+        ("APCA-API-KEY-ID", &values[0]),
+        ("APCA-API-SECRET-KEY", &values[1]),
+    ] {
+        let mut header =
+            HeaderValue::from_str(value).map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+        header.set_sensitive(true);
+        headers.insert(name, header);
+    }
+    Ok(headers)
+}
+
+fn alpaca_order_request(
+    proposal: &OrderProposal,
+    attempt: &AlpacaPaperOrderAttempt,
+) -> Result<(String, Value, bool)> {
+    let fields = &proposal.fields;
+    if !matches!(
+        proposal.status,
+        crate::protocol::OrderProposalStatus::NeedsApproval
+            | crate::protocol::OrderProposalStatus::Consumed
+    ) || fields.environment != ExecutionContext::AlpacaPaper
+        || fields.account_id.as_deref() != Some(attempt.connection_id.as_str())
+        || attempt.proposal_id != proposal.proposal_id
+        || attempt.proposal_hash != proposal.proposal_hash
+        || fields.maximum_spend.is_some()
+    {
+        return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
+    }
+    let instrument = market::instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == fields.instrument_id)
+        .filter(|instrument| instrument.asset_class == crate::protocol::AssetClass::Equity)
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"))?;
+    let provider_symbol = instrument
+        .providers
+        .iter()
+        .find(|mapping| mapping.provider_id == "alpaca")
+        .map(|mapping| mapping.provider_symbol.clone())
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"))?;
+    if provider_symbol.is_empty()
+        || !provider_symbol.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')
+        })
+    {
+        return Err(TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"));
+    }
+    let type_name = match fields.order_type {
+        OrderType::Market => "market",
+        OrderType::Limit => "limit",
+    };
+    let time_in_force = match (fields.order_type, fields.time_in_force) {
+        (OrderType::Market, TimeInForce::Day) => "day",
+        (OrderType::Limit, TimeInForce::Day) => "day",
+        (OrderType::Limit, TimeInForce::Gtc) => "gtc",
+        _ => return Err(TradeXError::new("ORDER_CAPABILITY_UNSUPPORTED")),
+    };
+    let (amount_field, amount_value, needs_fractional) = match fields.quantity.r#type {
+        OrderQuantityType::Base => {
+            let fraction = fields
+                .quantity
+                .value
+                .split_once('.')
+                .map(|(_, fraction)| fraction)
+                .unwrap_or("");
+            if fraction.len() > 9 {
+                return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+            }
+            if !fraction.is_empty()
+                && (fields.order_type != OrderType::Market
+                    || fields.time_in_force != TimeInForce::Day)
+            {
+                return Err(TradeXError::new("ORDER_CAPABILITY_UNSUPPORTED"));
+            }
+            (
+                "qty",
+                fields.quantity.value.as_str(),
+                !fraction.trim_end_matches('0').is_empty(),
+            )
+        }
+        OrderQuantityType::Quote => {
+            if fields.side != OrderSide::Buy
+                || fields.order_type != OrderType::Market
+                || fields.time_in_force != TimeInForce::Day
+                || fields
+                    .quantity
+                    .value
+                    .split_once('.')
+                    .map_or(0, |(_, f)| f.len())
+                    > 2
+            {
+                return Err(TradeXError::new("ORDER_CAPABILITY_UNSUPPORTED"));
+            }
+            ("notional", fields.quantity.value.as_str(), true)
+        }
+    };
+    let mut body = json!({
+        "symbol": provider_symbol,
+        "side": match fields.side { OrderSide::Buy => "buy", OrderSide::Sell => "sell" },
+        "type": type_name,
+        "time_in_force": time_in_force,
+        "client_order_id": attempt.client_order_id,
+    });
+    body[amount_field] = Value::String(amount_value.into());
+    match fields.order_type {
+        OrderType::Limit => {
+            let limit_price = fields
+                .limit_price
+                .as_deref()
+                .ok_or_else(|| TradeXError::new("ORDER_AMOUNT_INVALID"))?;
+            body["limit_price"] = Value::String(limit_price.into());
+        }
+        OrderType::Market if fields.limit_price.is_some() => {
+            return Err(TradeXError::new("ORDER_CAPABILITY_UNSUPPORTED"));
+        }
+        OrderType::Market => (),
+    }
+    Ok((provider_symbol, body, needs_fractional))
+}
+
+pub(crate) fn validate_alpaca_paper_proposal(
+    proposal: &OrderProposal,
+    connection_id: &str,
+) -> Result<()> {
+    let attempt = AlpacaPaperOrderAttempt {
+        attempt_id: "preflight".into(),
+        workspace_id: proposal.workspace_id.clone(),
+        connection_id: connection_id.into(),
+        remote_account_id: "preflight".into(),
+        proposal_id: proposal.proposal_id.clone(),
+        proposal_hash: proposal.proposal_hash.clone(),
+        client_order_id: "tradex-preflight".into(),
+        state: AlpacaPaperOrderAttemptState::Submitting,
+        provider_order_id: None,
+        provider_status: None,
+        error_code: None,
+        reason: "preflight".into(),
+        state_version: "preflight".into(),
+        created_at: "preflight".into(),
+        updated_at: "preflight".into(),
+    };
+    alpaca_order_request(proposal, &attempt).map(|_| ())
+}
+
+fn validate_alpaca_asset(asset: &Value, symbol: &str, needs_fractional: bool) -> Result<String> {
+    let asset_id = id(asset, "id")?;
+    if text(asset, "symbol", 64)? != symbol || text(asset, "class", 32)? != "us_equity" {
+        return Err(invalid());
+    }
+    if text(asset, "status", 32)? != "active" || !flag(asset, "tradable")? {
+        return Err(TradeXError::new("ORDER_ASSET_UNTRADABLE"));
+    }
+    if needs_fractional && !flag(asset, "fractionable")? {
+        return Err(TradeXError::new("ORDER_ASSET_NOT_FRACTIONABLE"));
+    }
+    Ok(asset_id)
+}
+
+fn validate_alpaca_sell_position(
+    position: &Value,
+    symbol: &str,
+    asset_id: &str,
+    quantity: &str,
+) -> Result<()> {
+    if id(position, "asset_id")? != asset_id
+        || text(position, "symbol", 64)? != symbol
+        || text(position, "asset_class", 32)? != "us_equity"
+    {
+        return Err(invalid());
+    }
+    if text(position, "side", 16)? != "long"
+        || decimal_cmp(quantity, &decimal(&position["qty_available"])?)?
+            == std::cmp::Ordering::Greater
+    {
+        return Err(TradeXError::new("ORDER_INSUFFICIENT_POSITION"));
+    }
+    Ok(())
+}
+
+fn alpaca_acknowledgement(
+    bytes: &[u8],
+    request: &Value,
+    symbol: &str,
+    expected_asset_id: Option<&str>,
+    prior: &AlpacaPaperOrderAttempt,
+) -> Result<AlpacaPaperOrderAttempt> {
+    let order: Value = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+    let provider_order_id = id(&order, "id")?;
+    if let Some(expected_asset_id) = expected_asset_id
+        && id(&order, "asset_id")? != expected_asset_id
+    {
+        return Err(invalid());
+    }
+    if text(&order, "client_order_id", 128)? != prior.client_order_id
+        || text(&order, "symbol", 64)? != symbol
+        || text(&order, "asset_class", 32)? != "us_equity"
+        || text(&order, "side", 16)? != request["side"].as_str().ok_or_else(invalid)?
+        || order
+            .get("type")
+            .or_else(|| order.get("order_type"))
+            .and_then(Value::as_str)
+            != request.get("type").and_then(Value::as_str)
+        || text(&order, "time_in_force", 16)?
+            != request["time_in_force"].as_str().ok_or_else(invalid)?
+    {
+        return Err(invalid());
+    }
+    for field in ["qty", "notional", "limit_price"] {
+        if let Some(expected) = request.get(field).and_then(Value::as_str)
+            && optional_decimal(&order, field)?.as_deref() != Some(expected)
+        {
+            return Err(invalid());
+        }
+    }
+    let mut attempt = prior.clone();
+    attempt.state = AlpacaPaperOrderAttemptState::Acknowledged;
+    attempt.provider_order_id = Some(provider_order_id);
+    attempt.provider_status = Some(text(&order, "status", 64)?);
+    attempt.error_code = None;
+    attempt.reason =
+        "Alpaca Paper acknowledged the order. This acknowledgement is not fill evidence.".into();
+    Ok(attempt)
+}
+
+fn reconcile_alpaca_attempt(
+    http: &impl ProviderHttp,
+    auth: &HeaderMap,
+    attempt: AlpacaPaperOrderAttempt,
+    proposal: &OrderProposal,
+) -> AlpacaPaperOrderAttempt {
+    let account_response = match http.request(
+        ProviderEndpoint::AlpacaPaper,
+        ProviderHttpMethod::Get,
+        "/v2/account",
+        auth.clone(),
+        None,
+    ) {
+        Ok(response) if response.status == 200 => response.body,
+        Ok(response) => {
+            let error = alpaca_read_error(response.status);
+            return unknown_attempt(
+                attempt,
+                &error.code,
+                "The saved Alpaca Paper account identity could not be verified. Order status remains unknown; do not resubmit.",
+            );
+        }
+        Err(error) => {
+            return unknown_attempt(
+                attempt,
+                &error.code,
+                "The saved Alpaca Paper account identity could not be verified. Order status remains unknown; do not resubmit.",
+            );
+        }
+    };
+    let account: Value = match serde_json::from_slice(&account_response) {
+        Ok(account) => account,
+        Err(_) => {
+            return unknown_attempt(
+                attempt,
+                "PROVIDER_RESPONSE_INVALID",
+                "Alpaca returned an invalid account identity. Order status remains unknown; do not resubmit.",
+            );
+        }
+    };
+    let remote_account_id = match id(&account, "id") {
+        Ok(account_id) => account_id,
+        Err(error) => {
+            return unknown_attempt(
+                attempt,
+                &error.code,
+                "Alpaca returned an invalid account identity. Order status remains unknown; do not resubmit.",
+            );
+        }
+    };
+    if remote_account_id != attempt.remote_account_id {
+        return unknown_attempt(
+            attempt,
+            "PROVIDER_IDENTITY_CHANGED",
+            "The current Alpaca Paper credentials resolve to a different account. Restore the saved account identity before reconciling; do not resubmit.",
+        );
+    }
+    let Ok((symbol, request, _)) = alpaca_order_request(proposal, &attempt) else {
+        return unknown_attempt(
+            attempt,
+            "ORDER_STATUS_UNKNOWN",
+            "Alpaca Paper order status could not be verified; no retry was sent.",
+        );
+    };
+    let path = format!(
+        "/v2/orders:by_client_order_id?client_order_id={}",
+        attempt.client_order_id
+    );
+    match http.request(
+        ProviderEndpoint::AlpacaPaper,
+        ProviderHttpMethod::Get,
+        &path,
+        auth.clone(),
+        None,
+    ) {
+        Ok(response) if response.status == 200 => {
+            match alpaca_acknowledgement(&response.body, &request, &symbol, None, &attempt) {
+                Ok(acknowledged) => acknowledged,
+                Err(_) => unknown_attempt(
+                    attempt,
+                    "PROVIDER_RESPONSE_INVALID",
+                    "Alpaca returned an order that did not match the saved client order identity; reconcile before any further action.",
+                ),
+            }
+        }
+        Ok(response) if response.status == 404 => unknown_attempt(
+            attempt,
+            "ORDER_STATUS_UNKNOWN",
+            "Alpaca Paper has not returned this client order ID yet. A single empty lookup does not prove the order was not accepted.",
+        ),
+        Ok(response) => {
+            let error = alpaca_read_error(response.status);
+            unknown_attempt(
+                attempt,
+                &error.code,
+                "Alpaca Paper order status remains unknown. Retry reconciliation; do not resubmit.",
+            )
+        }
+        Err(error) => unknown_attempt(
+            attempt,
+            &error.code,
+            "Alpaca Paper order status remains unknown. Retry reconciliation; do not resubmit.",
+        ),
+    }
+}
+
+fn unknown_attempt(
+    mut attempt: AlpacaPaperOrderAttempt,
+    error_code: &str,
+    reason: &str,
+) -> AlpacaPaperOrderAttempt {
+    attempt.state = AlpacaPaperOrderAttemptState::UnknownReconciling;
+    attempt.provider_order_id = None;
+    attempt.provider_status = None;
+    attempt.error_code = Some(error_code.into());
+    attempt.reason = reason.into();
+    attempt
+}
+
+fn alpaca_read_error(status: u16) -> TradeXError {
+    TradeXError::new(match status {
+        401 => "PROVIDER_AUTH_FAILED",
+        403 => "PROVIDER_PERMISSION_BLOCKED",
+        418 | 429 => "PROVIDER_RATE_LIMITED",
+        404 => "PROVIDER_RESPONSE_INVALID",
+        400..=499 => "PROVIDER_RESPONSE_INVALID",
+        _ => "PROVIDER_UNAVAILABLE",
+    })
+}
+
+fn alpaca_order_rejection(status: u16) -> TradeXError {
+    TradeXError::new(match status {
+        401 => "PROVIDER_AUTH_FAILED",
+        403 => "PROVIDER_PERMISSION_BLOCKED",
+        418 | 429 => "PROVIDER_RATE_LIMITED",
+        400 | 422 => "PROVIDER_ORDER_REJECTED",
+        _ => "PROVIDER_ORDER_REJECTED",
+    })
+}
+
+fn decimal_cmp(left: &str, right: &str) -> Result<std::cmp::Ordering> {
+    if left.starts_with('-') || right.starts_with('-') {
+        return Err(invalid());
+    }
+    let (left_whole, left_fraction) = left.split_once('.').unwrap_or((left, ""));
+    let (right_whole, right_fraction) = right.split_once('.').unwrap_or((right, ""));
+    let left_whole = left_whole.trim_start_matches('0');
+    let right_whole = right_whole.trim_start_matches('0');
+    let left_whole = if left_whole.is_empty() {
+        "0"
+    } else {
+        left_whole
+    };
+    let right_whole = if right_whole.is_empty() {
+        "0"
+    } else {
+        right_whole
+    };
+    let whole_order = left_whole
+        .len()
+        .cmp(&right_whole.len())
+        .then_with(|| left_whole.cmp(right_whole));
+    if whole_order != std::cmp::Ordering::Equal {
+        return Ok(whole_order);
+    }
+    for index in 0..left_fraction.len().max(right_fraction.len()) {
+        let left_digit = left_fraction.as_bytes().get(index).copied().unwrap_or(b'0');
+        let right_digit = right_fraction
+            .as_bytes()
+            .get(index)
+            .copied()
+            .unwrap_or(b'0');
+        match left_digit.cmp(&right_digit) {
+            std::cmp::Ordering::Equal => (),
+            order => return Ok(order),
+        }
+    }
+    Ok(std::cmp::Ordering::Equal)
+}
+
 fn allowed_path(path: &str) -> bool {
     if matches!(
         path,
@@ -475,8 +1175,39 @@ fn allowed_path(path: &str) -> bool {
     ) {
         return true;
     }
+    if ["/v2/assets/", "/v2/positions/"]
+        .iter()
+        .any(|prefix| path.strip_prefix(prefix).is_some_and(valid_alpaca_symbol))
+    {
+        return true;
+    }
+    if path
+        .strip_prefix("/v2/orders:by_client_order_id?client_order_id=")
+        .is_some_and(valid_client_order_id)
+    {
+        return true;
+    }
     path.strip_prefix("/v2/orders?status=open&limit=500&direction=asc&nested=false&after_order_id=")
         .is_some_and(|id| id.len() == 36 && uuid::Uuid::parse_str(id).is_ok())
+}
+
+fn valid_alpaca_symbol(symbol: &str) -> bool {
+    !symbol.is_empty()
+        && symbol.len() <= 16
+        && symbol
+            .bytes()
+            .any(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+        && symbol.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')
+        })
+}
+
+fn valid_client_order_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
 }
 
 fn invalid() -> TradeXError {
@@ -682,6 +1413,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
             remote_account_id,
             account_type: "ALPACA_PAPER".into(),
             currency: Some(currency.clone()),
+            buying_power: optional_decimal(&account, "buying_power")?,
             balances: vec![Balance {
                 locked: None,
                 restricted_available: None,
