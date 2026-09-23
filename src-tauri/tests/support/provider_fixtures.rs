@@ -67,6 +67,11 @@ pub struct Http {
     pub alpaca_position: RefCell<Option<Value>>,
     pub alpaca_post_status: Cell<Option<u16>>,
     pub alpaca_post_error_body: RefCell<Option<Vec<u8>>>,
+    pub trading212_posts: RefCell<Vec<(String, Value)>>,
+    pub trading212_post_status: Cell<Option<u16>>,
+    pub trading212_post_timeout: Cell<bool>,
+    pub trading212_post_response_body: RefCell<Option<Vec<u8>>>,
+    pub trading212_identity: Cell<u64>,
 }
 impl Default for Http {
     fn default() -> Self {
@@ -98,6 +103,11 @@ impl Default for Http {
             }))),
             alpaca_post_status: Cell::new(None),
             alpaca_post_error_body: RefCell::new(None),
+            trading212_posts: RefCell::new(vec![]),
+            trading212_post_status: Cell::new(None),
+            trading212_post_timeout: Cell::new(false),
+            trading212_post_response_body: RefCell::new(None),
+            trading212_identity: Cell::new(9007199254740993),
         }
     }
 }
@@ -110,6 +120,76 @@ impl ProviderHttp for Http {
         headers: reqwest::header::HeaderMap,
         body: Option<&Value>,
     ) -> Result<ProviderHttpResponse> {
+        if endpoint == ProviderEndpoint::Trading212Demo {
+            assert_eq!(
+                headers["Authorization"],
+                "Basic UzAyLUZBS0UtS0VZLTU5NDc5MTQ1MzpTMDItRkFLRS1TRUNSRVQtNzA0NTU2OTIx"
+            );
+            assert!(headers["Authorization"].is_sensitive());
+            assert_eq!(headers.len(), 1);
+            return match (method, path, body) {
+                (ProviderHttpMethod::Get, path, None) => self
+                    .get(endpoint, path, headers)
+                    .map(|body| ProviderHttpResponse { status: 200, body }),
+                (ProviderHttpMethod::Post, path, Some(request))
+                    if matches!(
+                        path,
+                        "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
+                    ) =>
+                {
+                    self.calls
+                        .borrow_mut()
+                        .push(format!("{}{path}", endpoint.base_url()));
+                    self.trading212_posts
+                        .borrow_mut()
+                        .push((path.to_owned(), request.clone()));
+                    if self.trading212_post_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    if let Some(status) = self.trading212_post_status.get() {
+                        return Ok(ProviderHttpResponse {
+                            status,
+                            body: br#"{"message":"synthetic rejection"}"#.to_vec(),
+                        });
+                    }
+                    if let Some(body) = self.trading212_post_response_body.borrow_mut().take() {
+                        return Ok(ProviderHttpResponse { status: 200, body });
+                    }
+                    let raw_quantity = request["quantity"].to_string();
+                    let side = if raw_quantity.starts_with('-') {
+                        "SELL"
+                    } else {
+                        "BUY"
+                    };
+                    let quantity = raw_quantity.trim_start_matches('-');
+                    let quantity: Value = serde_json::from_str(quantity).unwrap();
+                    let order_type = if path.ends_with("/limit") {
+                        "LIMIT"
+                    } else {
+                        "MARKET"
+                    };
+                    let mut response = json!({
+                        "id":9007199254740995u64,
+                        "ticker":request["ticker"],
+                        "quantity":quantity,
+                        "side":side,
+                        "type":order_type,
+                        "strategy":"QUANTITY",
+                        "status":"NEW",
+                        "timeInForce":if order_type == "MARKET" { "DAY" } else { request["timeValidity"].as_str().unwrap() },
+                        "extendedHours":false
+                    });
+                    if let Some(limit_price) = request.get("limitPrice") {
+                        response["limitPrice"] = limit_price.clone();
+                    }
+                    Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&response).unwrap(),
+                    })
+                }
+                _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+        }
         if endpoint != ProviderEndpoint::AlpacaPaper {
             return match (method, body) {
                 (ProviderHttpMethod::Get, None) => self
@@ -343,7 +423,11 @@ impl ProviderHttp for Http {
                 return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
             }
             return Ok(match path {
-                "/api/v0/equity/account/summary" => br#"{"id":9007199254740993,"currency":"GBP","cash":{"availableToTrade":1000.1234567890123456789,"reservedForOrders":20.50,"inPies":3.2},"totalValue":1300.25}"#.to_vec(),
+                "/api/v0/equity/account/summary" => {
+                    let mut summary: Value = serde_json::from_slice(br#"{"id":9007199254740993,"currency":"GBP","cash":{"availableToTrade":1000.1234567890123456789,"reservedForOrders":20.50,"inPies":3.2},"totalValue":1300.25}"#).unwrap();
+                    summary["id"] = json!(self.trading212_identity.get());
+                    serde_json::to_vec(&summary).unwrap()
+                }
                 "/api/v0/equity/positions" => br#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#.to_vec(),
                 "/api/v0/equity/orders" => br#"[{"id":9007199254740995,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23}]"#.to_vec(),
                 _ => panic!("Unexpected Trading 212 operation"),

@@ -194,6 +194,8 @@ pub enum ReplyData {
     OrderProposal(Box<OrderProposal>),
     OrderProposalLibrary(OrderProposalLibrary),
     OrderProposalRefresh(Box<OrderProposalRefreshResult>),
+    Trading212DemoOrderAttempt(Box<Trading212DemoOrderAttempt>),
+    Trading212DemoOrderAttemptQuery(Box<Trading212DemoOrderAttemptQueryResult>),
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
     AlpacaPaperOrderAttemptQuery(Box<AlpacaPaperOrderAttemptQueryResult>),
     AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
@@ -285,6 +287,10 @@ pub struct IpcSchema {
     pub order_proposal_library: OrderProposalLibrary,
     pub order_proposal_refresh_request: OrderProposalRefresh,
     pub order_proposal_refresh: OrderProposalRefreshResult,
+    pub trading212_demo_order_attempt: Trading212DemoOrderAttempt,
+    pub trading212_demo_order_submit: Trading212DemoOrderSubmit,
+    pub trading212_demo_order_attempt_query: Trading212DemoOrderAttemptQuery,
+    pub trading212_demo_order_attempt_query_result: Trading212DemoOrderAttemptQueryResult,
     pub alpaca_paper_order_submit: AlpacaPaperOrderSubmit,
     pub alpaca_paper_order_attempt_query: AlpacaPaperOrderAttemptQuery,
     pub alpaca_paper_order_attempt_query_result: AlpacaPaperOrderAttemptQueryResult,
@@ -354,7 +360,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 17))]
+    #[schemars(range(min = 1, max = 18))]
     pub storage_schema_version: u32,
 }
 
@@ -2659,6 +2665,85 @@ pub struct OrderProposalRefreshResult {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Trading212DemoOrderAttemptState {
+    Submitting,
+    Acknowledged,
+    UnknownReconciling,
+    Rejected,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderAttempt {
+    #[schemars(length(min = 1, max = 128))]
+    pub attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 20))]
+    pub remote_account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    pub state: Trading212DemoOrderAttemptState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 20))]
+    pub provider_order_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub error_code: Option<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderSubmit {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_proposal_state_version: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: String,
+    pub confirmed_demo_order: bool,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderAttemptQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderAttemptQueryResult {
+    pub attempt: Option<Trading212DemoOrderAttempt>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AlpacaPaperOrderAttemptState {
     Submitting,
     Acknowledged,
@@ -3228,6 +3313,7 @@ pub enum DomainProjection {
     Account(Box<AccountConnection>),
     Risk(RiskPolicyState),
     Thread(Box<Thread>),
+    Trading212DemoOrderAttempt(Box<Trading212DemoOrderAttempt>),
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
     AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
 }
@@ -3241,6 +3327,7 @@ impl DomainProjection {
             Self::Account(a) => &a.connection_id,
             Self::Risk(r) => &r.workspace_id,
             Self::Thread(t) => &t.thread_id,
+            Self::Trading212DemoOrderAttempt(a) => &a.attempt_id,
             Self::AlpacaPaperOrderAttempt(a) => &a.attempt_id,
             Self::AlpacaPaperOrderBook(b) => &b.connection_id,
         }
@@ -3253,6 +3340,7 @@ impl DomainProjection {
             Self::Account(_) => "account",
             Self::Risk(_) => "risk",
             Self::Thread(_) => "thread",
+            Self::Trading212DemoOrderAttempt(_) => "trading212-demo-order-attempt",
             Self::AlpacaPaperOrderAttempt(_) => "alpaca-paper-order-attempt",
             Self::AlpacaPaperOrderBook(_) => "alpaca-paper-order-book",
         }
@@ -3264,12 +3352,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -3281,7 +3369,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,

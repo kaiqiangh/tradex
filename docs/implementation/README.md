@@ -31,6 +31,7 @@
 - [S17 #57 Alpaca Paper 提交验收](s17-alpaca-paper-submit-evidence.md)：Proposal 提交与未知结果 query-first 恢复的隔离证据；真实 Paper sandbox gate 仍待执行。
 - [S17 #58 Alpaca Paper 订单/成交/撤单验收](s17-alpaca-paper-orderbook-evidence.md)：订单簿、fills、撤单对账的 provider fault coverage 与 fixture UI 验收；不包含 #59 trade_updates 或真实 sandbox gate。
 - [S17 #59 Alpaca Paper 私有流验收](s17-alpaca-paper-stream-evidence.md)：本地 WebSocket worker 断线/重连/重启 REST 对账、SQLite 恢复和 React Order/Account degraded 投影；不包含真实 sandbox gate。
+- [S18 Trading 212 Demo 交易生命周期 Spec](s18-trading212-demo.md)：#60 已完成官方 API / 现有实现边界梳理。实现票为 [#61 提交与未知结果恢复](https://github.com/kaiqiangh/tradex/issues/61)、[#62 订单簿与累计成交](https://github.com/kaiqiangh/tradex/issues/62)、[#63 撤单与成交竞态](https://github.com/kaiqiangh/tradex/issues/63)；[#64 真实 Demo 验收 gate](https://github.com/kaiqiangh/tradex/issues/64) 依赖前三项并需人工确认。按用户要求串行执行 #61 → #62 → #63 → #64；#62 可独立查询既有账户订单，但不会并行推进。S17 #56 按用户指示保持 OPEN。
 
 ## 1. 文档分析与实施约束
 

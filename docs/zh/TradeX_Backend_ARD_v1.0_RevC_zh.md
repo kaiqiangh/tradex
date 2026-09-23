@@ -1764,6 +1764,13 @@ alpaca.paper.order.attempt.get
 alpaca.paper.order.reconcile
 ```
 
+### Trading 212 Demo 订单提交（S18 #61）
+
+```text
+trading212.demo.order.submit
+trading212.demo.order.attempt.get
+```
+
 ### Strategy/backtest
 
 ```text
@@ -2477,6 +2484,23 @@ Stream 将规范化 `alpaca-paper-order-book` 写入 outbox，并发布 `alpaca.
 
 Stream 不增加公开 IPC command。Primary Trade surface 读取既有订单查询和 account aggregate；账户健康事件会使已保存订单查询失效，因此流更新经现有 Rust outbox 和 React projection 路径呈现。Local Paper、Live credentials、Live arming 和所有 financial approval 路径保持不变。
 
+### 41.21 Trading 212 Demo 订单提交（S18 #61）
+
+这些版本 1 命令仅允许主 Trade UI 使用已连接且经过权限审阅的 `trading212` / `DEMO` connection。Provider I/O 使用该 connection 的 Keychain credential，并固定到 `https://demo.trading212.com`；transport 对本票仅允许 `GET /api/v0/equity/account/summary`、`POST /api/v0/equity/orders/market` 和 `POST /api/v0/equity/orders/limit`。Renderer payload 不接受 host、ticker、remote account ID、credential 或 authority flag。
+
+| 命令 | 载荷 | 成功 data | 修改/provider 行为 |
+|---|---|---|---|
+| `trading212.demo.order.submit` | `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId, expectedProposalStateVersion, proposalHash, idempotencyKey, confirmedDemoOrder}` | `Trading212DemoOrderAttempt` | 重新读取并将不可变 Demo Proposal 绑定到当前 connection/account；provider I/O 前持久化一次 attempt；`idempotencyKey` 仅供 TradeX 本地使用，绝不发送给 Trading 212；同一 Proposal 的重复提交返回已保存 attempt，不再 POST |
+| `trading212.demo.order.attempt.get` | `{workspaceId, proposalId}` | `{attempt?: Trading212DemoOrderAttempt}` | 仅按 workspace 读取 |
+
+`Trading212DemoOrderAttemptState` 为 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 或 `REJECTED`。`Trading212DemoOrderAttempt` 包含 `attemptId`、`workspaceId`、`connectionId`、`remoteAccountId`、`proposalId`、`proposalHash`、`state`、可选 `providerOrderId`、可选 `providerStatus`、可选 `errorCode`、`reason`、`stateVersion`、`createdAt` 和 `updatedAt`；不包含凭据、原始响应或 client order ID。版本 1 请求对象拒绝未知字段。重启会把中断的 `SUBMITTING` 恢复为 `UNKNOWN_RECONCILING`；即使 attempt 已拒绝或结果未知，重复提交也不能再次传输。
+
+POST 前 Control Plane 重新核对当前 workspace、connection state/version、provider/environment、权限审阅、账户摘要预检查返回的 remote account ID、不可变 Proposal ID/hash/state/version、canonical instrument 和支持的订单字段。只接受股票 `BASE` 数量型 Market-DAY 与 Limit-DAY/GTC。Market body 包含映射后的 `ticker`、带方向符号的 `quantity` 和 `extendedHours: false`；Limit body 还包含精确 `limitPrice` 与 `timeValidity`（`DAY` 或 `GOOD_TILL_CANCEL`）。Provider request 使用不经二进制浮点转换的精确十进制 JSON number，并把 Sell 编码为负数量。Market 不发送有效期字段，响应必须报告 `DAY`；Limit 响应 `timeInForce` 必须与请求一致。其他组合在 provider I/O 前拒绝。
+
+通过校验的 HTTP 200 订单响应必须包含正 int64 `id`，且匹配请求中的 ticker、side、绝对 quantity、order type 和适用的 limit/TIF 字段；随后记录不透明 order ID 与非空原始 provider status，作为 acknowledgement 而不是 fill。HTTP 400/401/403/429 明确拒绝时保持 `REJECTED`，且不自动重试。HTTP 408、发送后的 transport failure、其他有歧义/无法识别的响应、identity/字段不匹配或进程中断会进入 `UNKNOWN_RECONCILING` 且不重试。Trading 212 不提供 TradeX client-order identity；因此后续账户读取中相似的订单只能作为候选证据，不能自动绑定 attempt 或解除账户冻结；需要更强证据或后续 S25 authority-resolution 路径。Secret、Authorization header 和原始 provider response 不进入 projection/event。
+
+Attempt 变化通过 aggregate type `trading212-demo-order-attempt` 发布 `trading212.demo.order.attempt.changed`，使用稳定的 attempt identity 和单调序号。Attempt projection 与 outbox event 原子提交。这些命令不增加 Live、Local Paper、Agent、financial approval、arming、reservation 或 Order Gateway 权限；订单簿读取与撤单由后续 S18 子票规定。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
@@ -2507,6 +2531,7 @@ trade.reconciliation.changed
 trade.manual_resolution.required
 provider.health.changed
 alpaca.paper.order.attempt.changed
+trading212.demo.order.attempt.changed
 ```
 
 Event payload 使用 canonical IDs 和 versioned schemas。

@@ -39,13 +39,15 @@ use crate::protocol::{
     SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
     StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
     StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
-    ThreadSummary, TimeInForce, TradeXError, Watchlist, WatchlistItem, Watchlists, Workspace,
+    ThreadSummary, TimeInForce, TradeXError, Trading212DemoOrderAttempt,
+    Trading212DemoOrderAttemptState, Trading212DemoOrderSubmit, Watchlist, WatchlistItem,
+    Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 17;
+pub(crate) const SCHEMA_VERSION: u32 = 18;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -427,6 +429,22 @@ impl Store {
                 CREATE INDEX alpaca_paper_order_books_connection ON alpaca_paper_order_books(connection_id);
                 PRAGMA user_version=17;").map_err(storage_error)?;
             }
+            if version < 18 {
+                tx.execute_batch("CREATE TABLE trading212_demo_order_attempts (
+                    workspace_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    connection_id TEXT NOT NULL,
+                    proposal_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    state TEXT NOT NULL CHECK(state IN ('SUBMITTING','ACKNOWLEDGED','UNKNOWN_RECONCILING','REJECTED')),
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,attempt_id),
+                    UNIQUE(workspace_id,proposal_id)
+                );
+                CREATE INDEX trading212_demo_attempts_connection_state ON trading212_demo_order_attempts(connection_id,state);
+                PRAGMA user_version=18;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -450,9 +468,65 @@ impl Store {
             _lock: lock,
             path,
         };
+        store.recover_interrupted_trading212_demo_attempts()?;
         store.recover_interrupted_alpaca_paper_attempts()?;
         store.recover_interrupted_alpaca_paper_cancels()?;
         Ok(store)
+    }
+
+    fn recover_interrupted_trading212_demo_attempts(&mut self) -> Result<()> {
+        let mut statement = self.connection.prepare(
+            "SELECT workspace_id,attempt_id,sequence,projection FROM trading212_demo_order_attempts WHERE state='SUBMITTING'",
+        ).map_err(storage_error)?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(statement);
+        for (workspace_id, attempt_id, sequence, projection) in rows {
+            if sequence < 1 {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let mut attempt: Trading212DemoOrderAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if attempt.workspace_id != workspace_id
+                || attempt.attempt_id != attempt_id
+                || attempt.state != Trading212DemoOrderAttemptState::Submitting
+                || attempt.state_version
+                    != trading212_demo_attempt_version(&attempt_id, sequence as u64)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let tx = self
+                .connection
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(storage_error)?;
+            let next = sequence
+                .checked_add(1)
+                .filter(|value| *value <= MAX_SEQUENCE as i64)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+            attempt.state = Trading212DemoOrderAttemptState::UnknownReconciling;
+            attempt.error_code = Some("ORDER_STATUS_UNKNOWN".into());
+            attempt.reason = "The workspace reopened during submission. Trading 212 has no client-order identity; do not resubmit.".into();
+            attempt.state_version = trading212_demo_attempt_version(&attempt_id, next as u64);
+            attempt.updated_at = timestamp()?;
+            let encoded = serde_json::to_string(&attempt).map_err(storage_error)?;
+            tx.execute(
+                "UPDATE trading212_demo_order_attempts SET sequence=?1,state='UNKNOWN_RECONCILING',projection=?2 WHERE workspace_id=?3 AND attempt_id=?4 AND sequence=?5 AND state='SUBMITTING'",
+                params![next, encoded, workspace_id, attempt_id, sequence],
+            ).map_err(storage_error)?;
+            write_trading212_demo_attempt_event(&tx, &attempt, next)?;
+            tx.commit().map_err(storage_error)?;
+        }
+        Ok(())
     }
 
     fn recover_interrupted_alpaca_paper_cancels(&mut self) -> Result<()> {
@@ -682,6 +756,9 @@ impl Store {
                         event.event_type.as_str(),
                         "thread.created" | "thread.updated"
                     ),
+                    "trading212-demo-order-attempt" => {
+                        event.event_type != "trading212.demo.order.attempt.changed"
+                    }
                     "alpaca-paper-order-attempt" => {
                         event.event_type != "alpaca.paper.order.attempt.changed"
                     }
@@ -1420,6 +1497,33 @@ impl Store {
                 aggregate_type: kind.into(),
                 aggregate_id: id.into(),
                 projection: DomainProjection::Thread(Box::new(thread)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "trading212-demo-order-attempt" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, proposal_id, projection): (i64, String, String) = self.connection
+                .query_row(
+                    "SELECT sequence,proposal_id,projection FROM trading212_demo_order_attempts WHERE workspace_id=?1 AND attempt_id=?2",
+                    params![workspace_id, id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else { storage_error(error) })?;
+            let attempt: Trading212DemoOrderAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || load_trading212_demo_attempt(&self.connection, &workspace_id, &proposal_id)?
+                    .as_ref()
+                    != Some(&attempt)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::Trading212DemoOrderAttempt(Box::new(attempt)),
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
@@ -3158,6 +3262,18 @@ impl Store {
         load_alpaca_paper_attempt(&self.connection, workspace_id, proposal_id)
     }
 
+    pub fn trading212_demo_order_attempt(
+        &self,
+        workspace_id: &str,
+        proposal_id: &str,
+    ) -> Result<Option<Trading212DemoOrderAttempt>> {
+        if self.workspace_id()? != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(proposal_id)?;
+        load_trading212_demo_attempt(&self.connection, workspace_id, proposal_id)
+    }
+
     pub fn alpaca_paper_order_book(
         &self,
         workspace_id: &str,
@@ -3387,6 +3503,226 @@ impl Store {
         let event = write_alpaca_order_book_event(&tx, &book, next_sequence)?;
         tx.commit().map_err(storage_error)?;
         Ok((book, event))
+    }
+
+    pub fn begin_trading212_demo_order_attempt(
+        &mut self,
+        input: &Trading212DemoOrderSubmit,
+    ) -> Result<(Trading212DemoOrderAttempt, bool)> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(&input.proposal_id)?;
+        if !input.confirmed_demo_order
+            || !valid_order_text(&input.expected_connection_state_version, 256)
+            || !valid_order_text(&input.expected_proposal_state_version, 256)
+            || !valid_order_text(&input.idempotency_key, 128)
+            || !valid_proposal_hash(&input.proposal_hash)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        if let Some(existing) =
+            load_trading212_demo_attempt(&tx, &workspace_id, &input.proposal_id)?
+        {
+            if existing.connection_id != input.connection_id
+                || existing.proposal_hash != input.proposal_hash
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            tx.commit().map_err(storage_error)?;
+            return Ok((existing, false));
+        }
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&input.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.state_version != input.expected_connection_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if account.provider_id != "trading212" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.connection != "ONLINE"
+            || account.health.authentication != "VALID"
+            || account.health.credential != "CONFIGURED"
+            || account.blocked_permissions()
+            || (account.permissions.scope == "UNVERIFIED" && !account.permissions.acknowledged)
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let remote_account_id = account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.clone())
+            .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+        let (row_workspace_id, draft_id, draft_version, proposal_hash, sequence, projection): (
+            String,
+            String,
+            i64,
+            String,
+            i64,
+            String,
+        ) = tx
+            .query_row(
+                "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 AND proposal_id=?2",
+                params![workspace_id, input.proposal_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let stored = decode_stored_order_proposal(
+            &projection,
+            &input.proposal_id,
+            &row_workspace_id,
+            &draft_id,
+            draft_version,
+            &proposal_hash,
+            sequence,
+            &workspace_id,
+        )?;
+        let proposal = materialize_order_proposal(&tx, stored)?;
+        if proposal.proposal_hash != input.proposal_hash
+            || proposal.state_version != input.expected_proposal_state_version
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if proposal.status != OrderProposalStatus::NeedsApproval
+            || proposal.fields.environment != ExecutionContext::Trading212Demo
+            || proposal.fields.account_id.as_deref() != Some(input.connection_id.as_str())
+        {
+            return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
+        }
+        crate::provider_io::validate_trading212_demo_proposal(&proposal, &input.connection_id)?;
+        let unresolved: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM trading212_demo_order_attempts WHERE connection_id=?1 AND state IN ('SUBMITTING','UNKNOWN_RECONCILING'))",
+                [&input.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if unresolved {
+            return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+        }
+        let proposal_event_sequence = proposal.history.len() as i64;
+        let consumed_sequence = proposal_event_sequence
+            .checked_add(1)
+            .filter(|value| *value <= 32)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let now = timestamp()?;
+        let attempt_id = Uuid::new_v4().to_string();
+        let attempt = Trading212DemoOrderAttempt {
+            attempt_id: attempt_id.clone(),
+            workspace_id: workspace_id.clone(),
+            connection_id: input.connection_id.clone(),
+            remote_account_id,
+            proposal_id: input.proposal_id.clone(),
+            proposal_hash: input.proposal_hash.clone(),
+            state: Trading212DemoOrderAttemptState::Submitting,
+            provider_order_id: None,
+            provider_status: None,
+            error_code: None,
+            reason: "Submitting to Trading 212 Demo; provider status is pending.".into(),
+            state_version: trading212_demo_attempt_version(&attempt_id, 1),
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        };
+        tx.execute(
+            "INSERT INTO order_proposal_events(proposal_id,workspace_id,sequence,event,reason,occurred_at) VALUES(?1,?2,?3,'CONSUMED',?4,?5)",
+            params![input.proposal_id, workspace_id, consumed_sequence, "Trading 212 Demo submission attempt persisted.", now],
+        )
+        .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO trading212_demo_order_attempts(workspace_id,attempt_id,connection_id,proposal_id,idempotency_key,sequence,state,projection) VALUES(?1,?2,?3,?4,?5,1,'SUBMITTING',?6)",
+            params![workspace_id, attempt_id, input.connection_id, input.proposal_id, input.idempotency_key, serde_json::to_string(&attempt).map_err(storage_error)?],
+        )
+        .map_err(|error| {
+            if error.to_string().contains("UNIQUE") {
+                TradeXError::new("ORDER_PROPOSAL_CONSUMED")
+            } else {
+                storage_error(error)
+            }
+        })?;
+        write_trading212_demo_attempt_event(&tx, &attempt, 1)?;
+        tx.commit().map_err(storage_error)?;
+        Ok((attempt, true))
+    }
+
+    pub fn complete_trading212_demo_order_attempt(
+        &mut self,
+        result: &Trading212DemoOrderAttempt,
+    ) -> Result<Trading212DemoOrderAttempt> {
+        let workspace_id = self.workspace_id()?;
+        if result.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let current = load_trading212_demo_attempt(&tx, &workspace_id, &result.proposal_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+        if current.attempt_id != result.attempt_id
+            || current.connection_id != result.connection_id
+            || current.remote_account_id != result.remote_account_id
+            || current.proposal_hash != result.proposal_hash
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if current.state != Trading212DemoOrderAttemptState::Submitting
+            || !matches!(
+                result.state,
+                Trading212DemoOrderAttemptState::Acknowledged
+                    | Trading212DemoOrderAttemptState::UnknownReconciling
+                    | Trading212DemoOrderAttemptState::Rejected
+            )
+        {
+            return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+        }
+        let sequence = current
+            .state_version
+            .rsplit_once(':')
+            .and_then(|(_, value)| value.parse::<i64>().ok())
+            .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        let next = sequence
+            .checked_add(1)
+            .filter(|value| *value <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let mut attempt = result.clone();
+        attempt.state_version = trading212_demo_attempt_version(&attempt.attempt_id, next as u64);
+        attempt.updated_at = timestamp()?;
+        validate_trading212_demo_attempt(&attempt)?;
+        let encoded = serde_json::to_string(&attempt).map_err(storage_error)?;
+        tx.execute(
+            "UPDATE trading212_demo_order_attempts SET sequence=?1,state=?2,projection=?3 WHERE workspace_id=?4 AND attempt_id=?5 AND sequence=?6 AND state='SUBMITTING'",
+            params![next, trading212_demo_attempt_state_name(attempt.state), encoded, workspace_id, attempt.attempt_id, sequence],
+        )
+        .map_err(storage_error)?;
+        write_trading212_demo_attempt_event(&tx, &attempt, next)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(attempt)
     }
 
     pub fn begin_alpaca_paper_order_attempt(
@@ -4849,10 +5185,10 @@ fn decode_stored_order_proposal(
             .market_snapshot_id
             .as_deref()
             .is_some_and(|value| !valid_order_text(value, 128))
-        || proposal
-            .estimated_notional
-            .as_deref()
-            .is_some_and(|value| normalize_order_decimal(value, "estimatedNotional").is_err())
+        || proposal.estimated_notional.as_deref().is_some_and(|value| {
+            !crate::provider_io::decimal(&serde_json::Value::String(value.to_owned()))
+                .is_ok_and(|normalized| normalized == value && normalized != "0")
+        })
         || proposal
             .estimated_notional_currency
             .as_deref()
@@ -4893,6 +5229,109 @@ fn valid_order_proposal_id(id: &str) -> bool {
         return false;
     };
     Uuid::parse_str(hex).is_ok()
+}
+
+fn trading212_demo_attempt_state_name(state: Trading212DemoOrderAttemptState) -> &'static str {
+    match state {
+        Trading212DemoOrderAttemptState::Submitting => "SUBMITTING",
+        Trading212DemoOrderAttemptState::Acknowledged => "ACKNOWLEDGED",
+        Trading212DemoOrderAttemptState::UnknownReconciling => "UNKNOWN_RECONCILING",
+        Trading212DemoOrderAttemptState::Rejected => "REJECTED",
+    }
+}
+
+fn trading212_demo_attempt_version(attempt_id: &str, sequence: u64) -> String {
+    format!("trading212-demo-order-attempt:{attempt_id}:{sequence}")
+}
+
+fn validate_trading212_demo_attempt(attempt: &Trading212DemoOrderAttempt) -> Result<()> {
+    let provider_id_valid = |value: &str| {
+        value.parse::<i64>().is_ok_and(|id| id > 0)
+            && value.bytes().all(|byte| byte.is_ascii_digit())
+    };
+    if Uuid::parse_str(&attempt.attempt_id).is_err()
+        || !valid_order_text(&attempt.workspace_id, 128)
+        || !valid_order_text(&attempt.connection_id, 128)
+        || !provider_id_valid(&attempt.remote_account_id)
+        || !valid_order_proposal_id(&attempt.proposal_id)
+        || !valid_proposal_hash(&attempt.proposal_hash)
+        || attempt
+            .provider_order_id
+            .as_deref()
+            .is_some_and(|id| !provider_id_valid(id))
+        || attempt
+            .provider_status
+            .as_deref()
+            .is_some_and(|status| !valid_order_text(status, 32) || !status.is_ascii())
+        || attempt
+            .error_code
+            .as_deref()
+            .is_some_and(|code| !valid_order_text(code, 64) || !code.is_ascii())
+        || !valid_order_text(&attempt.reason, 256)
+        || attempt.state_version
+            != attempt
+                .state_version
+                .rsplit_once(':')
+                .and_then(|(_, sequence)| sequence.parse::<u64>().ok())
+                .map(|sequence| trading212_demo_attempt_version(&attempt.attempt_id, sequence))
+                .unwrap_or_default()
+        || !valid_provider_time(&attempt.created_at)
+        || !valid_provider_time(&attempt.updated_at)
+        || match attempt.state {
+            Trading212DemoOrderAttemptState::Submitting => {
+                attempt.provider_order_id.is_some()
+                    || attempt.provider_status.is_some()
+                    || attempt.error_code.is_some()
+            }
+            Trading212DemoOrderAttemptState::Acknowledged => {
+                attempt.provider_order_id.is_none()
+                    || attempt.provider_status.is_none()
+                    || attempt.error_code.is_some()
+            }
+            Trading212DemoOrderAttemptState::UnknownReconciling
+            | Trading212DemoOrderAttemptState::Rejected => {
+                attempt.provider_order_id.is_some()
+                    || attempt.provider_status.is_some()
+                    || attempt.error_code.is_none()
+            }
+        }
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(())
+}
+
+fn write_trading212_demo_attempt_event(
+    tx: &Transaction<'_>,
+    attempt: &Trading212DemoOrderAttempt,
+    sequence: i64,
+) -> Result<()> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    validate_trading212_demo_attempt(attempt)?;
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trading212.demo.order.attempt.changed".into(),
+        schema_version: 1,
+        occurred_at: attempt.updated_at.clone(),
+        aggregate_type: "trading212-demo-order-attempt".into(),
+        aggregate_id: attempt.attempt_id.clone(),
+        sequence: u64::try_from(sequence).map_err(storage_error)?,
+        payload: DomainProjection::Trading212DemoOrderAttempt(Box::new(attempt.clone())),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES(?1,?2,?3,?4,?5)",
+        params![
+            event.aggregate_type,
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?,
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(())
 }
 
 fn alpaca_attempt_state_name(state: AlpacaPaperOrderAttemptState) -> &'static str {
@@ -5142,6 +5581,39 @@ fn load_alpaca_paper_attempt(
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
+    Ok(Some(attempt))
+}
+
+fn load_trading212_demo_attempt(
+    connection: &Connection,
+    workspace_id: &str,
+    proposal_id: &str,
+) -> Result<Option<Trading212DemoOrderAttempt>> {
+    let row: Option<(String, String, i64, String, String)> = connection
+        .query_row(
+            "SELECT attempt_id,connection_id,sequence,state,projection FROM trading212_demo_order_attempts WHERE workspace_id=?1 AND proposal_id=?2",
+            params![workspace_id, proposal_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((attempt_id, connection_id, sequence, state, projection)) = row else {
+        return Ok(None);
+    };
+    let attempt: Trading212DemoOrderAttempt = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || sequence > MAX_SEQUENCE as i64
+        || attempt.attempt_id != attempt_id
+        || attempt.workspace_id != workspace_id
+        || attempt.connection_id != connection_id
+        || attempt.proposal_id != proposal_id
+        || state != trading212_demo_attempt_state_name(attempt.state)
+        || attempt.state_version != trading212_demo_attempt_version(&attempt_id, sequence as u64)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    validate_trading212_demo_attempt(&attempt)?;
     Ok(Some(attempt))
 }
 

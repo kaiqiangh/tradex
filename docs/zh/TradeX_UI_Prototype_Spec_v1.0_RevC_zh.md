@@ -820,6 +820,8 @@ UNKNOWN_RECONCILING 使用琥珀色待处理/不确定样式并明确标注文�
 
 Manual Resolution 先加载后端持有的证据与允许的决策。Confirmed submitted 要求券商订单 ID 已验证且匹配账户/标的/操作。Confirmed not submitted 要求充分的提供方未提交证据，空查询或复选框不够。最终确认前展示证据摘要和预期预留影响。证据缺失/陈旧/冲突时禁用确认，并说明刷新方法。并发到达的成交使陈旧人工输入失效。Keep reconciling 或关闭对话框保留冻结预留。有效处置后展示健康重新校验进度，并保持 DISARMED，直至显式 arming。
 
+Trading 212 Demo 的明确提交确认是独立于 Live 审批的 provider 写入门槛。界面标识 `Trading 212 Demo · TRADING212_DEMO` 并展示不可变 Proposal 的准确字段；Market 还须显示 extended-hours 已关闭。只提供 `BASE` 数量型 Market-DAY 和 Limit-DAY/GTC。Acknowledgement 显示 provider order ID/status，并明确它不是成交。已知拒绝展示有限长度原因；超时或无法核验的响应显示 `UNKNOWN_RECONCILING`、禁用重试，并在重复激活时重读已保存 attempt。Trading 212 不返回 TradeX client-order identity，因此刷新发现的相似订单只能作为候选，不能自动绑定或解除冻结。Demo 出错时不得回退到 Live。
+
 ## 14.6 Screener 复核与结果流程（C2/C3）
 
 明确分步：Describe → Parse → Inspect/edit FilterSpec → Run → Results。提供 schema 支持的 universe、谓词、阈值、排序/排名和结果上限编辑。解析后修改自然语言会使解释陈旧，必须重新 Parse；结构化编辑使旧结果失效。Run 使用当前展示且已验证的 FilterSpec 版本。

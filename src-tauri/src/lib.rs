@@ -44,7 +44,9 @@ use protocol::{
     ScreenerRequest, StrategyCancel, StrategyFailure, StrategyQuery, StrategyRun, StrategyRunQuery,
     StrategyRunRequest, StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate,
     ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError,
-    TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult,
+    Trading212DemoOrderAttemptState, Trading212DemoOrderSubmit, TurnCancel, TurnRetry,
+    TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -896,6 +898,38 @@ impl ControlPlane {
                 self.require_workspace(&input.workspace_id)?;
                 let state = self.store.as_ref().unwrap().local_paper_state()?;
                 Ok((json!(state), Some(state.state_version.clone())))
+            }
+            "trading212.demo.order.attempt.get" => {
+                let input: Trading212DemoOrderAttemptQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .trading212_demo_order_attempt(&input.workspace_id, &input.proposal_id)?;
+                Ok((
+                    json!(Trading212DemoOrderAttemptQueryResult { attempt }),
+                    None,
+                ))
+            }
+            "trading212.demo.order.submit" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+                }
+                let input: Trading212DemoOrderSubmit = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .trading212_demo_order_attempt(&input.workspace_id, &input.proposal_id)?
+                    .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+                if attempt.connection_id != input.connection_id
+                    || attempt.proposal_hash != input.proposal_hash
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                Ok((json!(attempt), Some(attempt.state_version.clone())))
             }
             "alpaca.paper.order.attempt.get" => {
                 let input: AlpacaPaperOrderAttemptQuery = payload(request.payload)?;
@@ -3828,6 +3862,9 @@ impl ControlPlane {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
         match request.command.as_str() {
+            "trading212.demo.order.submit" => {
+                return self.prepare_trading212_demo_order_submit(request, consumer);
+            }
             "alpaca.paper.order.submit" => {
                 return self.prepare_alpaca_paper_order_submit(request, consumer);
             }
@@ -3902,6 +3939,76 @@ impl ControlPlane {
             kind,
             session: self.session.clone(),
             request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+        }))
+    }
+
+    fn prepare_trading212_demo_order_submit(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: Trading212DemoOrderSubmit = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        if let Some(existing) = self
+            .store
+            .as_ref()
+            .unwrap()
+            .trading212_demo_order_attempt(&input.workspace_id, &input.proposal_id)?
+        {
+            if existing.connection_id != input.connection_id
+                || existing.proposal_hash != input.proposal_hash
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            return Ok(None);
+        }
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "trading212" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let proposal = self
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&input.proposal_id)?;
+        if proposal.workspace_id != input.workspace_id
+            || proposal.proposal_hash != input.proposal_hash
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if proposal.state_version != input.expected_proposal_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        provider_io::validate_trading212_demo_proposal(&proposal, &input.connection_id)?;
+        let (attempt, created) = self
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_trading212_demo_order_attempt(&input)?;
+        if !created {
+            return Ok(None);
+        }
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::Trading212DemoSubmit,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: Some(attempt),
+            trading212_demo_proposal: Some(proposal),
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: None,
@@ -3975,6 +4082,8 @@ impl ControlPlane {
             kind: JobKind::AlpacaPaperSubmit,
             session: self.session.clone(),
             request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
             alpaca_attempt: Some(attempt),
             alpaca_proposal: Some(proposal),
             alpaca_order_book: None,
@@ -4023,6 +4132,8 @@ impl ControlPlane {
             kind: JobKind::AlpacaPaperReconcile,
             session: self.session.clone(),
             request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
             alpaca_attempt: Some(attempt),
             alpaca_proposal: Some(proposal),
             alpaca_order_book: None,
@@ -4065,6 +4176,8 @@ impl ControlPlane {
             kind: JobKind::AlpacaPaperOrderBookRefresh,
             session: self.session.clone(),
             request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: Some(book),
@@ -4109,6 +4222,8 @@ impl ControlPlane {
             kind: JobKind::AlpacaPaperOrderReview,
             session: self.session.clone(),
             request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: Some(book),
@@ -4148,6 +4263,8 @@ impl ControlPlane {
             kind: JobKind::AlpacaPaperOrderCancel,
             session: self.session.clone(),
             request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: Some(book),
@@ -4346,6 +4463,45 @@ impl ControlPlane {
     }
 
     pub fn complete_provider(&mut self, job: &ProviderJob, outcome: ProviderOutcome) -> Value {
+        if job.kind == JobKind::Trading212DemoSubmit {
+            if job.session != self.session {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("STATE_VERSION_CONFLICT"),
+                );
+            }
+            let attempt = outcome.trading212_demo_attempt.or_else(|| {
+                job.trading212_demo_attempt.clone().map(|mut attempt| {
+                    attempt.state = Trading212DemoOrderAttemptState::UnknownReconciling;
+                    attempt.provider_order_id = None;
+                    attempt.provider_status = None;
+                    attempt.error_code = Some("ORDER_STATUS_UNKNOWN".into());
+                    attempt.reason = "Provider outcome was unavailable. Query the Trading 212 Demo account before taking any further action.".into();
+                    attempt
+                })
+            });
+            let Some(attempt) = attempt else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"),
+                );
+            };
+            return match self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_trading212_demo_order_attempt(&attempt)
+            {
+                Ok(attempt) => json!({
+                    "requestId":job.request_id,
+                    "schemaVersion":1,
+                    "ok":true,
+                    "stateVersion":attempt.state_version,
+                    "data":attempt
+                }),
+                Err(error) => failure_reply(job.request_id.clone(), error),
+            };
+        }
         if matches!(
             job.kind,
             JobKind::AlpacaPaperOrderBookRefresh
@@ -6279,6 +6435,9 @@ mod thread_tests {
             .execute("DROP TABLE alpaca_paper_order_books", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE trading212_demo_order_attempts", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -6729,20 +6888,19 @@ mod thread_tests {
                 ],
             )
             .unwrap();
-        let mut unsupported_provider = fields.clone();
-        unsupported_provider["accountId"] = json!(trading212.connection_id);
-        unsupported_provider["environment"] = json!("TRADING212_DEMO");
-        unsupported_provider["venue"] = json!("XNAS");
-        let provider_mapping = control.dispatch(request(
+        let mut trading212_fields = fields.clone();
+        trading212_fields["accountId"] = json!(trading212.connection_id);
+        trading212_fields["environment"] = json!("TRADING212_DEMO");
+        trading212_fields["venue"] = json!("XNAS");
+        let trading212_draft = control.dispatch(request(
             "trade.save_draft",
-            json!({"workspaceId":workspace_id,"fields":unsupported_provider}),
+            json!({"workspaceId":workspace_id,"fields":trading212_fields}),
         ));
-        assert_eq!(provider_mapping["ok"], false);
+        assert_eq!(trading212_draft["ok"], true, "{trading212_draft}");
         assert_eq!(
-            provider_mapping["error"]["code"],
-            "ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"
+            trading212_draft["data"]["fields"]["environment"],
+            "TRADING212_DEMO"
         );
-        assert_eq!(provider_mapping["error"]["field"], "instrumentId");
         drop(database);
         let mut unknown_fields = fields.clone();
         unknown_fields["unknownField"] = json!(true);

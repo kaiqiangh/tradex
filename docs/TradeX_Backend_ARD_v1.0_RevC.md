@@ -1764,6 +1764,13 @@ alpaca.paper.order.attempt.get
 alpaca.paper.order.reconcile
 ```
 
+### Trading 212 Demo order submission (S18 #61)
+
+```text
+trading212.demo.order.submit
+trading212.demo.order.attempt.get
+```
+
 ### Strategy/backtest
 
 ```text
@@ -2477,6 +2484,23 @@ The stream writes the normalized `alpaca-paper-order-book` and publishes `alpaca
 
 Streaming adds no public IPC command. The primary Trade surface reads the existing order query and account aggregate; account health events invalidate the saved order query so stream changes render through the existing Rust outbox and React projection path. Local Paper, Live credentials, Live arming, and all financial approval paths are unchanged.
 
+### 41.21 Trading 212 Demo order submission (S18 #61)
+
+These version-1 commands are available only to the primary Trade UI and an already connected, permission-reviewed `trading212` / `DEMO` connection. Provider I/O uses that connection's Keychain credential and the fixed `https://demo.trading212.com` host; the transport allows only `GET /api/v0/equity/account/summary`, `POST /api/v0/equity/orders/market`, and `POST /api/v0/equity/orders/limit` for this ticket. No renderer payload supplies a host, ticker, remote account ID, credential, or authority flag.
+
+| Command | Payload | Success data | Mutation/provider behavior |
+|---|---|---|---|
+| `trading212.demo.order.submit` | `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId, expectedProposalStateVersion, proposalHash, idempotencyKey, confirmedDemoOrder}` | `Trading212DemoOrderAttempt` | re-reads and binds the immutable Demo Proposal to the current connection/account; persists one attempt before provider I/O; `idempotencyKey` is TradeX-local and is never sent to Trading 212; any duplicate for the same Proposal returns the saved attempt without another POST |
+| `trading212.demo.order.attempt.get` | `{workspaceId, proposalId}` | `{attempt?: Trading212DemoOrderAttempt}` | workspace-scoped read only |
+
+`Trading212DemoOrderAttemptState` is `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, or `REJECTED`. `Trading212DemoOrderAttempt` contains `attemptId`, `workspaceId`, `connectionId`, `remoteAccountId`, `proposalId`, `proposalHash`, `state`, optional `providerOrderId`, optional `providerStatus`, optional `errorCode`, `reason`, `stateVersion`, `createdAt`, and `updatedAt`; it contains no credentials, raw response, or client order ID. The version-1 request objects reject unknown fields. Restart converts an interrupted `SUBMITTING` attempt to `UNKNOWN_RECONCILING`; a repeated submit never retransmits, including after a rejection or ambiguous result.
+
+Before POST, the Control Plane revalidates the active workspace, connection state/version, provider/environment, permission review, remote account ID from the account-summary preflight, immutable Proposal ID/hash/state/version, canonical instrument, and supported order fields. Only BASE-quantity stock Market-DAY and Limit-DAY/GTC are accepted. The Market body contains the mapped `ticker`, signed `quantity`, and `extendedHours: false`; the Limit body additionally contains exact `limitPrice` and `timeValidity` (`DAY` or `GOOD_TILL_CANCEL`). Decimal JSON numbers are serialized without binary-float conversion, and Sell is encoded as negative quantity. Market sends no time-validity field; its response must report `DAY`. Limit response `timeInForce` must match the request. Unsupported combinations fail before provider I/O.
+
+A validated HTTP 200 order response must contain a positive int64 `id` and match the requested ticker, side, absolute quantity, type, and applicable limit/time-in-force fields; it records the opaque ID and raw non-empty provider status as an acknowledgement, never a fill. Explicit HTTP 400/401/403/429 rejection remains `REJECTED` and is never automatically retried. HTTP 408, transport failure after dispatch, other ambiguous/unrecognized responses, identity/field mismatch, or interrupted process becomes `UNKNOWN_RECONCILING` with no retry. Trading 212 provides no TradeX client-order identity, so matching orders in later account reads are evidence candidates and cannot automatically bind an attempt or release the account freeze; stronger evidence or the later S25 authority-resolution path is required. Secrets, Authorization headers, and raw provider responses never enter the projection or event.
+
+Attempt changes publish `trading212.demo.order.attempt.changed` with aggregate type `trading212-demo-order-attempt`, stable attempt identity, and monotonic sequence. Attempt projection and outbox event commit atomically. These commands add no Live, Local Paper, Agent, financial approval, arming, reservation, or Order Gateway authority; orderbook reads and cancellation are specified by the later S18 child tickets.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
@@ -2507,6 +2531,7 @@ trade.reconciliation.changed
 trade.manual_resolution.required
 provider.health.changed
 alpaca.paper.order.attempt.changed
+trading212.demo.order.attempt.changed
 ```
 
 Event payloads carry canonical IDs and versioned schemas.

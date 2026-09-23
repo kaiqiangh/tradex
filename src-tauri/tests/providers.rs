@@ -122,6 +122,10 @@ fn command(cp: &mut ControlPlane, command: &str, payload: Value) -> Value {
     )
 }
 
+fn command_main(cp: &mut ControlPlane, command: &str, payload: Value) -> Value {
+    cp.dispatch_with_events(envelope(command, payload), "main", None)
+}
+
 fn lifecycle(vault: &impl CredentialVault) {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().to_path_buf());
@@ -235,6 +239,381 @@ fn lifecycle(vault: &impl CredentialVault) {
     }
 }
 
+#[test]
+fn trading212_demo_submit_is_persisted_before_io_and_duplicate_never_posts_twice() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"1.234567890123456789"}),
+        "DAY",
+    );
+    let request = trading212_submit_request(&workspace, &account, &proposal, "t212-attempt-1");
+
+    let job = cp.prepare_provider_for(&request, "main").unwrap();
+    assert!(
+        job.is_some(),
+        "the confirmed Demo proposal must produce a provider job"
+    );
+    let job = job.unwrap();
+    let before_io = command(
+        &mut cp,
+        "trading212.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(before_io["data"]["attempt"]["state"], "SUBMITTING");
+    assert!(http.trading212_posts.borrow().is_empty());
+
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "ACKNOWLEDGED");
+    assert_eq!(reply["data"]["providerOrderId"], "9007199254740995");
+    assert_eq!(reply["data"]["providerStatus"], "NEW");
+    assert_eq!(http.trading212_posts.borrow().len(), 1);
+    let (path, body) = &http.trading212_posts.borrow()[0];
+    assert_eq!(path, "/api/v0/equity/orders/market");
+    assert_eq!(body["ticker"], "AAPL_US_EQ");
+    assert_eq!(body["quantity"].to_string(), "1.234567890123456789");
+    assert_eq!(body["extendedHours"], false);
+    assert!(body.get("idempotencyKey").is_none());
+    assert!(body.get("clientOrderId").is_none());
+
+    let duplicate = trading212_submit_request(&workspace, &account, &proposal, "t212-attempt-2");
+    assert!(
+        cp.prepare_provider_for(&duplicate, "main")
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(http.trading212_posts.borrow().len(), 1);
+    let saved = command(
+        &mut cp,
+        "trading212.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(saved["data"]["attempt"]["state"], "ACKNOWLEDGED");
+    let duplicate_reply = command_main(
+        &mut cp,
+        "trading212.demo.order.submit",
+        request["payload"].clone(),
+    );
+    assert_eq!(duplicate_reply["ok"], true, "{duplicate_reply}");
+    assert_eq!(duplicate_reply["data"]["state"], "ACKNOWLEDGED");
+    let mut mismatched = request["payload"].clone();
+    mismatched["proposalHash"] = format!("sha256:{}", "0".repeat(64)).into();
+    assert_eq!(
+        command_main(&mut cp, "trading212.demo.order.submit", mismatched)["error"]["code"],
+        "STATE_VERSION_CONFLICT"
+    );
+    assert_eq!(http.trading212_posts.borrow().len(), 1);
+}
+
+#[test]
+fn trading212_demo_sell_limit_preserves_signed_decimal_and_good_till_cancel() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "SELL",
+        "LIMIT",
+        json!({"type":"BASE","value":"0.000000000000000001"}),
+        "GTC",
+    );
+    let reply = execute_main(
+        &mut cp,
+        trading212_submit_request(&workspace, &account, &proposal, "t212-limit-sell"),
+        &vault,
+        &http,
+    );
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "ACKNOWLEDGED");
+    let (path, body) = &http.trading212_posts.borrow()[0];
+    assert_eq!(path, "/api/v0/equity/orders/limit");
+    assert_eq!(body["quantity"].to_string(), "-0.000000000000000001");
+    assert_eq!(body["limitPrice"].to_string(), "150.123456789012345678");
+    assert_eq!(body["timeValidity"], "GOOD_TILL_CANCEL");
+    assert_eq!(body.as_object().unwrap().len(), 4);
+}
+
+#[test]
+fn trading212_demo_timeout_freezes_account_and_never_posts_again() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let first = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"1"}),
+        "DAY",
+    );
+    http.trading212_post_timeout.set(true);
+    let reply = execute_main(
+        &mut cp,
+        trading212_submit_request(&workspace, &account, &first, "t212-timeout"),
+        &vault,
+        &http,
+    );
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "UNKNOWN_RECONCILING");
+    assert_eq!(reply["data"]["errorCode"], "ORDER_STATUS_UNKNOWN");
+    assert_eq!(http.trading212_posts.borrow().len(), 1);
+    let duplicate_ipc = command_main(
+        &mut cp,
+        "trading212.demo.order.submit",
+        trading212_submit_request(&workspace, &account, &first, "t212-timeout-ipc-retry")["payload"].clone(),
+    );
+    assert_eq!(duplicate_ipc["ok"], true, "{duplicate_ipc}");
+    assert_eq!(duplicate_ipc["data"]["state"], "UNKNOWN_RECONCILING");
+    assert!(
+        cp.prepare_provider_for(
+            &trading212_submit_request(&workspace, &account, &first, "t212-timeout-retry"),
+            "main"
+        )
+        .unwrap()
+        .is_none()
+    );
+    let second = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"2"}),
+        "DAY",
+    );
+    let error = match cp.prepare_provider_for(
+        &trading212_submit_request(&workspace, &account, &second, "t212-account-freeze"),
+        "main",
+    ) {
+        Err(error) => error,
+        Ok(_) => panic!("an unresolved T212 attempt must freeze later account orders"),
+    };
+    assert_eq!(error.code, "ORDER_STATUS_UNKNOWN");
+    assert_eq!(http.trading212_posts.borrow().len(), 1);
+}
+
+#[test]
+fn trading212_demo_reopen_recovers_interrupted_submit_as_query_only_unknown() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"1"}),
+        "DAY",
+    );
+    let job = cp
+        .prepare_provider_for(
+            &trading212_submit_request(&workspace, &account, &proposal, "t212-interrupted"),
+            "main",
+        )
+        .unwrap()
+        .unwrap();
+    let before_restart = command(
+        &mut cp,
+        "trading212.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    )["data"]["attempt"]
+        .clone();
+    assert_eq!(before_restart["state"], "SUBMITTING");
+    drop(job);
+    drop(cp);
+
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let recovered = command(
+        &mut reopened,
+        "trading212.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    )["data"]["attempt"]
+        .clone();
+    assert_eq!(recovered["state"], "UNKNOWN_RECONCILING");
+    assert_eq!(recovered["attemptId"], before_restart["attemptId"]);
+    assert_eq!(http.trading212_posts.borrow().len(), 0);
+
+    let snapshot = command(
+        &mut reopened,
+        "domain.snapshot",
+        json!({"aggregateType":"trading212-demo-order-attempt","aggregateId":recovered["attemptId"]}),
+    );
+    assert_eq!(snapshot["ok"], true, "{snapshot}");
+    assert_eq!(snapshot["data"]["lastSequence"], 2);
+    let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = events.clone();
+    let ack = reopened.dispatch_with_events(
+        envelope(
+            "domain.subscribe",
+            json!({"aggregateType":"trading212-demo-order-attempt","aggregateId":recovered["attemptId"],"afterSequence":0}),
+        ),
+        "main",
+        Some(std::sync::Arc::new(move |event| {
+            sink.lock().unwrap().push(serde_json::to_value(event).unwrap());
+            true
+        })),
+    );
+    assert_eq!(ack["ok"], true, "{ack}");
+    assert_eq!(ack["data"]["replayedCount"], 2);
+    assert_eq!(
+        events.lock().unwrap()[1]["eventType"],
+        "trading212.demo.order.attempt.changed"
+    );
+    assert_eq!(
+        events.lock().unwrap()[1]["payload"]["state"],
+        "UNKNOWN_RECONCILING"
+    );
+}
+
+#[test]
+fn trading212_demo_rejected_or_mismatched_response_never_allows_a_resubmit() {
+    for (status, response_body, expected_state) in [
+        (Some(400), None, "REJECTED"),
+        (Some(401), None, "REJECTED"),
+        (Some(403), None, "REJECTED"),
+        (Some(429), None, "REJECTED"),
+        (Some(408), None, "UNKNOWN_RECONCILING"),
+        (
+            None,
+            Some(br#"{"#.to_vec()),
+            "UNKNOWN_RECONCILING",
+        ),
+        (
+            None,
+            Some(br#"{"id":9007199254740995,"ticker":"MSFT_US_EQ","quantity":1,"side":"BUY","strategy":"QUANTITY","type":"MARKET","timeInForce":"DAY","extendedHours":false}"#.to_vec()),
+            "UNKNOWN_RECONCILING",
+        ),
+    ] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let http = Http::default();
+        let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+        let proposal = trading212_demo_proposal(
+            &mut cp,
+            &workspace,
+            &account,
+            "BUY",
+            "MARKET",
+            json!({"type":"BASE","value":"1"}),
+            "DAY",
+        );
+        http.trading212_post_status.set(status);
+        *http.trading212_post_response_body.borrow_mut() = response_body;
+        let request = trading212_submit_request(&workspace, &account, &proposal, "t212-response-case");
+        let reply = execute_main(&mut cp, request.clone(), &vault, &http);
+        assert_eq!(reply["data"]["state"], expected_state, "{reply}");
+        assert_eq!(http.trading212_posts.borrow().len(), 1);
+        assert!(cp.prepare_provider_for(&request, "main").unwrap().is_none());
+        assert_eq!(http.trading212_posts.borrow().len(), 1);
+    }
+}
+
+#[test]
+fn trading212_demo_refuses_to_submit_after_remote_account_identity_changes() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    http.trading212_identity.set(9007199254740994);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"1"}),
+        "DAY",
+    );
+    let reply = execute_main(
+        &mut cp,
+        trading212_submit_request(&workspace, &account, &proposal, "t212-identity-change"),
+        &vault,
+        &http,
+    );
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "REJECTED");
+    assert_eq!(reply["data"]["errorCode"], "PROVIDER_IDENTITY_CHANGED");
+    assert!(http.trading212_posts.borrow().is_empty());
+}
+
+#[test]
+fn trading212_demo_rejects_unsupported_order_fields_before_persisting_or_sending() {
+    for (quantity_type, time_in_force, expected_error) in [
+        ("BASE", "GTC", "ORDER_CAPABILITY_UNSUPPORTED"),
+        ("QUOTE", "DAY", "ORDER_PROPOSAL_NOT_ELIGIBLE"),
+    ] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().to_path_buf());
+        let workspace =
+            command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let http = Http::default();
+        let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+        let proposal = trading212_demo_proposal(
+            &mut cp,
+            &workspace,
+            &account,
+            "BUY",
+            "MARKET",
+            json!({"type":quantity_type,"value":"1"}),
+            time_in_force,
+        );
+        let error = match cp.prepare_provider_for(
+            &trading212_submit_request(&workspace, &account, &proposal, "t212-unsupported"),
+            "main",
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("unsupported Trading 212 order was accepted"),
+        };
+        assert_eq!(error.code, expected_error);
+        assert!(http.trading212_posts.borrow().is_empty());
+        let saved = command(
+            &mut cp,
+            "trading212.demo.order.attempt.get",
+            json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(saved["data"]["attempt"], Value::Null);
+    }
+}
+
 fn connected_alpaca(
     cp: &mut ControlPlane,
     vault: &impl CredentialVault,
@@ -317,6 +696,90 @@ fn alpaca_submit_request(workspace: &Value, account: &Value, proposal: &Value) -
             "proposalHash":proposal["proposalHash"],
             "idempotencyKey":"paper-attempt-qa-1",
             "confirmedPaperOrder":true
+        }),
+    )
+}
+
+fn connected_trading212(
+    cp: &mut ControlPlane,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    workspace: &Value,
+) -> Value {
+    let tested = execute(
+        cp,
+        envelope(
+            "provider.connect",
+            json!({"step":"test","workspaceId":workspace,"providerId":"trading212","environment":"DEMO","label":"Demo test"}),
+        ),
+        vault,
+        http,
+    );
+    assert_eq!(tested["ok"], true, "{tested}");
+    let mut confirm = mutation(&tested["data"]);
+    confirm["step"] = "confirm".into();
+    confirm["acknowledgeUnverified"] = true.into();
+    let confirmed = command(cp, "provider.connect", confirm);
+    assert_eq!(confirmed["ok"], true, "{confirmed}");
+    confirmed["data"].clone()
+}
+
+fn trading212_demo_proposal(
+    cp: &mut ControlPlane,
+    workspace: &Value,
+    account: &Value,
+    side: &str,
+    order_type: &str,
+    quantity: Value,
+    time_in_force: &str,
+) -> Value {
+    let mut fields = json!({
+        "accountId":account["connectionId"],"venue":"XNAS",
+        "environment":"TRADING212_DEMO","instrumentId":"equity:US:AAPL",
+        "side":side,"orderType":order_type,
+        "quantity":quantity,"timeInForce":time_in_force
+    });
+    if order_type == "LIMIT" {
+        fields["limitPrice"] = "150.123456789012345678".into();
+    }
+    let saved = command(
+        cp,
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":fields}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    let generated = command(
+        cp,
+        "trade.generate_proposal",
+        json!({"workspaceId":workspace,"draftId":saved["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(generated["ok"], true, "{generated}");
+    let selected = command(
+        cp,
+        "trade.proposal.get",
+        json!({"workspaceId":workspace,"proposalId":generated["data"]["proposalId"]}),
+    );
+    assert_eq!(selected["ok"], true, "{selected}");
+    selected["data"].clone()
+}
+
+fn trading212_submit_request(
+    workspace: &Value,
+    account: &Value,
+    proposal: &Value,
+    key: &str,
+) -> Value {
+    envelope(
+        "trading212.demo.order.submit",
+        json!({
+            "workspaceId":workspace,
+            "connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "proposalId":proposal["proposalId"],
+            "expectedProposalStateVersion":proposal["stateVersion"],
+            "proposalHash":proposal["proposalHash"],
+            "idempotencyKey":key,
+            "confirmedDemoOrder":true
         }),
     )
 }

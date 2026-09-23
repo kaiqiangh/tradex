@@ -265,6 +265,11 @@ declare const validators: {
   ToolId: (value: unknown) => boolean;
   TradeRecord: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;
+  Trading212DemoOrderAttempt: (value: unknown) => boolean;
+  Trading212DemoOrderAttemptQuery: (value: unknown) => boolean;
+  Trading212DemoOrderAttemptQueryResult: (value: unknown) => boolean;
+  Trading212DemoOrderAttemptState: (value: unknown) => boolean;
+  Trading212DemoOrderSubmit: (value: unknown) => boolean;
   TurnCancel: (value: unknown) => boolean;
   TurnRetry: (value: unknown) => boolean;
   TurnSnapshot: (value: unknown) => boolean;

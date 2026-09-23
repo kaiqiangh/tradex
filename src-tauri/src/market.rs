@@ -204,10 +204,16 @@ pub fn instruments() -> Vec<Instrument> {
             exchange: Some("XNAS".into()),
             currency: "USD".into(),
             display_name: "Apple Inc.".into(),
-            providers: vec![InstrumentProviderMapping {
-                provider_id: "alpaca".into(),
-                provider_symbol: "AAPL".into(),
-            }],
+            providers: vec![
+                InstrumentProviderMapping {
+                    provider_id: "alpaca".into(),
+                    provider_symbol: "AAPL".into(),
+                },
+                InstrumentProviderMapping {
+                    provider_id: "trading212".into(),
+                    provider_symbol: "AAPL_US_EQ".into(),
+                },
+            ],
         },
         Instrument {
             instrument_id: "equity:US:MSFT".into(),
@@ -218,10 +224,16 @@ pub fn instruments() -> Vec<Instrument> {
             exchange: Some("XNAS".into()),
             currency: "USD".into(),
             display_name: "Microsoft Corporation".into(),
-            providers: vec![InstrumentProviderMapping {
-                provider_id: "alpaca".into(),
-                provider_symbol: "MSFT".into(),
-            }],
+            providers: vec![
+                InstrumentProviderMapping {
+                    provider_id: "alpaca".into(),
+                    provider_symbol: "MSFT".into(),
+                },
+                InstrumentProviderMapping {
+                    provider_id: "trading212".into(),
+                    provider_symbol: "MSFT_US_EQ".into(),
+                },
+            ],
         },
         Instrument {
             instrument_id: "crypto:BTC/USDT:spot".into(),

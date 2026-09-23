@@ -294,6 +294,73 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await tab.getAXState();
       await (await waitForButton('Accounts')).press('Enter');
       await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    } else if (selection === 'trading212/DEMO') {
+      await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+      await ui.getByLabel('Execution context').selectOption('TRADING212_DEMO');
+      const accountSelect = ui.locator('.order-draft-editor').getByLabel('Account');
+      const accountValue = await accountSelect.locator('option').filter({ hasText: label }).getAttribute('value');
+      assert.ok(accountValue, 'The saved Trading 212 Demo account should be selectable for a new Proposal');
+      await accountSelect.selectOption(accountValue);
+      await ui.getByLabel('Order type').selectOption('MARKET');
+      await ui.getByLabel('Time in force').selectOption('DAY');
+      await ui.getByLabel('Quantity', { exact: true }).fill('1.234567890123456789');
+      await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+      const submit = ui.getByRole('button', { name: 'Submit Trading 212 Demo order', exact: true });
+      await submit.waitFor({ state: 'visible' });
+      await submit.press('Enter');
+      const dialog = ui.getByRole('dialog', { name: 'Confirm Trading 212 Demo submission', exact: true });
+      await dialog.waitFor({ state: 'visible' });
+      assert.equal(await dialog.getAttribute('aria-modal'), 'true');
+      const review = await dialog.innerText();
+      assert.match(review, /Trading 212 Demo · TRADING212_DEMO/);
+      assert.ok(review.includes(label));
+      assert.match(review, /9007199254740993/);
+      assert.match(review, /equity:US:AAPL · BUY/);
+      assert.match(review, /1\.234567890123456789 BASE · MARKET · DAY/);
+      assert.match(review, /Extended hours\s+Off/);
+      assert.match(review, /sha256:/);
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
+      assert.equal(await dialog.isVisible(), false, 'Review dismissal must not send a provider order');
+      await submit.press('Enter');
+      await dialog.waitFor({ state: 'visible' });
+      for (const width of [768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Trading 212 confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
+        assert.equal(await dialog.isVisible(), true);
+      }
+      await ui.getByRole('button', { name: 'Confirm Trading 212 Demo submit', exact: true }).press('Enter');
+      const attempt = ui.locator('section[aria-label="Trading 212 Demo order attempt"]');
+      await attempt.getByText('Trading 212 Demo · TRADING212_DEMO · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.match(await attempt.innerText(), /acknowledged the order\. This is not fill evidence\./);
+      assert.match(await attempt.innerText(), /Provider order 9007199254740995 · provider status NEW/);
+      assert.equal(await attempt.locator('p').evaluateAll(elements => elements.some(element => element.textContent?.startsWith('Fill '))), false);
+      assert.equal(await ui.getByRole('button', { name: 'Submit Trading 212 Demo order', exact: true }).count(), 0);
+      assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true);
+      observed.push('Trading 212 Demo requires a separate exact-proposal confirmation, visibly disables extended hours, persists acknowledgement without claiming a fill, and restores proposal focus.');
+
+      for (const width of [1280, 768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Trading 212 Proposal detail overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      await viewport.set({ width: 1280, height: 900 });
+      await tab.reload();
+      await tab.getAXState();
+      await (await waitForButton('Order Drafts')).press('Enter');
+      await ui.locator('.order-proposal-row').first().waitFor({ state: 'visible' });
+      await ui.locator('.order-proposal-row').first().press('Enter');
+      await ui.locator('section[aria-label="Trading 212 Demo order attempt"]')
+        .getByText('Trading 212 Demo · TRADING212_DEMO · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await ui.getByRole('button', { name: 'Submit Trading 212 Demo order', exact: true }).count(), 0);
+      observed.push('Reload reads the SQLite-backed Trading 212 Demo attempt and prevents a second UI submission.');
+      await (await waitForButton('Accounts')).press('Enter');
+      await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     }
 
     for (const width of [768, 390]) {
@@ -317,9 +384,13 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await tab.getAXState({ emit: false });
       await ui.locator('.account-row').filter({ hasText: label }).press('Enter');
       await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
-      assert.match(await detail.innerText(), /Reconciliation\s+DEGRADED/);
-      assert.match(await detail.innerText(), /Private stream\s+DEGRADED/);
-      assert.match(await detail.innerText(), /Last private stream event\s+\d/);
+      if (selection === 'alpaca/PAPER') {
+        assert.match(await detail.innerText(), /Reconciliation\s+DEGRADED/);
+        assert.match(await detail.innerText(), /Private stream\s+DEGRADED/);
+        assert.match(await detail.innerText(), /Last private stream event\s+\d/);
+      } else {
+        assert.match(await detail.innerText(), /CONNECTED/);
+      }
       observed.push(`Account controls, permission limitations and separate health dimensions remain reachable at ${width}px.`);
     }
     await ui.getByRole('button', { name: 'Disconnect', exact: true }).press('Enter');

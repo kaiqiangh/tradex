@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyEvent, fromAlpacaPaperAttemptSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
+import { applyEvent, fromAlpacaPaperAttemptSnapshot, fromTrading212DemoAttemptSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
 
 const workspace = {
   workspaceId: 'workspace-one', name: 'Equity research', baseCurrency: 'EUR', path: '/workspace',
@@ -134,4 +134,30 @@ test('Alpaca Paper attempts use their own aggregate identity and preserve order 
   assert.equal(applyEvent(next, structuredClone(event)), next);
   assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, connectionId: 'connection-two' } }));
   assert.throws(() => applyEvent(initial, { ...event, eventType: 'account.health.changed' }));
+});
+
+test('Trading 212 Demo attempts replay by attempt identity without inventing a client order ID', () => {
+  const attempt = {
+    attemptId: 't212-attempt-one', workspaceId: 'workspace-one', connectionId: 'connection-one', remoteAccountId: '9007199254740993',
+    proposalId: 'proposal-one', proposalHash: `sha256:${'b'.repeat(64)}`, state: 'SUBMITTING' as const,
+    providerOrderId: null, providerStatus: null, errorCode: null, reason: 'Submitting',
+    stateVersion: 'trading212-demo-order-attempt:t212-attempt-one:1',
+    createdAt: '2026-09-23T01:00:00Z', updatedAt: '2026-09-23T01:00:00Z',
+  };
+  const initial = fromTrading212DemoAttemptSnapshot({
+    aggregateType: 'trading212-demo-order-attempt', aggregateId: attempt.attemptId, projection: attempt, lastSequence: 1,
+  });
+  const event = {
+    eventId: 't212-attempt-two', eventType: 'trading212.demo.order.attempt.changed' as const, schemaVersion: 1,
+    occurredAt: '2026-09-23T01:01:00Z', aggregateType: 'trading212-demo-order-attempt' as const,
+    aggregateId: attempt.attemptId, sequence: 2,
+    payload: { ...attempt, state: 'ACKNOWLEDGED' as const, providerOrderId: '9007199254740995', reason: 'Accepted', stateVersion: 'trading212-demo-order-attempt:t212-attempt-one:2', updatedAt: '2026-09-23T01:01:00Z' },
+  };
+  const next = applyEvent(initial, event);
+  assert.equal(next.snapshot.lastSequence, 2);
+  assert.equal(next.snapshot.projection.providerOrderId, '9007199254740995');
+  assert.equal(applyEvent(next, structuredClone(event)), next);
+  assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, connectionId: 'connection-two' } }));
+  assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, clientOrderId: 'invented-client-order' } }));
+  assert.throws(() => applyEvent(initial, { ...event, eventType: 'alpaca.paper.order.attempt.changed' }));
 });

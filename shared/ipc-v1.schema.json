@@ -301,6 +301,18 @@
     "tradeRecord": {
       "$ref": "#/$defs/TradeRecord"
     },
+    "trading212DemoOrderAttempt": {
+      "$ref": "#/$defs/Trading212DemoOrderAttempt"
+    },
+    "trading212DemoOrderAttemptQuery": {
+      "$ref": "#/$defs/Trading212DemoOrderAttemptQuery"
+    },
+    "trading212DemoOrderAttemptQueryResult": {
+      "$ref": "#/$defs/Trading212DemoOrderAttemptQueryResult"
+    },
+    "trading212DemoOrderSubmit": {
+      "$ref": "#/$defs/Trading212DemoOrderSubmit"
+    },
     "turnCancel": {
       "$ref": "#/$defs/TurnCancel"
     },
@@ -385,6 +397,10 @@
     "orderProposalLibrary",
     "orderProposalRefreshRequest",
     "orderProposalRefresh",
+    "trading212DemoOrderAttempt",
+    "trading212DemoOrderSubmit",
+    "trading212DemoOrderAttemptQuery",
+    "trading212DemoOrderAttemptQueryResult",
     "alpacaPaperOrderSubmit",
     "alpacaPaperOrderAttemptQuery",
     "alpacaPaperOrderAttemptQueryResult",
@@ -3502,6 +3518,7 @@
             "model",
             "risk",
             "thread",
+            "trading212-demo-order-attempt",
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book"
           ]
@@ -3521,6 +3538,7 @@
             "risk.policy.changed",
             "thread.created",
             "thread.updated",
+            "trading212.demo.order.attempt.changed",
             "alpaca.paper.order.attempt.changed",
             "alpaca.paper.order.book.changed"
           ]
@@ -3575,6 +3593,9 @@
         },
         {
           "$ref": "#/$defs/Thread"
+        },
+        {
+          "$ref": "#/$defs/Trading212DemoOrderAttempt"
         },
         {
           "$ref": "#/$defs/AlpacaPaperOrderAttempt"
@@ -7136,6 +7157,12 @@
           "$ref": "#/$defs/OrderProposalRefreshResult"
         },
         {
+          "$ref": "#/$defs/Trading212DemoOrderAttempt"
+        },
+        {
+          "$ref": "#/$defs/Trading212DemoOrderAttemptQueryResult"
+        },
+        {
           "$ref": "#/$defs/AlpacaPaperOrderAttempt"
         },
         {
@@ -8710,6 +8737,7 @@
             "model",
             "risk",
             "thread",
+            "trading212-demo-order-attempt",
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book"
           ]
@@ -10062,6 +10090,199 @@
         "remediationActions"
       ]
     },
+    "Trading212DemoOrderAttempt": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/Trading212DemoOrderAttemptState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attemptId",
+        "workspaceId",
+        "connectionId",
+        "remoteAccountId",
+        "proposalId",
+        "proposalHash",
+        "state",
+        "reason",
+        "stateVersion",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Trading212DemoOrderAttemptQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "Trading212DemoOrderAttemptQueryResult": {
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Trading212DemoOrderAttempt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Trading212DemoOrderAttemptState": {
+      "type": "string",
+      "enum": [
+        "SUBMITTING",
+        "ACKNOWLEDGED",
+        "UNKNOWN_RECONCILING",
+        "REJECTED"
+      ]
+    },
+    "Trading212DemoOrderSubmit": {
+      "type": "object",
+      "properties": {
+        "confirmedDemoOrder": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedProposalStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "proposalId",
+        "expectedProposalStateVersion",
+        "proposalHash",
+        "idempotencyKey",
+        "confirmedDemoOrder"
+      ]
+    },
     "TurnCancel": {
       "type": "object",
       "properties": {
@@ -10539,7 +10760,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 17,
+          "maximum": 18,
           "minimum": 1
         },
         "workspaceId": {

@@ -96,6 +96,7 @@ export type DomainProjection =
   | AccountConnection
   | RiskPolicyState
   | Thread
+  | Trading212DemoOrderAttempt
   | AlpacaPaperOrderAttempt
   | AlpacaPaperOrderBook;
 /**
@@ -189,6 +190,11 @@ export type ItemStatus = "STARTED" | "STREAMING" | "COMPLETED" | "FAILED";
  * via the `definition` "TurnStatus".
  */
 export type TurnStatus = "RUNNING" | "COMPLETED" | "CANCELLED" | "INTERRUPTED" | "FAILED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderAttemptState".
+ */
+export type Trading212DemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayAction".
@@ -318,6 +324,8 @@ export type ReplyData =
   | OrderProposal
   | OrderProposalLibrary
   | OrderProposalRefreshResult
+  | Trading212DemoOrderAttempt
+  | Trading212DemoOrderAttemptQueryResult
   | AlpacaPaperOrderAttempt
   | AlpacaPaperOrderAttemptQueryResult
   | AlpacaPaperOrderBook
@@ -563,6 +571,10 @@ export interface IpcSchema {
   threadQuery: ThreadQuery;
   timeStatus: TimeStatus;
   tradeRecord: TradeRecord;
+  trading212DemoOrderAttempt: Trading212DemoOrderAttempt;
+  trading212DemoOrderAttemptQuery: Trading212DemoOrderAttemptQuery;
+  trading212DemoOrderAttemptQueryResult: Trading212DemoOrderAttemptQueryResult;
+  trading212DemoOrderSubmit: Trading212DemoOrderSubmit;
   turnCancel: TurnCancel;
   turnRetry: TurnRetry;
   turnStart: TurnStart;
@@ -1232,6 +1244,7 @@ export interface DomainEvent {
     | "model"
     | "risk"
     | "thread"
+    | "trading212-demo-order-attempt"
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book";
   eventId: string;
@@ -1244,6 +1257,7 @@ export interface DomainEvent {
     | "risk.policy.changed"
     | "thread.created"
     | "thread.updated"
+    | "trading212.demo.order.attempt.changed"
     | "alpaca.paper.order.attempt.changed"
     | "alpaca.paper.order.book.changed";
   occurredAt: string;
@@ -1846,6 +1860,26 @@ export interface TurnSnapshot {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderAttempt".
+ */
+export interface Trading212DemoOrderAttempt {
+  attemptId: string;
+  connectionId: string;
+  createdAt: string;
+  errorCode?: string | null;
+  proposalHash: string;
+  proposalId: string;
+  providerOrderId?: string | null;
+  providerStatus?: string | null;
+  reason: string;
+  remoteAccountId: string;
+  state: Trading212DemoOrderAttemptState;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayMutation".
  */
 export interface GatewayMutation {
@@ -2344,6 +2378,7 @@ export interface Snapshot {
     | "model"
     | "risk"
     | "thread"
+    | "trading212-demo-order-attempt"
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book";
   lastSequence: number;
@@ -3361,6 +3396,13 @@ export interface ScreenerAttachment {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderAttemptQueryResult".
+ */
+export interface Trading212DemoOrderAttemptQueryResult {
+  attempt?: Trading212DemoOrderAttempt | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Artifact".
  */
 export interface Artifact {
@@ -4230,6 +4272,28 @@ export interface ThreadCreate {
  */
 export interface ThreadQuery {
   threadId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderAttemptQuery".
+ */
+export interface Trading212DemoOrderAttemptQuery {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderSubmit".
+ */
+export interface Trading212DemoOrderSubmit {
+  confirmedDemoOrder: boolean;
+  connectionId: string;
+  expectedConnectionStateVersion: string;
+  expectedProposalStateVersion: string;
+  idempotencyKey: string;
+  proposalHash: string;
+  proposalId: string;
   workspaceId: string;
 }
 /**

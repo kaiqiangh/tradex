@@ -1,15 +1,23 @@
 use super::*;
 
-pub(super) fn account_id(account: &Value) -> Result<String> {
-    account["id"]
+fn positive_numeric_id(value: &Value) -> Result<String> {
+    value["id"]
         .as_i64()
         .filter(|id| *id > 0)
         .map(|id| id.to_string())
         .ok_or_else(invalid)
 }
 
+pub(super) fn account_id(account: &Value) -> Result<String> {
+    positive_numeric_id(account)
+}
+
+pub(super) fn order_id(order: &Value) -> Result<String> {
+    positive_numeric_id(order)
+}
+
 // serde_json arbitrary_precision preserves the source number; never round through f64.
-fn number(value: &Value) -> Result<String> {
+pub(super) fn number(value: &Value) -> Result<String> {
     let raw = value.as_number().ok_or_else(invalid)?.to_string();
     let Some((mantissa, exponent)) = raw.split_once(['e', 'E']) else {
         return decimal(&Value::String(raw));

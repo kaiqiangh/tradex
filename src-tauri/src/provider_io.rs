@@ -5,6 +5,7 @@ use crate::{
         AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook,
         AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, ExecutionContext, OrderProposal,
         OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
+        Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState,
     },
     providers::*,
 };
@@ -129,7 +130,14 @@ impl ProviderEndpoint {
     fn allows_method(self, method: ProviderHttpMethod, path: &str) -> bool {
         match method {
             ProviderHttpMethod::Get => self.allows(path),
-            ProviderHttpMethod::Post => self == Self::AlpacaPaper && path == "/v2/orders",
+            ProviderHttpMethod::Post => {
+                (self == Self::AlpacaPaper && path == "/v2/orders")
+                    || (self == Self::Trading212Demo
+                        && matches!(
+                            path,
+                            "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
+                        ))
+            }
             ProviderHttpMethod::Delete => {
                 self == Self::AlpacaPaper
                     && path
@@ -311,6 +319,7 @@ pub(crate) enum JobKind {
     Connect,
     Probe,
     Disconnect,
+    Trading212DemoSubmit,
     AlpacaPaperSubmit,
     AlpacaPaperReconcile,
     AlpacaPaperOrderBookRefresh,
@@ -323,6 +332,8 @@ pub struct ProviderJob {
     pub(crate) kind: JobKind,
     pub(crate) session: String,
     pub(crate) request_id: String,
+    pub(crate) trading212_demo_attempt: Option<Trading212DemoOrderAttempt>,
+    pub(crate) trading212_demo_proposal: Option<OrderProposal>,
     pub(crate) alpaca_attempt: Option<AlpacaPaperOrderAttempt>,
     pub(crate) alpaca_proposal: Option<OrderProposal>,
     pub(crate) alpaca_order_book: Option<AlpacaPaperOrderBook>,
@@ -347,6 +358,7 @@ pub struct ProviderOutcome {
     pub(crate) observation: Option<Observation>,
     pub(crate) error: Option<TradeXError>,
     pub(crate) credential: String,
+    pub(crate) trading212_demo_attempt: Option<Trading212DemoOrderAttempt>,
     pub(crate) alpaca_paper_attempt: Option<AlpacaPaperOrderAttempt>,
     pub(crate) alpaca_paper_order_book: Option<AlpacaPaperOrderBook>,
 }
@@ -375,6 +387,7 @@ impl ProviderJob {
                 }
                 .into(),
                 error: result.err(),
+                trading212_demo_attempt: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             };
@@ -384,6 +397,9 @@ impl ProviderJob {
             JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
         ) {
             return self.run_alpaca_paper_order(vault, http, current);
+        }
+        if self.kind == JobKind::Trading212DemoSubmit {
+            return self.run_trading212_demo_order(vault, http, current);
         }
         if matches!(
             self.kind,
@@ -574,6 +590,7 @@ impl ProviderJob {
                 observation: Some(observation),
                 error: None,
                 credential: credential.into(),
+                trading212_demo_attempt: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             },
@@ -581,9 +598,141 @@ impl ProviderJob {
                 observation: None,
                 error: Some(error),
                 credential: credential.into(),
+                trading212_demo_attempt: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             },
+        }
+    }
+
+    fn run_trading212_demo_order(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let Some(mut attempt) = self.trading212_demo_attempt.clone() else {
+            return ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
+                credential: "MISSING".into(),
+                trading212_demo_attempt: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+            };
+        };
+        let mut credential_state = "MISSING";
+        let outcome = (|| -> Result<Trading212DemoOrderAttempt> {
+            if self.account.provider_id != "trading212"
+                || self.account.environment != "DEMO"
+                || self.kind != JobKind::Trading212DemoSubmit
+            {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            let proposal = self
+                .trading212_demo_proposal
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"))?;
+            if proposal.workspace_id != attempt.workspace_id
+                || proposal.proposal_id != attempt.proposal_id
+                || proposal.proposal_hash != attempt.proposal_hash
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let (path, body) = trading212_demo_order_request(proposal, &attempt.connection_id)?;
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let secret = vault.get(&self.account.credential_ref())?;
+            credential_state = "CONFIGURED";
+            let mut values = secret.values()?;
+            if values.len() != 2 || values[0].contains(':') {
+                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+            }
+            use base64::Engine;
+            let combined = Zeroizing::new(format!("{}:{}", values[0], values[1]));
+            let encoded = Zeroizing::new(
+                base64::engine::general_purpose::STANDARD.encode(combined.as_bytes()),
+            );
+            let header_text = Zeroizing::new(format!("Basic {}", encoded.as_str()));
+            let mut header = HeaderValue::from_str(&header_text)
+                .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+            header.set_sensitive(true);
+            let mut auth = HeaderMap::new();
+            auth.insert("Authorization", header);
+            values.push(encoded.to_string());
+
+            let preflight = http.request(
+                ProviderEndpoint::Trading212Demo,
+                ProviderHttpMethod::Get,
+                "/api/v0/equity/account/summary",
+                auth.clone(),
+                None,
+            )?;
+            if preflight.status != 200 {
+                return Err(match preflight.status {
+                    401 => TradeXError::new("PROVIDER_AUTH_FAILED"),
+                    403 => TradeXError::new("PROVIDER_PERMISSION_BLOCKED"),
+                    429 => TradeXError::new("PROVIDER_RATE_LIMITED"),
+                    _ => TradeXError::new("PROVIDER_UNAVAILABLE"),
+                });
+            }
+            let account: Value = serde_json::from_slice(&preflight.body).map_err(|_| invalid())?;
+            if contains_secret(&account, &values)
+                || trading212::account_id(&account)? != attempt.remote_account_id
+            {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+            }
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            match http.request(
+                ProviderEndpoint::Trading212Demo,
+                ProviderHttpMethod::Post,
+                &path,
+                auth,
+                Some(&body),
+            ) {
+                Ok(response) if response.status == 200 => {
+                    match trading212_demo_acknowledgement(
+                        &response.body,
+                        &values,
+                        &attempt,
+                        proposal,
+                        &body,
+                    ) {
+                        Ok(acknowledged) => Ok(acknowledged),
+                        Err(_) => Ok(trading212_unknown_attempt(attempt.clone())),
+                    }
+                }
+                Ok(response) if matches!(response.status, 400 | 401 | 403 | 429) => {
+                    Err(match response.status {
+                        401 => TradeXError::new("PROVIDER_AUTH_FAILED"),
+                        403 => TradeXError::new("PROVIDER_PERMISSION_BLOCKED"),
+                        429 => TradeXError::new("PROVIDER_RATE_LIMITED"),
+                        _ => TradeXError::new("PROVIDER_ORDER_REJECTED"),
+                    })
+                }
+                Ok(_) | Err(_) => Ok(trading212_unknown_attempt(attempt.clone())),
+            }
+        })();
+        match outcome {
+            Ok(updated) => attempt = updated,
+            Err(error) => {
+                attempt.state = Trading212DemoOrderAttemptState::Rejected;
+                attempt.provider_order_id = None;
+                attempt.provider_status = None;
+                attempt.error_code = Some(error.code.clone());
+                attempt.reason = error.message;
+            }
+        }
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: credential_state.into(),
+            trading212_demo_attempt: Some(attempt),
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
         }
     }
 
@@ -598,6 +747,7 @@ impl ProviderJob {
                 observation: None,
                 error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
                 credential: "MISSING".into(),
+                trading212_demo_attempt: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             };
@@ -776,6 +926,7 @@ impl ProviderJob {
             observation: None,
             error: None,
             credential: credential_state.into(),
+            trading212_demo_attempt: None,
             alpaca_paper_attempt: Some(attempt),
             alpaca_paper_order_book: None,
         }
@@ -792,6 +943,7 @@ impl ProviderJob {
                 observation: None,
                 error: Some(TradeXError::new("ORDER_STATUS_UNKNOWN")),
                 credential: "MISSING".into(),
+                trading212_demo_attempt: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             };
@@ -900,6 +1052,7 @@ impl ProviderJob {
             observation: None,
             error: None,
             credential: credential_state.into(),
+            trading212_demo_attempt: None,
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: Some(book),
         }
@@ -1762,6 +1915,175 @@ pub(crate) fn validate_alpaca_paper_proposal(
     alpaca_order_request(proposal, &attempt).map(|_| ())
 }
 
+pub(crate) fn validate_trading212_demo_proposal(
+    proposal: &OrderProposal,
+    connection_id: &str,
+) -> Result<()> {
+    trading212_demo_order_request(proposal, connection_id).map(|_| ())
+}
+
+fn trading212_demo_order_request(
+    proposal: &OrderProposal,
+    connection_id: &str,
+) -> Result<(String, Value)> {
+    let fields = &proposal.fields;
+    if !matches!(
+        proposal.status,
+        crate::protocol::OrderProposalStatus::NeedsApproval
+            | crate::protocol::OrderProposalStatus::Consumed
+    ) || fields.environment != ExecutionContext::Trading212Demo
+        || fields.account_id.as_deref() != Some(connection_id)
+        || fields.quantity.r#type != OrderQuantityType::Base
+        || fields.maximum_spend.is_some()
+    {
+        return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
+    }
+    let instrument = market::instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == fields.instrument_id)
+        .filter(|instrument| instrument.asset_class == crate::protocol::AssetClass::Equity)
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"))?;
+    if instrument.exchange.as_deref() != Some(fields.venue.as_str()) {
+        return Err(TradeXError::new("ORDER_VENUE_INVALID"));
+    }
+    let ticker = instrument
+        .providers
+        .iter()
+        .find(|mapping| mapping.provider_id == "trading212")
+        .map(|mapping| mapping.provider_symbol.as_str())
+        .filter(|ticker| {
+            !ticker.is_empty()
+                && ticker.len() <= 64
+                && ticker
+                    .bytes()
+                    .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_')
+        })
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"))?;
+    let quantity = decimal(&Value::String(fields.quantity.value.clone()))?;
+    if decimal_cmp(&quantity, "0")? != std::cmp::Ordering::Greater {
+        return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+    }
+    let signed_quantity = match fields.side {
+        OrderSide::Buy => quantity,
+        OrderSide::Sell => format!("-{quantity}"),
+    };
+    let quantity = serde_json::from_str::<Value>(&signed_quantity).map_err(|_| invalid())?;
+    let mut body = json!({"ticker":ticker,"quantity":quantity});
+    let path = match (fields.order_type, fields.time_in_force) {
+        (OrderType::Market, TimeInForce::Day) if fields.limit_price.is_none() => {
+            body["extendedHours"] = Value::Bool(false);
+            "/api/v0/equity/orders/market"
+        }
+        (OrderType::Limit, TimeInForce::Day | TimeInForce::Gtc) => {
+            let raw_price = fields
+                .limit_price
+                .as_deref()
+                .ok_or_else(|| TradeXError::new("ORDER_LIMIT_PRICE_REQUIRED"))?;
+            let price = decimal(&Value::String(raw_price.into()))?;
+            if decimal_cmp(&price, "0")? != std::cmp::Ordering::Greater {
+                return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+            }
+            body["limitPrice"] = serde_json::from_str(&price).map_err(|_| invalid())?;
+            body["timeValidity"] = Value::String(
+                match fields.time_in_force {
+                    TimeInForce::Day => "DAY",
+                    TimeInForce::Gtc => "GOOD_TILL_CANCEL",
+                    _ => unreachable!(),
+                }
+                .into(),
+            );
+            "/api/v0/equity/orders/limit"
+        }
+        _ => return Err(TradeXError::new("ORDER_CAPABILITY_UNSUPPORTED")),
+    };
+    Ok((path.into(), body))
+}
+
+fn trading212_unknown_attempt(
+    mut attempt: Trading212DemoOrderAttempt,
+) -> Trading212DemoOrderAttempt {
+    attempt.state = Trading212DemoOrderAttemptState::UnknownReconciling;
+    attempt.provider_order_id = None;
+    attempt.provider_status = None;
+    attempt.error_code = Some("ORDER_STATUS_UNKNOWN".into());
+    attempt.reason = "Trading 212 may have received the order, but its response could not be verified. Do not resubmit; query the account for evidence.".into();
+    attempt
+}
+
+fn trading212_demo_acknowledgement(
+    bytes: &[u8],
+    secrets: &[String],
+    attempt: &Trading212DemoOrderAttempt,
+    proposal: &OrderProposal,
+    body: &Value,
+) -> Result<Trading212DemoOrderAttempt> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+    let provider_order_id = trading212::order_id(&value)?;
+    if contains_secret(&value, secrets)
+        || text(&value, "ticker", 64)? != body["ticker"].as_str().ok_or_else(invalid)?
+        || value.get("instrument").is_some_and(|instrument| {
+            instrument
+                .get("ticker")
+                .and_then(Value::as_str)
+                .is_some_and(|ticker| ticker != body["ticker"].as_str().unwrap_or_default())
+        })
+        || text(&value, "side", 8)?
+            != match proposal.fields.side {
+                OrderSide::Buy => "BUY",
+                OrderSide::Sell => "SELL",
+            }
+        || text(&value, "strategy", 16)? != "QUANTITY"
+        || text(&value, "type", 16)?
+            != match proposal.fields.order_type {
+                OrderType::Market => "MARKET",
+                OrderType::Limit => "LIMIT",
+            }
+    {
+        return Err(invalid());
+    }
+    let expected_quantity = decimal(&Value::String(proposal.fields.quantity.value.clone()))?;
+    let reported_quantity = trading212::number(&value["quantity"])?;
+    if decimal_cmp(
+        reported_quantity
+            .strip_prefix('-')
+            .unwrap_or(&reported_quantity),
+        &expected_quantity,
+    )? != std::cmp::Ordering::Equal
+    {
+        return Err(invalid());
+    }
+    let expected_tif = match proposal.fields.time_in_force {
+        TimeInForce::Day => "DAY",
+        TimeInForce::Gtc => "GOOD_TILL_CANCEL",
+        _ => return Err(invalid()),
+    };
+    if text(&value, "timeInForce", 32)? != expected_tif {
+        return Err(invalid());
+    }
+    if proposal.fields.order_type == OrderType::Market {
+        if value.get("extendedHours").and_then(Value::as_bool) != Some(false) {
+            return Err(invalid());
+        }
+    } else {
+        let expected_price = decimal(&Value::String(
+            proposal.fields.limit_price.clone().ok_or_else(invalid)?,
+        ))?;
+        let reported_price = trading212::number(&value["limitPrice"])?;
+        if decimal_cmp(&reported_price, &expected_price)? != std::cmp::Ordering::Equal {
+            return Err(invalid());
+        }
+    }
+    let mut acknowledged = attempt.clone();
+    acknowledged.state = Trading212DemoOrderAttemptState::Acknowledged;
+    acknowledged.provider_order_id = Some(provider_order_id);
+    acknowledged.provider_status = Some(text(&value, "status", 32)?);
+    acknowledged.error_code = None;
+    acknowledged.reason =
+        "Trading 212 returned a matching Demo order record. Acknowledgement is not fill evidence."
+            .into();
+    Ok(acknowledged)
+}
+
 fn validate_alpaca_asset(asset: &Value, symbol: &str, needs_fractional: bool) -> Result<String> {
     let asset_id = id(asset, "id")?;
     if text(asset, "symbol", 64)? != symbol || text(asset, "class", 32)? != "us_equity" {
@@ -2206,6 +2528,36 @@ pub fn decimal(value: &Value) -> Result<String> {
         if fraction.is_empty() { "" } else { "." },
         fraction
     ))
+}
+
+#[cfg(test)]
+mod trading212_demo_route_tests {
+    use super::{ProviderEndpoint, ProviderHttpMethod};
+
+    #[test]
+    fn order_posts_are_restricted_to_the_two_demo_routes() {
+        assert_eq!(
+            ProviderEndpoint::Trading212Demo.base_url(),
+            "https://demo.trading212.com"
+        );
+        for path in [
+            "/api/v0/equity/orders/market",
+            "/api/v0/equity/orders/limit",
+        ] {
+            assert!(ProviderEndpoint::Trading212Demo.allows_method(ProviderHttpMethod::Post, path));
+            assert!(
+                !ProviderEndpoint::Trading212Live.allows_method(ProviderHttpMethod::Post, path)
+            );
+        }
+        assert!(
+            !ProviderEndpoint::Trading212Demo
+                .allows_method(ProviderHttpMethod::Post, "/api/v0/equity/orders")
+        );
+        assert!(
+            !ProviderEndpoint::Trading212Demo
+                .allows_method(ProviderHttpMethod::Delete, "/api/v0/equity/orders/1")
+        );
+    }
 }
 fn optional_decimal(value: &Value, field: &str) -> Result<Option<String>> {
     match value.get(field) {
