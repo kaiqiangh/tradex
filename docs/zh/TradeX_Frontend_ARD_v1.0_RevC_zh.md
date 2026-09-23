@@ -598,6 +598,10 @@ Order Drafts surface 读取当前 Alpaca Paper account 持久化的 `alpaca-pape
 
 只有当前仍 open 的 provider order 才显示撤单操作。弹出确认框前，前端先请求后端重新读取该订单。确认框显示 account、Paper 环境、provider order、标的、filled quantity 与 remaining quantity。只有用户明确确认后才调用 typed cancel command。Provider acknowledgement 显示为 `CANCEL_PENDING`；后续 provider observation 确认终态后才显示 `CANCELLED`。订单 identity/status 已变化时要求重新审阅。键盘关闭确认框不会发送请求，焦点返回触发撤单的订单控件。这些操作不会撤销 Local Paper 或 Live 订单。
 
+### 13.9 Alpaca Paper 实时更新与流健康状态（S17 #59）
+
+Accounts surface 显示文字形式的私有流与 reconciliation 状态，以及最近成功接收 trade update 的时间。Order Drafts surface 在已保存的 Paper order book 旁显示相同健康状态；account aggregate 报告 stream 更新后重新读取订单簿，并将 fill observation 标记为 `trade_updates` 或 REST `FILL` activity。部分成交、完全成交、拒绝、撤单、过期和未知 provider 状态保持清晰区分。断流或对账不完整时显示 stale/degraded 文本并保留已保存订单/成交；不会将其呈现为 current。健康状态不授予 Local Paper、Live、Agent、approval 或 arming capability。
+
 ---
 
 ## 14. Live Execution UI 架构

@@ -103,7 +103,10 @@ fn execute_main(
     vault: &impl CredentialVault,
     http: &impl ProviderHttp,
 ) -> Value {
-    let job = cp.prepare_provider_for(&input, "main").unwrap().unwrap();
+    let job = cp
+        .prepare_provider_for(&input, "main")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", input["command"]))
+        .unwrap();
     let outcome = job.run(
         vault,
         |_| credentials(),
@@ -1409,6 +1412,158 @@ fn alpaca_order_book_reads_max_complete_pages_exactly_and_survives_reopen() {
         restored["data"]["book"]["fills"].as_array().unwrap().len(),
         1000
     );
+}
+
+#[test]
+fn alpaca_private_stream_gap_reopens_stale_and_rest_reconciliation_dedupes_fills() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let connection_id = account["connectionId"].as_str().unwrap();
+    let remote_account_id = account["data"]["remoteAccountId"].as_str().unwrap();
+    let order = alpaca_order(1, "1", "0", "new");
+    let order_id = order["id"].as_str().unwrap();
+    let client_order_id = order["client_order_id"].as_str().unwrap();
+    let execution_id = "00000000-0000-4000-8000-000000000001";
+    let observed_at = "2026-09-23T10:00:00Z";
+    let mut current_order = order.clone();
+    current_order["status"] = "partially_filled".into();
+    current_order["filled_qty"] = "0.5".into();
+    current_order["updated_at"] = observed_at.into();
+    *http.alpaca_order_history.borrow_mut() = vec![order.clone()];
+    let initial = execute_main(
+        &mut cp,
+        refresh_alpaca_orders(&workspace, &account),
+        &vault,
+        &http,
+    );
+    assert_eq!(initial["data"]["status"], "CURRENT", "{initial}");
+
+    let frame = json!({
+        "stream":"trade_updates",
+        "data":{
+            "event":"partial_fill",
+            "execution_id":execution_id,
+            "qty":"0.5",
+            "price":"10.25",
+            "timestamp":observed_at,
+            "order":{
+                "id":order_id,
+                "account_id":remote_account_id,
+                "client_order_id":client_order_id,
+                "symbol":"AAPL",
+                "side":"buy",
+                "type":"limit",
+                "time_in_force":"day",
+                "status":"partially_filled",
+                "qty":"1",
+                "filled_qty":"0.5",
+                "submitted_at":observed_at,
+                "updated_at":observed_at
+            }
+        }
+    });
+    cp.apply_alpaca_private_stream_frame(
+        connection_id,
+        account["stateVersion"].as_str().unwrap(),
+        remote_account_id,
+        &frame,
+        &[KEY.into(), SECRET.into()],
+    )
+    .unwrap();
+    cp.mark_alpaca_private_stream_degraded(
+        connection_id,
+        account["stateVersion"].as_str().unwrap(),
+        "DEGRADED",
+        "Alpaca Paper private stream disconnected; saved orders are not current.",
+    )
+    .unwrap();
+    let stale = command(
+        &mut cp,
+        "alpaca.paper.orders.get",
+        json!({"workspaceId":workspace,"connectionId":connection_id}),
+    );
+    assert_eq!(stale["data"]["book"]["status"], "STALE", "{stale}");
+    assert_eq!(stale["data"]["book"]["fills"].as_array().unwrap().len(), 1);
+    let disconnected = command(&mut cp, "account.get", query(&account));
+    assert_eq!(disconnected["data"]["health"]["privateStream"], "DEGRADED");
+    assert_eq!(disconnected["data"]["health"]["reconciliation"], "DEGRADED");
+    assert!(disconnected["data"]["lastPrivateStreamEventAt"].is_string());
+    drop(cp);
+
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored_accounts = reopened.alpaca_private_stream_accounts().unwrap();
+    assert_eq!(restored_accounts.len(), 1);
+    assert_eq!(restored_accounts[0].connection_id, connection_id);
+    let restored_account = command(
+        &mut reopened,
+        "account.get",
+        json!({"workspaceId":workspace,"connectionId":connection_id}),
+    )["data"]
+        .clone();
+    assert_eq!(
+        restored_account["connectionState"], "CONNECTED",
+        "{restored_account}"
+    );
+    let revalidated = execute_main(
+        &mut reopened,
+        envelope("account.refresh", mutation(&restored_account)),
+        &vault,
+        &http,
+    );
+    assert_eq!(revalidated["ok"], true, "{revalidated}");
+    let current_account =
+        command(&mut reopened, "account.get", query(&restored_account))["data"].clone();
+    let restored = command(
+        &mut reopened,
+        "alpaca.paper.orders.get",
+        json!({"workspaceId":workspace,"connectionId":connection_id}),
+    );
+    assert_eq!(restored["data"]["book"]["status"], "STALE", "{restored}");
+
+    *http.alpaca_order_history.borrow_mut() = vec![current_order];
+    *http.alpaca_fills.borrow_mut() = vec![alpaca_fill(1, order_id, "0.5", "10.25")];
+    let reconciled = execute_main(
+        &mut reopened,
+        refresh_alpaca_orders(&workspace, &current_account),
+        &vault,
+        &http,
+    );
+    assert_eq!(reconciled["ok"], true, "{reconciled}");
+    assert_eq!(reconciled["data"]["status"], "CURRENT");
+    assert_eq!(
+        reconciled["data"]["orders"][0]["providerStatus"],
+        "partially_filled"
+    );
+    assert_eq!(reconciled["data"]["fills"].as_array().unwrap().len(), 1);
+    assert_eq!(reconciled["data"]["fills"][0]["source"], "REST_ACTIVITY");
+    assert!(
+        reconciled["data"]["fills"][0]["activityId"]
+            .as_str()
+            .unwrap()
+            .contains("::")
+    );
+    reopened
+        .update_alpaca_private_stream_health(
+            connection_id,
+            current_account["stateVersion"].as_str().unwrap(),
+            "CONNECTED",
+            "CURRENT",
+            "Alpaca Paper private stream reconnected and REST reconciliation completed.",
+        )
+        .unwrap();
+    let recovered = command(&mut reopened, "account.get", query(&account));
+    assert_eq!(recovered["data"]["health"]["privateStream"], "CONNECTED");
+    assert_eq!(recovered["data"]["health"]["reconciliation"], "CURRENT");
+    assert_eq!(http.alpaca_posts.borrow().len(), 0);
 }
 
 #[test]

@@ -260,6 +260,8 @@ pub struct AccountConnection {
     pub permissions: PermissionReview,
     pub data: Option<AccountData>,
     pub last_successful_sync: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_private_stream_event_at: Option<String>,
 }
 
 #[derive(Serialize, JsonSchema)]
@@ -304,6 +306,7 @@ impl AccountConnection {
             permissions: PermissionReview::default(),
             data: None,
             last_successful_sync: None,
+            last_private_stream_event_at: None,
         })
     }
     pub fn credential_ref(&self) -> String {

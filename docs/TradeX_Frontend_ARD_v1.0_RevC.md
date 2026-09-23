@@ -598,6 +598,10 @@ The Order Drafts surface reads the persisted `alpaca-paper-order-book` for the s
 
 Cancel is available only for a currently open provider order. Before showing the confirmation dialog, the frontend asks the backend to re-read that exact order. The dialog identifies the account, Paper environment, provider order, instrument, filled quantity, and remaining quantity. Only an explicit confirmation invokes the typed cancel command. Provider acknowledgement is displayed as `CANCEL_PENDING`; the UI shows `CANCELLED` only after a later provider observation confirms a terminal state. Changed order identity/status requires a new review. Keyboard dismissal sends no request, and focus returns to the triggering order control. These controls never cancel Local Paper or Live orders.
 
+### 13.9 Alpaca Paper live updates and stream health (S17 #59)
+
+The Accounts surface shows the textual private-stream and reconciliation states plus the last successfully received trade-update time. The Order Drafts surface shows the same health beside the saved Paper order book, refreshes that book when the account aggregate reports a stream update, and identifies fill observations as `trade_updates` or REST `FILL` activity. Partial, full, rejected, cancelled, expired, and unknown provider statuses remain visibly distinct. Disconnects and incomplete reconciliation use stale/degraded text and retain the last saved orders/fills; they never present them as current. Health does not grant Local Paper, Live, Agent, approval, or arming capability.
+
 ---
 
 ## 14. Live Execution UI Architecture

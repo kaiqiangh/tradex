@@ -6,6 +6,8 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use tauri::{Manager, ipc::Channel};
+#[cfg(target_os = "macos")]
+use tradex::alpaca_stream::AlpacaPrivateStreamSupervisor;
 use tradex::{
     BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
     gateway_process::GatewayHost,
@@ -23,6 +25,7 @@ struct Service(
     StrategySupervisor,
     BacktestSupervisor,
     Arc<AtomicBool>,
+    #[cfg(target_os = "macos")] AlpacaPrivateStreamSupervisor,
 );
 
 #[tauri::command]
@@ -49,6 +52,8 @@ async fn control(
     let supervisor = service.2.clone();
     let strategy_supervisor = service.3.clone();
     let backtest_supervisor = service.4.clone();
+    #[cfg(target_os = "macos")]
+    let private_stream_supervisor = service.6.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
@@ -129,10 +134,14 @@ async fn control(
             }
             return reply;
         }
-        if request.get("command").and_then(Value::as_str) == Some("workspace.open") {
+        let opening_workspace =
+            request.get("command").and_then(Value::as_str) == Some("workspace.open");
+        if opening_workspace {
             supervisor.stop_all();
             strategy_supervisor.stop_all();
             backtest_supervisor.stop_all();
+            #[cfg(target_os = "macos")]
+            private_stream_supervisor.pause();
         }
         let command = request.get("command").and_then(Value::as_str);
         if command == Some("turn.start") || command == Some("turn.retry") {
@@ -171,14 +180,26 @@ async fn control(
             Ok(mut engine) => match engine.prepare_provider_for(&request, &consumer) {
                 Ok(Some(job)) => job,
                 Ok(None) => {
-                    return engine.dispatch_with_runtime(
+                    let reply = engine.dispatch_with_runtime(
                         request,
                         &consumer,
                         Some(Arc::new(move |event| events.send(event).is_ok())),
                         None,
                     );
+                    drop(engine);
+                    #[cfg(target_os = "macos")]
+                    if opening_workspace {
+                        private_stream_supervisor.resume();
+                    }
+                    return reply;
                 }
-                Err(error) => return failed(&request, &error.code),
+                Err(error) => {
+                    #[cfg(target_os = "macos")]
+                    if opening_workspace {
+                        private_stream_supervisor.resume();
+                    }
+                    return failed(&request, &error.code);
+                }
             },
             Err(_) => return failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
         };
@@ -221,6 +242,19 @@ fn main() {
             let engine = Arc::new(Mutex::new(ControlPlane::new(default)));
             let gateway = Arc::new(Mutex::new(GatewayHost::new(app_data.join("models"))));
             let exiting = Arc::new(AtomicBool::new(false));
+            #[cfg(target_os = "macos")]
+            let private_stream_supervisor = AlpacaPrivateStreamSupervisor::new();
+            #[cfg(target_os = "macos")]
+            app.manage(Service(
+                engine.clone(),
+                gateway.clone(),
+                RuntimeSupervisor::new(),
+                StrategySupervisor::new(),
+                BacktestSupervisor::new(),
+                exiting.clone(),
+                private_stream_supervisor.clone(),
+            ));
+            #[cfg(not(target_os = "macos"))]
             app.manage(Service(
                 engine.clone(),
                 gateway.clone(),
@@ -229,6 +263,20 @@ fn main() {
                 BacktestSupervisor::new(),
                 exiting.clone(),
             ));
+            #[cfg(target_os = "macos")]
+            let stream_engine = engine.clone();
+            #[cfg(target_os = "macos")]
+            let stream_supervisor = private_stream_supervisor.clone();
+            #[cfg(target_os = "macos")]
+            let stream_exiting = exiting.clone();
+            #[cfg(target_os = "macos")]
+            std::thread::spawn(move || {
+                while !stream_exiting.load(Ordering::Acquire) {
+                    stream_supervisor.sync(stream_engine.clone());
+                    std::thread::sleep(std::time::Duration::from_millis(250));
+                }
+                stream_supervisor.stop_all();
+            });
             std::thread::spawn(move || {
                 while !exiting.load(Ordering::Acquire) {
                     if let Ok(mut host) = gateway.try_lock() {
@@ -273,11 +321,17 @@ fn main() {
             {
                 engine.resume();
             }
+            #[cfg(target_os = "macos")]
+            if matches!(event, tauri::RunEvent::Resumed) {
+                app.state::<Service>().6.restart_all();
+            }
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<Service>().2.stop_all();
                 app.state::<Service>().3.stop_all();
                 app.state::<Service>().4.stop_all();
                 app.state::<Service>().5.store(true, Ordering::Release);
+                #[cfg(target_os = "macos")]
+                app.state::<Service>().6.stop_all();
                 if let Ok(mut gateway) = app.state::<Service>().1.lock() {
                     gateway.stop();
                 }

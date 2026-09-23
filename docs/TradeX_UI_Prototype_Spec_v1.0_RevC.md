@@ -668,6 +668,7 @@ TradeX-managed simulation; explicit `LOCAL PAPER` label; never provider truth.
 ### G2. Alpaca Paper
 
 Normalized proposal → provider paper acknowledgement → fill/update → account refresh.
+The Order Drafts surface also shows textual private-stream/reconciliation health and the last received event time. `trade_updates` refreshes saved orders/fills; a disconnected or unreconciled book remains visibly stale.
 
 ### G3. Trading 212 Demo
 ### G4. Binance Testnet

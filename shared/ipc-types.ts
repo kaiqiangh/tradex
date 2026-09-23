@@ -2,6 +2,11 @@
 
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaPaperFillSource".
+ */
+export type AlpacaPaperFillSource = "REST_ACTIVITY" | "TRADE_UPDATE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AlpacaPaperCancelState".
  */
 export type AlpacaPaperCancelState = "NONE" | "SUBMITTING" | "PENDING";
@@ -608,6 +613,7 @@ export interface AlpacaPaperFill {
   providerOrderId: string;
   quantity: string;
   side: string;
+  source: AlpacaPaperFillSource;
   symbol: string;
 }
 /**
@@ -626,6 +632,7 @@ export interface AlpacaPaperOrder {
   origin: AlpacaPaperOrderOrigin;
   providerOrderId: string;
   providerStatus: string;
+  providerUpdatedAt?: string | null;
   quantity?: string | null;
   remainingQuantity?: string | null;
   side: string;
@@ -1368,6 +1375,7 @@ export interface AccountConnection {
   environment: string;
   health: AccountHealth;
   label: string;
+  lastPrivateStreamEventAt?: string | null;
   lastSuccessfulSync?: string | null;
   permissions: PermissionReview;
   providerId: string;

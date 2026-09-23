@@ -1,10 +1,10 @@
 use crate::{
     market,
     protocol::{
-        AlpacaPaperCancelState, AlpacaPaperFill, AlpacaPaperOrder, AlpacaPaperOrderAttempt,
-        AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook, AlpacaPaperOrderBookStatus,
-        AlpacaPaperOrderOrigin, ExecutionContext, OrderProposal, OrderQuantityType, OrderSide,
-        OrderType, Result, TimeInForce, TradeXError,
+        AlpacaPaperCancelState, AlpacaPaperFill, AlpacaPaperFillSource, AlpacaPaperOrder,
+        AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook,
+        AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, ExecutionContext, OrderProposal,
+        OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
     },
     providers::*,
 };
@@ -43,7 +43,7 @@ impl Credentials {
             |_| TradeXError::new("CREDENTIAL_STORE_FAILED"),
         )?)))
     }
-    fn values(&self) -> Result<Zeroizing<Vec<String>>> {
+    pub(crate) fn values(&self) -> Result<Zeroizing<Vec<String>>> {
         serde_json::from_slice(&self.0)
             .map(Zeroizing::new)
             .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))
@@ -1046,7 +1046,7 @@ const ALPACA_ORDER_MAX_PAGES: usize = ALPACA_ORDER_MAX_ORDERS / ALPACA_ORDER_PAG
 const ALPACA_FILL_MAX: usize = 1000;
 const ALPACA_FILL_MAX_PAGES: usize = ALPACA_FILL_MAX / ALPACA_ORDER_PAGE_SIZE + 1;
 
-fn verify_alpaca_paper_account(
+pub(crate) fn verify_alpaca_paper_account(
     http: &impl ProviderHttp,
     auth: &HeaderMap,
     remote_account_id: &str,
@@ -1177,7 +1177,7 @@ fn fetch_alpaca_paper_fills(
         let observed_at = crate::storage::timestamp()?;
         let mut cursor = None;
         for value in rows {
-            let fill = parse_alpaca_fill(value, &observed_at)?;
+            let fill = parse_alpaca_fill(value, &observed_at, AlpacaPaperFillSource::RestActivity)?;
             cursor = Some(fill.activity_id.clone());
             insert_fill(&mut fills, fill)?;
             if fills.len() > ALPACA_FILL_MAX {
@@ -1225,7 +1225,7 @@ fn get_alpaca_order(
     parse_alpaca_order(&value, &crate::storage::timestamp()?)
 }
 
-fn parse_alpaca_order(value: &Value, observed_at: &str) -> Result<AlpacaPaperOrder> {
+pub(crate) fn parse_alpaca_order(value: &Value, observed_at: &str) -> Result<AlpacaPaperOrder> {
     let provider_order_id = id(value, "id")?;
     let client_order_id = text(value, "client_order_id", 128)?;
     let symbol = text(value, "symbol", 16)?;
@@ -1255,6 +1255,10 @@ fn parse_alpaca_order(value: &Value, observed_at: &str) -> Result<AlpacaPaperOrd
         .transpose()?;
     let submitted_at = provider_timestamp(value, "submitted_at")
         .or_else(|_| provider_timestamp(value, "created_at"))?;
+    let provider_updated_at = value
+        .get("updated_at")
+        .map(|_| provider_timestamp(value, "updated_at"))
+        .transpose()?;
     Ok(AlpacaPaperOrder {
         provider_order_id,
         client_order_id,
@@ -1268,6 +1272,7 @@ fn parse_alpaca_order(value: &Value, observed_at: &str) -> Result<AlpacaPaperOrd
         filled_quantity,
         remaining_quantity,
         submitted_at,
+        provider_updated_at,
         observed_at: observed_at.to_owned(),
         origin: AlpacaPaperOrderOrigin::External,
         cancel_state: AlpacaPaperCancelState::None,
@@ -1276,11 +1281,16 @@ fn parse_alpaca_order(value: &Value, observed_at: &str) -> Result<AlpacaPaperOrd
     })
 }
 
-fn parse_alpaca_fill(value: &Value, observed_at: &str) -> Result<AlpacaPaperFill> {
+fn parse_alpaca_fill(
+    value: &Value,
+    observed_at: &str,
+    source: AlpacaPaperFillSource,
+) -> Result<AlpacaPaperFill> {
     let activity_id = text(value, "id", 128)?;
     if !valid_activity_token(&activity_id) {
         return Err(invalid());
     }
+    alpaca_fill_execution_id(&activity_id, source)?;
     let provider_order_id = id(value, "order_id")?;
     let symbol = text(value, "symbol", 16)?;
     if !valid_alpaca_symbol(&symbol) {
@@ -1303,9 +1313,87 @@ fn parse_alpaca_fill(value: &Value, observed_at: &str) -> Result<AlpacaPaperFill
         side,
         quantity,
         price,
+        source,
         executed_at: provider_timestamp(value, "transaction_time")?,
         observed_at: observed_at.to_owned(),
     })
+}
+
+pub(crate) fn parse_alpaca_trade_update(
+    value: &Value,
+    remote_account_id: &str,
+    observed_at: &str,
+    secrets: &[String],
+) -> Result<(AlpacaPaperOrder, Option<AlpacaPaperFill>)> {
+    if contains_secret(value, secrets) || text(value, "stream", 64)? != "trade_updates" {
+        return Err(invalid());
+    }
+    let data = value.get("data").ok_or_else(invalid)?;
+    let event = text(data, "event", 64)?;
+    let raw_order = data.get("order").ok_or_else(invalid)?;
+    if raw_order
+        .get("account_id")
+        .is_some_and(|account| account.as_str() != Some(remote_account_id))
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let mut order = parse_alpaca_order(raw_order, observed_at)?;
+    order.provider_updated_at = data
+        .get("timestamp")
+        .map(|_| provider_timestamp(data, "timestamp"))
+        .transpose()?
+        .or(order.provider_updated_at);
+    let fill = if matches!(event.as_str(), "partial_fill" | "fill") {
+        let execution_id = text(data, "execution_id", 128)?;
+        if !valid_activity_token(&execution_id) {
+            return Err(invalid());
+        }
+        let mut fill = data.clone();
+        let object = fill.as_object_mut().ok_or_else(invalid)?;
+        object.insert("id".into(), Value::String(execution_id));
+        object.insert(
+            "order_id".into(),
+            Value::String(order.provider_order_id.clone()),
+        );
+        object.insert("symbol".into(), Value::String(order.symbol.clone()));
+        object.insert("side".into(), Value::String(order.side.clone()));
+        object.insert(
+            "transaction_time".into(),
+            Value::String(text(data, "timestamp", 64)?),
+        );
+        Some(parse_alpaca_fill(
+            &fill,
+            observed_at,
+            AlpacaPaperFillSource::TradeUpdate,
+        )?)
+    } else {
+        None
+    };
+    Ok((order, fill))
+}
+
+pub(crate) fn apply_alpaca_trade_update(
+    book: &mut AlpacaPaperOrderBook,
+    value: &Value,
+    remote_account_id: &str,
+    secrets: &[String],
+) -> Result<()> {
+    if book.remote_account_id != remote_account_id {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let observed_at = crate::storage::timestamp()?;
+    let (order, fill) = parse_alpaca_trade_update(value, remote_account_id, &observed_at, secrets)?;
+    replace_order(&mut book.orders, order)?;
+    if let Some(fill) = fill {
+        insert_fill(&mut book.fills, fill)?;
+    }
+    if book.orders.len() > ALPACA_ORDER_MAX_ORDERS || book.fills.len() > ALPACA_FILL_MAX {
+        return Err(incomplete());
+    }
+    book.status = AlpacaPaperOrderBookStatus::Stale;
+    book.reason = Some("STREAM_UPDATE_REQUIRES_RECONCILIATION".into());
+    book.observed_at = observed_at;
+    Ok(())
 }
 
 fn provider_timestamp(value: &Value, field: &str) -> Result<String> {
@@ -1404,6 +1492,24 @@ fn replace_order(orders: &mut Vec<AlpacaPaperOrder>, fresh: AlpacaPaperOrder) ->
         if !same_order_identity(&previous, &fresh) {
             return Err(incomplete());
         }
+        if let (Some(previous_at), Some(fresh_at)) = (
+            previous.provider_updated_at.as_deref(),
+            fresh.provider_updated_at.as_deref(),
+        ) {
+            let previous_at = time::OffsetDateTime::parse(
+                previous_at,
+                &time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| incomplete())?;
+            let fresh_at = time::OffsetDateTime::parse(
+                fresh_at,
+                &time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| incomplete())?;
+            if previous_at > fresh_at {
+                return Ok(());
+            }
+        }
         orders[index] = preserve_local_order_state(fresh, &previous);
     } else {
         orders.push(fresh);
@@ -1412,10 +1518,11 @@ fn replace_order(orders: &mut Vec<AlpacaPaperOrder>, fresh: AlpacaPaperOrder) ->
 }
 
 fn insert_fill(fills: &mut Vec<AlpacaPaperFill>, fresh: AlpacaPaperFill) -> Result<()> {
-    if let Some(previous) = fills
-        .iter()
-        .find(|fill| fill.activity_id == fresh.activity_id)
-    {
+    let fresh_execution_id = alpaca_fill_execution_id(&fresh.activity_id, fresh.source)?.to_owned();
+    for (index, previous) in fills.iter().enumerate() {
+        if alpaca_fill_execution_id(&previous.activity_id, previous.source)? != fresh_execution_id {
+            continue;
+        }
         if previous.provider_order_id != fresh.provider_order_id
             || previous.symbol != fresh.symbol
             || previous.instrument_id != fresh.instrument_id
@@ -1426,10 +1533,32 @@ fn insert_fill(fills: &mut Vec<AlpacaPaperFill>, fresh: AlpacaPaperFill) -> Resu
         {
             return Err(incomplete());
         }
+        if previous.source == AlpacaPaperFillSource::TradeUpdate
+            && fresh.source == AlpacaPaperFillSource::RestActivity
+        {
+            fills[index] = fresh;
+        }
         return Ok(());
     }
     fills.push(fresh);
     Ok(())
+}
+
+fn alpaca_fill_execution_id(activity_id: &str, source: AlpacaPaperFillSource) -> Result<&str> {
+    let execution_id = match source {
+        AlpacaPaperFillSource::RestActivity => {
+            let Some((timestamp, execution_id)) = activity_id.split_once("::") else {
+                return Err(invalid());
+            };
+            if timestamp.len() != 17 || !timestamp.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(invalid());
+            }
+            execution_id
+        }
+        AlpacaPaperFillSource::TradeUpdate => activity_id,
+    };
+    uuid::Uuid::parse_str(execution_id).map_err(|_| invalid())?;
+    Ok(execution_id)
 }
 
 fn merge_order_pages(
@@ -1480,7 +1609,7 @@ fn incomplete() -> TradeXError {
     TradeXError::new("PROVIDER_RESPONSE_INCOMPLETE")
 }
 
-fn alpaca_headers(values: &[String]) -> Result<HeaderMap> {
+pub(crate) fn alpaca_headers(values: &[String]) -> Result<HeaderMap> {
     if values.len() != 2 {
         return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
     }
@@ -2239,4 +2368,178 @@ fn total(a: &str, b: &str) -> Result<String> {
     decimal(&Value::String(
         String::from_utf8(result).map_err(|_| invalid())?,
     ))
+}
+
+#[cfg(test)]
+mod alpaca_trade_update_tests {
+    use super::*;
+
+    const ACCOUNT_ID: &str = "81161e77-bafd-44bb-b2a0-60b9055e3cd4";
+    const ORDER_ID: &str = "18c65e3e-feb0-4576-99e2-36e6f047d84d";
+
+    fn frame(event: &str, status: &str, filled: &str, timestamp: &str) -> Value {
+        serde_json::json!({
+            "stream":"trade_updates",
+            "data":{
+                "event":event,
+            "execution_id":"00000000-0000-4000-8000-000000000002",
+                "qty":"0.5",
+                "price":"10.25",
+                "timestamp":timestamp,
+                "order":{
+                    "id":ORDER_ID,
+                    "account_id":ACCOUNT_ID,
+                    "client_order_id":"trade-x-order-1",
+                    "symbol":"AAPL",
+                    "side":"buy",
+                    "type":"limit",
+                    "time_in_force":"day",
+                    "status":status,
+                    "qty":"1",
+                    "filled_qty":filled,
+                    "submitted_at":"2026-09-23T10:00:00Z",
+                    "updated_at":timestamp
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn updates_dedupe_fills_ignore_late_states_and_preserve_unknown_statuses() {
+        let mut book = AlpacaPaperOrderBook {
+            workspace_id: "workspace-1".into(),
+            connection_id: "connection-1".into(),
+            remote_account_id: ACCOUNT_ID.into(),
+            status: AlpacaPaperOrderBookStatus::NeverSynced,
+            state_version: "alpaca-paper-order-book:connection-1:0".into(),
+            last_successful_sync_at: None,
+            observed_at: "2026-09-23T10:00:00Z".into(),
+            reason: None,
+            orders: Vec::new(),
+            fills: Vec::new(),
+        };
+        let partial = frame(
+            "partial_fill",
+            "partially_filled",
+            "0.5",
+            "2026-09-23T10:02:00Z",
+        );
+        apply_alpaca_trade_update(&mut book, &partial, ACCOUNT_ID, &[]).unwrap();
+        apply_alpaca_trade_update(&mut book, &partial, ACCOUNT_ID, &[]).unwrap();
+        assert_eq!(book.fills.len(), 1);
+        assert_eq!(book.orders[0].provider_status, "partially_filled");
+        assert_eq!(book.fills[0].source, AlpacaPaperFillSource::TradeUpdate);
+
+        let rest_fill = parse_alpaca_fill(
+            &serde_json::json!({
+                "id":"20260923100200000::00000000-0000-4000-8000-000000000002",
+                "order_id":ORDER_ID,
+                "symbol":"AAPL",
+                "side":"buy",
+                "qty":"0.5",
+                "price":"10.25",
+                "transaction_time":"2026-09-23T10:02:00Z"
+            }),
+            "2026-09-23T10:03:00Z",
+            AlpacaPaperFillSource::RestActivity,
+        )
+        .unwrap();
+        insert_fill(&mut book.fills, rest_fill).unwrap();
+        assert_eq!(book.fills.len(), 1);
+        assert_eq!(book.fills[0].source, AlpacaPaperFillSource::RestActivity);
+        assert!(book.fills[0].activity_id.contains("::"));
+        apply_alpaca_trade_update(&mut book, &partial, ACCOUNT_ID, &[]).unwrap();
+        assert_eq!(book.fills.len(), 1);
+        assert_eq!(book.fills[0].source, AlpacaPaperFillSource::RestActivity);
+
+        let conflicting_rest_fill = parse_alpaca_fill(
+            &serde_json::json!({
+                "id":"20260923100200000::00000000-0000-4000-8000-000000000002",
+                "order_id":ORDER_ID,
+                "symbol":"AAPL",
+                "side":"buy",
+                "qty":"0.4",
+                "price":"10.25",
+                "transaction_time":"2026-09-23T10:02:00Z"
+            }),
+            "2026-09-23T10:03:00Z",
+            AlpacaPaperFillSource::RestActivity,
+        )
+        .unwrap();
+        assert!(insert_fill(&mut book.fills, conflicting_rest_fill).is_err());
+
+        let late = frame("new", "new", "0", "2026-09-23T10:01:00Z");
+        apply_alpaca_trade_update(&mut book, &late, ACCOUNT_ID, &[]).unwrap();
+        assert_eq!(book.orders[0].provider_status, "partially_filled");
+
+        let unknown = frame(
+            "provider_transition",
+            "future_provider_state",
+            "0.5",
+            "2026-09-23T10:03:00Z",
+        );
+        apply_alpaca_trade_update(&mut book, &unknown, ACCOUNT_ID, &[]).unwrap();
+        assert_eq!(book.orders[0].provider_status, "future_provider_state");
+        assert_eq!(book.fills.len(), 1);
+    }
+
+    #[test]
+    fn stream_updates_preserve_supported_lifecycle_states() {
+        for (event, status, filled, has_fill) in [
+            ("new", "new", "0", false),
+            ("partial_fill", "partially_filled", "0.5", true),
+            ("fill", "filled", "1", true),
+            ("rejected", "rejected", "0", false),
+            ("canceled", "canceled", "0", false),
+            ("expired", "expired", "0", false),
+        ] {
+            let mut book = AlpacaPaperOrderBook {
+                workspace_id: "workspace-1".into(),
+                connection_id: "connection-1".into(),
+                remote_account_id: ACCOUNT_ID.into(),
+                status: AlpacaPaperOrderBookStatus::NeverSynced,
+                state_version: "alpaca-paper-order-book:connection-1:0".into(),
+                last_successful_sync_at: None,
+                observed_at: "2026-09-23T10:00:00Z".into(),
+                reason: None,
+                orders: Vec::new(),
+                fills: Vec::new(),
+            };
+            let update = frame(event, status, filled, "2026-09-23T10:02:00Z");
+
+            apply_alpaca_trade_update(&mut book, &update, ACCOUNT_ID, &[]).unwrap();
+
+            assert_eq!(book.orders[0].provider_status, status);
+            assert_eq!(book.fills.len(), usize::from(has_fill));
+            assert_eq!(
+                book.status,
+                AlpacaPaperOrderBookStatus::Stale,
+                "every stream event requires REST reconciliation"
+            );
+        }
+    }
+
+    #[test]
+    fn stream_updates_reject_cross_account_identity_and_secret_reflection() {
+        let event = frame("new", "new", "0", "2026-09-23T10:01:00Z");
+        let error = parse_alpaca_trade_update(
+            &event,
+            "different-remote-account",
+            "2026-09-23T10:01:00Z",
+            &[],
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "PROVIDER_IDENTITY_CHANGED");
+
+        let mut reflected = event;
+        reflected["diagnostic"] = "fixture-private-secret".into();
+        let error = parse_alpaca_trade_update(
+            &reflected,
+            ACCOUNT_ID,
+            "2026-09-23T10:01:00Z",
+            &["fixture-private-secret".into()],
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "PROVIDER_RESPONSE_INVALID");
+    }
 }

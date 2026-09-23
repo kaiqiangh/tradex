@@ -44,6 +44,7 @@ schemars = "=1.2.2"
 tauri = { version = "=2.11.5", optional = true, features = [] }
 tauri-plugin-dialog = { version = "=2.7.3", optional = true }
 reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "native-tls-no-alpn"] }
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake", "native-tls"] }
 zeroize = "=1.9.0"
 duckdb = { version = "=1.10505.0", features = ["bundled"] }
 

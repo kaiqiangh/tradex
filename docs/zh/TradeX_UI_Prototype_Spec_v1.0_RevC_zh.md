@@ -501,6 +501,7 @@ TradeX-managed simulation,显式 `LOCAL PAPER`,不是 provider truth。
 ### G2. Alpaca Paper
 
 proposal → provider paper acknowledgement → fill/update → account refresh。
+Order Drafts surface 还显示文字形式的私有流/reconciliation 健康状态和最近事件时间。`trade_updates` 会刷新已保存订单/成交；断流或未完成对账的订单簿继续明确标记为 stale。
 
 ### G3. Trading 212 Demo
 ### G4. Binance Testnet

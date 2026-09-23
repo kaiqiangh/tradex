@@ -104,7 +104,7 @@ function AccountDetail({ account, busy, run }: { account: AccountConnection; bus
     </div>
     <p className="notice">{account.health.reason}</p>
     <dl className="health-grid">{Object.entries(account.health).filter(([key]) => key !== 'reason').map(([key, value]) => <div key={key}><dt>{({ connection: 'Connection', authentication: 'Authentication', credential: 'Credential', privateStream: 'Private stream', reconciliation: 'Reconciliation', executionEligibility: 'Execution eligibility', arming: 'Arming' } as Record<string, string>)[key]}</dt><dd>{value}</dd></div>)}
-      <div><dt>Last successful sync</dt><dd>{time(account.lastSuccessfulSync)}</dd></div><div><dt>Last reconciliation</dt><dd>Not yet</dd></div><div><dt>Risk policy</dt><dd>Not configured</dd></div>
+      <div><dt>Last successful sync</dt><dd>{time(account.lastSuccessfulSync)}</dd></div><div><dt>Last private stream event</dt><dd>{time(account.lastPrivateStreamEventAt)}</dd></div><div><dt>Risk policy</dt><dd>Not configured</dd></div>
     </dl>
     {!localPaper && <section className="permission-review" aria-labelledby="permission-title"><h3 id="permission-title">Permission review</h3>
       <p><strong>{blocked ? 'BLOCKED' : p.scope}</strong> · IP allow-list: {p.ipAllowListStatus}</p>

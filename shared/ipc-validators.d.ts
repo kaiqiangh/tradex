@@ -11,6 +11,7 @@ declare const validators: {
   Aggregate: (value: unknown) => boolean;
   AlpacaPaperCancelState: (value: unknown) => boolean;
   AlpacaPaperFill: (value: unknown) => boolean;
+  AlpacaPaperFillSource: (value: unknown) => boolean;
   AlpacaPaperOrder: (value: unknown) => boolean;
   AlpacaPaperOrderAttempt: (value: unknown) => boolean;
   AlpacaPaperOrderAttemptQuery: (value: unknown) => boolean;

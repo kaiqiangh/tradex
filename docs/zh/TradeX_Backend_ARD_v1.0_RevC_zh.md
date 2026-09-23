@@ -2467,6 +2467,16 @@ Rust transport 仅允许有界 Paper routes。一次完整刷新最多读取 500
 
 订单簿 projection 与对应 outbox event 在同一事务内提交。仅主 Trade surface 可以刷新、审阅或撤单；这些命令不增加 Agent、Local Paper、Live、approval、arming、reservation 或 gateway 权限。S17 私有 `trade_updates` 流与重连对账仍由 #59 负责。
 
+### 41.20 Alpaca Paper 私有订单更新流（S17 #59）
+
+桌面服务为每个已连接的 `alpaca` / `PAPER` account 管理一个 worker。Worker 只读取该 account 已有的 Keychain 凭据，先通过 Paper REST endpoint 重新核对远端账户，再连接固定 `wss://paper-api.alpaca.markets/stream` host（禁用 redirect）并订阅 `trade_updates`。Renderer 不提供 host、凭据、远端身份或 authority。切换 workspace 时先取消旧 worker 再启动新 workspace；应用恢复时强制重连。Supervisor 等待旧 worker 退出后才替换同一 connection 的 worker，避免订阅重叠。
+
+WebSocket message 和 frame 上限为 256 KiB。32 项有界 channel 在 typed Rust validation 与 SQLite projection 写入期间提供 backpressure，并串行应用事件。每条更新都必须匹配当前 workspace、connection state version、Paper environment 和 remote account；secret 反射、格式错误的时间戳、订单/成交身份冲突以及超大 payload 均 fail closed。订单按 provider order ID 和 provider 更新时间合并，成交按 execution identity 去重；重复更新幂等，迟到状态不能回滚较新状态，未知 provider status 保留为可见文本，不会被归类成已知终态。Fill projection 记录首次观测来源是 `TRADE_UPDATE` 还是 REST `FILL` activity。
+
+Stream 将规范化 `alpaca-paper-order-book` 写入 outbox，并发布 `alpaca.paper.order.book.changed`。账户健康状态使用单独的 `account.health.changed` projection，包含 `privateStream`、reconciliation 状态、已清理的 reason 和 `lastPrivateStreamEventAt`；health 更新保留 account state version，stream tick 不会让无关 provider job 失效。断连、认证失败或恢复不完整时将订单簿标为 stale/degraded。首次连接、socket 重连、workspace 重开及系统恢复都会重新认证/订阅，并执行既有的有界 REST 订单与成交对账后才报告 `CURRENT`。Stream 断开时仍可从 SQLite 查询；stale 订单簿不会显示成 current。
+
+Stream 不增加公开 IPC command。Primary Trade surface 读取既有订单查询和 account aggregate；账户健康事件会使已保存订单查询失效，因此流更新经现有 Rust outbox 和 React projection 路径呈现。Local Paper、Live credentials、Live arming 和所有 financial approval 路径保持不变。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

@@ -59,6 +59,58 @@ fn main() -> io::Result<()> {
                 serde_json::from_slice(&frame).unwrap_or(Value::Null)
             };
             let command = request.get("command").and_then(Value::as_str);
+            #[cfg(feature = "integration-test")]
+            if command == Some("alpaca.paper.stream.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let connection_id = payload.get("connectionId").and_then(Value::as_str);
+                let state_version = payload
+                    .get("expectedConnectionStateVersion")
+                    .and_then(Value::as_str);
+                let remote_account_id = payload.get("remoteAccountId").and_then(Value::as_str);
+                let stream_frame = payload.get("frame");
+                let reply = match (
+                    connection_id,
+                    state_version,
+                    remote_account_id,
+                    stream_frame,
+                ) {
+                    (
+                        Some(connection_id),
+                        Some(state_version),
+                        Some(remote_account_id),
+                        Some(frame),
+                    ) => match control.lock() {
+                        Ok(mut control) => match control.apply_alpaca_private_stream_frame(
+                            connection_id,
+                            state_version,
+                            remote_account_id,
+                            frame,
+                            &[fixtures::KEY.into(), fixtures::SECRET.into()],
+                        ) {
+                            Ok(()) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":{"accepted":true}
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             if command == Some("workspace.open") {
                 supervisor.stop_all();
                 strategy_supervisor.stop_all();

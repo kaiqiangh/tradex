@@ -476,6 +476,12 @@
         "label": {
           "type": "string"
         },
+        "lastPrivateStreamEventAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "lastSuccessfulSync": {
           "type": [
             "string",
@@ -771,6 +777,9 @@
           "maxLength": 16,
           "minLength": 1
         },
+        "source": {
+          "$ref": "#/$defs/AlpacaPaperFillSource"
+        },
         "symbol": {
           "type": "string",
           "maxLength": 16,
@@ -785,8 +794,16 @@
         "side",
         "quantity",
         "price",
+        "source",
         "executedAt",
         "observedAt"
+      ]
+    },
+    "AlpacaPaperFillSource": {
+      "type": "string",
+      "enum": [
+        "REST_ACTIVITY",
+        "TRADE_UPDATE"
       ]
     },
     "AlpacaPaperOrder": {
@@ -849,6 +866,14 @@
         },
         "providerStatus": {
           "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerUpdatedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
           "maxLength": 64,
           "minLength": 1
         },

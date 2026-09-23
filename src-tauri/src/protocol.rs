@@ -2805,6 +2805,9 @@ pub struct AlpacaPaperOrder {
     pub remaining_quantity: Option<String>,
     #[schemars(length(min = 1, max = 64))]
     pub submitted_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_updated_at: Option<String>,
     #[schemars(length(min = 1, max = 64))]
     pub observed_at: String,
     pub origin: AlpacaPaperOrderOrigin,
@@ -2835,10 +2838,18 @@ pub struct AlpacaPaperFill {
     pub quantity: String,
     #[schemars(length(min = 1, max = 64))]
     pub price: String,
+    pub source: AlpacaPaperFillSource,
     #[schemars(length(min = 1, max = 64))]
     pub executed_at: String,
     #[schemars(length(min = 1, max = 64))]
     pub observed_at: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AlpacaPaperFillSource {
+    RestActivity,
+    TradeUpdate,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

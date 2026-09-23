@@ -1,3 +1,8 @@
+#[cfg(test)]
+extern crate self as tradex;
+
+#[cfg(target_os = "macos")]
+pub mod alpaca_stream;
 pub mod backtest;
 pub mod capability;
 pub mod codex_runtime;
@@ -4162,6 +4167,141 @@ impl ControlPlane {
                 .is_ok()
     }
 
+    pub fn alpaca_private_stream_accounts(&self) -> Result<Vec<AccountConnection>> {
+        let Some(store) = self.store.as_ref() else {
+            return Ok(Vec::new());
+        };
+        Ok(store
+            .accounts()?
+            .into_iter()
+            .filter(|account| {
+                account.provider_id == "alpaca"
+                    && account.environment == "PAPER"
+                    && account.connection_state == ConnectionState::Connected
+                    && !matches!(
+                        account.health.credential.as_str(),
+                        "MISSING" | "DELETE_PENDING"
+                    )
+                    && account.data.is_some()
+            })
+            .collect())
+    }
+
+    pub fn update_alpaca_private_stream_health(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        private_stream: &str,
+        reconciliation: &str,
+        reason: &str,
+    ) -> Result<()> {
+        let event = self
+            .store
+            .as_mut()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?
+            .save_alpaca_private_stream_health(
+                connection_id,
+                expected_state_version,
+                private_stream,
+                reconciliation,
+                reason,
+                None,
+            )?;
+        self.publish(&event);
+        Ok(())
+    }
+
+    pub fn apply_alpaca_private_stream_frame(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        remote_account_id: &str,
+        frame: &Value,
+        secrets: &[String],
+    ) -> Result<()> {
+        let store = self
+            .store
+            .as_mut()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let account = store.account(connection_id)?;
+        if account.state_version != expected_state_version
+            || account.connection_state != ConnectionState::Connected
+            || account.provider_id != "alpaca"
+            || account.environment != "PAPER"
+            || account
+                .data
+                .as_ref()
+                .map(|data| data.remote_account_id.as_str())
+                != Some(remote_account_id)
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let mut book = store
+            .alpaca_paper_order_book(&account.workspace_id, connection_id)?
+            .unwrap_or(empty_alpaca_paper_order_book(&account)?);
+        provider_io::apply_alpaca_trade_update(&mut book, frame, remote_account_id, secrets)?;
+        let (book, book_event) = store.complete_alpaca_paper_order_book(book)?;
+        self.publish(&book_event);
+        let account_event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_alpaca_private_stream_health(
+                connection_id,
+                expected_state_version,
+                "CONNECTED",
+                "REQUIRED",
+                "Alpaca Paper sent a trade update; REST reconciliation is required.",
+                Some(&book.observed_at),
+            )?;
+        self.publish(&account_event);
+        Ok(())
+    }
+
+    pub fn mark_alpaca_private_stream_degraded(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        private_stream: &str,
+        reason: &str,
+    ) -> Result<()> {
+        let event = self
+            .store
+            .as_mut()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?
+            .save_alpaca_private_stream_health(
+                connection_id,
+                expected_state_version,
+                private_stream,
+                "DEGRADED",
+                reason,
+                None,
+            )?;
+        self.publish(&event);
+        let (workspace_id, mut book) = {
+            let store = self.store.as_mut().unwrap();
+            let account = store.account(connection_id)?;
+            let Some(book) = store.alpaca_paper_order_book(&account.workspace_id, connection_id)?
+            else {
+                return Ok(());
+            };
+            (account.workspace_id, book)
+        };
+        if book.status == AlpacaPaperOrderBookStatus::Current {
+            book.status = AlpacaPaperOrderBookStatus::Stale;
+            book.reason = Some("PRIVATE_STREAM_DISCONNECTED".into());
+            book.observed_at = storage::timestamp()?;
+            let (book, event) = self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_alpaca_paper_order_book(book)?;
+            debug_assert_eq!(book.workspace_id, workspace_id);
+            self.publish(&event);
+        }
+        Ok(())
+    }
+
     pub fn record_credential_cleanup(&mut self, job: &ProviderJob, cleanup: Result<()>) {
         if job.session != self.session || self.require_workspace(&job.account.workspace_id).is_err()
         {
@@ -4237,13 +4377,16 @@ impl ControlPlane {
                 .unwrap()
                 .complete_alpaca_paper_order_book(book)
             {
-                Ok(book) => json!({
+                Ok((book, event)) => {
+                    self.publish(&event);
+                    json!({
                     "requestId":job.request_id,
                     "schemaVersion":1,
                     "ok":true,
                     "stateVersion":book.state_version,
                     "data":book
-                }),
+                    })
+                }
                 Err(error) => failure_reply(job.request_id.clone(), error),
             };
         }

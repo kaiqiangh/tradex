@@ -97,6 +97,7 @@ pub fn account(workspace_id: &str, base_currency: &str) -> Result<AccountConnect
             ],
         }),
         last_successful_sync: Some(now),
+        last_private_stream_event_at: None,
     })
 }
 

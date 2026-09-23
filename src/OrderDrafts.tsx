@@ -21,6 +21,8 @@ import type {
   TradeXError,
 } from '../shared/ipc-types.ts';
 import { CommandError, explainError, request } from './client.ts';
+import { fromAccountSnapshot } from './projection.ts';
+import { useDomainProjection } from './useDomainProjection.ts';
 
 const environments: { value: ExecutionContext; label: string }[] = [
   { value: 'LOCAL_PAPER', label: 'Local Paper' },
@@ -131,6 +133,10 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     enabled: Boolean(ordersConnectionId),
     refetchOnMount: 'always',
   });
+  const streamAccount = useDomainProjection('account', ordersConnectionId || undefined, fromAccountSnapshot);
+  useEffect(() => {
+    if (ordersConnectionId && streamAccount.data) void queryClient.invalidateQueries({ queryKey: ['alpaca-paper-orders', workspaceId, ordersConnectionId] });
+  }, [ordersConnectionId, queryClient, streamAccount.data?.health.privateStream, streamAccount.data?.health.reconciliation, streamAccount.data?.lastPrivateStreamEventAt, streamAccount.data?.updatedAt, workspaceId]);
   const ordersAccount = alpacaAccounts.find(account => account.connectionId === ordersConnectionId);
   const catalog = useQuery({ queryKey: ['market-catalog', workspaceId, 'order-draft'], queryFn: () => request('market.catalog', { workspaceId, query: '', tier: marketTier }) });
   const [selectedId, setSelectedId] = useState<string>();
@@ -517,6 +523,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {accounts.isPending && <p role="status">Loading linked accounts…</p>}
       {!accounts.isPending && !alpacaAccounts.length && <p className="muted">Connect an Alpaca Paper account to view its provider orders and fills.</p>}
       {ordersAccount && ordersAccount.connectionState !== 'CONNECTED' && <p className="error-text" role="status">This Alpaca Paper account is disconnected. Reconnect it before refreshing provider observations.</p>}
+      {ordersAccount && <p className="muted" role="status">Private stream: {streamAccount.data?.health.privateStream ?? ordersAccount.health.privateStream} · Reconciliation: {streamAccount.data?.health.reconciliation ?? ordersAccount.health.reconciliation} · Last event: {streamAccount.data?.lastPrivateStreamEventAt ? new Date(streamAccount.data.lastPrivateStreamEventAt).toLocaleString() : 'Not yet'}</p>}
       {ordersQuery.isPending && ordersConnectionId && <p role="status">Loading saved Alpaca Paper observations…</p>}
       {ordersQuery.isError && <div className="error-text" role="alert"><p>Saved Alpaca Paper orders are unavailable.</p><button type="button" onClick={() => void ordersQuery.refetch()}>Reload saved orders</button></div>}
       {orderBook && <>
@@ -543,7 +550,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         {orderBook.fills.map(fill => <article className="order-book-fill" key={fill.activityId}>
           <strong>{fill.symbol} · {fill.side.toUpperCase()} · {fill.quantity} @ {fill.price}</strong>
           <small>FILL activity {fill.activityId} · order {fill.providerOrderId} · executed {new Date(fill.executedAt).toLocaleString()}</small>
-          <small>ALPACA_PAPER · REST activity · received {new Date(fill.observedAt).toLocaleString()}</small>
+          <small>ALPACA_PAPER · {fill.source === 'TRADE_UPDATE' ? 'trade_updates stream' : 'REST FILL activity'} · received {new Date(fill.observedAt).toLocaleString()}</small>
         </article>)}
       </>}
     </section>

@@ -1,12 +1,37 @@
 // Run with a Codex CUA tab against `npm run dev:browser`, after checkWorkspaceUI.
 // Rust/SQLite/events are real; only provider HTTP and secret entry use explicit test fixtures.
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
 export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') {
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
   const observed = [];
+  let alpacaClientOrderId;
+  let alpacaConnectionStateVersion;
+  const injectPrivateStream = async (connectionId, expectedConnectionStateVersion, frame) => {
+    const requestId = randomUUID();
+    const response = await fetch('http://127.0.0.1:1420/__integration/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId,
+        schemaVersion: 1,
+        command: 'alpaca.paper.stream.fixture',
+        payload: {
+          connectionId,
+          expectedConnectionStateVersion,
+          remoteAccountId: '81161e77-bafd-44bb-b2a0-60b9055e3cd4',
+          frame,
+        },
+      }),
+    });
+    assert.equal(response.status, 200, 'The isolated Rust stream fixture remains available');
+    const result = await response.json();
+    assert.equal(result.requestId, requestId);
+    assert.equal(result.ok, true, JSON.stringify(result.error));
+  };
   const waitForVersionChange = async (detail, previous, message) => {
     for (let attempt = 0; attempt < 100; attempt += 1) {
       const next = await detail.getAttribute('data-state-version');
@@ -110,6 +135,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     assert.equal(await refresh.isEnabled(), true);
     await refresh.press('Enter');
     await waitForVersionChange(detail, afterReuseVersion, 'Manual account refresh did not commit a new state');
+    alpacaConnectionStateVersion = await detail.getAttribute('data-state-version') ?? undefined;
     await tab.getAXState({ emit: false });
     assert.equal(await ui.getByRole('alert').count(), 0);
     assert.equal(await ui.getByRole('heading', { name: 'Workspace', exact: true }).isVisible(), true);
@@ -120,7 +146,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
       await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
       await ui.getByLabel('Execution context').selectOption('ALPACA_PAPER');
-      const accountSelect = ui.getByLabel('Account');
+      const accountSelect = ui.locator('.order-draft-editor').getByLabel('Account');
       const accountValue = await accountSelect.locator('option').filter({ hasText: label }).getAttribute('value');
       assert.ok(accountValue, 'The saved Alpaca account should be selectable for a new Proposal');
       await accountSelect.selectOption(accountValue);
@@ -157,6 +183,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       const attempt = ui.locator('section[aria-label="Alpaca Paper order attempt"]');
       await attempt.getByText('ALPACA_PAPER · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
       assert.match(await attempt.innerText(), /Alpaca acknowledged the order\. This is not fill evidence\./);
+      alpacaClientOrderId = (await attempt.innerText()).match(/client order ([^\s]+)/)?.[1];
+      assert.ok(alpacaClientOrderId, 'The saved attempt should expose its exact provider client order ID');
       assert.equal(await attempt.locator('p').evaluateAll(elements => elements.some(element => element.textContent?.startsWith('Fill '))), false);
       assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true);
       observed.push('Alpaca Paper Proposal review requires explicit confirmation, shows the account/order/hash identity, and renders acknowledgement separately from fills.');
@@ -183,7 +211,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       const providerOrder = ui.locator('.order-book-order').filter({ hasText: '18c65e3e-feb0-4576-99e2-36e6f047d84d' });
       await providerOrder.waitFor({ state: 'visible' });
       assert.match(await providerOrder.innerText(), /ALPACA_PAPER · TradeX proposal/);
-      assert.match(await providerOrder.innerText(), /Filled \/ remaining 0 \/ 1/);
+      assert.match(await providerOrder.innerText(), /Filled \/ remaining\s+0 \/ 1/);
       await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       const cancelDialog = ui.getByRole('dialog', { name: 'Confirm Alpaca Paper cancellation', exact: true });
       await cancelDialog.waitFor({ state: 'visible' });
@@ -209,6 +237,44 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await providerOrder.getByRole('button', { name: 'Cancellation pending provider confirmation', exact: true }).waitFor({ state: 'visible' });
       assert.match(await providerOrder.innerText(), /CANCEL_PENDING · provider confirmation required/);
       observed.push('Order refresh identifies the TradeX order; cancel review shows account and exact fill remainder, dismissal sends nothing, and HTTP 204 stays pending.');
+
+      const tradeUpdate = (event, status, filledQuantity, timestamp) => ({
+        stream: 'trade_updates',
+        data: {
+          event,
+          execution_id: '00000000-0000-4000-8000-000000000003',
+          qty: '0.5',
+          price: '10.25',
+          timestamp,
+          order: {
+            id: '18c65e3e-feb0-4576-99e2-36e6f047d84d',
+            account_id: '81161e77-bafd-44bb-b2a0-60b9055e3cd4',
+            client_order_id: alpacaClientOrderId,
+            symbol: 'AAPL',
+            side: 'buy',
+            type: 'limit',
+            time_in_force: 'day',
+            status,
+            qty: '1',
+            filled_qty: filledQuantity,
+            submitted_at: '2026-09-23T10:00:00Z',
+            updated_at: timestamp,
+          },
+        },
+      });
+      const partialFill = tradeUpdate('partial_fill', 'partially_filled', '0.5', '2026-09-23T10:02:00Z');
+      await injectPrivateStream(existingValue, alpacaConnectionStateVersion, partialFill);
+      await ui.getByRole('heading', { name: 'Fills (1)', exact: true }).waitFor({ state: 'visible' });
+      await providerOrder.getByText('0.5 / 0.5', { exact: true }).waitFor({ state: 'visible' });
+      assert.match(await ui.locator('.order-book-fill').innerText(), /trade_updates stream/);
+      await injectPrivateStream(existingValue, alpacaConnectionStateVersion, partialFill);
+      await ui.getByRole('heading', { name: 'Fills (1)', exact: true }).waitFor({ state: 'visible' });
+      await injectPrivateStream(existingValue, alpacaConnectionStateVersion, tradeUpdate('new', 'new', '0', '2026-09-23T10:01:00Z'));
+      await providerOrder.getByText('0.5 / 0.5', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await ui.locator('.order-book-fill').count(), 1, 'Duplicate and late stream updates must not duplicate the fill or roll back order state');
+      assert.match(await providerOrder.innerText(), /partially_filled/);
+      assert.match(await ui.getByRole('status').filter({ hasText: 'Private stream:' }).innerText(), /Last event:/);
+      observed.push('Rust IPC persists a stream partial fill and health event; React refreshes the order projection, deduplicates repeat executions, and ignores late state rollback.');
 
       await viewport.set({ width: 1280, height: 900 });
       await tab.reload();
@@ -238,8 +304,9 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await tab.getAXState({ emit: false });
       await ui.locator('.account-row').filter({ hasText: label }).press('Enter');
       await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
-      assert.match(await detail.innerText(), /NOT_RUN/);
-      assert.match(await detail.innerText(), /NOT_CONFIGURED/);
+      assert.match(await detail.innerText(), /Reconciliation\s+REQUIRED/);
+      assert.match(await detail.innerText(), /Private stream\s+CONNECTED/);
+      assert.match(await detail.innerText(), /Last private stream event\s+\d/);
       observed.push(`Account controls, permission limitations and separate health dimensions remain reachable at ${width}px.`);
     }
     await ui.getByRole('button', { name: 'Disconnect', exact: true }).press('Enter');

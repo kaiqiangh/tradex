@@ -1772,6 +1772,103 @@ impl Store {
         Ok(event)
     }
 
+    pub fn save_alpaca_private_stream_health(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        private_stream: &str,
+        reconciliation: &str,
+        reason: &str,
+        last_event_at: Option<&str>,
+    ) -> Result<DomainEvent> {
+        if !matches!(
+            private_stream,
+            "CONNECTING" | "CONNECTED" | "DEGRADED" | "AUTH_FAILED" | "STOPPED"
+        ) || !matches!(
+            reconciliation,
+            "REQUIRED" | "RUNNING" | "CURRENT" | "DEGRADED"
+        ) || !valid_order_text(reason, 256)
+            || last_event_at.is_some_and(|value| !valid_provider_time(value))
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let workspace_id = self.workspace_id()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (sequence, projection): (i64, String) = tx
+            .query_row(
+                "SELECT sequence,projection FROM accounts WHERE connection_id=?1",
+                [connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        if sequence < 1 || sequence >= MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let mut account: AccountConnection = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.connection_id != connection_id
+            || account.state_version != expected_state_version
+            || account.provider_id != "alpaca"
+            || account.environment != "PAPER"
+            || account.connection_state != ConnectionState::Connected
+            || account.data.is_none()
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let next_sequence = sequence + 1;
+        account.health.private_stream = private_stream.into();
+        account.health.reconciliation = reconciliation.into();
+        account.health.reason = reason.into();
+        if let Some(last_event_at) = last_event_at {
+            account.last_private_stream_event_at = Some(last_event_at.into());
+        }
+        account.updated_at = timestamp()?;
+        let event = DomainEvent {
+            event_id: Uuid::new_v4().to_string(),
+            event_type: "account.health.changed".into(),
+            schema_version: 1,
+            occurred_at: account.updated_at.clone(),
+            aggregate_type: "account".into(),
+            aggregate_id: connection_id.into(),
+            sequence: next_sequence as u64,
+            payload: DomainProjection::Account(Box::new(account.clone())),
+        };
+        let changed = tx.execute(
+            "UPDATE accounts SET sequence=?1,projection=?2 WHERE connection_id=?3 AND sequence=?4",
+            params![
+                next_sequence,
+                serde_json::to_string(&account).map_err(storage_error)?,
+                connection_id,
+                sequence,
+            ],
+        ).map_err(storage_error)?;
+        if changed != 1 {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        tx.execute(
+            "INSERT INTO outbox VALUES('account',?1,?2,?3,?4)",
+            params![
+                connection_id,
+                next_sequence,
+                event.event_id,
+                serde_json::to_string(&event).map_err(storage_error)?,
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(event)
+    }
+
     pub fn watchlists(&self) -> Result<Watchlists> {
         let workspace_id = self.workspace_id()?;
         let mut query = self
@@ -3201,7 +3298,7 @@ impl Store {
     pub fn complete_alpaca_paper_order_book(
         &mut self,
         mut book: AlpacaPaperOrderBook,
-    ) -> Result<AlpacaPaperOrderBook> {
+    ) -> Result<(AlpacaPaperOrderBook, DomainEvent)> {
         let workspace_id = self.workspace_id()?;
         if book.workspace_id != workspace_id {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
@@ -3287,9 +3384,9 @@ impl Store {
             "INSERT INTO alpaca_paper_order_books(workspace_id,connection_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(workspace_id,connection_id) DO UPDATE SET sequence=excluded.sequence,projection=excluded.projection",
             params![workspace_id, book.connection_id, next_sequence, encoded],
         ).map_err(storage_error)?;
-        write_alpaca_order_book_event(&tx, &book, next_sequence)?;
+        let event = write_alpaca_order_book_event(&tx, &book, next_sequence)?;
         tx.commit().map_err(storage_error)?;
-        Ok(book)
+        Ok((book, event))
     }
 
     pub fn begin_alpaca_paper_order_attempt(
@@ -4881,6 +4978,10 @@ fn validate_alpaca_order_book(book: &AlpacaPaperOrderBook) -> Result<()> {
             || !order_ids.insert(order.provider_order_id.as_str())
             || !valid_provider_time(&order.submitted_at)
             || !valid_provider_time(&order.observed_at)
+            || order
+                .provider_updated_at
+                .as_deref()
+                .is_some_and(|value| !valid_provider_time(value))
             || !valid_provider_decimal(&order.filled_quantity, true)
             || order
                 .quantity
@@ -4979,7 +5080,7 @@ fn write_alpaca_order_book_event(
     tx: &Transaction<'_>,
     book: &AlpacaPaperOrderBook,
     sequence: i64,
-) -> Result<()> {
+) -> Result<DomainEvent> {
     if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
         return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
     }
@@ -5004,7 +5105,7 @@ fn write_alpaca_order_book_event(
         ],
     )
     .map_err(storage_error)?;
-    Ok(())
+    Ok(event)
 }
 
 fn load_alpaca_paper_attempt(

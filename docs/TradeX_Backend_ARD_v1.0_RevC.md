@@ -2467,6 +2467,16 @@ Cancellation first re-reads the exact order and compares the reviewed identity a
 
 Order-book projection changes and their outbox event commit atomically. The primary Trade surface alone can refresh, review, or cancel; these commands do not add Agent, Local Paper, Live, approval, arming, reservation, or gateway authority. S17 private `trade_updates` streaming and reconnect reconciliation remain #59.
 
+### 41.20 Alpaca Paper private trade-update stream (S17 #59)
+
+The desktop service owns one worker per connected `alpaca` / `PAPER` account. It reads only that account's existing Keychain credential, rechecks the remote account through the Paper REST endpoint, then connects to the fixed `wss://paper-api.alpaca.markets/stream` host with redirects disabled and subscribes to `trade_updates`. The renderer supplies no host, credential, remote identity, or authority. Workspace replacement cancels old workers before new ones start; app resume forces reconnect. Worker shutdown is observed before the supervisor starts a replacement, preventing overlapping subscriptions for one connection.
+
+WebSocket messages and frames are capped at 256 KiB. A 32-entry bounded channel applies backpressure while typed Rust validation and SQLite projection writes run serially. Each update must match the active workspace, connection state version, Paper environment, and remote account; secret reflection, malformed timestamps, order/fill identity conflicts, and oversized payloads fail closed. Orders merge by provider order ID and provider update time, fills by execution identity, duplicate updates are idempotent, older statuses cannot roll back newer ones, and unknown provider statuses remain visible without becoming a known terminal state. Fill projections record whether the first observation came from `TRADE_UPDATE` or a REST `FILL` activity.
+
+The stream writes the normalized `alpaca-paper-order-book` and publishes `alpaca.paper.order.book.changed`. Account health is a separate `account.health.changed` projection with `privateStream`, reconciliation state, sanitized reason, and `lastPrivateStreamEventAt`; health updates retain the account state version so a stream tick does not invalidate unrelated provider work. Disconnect, authorization failure, and incomplete recovery mark the book stale/degraded. Initial connect, socket reconnect, workspace reopen, and system resume restore authentication/subscription and then run the existing bounded REST order/fill reconciliation before reporting `CURRENT`. Queries remain available from SQLite while the stream is disconnected; no stale book is represented as current.
+
+Streaming adds no public IPC command. The primary Trade surface reads the existing order query and account aggregate; account health events invalidate the saved order query so stream changes render through the existing Rust outbox and React projection path. Local Paper, Live credentials, Live arming, and all financial approval paths are unchanged.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
