@@ -687,7 +687,7 @@ fn alpaca_paper_definitive_http_rejections_are_persisted_without_resubmission() 
     for (status, error_code) in [
         (400, "PROVIDER_ORDER_REJECTED"),
         (401, "PROVIDER_AUTH_FAILED"),
-        (403, "PROVIDER_PERMISSION_BLOCKED"),
+        (403, "PROVIDER_ORDER_REJECTED"),
         (422, "PROVIDER_ORDER_REJECTED"),
         (429, "PROVIDER_RATE_LIMITED"),
     ] {
@@ -723,6 +723,66 @@ fn alpaca_paper_definitive_http_rejections_are_persisted_without_resubmission() 
             1,
             "replaying a definitively rejected Proposal cannot issue a second POST"
         );
+    }
+}
+
+#[test]
+fn alpaca_paper_classifies_known_403_reasons_without_persisting_provider_text() {
+    for (message, side, error_code) in [
+        (
+            "Buying power or shares is not sufficient.",
+            "BUY",
+            "ORDER_BUYING_POWER_INSUFFICIENT",
+        ),
+        (
+            "Buying power or shares is not sufficient.",
+            "SELL",
+            "ORDER_INSUFFICIENT_POSITION",
+        ),
+        (
+            "account not authorized to trade",
+            "BUY",
+            "PROVIDER_PERMISSION_BLOCKED",
+        ),
+        (
+            "potential wash trade detected",
+            "BUY",
+            "PROVIDER_ORDER_REJECTED",
+        ),
+    ] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().to_path_buf());
+        let workspace =
+            command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = Vault::default();
+        let http = Http::default();
+        let account = connected_alpaca(&mut cp, &vault, &http, &workspace);
+        let proposal = alpaca_paper_proposal_with_order(
+            &mut cp,
+            &workspace,
+            &account,
+            side,
+            "BASE",
+            "1",
+            ("MARKET", "DAY"),
+        );
+        let request = alpaca_submit_request(&workspace, &account, &proposal);
+        http.alpaca_post_status.set(Some(403));
+        *http.alpaca_post_error_body.borrow_mut() =
+            Some(serde_json::to_vec(&json!({"code":40310000,"message":message})).unwrap());
+
+        let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+        let outcome = job.run(
+            &vault,
+            |_| credentials(),
+            &http,
+            || cp.provider_job_current(&job),
+        );
+        let reply = cp.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        assert_eq!(reply["data"]["state"], "REJECTED", "{reply}");
+        assert_eq!(reply["data"]["errorCode"], error_code, "{message}: {reply}");
+        assert!(!reply.to_string().contains(message));
     }
 }
 

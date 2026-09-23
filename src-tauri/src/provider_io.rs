@@ -750,7 +750,11 @@ impl ProviderJob {
                     }
                 }
                 Ok(response) if matches!(response.status, 400 | 401 | 403 | 422 | 429) => {
-                    Err(alpaca_order_rejection(response.status))
+                    Err(alpaca_order_rejection(
+                        response.status,
+                        &response.body,
+                        body.get("side").and_then(Value::as_str).unwrap_or_default(),
+                    ))
                 }
                 Ok(_) | Err(_) => Ok(reconcile_alpaca_attempt(
                     http,
@@ -1968,14 +1972,54 @@ fn alpaca_read_error(status: u16) -> TradeXError {
     })
 }
 
-fn alpaca_order_rejection(status: u16) -> TradeXError {
-    TradeXError::new(match status {
-        401 => "PROVIDER_AUTH_FAILED",
-        403 => "PROVIDER_PERMISSION_BLOCKED",
-        418 | 429 => "PROVIDER_RATE_LIMITED",
-        400 | 422 => "PROVIDER_ORDER_REJECTED",
-        _ => "PROVIDER_ORDER_REJECTED",
-    })
+fn alpaca_order_rejection(status: u16, body: &[u8], side: &str) -> TradeXError {
+    match status {
+        401 => return TradeXError::new("PROVIDER_AUTH_FAILED"),
+        418 | 429 => return TradeXError::new("PROVIDER_RATE_LIMITED"),
+        403 => (),
+        _ => return TradeXError::new("PROVIDER_ORDER_REJECTED"),
+    }
+
+    let response = serde_json::from_slice::<Value>(body).ok();
+    let message = response
+        .as_ref()
+        .and_then(|value| value.get("message").and_then(Value::as_str))
+        .map(|message| {
+            message
+                .chars()
+                .take(256)
+                .collect::<String>()
+                .to_ascii_lowercase()
+        })
+        .unwrap_or_default();
+    let insufficient = message.contains("insufficient")
+        || message.contains("not sufficient")
+        || message.contains("not enough");
+
+    // ponytail: classify known provider phrases only; changed or unknown 403 messages stay generic until Alpaca documents stable equity rejection codes.
+    let account_permission_blocked = (message.contains("not authorized")
+        && message.contains("account"))
+        || message.contains("account not eligible");
+    let error_code = if account_permission_blocked {
+        "PROVIDER_PERMISSION_BLOCKED"
+    } else if side == "buy"
+        && insufficient
+        && (message.contains("buying power")
+            || message.contains("tradable balance")
+            || message.contains("balance"))
+    {
+        "ORDER_BUYING_POWER_INSUFFICIENT"
+    } else if side == "sell"
+        && insufficient
+        && (message.contains("shares")
+            || message.contains("available qty")
+            || message.contains("position"))
+    {
+        "ORDER_INSUFFICIENT_POSITION"
+    } else {
+        "PROVIDER_ORDER_REJECTED"
+    };
+    TradeXError::new(error_code)
 }
 
 fn decimal_cmp(left: &str, right: &str) -> Result<std::cmp::Ordering> {

@@ -3486,7 +3486,7 @@ impl TradeXError {
                 "Refresh positions",
             ),
             "ORDER_BUYING_POWER_INSUFFICIENT" => (
-                "The Alpaca Paper account's current buying power is below this order's requested notional.",
+                "Alpaca reports insufficient buying power for this Paper order. Review the account and order size, then create a new proposal.",
                 "reload_snapshot",
                 "Refresh account",
             ),

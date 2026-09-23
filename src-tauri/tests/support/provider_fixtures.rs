@@ -66,6 +66,7 @@ pub struct Http {
     pub alpaca_asset: RefCell<Value>,
     pub alpaca_position: RefCell<Option<Value>>,
     pub alpaca_post_status: Cell<Option<u16>>,
+    pub alpaca_post_error_body: RefCell<Option<Vec<u8>>>,
 }
 impl Default for Http {
     fn default() -> Self {
@@ -96,6 +97,7 @@ impl Default for Http {
                 "qty":"10","qty_available":"10"
             }))),
             alpaca_post_status: Cell::new(None),
+            alpaca_post_error_body: RefCell::new(None),
         }
     }
 }
@@ -222,7 +224,7 @@ impl ProviderHttp for Http {
                 if let Some(status) = self.alpaca_post_status.get() {
                     return Ok(ProviderHttpResponse {
                         status,
-                        body: Vec::new(),
+                        body: self.alpaca_post_error_body.borrow().clone().unwrap_or_default(),
                     });
                 }
                 let order = json!({
