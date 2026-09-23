@@ -267,7 +267,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       const proposal = await request('trade.generate_proposal', { workspaceId, draftId: selected.draftId, expectedDraftVersion: selected.draftVersion });
       await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
       setSelectedProposalId(proposal.proposalId);
-      setNotice(`Proposal ${proposal.proposalId.slice(0, 16)}… generated and requires approval.`);
+      setNotice(proposal.status === 'NEEDS_APPROVAL'
+        ? `Proposal ${proposal.proposalId.slice(0, 16)}… generated and requires approval.`
+        : `No new proposal was created; the matching Proposal is ${proposal.status}.`);
     } catch (cause) { setError(cause); }
   };
 

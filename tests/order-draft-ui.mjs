@@ -36,8 +36,11 @@ export async function checkOrderDraftUI(tab, browser) {
     await ui.getByRole('button', { name: /INVALIDATED v1/ }).press('Enter');
     await ui.getByText('REFRESHED', { exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByText(/Proposal refreshed as proposal:/, { exact: false }).count() > 0, true);
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'No new proposal was created; the matching Proposal is INVALIDATED.' }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByRole('button', { name: 'Submit Local Paper order', exact: true }).count(), 0);
     await ui.getByRole('button', { name: /NEEDS_APPROVAL v1/ }).press('Enter');
-    observed.push('Refresh preserves the old invalidated identity and creates a new NEEDS_APPROVAL proposal with an explicit stale status.');
+    observed.push('Refresh preserves the old invalidated identity; duplicate generation identifies it as INVALIDATED and keeps submission unavailable.');
 
     await quantity.fill('2');
     await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
