@@ -111,6 +111,45 @@ fn main() -> io::Result<()> {
                 oversized = false;
                 continue;
             }
+            #[cfg(feature = "integration-test")]
+            if command == Some("alpaca.paper.stream.disconnect.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let connection_id = payload.get("connectionId").and_then(Value::as_str);
+                let state_version = payload
+                    .get("expectedConnectionStateVersion")
+                    .and_then(Value::as_str);
+                let reply = match (connection_id, state_version) {
+                    (Some(connection_id), Some(state_version)) => match control.lock() {
+                        Ok(mut control) => match control.mark_alpaca_private_stream_degraded(
+                            connection_id,
+                            state_version,
+                            "DEGRADED",
+                            "Alpaca Paper private stream fixture disconnected.",
+                        ) {
+                            Ok(()) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":{"accepted":true}
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             if command == Some("workspace.open") {
                 supervisor.stop_all();
                 strategy_supervisor.stop_all();

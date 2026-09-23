@@ -10,7 +10,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
   const observed = [];
   let alpacaClientOrderId;
   let alpacaConnectionStateVersion;
-  const injectPrivateStream = async (connectionId, expectedConnectionStateVersion, frame) => {
+  const sendStreamFixtureCommand = async (command, payload) => {
     const requestId = randomUUID();
     const response = await fetch('http://127.0.0.1:1420/__integration/command', {
       method: 'POST',
@@ -18,13 +18,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       body: JSON.stringify({
         requestId,
         schemaVersion: 1,
-        command: 'alpaca.paper.stream.fixture',
-        payload: {
-          connectionId,
-          expectedConnectionStateVersion,
-          remoteAccountId: '81161e77-bafd-44bb-b2a0-60b9055e3cd4',
-          frame,
-        },
+        command,
+        payload,
       }),
     });
     assert.equal(response.status, 200, 'The isolated Rust stream fixture remains available');
@@ -32,6 +27,14 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     assert.equal(result.requestId, requestId);
     assert.equal(result.ok, true, JSON.stringify(result.error));
   };
+  const injectPrivateStream = (connectionId, expectedConnectionStateVersion, frame) => sendStreamFixtureCommand(
+    'alpaca.paper.stream.fixture',
+    { connectionId, expectedConnectionStateVersion, remoteAccountId: '81161e77-bafd-44bb-b2a0-60b9055e3cd4', frame },
+  );
+  const injectPrivateStreamDisconnect = (connectionId, expectedConnectionStateVersion) => sendStreamFixtureCommand(
+    'alpaca.paper.stream.disconnect.fixture',
+    { connectionId, expectedConnectionStateVersion },
+  );
   const waitForVersionChange = async (detail, previous, message) => {
     for (let attempt = 0; attempt < 100; attempt += 1) {
       const next = await detail.getAttribute('data-state-version');
@@ -276,6 +279,16 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.match(await ui.getByRole('status').filter({ hasText: 'Private stream:' }).innerText(), /Last event:/);
       observed.push('Rust IPC persists a stream partial fill and health event; React refreshes the order projection, deduplicates repeat executions, and ignores late state rollback.');
 
+      await injectPrivateStreamDisconnect(existingValue, alpacaConnectionStateVersion);
+      const streamHealth = ui.getByRole('status').filter({ hasText: 'Private stream:' });
+      await ui.getByText(/Provider read is stale:/).waitFor({ state: 'visible' });
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((await streamHealth.innerText()).includes('Private stream: DEGRADED')) break;
+        await ui.waitForTimeout(50);
+      }
+      assert.match(await streamHealth.innerText(), /Private stream: DEGRADED · Reconciliation: DEGRADED/);
+      observed.push('A Rust-persisted stream disconnect marks the saved order book stale and renders degraded stream/reconciliation text on the Order surface.');
+
       await viewport.set({ width: 1280, height: 900 });
       await tab.reload();
       await tab.getAXState();
@@ -304,8 +317,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await tab.getAXState({ emit: false });
       await ui.locator('.account-row').filter({ hasText: label }).press('Enter');
       await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
-      assert.match(await detail.innerText(), /Reconciliation\s+REQUIRED/);
-      assert.match(await detail.innerText(), /Private stream\s+CONNECTED/);
+      assert.match(await detail.innerText(), /Reconciliation\s+DEGRADED/);
+      assert.match(await detail.innerText(), /Private stream\s+DEGRADED/);
       assert.match(await detail.innerText(), /Last private stream event\s+\d/);
       observed.push(`Account controls, permission limitations and separate health dimensions remain reachable at ${width}px.`);
     }
