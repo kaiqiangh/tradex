@@ -84,7 +84,7 @@ fn lifecycle(vault: &impl CredentialVault) {
         assert_eq!(a["data"]["positions"][0]["marketValueCurrency"], "GBP");
         assert_eq!(
             a["data"]["openOrders"][0]["brokerOrderId"],
-            "9007199254740995"
+            "9007199254740996"
         );
         assert_eq!(a["data"]["openOrders"][0]["filledQuantity"], Value::Null);
         assert_eq!(a["data"]["openOrders"][0]["filledValue"], "1.23");
@@ -281,7 +281,7 @@ fn failed_or_hostile_reads_preserve_identity_data_and_last_success() {
         for path in [
             "/v2/account",
             "https://example.invalid",
-            "/api/v0/equity/orders/123",
+            "/api/v0/equity/orders/123?x=1",
             "/api/v0/equity/orders?cursor=1",
         ] {
             assert_eq!(

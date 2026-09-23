@@ -129,7 +129,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -196,6 +196,8 @@ pub enum ReplyData {
     OrderProposalRefresh(Box<OrderProposalRefreshResult>),
     Trading212DemoOrderAttempt(Box<Trading212DemoOrderAttempt>),
     Trading212DemoOrderAttemptQuery(Box<Trading212DemoOrderAttemptQueryResult>),
+    Trading212DemoOrderBook(Box<Trading212DemoOrderBook>),
+    Trading212DemoOrderBookQuery(Box<Trading212DemoOrderBookQueryResult>),
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
     AlpacaPaperOrderAttemptQuery(Box<AlpacaPaperOrderAttemptQueryResult>),
     AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
@@ -291,6 +293,11 @@ pub struct IpcSchema {
     pub trading212_demo_order_submit: Trading212DemoOrderSubmit,
     pub trading212_demo_order_attempt_query: Trading212DemoOrderAttemptQuery,
     pub trading212_demo_order_attempt_query_result: Trading212DemoOrderAttemptQueryResult,
+    pub trading212_demo_order_book_query: Trading212DemoOrderBookQuery,
+    pub trading212_demo_order_book_query_result: Trading212DemoOrderBookQueryResult,
+    pub trading212_demo_order_book_refresh: Trading212DemoOrderBookRefresh,
+    pub trading212_demo_order_book: Trading212DemoOrderBook,
+    pub trading212_demo_order: Trading212DemoOrder,
     pub alpaca_paper_order_submit: AlpacaPaperOrderSubmit,
     pub alpaca_paper_order_attempt_query: AlpacaPaperOrderAttemptQuery,
     pub alpaca_paper_order_attempt_query_result: AlpacaPaperOrderAttemptQueryResult,
@@ -360,7 +367,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 18))]
+    #[schemars(range(min = 1, max = 19))]
     pub storage_schema_version: u32,
 }
 
@@ -2744,6 +2751,170 @@ pub struct Trading212DemoOrderAttemptQueryResult {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Trading212DemoOrderBookStatus {
+    NeverSynced,
+    Current,
+    Degraded,
+    Stale,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Trading212DemoOrderOrigin {
+    TradeX,
+    External,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Trading212DemoNormalizedOrderStatus {
+    Local,
+    Pending,
+    Open,
+    CancelPending,
+    Cancelled,
+    PartiallyFilled,
+    Filled,
+    Rejected,
+    Replacing,
+    Replaced,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Trading212DemoOrderBookAction {
+    Pending,
+    History,
+    Detail,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoRateLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub pending_orders_retry_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub order_detail_retry_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub history_retry_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrder {
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub symbol: String,
+    #[schemars(length(min = 1, max = 8))]
+    pub side: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub order_type: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub time_in_force: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_status: String,
+    pub normalized_status: Trading212DemoNormalizedOrderStatus,
+    pub pending: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub filled_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub filled_value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(regex(pattern = "^[A-Z]{3}$"))]
+    pub currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub remaining_quantity: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub submitted_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_updated_at: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub origin: Trading212DemoOrderOrigin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub attempt_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderBook {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub remote_account_id: String,
+    #[schemars(extend("const" = "DEMO"))]
+    pub environment: String,
+    pub status: Trading212DemoOrderBookStatus,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub last_successful_sync_at: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: Option<String>,
+    pub history_started: bool,
+    pub history_complete: bool,
+    #[schemars(range(max = 100))]
+    pub history_page_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 512))]
+    pub next_page_path: Option<String>,
+    #[schemars(length(max = 100))]
+    pub history_cursors: Vec<String>,
+    pub rate_limits: Trading212DemoRateLimits,
+    #[schemars(length(max = 5000))]
+    pub orders: Vec<Trading212DemoOrder>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderBookQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderBookQueryResult {
+    pub book: Option<Trading212DemoOrderBook>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderBookRefresh {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    pub action: Trading212DemoOrderBookAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub provider_order_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AlpacaPaperOrderAttemptState {
     Submitting,
     Acknowledged,
@@ -3316,6 +3487,7 @@ pub enum DomainProjection {
     Trading212DemoOrderAttempt(Box<Trading212DemoOrderAttempt>),
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
     AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
+    Trading212DemoOrderBook(Box<Trading212DemoOrderBook>),
 }
 
 impl DomainProjection {
@@ -3330,6 +3502,7 @@ impl DomainProjection {
             Self::Trading212DemoOrderAttempt(a) => &a.attempt_id,
             Self::AlpacaPaperOrderAttempt(a) => &a.attempt_id,
             Self::AlpacaPaperOrderBook(b) => &b.connection_id,
+            Self::Trading212DemoOrderBook(b) => &b.connection_id,
         }
     }
     pub fn kind(&self) -> &str {
@@ -3343,6 +3516,7 @@ impl DomainProjection {
             Self::Trading212DemoOrderAttempt(_) => "trading212-demo-order-attempt",
             Self::AlpacaPaperOrderAttempt(_) => "alpaca-paper-order-attempt",
             Self::AlpacaPaperOrderBook(_) => "alpaca-paper-order-book",
+            Self::Trading212DemoOrderBook(_) => "trading212-demo-order-book",
         }
     }
 }
@@ -3352,12 +3526,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -3369,7 +3543,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,

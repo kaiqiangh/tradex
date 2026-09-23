@@ -12,6 +12,8 @@ import type {
   OrderProposalSummary,
   PaperOrderResult,
   Trading212DemoOrderAttempt,
+  Trading212DemoOrder,
+  Trading212DemoOrderBookAction,
   AlpacaPaperOrderAttempt,
   AlpacaPaperOrder,
   AlpacaPaperOrderBook,
@@ -36,6 +38,12 @@ const environments: { value: ExecutionContext; label: string }[] = [
   { value: 'BITGET_LIVE', label: 'Bitget Live' },
 ];
 const marketTier: MarketTier = 'CENSUS';
+
+function retryLabel(value?: string | null) {
+  if (value == null) return 'ready';
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time <= Date.now() ? 'ready' : 'after ' + new Date(time).toLocaleTimeString() : 'unavailable';
+}
 
 function isOpenAlpacaOrder(order: AlpacaPaperOrder) {
   return ['new', 'accepted', 'pending_new', 'partially_filled', 'pending_cancel'].includes(order.providerStatus);
@@ -127,6 +135,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const proposals = useQuery({ queryKey: ['order-proposals', workspaceId], queryFn: () => request('trade.proposal.list', { workspaceId }), refetchOnMount: 'always' });
   const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'order-draft'], queryFn: () => request('account.list', { workspaceId }) });
   const alpacaAccounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'alpaca' && account.environment === 'PAPER') ?? [], [accounts.data?.accounts]);
+  const trading212Accounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'trading212' && account.environment === 'DEMO') ?? [], [accounts.data?.accounts]);
   const [ordersConnectionId, setOrdersConnectionId] = useState('');
   const ordersQuery = useQuery({
     queryKey: ['alpaca-paper-orders', workspaceId, ordersConnectionId],
@@ -139,6 +148,15 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     if (ordersConnectionId && streamAccount.data) void queryClient.invalidateQueries({ queryKey: ['alpaca-paper-orders', workspaceId, ordersConnectionId] });
   }, [ordersConnectionId, queryClient, streamAccount.data?.health.privateStream, streamAccount.data?.health.reconciliation, streamAccount.data?.lastPrivateStreamEventAt, streamAccount.data?.updatedAt, workspaceId]);
   const ordersAccount = alpacaAccounts.find(account => account.connectionId === ordersConnectionId);
+  const [trading212ConnectionId, setTrading212ConnectionId] = useState('');
+  const trading212OrdersQuery = useQuery({
+    queryKey: ['trading212-demo-orders', workspaceId, trading212ConnectionId],
+    queryFn: () => request('trading212.demo.orders.get', { workspaceId, connectionId: trading212ConnectionId }),
+    enabled: Boolean(trading212ConnectionId),
+    refetchOnMount: 'always',
+  });
+  const trading212OrderBook = trading212OrdersQuery.data?.book;
+  const trading212OrdersAccount = trading212Accounts.find(account => account.connectionId === trading212ConnectionId);
   const catalog = useQuery({ queryKey: ['market-catalog', workspaceId, 'order-draft'], queryFn: () => request('market.catalog', { workspaceId, query: '', tier: marketTier }) });
   const [selectedId, setSelectedId] = useState<string>();
   const [selectedProposalId, setSelectedProposalId] = useState<string>();
@@ -156,6 +174,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [trading212IdempotencyKey, setTrading212IdempotencyKey] = useState<string>();
   const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit'>();
   const [ordersBusy, setOrdersBusy] = useState(false);
+  const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
   const [cancelReview, setCancelReview] = useState<{ book: AlpacaPaperOrderBook; order: AlpacaPaperOrder }>();
   const confirmationRef = useRef<HTMLDivElement>(null);
   const confirmationTriggerRef = useRef<HTMLElement | null>(null);
@@ -192,6 +211,10 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     if (!ordersConnectionId && alpacaAccounts.length) setOrdersConnectionId(alpacaAccounts[0].connectionId);
     if (ordersConnectionId && accounts.data && !alpacaAccounts.some(account => account.connectionId === ordersConnectionId)) setOrdersConnectionId('');
   }, [accounts.data, alpacaAccounts, ordersConnectionId]);
+  useEffect(() => {
+    if (!trading212ConnectionId && trading212Accounts.length) setTrading212ConnectionId(trading212Accounts[0].connectionId);
+    if (trading212ConnectionId && accounts.data && !trading212Accounts.some(account => account.connectionId === trading212ConnectionId)) setTrading212ConnectionId('');
+  }, [accounts.data, trading212Accounts, trading212ConnectionId]);
   useEffect(() => { if (detail.data) setForm(fromDraft(detail.data)); }, [detail.data]);
   useEffect(() => {
     if (!selectedId || newMode || !selectedProposals.some(proposal => proposal.proposalId === selectedProposalId)) setSelectedProposalId(undefined);
@@ -449,6 +472,29 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setOrdersBusy(false); }
   };
 
+  const refreshTrading212Orders = async (action: Trading212DemoOrderBookAction, providerOrderId?: string) => {
+    if (!trading212OrdersAccount) return;
+    setTrading212OrdersBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId: trading212OrdersAccount.connectionId });
+      const result = await request('trading212.demo.orders.refresh', {
+        workspaceId,
+        connectionId: account.connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        action,
+        ...(providerOrderId ? { providerOrderId } : {}),
+      });
+      queryClient.setQueryData(['trading212-demo-orders', workspaceId, account.connectionId], { book: result });
+      if (result.status === 'CURRENT') {
+        setNotice('Trading 212 Demo ' + (action === 'PENDING' ? 'pending orders' : action === 'HISTORY' ? 'order history' : 'order detail') + ' refreshed at ' + new Date(result.observedAt).toLocaleString() + '.');
+      } else {
+        const retryAt = action === 'PENDING' ? result.rateLimits.pendingOrdersRetryAt : action === 'DETAIL' ? result.rateLimits.orderDetailRetryAt : result.rateLimits.historyRetryAt;
+        setNotice('Trading 212 Demo read is degraded: ' + (result.reason ?? 'provider data was incomplete') + '. Existing observations were kept.' + (retryAt ? ' Retry ' + retryLabel(retryAt) + '.' : ''));
+      }
+    } catch (cause) { setError(cause); }
+    finally { setTrading212OrdersBusy(false); }
+  };
+
   const reviewAlpacaOrder = async (order: AlpacaPaperOrder) => {
     if (!ordersAccount) return;
     confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -611,6 +657,39 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         </article>)}
       </>}
     </section>
+    <section className="card order-book-panel" aria-labelledby="trading212-order-book-title">
+      <div className="section-heading">
+        <div><h2 id="trading212-order-book-title">Trading 212 Demo orders</h2><p className="muted">Provider observations · TRADING212_DEMO · manual REST refresh</p></div>
+        <div className="order-book-actions">
+          <label className="field">Demo account<select aria-label="Trading 212 Demo account" value={trading212ConnectionId} onChange={event => setTrading212ConnectionId(event.target.value)}><option value="">Select a Trading 212 Demo account</option>{trading212Accounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.data?.remoteAccountId ?? account.connectionId}</option>)}</select></label>
+          <button type="button" onClick={() => void refreshTrading212Orders('PENDING')} disabled={!trading212OrdersAccount || trading212OrdersAccount.connectionState !== 'CONNECTED' || trading212OrdersBusy}>{trading212OrdersBusy ? 'Checking Trading 212…' : 'Refresh pending orders'}</button>
+        </div>
+      </div>
+      {accounts.isPending && <p role="status">Loading linked accounts…</p>}
+      {!accounts.isPending && !trading212Accounts.length && <p className="muted">Connect a Trading 212 Demo account to view its pending and historical provider orders.</p>}
+      {trading212OrdersAccount && trading212OrdersAccount.connectionState !== 'CONNECTED' && <p className="error-text" role="status">This Trading 212 Demo account is disconnected. Reconnect it before refreshing provider observations.</p>}
+      {trading212OrdersQuery.isPending && trading212ConnectionId && <p role="status">Loading saved Trading 212 Demo observations…</p>}
+      {trading212OrdersQuery.isError && <div className="error-text" role="alert"><p>Saved Trading 212 Demo orders are unavailable.</p><button type="button" onClick={() => void trading212OrdersQuery.refetch()}>Reload saved orders</button></div>}
+      {trading212OrderBook && <>
+        <p className={trading212OrderBook.status === 'DEGRADED' || trading212OrderBook.status === 'STALE' ? 'error-text' : 'muted'} role={trading212OrderBook.status === 'DEGRADED' ? 'alert' : 'status'}>
+          {trading212OrderBook.status === 'CURRENT' ? 'Current provider observations · received ' + new Date(trading212OrderBook.observedAt).toLocaleString() : trading212OrderBook.status === 'NEVER_SYNCED' ? 'No provider read has completed; refresh pending orders or load history.' : 'Provider read is ' + trading212OrderBook.status.toLowerCase() + ': ' + (trading212OrderBook.reason ?? 'showing the last saved observations') + '.'}
+          {trading212OrderBook.lastSuccessfulSyncAt && ' Last successful read: ' + new Date(trading212OrderBook.lastSuccessfulSyncAt).toLocaleString() + '.'}
+        </p>
+        <h3>Pending orders ({trading212OrderBook.orders.filter(order => order.pending).length})</h3>
+        {!trading212OrderBook.orders.some(order => order.pending) && trading212OrderBook.status === 'CURRENT' && <p className="muted">No pending Trading 212 Demo orders were returned.</p>}
+        {trading212OrderBook.orders.filter(order => order.pending).map(order => <Trading212OrderCard key={order.providerOrderId} order={order} pending onRefresh={() => void refreshTrading212Orders('DETAIL', order.providerOrderId)} busy={trading212OrdersBusy} />)}
+        <div className="section-heading">
+          <h3>Order history ({trading212OrderBook.orders.filter(order => !order.pending).length})</h3>
+          <button type="button" onClick={() => void refreshTrading212Orders('HISTORY')} disabled={!trading212OrdersAccount || trading212OrdersAccount.connectionState !== 'CONNECTED' || trading212OrdersBusy}>
+            {trading212OrdersBusy ? 'Loading history…' : !trading212OrderBook.historyStarted ? 'Load order history' : trading212OrderBook.historyComplete ? 'Refresh order history' : 'Load more history'}
+          </button>
+        </div>
+        {!trading212OrderBook.orders.some(order => !order.pending) && trading212OrderBook.historyStarted && trading212OrderBook.status === 'CURRENT' && <p className="muted">No historical Trading 212 Demo orders were returned.</p>}
+        {trading212OrderBook.orders.filter(order => !order.pending).map(order => <Trading212OrderCard key={order.providerOrderId} order={order} pending={false} busy={trading212OrdersBusy} />)}
+        <p className="muted">History pages loaded: {trading212OrderBook.historyPageCount} · {trading212OrderBook.historyComplete ? 'complete' : 'more may be available'}</p>
+        <p className="muted">Endpoint limits: pending {retryLabel(trading212OrderBook.rateLimits.pendingOrdersRetryAt)} · detail {retryLabel(trading212OrderBook.rateLimits.orderDetailRetryAt)} · history {retryLabel(trading212OrderBook.rateLimits.historyRetryAt)}.</p>
+      </>}
+    </section>
     {paperConfirmation && <div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}>
       <div className="picker-dialog-heading"><div>
         <h2 id="paper-confirm-title">{paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submission' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'alpaca-cancel' ? 'Confirm Alpaca Paper cancellation' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2>
@@ -629,6 +708,29 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); }} disabled={paperBusy || ordersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy}>{paperBusy || ordersBusy ? 'Working…' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submit' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'alpaca-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div>
     </div></div>}
   </>;
+}
+
+function Trading212OrderCard({ order, pending, onRefresh, busy }: {
+  order: Trading212DemoOrder;
+  pending: boolean;
+  onRefresh?: () => void;
+  busy: boolean;
+}) {
+  return <article className="order-book-order">
+    <div><strong>{order.symbol} · {order.side} · {order.providerStatus}</strong><small>TRADING212_DEMO · {order.origin === 'TRADE_X' ? 'TradeX proposal' : 'External provider order'} · observed {new Date(order.observedAt).toLocaleString()}</small></div>
+    <dl className="order-book-facts">
+      <div><dt>Provider order</dt><dd>{order.providerOrderId}</dd></div>
+      <div><dt>Provider / normalized status</dt><dd>{order.providerStatus} / {order.normalizedStatus}</dd></div>
+      <div><dt>Order type / time in force</dt><dd>{order.orderType} · {order.timeInForce}</dd></div>
+      <div><dt>Quantity / remaining</dt><dd>{order.quantity ?? 'Unavailable'} / {order.remainingQuantity ?? 'Unavailable'}</dd></div>
+      <div><dt>Cumulative filled quantity</dt><dd>{order.filledQuantity ?? 'Unavailable'}</dd></div>
+      <div><dt>Cumulative filled value</dt><dd>{order.filledValue == null ? 'Unavailable' : `${order.filledValue} ${order.currency ?? 'currency unavailable'}`}</dd></div>
+      <div><dt>Submitted</dt><dd>{new Date(order.submittedAt).toLocaleString()}</dd></div>
+      {order.attemptId && <div><dt>TradeX attempt</dt><dd>{order.attemptId}</dd></div>}
+    </dl>
+    {pending && onRefresh && <button type="button" onClick={onRefresh} disabled={busy}>{busy ? 'Refreshing order…' : 'Refresh known order details'}</button>}
+    {!pending && !order.pending && order.normalizedStatus === 'OPEN' && <p className="muted" role="status">This order was not returned in the latest pending-order read; the displayed status is its last provider observation.</p>}
+  </article>;
 }
 
 function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, onAlpacaSubmit, onAlpacaReconcile, onReloadAlpacaAttempt, alpacaAttempt, alpacaAttemptLoading, alpacaAttemptError, alpacaAccount, onTrading212Submit, onReloadTrading212Attempt, trading212Attempt, trading212AttemptLoading, trading212AttemptError, trading212Account, submitBusy, cancelBusy, result }: {

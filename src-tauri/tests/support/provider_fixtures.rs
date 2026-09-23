@@ -3,13 +3,13 @@ pub mod bitget;
 use serde_json::{Value, json};
 use std::{
     cell::{Cell, RefCell},
-    collections::HashSet,
+    collections::{HashMap, HashSet},
 };
 use tradex::{
     protocol::{Result, TradeXError},
     provider_io::{
         CredentialVault, Credentials, ProviderEndpoint, ProviderHttp, ProviderHttpMethod,
-        ProviderHttpResponse,
+        ProviderHttpResponse, ProviderRateLimit,
     },
 };
 pub const KEY: &str = "S02-FAKE-KEY-594791453";
@@ -72,6 +72,10 @@ pub struct Http {
     pub trading212_post_timeout: Cell<bool>,
     pub trading212_post_response_body: RefCell<Option<Vec<u8>>>,
     pub trading212_identity: Cell<u64>,
+    pub trading212_order_list: RefCell<Option<Vec<Value>>>,
+    pub trading212_order_details: RefCell<HashMap<String, Value>>,
+    pub trading212_history_pages: RefCell<HashMap<String, Value>>,
+    pub trading212_rate_limit: RefCell<Option<ProviderRateLimit>>,
 }
 impl Default for Http {
     fn default() -> Self {
@@ -108,9 +112,21 @@ impl Default for Http {
             trading212_post_timeout: Cell::new(false),
             trading212_post_response_body: RefCell::new(None),
             trading212_identity: Cell::new(9007199254740993),
+            trading212_order_list: RefCell::new(None),
+            trading212_order_details: RefCell::new(HashMap::new()),
+            trading212_history_pages: RefCell::new(HashMap::new()),
+            trading212_rate_limit: RefCell::new(None),
         }
     }
 }
+
+fn default_trading212_order_list() -> Vec<Value> {
+    serde_json::from_str(
+        r#"[{"id":9007199254740996,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","type":"LIMIT","timeInForce":"DAY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23,"createdAt":"2026-09-20T12:00:00Z"}]"#,
+    )
+    .expect("valid Trading 212 order fixture")
+}
+
 impl ProviderHttp for Http {
     fn request(
         &self,
@@ -128,9 +144,18 @@ impl ProviderHttp for Http {
             assert!(headers["Authorization"].is_sensitive());
             assert_eq!(headers.len(), 1);
             return match (method, path, body) {
-                (ProviderHttpMethod::Get, path, None) => self
-                    .get(endpoint, path, headers)
-                    .map(|body| ProviderHttpResponse { status: 200, body }),
+                (ProviderHttpMethod::Get, path, None) => {
+                    let status = if path
+                        .strip_prefix("/api/v0/equity/orders/")
+                        .is_some_and(|id| !self.trading212_order_details.borrow().contains_key(id))
+                    {
+                        404
+                    } else {
+                        200
+                    };
+                    self.get(endpoint, path, headers)
+                        .map(|body| ProviderHttpResponse { status, body })
+                }
                 (ProviderHttpMethod::Post, path, Some(request))
                     if matches!(
                         path,
@@ -176,12 +201,22 @@ impl ProviderHttp for Http {
                         "type":order_type,
                         "strategy":"QUANTITY",
                         "status":"NEW",
+                        "currency":"GBP",
                         "timeInForce":if order_type == "MARKET" { "DAY" } else { request["timeValidity"].as_str().unwrap() },
                         "extendedHours":false
                     });
                     if let Some(limit_price) = request.get("limitPrice") {
                         response["limitPrice"] = limit_price.clone();
                     }
+                    let mut observed = response.clone();
+                    observed["status"] = json!("PARTIALLY_FILLED");
+                    observed["filledQuantity"] = json!(0.25);
+                    observed["filledValue"] = json!(33.125);
+                    observed["createdAt"] = json!("2026-09-23T10:00:00Z");
+                    self.trading212_order_details
+                        .borrow_mut()
+                        .insert("9007199254740995".into(), observed.clone());
+                    *self.trading212_order_list.borrow_mut() = Some(vec![observed]);
                     Ok(ProviderHttpResponse {
                         status: 200,
                         body: serde_json::to_vec(&response).unwrap(),
@@ -354,6 +389,19 @@ impl ProviderHttp for Http {
         }
     }
 
+    fn request_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        let response = self.request(endpoint, method, path, headers, body)?;
+        let rate_limit = self.trading212_rate_limit.borrow_mut().take();
+        Ok((response, rate_limit))
+    }
+
     fn get(
         &self,
         endpoint: tradex::provider_io::ProviderEndpoint,
@@ -421,6 +469,46 @@ impl ProviderHttp for Http {
                 .push(format!("{}{path}", endpoint.base_url()));
             if self.fail.get() {
                 return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+            }
+            if path == "/api/v0/equity/orders" {
+                let rows = self
+                    .trading212_order_list
+                    .borrow()
+                    .clone()
+                    .unwrap_or_else(default_trading212_order_list);
+                return serde_json::to_vec(&rows)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            if path.starts_with("/api/v0/equity/orders/") {
+                let id = path.trim_start_matches("/api/v0/equity/orders/");
+                let order = self
+                    .trading212_order_details
+                    .borrow()
+                    .get(id)
+                    .cloned()
+                    .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+                return serde_json::to_vec(&order)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            if path.starts_with("/api/v0/equity/history/orders?") {
+                let page = self
+                    .trading212_history_pages
+                    .borrow()
+                    .get(path)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        serde_json::from_str(
+                            r#"{"items":[{
+                        "id":8001,"ticker":"MSFT_US_EQ","side":"SELL","type":"MARKET",
+                        "timeInForce":"DAY","strategy":"QUANTITY","quantity":-2,
+                        "filledQuantity":-2,"filledValue":201.234567890123456789,"currency":"GBP",
+                        "status":"FILLED","createdAt":"2026-09-22T12:00:00Z"
+                    }],"nextPagePath":null}"#,
+                        )
+                        .unwrap()
+                    });
+                return serde_json::to_vec(&page)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
             }
             return Ok(match path {
                 "/api/v0/equity/account/summary" => {

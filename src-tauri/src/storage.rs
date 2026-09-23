@@ -40,14 +40,15 @@ use crate::protocol::{
     StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
     StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
     ThreadSummary, TimeInForce, TradeXError, Trading212DemoOrderAttempt,
-    Trading212DemoOrderAttemptState, Trading212DemoOrderSubmit, Watchlist, WatchlistItem,
-    Watchlists, Workspace,
+    Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
+    Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist, WatchlistItem, Watchlists,
+    Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 18;
+pub(crate) const SCHEMA_VERSION: u32 = 19;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -445,6 +446,17 @@ impl Store {
                 CREATE INDEX trading212_demo_attempts_connection_state ON trading212_demo_order_attempts(connection_id,state);
                 PRAGMA user_version=18;").map_err(storage_error)?;
             }
+            if version < 19 {
+                tx.execute_batch("CREATE TABLE trading212_demo_order_books (
+                    workspace_id TEXT NOT NULL,
+                    connection_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,connection_id)
+                );
+                CREATE INDEX trading212_demo_order_books_connection ON trading212_demo_order_books(connection_id);
+                PRAGMA user_version=19;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -764,6 +776,9 @@ impl Store {
                     }
                     "alpaca-paper-order-book" => {
                         event.event_type != "alpaca.paper.order.book.changed"
+                    }
+                    "trading212-demo-order-book" => {
+                        event.event_type != "trading212.demo.order.book.changed"
                     }
                     _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
                 }
@@ -1567,6 +1582,22 @@ impl Store {
                 aggregate_type: kind.into(),
                 aggregate_id: id.into(),
                 projection: DomainProjection::AlpacaPaperOrderBook(Box::new(book)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "trading212-demo-order-book" {
+            let workspace_id = self.workspace_id()?;
+            let book = load_trading212_demo_order_book(&self.connection, &workspace_id, id)?
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            let sequence: i64 = self.connection.query_row(
+                "SELECT sequence FROM trading212_demo_order_books WHERE workspace_id=?1 AND connection_id=?2",
+                params![workspace_id, id],
+                |row| row.get(0),
+            ).map_err(storage_error)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::Trading212DemoOrderBook(Box::new(book)),
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
@@ -3308,6 +3339,41 @@ impl Store {
         Ok(book)
     }
 
+    pub fn trading212_demo_order_book(
+        &self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<Option<Trading212DemoOrderBook>> {
+        if workspace_id != self.workspace_id()? || !valid_order_text(connection_id, 128) {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let account = self.account(connection_id)?;
+        account.validate_persisted(workspace_id)?;
+        if account.provider_id != "trading212" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let remote_account_id = account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.as_str())
+            .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+        let mut book =
+            load_trading212_demo_order_book(&self.connection, workspace_id, connection_id)?;
+        if book
+            .as_ref()
+            .is_some_and(|book| book.remote_account_id != remote_account_id)
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        if let Some(book) = &mut book
+            && book.status == Trading212DemoOrderBookStatus::Current
+        {
+            book.status = Trading212DemoOrderBookStatus::Stale;
+            book.reason = Some("FULL_ORDER_BOOK_REFRESH_REQUIRED".into());
+        }
+        Ok(book)
+    }
+
     pub fn begin_alpaca_paper_order_cancel(
         &mut self,
         input: &AlpacaPaperOrderCancel,
@@ -3501,6 +3567,126 @@ impl Store {
             params![workspace_id, book.connection_id, next_sequence, encoded],
         ).map_err(storage_error)?;
         let event = write_alpaca_order_book_event(&tx, &book, next_sequence)?;
+        tx.commit().map_err(storage_error)?;
+        Ok((book, event))
+    }
+
+    pub fn complete_trading212_demo_order_book(
+        &mut self,
+        mut book: Trading212DemoOrderBook,
+    ) -> Result<(Trading212DemoOrderBook, DomainEvent)> {
+        let workspace_id = self.workspace_id()?;
+        if book.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&book.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.provider_id != "trading212"
+            || account.environment != "DEMO"
+            || book.environment != "DEMO"
+            || account
+                .data
+                .as_ref()
+                .map(|data| data.remote_account_id.as_str())
+                != Some(book.remote_account_id.as_str())
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let row: Option<(i64, String)> = tx
+            .query_row(
+                "SELECT sequence,projection FROM trading212_demo_order_books WHERE workspace_id=?1 AND connection_id=?2",
+                params![workspace_id, book.connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let sequence = if let Some((sequence, projection)) = row {
+            let current: Trading212DemoOrderBook = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || current.state_version
+                    != trading212_demo_order_book_version(&book.connection_id, sequence as u64)
+                || book.state_version != current.state_version
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            sequence
+        } else {
+            if book.state_version != trading212_demo_order_book_version(&book.connection_id, 0) {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            0
+        };
+        let mut attempts = tx
+            .prepare(
+                "SELECT projection FROM trading212_demo_order_attempts WHERE workspace_id=?1 AND connection_id=?2",
+            )
+            .map_err(storage_error)?;
+        let attempt_projections = attempts
+            .query_map(params![workspace_id, book.connection_id], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(attempts);
+        let attempts = attempt_projections
+            .iter()
+            .map(|projection| {
+                serde_json::from_str::<Trading212DemoOrderAttempt>(projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        for order in &mut book.orders {
+            let mut matching = attempts.iter().filter(|attempt| {
+                attempt.connection_id == book.connection_id
+                    && attempt.remote_account_id == book.remote_account_id
+                    && attempt.provider_order_id.as_deref()
+                        == Some(order.provider_order_id.as_str())
+            });
+            if let Some(attempt) = matching.next() {
+                if matching.next().is_some() {
+                    return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+                }
+                order.origin = Trading212DemoOrderOrigin::TradeX;
+                order.attempt_id = Some(attempt.attempt_id.clone());
+            } else {
+                order.origin = Trading212DemoOrderOrigin::External;
+                order.attempt_id = None;
+            }
+        }
+        validate_trading212_demo_order_book(&book)?;
+        let next_sequence = sequence
+            .checked_add(1)
+            .filter(|next| *next <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        book.state_version =
+            trading212_demo_order_book_version(&book.connection_id, next_sequence as u64);
+        let encoded = serde_json::to_string(&book).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO trading212_demo_order_books(workspace_id,connection_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(workspace_id,connection_id) DO UPDATE SET sequence=excluded.sequence,projection=excluded.projection",
+            params![workspace_id, book.connection_id, next_sequence, encoded],
+        )
+        .map_err(storage_error)?;
+        let event = write_trading212_demo_order_book_event(&tx, &book, next_sequence)?;
         tx.commit().map_err(storage_error)?;
         Ok((book, event))
     }
@@ -5379,6 +5565,10 @@ fn alpaca_order_book_version(connection_id: &str, sequence: u64) -> String {
     format!("alpaca-paper-order-book:{connection_id}:{sequence}")
 }
 
+fn trading212_demo_order_book_version(connection_id: &str, sequence: u64) -> String {
+    format!("trading212-demo-order-book:{connection_id}:{sequence}")
+}
+
 fn provider_order_id_valid(id: &str) -> bool {
     id.len() == 36 && Uuid::parse_str(id).is_ok()
 }
@@ -5487,6 +5677,198 @@ fn valid_provider_decimal(value: &str, allow_zero: bool) -> bool {
     crate::provider_io::decimal(&serde_json::Value::String(value.to_owned())).is_ok_and(
         |normalized| normalized == value && !value.starts_with('-') && (allow_zero || value != "0"),
     )
+}
+
+fn valid_signed_provider_decimal(value: &str, allow_zero: bool) -> bool {
+    crate::provider_io::decimal(&serde_json::Value::String(value.to_owned()))
+        .is_ok_and(|normalized| normalized == value && (allow_zero || value != "0"))
+}
+
+fn valid_trading212_status(
+    raw: &str,
+    normalized: crate::protocol::Trading212DemoNormalizedOrderStatus,
+) -> bool {
+    use crate::protocol::Trading212DemoNormalizedOrderStatus as Status;
+    matches!(
+        (raw, normalized),
+        ("LOCAL", Status::Local)
+            | ("UNCONFIRMED", Status::Pending)
+            | ("CONFIRMED", Status::Open)
+            | ("NEW", Status::Open)
+            | ("CANCELLING", Status::CancelPending)
+            | ("CANCELLED", Status::Cancelled)
+            | ("PARTIALLY_FILLED", Status::PartiallyFilled)
+            | ("FILLED", Status::Filled)
+            | ("REJECTED", Status::Rejected)
+            | ("REPLACING", Status::Replacing)
+            | ("REPLACED", Status::Replaced)
+    )
+}
+
+fn validate_trading212_demo_order_book(book: &Trading212DemoOrderBook) -> Result<()> {
+    let invalid = || TradeXError::new("WORKSPACE_INTEGRITY_FAILED");
+    if !valid_order_text(&book.workspace_id, 128)
+        || !valid_order_text(&book.connection_id, 128)
+        || !crate::provider_io::valid_t212_order_id(&book.remote_account_id)
+        || book.environment != "DEMO"
+        || !valid_order_text(&book.state_version, 256)
+        || !valid_provider_time(&book.observed_at)
+        || book.orders.len() > 5000
+        || book.history_page_count > 100
+        || book.history_cursors.len() > 100
+        || book.history_page_count as usize != book.history_cursors.len()
+        || book.history_started != (book.history_page_count > 0)
+        || book
+            .reason
+            .as_deref()
+            .is_some_and(|value| !valid_order_text(value, 256))
+        || book
+            .last_successful_sync_at
+            .as_deref()
+            .is_some_and(|value| !valid_order_text(value, 64) || !valid_provider_time(value))
+        || book
+            .next_page_path
+            .as_deref()
+            .is_some_and(|path| !crate::provider_io::valid_t212_history_path(path))
+        || book.history_complete && book.next_page_path.is_some()
+        || !book.history_started && book.history_complete
+        || [
+            book.rate_limits.pending_orders_retry_at.as_deref(),
+            book.rate_limits.order_detail_retry_at.as_deref(),
+            book.rate_limits.history_retry_at.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|value| !valid_order_text(value, 64) || !valid_provider_time(value))
+    {
+        return Err(invalid());
+    }
+    let mut cursors = std::collections::HashSet::new();
+    if book.history_cursors.iter().any(|cursor| {
+        (cursor != "FIRST"
+            && (cursor.is_empty()
+                || cursor.len() > 19
+                || !cursor.bytes().all(|byte| byte.is_ascii_digit())
+                || cursor.parse::<i64>().is_err()))
+            || !cursors.insert(cursor.as_str())
+    }) {
+        return Err(invalid());
+    }
+    let mut ids = std::collections::HashSet::new();
+    for order in &book.orders {
+        if !crate::provider_io::valid_t212_order_id(&order.provider_order_id)
+            || !valid_order_text(&order.symbol, 64)
+            || !order
+                .symbol
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"._/-".contains(&byte))
+            || !matches!(order.side.as_str(), "BUY" | "SELL")
+            || !matches!(
+                order.order_type.as_str(),
+                "MARKET" | "LIMIT" | "STOP" | "STOP_LIMIT"
+            )
+            || !matches!(order.time_in_force.as_str(), "DAY" | "GOOD_TILL_CANCEL")
+            || !valid_trading212_status(&order.provider_status, order.normalized_status)
+            || !valid_order_text(&order.submitted_at, 64)
+            || !valid_provider_time(&order.submitted_at)
+            || !valid_order_text(&order.observed_at, 64)
+            || !valid_provider_time(&order.observed_at)
+            || !ids.insert(order.provider_order_id.as_str())
+            || order
+                .provider_updated_at
+                .as_deref()
+                .is_some_and(|value| !valid_order_text(value, 64) || !valid_provider_time(value))
+            || order
+                .quantity
+                .as_deref()
+                .is_some_and(|value| !valid_signed_provider_decimal(value, true))
+            || order
+                .filled_quantity
+                .as_deref()
+                .is_some_and(|value| !valid_signed_provider_decimal(value, true))
+            || order
+                .filled_value
+                .as_deref()
+                .is_some_and(|value| !valid_provider_decimal(value, true))
+            || order.currency.as_deref().is_some_and(|value| {
+                value.len() != 3 || !value.bytes().all(|byte| byte.is_ascii_uppercase())
+            })
+            || order
+                .remaining_quantity
+                .as_deref()
+                .is_some_and(|value| !valid_provider_decimal(value, true))
+            || order.origin == Trading212DemoOrderOrigin::TradeX
+                && order
+                    .attempt_id
+                    .as_deref()
+                    .is_none_or(|value| !valid_order_text(value, 128))
+            || order.origin == Trading212DemoOrderOrigin::External && order.attempt_id.is_some()
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(())
+}
+
+fn load_trading212_demo_order_book(
+    connection: &Connection,
+    workspace_id: &str,
+    connection_id: &str,
+) -> Result<Option<Trading212DemoOrderBook>> {
+    let row: Option<(i64, String)> = connection
+        .query_row(
+            "SELECT sequence,projection FROM trading212_demo_order_books WHERE workspace_id=?1 AND connection_id=?2",
+            params![workspace_id, connection_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((sequence, projection)) = row else {
+        return Ok(None);
+    };
+    let book: Trading212DemoOrderBook = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || book.workspace_id != workspace_id
+        || book.connection_id != connection_id
+        || book.state_version != trading212_demo_order_book_version(connection_id, sequence as u64)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    validate_trading212_demo_order_book(&book)?;
+    Ok(Some(book))
+}
+
+fn write_trading212_demo_order_book_event(
+    tx: &Transaction<'_>,
+    book: &Trading212DemoOrderBook,
+    sequence: i64,
+) -> Result<DomainEvent> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trading212.demo.order.book.changed".into(),
+        schema_version: 1,
+        occurred_at: book.observed_at.clone(),
+        aggregate_type: "trading212-demo-order-book".into(),
+        aggregate_id: book.connection_id.clone(),
+        sequence: u64::try_from(sequence).map_err(storage_error)?,
+        payload: DomainProjection::Trading212DemoOrderBook(Box::new(book.clone())),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES(?1,?2,?3,?4,?5)",
+        params![
+            event.aggregate_type,
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?,
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
 }
 
 fn load_alpaca_paper_order_book(

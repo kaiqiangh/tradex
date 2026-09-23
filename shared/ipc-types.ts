@@ -98,7 +98,8 @@ export type DomainProjection =
   | Thread
   | Trading212DemoOrderAttempt
   | AlpacaPaperOrderAttempt
-  | AlpacaPaperOrderBook;
+  | AlpacaPaperOrderBook
+  | Trading212DemoOrderBook;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayStatus".
@@ -195,6 +196,31 @@ export type TurnStatus = "RUNNING" | "COMPLETED" | "CANCELLED" | "INTERRUPTED" |
  * via the `definition` "Trading212DemoOrderAttemptState".
  */
 export type Trading212DemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoNormalizedOrderStatus".
+ */
+export type Trading212DemoNormalizedOrderStatus =
+  | "LOCAL"
+  | "PENDING"
+  | "OPEN"
+  | "CANCEL_PENDING"
+  | "CANCELLED"
+  | "PARTIALLY_FILLED"
+  | "FILLED"
+  | "REJECTED"
+  | "REPLACING"
+  | "REPLACED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderOrigin".
+ */
+export type Trading212DemoOrderOrigin = "TRADE_X" | "EXTERNAL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderBookStatus".
+ */
+export type Trading212DemoOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRADED" | "STALE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayAction".
@@ -326,6 +352,8 @@ export type ReplyData =
   | OrderProposalRefreshResult
   | Trading212DemoOrderAttempt
   | Trading212DemoOrderAttemptQueryResult
+  | Trading212DemoOrderBook
+  | Trading212DemoOrderBookQueryResult
   | AlpacaPaperOrderAttempt
   | AlpacaPaperOrderAttemptQueryResult
   | AlpacaPaperOrderBook
@@ -464,6 +492,11 @@ export type StrategyDirection = "BUY" | "SELL" | "HOLD";
 export type StrategyFixtureScenario = "SUCCESS" | "FAILURE" | "CANCELLED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderBookAction".
+ */
+export type Trading212DemoOrderBookAction = "PENDING" | "HISTORY" | "DETAIL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
  */
 export type ModelAttemptKind = "SETUP" | "THREAD";
@@ -571,9 +604,14 @@ export interface IpcSchema {
   threadQuery: ThreadQuery;
   timeStatus: TimeStatus;
   tradeRecord: TradeRecord;
+  trading212DemoOrder: Trading212DemoOrder;
   trading212DemoOrderAttempt: Trading212DemoOrderAttempt;
   trading212DemoOrderAttemptQuery: Trading212DemoOrderAttemptQuery;
   trading212DemoOrderAttemptQueryResult: Trading212DemoOrderAttemptQueryResult;
+  trading212DemoOrderBook: Trading212DemoOrderBook;
+  trading212DemoOrderBookQuery: Trading212DemoOrderBookQuery;
+  trading212DemoOrderBookQueryResult: Trading212DemoOrderBookQueryResult;
+  trading212DemoOrderBookRefresh: Trading212DemoOrderBookRefresh;
   trading212DemoOrderSubmit: Trading212DemoOrderSubmit;
   turnCancel: TurnCancel;
   turnRetry: TurnRetry;
@@ -1245,6 +1283,7 @@ export interface DomainEvent {
     | "risk"
     | "thread"
     | "trading212-demo-order-attempt"
+    | "trading212-demo-order-book"
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book";
   eventId: string;
@@ -1258,6 +1297,7 @@ export interface DomainEvent {
     | "thread.created"
     | "thread.updated"
     | "trading212.demo.order.attempt.changed"
+    | "trading212.demo.order.book.changed"
     | "alpaca.paper.order.attempt.changed"
     | "alpaca.paper.order.book.changed";
   occurredAt: string;
@@ -1880,6 +1920,67 @@ export interface Trading212DemoOrderAttempt {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderBook".
+ */
+export interface Trading212DemoOrderBook {
+  connectionId: string;
+  environment: "DEMO";
+  historyComplete: boolean;
+  /**
+   * @maxItems 100
+   */
+  historyCursors: string[];
+  historyPageCount: number;
+  historyStarted: boolean;
+  lastSuccessfulSyncAt?: string | null;
+  nextPagePath?: string | null;
+  observedAt: string;
+  /**
+   * @maxItems 5000
+   */
+  orders: Trading212DemoOrder[];
+  rateLimits: Trading212DemoRateLimits;
+  reason?: string | null;
+  remoteAccountId: string;
+  stateVersion: string;
+  status: Trading212DemoOrderBookStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrder".
+ */
+export interface Trading212DemoOrder {
+  attemptId?: string | null;
+  currency?: string | null;
+  filledQuantity?: string | null;
+  filledValue?: string | null;
+  normalizedStatus: Trading212DemoNormalizedOrderStatus;
+  observedAt: string;
+  orderType: string;
+  origin: Trading212DemoOrderOrigin;
+  pending: boolean;
+  providerOrderId: string;
+  providerStatus: string;
+  providerUpdatedAt?: string | null;
+  quantity?: string | null;
+  remainingQuantity?: string | null;
+  side: string;
+  submittedAt: string;
+  symbol: string;
+  timeInForce: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoRateLimits".
+ */
+export interface Trading212DemoRateLimits {
+  historyRetryAt?: string | null;
+  orderDetailRetryAt?: string | null;
+  pendingOrdersRetryAt?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayMutation".
  */
 export interface GatewayMutation {
@@ -2379,6 +2480,7 @@ export interface Snapshot {
     | "risk"
     | "thread"
     | "trading212-demo-order-attempt"
+    | "trading212-demo-order-book"
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book";
   lastSequence: number;
@@ -2431,7 +2533,17 @@ export interface Remediation {
 export interface SubscriptionAck {
   afterSequence: number;
   aggregateId: string;
-  aggregateType: "workspace" | "account" | "model-gateway" | "model" | "risk" | "thread";
+  aggregateType:
+    | "workspace"
+    | "account"
+    | "model-gateway"
+    | "model"
+    | "risk"
+    | "thread"
+    | "trading212-demo-order-attempt"
+    | "trading212-demo-order-book"
+    | "alpaca-paper-order-attempt"
+    | "alpaca-paper-order-book";
   lastSequence: number;
   replayedCount: number;
 }
@@ -3403,6 +3515,13 @@ export interface Trading212DemoOrderAttemptQueryResult {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderBookQueryResult".
+ */
+export interface Trading212DemoOrderBookQueryResult {
+  book?: Trading212DemoOrderBook | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Artifact".
  */
 export interface Artifact {
@@ -4280,6 +4399,25 @@ export interface ThreadQuery {
  */
 export interface Trading212DemoOrderAttemptQuery {
   proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderBookQuery".
+ */
+export interface Trading212DemoOrderBookQuery {
+  connectionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderBookRefresh".
+ */
+export interface Trading212DemoOrderBookRefresh {
+  action: Trading212DemoOrderBookAction;
+  connectionId: string;
+  expectedConnectionStateVersion: string;
+  providerOrderId?: string | null;
   workspaceId: string;
 }
 /**

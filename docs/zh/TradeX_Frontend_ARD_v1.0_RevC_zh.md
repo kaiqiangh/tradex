@@ -606,6 +606,12 @@ Accounts surface 显示文字形式的私有流与 reconciliation 状态，以�
 
 Order Drafts surface 仅在独立确认后，通过 `trading212.demo.order.submit` 提交所选的不可变 `TRADING212_DEMO` Proposal。确认界面标识 Demo 环境并准确展示标的、方向、数量、订单类型、限价和有效期。只支持 BASE 数量型 Market-DAY 与 Limit-DAY/GTC；Market 确认还显示 extended-hours 已关闭。Reload 后通过 `trading212.demo.order.attempt.get` 恢复已保存 attempt。UI 区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 和 `REJECTED`；不能把 acknowledgement 称作成交。重复提交只读取已保存 attempt，不再发第二个 POST。未知结果禁用重试并保持冻结，因为 provider 不公开 TradeX client-order identity。所有操作只能由主 Trade UI 触发；Agent 与 Live 均不能进入此路径。
 
+### 13.11 Trading 212 Demo 订单簿（S18 #62）
+
+Order Drafts 允许用户选择一个已连接的 Trading 212 Demo 账户，并在选择/重新加载时读取其已保存订单簿。显式控件可刷新待处理订单、刷新某个准确且已保存的待处理订单详情，或每次加载一个有界历史页。面板标明 `TRADING212_DEMO`、provider order ID、`TRADE_X` / `EXTERNAL` 来源、原始与归一化 provider 状态、订单类型/有效期、提交/观察时间、精确累计成交数量/金额，以及可确定时的剩余数量。只有已记录 provider order ID 完全匹配时才显示 TradeX attempt；不关联相似订单。Provider 缺失值保持为 `Unavailable`。
+
+UI 区分尚未同步、加载、空、当前、stale/degraded 和限流读取，显示最近成功读取与 endpoint 重试时间，并在读取不完整后保留已保存观察。历史控件显示页数/是否完成，且不能触发自动轮询。只有已保存观察仍标记订单待处理时才提供详情控件；详情返回终态后会移除该操作。列表和控件支持键盘及窄屏阅读。累计成交金额在币种可用时与 provider 报告的币种一起显示；UI 不换算或推断单位。不合成 fill 行，也不增加 stream 或 Live/Agent 操作。
+
 ---
 
 ## 14. Live Execution UI 架构

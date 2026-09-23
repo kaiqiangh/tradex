@@ -297,6 +297,27 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     } else if (selection === 'trading212/DEMO') {
       await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+      const orderBook = ui.locator('.order-book-panel');
+      await orderBook.getByLabel('Trading 212 Demo account', { exact: true }).selectOption(existingValue);
+      await orderBook.getByText(/No provider read has completed/).waitFor({ state: 'visible' });
+      await orderBook.getByRole('button', { name: 'Refresh pending orders', exact: true }).press('Enter');
+      const preexistingOrder = orderBook.locator('.order-book-order').filter({ hasText: '9007199254740996' });
+      await preexistingOrder.waitFor({ state: 'visible' });
+      assert.match(await preexistingOrder.innerText(), /External provider order/);
+      assert.match(await preexistingOrder.innerText(), /PARTIALLY_FILLED \/ PARTIALLY_FILLED/);
+      assert.match(await preexistingOrder.innerText(), /1\.23 GBP/);
+      await orderBook.getByRole('button', { name: 'Load order history', exact: true }).press('Enter');
+      const externalOrder = orderBook.locator('.order-book-order').filter({ hasText: '8001' });
+      await externalOrder.waitFor({ state: 'visible' });
+      assert.match(await externalOrder.innerText(), /TRADING212_DEMO · External provider order/);
+      assert.match(await externalOrder.innerText(), /FILLED \/ FILLED/);
+      assert.match(await externalOrder.innerText(), /201\.234567890123456789 GBP/);
+      await orderBook.getByRole('button', { name: 'Refresh order history', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: /PROVIDER_RATE_LIMITED.*Retry after/ }).waitFor({ state: 'visible' });
+      await orderBook.getByRole('alert').filter({ hasText: 'PROVIDER_RATE_LIMITED' }).waitFor({ state: 'visible' });
+      assert.equal(await orderBook.locator('.order-book-order').filter({ hasText: '8001' }).count(), 1);
+      observed.push('Trading 212 Demo order book loads a pre-existing external partial order with its currency and an external completed order; an immediate history refresh renders its retry time and retains the trusted row.');
+
       await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
       await ui.getByLabel('Execution context').selectOption('TRADING212_DEMO');
       const accountSelect = ui.locator('.order-draft-editor').getByLabel('Account');
@@ -359,7 +380,30 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
         .getByText('Trading 212 Demo · TRADING212_DEMO · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
       assert.equal(await ui.getByRole('button', { name: 'Submit Trading 212 Demo order', exact: true }).count(), 0);
       observed.push('Reload reads the SQLite-backed Trading 212 Demo attempt and prevents a second UI submission.');
-      await (await waitForButton('Accounts')).press('Enter');
+
+      await ui.locator('.order-book-panel').getByLabel('Trading 212 Demo account', { exact: true }).selectOption(existingValue);
+      const savedOrderBook = ui.locator('.order-book-panel');
+      await ui.waitForTimeout(5100);
+      await savedOrderBook.getByRole('button', { name: 'Refresh pending orders', exact: true }).press('Enter');
+      const partialOrder = savedOrderBook.locator('.order-book-order').filter({ hasText: '9007199254740995' });
+      await partialOrder.waitFor({ state: 'visible' });
+      assert.match(await partialOrder.innerText(), /TradeX proposal/);
+      assert.match(await partialOrder.innerText(), /PARTIALLY_FILLED \/ PARTIALLY_FILLED/);
+      assert.match(await partialOrder.innerText(), /0\.25/);
+      assert.match(await partialOrder.innerText(), /33\.125/);
+      assert.match(await partialOrder.innerText(), /0\.984567890123456789/);
+      await partialOrder.getByRole('button', { name: 'Refresh known order details', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: /Trading 212 Demo order detail refreshed at/ }).waitFor({ state: 'visible' });
+      assert.match(await partialOrder.innerText(), /PARTIALLY_FILLED \/ PARTIALLY_FILLED/);
+      assert.match(await partialOrder.innerText(), /33\.125/);
+      for (const width of [768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Trading 212 order book overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      observed.push('Reload restores the exact TradeX order identity; known-order refresh preserves cumulative partial fills, and the order-book card fits 768px and 390px layouts.');
+      await ui.getByText('More', { exact: true }).press('Enter');
+      await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     }
 

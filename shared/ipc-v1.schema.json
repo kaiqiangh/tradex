@@ -301,6 +301,9 @@
     "tradeRecord": {
       "$ref": "#/$defs/TradeRecord"
     },
+    "trading212DemoOrder": {
+      "$ref": "#/$defs/Trading212DemoOrder"
+    },
     "trading212DemoOrderAttempt": {
       "$ref": "#/$defs/Trading212DemoOrderAttempt"
     },
@@ -309,6 +312,18 @@
     },
     "trading212DemoOrderAttemptQueryResult": {
       "$ref": "#/$defs/Trading212DemoOrderAttemptQueryResult"
+    },
+    "trading212DemoOrderBook": {
+      "$ref": "#/$defs/Trading212DemoOrderBook"
+    },
+    "trading212DemoOrderBookQuery": {
+      "$ref": "#/$defs/Trading212DemoOrderBookQuery"
+    },
+    "trading212DemoOrderBookQueryResult": {
+      "$ref": "#/$defs/Trading212DemoOrderBookQueryResult"
+    },
+    "trading212DemoOrderBookRefresh": {
+      "$ref": "#/$defs/Trading212DemoOrderBookRefresh"
     },
     "trading212DemoOrderSubmit": {
       "$ref": "#/$defs/Trading212DemoOrderSubmit"
@@ -401,6 +416,11 @@
     "trading212DemoOrderSubmit",
     "trading212DemoOrderAttemptQuery",
     "trading212DemoOrderAttemptQueryResult",
+    "trading212DemoOrderBookQuery",
+    "trading212DemoOrderBookQueryResult",
+    "trading212DemoOrderBookRefresh",
+    "trading212DemoOrderBook",
+    "trading212DemoOrder",
     "alpacaPaperOrderSubmit",
     "alpacaPaperOrderAttemptQuery",
     "alpacaPaperOrderAttemptQueryResult",
@@ -3519,6 +3539,7 @@
             "risk",
             "thread",
             "trading212-demo-order-attempt",
+            "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book"
           ]
@@ -3539,6 +3560,7 @@
             "thread.created",
             "thread.updated",
             "trading212.demo.order.attempt.changed",
+            "trading212.demo.order.book.changed",
             "alpaca.paper.order.attempt.changed",
             "alpaca.paper.order.book.changed"
           ]
@@ -3602,6 +3624,9 @@
         },
         {
           "$ref": "#/$defs/AlpacaPaperOrderBook"
+        },
+        {
+          "$ref": "#/$defs/Trading212DemoOrderBook"
         }
       ]
     },
@@ -7163,6 +7188,12 @@
           "$ref": "#/$defs/Trading212DemoOrderAttemptQueryResult"
         },
         {
+          "$ref": "#/$defs/Trading212DemoOrderBook"
+        },
+        {
+          "$ref": "#/$defs/Trading212DemoOrderBookQueryResult"
+        },
+        {
           "$ref": "#/$defs/AlpacaPaperOrderAttempt"
         },
         {
@@ -8738,6 +8769,7 @@
             "risk",
             "thread",
             "trading212-demo-order-attempt",
+            "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book"
           ]
@@ -9386,7 +9418,11 @@
             "model-gateway",
             "model",
             "risk",
-            "thread"
+            "thread",
+            "trading212-demo-order-attempt",
+            "trading212-demo-order-book",
+            "alpaca-paper-order-attempt",
+            "alpaca-paper-order-book"
           ]
         },
         "lastSequence": {
@@ -10090,6 +10126,143 @@
         "remediationActions"
       ]
     },
+    "Trading212DemoNormalizedOrderStatus": {
+      "type": "string",
+      "enum": [
+        "LOCAL",
+        "PENDING",
+        "OPEN",
+        "CANCEL_PENDING",
+        "CANCELLED",
+        "PARTIALLY_FILLED",
+        "FILLED",
+        "REJECTED",
+        "REPLACING",
+        "REPLACED"
+      ]
+    },
+    "Trading212DemoOrder": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "filledQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "filledValue": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "normalizedStatus": {
+          "$ref": "#/$defs/Trading212DemoNormalizedOrderStatus"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderType": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "origin": {
+          "$ref": "#/$defs/Trading212DemoOrderOrigin"
+        },
+        "pending": {
+          "type": "boolean"
+        },
+        "providerOrderId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "providerStatus": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "providerUpdatedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "remainingQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 8,
+          "minLength": 1
+        },
+        "submittedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "timeInForce": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerOrderId",
+        "symbol",
+        "side",
+        "orderType",
+        "timeInForce",
+        "providerStatus",
+        "normalizedStatus",
+        "pending",
+        "submittedAt",
+        "observedAt",
+        "origin"
+      ]
+    },
     "Trading212DemoOrderAttempt": {
       "type": "object",
       "properties": {
@@ -10230,6 +10403,208 @@
         "REJECTED"
       ]
     },
+    "Trading212DemoOrderBook": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "const": "DEMO"
+        },
+        "historyComplete": {
+          "type": "boolean"
+        },
+        "historyCursors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100
+        },
+        "historyPageCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 0
+        },
+        "historyStarted": {
+          "type": "boolean"
+        },
+        "lastSuccessfulSyncAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "nextPagePath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Trading212DemoOrder"
+          },
+          "maxItems": 5000
+        },
+        "rateLimits": {
+          "$ref": "#/$defs/Trading212DemoRateLimits"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/Trading212DemoOrderBookStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "remoteAccountId",
+        "environment",
+        "status",
+        "stateVersion",
+        "observedAt",
+        "historyStarted",
+        "historyComplete",
+        "historyPageCount",
+        "historyCursors",
+        "rateLimits",
+        "orders"
+      ]
+    },
+    "Trading212DemoOrderBookAction": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "HISTORY",
+        "DETAIL"
+      ]
+    },
+    "Trading212DemoOrderBookQuery": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId"
+      ]
+    },
+    "Trading212DemoOrderBookQueryResult": {
+      "type": "object",
+      "properties": {
+        "book": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Trading212DemoOrderBook"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Trading212DemoOrderBookRefresh": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/Trading212DemoOrderBookAction"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "action"
+      ]
+    },
+    "Trading212DemoOrderBookStatus": {
+      "type": "string",
+      "enum": [
+        "NEVER_SYNCED",
+        "CURRENT",
+        "DEGRADED",
+        "STALE"
+      ]
+    },
+    "Trading212DemoOrderOrigin": {
+      "type": "string",
+      "enum": [
+        "TRADE_X",
+        "EXTERNAL"
+      ]
+    },
     "Trading212DemoOrderSubmit": {
       "type": "object",
       "properties": {
@@ -10282,6 +10657,36 @@
         "idempotencyKey",
         "confirmedDemoOrder"
       ]
+    },
+    "Trading212DemoRateLimits": {
+      "type": "object",
+      "properties": {
+        "historyRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderDetailRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "pendingOrdersRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
     },
     "TurnCancel": {
       "type": "object",
@@ -10760,7 +11165,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 18,
+          "maximum": 19,
           "minimum": 1
         },
         "workspaceId": {

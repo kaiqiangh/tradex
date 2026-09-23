@@ -606,6 +606,12 @@ The Accounts surface shows the textual private-stream and reconciliation states 
 
 The Order Drafts surface submits only the selected immutable `TRADING212_DEMO` Proposal through `trading212.demo.order.submit` after a separate confirmation that names the Demo environment and displays the exact instrument, side, quantity, order type, limit, and time in force. The supported choices are BASE-quantity Market-DAY and Limit-DAY/GTC; Market confirmation states extended hours are off. `trading212.demo.order.attempt.get` restores the saved attempt after reload. The UI distinguishes `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, and `REJECTED`; acknowledgement is never called a fill. Repeating a submit reads the saved attempt and cannot send a second POST. Unknown results disable retry and remain frozen because the provider exposes no TradeX client-order identity. All controls are primary Trade UI actions; neither Agent nor Live can enter this path.
 
+### 13.11 Trading 212 Demo order book (S18 #62)
+
+Order Drafts lets the user select a connected Trading 212 Demo account and reads its saved book on selection/reload. Explicit controls refresh pending orders, refresh the details of an exact saved pending order, or load one bounded page of history at a time. The panel labels `TRADING212_DEMO`, provider order ID, `TRADE_X` versus `EXTERNAL` origin, raw and normalized provider status, order type/time-in-force, submitted/observed time, exact cumulative fill quantity/value, and remaining quantity when determinable. A saved TradeX attempt appears only when its recorded provider order ID exactly matches; similar orders are never linked. Missing provider values remain `Unavailable`.
+
+The UI distinguishes never-synced, loading, empty, current, stale/degraded, and rate-limited reads, shows the last successful read and endpoint retry time, and retains saved observations after an incomplete read. History controls expose page count/completion and cannot trigger automatic polling. Pending-order detail is offered only while the saved observation says the order is pending; a terminal detail response removes that action. Lists and controls remain readable by keyboard and at narrow widths. Cumulative filled value is shown with the provider-reported currency when available; the UI never converts or infers a unit. No fill rows are synthesized, and no stream or Live/Agent action is added.
+
 ---
 
 ## 14. Live Execution UI Architecture

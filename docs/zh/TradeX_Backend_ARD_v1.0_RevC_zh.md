@@ -2499,7 +2499,24 @@ POST 前 Control Plane 重新核对当前 workspace、connection state/version�
 
 通过校验的 HTTP 200 订单响应必须包含正 int64 `id`，且匹配请求中的 ticker、side、绝对 quantity、order type 和适用的 limit/TIF 字段；随后记录不透明 order ID 与非空原始 provider status，作为 acknowledgement 而不是 fill。HTTP 400/401/403/429 明确拒绝时保持 `REJECTED`，且不自动重试。HTTP 408、发送后的 transport failure、其他有歧义/无法识别的响应、identity/字段不匹配或进程中断会进入 `UNKNOWN_RECONCILING` 且不重试。Trading 212 不提供 TradeX client-order identity；因此后续账户读取中相似的订单只能作为候选证据，不能自动绑定 attempt 或解除账户冻结；需要更强证据或后续 S25 authority-resolution 路径。Secret、Authorization header 和原始 provider response 不进入 projection/event。
 
-Attempt 变化通过 aggregate type `trading212-demo-order-attempt` 发布 `trading212.demo.order.attempt.changed`，使用稳定的 attempt identity 和单调序号。Attempt projection 与 outbox event 原子提交。这些命令不增加 Live、Local Paper、Agent、financial approval、arming、reservation 或 Order Gateway 权限；订单簿读取与撤单由后续 S18 子票规定。
+Attempt 变化通过 aggregate type `trading212-demo-order-attempt` 发布 `trading212.demo.order.attempt.changed`，使用稳定的 attempt identity 和单调序号。Attempt projection 与 outbox event 原子提交。这些命令不增加 Live、Local Paper、Agent、financial approval、arming、reservation 或 Order Gateway 权限；订单簿读取由 S18 #62 规定，撤单由 #63 规定。
+
+### 41.22 Trading 212 Demo 订单簿读取（S18 #62）
+
+这些版本 1 只读命令仅允许主 Trade UI 使用已连接且经过权限审阅的 `trading212` / `DEMO` connection。请求使用该 connection 的 Keychain credential，并固定到 `https://demo.trading212.com`。本命令组不开放任何 provider 写入路由。
+
+| 命令 | 载荷 | 成功 data | 行为 |
+|---|---|---|---|
+| `trading212.demo.orders.get` | `{workspaceId, connectionId}` | `{book?: Trading212DemoOrderBook}` | 读取按 workspace 和 connection 隔离的持久订单簿 |
+| `trading212.demo.orders.refresh` | `{workspaceId, connectionId, expectedConnectionStateVersion, action, providerOrderId?}` | `Trading212DemoOrderBook` | 对 `PENDING`、`DETAIL` 或单个 `HISTORY` 页执行一次 provider 读取；`DETAIL` 要求准确订单 ID 已存在于已保存的待处理集合 |
+
+Transport 仅允许 Demo 上的 `GET /api/v0/equity/orders`、`GET /api/v0/equity/orders/{positive-int64-id}` 和 `GET /api/v0/equity/history/orders?limit=50[&cursor=…]`。历史读取只跟随经过校验的 provider `nextPagePath`，每页至多读取 50 行，每账户一次历史读取最多 100 页 / 5,000 笔订单；重复或未前进游标、重复或冲突订单身份、未知状态、格式错误的十进制数、超限/不完整页面或意外路由均拒绝。读取失败会设置 `DEGRADED`，并保留最后可信行与上次成功同步时间。不增加高频轮询或私有流 worker。
+
+`Trading212DemoOrderBook` 由 `workspaceId`、`connectionId`、精确字符串 `remoteAccountId` 和常量 `environment: DEMO` 限定范围。`NEVER_SYNCED`、`CURRENT`、`DEGRADED` 或 `STALE` 状态、观察时间、历史游标/页状态、endpoint 重试时间及最多 5,000 笔订单均持久化，并使用单调版本和 `trading212.demo.order.book.changed` outbox event。每个 `Trading212DemoOrder` 保留十进制字符串 provider ID、原始与独立归一化 provider 状态、`pending`、精确可选十进制字符串数量/累计成交数量/累计成交金额/剩余数量、可选 provider 报告的 ISO 币种代码、provider 与 TradeX 观察时间、`TRADE_X` 或 `EXTERNAL` 来源，以及可选关联 attempt ID。TradeX attempt 只有在同一 connection 与远端账户中已有完全匹配的 provider order ID 时才会关联；不会推断或绑定相似提交候选项。只有精确订单仍在已保存的待处理集合中时，详情端点才可查询；已核验的终态详情会将订单从该集合移除。
+
+开放订单、详情和历史读取分别使用按账户门控（5 秒、1 秒和 10 秒）。Adapter 在 provider 返回 `x-ratelimit-remaining: 0` 时遵守其 reset 截止时间，并展示下一次可读取时间。累计成交仍是订单观察：acknowledgement 不是成交，也不合成逐笔执行行。Value 策略订单若 provider 未提供数量，则数量和剩余数量保持不可用；缺失数字绝不显示为零。
+
+Order Drafts surface 以文字呈现加载、尚未同步、空、当前、stale/degraded 和重试状态。手动刷新会更新其返回 projection；持久事件保留相同 identity 与 sequence 契约，供 projection 消费者使用。不增加 Live、Agent、Local Paper、approval、arming、reservation 或 gateway 权限。
 
 ## 42. Backend-to-Frontend Event Surface
 

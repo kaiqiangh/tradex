@@ -822,6 +822,12 @@ Manual Resolution 先加载后端持有的证据与允许的决策。Confirmed s
 
 Trading 212 Demo 的明确提交确认是独立于 Live 审批的 provider 写入门槛。界面标识 `Trading 212 Demo · TRADING212_DEMO` 并展示不可变 Proposal 的准确字段；Market 还须显示 extended-hours 已关闭。只提供 `BASE` 数量型 Market-DAY 和 Limit-DAY/GTC。Acknowledgement 显示 provider order ID/status，并明确它不是成交。已知拒绝展示有限长度原因；超时或无法核验的响应显示 `UNKNOWN_RECONCILING`、禁用重试，并在重复激活时重读已保存 attempt。Trading 212 不返回 TradeX client-order identity，因此刷新发现的相似订单只能作为候选，不能自动绑定或解除冻结。Demo 出错时不得回退到 Live。
 
+### 14.5.1 Trading 212 Demo 订单簿读取（S18 #62）
+
+在 Order Drafts 中选择已连接的 `TRADING212_DEMO` 账户后加载其已保存观察。“Refresh pending orders”“Refresh known order details”和“Load order history”均为显式用户操作；每次历史操作只前进一个 provider 游标页。待处理订单与历史订单分组并分别标注。每张订单卡展示 provider ID、`TRADE_X` / `EXTERNAL` 来源、并列显示的原始 provider status 与归一化状态、类型/有效期、提交和观察时间、累计成交数量/金额及 provider 报告的币种（如有），以及可确定时的剩余数量。缺失字段显示为 unavailable；不得换算或推断币种，绝不捏造执行明细。只有已保存 provider identity 完全匹配时才关联 TradeX attempt。
+
+尚未同步、加载、空、当前、stale/degraded 和限流状态均使用清晰文字，并显示最近成功读取及 endpoint 下次重试时间。读取不完整时保留最后可信订单并说明错误。读取进行中或所选账户断开时禁用刷新操作。仅已保存待处理订单显示详情刷新；provider 确认终态后须移除该操作。使用原生 button/select、可见焦点、status/alert 语义、可换行的订单事实，并验证 390/768px 布局。本区域不自动轮询、不增加私有流，也不提供写入/撤单控件。
+
 ## 14.6 Screener 复核与结果流程（C2/C3）
 
 明确分步：Describe → Parse → Inspect/edit FilterSpec → Run → Results。提供 schema 支持的 universe、谓词、阈值、排序/排名和结果上限编辑。解析后修改自然语言会使解释陈旧，必须重新 Parse；结构化编辑使旧结果失效。Run 使用当前展示且已验证的 FilterSpec 版本。

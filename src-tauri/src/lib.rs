@@ -45,8 +45,10 @@ use protocol::{
     StrategyRunRequest, StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate,
     ThreadItem, ThreadModel, ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError,
     Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult,
-    Trading212DemoOrderAttemptState, Trading212DemoOrderSubmit, TurnCancel, TurnRetry,
-    TurnSnapshot, TurnStart,
+    Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookAction,
+    Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult,
+    Trading212DemoOrderBookRefresh, Trading212DemoOrderBookStatus, Trading212DemoOrderSubmit,
+    Trading212DemoRateLimits, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -467,6 +469,38 @@ fn empty_alpaca_paper_order_book(account: &AccountConnection) -> Result<AlpacaPa
         reason: None,
         orders: Vec::new(),
         fills: Vec::new(),
+    })
+}
+
+fn empty_trading212_demo_order_book(
+    account: &AccountConnection,
+) -> Result<Trading212DemoOrderBook> {
+    let remote_account_id = account
+        .data
+        .as_ref()
+        .map(|data| data.remote_account_id.clone())
+        .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+    Ok(Trading212DemoOrderBook {
+        workspace_id: account.workspace_id.clone(),
+        connection_id: account.connection_id.clone(),
+        remote_account_id,
+        environment: "DEMO".into(),
+        status: Trading212DemoOrderBookStatus::NeverSynced,
+        state_version: format!("trading212-demo-order-book:{}:0", account.connection_id),
+        last_successful_sync_at: None,
+        observed_at: storage::timestamp()?,
+        reason: None,
+        history_started: false,
+        history_complete: false,
+        history_page_count: 0,
+        next_page_path: None,
+        history_cursors: Vec::new(),
+        rate_limits: Trading212DemoRateLimits {
+            pending_orders_retry_at: None,
+            order_detail_retry_at: None,
+            history_retry_at: None,
+        },
+        orders: Vec::new(),
     })
 }
 
@@ -951,6 +985,20 @@ impl ControlPlane {
                     .unwrap()
                     .alpaca_paper_order_book(&input.workspace_id, &input.connection_id)?;
                 Ok((json!(AlpacaPaperOrderBookQueryResult { book }), None))
+            }
+            "trading212.demo.orders.get" => {
+                let input: Trading212DemoOrderBookQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let store = self.store.as_ref().unwrap();
+                let book = match store
+                    .trading212_demo_order_book(&input.workspace_id, &input.connection_id)?
+                {
+                    Some(book) => Some(book),
+                    None => Some(empty_trading212_demo_order_book(
+                        &store.account(&input.connection_id)?,
+                    )?),
+                };
+                Ok((json!(Trading212DemoOrderBookQueryResult { book }), None))
             }
             "alpaca.paper.order.submit" => {
                 if !provider_order_consumer_allowed(consumer) {
@@ -3862,6 +3910,9 @@ impl ControlPlane {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
         match request.command.as_str() {
+            "trading212.demo.orders.refresh" => {
+                return self.prepare_trading212_demo_order_book_refresh(request, consumer);
+            }
             "trading212.demo.order.submit" => {
                 return self.prepare_trading212_demo_order_submit(request, consumer);
             }
@@ -3941,6 +3992,8 @@ impl ControlPlane {
             request_id: request.request_id,
             trading212_demo_attempt: None,
             trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: None,
@@ -4009,6 +4062,8 @@ impl ControlPlane {
             request_id: request.request_id,
             trading212_demo_attempt: Some(attempt),
             trading212_demo_proposal: Some(proposal),
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: None,
@@ -4084,6 +4139,8 @@ impl ControlPlane {
             request_id: request.request_id,
             trading212_demo_attempt: None,
             trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
             alpaca_attempt: Some(attempt),
             alpaca_proposal: Some(proposal),
             alpaca_order_book: None,
@@ -4134,6 +4191,8 @@ impl ControlPlane {
             request_id: request.request_id,
             trading212_demo_attempt: None,
             trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
             alpaca_attempt: Some(attempt),
             alpaca_proposal: Some(proposal),
             alpaca_order_book: None,
@@ -4178,9 +4237,79 @@ impl ControlPlane {
             request_id: request.request_id,
             trading212_demo_attempt: None,
             trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: Some(book),
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+        }))
+    }
+
+    fn prepare_trading212_demo_order_book_refresh(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: Trading212DemoOrderBookRefresh = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "trading212" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.credential != "CONFIGURED"
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let book = self
+            .store
+            .as_ref()
+            .unwrap()
+            .trading212_demo_order_book(&input.workspace_id, &input.connection_id)?
+            .unwrap_or(empty_trading212_demo_order_book(&account)?);
+        let (kind, order_id) = match input.action {
+            Trading212DemoOrderBookAction::Pending if input.provider_order_id.is_none() => {
+                (JobKind::Trading212DemoOrderBookPending, None)
+            }
+            Trading212DemoOrderBookAction::History if input.provider_order_id.is_none() => {
+                (JobKind::Trading212DemoOrderBookHistory, None)
+            }
+            Trading212DemoOrderBookAction::Detail => {
+                let id = input
+                    .provider_order_id
+                    .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+                if !book
+                    .orders
+                    .iter()
+                    .any(|order| order.provider_order_id == id && order.pending)
+                {
+                    return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+                }
+                (JobKind::Trading212DemoOrderBookDetail, Some(id))
+            }
+            _ => return Err(TradeXError::new("IPC_PAYLOAD_INVALID")),
+        };
+        Ok(Some(ProviderJob {
+            account,
+            kind,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: Some(book),
+            trading212_demo_order_id: order_id,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
             alpaca_order_id: None,
             alpaca_expected_order: None,
         }))
@@ -4224,6 +4353,8 @@ impl ControlPlane {
             request_id: request.request_id,
             trading212_demo_attempt: None,
             trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: Some(book),
@@ -4265,6 +4396,8 @@ impl ControlPlane {
             request_id: request.request_id,
             trading212_demo_attempt: None,
             trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
             alpaca_attempt: None,
             alpaca_proposal: None,
             alpaca_order_book: Some(book),
@@ -4499,6 +4632,50 @@ impl ControlPlane {
                     "stateVersion":attempt.state_version,
                     "data":attempt
                 }),
+                Err(error) => failure_reply(job.request_id.clone(), error),
+            };
+        }
+        if matches!(
+            job.kind,
+            JobKind::Trading212DemoOrderBookPending
+                | JobKind::Trading212DemoOrderBookHistory
+                | JobKind::Trading212DemoOrderBookDetail
+        ) {
+            if job.session != self.session || !self.provider_job_current(job) {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("STATE_VERSION_CONFLICT"),
+                );
+            }
+            let book = outcome.trading212_demo_order_book.or_else(|| {
+                job.trading212_demo_order_book.clone().map(|mut book| {
+                    book.status = Trading212DemoOrderBookStatus::Degraded;
+                    book.reason = Some("ORDER_STATUS_UNKNOWN".into());
+                    book
+                })
+            });
+            let Some(book) = book else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_STATUS_UNKNOWN"),
+                );
+            };
+            return match self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_trading212_demo_order_book(book)
+            {
+                Ok((book, event)) => {
+                    self.publish(&event);
+                    json!({
+                        "requestId":job.request_id,
+                        "schemaVersion":1,
+                        "ok":true,
+                        "stateVersion":book.state_version,
+                        "data":book
+                    })
+                }
                 Err(error) => failure_reply(job.request_id.clone(), error),
             };
         }
@@ -6436,6 +6613,9 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute("DROP TABLE trading212_demo_order_attempts", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE trading212_demo_order_books", [])
             .unwrap();
         migration_database
             .pragma_update(None, "user_version", 8)

@@ -5,7 +5,9 @@ use crate::{
         AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook,
         AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, ExecutionContext, OrderProposal,
         OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
-        Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState,
+        Trading212DemoNormalizedOrderStatus, Trading212DemoOrder, Trading212DemoOrderAttempt,
+        Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
+        Trading212DemoOrderOrigin,
     },
     providers::*,
 };
@@ -14,7 +16,12 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use serde_json::{Value, json};
-use std::{io::Read, time::Duration};
+use std::{
+    collections::HashMap,
+    io::Read,
+    sync::{Mutex, OnceLock},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use zeroize::Zeroizing;
 
 #[path = "binance.rs"]
@@ -26,6 +33,137 @@ mod trading212;
 
 const MAX_RESPONSE: u64 = 2 * 1024 * 1024;
 const SERVICE: &str = "com.tradex.broker.credentials";
+static TRADING212_READ_LIMITS: OnceLock<Mutex<HashMap<(String, &'static str), i64>>> =
+    OnceLock::new();
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Trading212ReadEndpoint {
+    PendingOrders,
+    OrderDetail,
+    History,
+}
+
+impl Trading212ReadEndpoint {
+    fn key(self) -> &'static str {
+        match self {
+            Self::PendingOrders => "orders",
+            Self::OrderDetail => "order-detail",
+            Self::History => "history-orders",
+        }
+    }
+    fn minimum_interval(self) -> i64 {
+        match self {
+            Self::PendingOrders => 5,
+            Self::OrderDetail => 1,
+            Self::History => 10,
+        }
+    }
+    fn deadline(self, book: &Trading212DemoOrderBook) -> &Option<String> {
+        match self {
+            Self::PendingOrders => &book.rate_limits.pending_orders_retry_at,
+            Self::OrderDetail => &book.rate_limits.order_detail_retry_at,
+            Self::History => &book.rate_limits.history_retry_at,
+        }
+    }
+    fn deadline_mut(self, book: &mut Trading212DemoOrderBook) -> &mut Option<String> {
+        match self {
+            Self::PendingOrders => &mut book.rate_limits.pending_orders_retry_at,
+            Self::OrderDetail => &mut book.rate_limits.order_detail_retry_at,
+            Self::History => &mut book.rate_limits.history_retry_at,
+        }
+    }
+}
+
+fn trading212_order_read_error(status: u16, endpoint: Trading212ReadEndpoint) -> TradeXError {
+    match status {
+        401 => TradeXError::new("PROVIDER_AUTH_FAILED"),
+        403 => TradeXError::new("PROVIDER_PERMISSION_BLOCKED"),
+        404 if endpoint == Trading212ReadEndpoint::OrderDetail => {
+            TradeXError::new("ORDER_STATUS_UNKNOWN")
+        }
+        429 => TradeXError::new("PROVIDER_RATE_LIMITED"),
+        408 | 500..=599 => TradeXError::new("PROVIDER_UNAVAILABLE"),
+        400..=499 => TradeXError::new("PROVIDER_RESPONSE_INVALID"),
+        _ => TradeXError::new("PROVIDER_DATA_INCOMPLETE"),
+    }
+}
+
+fn unix_now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+fn unix_timestamp(value: i64) -> Result<String> {
+    time::OffsetDateTime::from_unix_timestamp(value)
+        .map_err(|_| invalid())?
+        .format(&time::format_description::well_known::Rfc3339)
+        .map_err(|_| invalid())
+}
+
+fn parsed_timestamp(value: &str) -> Option<i64> {
+    time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+        .ok()
+        .map(|value| value.unix_timestamp())
+}
+
+// ponytail: one process-wide map serializes tiny per-account reservations; per-account locks only if request volume requires it.
+fn reserve_trading212_read(
+    book: &mut Trading212DemoOrderBook,
+    endpoint: Trading212ReadEndpoint,
+) -> Result<String> {
+    let now = unix_now();
+    let persisted = endpoint
+        .deadline(book)
+        .as_deref()
+        .and_then(parsed_timestamp)
+        .unwrap_or_default();
+    let limits = TRADING212_READ_LIMITS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut limits = limits.lock().unwrap_or_else(|error| error.into_inner());
+    let key = (book.remote_account_id.clone(), endpoint.key());
+    let previous = limits.get(&key).copied().unwrap_or_default();
+    let allowed_at = persisted.max(previous);
+    if now < allowed_at {
+        let retry_at = unix_timestamp(allowed_at)?;
+        *endpoint.deadline_mut(book) = Some(retry_at);
+        return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+    }
+    let next = now.saturating_add(endpoint.minimum_interval());
+    limits.insert(key, next);
+    let retry_at = unix_timestamp(next)?;
+    *endpoint.deadline_mut(book) = Some(retry_at.clone());
+    Ok(retry_at)
+}
+
+fn record_trading212_rate_limit(
+    book: &mut Trading212DemoOrderBook,
+    endpoint: Trading212ReadEndpoint,
+    headers: Option<ProviderRateLimit>,
+) -> Result<()> {
+    let mut deadline = endpoint
+        .deadline(book)
+        .as_deref()
+        .and_then(parsed_timestamp)
+        .unwrap_or_default();
+    if headers.as_ref().and_then(|headers| headers.remaining) == Some(0)
+        && let Some(reset) = headers
+            .and_then(|headers| headers.reset_at)
+            .as_deref()
+            .and_then(parsed_timestamp)
+    {
+        deadline = deadline.max(reset);
+    }
+    if deadline > 0 {
+        *endpoint.deadline_mut(book) = Some(unix_timestamp(deadline)?);
+        let limits = TRADING212_READ_LIMITS.get_or_init(|| Mutex::new(HashMap::new()));
+        limits
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .insert((book.remote_account_id.clone(), endpoint.key()), deadline);
+    }
+    Ok(())
+}
 
 // No Debug/Serialize implementation: this value stays inside native capture, Keychain and signing.
 pub struct Credentials(Zeroizing<Vec<u8>>);
@@ -119,7 +257,16 @@ impl ProviderEndpoint {
             Self::AlpacaPaper => allowed_path(path),
             Self::BitgetDemo | Self::BitgetLive => bitget::allows(path),
             Self::BinanceTestnet | Self::BinanceLive => binance::allows(self, path),
-            _ => matches!(
+            Self::Trading212Demo => {
+                matches!(
+                    path,
+                    "/api/v0/equity/account/summary"
+                        | "/api/v0/equity/positions"
+                        | "/api/v0/equity/orders"
+                ) || valid_t212_order_detail_path(path)
+                    || valid_t212_history_path(path)
+            }
+            Self::Trading212Live => matches!(
                 path,
                 "/api/v0/equity/account/summary"
                     | "/api/v0/equity/positions"
@@ -148,6 +295,77 @@ impl ProviderEndpoint {
     }
 }
 
+fn valid_t212_order_detail_path(path: &str) -> bool {
+    path.strip_prefix("/api/v0/equity/orders/")
+        .is_some_and(valid_t212_order_id)
+}
+
+pub(crate) fn valid_t212_order_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 20
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+        && value.parse::<i64>().is_ok_and(|id| id > 0)
+}
+
+pub(crate) fn valid_t212_history_path(path: &str) -> bool {
+    let Some((route, query)) = path.split_once('?') else {
+        return false;
+    };
+    if route != "/api/v0/equity/history/orders" || query.is_empty() || path.len() > 512 {
+        return false;
+    }
+    let mut limit = false;
+    let mut cursor = false;
+    for pair in query.split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            return false;
+        };
+        match key {
+            "limit" if !limit && value == "50" => limit = true,
+            "cursor"
+                if !cursor
+                    && !value.is_empty()
+                    && value.len() <= 19
+                    && value.bytes().all(|byte| byte.is_ascii_digit())
+                    && value.parse::<i64>().is_ok() =>
+            {
+                cursor = true
+            }
+            _ => return false,
+        }
+    }
+    limit
+}
+
+fn t212_history_cursor(path: &str) -> Option<String> {
+    let (_, query) = path.split_once('?')?;
+    query.split('&').find_map(|pair| {
+        let (key, value) = pair.split_once('=')?;
+        (key == "cursor").then(|| value.to_owned())
+    })
+}
+
+fn rate_limit(headers: &HeaderMap) -> Option<ProviderRateLimit> {
+    let remaining = headers
+        .get("x-ratelimit-remaining")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse().ok());
+    let reset_at = headers
+        .get("x-ratelimit-reset")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<i64>().ok())
+        .and_then(|value| time::OffsetDateTime::from_unix_timestamp(value).ok())
+        .and_then(|value| {
+            value
+                .format(&time::format_description::well_known::Rfc3339)
+                .ok()
+        });
+    (remaining.is_some() || reset_at.is_some()).then_some(ProviderRateLimit {
+        remaining,
+        reset_at,
+    })
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProviderHttpMethod {
     Get,
@@ -158,6 +376,12 @@ pub enum ProviderHttpMethod {
 pub struct ProviderHttpResponse {
     pub status: u16,
     pub body: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ProviderRateLimit {
+    pub remaining: Option<u64>,
+    pub reset_at: Option<String>,
 }
 
 pub trait ProviderHttp {
@@ -176,6 +400,18 @@ pub trait ProviderHttp {
         }
         self.get(endpoint, path, headers)
             .map(|body| ProviderHttpResponse { status: 200, body })
+    }
+
+    fn request_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        self.request(endpoint, method, path, headers, body)
+            .map(|response| (response, None))
     }
 }
 
@@ -264,6 +500,18 @@ impl ProviderHttp for BrokerHttp {
         headers: HeaderMap,
         body: Option<&Value>,
     ) -> Result<ProviderHttpResponse> {
+        self.request_with_rate_limit(endpoint, method, path, headers, body)
+            .map(|(response, _)| response)
+    }
+
+    fn request_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
         if !endpoint.allows_method(method, path) {
             return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
         }
@@ -299,6 +547,7 @@ impl ProviderHttp for BrokerHttp {
             return Err(invalid());
         }
         let status = response.status().as_u16();
+        let rate_limit = rate_limit(response.headers());
         let mut bytes = Vec::new();
         response
             .take(MAX_RESPONSE + 1)
@@ -307,10 +556,13 @@ impl ProviderHttp for BrokerHttp {
         if bytes.len() as u64 > MAX_RESPONSE {
             return Err(invalid());
         }
-        Ok(ProviderHttpResponse {
-            status,
-            body: bytes,
-        })
+        Ok((
+            ProviderHttpResponse {
+                status,
+                body: bytes,
+            },
+            rate_limit,
+        ))
     }
 }
 
@@ -320,6 +572,9 @@ pub(crate) enum JobKind {
     Probe,
     Disconnect,
     Trading212DemoSubmit,
+    Trading212DemoOrderBookPending,
+    Trading212DemoOrderBookHistory,
+    Trading212DemoOrderBookDetail,
     AlpacaPaperSubmit,
     AlpacaPaperReconcile,
     AlpacaPaperOrderBookRefresh,
@@ -334,6 +589,8 @@ pub struct ProviderJob {
     pub(crate) request_id: String,
     pub(crate) trading212_demo_attempt: Option<Trading212DemoOrderAttempt>,
     pub(crate) trading212_demo_proposal: Option<OrderProposal>,
+    pub(crate) trading212_demo_order_book: Option<Trading212DemoOrderBook>,
+    pub(crate) trading212_demo_order_id: Option<String>,
     pub(crate) alpaca_attempt: Option<AlpacaPaperOrderAttempt>,
     pub(crate) alpaca_proposal: Option<OrderProposal>,
     pub(crate) alpaca_order_book: Option<AlpacaPaperOrderBook>,
@@ -359,6 +616,7 @@ pub struct ProviderOutcome {
     pub(crate) error: Option<TradeXError>,
     pub(crate) credential: String,
     pub(crate) trading212_demo_attempt: Option<Trading212DemoOrderAttempt>,
+    pub(crate) trading212_demo_order_book: Option<Trading212DemoOrderBook>,
     pub(crate) alpaca_paper_attempt: Option<AlpacaPaperOrderAttempt>,
     pub(crate) alpaca_paper_order_book: Option<AlpacaPaperOrderBook>,
 }
@@ -388,6 +646,7 @@ impl ProviderJob {
                 .into(),
                 error: result.err(),
                 trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             };
@@ -400,6 +659,14 @@ impl ProviderJob {
         }
         if self.kind == JobKind::Trading212DemoSubmit {
             return self.run_trading212_demo_order(vault, http, current);
+        }
+        if matches!(
+            self.kind,
+            JobKind::Trading212DemoOrderBookPending
+                | JobKind::Trading212DemoOrderBookHistory
+                | JobKind::Trading212DemoOrderBookDetail
+        ) {
+            return self.run_trading212_demo_order_book(vault, http, current);
         }
         if matches!(
             self.kind,
@@ -591,6 +858,7 @@ impl ProviderJob {
                 error: None,
                 credential: credential.into(),
                 trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             },
@@ -599,6 +867,7 @@ impl ProviderJob {
                 error: Some(error),
                 credential: credential.into(),
                 trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             },
@@ -617,6 +886,7 @@ impl ProviderJob {
                 error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
                 credential: "MISSING".into(),
                 trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             };
@@ -731,6 +1001,243 @@ impl ProviderJob {
             error: None,
             credential: credential_state.into(),
             trading212_demo_attempt: Some(attempt),
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+        }
+    }
+
+    fn run_trading212_demo_order_book(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let Some(mut book) = self.trading212_demo_order_book.clone() else {
+            return ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("ORDER_STATUS_UNKNOWN")),
+                credential: "MISSING".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+            };
+        };
+        let mut credential_state = "MISSING";
+        let outcome = (|| -> Result<()> {
+            if self.account.provider_id != "trading212"
+                || self.account.environment != "DEMO"
+                || book.environment != "DEMO"
+                || book.connection_id != self.account.connection_id
+                || book.workspace_id != self.account.workspace_id
+                || self
+                    .account
+                    .data
+                    .as_ref()
+                    .map(|data| data.remote_account_id.as_str())
+                    != Some(book.remote_account_id.as_str())
+                || !matches!(
+                    self.kind,
+                    JobKind::Trading212DemoOrderBookPending
+                        | JobKind::Trading212DemoOrderBookHistory
+                        | JobKind::Trading212DemoOrderBookDetail
+                )
+            {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let secret = vault.get(&self.account.credential_ref())?;
+            credential_state = "CONFIGURED";
+            let mut values = secret.values()?;
+            if values.len() != 2 || values[0].contains(':') {
+                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+            }
+            use base64::Engine;
+            let combined = Zeroizing::new(format!("{}:{}", values[0], values[1]));
+            let encoded = Zeroizing::new(
+                base64::engine::general_purpose::STANDARD.encode(combined.as_bytes()),
+            );
+            let header_text = Zeroizing::new(format!("Basic {}", encoded.as_str()));
+            let mut header = HeaderValue::from_str(&header_text)
+                .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+            header.set_sensitive(true);
+            let mut auth = HeaderMap::new();
+            auth.insert("Authorization", header);
+            values.push(encoded.to_string());
+
+            let now = crate::storage::timestamp()?;
+            let mut candidate = book.clone();
+            let endpoint = match self.kind {
+                JobKind::Trading212DemoOrderBookPending => Trading212ReadEndpoint::PendingOrders,
+                JobKind::Trading212DemoOrderBookHistory => Trading212ReadEndpoint::History,
+                JobKind::Trading212DemoOrderBookDetail => Trading212ReadEndpoint::OrderDetail,
+                _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+            let path = match self.kind {
+                JobKind::Trading212DemoOrderBookPending => "/api/v0/equity/orders".to_owned(),
+                JobKind::Trading212DemoOrderBookDetail => {
+                    let order_id = self
+                        .trading212_demo_order_id
+                        .as_deref()
+                        .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+                    if !valid_t212_order_id(order_id)
+                        || !book
+                            .orders
+                            .iter()
+                            .any(|order| order.provider_order_id == order_id && order.pending)
+                    {
+                        return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+                    }
+                    format!("/api/v0/equity/orders/{order_id}")
+                }
+                JobKind::Trading212DemoOrderBookHistory => {
+                    if book.history_page_count >= 100 && !book.history_complete {
+                        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                    }
+                    if !book.history_started || book.history_complete {
+                        candidate.history_started = false;
+                        candidate.history_complete = false;
+                        candidate.history_page_count = 0;
+                        candidate.next_page_path = None;
+                        candidate.history_cursors.clear();
+                        "/api/v0/equity/history/orders?limit=50".to_owned()
+                    } else {
+                        book.next_page_path
+                            .clone()
+                            .filter(|path| valid_t212_history_path(path))
+                            .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?
+                    }
+                }
+                _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+            let cursor_token = if self.kind == JobKind::Trading212DemoOrderBookHistory {
+                t212_history_cursor(&path).unwrap_or_else(|| "FIRST".into())
+            } else {
+                String::new()
+            };
+            if self.kind == JobKind::Trading212DemoOrderBookHistory
+                && candidate.history_cursors.contains(&cursor_token)
+            {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            reserve_trading212_read(&mut book, endpoint)?;
+            let (response, limit_headers) = http.request_with_rate_limit(
+                ProviderEndpoint::Trading212Demo,
+                ProviderHttpMethod::Get,
+                &path,
+                auth,
+                None,
+            )?;
+            record_trading212_rate_limit(&mut book, endpoint, limit_headers)?;
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if response.status != 200 {
+                return Err(trading212_order_read_error(response.status, endpoint));
+            }
+            let value: Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
+            if contains_secret(&value, &values) {
+                return Err(invalid());
+            }
+            match self.kind {
+                JobKind::Trading212DemoOrderBookPending => {
+                    let rows = value.as_array().ok_or_else(invalid)?;
+                    if rows.len() > 500 {
+                        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                    }
+                    let mut seen = std::collections::HashSet::new();
+                    let mut parsed = Vec::with_capacity(rows.len());
+                    for row in rows {
+                        let order = parse_trading212_order(row, &now, true)?;
+                        if !seen.insert(order.provider_order_id.clone()) {
+                            return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+                        }
+                        parsed.push(order);
+                    }
+                    candidate.orders = merge_trading212_orders(&book.orders, parsed, true, false)?;
+                    candidate.observed_at = now.clone();
+                    candidate.last_successful_sync_at = Some(now.clone());
+                }
+                JobKind::Trading212DemoOrderBookDetail => {
+                    let order_id = self.trading212_demo_order_id.as_deref().unwrap();
+                    let mut order = parse_trading212_order(&value, &now, true)?;
+                    if order.provider_order_id != order_id {
+                        return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+                    }
+                    order.pending = !matches!(
+                        order.normalized_status,
+                        Trading212DemoNormalizedOrderStatus::Cancelled
+                            | Trading212DemoNormalizedOrderStatus::Filled
+                            | Trading212DemoNormalizedOrderStatus::Rejected
+                            | Trading212DemoNormalizedOrderStatus::Replaced
+                    );
+                    candidate.orders =
+                        merge_trading212_orders(&book.orders, vec![order], false, true)?;
+                    candidate.observed_at = now.clone();
+                    candidate.last_successful_sync_at = Some(now.clone());
+                }
+                JobKind::Trading212DemoOrderBookHistory => {
+                    let rows = value["items"].as_array().ok_or_else(invalid)?;
+                    if rows.len() > 50 {
+                        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                    }
+                    let mut seen = std::collections::HashSet::new();
+                    let mut parsed = Vec::with_capacity(rows.len());
+                    for row in rows {
+                        let order = parse_trading212_order(row, &now, false)?;
+                        if !seen.insert(order.provider_order_id.clone()) {
+                            return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+                        }
+                        parsed.push(order);
+                    }
+                    let next = match value.get("nextPagePath") {
+                        Some(Value::Null) => None,
+                        Some(Value::String(path)) if valid_t212_history_path(path) => {
+                            Some(path.clone())
+                        }
+                        _ => return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE")),
+                    };
+                    if next.as_deref().is_some_and(|next| {
+                        t212_history_cursor(next).is_none_or(|cursor| {
+                            cursor == cursor_token || candidate.history_cursors.contains(&cursor)
+                        })
+                    }) {
+                        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                    }
+                    candidate.orders = merge_trading212_orders(&book.orders, parsed, false, false)?;
+                    candidate.history_cursors.push(cursor_token);
+                    candidate.history_page_count = candidate
+                        .history_page_count
+                        .checked_add(1)
+                        .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+                    candidate.history_started = true;
+                    candidate.history_complete = next.is_none();
+                    candidate.next_page_path = next;
+                    candidate.observed_at = now.clone();
+                    candidate.last_successful_sync_at = Some(now.clone());
+                }
+                _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            }
+            candidate.status = Trading212DemoOrderBookStatus::Current;
+            candidate.reason = None;
+            candidate.rate_limits = book.rate_limits.clone();
+            book = candidate;
+            Ok(())
+        })();
+        if let Err(error) = outcome {
+            book.status = Trading212DemoOrderBookStatus::Degraded;
+            book.reason = Some(error.code.clone());
+            book.observed_at = crate::storage::timestamp().unwrap_or(book.observed_at.clone());
+        }
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: credential_state.into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: Some(book),
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: None,
         }
@@ -748,6 +1255,7 @@ impl ProviderJob {
                 error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
                 credential: "MISSING".into(),
                 trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             };
@@ -927,6 +1435,7 @@ impl ProviderJob {
             error: None,
             credential: credential_state.into(),
             trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
             alpaca_paper_attempt: Some(attempt),
             alpaca_paper_order_book: None,
         }
@@ -944,6 +1453,7 @@ impl ProviderJob {
                 error: Some(TradeXError::new("ORDER_STATUS_UNKNOWN")),
                 credential: "MISSING".into(),
                 trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
             };
@@ -1053,6 +1563,7 @@ impl ProviderJob {
             error: None,
             credential: credential_state.into(),
             trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: Some(book),
         }
@@ -1380,6 +1891,167 @@ fn get_alpaca_order(
         return Err(invalid());
     }
     parse_alpaca_order(&value, &crate::storage::timestamp()?)
+}
+
+fn parse_trading212_order(
+    value: &Value,
+    observed_at: &str,
+    pending: bool,
+) -> Result<Trading212DemoOrder> {
+    let provider_order_id = trading212::order_id(value)?;
+    let symbol = if value.get("instrument").is_some_and(Value::is_object) {
+        text(&value["instrument"], "ticker", 64)?
+    } else {
+        text(value, "ticker", 64)?
+    };
+    if value.get("ticker").is_some() && text(value, "ticker", 64)? != symbol {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+    }
+    if !symbol
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || b"._/-".contains(&byte))
+    {
+        return Err(invalid());
+    }
+    let side = text(value, "side", 8)?;
+    if !matches!(side.as_str(), "BUY" | "SELL") {
+        return Err(invalid());
+    }
+    let order_type = text(value, "type", 32)?;
+    if !matches!(
+        order_type.as_str(),
+        "MARKET" | "LIMIT" | "STOP" | "STOP_LIMIT"
+    ) {
+        return Err(invalid());
+    }
+    let time_in_force = text(value, "timeInForce", 32)?;
+    if !matches!(time_in_force.as_str(), "DAY" | "GOOD_TILL_CANCEL") {
+        return Err(invalid());
+    }
+    let provider_status = text(value, "status", 32)?;
+    let normalized_status = match provider_status.as_str() {
+        "LOCAL" => Trading212DemoNormalizedOrderStatus::Local,
+        "UNCONFIRMED" => Trading212DemoNormalizedOrderStatus::Pending,
+        "CONFIRMED" | "NEW" => Trading212DemoNormalizedOrderStatus::Open,
+        "CANCELLING" => Trading212DemoNormalizedOrderStatus::CancelPending,
+        "CANCELLED" => Trading212DemoNormalizedOrderStatus::Cancelled,
+        "PARTIALLY_FILLED" => Trading212DemoNormalizedOrderStatus::PartiallyFilled,
+        "FILLED" => Trading212DemoNormalizedOrderStatus::Filled,
+        "REJECTED" => Trading212DemoNormalizedOrderStatus::Rejected,
+        "REPLACING" => Trading212DemoNormalizedOrderStatus::Replacing,
+        "REPLACED" => Trading212DemoNormalizedOrderStatus::Replaced,
+        _ => return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE")),
+    };
+    let strategy = text(value, "strategy", 16)?;
+    let quantity = match strategy.as_str() {
+        "QUANTITY" => optional_trading212_decimal(value, "quantity")?,
+        "VALUE" => None,
+        _ => return Err(invalid()),
+    };
+    let filled_quantity = optional_trading212_decimal(value, "filledQuantity")?;
+    let filled_value = optional_trading212_decimal(value, "filledValue")?;
+    let currency = match value.get("currency") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(currency))
+            if currency.len() == 3 && currency.bytes().all(|byte| byte.is_ascii_uppercase()) =>
+        {
+            Some(currency.clone())
+        }
+        _ => return Err(invalid()),
+    };
+    if (strategy == "QUANTITY" && filled_quantity.is_none())
+        || (strategy == "VALUE" && filled_value.is_none())
+        || quantity.as_deref().is_some_and(|value| value.len() > 64)
+        || filled_quantity
+            .as_deref()
+            .is_some_and(|value| value.len() > 64)
+        || filled_value
+            .as_deref()
+            .is_some_and(|value| value.starts_with('-') || value.len() > 64)
+    {
+        return Err(invalid());
+    }
+    let remaining_quantity = match (quantity.as_deref(), filled_quantity.as_deref()) {
+        (Some(quantity), Some(filled)) => {
+            let quantity = quantity.strip_prefix('-').unwrap_or(quantity);
+            let filled = filled.strip_prefix('-').unwrap_or(filled);
+            Some(decimal_subtract(quantity, filled)?)
+        }
+        _ => None,
+    };
+    Ok(Trading212DemoOrder {
+        provider_order_id,
+        symbol,
+        side,
+        order_type,
+        time_in_force,
+        provider_status,
+        normalized_status,
+        pending,
+        quantity,
+        filled_quantity,
+        filled_value,
+        currency,
+        remaining_quantity,
+        submitted_at: provider_timestamp(value, "createdAt")?,
+        provider_updated_at: None,
+        observed_at: observed_at.to_owned(),
+        origin: Trading212DemoOrderOrigin::External,
+        attempt_id: None,
+    })
+}
+
+fn merge_trading212_orders(
+    existing: &[Trading212DemoOrder],
+    incoming: Vec<Trading212DemoOrder>,
+    replace_pending_set: bool,
+    refresh_exact_order: bool,
+) -> Result<Vec<Trading212DemoOrder>> {
+    let mut orders = existing.to_vec();
+    if replace_pending_set {
+        for order in &mut orders {
+            order.pending = false;
+        }
+    }
+    for received in incoming {
+        if let Some(current) = orders
+            .iter_mut()
+            .find(|order| order.provider_order_id == received.provider_order_id)
+        {
+            if current.symbol != received.symbol
+                || current.side != received.side
+                || current.order_type != received.order_type
+                || current.time_in_force != received.time_in_force
+                || current.quantity != received.quantity
+                || current.submitted_at != received.submitted_at
+                || current.currency.is_some()
+                    && received.currency.is_some()
+                    && current.currency != received.currency
+            {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+            }
+            if replace_pending_set || refresh_exact_order || received.pending || !current.pending {
+                current.provider_status = received.provider_status;
+                current.normalized_status = received.normalized_status;
+                current.filled_quantity = received.filled_quantity;
+                current.filled_value = received.filled_value;
+                current.remaining_quantity = received.remaining_quantity;
+                current.observed_at = received.observed_at;
+            }
+            current.currency = received.currency.or_else(|| current.currency.clone());
+            if replace_pending_set || refresh_exact_order {
+                current.pending = received.pending;
+            } else {
+                current.pending |= received.pending;
+            }
+        } else {
+            orders.push(received);
+        }
+    }
+    if orders.len() > 5000 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    Ok(orders)
 }
 
 pub(crate) fn parse_alpaca_order(value: &Value, observed_at: &str) -> Result<AlpacaPaperOrder> {
@@ -2532,7 +3204,11 @@ pub fn decimal(value: &Value) -> Result<String> {
 
 #[cfg(test)]
 mod trading212_demo_route_tests {
-    use super::{ProviderEndpoint, ProviderHttpMethod};
+    use super::{
+        ProviderEndpoint, ProviderHttpMethod, Trading212ReadEndpoint, merge_trading212_orders,
+        parse_trading212_order, trading212_order_read_error, valid_t212_history_path,
+    };
+    use serde_json::{Value, json};
 
     #[test]
     fn order_posts_are_restricted_to_the_two_demo_routes() {
@@ -2557,12 +3233,181 @@ mod trading212_demo_route_tests {
             !ProviderEndpoint::Trading212Demo
                 .allows_method(ProviderHttpMethod::Delete, "/api/v0/equity/orders/1")
         );
+        assert!(ProviderEndpoint::Trading212Demo.allows("/api/v0/equity/orders"));
+        assert!(ProviderEndpoint::Trading212Demo.allows("/api/v0/equity/orders/9007199254740995"));
+        assert!(
+            ProviderEndpoint::Trading212Demo
+                .allows("/api/v0/equity/history/orders?limit=50&cursor=1760346100000")
+        );
+        assert!(
+            !ProviderEndpoint::Trading212Live
+                .allows("/api/v0/equity/history/orders?limit=50&cursor=1760346100000")
+        );
+        for path in [
+            "/api/v0/equity/orders/0",
+            "/api/v0/equity/orders/9007199254740995?x=1",
+            "/api/v0/equity/history/orders?limit=500",
+            "/api/v0/equity/history/orders?limit=50&cursor=1&cursor=2",
+            "/api/v0/equity/history/orders?limit=50&next=https://evil.test",
+            "/api/v0/equity/history/orders/../orders?limit=50",
+        ] {
+            assert!(!ProviderEndpoint::Trading212Demo.allows(path), "{path}");
+        }
+        assert!(valid_t212_history_path(
+            "/api/v0/equity/history/orders?cursor=1760346100000&limit=50"
+        ));
+    }
+
+    #[test]
+    fn trading212_orders_keep_exact_cumulative_fills_and_reject_unknown_states() {
+        let partial = parse_trading212_order(
+            &serde_json::from_str::<Value>(
+                r#"{
+                "id":9007199254740995,"ticker":"AAPL_US_EQ","side":"SELL",
+                "type":"LIMIT","timeInForce":"GOOD_TILL_CANCEL","strategy":"QUANTITY",
+                "quantity":-5.000,"filledQuantity":-1.25,"filledValue":12.34567890123456789,"currency":"GBP",
+                "status":"PARTIALLY_FILLED","createdAt":"2026-09-23T10:00:00Z"
+            }"#,
+            )
+            .unwrap(),
+            "2026-09-23T10:01:00Z",
+            true,
+        )
+        .unwrap();
+        assert_eq!(partial.provider_order_id, "9007199254740995");
+        assert_eq!(partial.provider_status, "PARTIALLY_FILLED");
+        assert_eq!(partial.filled_quantity.as_deref(), Some("-1.25"));
+        assert_eq!(
+            partial.filled_value.as_deref(),
+            Some("12.34567890123456789")
+        );
+        assert_eq!(partial.remaining_quantity.as_deref(), Some("3.75"));
+        assert_eq!(partial.currency.as_deref(), Some("GBP"));
+        assert!(partial.pending);
+
+        let filled = parse_trading212_order(
+            &json!({
+                "id":22,"ticker":"MSFT_US_EQ","side":"BUY","type":"MARKET",
+                "timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+                "filledQuantity":5,"filledValue":110.5,"status":"FILLED",
+                "createdAt":"2026-09-23T10:00:00Z"
+            }),
+            "2026-09-23T10:01:00Z",
+            false,
+        )
+        .unwrap();
+        assert_eq!(filled.remaining_quantity.as_deref(), Some("0"));
+        assert!(!filled.pending);
+
+        let invalid_currency = json!({
+            "id":24,"ticker":"MSFT_US_EQ","side":"BUY","type":"MARKET",
+            "timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+            "filledQuantity":5,"filledValue":110.5,"status":"FILLED",
+            "currency":"gbp","createdAt":"2026-09-23T10:00:00Z"
+        });
+        assert_eq!(
+            parse_trading212_order(&invalid_currency, "2026-09-23T10:01:00Z", false)
+                .unwrap_err()
+                .code,
+            "PROVIDER_RESPONSE_INVALID"
+        );
+
+        let mut unknown = json!({
+            "id":23,"ticker":"MSFT_US_EQ","side":"BUY","type":"MARKET",
+            "timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+            "filledQuantity":0,"status":"SOMETHING_NEW",
+            "createdAt":"2026-09-23T10:00:00Z"
+        });
+        assert_eq!(
+            parse_trading212_order(&unknown, "2026-09-23T10:01:00Z", false)
+                .unwrap_err()
+                .code,
+            "PROVIDER_DATA_INCOMPLETE"
+        );
+        unknown["status"] = json!("FILLED");
+        unknown["filledQuantity"] = json!(6);
+        assert_eq!(
+            parse_trading212_order(&unknown, "2026-09-23T10:01:00Z", false)
+                .unwrap_err()
+                .code,
+            "PROVIDER_RESPONSE_INVALID"
+        );
+    }
+
+    #[test]
+    fn trading212_order_reads_classify_client_and_server_errors_separately() {
+        assert_eq!(
+            trading212_order_read_error(418, Trading212ReadEndpoint::PendingOrders).code,
+            "PROVIDER_RESPONSE_INVALID"
+        );
+        assert_eq!(
+            trading212_order_read_error(503, Trading212ReadEndpoint::PendingOrders).code,
+            "PROVIDER_UNAVAILABLE"
+        );
+        assert_eq!(
+            trading212_order_read_error(404, Trading212ReadEndpoint::OrderDetail).code,
+            "ORDER_STATUS_UNKNOWN"
+        );
+    }
+
+    #[test]
+    fn trading212_order_merge_retains_known_currency_and_rejects_conflicts() {
+        let known = parse_trading212_order(
+            &json!({
+                "id":22,"ticker":"MSFT_US_EQ","side":"BUY","type":"MARKET",
+                "timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+                "filledQuantity":1,"filledValue":10,"status":"PARTIALLY_FILLED",
+                "currency":"GBP","createdAt":"2026-09-23T10:00:00Z"
+            }),
+            "2026-09-23T10:01:00Z",
+            true,
+        )
+        .unwrap();
+        let missing = parse_trading212_order(
+            &json!({
+                "id":22,"ticker":"MSFT_US_EQ","side":"BUY","type":"MARKET",
+                "timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+                "filledQuantity":2,"filledValue":20,"status":"PARTIALLY_FILLED",
+                "createdAt":"2026-09-23T10:00:00Z"
+            }),
+            "2026-09-23T10:02:00Z",
+            true,
+        )
+        .unwrap();
+        let merged =
+            merge_trading212_orders(std::slice::from_ref(&known), vec![missing], false, true)
+                .unwrap();
+        assert_eq!(merged[0].currency.as_deref(), Some("GBP"));
+
+        let conflict = parse_trading212_order(
+            &json!({
+                "id":22,"ticker":"MSFT_US_EQ","side":"BUY","type":"MARKET",
+                "timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+                "filledQuantity":2,"filledValue":20,"status":"PARTIALLY_FILLED",
+                "currency":"USD","createdAt":"2026-09-23T10:00:00Z"
+            }),
+            "2026-09-23T10:02:00Z",
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            merge_trading212_orders(&[known], vec![conflict], false, true)
+                .unwrap_err()
+                .code,
+            "PROVIDER_IDENTITY_CONFLICT"
+        );
     }
 }
 fn optional_decimal(value: &Value, field: &str) -> Result<Option<String>> {
     match value.get(field) {
         None | Some(Value::Null) => Ok(None),
         Some(v) => decimal(v).map(Some),
+    }
+}
+fn optional_trading212_decimal(value: &Value, field: &str) -> Result<Option<String>> {
+    match value.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => trading212::number(value).map(Some),
     }
 }
 fn symbol(value: &Value) -> Result<String> {

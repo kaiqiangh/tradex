@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyEvent, fromAlpacaPaperAttemptSnapshot, fromTrading212DemoAttemptSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
+import { applyEvent, fromAlpacaPaperAttemptSnapshot, fromTrading212DemoAttemptSnapshot, fromTrading212DemoOrderBookSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
 
 const workspace = {
   workspaceId: 'workspace-one', name: 'Equity research', baseCurrency: 'EUR', path: '/workspace',
@@ -160,4 +160,47 @@ test('Trading 212 Demo attempts replay by attempt identity without inventing a c
   assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, connectionId: 'connection-two' } }));
   assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, clientOrderId: 'invented-client-order' } }));
   assert.throws(() => applyEvent(initial, { ...event, eventType: 'alpaca.paper.order.attempt.changed' }));
+});
+
+test('Trading 212 Demo order books replay exact cumulative observations under Demo account identity', () => {
+  const book = {
+    workspaceId: 'workspace-one', connectionId: 'connection-one', remoteAccountId: '9007199254740993',
+    environment: 'DEMO' as const, status: 'CURRENT' as const,
+    stateVersion: 'trading212-demo-order-book:connection-one:1',
+    lastSuccessfulSyncAt: '2026-09-23T01:00:00Z', observedAt: '2026-09-23T01:00:00Z',
+    historyStarted: true, historyComplete: false, historyPageCount: 1,
+    nextPagePath: '/api/v0/equity/history/orders?limit=50&cursor=123',
+    historyCursors: ['FIRST'], rateLimits: {},
+    orders: [{
+      providerOrderId: '9007199254740995', symbol: 'AAPL_US_EQ', side: 'BUY',
+      orderType: 'LIMIT', timeInForce: 'DAY', providerStatus: 'PARTIALLY_FILLED',
+      normalizedStatus: 'PARTIALLY_FILLED' as const, pending: true, quantity: '5',
+      filledQuantity: '1.25', filledValue: '25.125', currency: 'GBP', remainingQuantity: '3.75',
+      submittedAt: '2026-09-23T00:59:00Z', observedAt: '2026-09-23T01:00:00Z',
+      origin: 'TRADE_X' as const, attemptId: 'attempt-one',
+    }],
+  };
+  const initial = fromTrading212DemoOrderBookSnapshot({
+    aggregateType: 'trading212-demo-order-book', aggregateId: book.connectionId, projection: book, lastSequence: 1,
+  });
+  const event = {
+    eventId: 't212-order-book-two', eventType: 'trading212.demo.order.book.changed' as const,
+    schemaVersion: 1, occurredAt: '2026-09-23T01:01:00Z',
+    aggregateType: 'trading212-demo-order-book' as const, aggregateId: book.connectionId, sequence: 2,
+    payload: {
+      ...book, stateVersion: 'trading212-demo-order-book:connection-one:2',
+      observedAt: '2026-09-23T01:01:00Z',
+      orders: [{ ...book.orders[0], filledQuantity: '2.5', filledValue: '50.5', remainingQuantity: '2.5', observedAt: '2026-09-23T01:01:00Z' }],
+    },
+  };
+  const next = applyEvent(initial, event);
+  assert.equal(next.snapshot.lastSequence, 2);
+  assert.equal(next.snapshot.projection.orders[0].filledQuantity, '2.5');
+  assert.equal(next.snapshot.projection.orders[0].filledValue, '50.5');
+  assert.equal(next.snapshot.projection.orders[0].currency, 'GBP');
+  assert.equal(next.snapshot.projection.orders[0].remainingQuantity, '2.5');
+  assert.equal(applyEvent(next, structuredClone(event)), next);
+  assert.throws(() => applyEvent(initial, { ...event, eventType: 'alpaca.paper.order.book.changed' }));
+  assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, remoteAccountId: 'other-account' } }));
+  assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, environment: 'LIVE' } }));
 });

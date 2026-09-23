@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use tradex::ControlPlane;
 use tradex::protocol::Result;
-use tradex::provider_io::{CredentialVault, ProviderHttp};
+use tradex::provider_io::{CredentialVault, ProviderHttp, ProviderRateLimit};
 
 #[path = "support/provider_fixtures.rs"]
 mod fixtures;
@@ -237,6 +237,299 @@ fn lifecycle(vault: &impl CredentialVault) {
             assert!(!bytes.windows(secret.len()).any(|w| w == secret.as_bytes()));
         }
     }
+}
+
+#[test]
+fn trading212_demo_order_book_reads_are_scoped_bounded_and_event_persisted() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741101);
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let never_synced = command(
+        &mut cp,
+        "trading212.demo.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(never_synced["ok"], true, "{never_synced}");
+    assert_eq!(never_synced["data"]["book"]["status"], "NEVER_SYNCED");
+    assert_eq!(
+        never_synced["data"]["book"]["remoteAccountId"],
+        "9007199254741101"
+    );
+    assert!(
+        never_synced["data"]["book"]["orders"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "LIMIT",
+        json!({"type":"BASE","value":"5"}),
+        "DAY",
+    );
+    let submitted = execute_main(
+        &mut cp,
+        trading212_submit_request(&workspace, &account, &proposal, "t212-book-attempt"),
+        &vault,
+        &http,
+    );
+    assert_eq!(submitted["ok"], true, "{submitted}");
+    let attempt_id = submitted["data"]["attemptId"].clone();
+    let provider_order_id = submitted["data"]["providerOrderId"].clone();
+    assert_eq!(provider_order_id, "9007199254740995");
+
+    *http.trading212_order_list.borrow_mut() = Some(vec![
+        serde_json::from_str::<Value>(
+            r#"{
+            "id":9007199254740995,"ticker":"AAPL_US_EQ","side":"BUY",
+            "type":"LIMIT","timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+            "filledQuantity":1.25,"filledValue":25.1234567890123456789,"currency":"GBP",
+            "status":"PARTIALLY_FILLED","createdAt":"2026-09-23T10:00:00Z"
+        }"#,
+        )
+        .unwrap(),
+    ]);
+    *http.trading212_rate_limit.borrow_mut() = Some(ProviderRateLimit {
+        remaining: Some(0),
+        reset_at: Some("2099-01-01T00:00:00Z".into()),
+    });
+    let refresh = |action: &str, order_id: Option<&str>| {
+        let mut payload = json!({
+            "workspaceId":workspace,
+            "connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "action":action
+        });
+        if let Some(order_id) = order_id {
+            payload["providerOrderId"] = json!(order_id);
+        }
+        envelope("trading212.demo.orders.refresh", payload)
+    };
+    let pending = execute_main(&mut cp, refresh("PENDING", None), &vault, &http);
+    assert_eq!(pending["ok"], true, "{pending}");
+    assert_eq!(pending["data"]["status"], "CURRENT");
+    assert_eq!(pending["data"]["remoteAccountId"], "9007199254741101");
+    assert_eq!(pending["data"]["environment"], "DEMO");
+    assert_eq!(
+        pending["data"]["orders"][0]["providerOrderId"],
+        "9007199254740995"
+    );
+    assert_eq!(pending["data"]["orders"][0]["filledQuantity"], "1.25");
+    assert_eq!(
+        pending["data"]["orders"][0]["filledValue"],
+        "25.1234567890123456789"
+    );
+    assert_eq!(pending["data"]["orders"][0]["currency"], "GBP");
+    assert_eq!(pending["data"]["orders"][0]["remainingQuantity"], "3.75");
+    assert_eq!(pending["data"]["orders"][0]["origin"], "TRADE_X");
+    assert_eq!(pending["data"]["orders"][0]["attemptId"], attempt_id);
+    assert_eq!(
+        pending["data"]["rateLimits"]["pendingOrdersRetryAt"],
+        "2099-01-01T00:00:00Z"
+    );
+    let saved_book = command(
+        &mut cp,
+        "trading212.demo.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(saved_book["data"]["book"]["status"], "STALE");
+    assert_eq!(
+        saved_book["data"]["book"]["stateVersion"],
+        pending["data"]["stateVersion"]
+    );
+    assert_eq!(
+        saved_book["data"]["book"]["orders"][0]["filledQuantity"],
+        "1.25"
+    );
+
+    let unknown_detail = cp
+        .prepare_provider_for(&refresh("DETAIL", Some("55")), "main")
+        .err()
+        .unwrap();
+    assert_eq!(unknown_detail.code, "ORDER_STATUS_UNKNOWN");
+    let details: Value = serde_json::from_str(
+        r#"{
+        "id":9007199254740995,"ticker":"AAPL_US_EQ","side":"BUY",
+        "type":"LIMIT","timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+        "filledQuantity":2.5,"filledValue":50.9876543210987654321,
+        "status":"PARTIALLY_FILLED","createdAt":"2026-09-23T10:00:00Z"
+    }"#,
+    )
+    .unwrap();
+    http.trading212_order_details
+        .borrow_mut()
+        .insert("9007199254740995".into(), details);
+    let detailed = execute_main(
+        &mut cp,
+        refresh("DETAIL", Some("9007199254740995")),
+        &vault,
+        &http,
+    );
+    assert_eq!(detailed["ok"], true, "{detailed}");
+    assert_eq!(detailed["data"]["orders"][0]["filledQuantity"], "2.5");
+    assert_eq!(
+        detailed["data"]["orders"][0]["filledValue"],
+        "50.9876543210987654321"
+    );
+    assert_eq!(detailed["data"]["orders"][0]["remainingQuantity"], "2.5");
+
+    let history_order: Value = serde_json::from_str(
+        r#"{
+        "id":8001,"ticker":"MSFT_US_EQ","side":"SELL","type":"MARKET",
+        "timeInForce":"DAY","strategy":"QUANTITY","quantity":-2,
+        "filledQuantity":-2,"filledValue":201.234567890123456789,"currency":"GBP",
+        "status":"FILLED","createdAt":"2026-09-22T12:00:00Z"
+    }"#,
+    )
+    .unwrap();
+    http.trading212_history_pages.borrow_mut().insert(
+        "/api/v0/equity/history/orders?limit=50".into(),
+        json!({"items":[history_order],"nextPagePath":"/api/v0/equity/history/orders?limit=50&cursor=123"}),
+    );
+    let next_history_order: Value = serde_json::from_str(
+        r#"{
+        "id":8002,"ticker":"NVDA_US_EQ","side":"BUY","type":"LIMIT",
+        "timeInForce":"GOOD_TILL_CANCEL","strategy":"QUANTITY","quantity":3,
+        "filledQuantity":0,"filledValue":0,
+        "status":"CANCELLED","createdAt":"2026-09-22T11:00:00Z"
+    }"#,
+    )
+    .unwrap();
+    http.trading212_history_pages.borrow_mut().insert(
+        "/api/v0/equity/history/orders?limit=50&cursor=123".into(),
+        json!({"items":[next_history_order],"nextPagePath":null}),
+    );
+    let history = execute_main(&mut cp, refresh("HISTORY", None), &vault, &http);
+    assert_eq!(history["ok"], true, "{history}");
+    assert_eq!(history["data"]["historyPageCount"], 1);
+    assert_eq!(
+        history["data"]["nextPagePath"],
+        "/api/v0/equity/history/orders?limit=50&cursor=123"
+    );
+    let external = history["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "8001")
+        .unwrap();
+    assert_eq!(external["origin"], "EXTERNAL");
+    assert_eq!(external["normalizedStatus"], "FILLED");
+    assert_eq!(external["remainingQuantity"], "0");
+    assert_eq!(external["filledValue"], "201.234567890123456789");
+    assert_eq!(external["currency"], "GBP");
+
+    std::thread::sleep(std::time::Duration::from_millis(10_100));
+    let second_history_page = execute_main(&mut cp, refresh("HISTORY", None), &vault, &http);
+    assert_eq!(second_history_page["ok"], true, "{second_history_page}");
+    assert_eq!(
+        second_history_page["data"]["historyPageCount"], 2,
+        "{second_history_page}"
+    );
+    assert_eq!(second_history_page["data"]["historyComplete"], true);
+    assert_eq!(second_history_page["data"]["nextPagePath"], Value::Null);
+    assert!(
+        second_history_page["data"]["orders"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|order| order["providerOrderId"] == "8002")
+    );
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .any(|path| { path.ends_with("/api/v0/equity/history/orders?limit=50&cursor=123") })
+    );
+
+    let filled_details: Value = serde_json::from_str(
+        r#"{
+        "id":9007199254740995,"ticker":"AAPL_US_EQ","side":"BUY",
+        "type":"LIMIT","timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+        "filledQuantity":5,"filledValue":101.234567890123456789,
+        "status":"FILLED","createdAt":"2026-09-23T10:00:00Z"
+    }"#,
+    )
+    .unwrap();
+    http.trading212_order_details
+        .borrow_mut()
+        .insert("9007199254740995".into(), filled_details);
+    let fully_filled = execute_main(
+        &mut cp,
+        refresh("DETAIL", Some("9007199254740995")),
+        &vault,
+        &http,
+    );
+    assert_eq!(fully_filled["ok"], true, "{fully_filled}");
+    let trade_x_order = fully_filled["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(trade_x_order["providerStatus"], "FILLED");
+    assert_eq!(trade_x_order["pending"], false);
+    assert_eq!(trade_x_order["filledQuantity"], "5");
+    assert_eq!(trade_x_order["filledValue"], "101.234567890123456789");
+    assert_eq!(trade_x_order["remainingQuantity"], "0");
+    assert_eq!(trade_x_order["origin"], "TRADE_X");
+    assert_eq!(trade_x_order["attemptId"], attempt_id);
+    assert_eq!(
+        cp.prepare_provider_for(&refresh("DETAIL", Some("9007199254740995")), "main")
+            .err()
+            .unwrap()
+            .code,
+        "ORDER_STATUS_UNKNOWN"
+    );
+
+    let history_calls_before_retry = http
+        .calls
+        .borrow()
+        .iter()
+        .filter(|path| path.contains("/api/v0/equity/history/orders?limit=50"))
+        .count();
+    let rate_limited = execute_main(&mut cp, refresh("HISTORY", None), &vault, &http);
+    assert_eq!(rate_limited["ok"], true, "{rate_limited}");
+    assert_eq!(rate_limited["data"]["status"], "DEGRADED");
+    assert_eq!(rate_limited["data"]["reason"], "PROVIDER_RATE_LIMITED");
+    assert_eq!(rate_limited["data"]["orders"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|path| path.contains("/api/v0/equity/history/orders?limit=50"))
+            .count(),
+        history_calls_before_retry,
+        "a refresh within the endpoint window must not reach the provider"
+    );
+
+    let book_snapshot = command(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"trading212-demo-order-book","aggregateId":account["connectionId"]}),
+    );
+    assert_eq!(book_snapshot["ok"], true, "{book_snapshot}");
+    assert_eq!(book_snapshot["data"]["lastSequence"], 6);
+    drop(cp);
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let durable = command(
+        &mut reopened,
+        "trading212.demo.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(durable["data"]["book"]["status"], "DEGRADED");
+    assert_eq!(durable["data"]["book"]["orders"][0]["filledQuantity"], "5");
 }
 
 #[test]
