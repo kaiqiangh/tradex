@@ -19,7 +19,8 @@ Alpaca documents that an order can be rejected when an account is unauthorized o
 - `cargo fmt --all -- --check` — passed.
 - `npm run schema:check`, `npm run typecheck`, `npm run test:unit` — passed; unit tests 7/7.
 - `npm run build` — passed; Vite emitted the existing 500 KB chunk-size warning.
-- `node --check tests/provider-ui.mjs` — passed syntax check only; the browser helper was not rerun for this Rust-only change.
+- The repository's `checkProviderUI` assertions from `tests/provider-ui.mjs` ran on 2026-09-23 at dev HEAD `8506400378b28193b202cfbb0f19e6fa80c54f19` against `npm run dev:browser`, using a Playwright adapter with an explicit workspace-ready wait. All 10 observation groups passed. The isolated Rust/SQLite bridge used provider and credential-entry fixtures; no real Alpaca request or Paper order was made. The browser runner excluded the development server's missing `/favicon.ico` from the console-error assertion; no application JavaScript errors were observed.
+- `node --check tests/provider-ui.mjs` — passed.
 - `python3 scripts/check_requirements.py` — passed inventory/traceability check; this does not prove runtime behavior.
 - `git diff --check` — passed.
 - Manual Standards and Spec review of `4173fef..4b8a07b` — PASS on both axes for this error-classification change.
