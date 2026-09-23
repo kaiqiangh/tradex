@@ -1,6 +1,6 @@
 # S18 #62 Trading 212 Demo order-book evidence
 
-**Status:** locally verified with provider and UI fixtures; #62 acceptance is complete. This does not close the S18 parent specification or establish a real Trading 212 account result.
+**Status:** locally verified with provider and UI fixtures; #62 acceptance is complete. This records only local #62 acceptance, not completion of the S18 lifecycle or a real Trading 212 account result.
 
 - Branch: `dev`
 - Implementation baseline: `f6a96feae975c929900f18d7b7d8e050ca82fc95`
@@ -30,4 +30,4 @@ The full check reports the existing Vite bundle-size warning. Repository-declare
 
 ## Evidence boundary and next work
 
-All provider responses and credentials used for these checks were disposable fixtures. No real Trading 212 API request, real account credential, or broker order was used. Real Demo acceptance remains a separate gate in #64 after #63 cancellation and fill-race handling. The next serial implementation item is #63. S17 parent issue #56 remains open as requested; S18 parent issue #60 remains open until its remaining child work is complete.
+All provider responses and credentials used for these checks were disposable fixtures. No real Trading 212 API request, real account credential, or broker order was used. Real Demo acceptance remains a separate gate in #64 after #63 cancellation and fill-race handling. The next serial implementation item is #63. S17 parent issue #56 remains open as requested. S18 issue #60 closed when its specification and ticket breakdown were complete; that closure does not represent lifecycle acceptance, and #63/#64 remain open.
