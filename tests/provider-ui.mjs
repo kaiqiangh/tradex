@@ -4,45 +4,43 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
+async function waitForVersionChange(ui, detail, previous, message) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const next = await detail.getAttribute('data-state-version');
+    if (next && next !== previous) return next;
+    await ui.waitForTimeout(50);
+  }
+  throw new Error(message);
+}
+
+async function sendIntegrationCommand(command, payload, expectedOk = true) {
+  const requestId = randomUUID();
+  const response = await fetch('http://127.0.0.1:1420/__integration/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, schemaVersion: 1, command, payload }),
+  });
+  assert.equal(response.status, 200, 'The Rust integration command endpoint remains available');
+  const result = await response.json();
+  assert.equal(result.requestId, requestId);
+  assert.equal(result.ok, expectedOk, JSON.stringify(result.error));
+  return result;
+}
+
 export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') {
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
   const observed = [];
   let alpacaClientOrderId;
   let alpacaConnectionStateVersion;
-  const sendStreamFixtureCommand = async (command, payload) => {
-    const requestId = randomUUID();
-    const response = await fetch('http://127.0.0.1:1420/__integration/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestId,
-        schemaVersion: 1,
-        command,
-        payload,
-      }),
-    });
-    assert.equal(response.status, 200, 'The isolated Rust stream fixture remains available');
-    const result = await response.json();
-    assert.equal(result.requestId, requestId);
-    assert.equal(result.ok, true, JSON.stringify(result.error));
-  };
-  const injectPrivateStream = (connectionId, expectedConnectionStateVersion, frame) => sendStreamFixtureCommand(
+  const injectPrivateStream = (connectionId, expectedConnectionStateVersion, frame) => sendIntegrationCommand(
     'alpaca.paper.stream.fixture',
     { connectionId, expectedConnectionStateVersion, remoteAccountId: '81161e77-bafd-44bb-b2a0-60b9055e3cd4', frame },
   );
-  const injectPrivateStreamDisconnect = (connectionId, expectedConnectionStateVersion) => sendStreamFixtureCommand(
+  const injectPrivateStreamDisconnect = (connectionId, expectedConnectionStateVersion) => sendIntegrationCommand(
     'alpaca.paper.stream.disconnect.fixture',
     { connectionId, expectedConnectionStateVersion },
   );
-  const waitForVersionChange = async (detail, previous, message) => {
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-      const next = await detail.getAttribute('data-state-version');
-      if (next && next !== previous) return next;
-      await ui.waitForTimeout(50);
-    }
-    throw new Error(message);
-  };
   const waitForButton = async name => {
     const button = ui.getByRole('button', { name, exact: true });
     for (let attempt = 0; attempt < 200; attempt += 1) {
@@ -55,6 +53,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await viewport.set({ width: 1280, height: 900 });
     await tab.getAXState({ emit: false });
     const previousPath = await ui.locator('.context .path').innerText();
+    const workspaceId = await ui.locator('.context .identity').innerText();
     const label = `${selection} QA ${Date.now()}`;
     await ui.getByRole('button', { name: 'Workspace', exact: true }).click();
     await tab.getAXState({ emit: false });
@@ -132,12 +131,12 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     const beforeReuseVersion = await detail.getAttribute('data-state-version');
     assert.ok(beforeReuseVersion, 'Persisted connection should expose a state version before reuse');
     await ui.getByRole('button', { name: 'Use existing account', exact: true }).press('Enter');
-    const afterReuseVersion = await waitForVersionChange(detail, beforeReuseVersion, 'Existing account reuse did not commit a new state');
+    const afterReuseVersion = await waitForVersionChange(ui, detail, beforeReuseVersion, 'Existing account reuse did not commit a new state');
     const refresh = ui.getByRole('button', { name: 'Refresh account', exact: true });
     for (let attempt = 0; attempt < 600 && !(await refresh.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
     assert.equal(await refresh.isEnabled(), true);
     await refresh.press('Enter');
-    await waitForVersionChange(detail, afterReuseVersion, 'Manual account refresh did not commit a new state');
+    await waitForVersionChange(ui, detail, afterReuseVersion, 'Manual account refresh did not commit a new state');
     alpacaConnectionStateVersion = await detail.getAttribute('data-state-version') ?? undefined;
     await tab.getAXState({ emit: false });
     assert.equal(await ui.getByRole('alert').count(), 0);
@@ -487,7 +486,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     const beforeCleanupVersion = await detail.getAttribute('data-state-version');
     assert.ok(beforeCleanupVersion, 'Disconnected account should expose a state version for the cleanup assertion');
     await remove.press('Enter');
-    await waitForVersionChange(detail, beforeCleanupVersion, 'Local cleanup did not commit a new account state');
+    await waitForVersionChange(ui, detail, beforeCleanupVersion, 'Local cleanup did not commit a new account state');
     await ui.getByText('MISSING', { exact: true }).waitFor({ state: 'visible' });
     assert.match(await detail.innerText(), /DISCONNECTED/);
     assert.equal(await remove.isEnabled(), true);
@@ -495,6 +494,87 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     const browserErrors = await tab.dev.logs({ levels: ['error'], limit: 100 });
     assert.equal(browserErrors.filter(error => !error.message.includes('chrome-extension://')).length, 0);
     observed.push('Disconnect removes local credential access; historical observations stay labeled disconnected and refresh is disabled.');
+    return observed;
+  } finally { await viewport.reset(); }
+}
+
+export async function checkTrading212DemoLocalDeleteUI(tab, browser) {
+  const ui = tab.playwright;
+  const viewport = await browser.capabilities.get('viewport');
+  const observed = [];
+  try {
+    await viewport.set({ width: 1280, height: 900 });
+    const previousDialog = ui.getByRole('dialog', { name: 'Delete local account?', exact: true });
+    if (await previousDialog.isVisible()) await previousDialog.getByRole('button', { name: 'Cancel', exact: true }).press('Escape');
+    const previousPath = await ui.locator('.path').innerText();
+    await ui.getByRole('button', { name: 'Workspace', exact: true }).press('Enter');
+    await ui.getByLabel('Workspace name', { exact: true }).fill(`S18 isolated delete ${Date.now()}`);
+    await ui.getByLabel('Local storage', { exact: true }).fill(join(dirname(previousPath), `account-delete-${Date.now()}`));
+    await ui.getByRole('button', { name: 'Open workspace', exact: true }).press('Enter');
+    await ui.locator('.identity').waitFor({ state: 'visible' });
+    const workspaceId = await ui.locator('.identity').innerText();
+    const label = `S18 delete QA ${Date.now()}`;
+    const seeded = await sendIntegrationCommand('account.delete.fixture.seed', { workspaceId, label });
+    const account = seeded.data;
+    assert.equal(account.providerId, 'trading212');
+    assert.equal(account.environment, 'DEMO');
+    assert.equal(account.connectionState, 'DISCONNECTED');
+    assert.equal(account.health.credential, 'MISSING');
+    await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await ui.locator('input[type="password"]').count(), 0);
+    await ui.locator('.account-row').filter({ hasText: label }).press('Enter');
+    const detail = ui.getByRole('region', { name: label, exact: true });
+    assert.match(await detail.innerText(), /DISCONNECTED/);
+
+    const accounts = await sendIntegrationCommand('account.list', { workspaceId });
+    assert.ok(accounts.data.accounts.some(candidate => candidate.connectionId === account.connectionId), 'The isolated disconnected Demo record remains before deletion');
+    const accountIdsBeforeDelete = accounts.data.accounts.map(candidate => candidate.connectionId).sort();
+    const deleteButton = ui.getByRole('button', { name: 'Delete local account', exact: true });
+    await deleteButton.waitFor({ state: 'visible' });
+    const dialog = ui.getByRole('dialog', { name: 'Delete local account?', exact: true });
+    const review = async () => {
+      await deleteButton.press('Enter');
+      await dialog.waitFor({ state: 'visible' });
+      const text = await dialog.innerText();
+      assert.ok(text.includes(label));
+      assert.match(text, /trading212 · DEMO/);
+      assert.match(text, /permanently removes TradeX-local account details and account\/order-book observations/);
+      assert.match(text, /does not contact Trading 212, revoke its API key, cancel provider orders, or change any other account/);
+      assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Cancel');
+    };
+    await review();
+    for (const width of [768, 390]) {
+      await viewport.set({ width, height: 900 });
+      const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+      assert.ok(size.scroll <= size.width, `Deletion dialog overflow at ${width}px: ${JSON.stringify(size)}`);
+    }
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).press('Enter');
+    assert.equal(await dialog.isVisible(), false);
+    assert.ok((await sendIntegrationCommand('account.list', { workspaceId })).data.accounts.some(candidate => candidate.connectionId === account.connectionId));
+    await review();
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).press('Escape');
+    assert.equal(await dialog.isVisible(), false);
+    assert.ok((await sendIntegrationCommand('account.list', { workspaceId })).data.accounts.some(candidate => candidate.connectionId === account.connectionId));
+    observed.push('Dialog names the exact Demo record and local-only scope; Cancel and Escape preserve the record; keyboard focus starts on Cancel and the dialog fits 768px/390px.');
+
+    await viewport.set({ width: 1280, height: 900 });
+    await review();
+    await dialog.getByRole('button', { name: 'Confirm permanent deletion', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: /Deleted local account/ }).waitFor({ state: 'visible' });
+    await dialog.waitFor({ state: 'hidden' });
+    assert.equal(await ui.getByRole('heading', { name: label, exact: true }).count(), 0);
+    assert.equal(await ui.evaluate(() => document.activeElement?.id), 'connections-title', 'Success restores focus to the Account connections heading');
+    const afterDelete = await sendIntegrationCommand('account.list', { workspaceId });
+    assert.equal(afterDelete.data.accounts.some(candidate => candidate.connectionId === account.connectionId), false);
+    assert.deepEqual(afterDelete.data.accounts.map(candidate => candidate.connectionId).sort(), accountIdsBeforeDelete.filter(id => id !== account.connectionId).sort(), 'Other connections remain unchanged');
+    for (const aggregateType of ['account', 'trading212-demo-order-book']) {
+      const snapshot = await sendIntegrationCommand('domain.snapshot', { aggregateType, aggregateId: account.connectionId }, false);
+      assert.equal(snapshot.error.code, 'IPC_AGGREGATE_NOT_FOUND');
+    }
+    observed.push('Explicit confirmation removes only the disposable Demo account through the Account UI and Rust dispatcher.');
+    const browserErrors = await tab.dev.logs({ levels: ['error'], limit: 100 });
+    assert.equal(browserErrors.filter(error => !error.message.includes('chrome-extension://')).length, 0);
     return observed;
   } finally { await viewport.reset(); }
 }

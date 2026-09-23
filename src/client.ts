@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
+import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 import type { Trading212DemoOrderBook, Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh } from '../shared/ipc-types.ts';
 
@@ -24,6 +24,7 @@ interface Inputs {
   'provider.permissions': AccountQuery;
   'account.list': WorkspaceQuery;
   'account.get': AccountQuery;
+  'account.delete': AccountMutation;
   'account.refresh': AccountMutation;
   'paper.account.ensure': WorkspaceQuery;
   'paper.get': WorkspaceQuery;
@@ -118,6 +119,7 @@ interface Outputs {
   'provider.permissions': PermissionReview;
   'account.list': Accounts;
   'account.get': AccountConnection;
+  'account.delete': AccountDeletionReceipt;
   'account.refresh': AccountConnection;
   'paper.account.ensure': AccountConnection;
   'paper.get': LocalPaperState;
@@ -212,6 +214,7 @@ const definitions = {
   'provider.permissions': ['AccountQuery', 'PermissionReview'],
   'account.list': ['WorkspaceQuery', 'Accounts'],
   'account.get': ['AccountQuery', 'AccountConnection'],
+  'account.delete': ['AccountMutation', 'AccountDeletionReceipt'],
   'account.refresh': ['AccountMutation', 'AccountConnection'],
   'paper.account.ensure': ['WorkspaceQuery', 'AccountConnection'],
   'paper.get': ['WorkspaceQuery', 'LocalPaperState'],

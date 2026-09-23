@@ -8,7 +8,7 @@ Revision C clarification dated 2026-09-05. Product scope and existing requiremen
 2. [UI / Prototype Spec](./TradeX_UI_Prototype_Spec_v1.0_RevC.md) — target screens and interactions; §14 defines detailed repair contracts.
 3. [Frontend ARD](./TradeX_Frontend_ARD_v1.0_RevC.md) and [Backend ARD](./TradeX_Backend_ARD_v1.0_RevC.md) — implementation architecture under the PRD/UI requirements. Backend §41–42 own the shared wire contract; the frontend references it.
 4. [Coverage Matrix](./TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md) — requirement-to-evidence status; ID presence does not mean acceptance.
-5. [QA Report](./TradeX_Prototype_QA_Report_v1.0_RevC.md) — observed defects, QA-01–QA-12 regression cases, and incomplete runtime/browser gates.
+5. [QA Report](./TradeX_Prototype_QA_Report_v1.0_RevC.md) — observed defects, QA-01–QA-13 regression cases, and incomplete runtime/browser gates.
 6. [Clickable prototype](./prototype/README.md) — fixture evidence, subordinate to the normative documents.
 7. [File manifest](./FILE_MANIFEST.md) — repository-relative paths, line counts, byte hashes, and language pairs.
 
@@ -18,7 +18,7 @@ The PRD wins on product/safety meaning. The UI Spec owns user-visible behavior, 
 
 The 2026-09-05 documentation revision clarifies expiry/reservation rules, Gateway process isolation and dispatch, canonical IPC, operation-preserving cancellation, evidence-based resolution, immutable history/proposals, and complete interaction expectations.
 
-Prototype interaction/handoff remains **NOT PASS**: HTML/CSS/JS were not changed in this documentation revision. Use the QA Report for actual observations and the UI Spec for intended behavior. The revision does not certify broker/runtime integration or close existing open product decisions.
+Prototype interaction/handoff remains **NOT PASS**: HTML/CSS/JS were not changed in this documentation revision. QA-13 records that the clickable prototype has no permanent eligible-account removal path; S18 #66 runtime implementation evidence is separate. Use the QA Report for observations and the UI Spec for intended behavior. This does not certify other broker/runtime integrations or close existing open product decisions.
 
 ## Chinese synchronized set
 

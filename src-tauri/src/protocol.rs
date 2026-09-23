@@ -175,6 +175,7 @@ pub enum ReplyData {
     ProviderDefinition(ProviderDefinition),
     Accounts(Accounts),
     Account(Box<AccountConnection>),
+    AccountDeletion(Box<AccountDeletionReceipt>),
     Permissions(PermissionReview),
     Capability(CapabilityDecision),
     ContextCatalog(ContextCatalog),
@@ -212,6 +213,13 @@ pub enum ReplyData {
     BacktestRun(Box<BacktestRun>),
     BacktestLibrary(BacktestLibrary),
     BacktestComparison(Box<BacktestComparison>),
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AccountDeletionReceipt {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
 }
 
 #[derive(JsonSchema)]
@@ -3947,6 +3955,11 @@ impl TradeXError {
                 "select_account",
                 "Open existing connection",
             ),
+            "ACCOUNT_DELETE_BLOCKED" => (
+                "This local connection cannot be deleted while it is connected, has a credential, or has open or unresolved TradeX activity. Reload account state after resolving it.",
+                "reload_snapshot",
+                "Reload account state",
+            ),
             "PROVIDER_UNSUPPORTED" => (
                 "This provider/environment does not support the requested operation.",
                 "choose_provider",
@@ -4482,7 +4495,9 @@ impl TradeXError {
                     | "CODEX_TURN_CANCELLED"
             ) {
                 "RUNTIME_ERROR"
-            } else if matches!(code, "STRATEGY_TIME_UNTRUSTED" | "BACKTEST_TIME_UNTRUSTED") {
+            } else if matches!(code, "STRATEGY_TIME_UNTRUSTED" | "BACKTEST_TIME_UNTRUSTED")
+                || code == "ACCOUNT_DELETE_BLOCKED"
+            {
                 "STATE_STALE"
             } else if matches!(
                 code,

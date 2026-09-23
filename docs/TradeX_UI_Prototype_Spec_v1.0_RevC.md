@@ -1,7 +1,7 @@
 # TradeX High-Fidelity Prototype / UI Specification
 
 **Version:** 1.0 Final — Revision C  
-**Date:** 2026-09-05\
+**Date:** 2026-09-23 (S18 account-deletion addendum)\
 **Source of truth:** `TradeX_PRD_v1.0_RevC.md`  
 **Prototype type:** Desktop-first interactive product prototype target specification  
 **Prototype implementation:** `prototype/index.html`, `prototype/styles.css`, `prototype/app.js`  
@@ -486,6 +486,8 @@ Watchlists use on-demand/coarse refresh in MVP; they do not imply persistent tic
 ### E1. Accounts Overview
 
 Every connection shows provider, environment, health, equity/balance, live arming where relevant, and last sync.
+
+“Delete local account” appears only for a Trading 212 Demo connection in FAILED or DISCONNECTED state with credential health MISSING. Its explicit confirmation names the exact label, provider and environment; says this permanently removes TradeX-local account details and account/order-book observations; and says it does not contact Trading 212, revoke its API key, cancel provider orders, or change another connection. Cancel/Escape leaves all data unchanged. After success the list/context refreshes and announces completion; errors remain visible and focus returns to the trigger or the Account connections heading.
 
 ### E2. Provider-specific Account Detail
 
@@ -1162,4 +1164,10 @@ Onboarding Ready requires at least one verified usable route. Closing an error d
 
 ## 14.10 Acceptance evidence
 
-The QA Report's QA-01–QA-12 scenarios define the minimum regression set for these refinements. Passing requires actual action/state assertions, including negative and interruption paths. A screenshot proves layout only; an interface or status label proves presence only. Runtime integration, provider truth, persistence, and assistive-technology checks retain separate gates. Existing FR/AC IDs remain stable, and both language editions must record the same case status.
+The QA Report's QA-01–QA-13 scenarios define the minimum regression set for these refinements. Passing requires actual action/state assertions, including negative and interruption paths. A screenshot proves layout only; an interface or status label proves presence only. Runtime integration, provider truth, persistence, and assistive-technology checks retain separate gates. Both language editions must record the same case status.
+
+## 14.11 Trading 212 Demo local account deletion (S18 #66)
+
+The Accounts detail offers “Delete local account” only for the selected `trading212` / `DEMO` record when its connection state is `FAILED` or `DISCONNECTED` and credential health is `MISSING`. Open a native accessible confirmation dialog that identifies the captured account label, provider and environment and states that TradeX-local account details plus account/order-book observations are permanently removed. It explicitly says the operation makes no Trading 212 request, does not revoke a provider key or cancel provider orders, and leaves every other account unchanged. The initial focus is on Cancel; the dialog traps keyboard focus and Escape/Cancel send no command. Failure explains the backend rejection/storage result and keeps the dialog actionable; success announces completion, refreshes the list/context, removes the deleted detail, and restores focus to its trigger or the Account connections heading. Verify 390 px and 768 px layouts.
+
+This UI calls only version-1 `account.delete` with workspace, exact connection ID and expected state version. It does not send a Keychain reference or invoke provider I/O. The backend independently checks deletion eligibility and unresolved financial activity; an `ACKNOWLEDGED` attempt stays unresolved until its exact linked order has a durable recognized terminal observation with `pending: false`. Keep clickable-prototype evidence separate from runtime integration evidence.

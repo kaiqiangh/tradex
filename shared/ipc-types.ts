@@ -332,6 +332,7 @@ export type ReplyData =
   | ProviderDefinition
   | Accounts
   | AccountConnection
+  | AccountDeletionReceipt
   | PermissionReview
   | CapabilityDecision
   | ContextCatalog
@@ -2620,6 +2621,13 @@ export interface ProviderField {
  */
 export interface Accounts {
   accounts: AccountConnection[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AccountDeletionReceipt".
+ */
+export interface AccountDeletionReceipt {
+  connectionId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

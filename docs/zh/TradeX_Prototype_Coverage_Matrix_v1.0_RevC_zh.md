@@ -1,11 +1,11 @@
 # TradeX Prototype 覆盖矩阵 — v1.0 RevC
 
-**修订日期：** 2026-09-05\
+**修订日期：** 2026-09-23\
 **状态：** 按证据重新建立基线；原型交付 NOT PASS\
 **权威文档：** [PRD](./TradeX_PRD_v1.0_RevC_zh.md)、[UI Spec](./TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md)、[Frontend ARD](./TradeX_Frontend_ARD_v1.0_RevC_zh.md)、[Backend ARD](./TradeX_Backend_ARD_v1.0_RevC_zh.md)\
 **Prototype：** [docs/prototype](../prototype/README_zh.md)，审查源码 main@6c4b267
 
-保留全部 80 个 FR、66 个 AC 的追踪。标识存在只证明结构覆盖，不等于功能验收。2026-09-05 审查取代先前未限定的 Covered/可直接验证结论。
+保留全部 81 个 FR、67 个 AC 的追踪。标识存在只证明结构覆盖，不等于功能验收。2026-09-05 证据审查取代先前未限定的 Covered/可直接验证结论；QA-13 记录后续发现的账户删除原型缺口。
 
 | 状态 | 含义 |
 |---|---|
@@ -115,6 +115,7 @@ FAILED/PARTIAL 原型项修复后仍可能需要运行时验证。SOURCE_ONLY �
 | FR-078 | Live readiness 前阻断/审查危险 provider 权限(withdrawal/transfer/custody/margin/leverage) | P0 | PARTIAL | 关联场景的实际观察与验收条件见 [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-04)；修复后重新验证，不以界面存在代替通过。 |
 | FR-079 | 实现 FX/stablecoin 估值溯源与 depeg/quality 处理 | P1 | PARTIAL | 关联场景的实际观察与验收条件见 [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-04)；修复后重新验证，不以界面存在代替通过。 |
 | FR-080 | 实现可编辑 OrderDraft → 不可变 OrderProposal 的重新生成语义 | P0 | FAILED | 关联场景的实际观察与验收条件见 [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-07)；修复后重新验证，不以界面存在代替通过。 |
+| FR-081 | 对符合条件的 Trading 212 Demo 账户及订单簿观察进行确认后的永久本地删除 | P0 | FAILED | [QA-13](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-13)：原型没有永久删除交互；#66 的实现证据不能改变原型状态。 |
 
 ## 3. Acceptance-criterion traceability
 
@@ -186,6 +187,7 @@ FAILED/PARTIAL 原型项修复后仍可能需要运行时验证。SOURCE_ONLY �
 | AC-064 | Local Paper 明确标记为 TradeX simulation,不得与 provider-hosted Paper/Demo/Testnet 或 Live 混淆。 | IMPLEMENTED_UNVERIFIED | S16 实现证据见 `docs/implementation/s16-local-paper-isolation-evidence.md`，覆盖 LOCAL/TRADEX_SIMULATION 身份、持久化/隔离、篡改拒绝以及浏览器/Rust 检查；S33 完整回归仍待完成。 |
 | AC-065 | 编辑已生成订单会创建新的不可变 `OrderProposal` identity,并使旧 proposal 的 approval 失效。 | FAILED | 关联场景的实际观察与验收条件见 [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-07)；修复后重新验证，不以界面存在代替通过。 |
 | AC-066 | 涉及 stablecoin/FX 的跨账户估值展示 source/path/timestamps/freshness 与 quality/depeg 状态;不可靠转换不得静默驱动 Live 风控。 | PARTIAL | 关联场景的实际观察与验收条件见 [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-04)；修复后重新验证，不以界面存在代替通过。 |
+| AC-067 | 经确认的符合条件 Demo 账户删除仅作用于本地、原子执行、阻止进行中金融活动、隔离其他账户且可访问。 | FAILED | [QA-13](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-13)：原型无确认、拒绝路径或删除行为；S18 #66 运行时测试属于独立证据。 |
 
 
 ## 4. 页面覆盖概览

@@ -533,6 +533,434 @@ fn trading212_demo_order_book_reads_are_scoped_bounded_and_event_persisted() {
 }
 
 #[test]
+fn eligible_failed_trading212_demo_account_deletes_local_observations_atomically() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741199);
+    *http.trading212_order_list.borrow_mut() = Some(Vec::new());
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"1"}),
+        "DAY",
+    );
+    http.trading212_post_status.set(Some(400));
+    let rejected = execute_main(
+        &mut cp,
+        trading212_submit_request(
+            &workspace,
+            &account,
+            &proposal,
+            "delete-retained-terminal-attempt",
+        ),
+        &vault,
+        &http,
+    );
+    assert_eq!(rejected["ok"], true, "{rejected}");
+    assert_eq!(rejected["data"]["state"], "REJECTED");
+    let book = refresh_trading212_orders(
+        &mut cp, &workspace, &account, &vault, &http, "PENDING", None,
+    );
+    assert_eq!(book["ok"], true, "{book}");
+    assert_eq!(book["data"]["status"], "CURRENT");
+
+    let disconnected = execute(
+        &mut cp,
+        envelope("provider.disconnect", mutation(&account)),
+        &vault,
+        &http,
+    );
+    assert_eq!(disconnected["ok"], true, "{disconnected}");
+    assert_eq!(disconnected["data"]["connectionState"], "DISCONNECTED");
+    assert_eq!(disconnected["data"]["health"]["credential"], "MISSING");
+
+    let account_id = disconnected["data"]["connectionId"].clone();
+    let account_snapshot = command(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"account","aggregateId":account_id}),
+    );
+    let order_book_snapshot = command(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"trading212-demo-order-book","aggregateId":account_id}),
+    );
+    assert_eq!(account_snapshot["ok"], true, "{account_snapshot}");
+    assert_eq!(order_book_snapshot["ok"], true, "{order_book_snapshot}");
+
+    let db = rusqlite::Connection::open(path.join("workspace.sqlite3")).unwrap();
+    db.execute_batch(
+        "CREATE TRIGGER fail_demo_order_book_delete BEFORE DELETE ON trading212_demo_order_books
+         BEGIN SELECT RAISE(ABORT, 'injected deletion failure'); END;",
+    )
+    .unwrap();
+    drop(db);
+
+    let delete_request = mutation(&disconnected["data"]);
+    let failed = command(&mut cp, "account.delete", delete_request.clone());
+    assert_eq!(
+        failed["ok"], false,
+        "injected storage failure must abort deletion"
+    );
+    assert!(
+        command(&mut cp, "account.list", json!({"workspaceId":workspace}))["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["connectionId"] == account_id)
+    );
+    assert_eq!(
+        command(
+            &mut cp,
+            "domain.snapshot",
+            json!({"aggregateType":"account","aggregateId":account_id}),
+        )["ok"],
+        true,
+        "the account snapshot must survive a partial-delete failure"
+    );
+    assert_eq!(
+        command(
+            &mut cp,
+            "domain.snapshot",
+            json!({"aggregateType":"trading212-demo-order-book","aggregateId":account_id}),
+        )["ok"],
+        true,
+        "the order-book observations must survive a partial-delete failure"
+    );
+
+    let db = rusqlite::Connection::open(path.join("workspace.sqlite3")).unwrap();
+    db.execute_batch("DROP TRIGGER fail_demo_order_book_delete")
+        .unwrap();
+    drop(db);
+
+    let deleted = command(&mut cp, "account.delete", delete_request);
+    assert_eq!(deleted["ok"], true, "{deleted}");
+    assert_eq!(deleted["data"]["connectionId"], account_id);
+    let accounts = command(&mut cp, "account.list", json!({"workspaceId":workspace}));
+    assert_eq!(accounts["data"]["accounts"].as_array().unwrap().len(), 1);
+    assert_eq!(accounts["data"]["accounts"][0]["providerId"], "local-paper");
+    assert_eq!(
+        command(
+            &mut cp,
+            "domain.snapshot",
+            json!({"aggregateType":"account","aggregateId":account_id}),
+        )["error"]["code"],
+        "IPC_AGGREGATE_NOT_FOUND"
+    );
+    assert_eq!(
+        command(
+            &mut cp,
+            "domain.snapshot",
+            json!({"aggregateType":"trading212-demo-order-book","aggregateId":account_id}),
+        )["error"]["code"],
+        "IPC_AGGREGATE_NOT_FOUND"
+    );
+    let retained_proposal = command(
+        &mut cp,
+        "trade.proposal.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(
+        retained_proposal["ok"], true,
+        "terminal proposal history remains retained"
+    );
+    assert_eq!(retained_proposal["data"]["status"], "CONSUMED");
+    let retained_attempt = command(
+        &mut cp,
+        "trading212.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(retained_attempt["data"]["attempt"]["state"], "REJECTED");
+    assert_eq!(
+        command(
+            &mut cp,
+            "domain.snapshot",
+            json!({"aggregateType":"trading212-demo-order-attempt","aggregateId":retained_attempt["data"]["attempt"]["attemptId"]}),
+        )["ok"],
+        true,
+        "terminal attempt observations remain retained"
+    );
+}
+
+#[test]
+fn account_delete_rejects_ineligible_state_version_and_environment() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741102);
+    *http.trading212_order_list.borrow_mut() = Some(Vec::new());
+
+    let local_paper =
+        command(&mut cp, "account.list", json!({"workspaceId":workspace}))["data"]["accounts"][0]
+            .clone();
+    assert_eq!(
+        command(&mut cp, "account.delete", mutation(&local_paper))["error"]["code"],
+        "ACCOUNT_DELETE_BLOCKED"
+    );
+
+    let demo = connected_trading212(&mut cp, &vault, &http, &workspace);
+    assert_eq!(
+        command(&mut cp, "account.delete", mutation(&demo))["error"]["code"],
+        "ACCOUNT_DELETE_BLOCKED",
+        "connected records cannot be removed"
+    );
+    vault.fail_remove.set(true);
+    let pending_cleanup = execute(
+        &mut cp,
+        envelope("provider.disconnect", mutation(&demo)),
+        &vault,
+        &http,
+    );
+    assert_eq!(pending_cleanup["data"]["connectionState"], "DISCONNECTED");
+    assert_eq!(
+        pending_cleanup["data"]["health"]["credential"],
+        "DELETE_PENDING"
+    );
+    assert_eq!(
+        command(
+            &mut cp,
+            "account.delete",
+            mutation(&pending_cleanup["data"])
+        )["error"]["code"],
+        "ACCOUNT_DELETE_BLOCKED",
+        "credentials awaiting cleanup cannot be removed"
+    );
+    vault.fail_remove.set(false);
+    let disconnected = execute(
+        &mut cp,
+        envelope("provider.disconnect", mutation(&pending_cleanup["data"])),
+        &vault,
+        &http,
+    );
+    assert_eq!(disconnected["data"]["health"]["credential"], "MISSING");
+    let mut stale = mutation(&disconnected["data"]);
+    stale["expectedStateVersion"] = "stale-version".into();
+    assert_eq!(
+        command(&mut cp, "account.delete", stale)["error"]["code"],
+        "STATE_VERSION_CONFLICT"
+    );
+
+    let live_test = execute(
+        &mut cp,
+        envelope(
+            "provider.connect",
+            json!({"step":"test","workspaceId":workspace,"providerId":"trading212","environment":"LIVE","label":"Trading 212 Live"}),
+        ),
+        &vault,
+        &http,
+    );
+    assert_eq!(live_test["ok"], true, "{live_test}");
+    let mut live_confirm = mutation(&live_test["data"]);
+    live_confirm["step"] = "confirm".into();
+    live_confirm["acknowledgeUnverified"] = true.into();
+    let live = command(&mut cp, "provider.connect", live_confirm);
+    assert_eq!(live["ok"], true, "{live}");
+    assert_eq!(
+        command(&mut cp, "account.delete", mutation(&live["data"]))["error"]["code"],
+        "ACCOUNT_DELETE_BLOCKED",
+        "Trading 212 Live cannot be removed"
+    );
+    assert_eq!(
+        command(&mut cp, "account.list", json!({"workspaceId":workspace}))["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3,
+        "Local Paper, Demo and Live all remain after rejected requests"
+    );
+}
+
+#[test]
+fn account_delete_blocks_open_orders_actionable_proposals_and_unresolved_attempts() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741103);
+
+    *http.trading212_order_list.borrow_mut() = Some(Vec::new());
+    let proposed = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &proposed,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"1"}),
+        "DAY",
+    );
+    let proposed = execute(
+        &mut cp,
+        envelope("provider.disconnect", mutation(&proposed)),
+        &vault,
+        &http,
+    );
+    assert_eq!(
+        command(&mut cp, "account.delete", mutation(&proposed["data"]))["error"]["code"],
+        "ACCOUNT_DELETE_BLOCKED",
+        "actionable proposals must be resolved before deletion"
+    );
+    assert_eq!(
+        command(
+            &mut cp,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]})
+        )["data"]["status"],
+        "NEEDS_APPROVAL"
+    );
+
+    *http.trading212_order_list.borrow_mut() = Some(Vec::new());
+    let ordered = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let remote_order: Value = serde_json::from_str(r#"{"id":9007199254741201,"ticker":"AAPL_US_EQ","side":"BUY","type":"LIMIT","timeInForce":"DAY","strategy":"QUANTITY","quantity":1,"filledQuantity":0,"filledValue":0,"currency":"GBP","status":"NEW","createdAt":"2026-09-23T10:00:00Z"}"#).unwrap();
+    *http.trading212_order_list.borrow_mut() = Some(vec![remote_order]);
+    let book = refresh_trading212_orders(
+        &mut cp, &workspace, &ordered, &vault, &http, "PENDING", None,
+    );
+    assert_eq!(book["ok"], true, "{book}");
+    let ordered = execute(
+        &mut cp,
+        envelope("provider.disconnect", mutation(&ordered)),
+        &vault,
+        &http,
+    );
+    assert_eq!(
+        command(&mut cp, "account.delete", mutation(&ordered["data"]))["error"]["code"],
+        "ACCOUNT_DELETE_BLOCKED",
+        "open Demo orders must block deletion"
+    );
+
+    *http.trading212_order_list.borrow_mut() = Some(Vec::new());
+    let unresolved = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &unresolved,
+        "BUY",
+        "MARKET",
+        json!({"type":"BASE","value":"1"}),
+        "DAY",
+    );
+    let attempt = execute_main(
+        &mut cp,
+        trading212_submit_request(
+            &workspace,
+            &unresolved,
+            &proposal,
+            "delete-unresolved-attempt",
+        ),
+        &vault,
+        &http,
+    );
+    assert_eq!(attempt["data"]["state"], "ACKNOWLEDGED");
+    let unresolved = execute(
+        &mut cp,
+        envelope("provider.disconnect", mutation(&unresolved)),
+        &vault,
+        &http,
+    );
+    assert_eq!(
+        command(&mut cp, "account.delete", mutation(&unresolved["data"]))["error"]["code"],
+        "ACCOUNT_DELETE_BLOCKED",
+        "an acknowledged order without terminal reconciliation remains protected"
+    );
+}
+
+#[test]
+fn account_delete_allows_acknowledged_attempt_after_terminal_order_reconciliation() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741198);
+    *http.trading212_order_list.borrow_mut() = Some(Vec::new());
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let proposal = trading212_demo_proposal(
+        &mut cp,
+        &workspace,
+        &account,
+        "BUY",
+        "LIMIT",
+        json!({"type":"BASE","value":"5"}),
+        "DAY",
+    );
+    let submitted = execute_main(
+        &mut cp,
+        trading212_submit_request(&workspace, &account, &proposal, "delete-terminal-attempt"),
+        &vault,
+        &http,
+    );
+    assert_eq!(submitted["data"]["state"], "ACKNOWLEDGED");
+
+    let pending = refresh_trading212_orders(
+        &mut cp, &workspace, &account, &vault, &http, "PENDING", None,
+    );
+    assert_eq!(pending["ok"], true, "{pending}");
+    assert_eq!(
+        pending["data"]["orders"][0]["attemptId"],
+        submitted["data"]["attemptId"]
+    );
+    http.trading212_order_details.borrow_mut().insert(
+        T212_TEST_ORDER_ID.into(),
+        trading212_test_order("FILLED", "5", "750"),
+    );
+    let terminal = refresh_trading212_orders(
+        &mut cp,
+        &workspace,
+        &account,
+        &vault,
+        &http,
+        "DETAIL",
+        Some(T212_TEST_ORDER_ID),
+    );
+    assert_eq!(terminal["ok"], true, "{terminal}");
+    assert_eq!(terminal["data"]["orders"][0]["normalizedStatus"], "FILLED");
+    assert_eq!(terminal["data"]["orders"][0]["pending"], false);
+
+    let disconnected = execute(
+        &mut cp,
+        envelope("provider.disconnect", mutation(&account)),
+        &vault,
+        &http,
+    );
+    assert_eq!(disconnected["data"]["health"]["credential"], "MISSING");
+    let calls_before_delete = http.calls.borrow().len();
+    let deleted = command(&mut cp, "account.delete", mutation(&disconnected["data"]));
+    assert_eq!(deleted["ok"], true, "{deleted}");
+    assert_eq!(
+        http.calls.borrow().len(),
+        calls_before_delete,
+        "deletion makes no provider request"
+    );
+    let retained_attempt = command(
+        &mut cp,
+        "trading212.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(retained_attempt["data"]["attempt"]["state"], "ACKNOWLEDGED");
+    assert_eq!(
+        command(
+            &mut cp,
+            "domain.snapshot",
+            json!({"aggregateType":"trading212-demo-order-attempt","aggregateId":submitted["data"]["attemptId"]}),
+        )["ok"],
+        true,
+        "the terminal attempt audit remains after account deletion"
+    );
+}
+
+#[test]
 fn trading212_demo_submit_is_persisted_before_io_and_duplicate_never_posts_twice() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().to_path_buf());
@@ -2238,8 +2666,8 @@ fn failed_initial_tests_remove_their_credential_and_keep_failed_cleanup_blocked_
             command(&mut cp, "workspace.open", json!({}));
             let restored = command(&mut cp, "account.get", query(&failed))["data"].clone();
             assert_eq!(
-                restored["health"]["credential"],
-                failed["health"]["credential"]
+                restored["health"]["credential"], failed["health"]["credential"],
+                "restored mismatch for {code} cleanup_fails={cleanup_fails}: {restored}"
             );
             assert!(
                 cp.prepare_provider(&envelope("provider.probe", mutation(&restored)))

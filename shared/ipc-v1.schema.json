@@ -624,6 +624,20 @@
         "limitations"
       ]
     },
+    "AccountDeletionReceipt": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId"
+      ]
+    },
     "AccountHealth": {
       "type": "object",
       "properties": {
@@ -7127,6 +7141,9 @@
         },
         {
           "$ref": "#/$defs/AccountConnection"
+        },
+        {
+          "$ref": "#/$defs/AccountDeletionReceipt"
         },
         {
           "$ref": "#/$defs/PermissionReview"

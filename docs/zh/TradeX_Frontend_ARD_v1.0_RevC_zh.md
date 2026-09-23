@@ -1,6 +1,6 @@
 # TradeX 前端架构需求与设计（ARD）
 
-**契约澄清日期：** 2026-09-05；原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
+**契约澄清日期：** 2026-09-05（RevC）；S18 本地账户删除契约于 2026-09-23 增补。原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
 
 **版本：** v1.0 Revision C (RevC)  
 **状态：** 工程基线  
@@ -617,6 +617,10 @@ UI 区分尚未同步、加载、空、当前、stale/degraded 和限流读取�
 对当前待处理且 provider 状态在允许列表内的 Demo 订单，“复核撤单”会先刷新该准确订单详情。只有返回的订单簿与准确订单均为当前状态、仍待处理/可撤单，并且属于已选 Demo connection 与远端账户时，才打开确认框。对话框展示捕获的准确账户/环境和完整 provider order ID、原始/归一状态、精确已成交与剩余数量、可用时的成交金额/币种及观察时间；文案明确 provider 接受不代表撤单已完成。点击“继续检查”或按 Escape 只关闭，不会写入；键盘焦点从安全的关闭操作开始，在框内循环，关闭后回到触发控件或逻辑替代位置。确认仅针对已捕获的 connection 与订单簿版本发送一次 `trading212.demo.orders.cancel`。
 
 收到 HTTP 200 后显示撤单待确认，同时保留 provider 原始状态；超时或未知结果也保持 pending/unknown，不能重新提交。继续保留准确订单详情刷新用于对账，隐藏再次撤单控件，并让后续 provider 事实优先处理部分/全部成交竞态。只有 provider 终态才显示最终结果。将撤单 endpoint 重试时间与其他每账户门控一同展示。这些操作仅限 Demo；陈旧、断开、未知或终态订单不提供撤单，且须在 390/768 px 验证布局与键盘行为。
+
+### 13.13 Trading 212 Demo 本地账户删除（S18 #66）
+
+Accounts 仅在所选 Trading 212 Demo connection 处于 FAILED 或 DISCONNECTED 且 credential health 为 MISSING 时提供“删除本地账户”。原生确认框标出捕获的账户 label/provider/environment，明确说明将删除 TradeX 本地账户及账户/订单簿观察，并说明 provider key/order 与其他所有连接保持不变。Cancel/Escape 为只读操作。确认只调用 `account.delete`；后端资格校验仍是权威边界。`ACKNOWLEDGED` attempt 在其准确关联订单获得持久化且已识别的终态观察、`pending: false` 前仍属未解决。成功后失效 account list/detail/context 查询，移除所选详情，播报完成，并将焦点返回触发控件或 `Account connections`。若状态陈旧、存在未解决活动或存储失败，显示 accessible 错误并保留账户视图供恢复。已有连接选择与安全的新账户输入仍可使用。
 
 ---
 

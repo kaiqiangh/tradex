@@ -1,6 +1,6 @@
 # TradeX 后端架构需求与设计（ARD）
 
-**契约澄清日期：** 2026-09-05；原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
+**契约澄清日期：** 2026-09-05（RevC）；S18 本地账户删除契约于 2026-09-23 增补。原型行为仅为证据，以 QA Report 记录的缺陷和待验证门槛为准。
 
 **版本：** v1.0 Revision C (RevC)  
 **状态：** 工程基线  
@@ -2017,6 +2017,7 @@ name（1–120 个字符，不含控制字符）与 baseCurrency（三个大写�
 | provider.permissions / account.get | `{workspaceId, connectionId}` | 分别为 PermissionReview / AccountConnection |
 | account.list | `{workspaceId}` | `{accounts: AccountConnection[]}`；包含待处理、失败及断开记录以供恢复/历史查询 |
 | provider.disconnect | `{workspaceId, connectionId, expectedStateVersion}` | 删除凭据前先持久化 DISCONNECTED；删除失败保持 DELETE_PENDING，可使用新版本重试；不修改提供方、不取消外部订单 |
+| account.delete | `{workspaceId, connectionId, expectedStateVersion}` | `{connectionId}` receipt；永久删除一个符合条件的 Trading 212 Demo 连接的本地账户与订单簿观察 |
 
 ProviderDefinition 包含 `providerId`、`displayName`、`environment`、`available`、`helpText`、`fields`（`id`、`label`、`inputType`、`required`、`secret`、`maxLength`、`helpText`、适用环境）及权限要求。仅已实现的受支持组合可连接；不可用的目录项说明原因。Local Paper 内置且无需凭据，不代表外部探测成功。
 
@@ -2028,7 +2029,7 @@ AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerI
 
 连接/健康变更与 `account.health.changed` 事件在同一 SQLite 事务提交。`account` aggregate 使用 `connectionId`、独立连续序列及 AccountConnection projection。`domain.snapshot` / `domain.subscribe` 接受该 aggregate，复用 §41.2 的恢复及 replay-to-live 保证。同一 consumer 可订阅不同 aggregate；替换只作用于 consumer + aggregate。
 
-错误使用 PRD §51 类别与稳定 code：`PROVIDER_UNSUPPORTED`、`PROVIDER_NATIVE_ENTRY_REQUIRED`、`PROVIDER_ENTRY_CANCELLED`、`PROVIDER_ENTRY_BUSY`、`PROVIDER_ALREADY_CONNECTED`、`PROVIDER_AUTH_FAILED`、`PROVIDER_UNAVAILABLE`、`PROVIDER_RATE_LIMITED`、`CLOCK_SKEW`（`STATE_STALE`）、`PROVIDER_RESPONSE_INVALID`、`PROVIDER_DATA_INCOMPLETE`、`PROVIDER_IDENTITY_CHANGED`、`PROVIDER_REVIEW_REQUIRED`、`PROVIDER_PERMISSION_BLOCKED`、`CREDENTIAL_UNAVAILABLE`、`CREDENTIAL_STORE_FAILED`、`CREDENTIAL_DELETE_FAILED`，以及既有 payload/state/storage 错误。不返回原始 provider body、带签名 URL、认证 header 或原生诊断；request correlation 不能替代连接/同意身份。
+错误使用 PRD §51 类别与稳定 code：`PROVIDER_UNSUPPORTED`、`PROVIDER_NATIVE_ENTRY_REQUIRED`、`PROVIDER_ENTRY_CANCELLED`、`PROVIDER_ENTRY_BUSY`、`PROVIDER_ALREADY_CONNECTED`、`PROVIDER_AUTH_FAILED`、`PROVIDER_UNAVAILABLE`、`PROVIDER_RATE_LIMITED`、`CLOCK_SKEW`（`STATE_STALE`）、`ACCOUNT_DELETE_BLOCKED`（`STATE_STALE`）、`PROVIDER_RESPONSE_INVALID`、`PROVIDER_DATA_INCOMPLETE`、`PROVIDER_IDENTITY_CHANGED`、`PROVIDER_REVIEW_REQUIRED`、`PROVIDER_PERMISSION_BLOCKED`、`CREDENTIAL_UNAVAILABLE`、`CREDENTIAL_STORE_FAILED`、`CREDENTIAL_DELETE_FAILED`，以及既有 payload/state/storage 错误。不返回原始 provider body、带签名 URL、认证 header 或原生诊断；request correlation 不能替代连接/同意身份。
 
 Binance Spot 的余额 `available` / `reserved` 分别为原币 free / locked，`total` 为精确相加；非零余额形成未估值的现货持有量。订单身份包含 symbol 与 orderId，因为订单 ID 按交易对限定；缺失报价币种保持 unavailable。Testnet 密钥权限保持 UNVERIFIED，Live 使用独立密钥权限接口，账户 `canWithdraw` 不代表密钥提款权限。签名时间无效、采样过慢或服务端拒绝时间戳返回 `STATE_STALE / CLOCK_SKEW`；本次观察不更新。
 
@@ -2525,6 +2526,12 @@ Order Drafts surface 以文字呈现加载、尚未同步、空、当前、stale
 I/O 前通过 SQLite immediate transaction 重新核验 workspace、connection 和订单簿版本、环境、连接/认证健康、远端账户身份、待处理状态、新鲜度及用户确认，然后持久化 `SUBMITTING`、本地幂等键和 outbox event。Provider worker 再通过固定 Demo host 核验远端账户，最多发送一次 `DELETE /api/v0/equity/orders/{positive-int64-id}`。撤单路由仅允许访问 `https://demo.trading212.com`，Live 禁止该路由。每账户本地撤单门控为 2 秒，并保存/展示 `cancelOrderRetryAt`；若 provider 返回 reset metadata，也必须遵守。
 
 HTTP 200 只表示已接受，并不表示已撤销：设置本地 `cancelState: PENDING`，直到后续显式订单观察更新 provider 状态。对明确的 400/401/403/429 响应清除本地撤单状态并保存有界错误。超时、transport 歧义、408 或任何未识别响应均进入 `PENDING` / `ORDER_CANCEL_STATUS_UNKNOWN`，绝不重发。重新打开时，未完成的 `SUBMITTING` 恢复为相同 pending/unknown 状态。对 `SUBMITTING` 或 `PENDING` 的重复命令不会再次发送 DELETE。订单观察优先处理竞态：部分成交会更新累计成交数据并保持撤单 pending；只有 provider 终态 `CANCELLED`、`FILLED`、`REJECTED`、`REPLACED` 或 `EXPIRED` 才清除本地撤单状态，成交仍可见。`CANCELLING` 是非终态且仍待处理。不增加自动轮询、替代订单、Live 路由、Agent 或 Order Gateway 权限。
+
+### 41.24 Trading 212 Demo 本地账户删除（S18 #66）
+
+`account.delete` 是版本 1 公共命令，输入 `{workspaceId, connectionId, expectedStateVersion}`，成功返回 `{connectionId}`。仅接受活动 workspace 中准确的 `trading212` / `DEMO` 账户，且状态为 `FAILED` 或 `DISCONNECTED`、credential health 为 `MISSING`、account state version 完全匹配。后端拒绝其他 provider/environment、Live、已连接/仍有凭据的账户、provider open order、Demo 订单簿中的 pending order、绑定该 connection 且状态为 `NEEDS_APPROVAL` 的 proposal，以及仍处于 `SUBMITTING` 或 `UNKNOWN_RECONCILING` 的 attempt。`ACKNOWLEDGED` attempt 在持久化订单簿出现其准确关联订单且订单为已识别终态、`pending: false` 前也会阻止删除；单独的 provider acknowledgement 不代表已解决。`REJECTED` attempt 属于终态。拒绝返回 `ACCOUNT_DELETE_BLOCKED` / `STATE_STALE`；版本陈旧则返回 `STATE_VERSION_CONFLICT`。
+
+账户资格检查与删除由控制面命令串行化及进程级 workspace lock 保护；删除在一个 immediate SQLite transaction 中重新读取目标身份/版本、账户订单、订单簿和 attempt 状态后提交。成功会删除账户 projection（包括非秘密、确定性的 credential reference）、account aggregate outbox 观察、按 connection 作用域保存的 Trading 212 Demo 订单簿 projection，以及该订单簿的 aggregate outbox 观察。账户/订单簿/attempt 验证或任意存储失败都会回滚。终态 proposal/attempt 审计历史遵循现有保留规则。不会发起 provider 请求，也不会调用 Keychain API；此操作不能撤销 provider key、取消 provider order 或影响其他账户。不增加 schema migration 或通用账户删除 API。
 
 ## 42. Backend-to-Frontend Event Surface
 

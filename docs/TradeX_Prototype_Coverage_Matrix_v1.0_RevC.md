@@ -1,11 +1,11 @@
 # TradeX Prototype Coverage Matrix — v1.0 RevC
 
-**Revision date:** 2026-09-05\
+**Revision date:** 2026-09-23\
 **Status:** Evidence re-baselined; prototype handoff NOT PASS\
 **Authority:** [PRD](./TradeX_PRD_v1.0_RevC.md), [UI Spec](./TradeX_UI_Prototype_Spec_v1.0_RevC.md), [Frontend ARD](./TradeX_Frontend_ARD_v1.0_RevC.md), [Backend ARD](./TradeX_Backend_ARD_v1.0_RevC.md)\
 **Prototype:** [docs/prototype](./prototype/README.md) at reviewed source main@6c4b267
 
-All 80 FR and 66 AC identifiers remain traceable. Their presence is structural coverage, not functional acceptance. The 2026-09-05 audit replaces earlier unqualified Covered/Directly verifiable claims.
+All 81 FR and 67 AC identifiers remain traceable. Their presence is structural coverage, not functional acceptance. The 2026-09-05 evidence audit replaces earlier unqualified Covered/Directly verifiable claims; QA-13 records the later account-deletion prototype gap.
 
 | Status | Meaning |
 |---|---|
@@ -115,6 +115,7 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | FR-078 | Block/review dangerous provider permissions (withdrawal/transfer/custody/margin/leverage) before live readiness | P0 | PARTIAL | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
 | FR-079 | Implement FX/stablecoin valuation provenance and depeg/quality handling | P1 | PARTIAL | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
 | FR-080 | Implement editable OrderDraft → immutable OrderProposal regeneration semantics | P0 | FAILED | Observed gap and post-repair assertions: [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-07). Re-verify behavior after repair; surface presence is not acceptance. |
+| FR-081 | Implement confirmed permanent local removal of eligible Trading 212 Demo account and order-book observations | P0 | FAILED | [QA-13](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-13): prototype has no permanent account-removal interaction; implementation evidence in #66 does not change prototype status. |
 
 ## 3. Acceptance-criterion traceability
 
@@ -186,6 +187,7 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | AC-064 | Local Paper is explicitly identified as TradeX simulation and cannot be confused with provider-hosted Paper/Demo/Testnet or Live execution. | IMPLEMENTED_UNVERIFIED | S16 implementation evidence: `docs/implementation/s16-local-paper-isolation-evidence.md` covers explicit LOCAL/TRADEX_SIMULATION identity, persistence/isolation, tamper rejection, and browser/Rust checks; S33 full regression remains pending. |
 | AC-065 | Editing a generated order creates a new immutable `OrderProposal` identity and invalidates any approval tied to the prior proposal. | FAILED | Observed gap and post-repair assertions: [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-07). Re-verify behavior after repair; surface presence is not acceptance. |
 | AC-066 | Cross-account valuation involving stablecoins/FX shows source/path/timestamps/freshness and a quality/depeg state; unreliable conversion cannot silently drive live risk calculations. | PARTIAL | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
+| AC-067 | Confirmed eligible Demo account removal is local-only, atomic, guarded against active financial work, isolated from other accounts, and accessible. | FAILED | [QA-13](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-13): no prototype confirmation, negative paths, or removal behavior; S18 #66 runtime tests are separate evidence. |
 
 
 ## 4. Screen coverage overview

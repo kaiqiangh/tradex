@@ -39,12 +39,13 @@ use crate::protocol::{
     SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
     StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
     StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
-    ThreadSummary, TimeInForce, TradeXError, Trading212DemoCancelState, Trading212DemoOrderAttempt,
+    ThreadSummary, TimeInForce, TradeXError, Trading212DemoCancelState,
+    Trading212DemoNormalizedOrderStatus, Trading212DemoOrderAttempt,
     Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
     Trading212DemoOrderCancel, Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist,
     WatchlistItem, Watchlists, Workspace,
 };
-use crate::providers::{AccountConnection, ConnectionState};
+use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
@@ -1395,6 +1396,197 @@ impl Store {
         }
         account.validate_persisted(&self.workspace_id()?)?;
         Ok(account)
+    }
+
+    pub fn delete_trading212_demo_account(&mut self, input: &AccountMutation) -> Result<()> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id
+            || !valid_order_text(&input.connection_id, 128)
+            || !valid_order_text(&input.expected_state_version, 256)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let mut proposals = tx
+            .prepare(
+                "SELECT proposal_id,workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 ORDER BY sequence DESC,proposal_id",
+            )
+            .map_err(storage_error)?;
+        let rows = proposals
+            .query_map([workspace_id.as_str()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, String>(6)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        for row in rows {
+            let (id, row_workspace, draft_id, draft_version, hash, sequence, projection) =
+                row.map_err(storage_error)?;
+            let stored = decode_stored_order_proposal(
+                &projection,
+                &id,
+                &row_workspace,
+                &draft_id,
+                draft_version,
+                &hash,
+                sequence,
+                &workspace_id,
+            )?;
+            if stored.fields.account_id.as_deref() == Some(input.connection_id.as_str())
+                && stored.fields.environment == ExecutionContext::Trading212Demo
+                && proposal_event_state(&tx, &id, &workspace_id)?.0
+                    == OrderProposalStatus::NeedsApproval
+            {
+                return Err(TradeXError::new("ACCOUNT_DELETE_BLOCKED"));
+            }
+        }
+        drop(proposals);
+        let (credential_ref, sequence, projection): (String, i64, String) = tx
+            .query_row(
+                "SELECT credential_ref,sequence,projection FROM accounts WHERE connection_id=?1",
+                [&input.connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection =
+            serde_json::from_str(&projection).map_err(storage_error)?;
+        if sequence < 1
+            || sequence > MAX_SEQUENCE as i64
+            || account.connection_id != input.connection_id
+            || account.state_version != format!("{}:{sequence}", account.connection_id)
+            || credential_ref != account.credential_ref()
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        account.validate_persisted(&workspace_id)?;
+        if account.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if account.provider_id != "trading212"
+            || account.environment != "DEMO"
+            || !matches!(
+                account.connection_state,
+                ConnectionState::Failed | ConnectionState::Disconnected
+            )
+            || account.health.credential != "MISSING"
+            || account
+                .data
+                .as_ref()
+                .is_some_and(|data| !data.open_orders.is_empty())
+        {
+            return Err(TradeXError::new("ACCOUNT_DELETE_BLOCKED"));
+        }
+
+        let book = load_trading212_demo_order_book(&tx, &workspace_id, &input.connection_id)?;
+        if book
+            .as_ref()
+            .is_some_and(|book| book.orders.iter().any(|order| order.pending))
+        {
+            return Err(TradeXError::new("ACCOUNT_DELETE_BLOCKED"));
+        }
+        let attempts = {
+            let mut query = tx
+                .prepare(
+                    "SELECT attempt_id,proposal_id,state FROM trading212_demo_order_attempts WHERE workspace_id=?1 AND connection_id=?2",
+                )
+                .map_err(storage_error)?;
+            query
+                .query_map(params![workspace_id, input.connection_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for (attempt_id, proposal_id, state) in attempts {
+            let attempt = load_trading212_demo_attempt(&tx, &workspace_id, &proposal_id)?
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if attempt.attempt_id != attempt_id
+                || attempt.connection_id != input.connection_id
+                || state != trading212_demo_attempt_state_name(attempt.state)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            match attempt.state {
+                Trading212DemoOrderAttemptState::Submitting
+                | Trading212DemoOrderAttemptState::UnknownReconciling => {
+                    return Err(TradeXError::new("ACCOUNT_DELETE_BLOCKED"));
+                }
+                Trading212DemoOrderAttemptState::Acknowledged => {
+                    let terminal_order_observed = book.as_ref().is_some_and(|book| {
+                        attempt
+                            .provider_order_id
+                            .as_deref()
+                            .is_some_and(|order_id| {
+                                book.orders.iter().any(|order| {
+                                    order.provider_order_id == order_id
+                                        && order.origin == Trading212DemoOrderOrigin::TradeX
+                                        && order.attempt_id.as_deref() == Some(&attempt.attempt_id)
+                                        && !order.pending
+                                        && matches!(
+                                            order.normalized_status,
+                                            Trading212DemoNormalizedOrderStatus::Cancelled
+                                                | Trading212DemoNormalizedOrderStatus::Filled
+                                                | Trading212DemoNormalizedOrderStatus::Rejected
+                                                | Trading212DemoNormalizedOrderStatus::Replaced
+                                                | Trading212DemoNormalizedOrderStatus::Expired
+                                        )
+                                })
+                            })
+                    });
+                    if !terminal_order_observed {
+                        return Err(TradeXError::new("ACCOUNT_DELETE_BLOCKED"));
+                    }
+                }
+                Trading212DemoOrderAttemptState::Rejected => {}
+            }
+        }
+
+        let deleted = tx
+            .execute(
+                "DELETE FROM accounts WHERE connection_id=?1 AND sequence=?2",
+                params![input.connection_id, sequence],
+            )
+            .map_err(storage_error)?;
+        if deleted != 1 {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        tx.execute(
+            "DELETE FROM outbox WHERE aggregate_type='account' AND aggregate_id=?1",
+            [&input.connection_id],
+        )
+        .map_err(storage_error)?;
+        tx.execute(
+            "DELETE FROM trading212_demo_order_books WHERE workspace_id=?1 AND connection_id=?2",
+            params![workspace_id, input.connection_id],
+        )
+        .map_err(storage_error)?;
+        tx.execute(
+            "DELETE FROM outbox WHERE aggregate_type='trading212-demo-order-book' AND aggregate_id=?1",
+            [&input.connection_id],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
     }
 
     pub fn threads(&self) -> Result<ThreadList> {

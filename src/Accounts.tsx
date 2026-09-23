@@ -88,8 +88,10 @@ function LocalPaperSummary({ state }: { state: LocalPaperState }) {
   </section>;
 }
 
-function AccountDetail({ account, busy, run }: { account: AccountConnection; busy: boolean; run: (action: () => Promise<AccountConnection>) => void }) {
+function AccountDetail({ account, busy, run, onDelete }: { account: AccountConnection; busy: boolean; run: (action: () => Promise<AccountConnection>) => void; onDelete: (account: AccountConnection) => Promise<{ deleted: boolean; message?: string }> }) {
   const [acknowledgedVersion, setAcknowledgedVersion] = useState<string>();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const acknowledged = acknowledgedVersion === account.stateVersion;
   const p = account.permissions;
   const blocked = p.forbidden.length > 0 || p.unsupported.length > 0;
@@ -97,10 +99,25 @@ function AccountDetail({ account, busy, run }: { account: AccountConnection; bus
   const cleanupOnly = disconnected && account.health.credential === 'MISSING';
   const localPaper = account.providerId === 'local-paper' && account.environment === 'LOCAL';
   const disconnectDisabled = busy || (disconnected && !cleanupOnly && account.health.credential !== 'DELETE_PENDING');
+  const deletable = account.providerId === 'trading212' && account.environment === 'DEMO' && ['FAILED', 'DISCONNECTED'].includes(account.connectionState) && account.health.credential === 'MISSING';
+  const deleteDialog = useRef<HTMLDialogElement>(null);
+  const deleteTrigger = useRef<HTMLButtonElement>(null);
+  const deleteCancel = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmDelete && deleteDialog.current && !deleteDialog.current.open) {
+      deleteDialog.current.showModal();
+      queueMicrotask(() => deleteCancel.current?.focus());
+    } else if (!confirmDelete && deleteDialog.current?.open) deleteDialog.current.close();
+    if (!confirmDelete && deleteTrigger.current) {
+      if (deleteTrigger.current.isConnected) deleteTrigger.current.focus();
+      else document.getElementById('connections-title')?.focus();
+      deleteTrigger.current = null;
+    }
+  }, [confirmDelete]);
   return <section className="card account-detail" aria-labelledby="account-detail-title" data-state-version={account.stateVersion}>
     <div className="account-heading"><div><h2 id="account-detail-title">{account.label}</h2><p>{account.providerId} · {account.environment}{localPaper ? ' · LOCAL_PAPER' : ''} · {account.connectionState}</p></div>
       <div className="account-actions">{!localPaper && <><button disabled={busy || disconnected || account.connectionState === 'CONNECTING' || ['MISSING', 'DELETE_PENDING'].includes(account.health.credential)} onClick={() => run(() => request('account.refresh', mutation(account)))}>Refresh account</button>
-        <button disabled={disconnectDisabled} onClick={() => run(() => request('provider.disconnect', mutation(account)))}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : cleanupOnly ? 'Remove local connection' : 'Disconnect'}</button></>}</div>
+        <button disabled={disconnectDisabled} onClick={() => run(() => request('provider.disconnect', mutation(account)))}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : cleanupOnly ? 'Remove local connection' : 'Disconnect'}</button>{deletable && <button type="button" onClick={() => { deleteTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null; setDeleteError(''); setConfirmDelete(true); }} disabled={busy}>Delete local account</button>}</>}</div>
     </div>
     <p className="notice">{account.health.reason}</p>
     <dl className="health-grid">{Object.entries(account.health).filter(([key]) => key !== 'reason').map(([key, value]) => <div key={key}><dt>{({ connection: 'Connection', authentication: 'Authentication', credential: 'Credential', privateStream: 'Private stream', reconciliation: 'Reconciliation', executionEligibility: 'Execution eligibility', arming: 'Arming' } as Record<string, string>)[key]}</dt><dd>{value}</dd></div>)}
@@ -125,6 +142,12 @@ function AccountDetail({ account, busy, run }: { account: AccountConnection; bus
       <h3>Capabilities and limitations</h3><p>{account.data.capabilities.join(', ')}</p><ul>{account.data.limitations.map(text => <li key={text}>{text}</li>)}</ul>
     </>}
     <p className="muted">{localPaper ? 'Built-in TradeX simulation. No credential, provider connection or Live order exists for this account.' : 'Disconnect stops local access and removes the stored credential. It does not revoke the provider key or cancel external orders.'}</p>
+    <dialog ref={deleteDialog} className="picker-dialog account-delete-dialog" aria-labelledby="account-delete-title" onCancel={event => { event.preventDefault(); if (!busy) setConfirmDelete(false); }}>
+      <div className="picker-dialog-heading"><div><h2 id="account-delete-title">Delete local account?</h2><p className="muted">This permanently removes TradeX-local account details and account/order-book observations.</p></div></div>
+      <p>Delete <strong>{account.label}</strong> ({account.providerId} · {account.environment})? This does not contact Trading 212, revoke its API key, cancel provider orders, or change any other account.</p>
+      {deleteError && <p role="alert">{deleteError}</p>}
+      <div className="picker-dialog-actions"><button ref={deleteCancel} type="button" onClick={() => setConfirmDelete(false)} disabled={busy}>Cancel</button><button type="button" className="primary" onClick={() => { void onDelete(account).then(result => { if (result.deleted) setConfirmDelete(false); else setDeleteError(result.message ?? 'Deletion failed. Reload account state and retry.'); }); }} disabled={busy}>{busy ? 'Deleting…' : 'Confirm permanent deletion'}</button></div>
+    </dialog>
   </section>;
 }
 
@@ -155,6 +178,7 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
   useEffect(() => {
     if (!busy && restoreFocus.current) {
       if (restoreFocus.current.isConnected) restoreFocus.current.focus();
+      else document.getElementById('connections-title')?.focus();
       restoreFocus.current = null;
     }
   }, [busy]);
@@ -183,6 +207,25 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
       setBusy(false);
     }
   };
+  const deleteLocalAccount = async (account: AccountConnection) => {
+    setBusy(true); setError(null); setNotice('');
+    try {
+      const receipt = await request('account.delete', mutation(account));
+      if (receipt.connectionId !== account.connectionId) throw new Error('IPC_IDENTITY_CONFLICT');
+      await queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['context-catalog', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['account', account.connectionId] });
+      await list.refetch();
+      setNotice(`Deleted local account ${account.label} (${account.providerId} · ${account.environment}).`);
+      setSelectedId(account.connectionId);
+      restoreFocus.current = document.getElementById('connections-title');
+      return { deleted: true };
+    } catch (failure) {
+      setError(failure);
+      await list.refetch();
+      return { deleted: false, message: explainError(failure) };
+    } finally { setBusy(false); }
+  };
   const failure = error ?? catalog.error ?? list.error ?? selected.error ?? paper.error;
   return <div className="accounts-panel">
     {failure != null && <div className="error-banner" role="alert"><p>{explainError(failure)}</p><button onClick={() => { setError(null); void list.refetch(); void catalog.refetch(); void paper.refetch(); if (selectedId) void selected.reload(); }}>Reload account state</button></div>}
@@ -209,10 +252,10 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
     {paper.isPending && <p role="status">Loading Local Paper simulation…</p>}
     {paper.data && <LocalPaperSummary state={paper.data} />}
     {!healthOnly && showPortfolio && <Portfolio workspaceId={workspaceId} />}
-    <section aria-labelledby="connections-title"><div className="section-heading"><div><h2 id="connections-title">Account connections</h2><p className="muted">Select an account to inspect its provider truth or TradeX simulation state.</p></div>{!healthOnly && <button type="button" onClick={() => setShowPortfolio(value => !value)} aria-expanded={showPortfolio}>{showPortfolio ? 'Hide portfolio' : 'Open portfolio'}</button>}</div>
+    <section aria-labelledby="connections-title"><div className="section-heading"><div><h2 id="connections-title" tabIndex={-1}>Account connections</h2><p className="muted">Select an account to inspect its provider truth or TradeX simulation state.</p></div>{!healthOnly && <button type="button" onClick={() => setShowPortfolio(value => !value)} aria-expanded={showPortfolio}>{showPortfolio ? 'Hide portfolio' : 'Open portfolio'}</button>}</div>
       {list.isLoading ? <p role="status">Loading local connections…</p> : !accounts.length ? <p>No account observations are available.</p> : <div className="account-list">{accounts.map(account => { const localPaper = account.providerId === 'local-paper' && account.environment === 'LOCAL'; return <button className="account-row" key={account.connectionId} aria-pressed={selectedId === account.connectionId} onClick={() => setSelectedId(account.connectionId)}><strong>{account.label}</strong><span>{account.providerId} · {account.environment}{localPaper ? ' · LOCAL_PAPER' : ''}</span>{localPaper && <small>TRADEX_SIMULATION · {account.health.reason}</small>}<span>{account.connectionState} · {account.health.connection}</span><span>Equity / balance: {account.data?.balances.map(balance => `${balance.asset} ${balance.total ?? balance.available}`).join(' · ') || 'Unavailable'}</span><span>Arming: {account.health.arming}</span><small>Last sync: {time(account.lastSuccessfulSync)}</small></button>; })}</div>}
     </section>
-    {selected.data && <AccountDetail key={selected.data.connectionId} account={selected.data} busy={busy} run={action => { void run(action); }} />}
+    {selected.data && <AccountDetail key={selected.data.connectionId} account={selected.data} busy={busy} run={action => { void run(action); }} onDelete={deleteLocalAccount} />}
     {selectedId && !selected.data && !selected.error && <p role="status">Restoring account state…</p>}
   </div>;
 }

@@ -23,7 +23,7 @@ def check():
     ))
     expected.update(re.findall(r"\*\*(AC-\d+)\*\*\s*\n([^\n]+)", prd))
     requirements = records("requirements.csv")
-    assert len(expected) == 201, "Review the changed normative requirement inventory"
+    assert len(expected) == 203, "Review the changed normative requirement inventory"
     assert len(requirements) == len(expected)
     assert {row["id"]: row["requirement"] for row in requirements} == expected
 
@@ -35,7 +35,7 @@ def check():
     for path, pattern in surface_sources:
         expected_surfaces.update(re.findall(pattern, (ROOT / path).read_text(), re.M))
     surfaces = records("surfaces.csv")
-    assert len(surfaces) == len(expected_surfaces) == 82
+    assert len(surfaces) == len(expected_surfaces) == 83
     assert {row["id"]: row["title"] for row in surfaces} == expected_surfaces
 
     slices = set(re.findall(r"^\| (S\d{2}) \|", (PLAN / "README.md").read_text(), re.M))
@@ -69,7 +69,7 @@ def check():
         content = subprocess.check_output(["git", "show", f"{baseline}:{row['path']}"], cwd=ROOT)
         assert hashlib.sha256(content).hexdigest() == row["sha256"], row["path"]
         assert len(content.splitlines()) == int(row["lines"]), row["path"]
-    print("Traceability OK: 201 requirements, 70 screens, 12 QA scenarios, 23 baseline files.")
+    print("Traceability OK: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files.")
     print("This checks the plan and source inventory; it does not prove application behavior.")
 
 

@@ -21,6 +21,7 @@ This clarification preserves v1.0 scope and FR/AC identifiers. UI Spec §14 refi
 | 1.0 RevB | 2026-09-04 | LLM gateway re-architecture: model access restricted to two sources — local CLIProxyAPI (ChatGPT subscription OAuth → GPT-5.6) and DeepSeek official API key — routed through a single local OpenAI-compatible endpoint (§16, §26.3, §27, §58, §64); OD-009/OD-015 resolved (§72); security additions SEC-007/SEC-008 and Model-credential zone (§17, §62.2); approval/reservation timing hardening (§15, §18, §21.3, §22, §23, §45, §46, §47); MVP storage profile simplification (§32, §54); adapter consolidation (§24); LLM error taxonomy (§51); FR-068–FR-073 and AC-055–AC-058 (§61, §69); privacy disclosure (§56); JTBD/scope/success-criteria updates (§8, §68, §73). |
 | 1.0 RevC | 2026-09-04 | Product-state consolidation and prototype alignment: separated Agent Mode from Execution Context (§12–§15); added per-turn immutable context/model snapshots, OrderDraft→OrderProposal semantics, compatibility rules, account-scoped arming, evidence-based reconciliation resolution, provider-permission safety gates, time/FX provenance, and provider capability dimensions; made cross-provider LLM fallback explicit opt-in/manual by default (§16, §26.3, §51, §56); reconciled DuckDB/Parquet and market-data-tier semantics (§32, §54, §63); strengthened FR/AC/NFR/SEC/DATA/OPS/UX traceability and Phase 0 gates; added measurable product success criteria and open-decision ownership/defaults; synchronized UI Spec, Coverage Matrix, QA Report, English/Chinese documentation, and the standalone prototype. |
 | 1.0 RevC clarification | 2026-09-05 | Guarded expiry/reservation release, global disarm scope, cancellation identity, Gateway/IPC contract references, corrected evidence grades, and bilingual synchronization; prototype code unchanged. |
+| 1.0 RevC S18 account-deletion addendum | 2026-09-23 | Added FR-081 / AC-067 for confirmed, atomic, TradeX-local deletion of eligible credential-free Trading 212 Demo accounts; Live, other connections, provider state, and terminal financial audit history remain protected. |
 
 ## Table of Contents
 
@@ -2455,6 +2456,7 @@ Minimum remediation examples:
 - `MARKET_CLOSED` / `INSTRUMENT_HALTED` → block unsupported execution and show market state;
 - `INSUFFICIENT_FUNDS` → show available vs required capacity including reservations;
 - `STATE_STALE` / `RECONCILIATION_REQUIRED` → disable live execution until refreshed;
+- `ACCOUNT_DELETE_BLOCKED` (`STATE_STALE`) → reload the selected account and resolve its credential or financial activity before local removal;
 - `SUBMISSION_AMBIGUOUS` → transition to `UNKNOWN_RECONCILING`, no blind retry;
 - `MODEL_UNAVAILABLE` → pause agent turns with sidecar remediation guidance (§16.3); approvals/execution/reconciliation unaffected;
 - `QUOTA_EXCEEDED` → show quota state; offer cooldown/retry and explicit switch to DeepSeek; optional automatic fallback only when the user enabled it;
@@ -2873,6 +2875,7 @@ graph TD
 | FR-078 | Block/review dangerous provider permissions (withdrawal/transfer/custody/margin/leverage) before live readiness | P0 |
 | FR-079 | Implement FX/stablecoin valuation provenance and depeg/quality handling | P1 |
 | FR-080 | Implement editable OrderDraft → immutable OrderProposal regeneration semantics | P0 |
+| FR-081 | Implement confirmed permanent local removal of eligible Trading 212 Demo account and order-book observations | P0 |
 
 Requirement-overlap notes (for traceability, IDs are kept stable):
 
@@ -3321,6 +3324,9 @@ Onboarding cannot reach Ready without at least one usable LLM provider; a sideca
 
 **AC-051**  
 Provider connection UI is rendered from provider credential/capability schema and does not assume every provider uses identical credential fields.
+
+**AC-067**
+Only a credential-free `trading212` / `DEMO` connection in `FAILED` or `DISCONNECTED` state can be permanently deleted after explicit confirmation naming the selected record. The confirmation says that provider keys, provider orders and every other connection are unchanged. The backend rechecks the active workspace, identity, state version, credential health, open orders, actionable proposals and unresolved attempts, then atomically removes the account projection plus its account and Demo order-book observations. `SUBMITTING` and `UNKNOWN_RECONCILING` attempts remain unresolved; an `ACKNOWLEDGED` attempt is resolved for deletion only after its exact linked order has a durable recognized terminal observation with `pending: false`. Terminal proposal/attempt audit history remains retained. Cancellation makes no change; success refreshes the list/context and announces completion; focus returns to the trigger or a logical fallback; failure leaves all target rows intact.
 
 ---
 

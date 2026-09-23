@@ -2,6 +2,7 @@
 declare const validators: {
   AccountConnection: (value: unknown) => boolean;
   AccountData: (value: unknown) => boolean;
+  AccountDeletionReceipt: (value: unknown) => boolean;
   AccountHealth: (value: unknown) => boolean;
   AccountMutation: (value: unknown) => boolean;
   AccountQuery: (value: unknown) => boolean;

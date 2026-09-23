@@ -1516,6 +1516,21 @@ impl ControlPlane {
                 };
                 Ok((data, Some(a.state_version)))
             }
+            "account.delete" => {
+                let input: AccountMutation = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                validate_aggregate("account", &input.connection_id)?;
+                self.store
+                    .as_mut()
+                    .unwrap()
+                    .delete_trading212_demo_account(&input)?;
+                Ok((
+                    json!(protocol::AccountDeletionReceipt {
+                        connection_id: input.connection_id,
+                    }),
+                    None,
+                ))
+            }
             "provider.connect" => match payload::<Connect>(request.payload)? {
                 Connect::Test {
                     workspace_id,
@@ -4005,6 +4020,28 @@ impl ControlPlane {
             alpaca_order_id: None,
             alpaca_expected_order: None,
         }))
+    }
+
+    #[cfg(feature = "integration-test")]
+    pub fn seed_trading212_demo_deletion_fixture(
+        &mut self,
+        workspace_id: &str,
+        label: &str,
+    ) -> Result<AccountConnection> {
+        self.validate_connection(workspace_id, "trading212", "DEMO", label)?;
+        let mut account = AccountConnection::new(
+            workspace_id.to_owned(),
+            "trading212".into(),
+            "DEMO".into(),
+            label.trim().into(),
+        )?;
+        account.connection_state = ConnectionState::Disconnected;
+        account.health.connection = "DISCONNECTED".into();
+        account.health.authentication = "UNVERIFIED".into();
+        account.health.credential = "MISSING".into();
+        account.health.reason =
+            "Disposable deletion fixture; no provider connection was made.".into();
+        self.persist_account(account)
     }
 
     fn prepare_trading212_demo_order_submit(

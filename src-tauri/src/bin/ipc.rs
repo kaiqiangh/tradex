@@ -150,6 +150,40 @@ fn main() -> io::Result<()> {
                 oversized = false;
                 continue;
             }
+            #[cfg(feature = "integration-test")]
+            if command == Some("account.delete.fixture.seed") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let label = payload.get("label").and_then(Value::as_str);
+                let reply = match (workspace_id, label) {
+                    (Some(workspace_id), Some(label)) => match control.lock() {
+                        Ok(mut control) => match control
+                            .seed_trading212_demo_deletion_fixture(workspace_id, label)
+                        {
+                            Ok(account) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":account
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             if command == Some("workspace.open") {
                 supervisor.stop_all();
                 strategy_supervisor.stop_all();

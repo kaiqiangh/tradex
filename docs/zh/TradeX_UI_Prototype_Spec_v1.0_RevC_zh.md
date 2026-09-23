@@ -1,7 +1,7 @@
 # TradeX 高保真原型 / UI 规范
 
 **版本:** 1.0 Final — Revision C(中文版)  
-**日期:** 2026-09-05\
+**日期:** 2026-09-23（S18 本地账户删除增补）\
 **英文权威版:** `TradeX_UI_Prototype_Spec_v1.0_RevC.md`  
 **PRD:** `TradeX_PRD_v1.0_RevC_zh.md`  
 **原型实现:** `../prototype/index.html`、`../prototype/styles.css`、`../prototype/app.js`\
@@ -391,6 +391,8 @@ MVP watchlist 使用按需/粗粒度刷新,不暗示常驻 tick-level Warm subsc
 ### E1. Accounts Overview
 
 展示 provider、environment、health、equity/balance、Live arming、last sync。
+
+仅当 Trading 212 Demo 连接处于 `FAILED` 或 `DISCONNECTED` 且 credential health 为 `MISSING` 时，显示“删除本地账户”。明确确认框标出所选记录的准确 label、provider 与 environment，说明会永久删除 TradeX 本地账户详情及账户/订单簿观察，并说明不会联系 Trading 212、撤销 API key、撤销 provider order 或修改其他连接。Cancel/Escape 不改变任何数据。成功后刷新列表/上下文并播报完成；错误保持可见，焦点返回触发控件或 Account connections 标题。
 
 ### E2. Provider-specific Account Detail
 
@@ -871,4 +873,10 @@ Onboarding Ready 要求至少一个已验证可用路由。关闭错误框不恢
 
 ## 14.10 验收证据
 
-QA Report 的 QA-01–QA-12 是本章细化要求的最低回归集合。通过必须依赖实际动作/状态断言，包括拒绝路径与中断路径。截图只证明布局，接口或状态标签只证明存在。运行时集成、提供方真实状态、持久化和辅助技术检查保留独立门槛。既有 FR/AC ID 保持稳定，两种语言必须记录相同用例状态。
+QA Report 的 QA-01–QA-13 是本章细化要求的最低回归集合。通过必须依赖实际动作/状态断言，包括拒绝路径与中断路径。截图只证明布局，接口或状态标签只证明存在。运行时集成、提供方真实状态、持久化和辅助技术检查保留独立门槛。两种语言必须记录相同用例状态。
+
+## 14.11 Trading 212 Demo 本地账户删除（S18 #66）
+
+Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection state=`FAILED` 或 `DISCONNECTED` 且 credential health=`MISSING` 时提供“删除本地账户”。打开原生 accessible confirmation dialog，明确显示捕获的账户 label、provider 和 environment，并说明会永久删除 TradeX 本地账户详情与账户/订单簿观察。明确说明不会向 Trading 212 发请求、不会撤销 provider key 或取消 provider order，也不改变其他任何账户。初始焦点位于 Cancel；dialog 限制键盘焦点，Escape/Cancel 不发送 command。失败时显示后端拒绝/存储结果且保持可操作；成功后播报完成、刷新列表/上下文、移除已删除详情，并将焦点还给触发控件或 Account connections 标题。验证 390 px 与 768 px 布局。
+
+该 UI 仅调用版本 1 的 `account.delete`，携带 workspace、准确 connection ID 与预期 state version。不发送 Keychain 引用，也不调用 provider I/O。后端独立检查删除资格与未解决金融活动；`ACKNOWLEDGED` attempt 在其准确关联订单获得持久化且已识别的终态观察、`pending: false` 前仍属未解决。点击原型证据必须与运行时集成证据分开。

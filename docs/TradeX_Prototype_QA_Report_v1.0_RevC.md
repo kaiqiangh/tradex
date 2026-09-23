@@ -1,6 +1,6 @@
 # TradeX Prototype QA Report — v1.0 RevC
 
-**Revision date:** 2026-09-05\
+**Revision date:** 2026-09-23\
 **Evidence baseline:** docs/prototype reviewed at main@6c4b267; this revision changes documentation only, not HTML/CSS/JS\
 **Scope:** document consistency, source inspection, standalone fixture interaction, and limited browser checks
 
@@ -8,7 +8,7 @@
 
 **Prototype interaction/handoff gate: NOT PASS.** This report supersedes the 2026-09-04 aggregate source-alignment PASS and direct-handoff recommendation. The target rules are clarified in both languages of the PRD, frontend/backend ARDs and UI Spec; the clickable prototype still has reproduced defects. A specification revision is not a prototype repair.
 
-There are 9 FAILED and 3 PARTIAL scenarios below. These count regression scenarios, not FR/AC coverage percentages. The specification can guide repair; prototype handoff requires these critical scenarios and the independent QA gates to pass.
+There are 10 FAILED and 3 PARTIAL scenarios below. These count regression scenarios, not FR/AC coverage percentages. The specification can guide repair; prototype handoff requires these critical scenarios and the independent QA gates to pass.
 
 ## 2. Evidence method and limitations
 
@@ -155,6 +155,17 @@ Each case separates observation from post-repair acceptance. Source line referen
 - Observed: Sidebar/history are hidden without replacement Thread actions in More; CSS hides Provider buttons. 390 px and complete responsive regression were not executed.
 - Evidence: [styles.css:19,23](./prototype/styles.css), [app.js:798](./prototype/app.js); UI Spec §14.9.
 
+<a id="qa-13"></a>
+
+### QA-13 — Permanent Trading 212 Demo account removal
+
+**Status: FAILED** · **Method:** Final source inspection · **Traceability:** FR-081; AC-067
+
+- Steps: Select a failed or disconnected Trading 212 Demo account; inspect the account detail and keyboard interaction for a permanent local-removal action.
+- Expected/post-repair acceptance: Offer deletion only with credential health `MISSING`; show an accessible confirmation naming the exact Demo connection and local-only scope; dismissal makes no change; confirmation removes only that account and its account/order-book observations atomically. Live, unrelated accounts, provider state, and terminal proposal/attempt history remain unchanged. Verify backend guards and 390/768 px focus/layout behavior.
+- Observed: The clickable prototype's effective account-detail renderer has only Live arming or simulated-trade controls and no permanent-removal action or confirmation. Runtime implementation/test evidence for S18 #66 is tracked separately and does not establish prototype acceptance.
+- Evidence: [app.js:668–672](./prototype/app.js); target: [UI Spec §14.11](./TradeX_UI_Prototype_Spec_v1.0_RevC.md#1411-trading-212-demo-local-account-deletion-s18-66).
+
 ## 4. Documentation decisions and validation
 
 | Topic | Documentation repair | Verification boundary |
@@ -167,7 +178,7 @@ Each case separates observation from post-repair acceptance. Source line referen
 
 ## 5. Independent incomplete QA gates
 
-1. Re-run QA-01–QA-12 after repair, retaining source revision, initial state, steps, expected/observed result, and screenshot/state-assertion evidence.
+1. Re-run QA-01–QA-13 after repair, retaining source revision, initial state, steps, expected/observed result, and screenshot/state-assertion evidence.
 2. Complete desktop/768 px/390 px visual regression, long content/scrolling/empty/error states, screen readers, and all keyboard paths.
 3. Real Codex App Server, CLIProxyAPI, IPC schema/order/replay compatibility, and model-outage independence of the control plane.
 4. Gateway process authentication/credential isolation; races between disarm and dispatch, expiry and submission, policy save and consumption, manual resolution and fill.
