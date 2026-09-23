@@ -21,4 +21,4 @@ The browser helper reported all ten observations passing. Provider credentials a
 
 ## Remaining boundary
 
-GitHub #59 remains open until its tracker state is updated. S17 parent Spec #56 remains open: its real Alpaca Paper sandbox sequence (`submit → query → observe → cancel if open → verify`) has not been run. FR-015 and AC-009 therefore remain `IMPLEMENTED_UNVERIFIED`; S17 and the wider FR-033/UX-004 scope must not be marked verified from these fixture results. No S33 full-application regression is claimed here.
+[#59 is closed](https://github.com/kaiqiangh/tradex/issues/59#issuecomment-5790711855) after its local acceptance evidence was published on `dev@1af7217`. S17 parent Spec #56 remains open: its real Alpaca Paper sandbox sequence (`submit → query → observe → cancel if open → verify`) has not been run. FR-015 and AC-009 therefore remain `IMPLEMENTED_UNVERIFIED`; S17 and the wider FR-033/UX-004 scope must not be marked verified from these fixture results. No S33 full-application regression is claimed here.
