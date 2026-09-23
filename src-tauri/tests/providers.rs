@@ -341,6 +341,22 @@ fn alpaca_paper_order_submit_is_persisted_before_io_and_never_posts_twice() {
         Ok(_) => panic!("research consumers cannot submit provider orders"),
     };
     assert_eq!(forbidden, "ORDER_SUBMIT_FORBIDDEN");
+
+    let mut unconfirmed = request.clone();
+    unconfirmed["payload"]["confirmedPaperOrder"] = json!(false);
+    let unconfirmed_error = match cp.prepare_provider_for(&unconfirmed, "main") {
+        Err(error) => error.code,
+        Ok(_) => panic!("unconfirmed Alpaca Paper orders must be rejected"),
+    };
+    assert_eq!(unconfirmed_error, "IPC_PAYLOAD_INVALID");
+    let absent_attempt = command(
+        &mut cp,
+        "alpaca.paper.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(absent_attempt["data"]["attempt"], Value::Null);
+    assert!(http.alpaca_posts.borrow().is_empty());
+
     let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
     let attempt = command(
         &mut cp,
