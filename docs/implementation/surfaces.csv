@@ -41,7 +41,7 @@ F10,Live Cancellation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,632,"S26,S33",N
 F11,Reservation Conflict,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,638,"S23,S33",NOT_STARTED,
 F12,Risk-policy Change Invalidation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,651,"S21,S23,S27,S33",NOT_STARTED,
 G1,Local Paper,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,664,"S16,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s16-local-paper-isolation-evidence.md; S16 Local Paper browser/Rust evidence on final dev SHA; S33 full regression remains pending"
-G2,Alpaca Paper,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,668,"S17,S33",NOT_STARTED,
+G2,Alpaca Paper,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,668,"S17,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s17-alpaca-paper-submit-evidence.md; docs/implementation/s17-alpaca-paper-orderbook-evidence.md; docs/implementation/s17-alpaca-paper-stream-evidence.md; local S17 fixtures/UI verified; real Paper sandbox and S33 remain pending"
 G3,Trading 212 Demo,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,673,"S18,S33",NOT_STARTED,
 G4,Binance Testnet,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,674,"S19,S33",NOT_STARTED,
 G5,Bitget Demo,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,675,"S20,S33",NOT_STARTED,

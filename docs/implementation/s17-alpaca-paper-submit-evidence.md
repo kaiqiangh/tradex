@@ -25,4 +25,4 @@ The generic `tests/workspace-ui.mjs` bootstrap helper timed out at its `compleme
 
 ## Remaining boundary
 
-The real external Alpaca Paper sandbox sequence was not attempted and is `BLOCKED_EXTERNAL`; no actual order was sent. Parent Spec #56 also requires the unfinished #58 order/fill/cancel work and #59 private-stream/reconciliation work, so #56 must remain open.
+The real external Alpaca Paper sandbox sequence was not attempted and is `BLOCKED_EXTERNAL`; no actual order was sent. Parent Spec #56 remains open: the #57–#59 local slices now have separate implementation and acceptance evidence, but the required external sandbox lifecycle still has no evidence.

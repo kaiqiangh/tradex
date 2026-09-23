@@ -25,4 +25,4 @@ The Rust-backed browser verification used an isolated integration bridge, tempor
 
 ## Remaining boundary
 
-S17 parent Spec #56 remains open. #59 still needs the authenticated private `trade_updates` stream, reconnect/restart reconciliation, and its IPC/SQLite/UI evidence. The real external Alpaca Paper sandbox lifecycle was not attempted, so it remains `BLOCKED_EXTERNAL`; no live or Paper order was sent. This evidence must not be used to mark the broader PRD requirements or S17 as verified.
+S17 parent Spec #56 remains open. The #59 private stream, reconnect/restart reconciliation, and IPC/SQLite/UI evidence are now recorded in [S17 #59 stream evidence](s17-alpaca-paper-stream-evidence.md). The real external Alpaca Paper sandbox lifecycle was not attempted, so it remains `BLOCKED_EXTERNAL`; no live or Paper order was sent. This evidence must not be used to mark the broader PRD requirements or S17 as verified.
