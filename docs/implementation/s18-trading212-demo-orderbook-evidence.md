@@ -4,7 +4,7 @@
 
 - Branch: `dev`
 - Implementation baseline: `f6a96feae975c929900f18d7b7d8e050ca82fc95`
-- Implementation commit: `715abd7` (`feat(trading212): add Demo order book reads`)
+- Implementation commit: `715abd770600bf1f0ec071e7c770700e00b2657a` (`feat(trading212): add Demo order book reads`)
 - Scope: GitHub issue [#62](https://github.com/kaiqiangh/tradex/issues/62), pending/detail/history reads and cumulative order-fill summaries for a connected Trading 212 Demo account.
 
 ## Delivered behavior
@@ -16,7 +16,7 @@
 
 ## Verification
 
-On the implementation tree committed as `715abd7`:
+On the implementation tree committed as `715abd770600bf1f0ec071e7c770700e00b2657a`:
 
 - `npm run check` — passed: generated IPC contract check, TypeScript check/build, frontend tests (9/9), Rust library tests (131/131), runnable workspace integration tests, and requirements traceability.
 - `cargo fmt --all -- --check` — passed.
