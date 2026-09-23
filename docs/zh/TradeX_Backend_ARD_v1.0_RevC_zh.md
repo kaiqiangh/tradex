@@ -2518,6 +2518,14 @@ Transport 仅允许 Demo 上的 `GET /api/v0/equity/orders`、`GET /api/v0/equit
 
 Order Drafts surface 以文字呈现加载、尚未同步、空、当前、stale/degraded 和重试状态。手动刷新会更新其返回 projection；持久事件保留相同 identity 与 sequence 契约，供 projection 消费者使用。不增加 Live、Agent、Local Paper、approval、arming、reservation 或 gateway 权限。
 
+### 41.23 Trading 212 Demo 撤单（S18 #63）
+
+`trading212.demo.orders.cancel` 是独立的主 Trade UI 写命令，载荷为 `{workspaceId, connectionId, expectedConnectionStateVersion, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}`，返回 `Trading212DemoOrderBook`。仅接受已连接且完成权限审阅的 `trading212` / `DEMO` connection，以及当前已保存待处理集合中的准确订单；原始 provider 状态必须为 `CONFIRMED`、`NEW` 或 `PARTIALLY_FILLED`，且所选 provider 详情的观察时间不超过 60 秒。UI 先通过显式的“复核撤单”读取该详情，再展示准确环境、账户、provider order ID、状态、已成交/剩余数量、可用时的币种/金额和观察时间，供用户单独确认。关闭复核不会发送命令。
+
+I/O 前通过 SQLite immediate transaction 重新核验 workspace、connection 和订单簿版本、环境、连接/认证健康、远端账户身份、待处理状态、新鲜度及用户确认，然后持久化 `SUBMITTING`、本地幂等键和 outbox event。Provider worker 再通过固定 Demo host 核验远端账户，最多发送一次 `DELETE /api/v0/equity/orders/{positive-int64-id}`。撤单路由仅允许访问 `https://demo.trading212.com`，Live 禁止该路由。每账户本地撤单门控为 2 秒，并保存/展示 `cancelOrderRetryAt`；若 provider 返回 reset metadata，也必须遵守。
+
+HTTP 200 只表示已接受，并不表示已撤销：设置本地 `cancelState: PENDING`，直到后续显式订单观察更新 provider 状态。对明确的 400/401/403/429 响应清除本地撤单状态并保存有界错误。超时、transport 歧义、408 或任何未识别响应均进入 `PENDING` / `ORDER_CANCEL_STATUS_UNKNOWN`，绝不重发。重新打开时，未完成的 `SUBMITTING` 恢复为相同 pending/unknown 状态。对 `SUBMITTING` 或 `PENDING` 的重复命令不会再次发送 DELETE。订单观察优先处理竞态：部分成交会更新累计成交数据并保持撤单 pending；只有 provider 终态 `CANCELLED`、`FILLED`、`REJECTED`、`REPLACED` 或 `EXPIRED` 才清除本地撤单状态，成交仍可见。`CANCELLING` 是非终态且仍待处理。不增加自动轮询、替代订单、Live 路由、Agent 或 Order Gateway 权限。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
@@ -2549,6 +2557,7 @@ trade.manual_resolution.required
 provider.health.changed
 alpaca.paper.order.attempt.changed
 trading212.demo.order.attempt.changed
+trading212.demo.order.book.changed
 ```
 
 Event payload 使用 canonical IDs 和 versioned schemas。

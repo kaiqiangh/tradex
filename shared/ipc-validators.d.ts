@@ -265,6 +265,7 @@ declare const validators: {
   ToolId: (value: unknown) => boolean;
   TradeRecord: (value: unknown) => boolean;
   TradeXError: (value: unknown) => boolean;
+  Trading212DemoCancelState: (value: unknown) => boolean;
   Trading212DemoNormalizedOrderStatus: (value: unknown) => boolean;
   Trading212DemoOrder: (value: unknown) => boolean;
   Trading212DemoOrderAttempt: (value: unknown) => boolean;
@@ -277,6 +278,7 @@ declare const validators: {
   Trading212DemoOrderBookQueryResult: (value: unknown) => boolean;
   Trading212DemoOrderBookRefresh: (value: unknown) => boolean;
   Trading212DemoOrderBookStatus: (value: unknown) => boolean;
+  Trading212DemoOrderCancel: (value: unknown) => boolean;
   Trading212DemoOrderOrigin: (value: unknown) => boolean;
   Trading212DemoOrderSubmit: (value: unknown) => boolean;
   Trading212DemoRateLimits: (value: unknown) => boolean;

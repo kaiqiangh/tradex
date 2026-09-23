@@ -47,8 +47,9 @@ use protocol::{
     Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult,
     Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookAction,
     Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult,
-    Trading212DemoOrderBookRefresh, Trading212DemoOrderBookStatus, Trading212DemoOrderSubmit,
-    Trading212DemoRateLimits, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    Trading212DemoOrderBookRefresh, Trading212DemoOrderBookStatus, Trading212DemoOrderCancel,
+    Trading212DemoOrderSubmit, Trading212DemoRateLimits, TurnCancel, TurnRetry, TurnSnapshot,
+    TurnStart,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -499,6 +500,7 @@ fn empty_trading212_demo_order_book(
             pending_orders_retry_at: None,
             order_detail_retry_at: None,
             history_retry_at: None,
+            cancel_order_retry_at: None,
         },
         orders: Vec::new(),
     })
@@ -3913,6 +3915,9 @@ impl ControlPlane {
             "trading212.demo.orders.refresh" => {
                 return self.prepare_trading212_demo_order_book_refresh(request, consumer);
             }
+            "trading212.demo.orders.cancel" => {
+                return self.prepare_trading212_demo_order_cancel(request, consumer);
+            }
             "trading212.demo.order.submit" => {
                 return self.prepare_trading212_demo_order_submit(request, consumer);
             }
@@ -4315,6 +4320,51 @@ impl ControlPlane {
         }))
     }
 
+    fn prepare_trading212_demo_order_cancel(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: Trading212DemoOrderCancel = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "trading212" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.credential != "CONFIGURED"
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let book = self
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_trading212_demo_order_cancel(&input)?;
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::Trading212DemoOrderCancel,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: Some(book),
+            trading212_demo_order_id: Some(input.provider_order_id),
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+        }))
+    }
+
     fn prepare_alpaca_paper_order_review(
         &mut self,
         request: CommandEnvelope,
@@ -4640,6 +4690,7 @@ impl ControlPlane {
             JobKind::Trading212DemoOrderBookPending
                 | JobKind::Trading212DemoOrderBookHistory
                 | JobKind::Trading212DemoOrderBookDetail
+                | JobKind::Trading212DemoOrderCancel
         ) {
             if job.session != self.session || !self.provider_job_current(job) {
                 return failure_reply(

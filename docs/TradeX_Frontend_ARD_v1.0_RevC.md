@@ -612,6 +612,12 @@ Order Drafts lets the user select a connected Trading 212 Demo account and reads
 
 The UI distinguishes never-synced, loading, empty, current, stale/degraded, and rate-limited reads, shows the last successful read and endpoint retry time, and retains saved observations after an incomplete read. History controls expose page count/completion and cannot trigger automatic polling. Pending-order detail is offered only while the saved observation says the order is pending; a terminal detail response removes that action. Lists and controls remain readable by keyboard and at narrow widths. Cumulative filled value is shown with the provider-reported currency when available; the UI never converts or infers a unit. No fill rows are synthesized, and no stream or Live/Agent action is added.
 
+### 13.12 Trading 212 Demo order cancellation (S18 #63)
+
+On a current pending Demo order with an allowlisted provider status, “Review cancellation” first refreshes that exact order detail. Open the confirmation only when the returned book and exact order are current, still pending/cancelable, and belong to the selected Demo connection and remote account. The dialog names the captured account/environment and full provider order ID, shows raw and normalized status, exact filled and remaining quantities, filled value/currency when available, and observation time. Its copy says provider acceptance is not cancellation. Keep reviewing or Escape dismisses without a write; keyboard focus starts on the safe dismissal control, remains trapped in the dialog, and returns to the trigger or logical fallback. Confirmation sends one `trading212.demo.orders.cancel` request for the captured connection and book version.
+
+After a 200 acknowledgement, show the order as cancellation pending and keep the provider's raw status; timeout or unknown outcomes also remain pending/unknown and cannot be resubmitted. Keep exact-order detail refresh available for reconciliation, hide another cancel control, and let later provider facts win a partial/full-fill race. Only a provider-terminal state displays the final outcome. Show the cancel endpoint retry time with the other per-account gates. These actions are Demo-only and are unavailable on stale, disconnected, unknown, or terminal orders; layout and keyboard behavior are checked at 390/768 px.
+
 ---
 
 ## 14. Live Execution UI Architecture

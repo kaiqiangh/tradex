@@ -2518,6 +2518,14 @@ Open-order, detail, and history reads have separate per-account gates (5 seconds
 
 The Order Drafts surface renders loading, never-synced, empty, current, stale/degraded, and retry states with text. Manual refreshes update the returned projection; stored events preserve the same identity and sequence contract for projection consumers. No Live, Agent, Local Paper, approval, arming, reservation, or gateway authority is introduced.
 
+### 41.23 Trading 212 Demo order cancellation (S18 #63)
+
+`trading212.demo.orders.cancel` is a separate primary-Trade-UI write command with payload `{workspaceId, connectionId, expectedConnectionStateVersion, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}` and result `Trading212DemoOrderBook`. It accepts only a connected, permission-reviewed `trading212` / `DEMO` connection and an exact order in the current saved pending set whose raw provider status is `CONFIRMED`, `NEW`, or `PARTIALLY_FILLED`. The selected provider detail must have been observed no more than 60 seconds earlier. The UI obtains that detail by an explicit Review cancellation action, then shows the exact environment, account, provider order ID, status, filled/remaining quantities, currency/value when available, and observation time for a separate confirmation. Dismissal sends no command.
+
+Before I/O, an immediate SQLite transaction rechecks workspace, connection and book versions, environment, connection/authentication health, remote account identity, pending status, freshness, and confirmation; it persists `SUBMITTING`, the local idempotency key, and the outbox event. The provider worker verifies the Demo remote account again through the fixed Demo host before issuing at most one `DELETE /api/v0/equity/orders/{positive-int64-id}`. The cancellation route is permitted only on `https://demo.trading212.com`; Live denies it. The local cancellation gate is two seconds per account and stores/exposes `cancelOrderRetryAt`, while provider reset metadata is honored when returned.
+
+HTTP 200 means accepted, not cancelled: set local `cancelState: PENDING` and retain the provider status until a later explicit order observation. Clear local cancellation state for definitive 400/401/403/429 responses with a bounded error. Timeout, transport ambiguity, 408, or any unrecognized response is `PENDING` with `ORDER_CANCEL_STATUS_UNKNOWN`; never resend. Reopen converts an interrupted `SUBMITTING` to that same pending/unknown state. Duplicate commands against `SUBMITTING` or `PENDING` do not send another DELETE. Provider observations win races: partial fills update cumulative fill data while cancellation stays pending; only provider-terminal `CANCELLED`, `FILLED`, `REJECTED`, `REPLACED`, or `EXPIRED` clears local cancellation state, and a fill remains visible. `CANCELLING` remains nonterminal and pending. No automatic polling, replacement order, Live route, Agent, or Order Gateway authority is added.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
@@ -2549,6 +2557,7 @@ trade.manual_resolution.required
 provider.health.changed
 alpaca.paper.order.attempt.changed
 trading212.demo.order.attempt.changed
+trading212.demo.order.book.changed
 ```
 
 Event payloads carry canonical IDs and versioned schemas.

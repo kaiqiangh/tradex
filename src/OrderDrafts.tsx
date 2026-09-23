@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AccountConnection,
@@ -13,6 +14,7 @@ import type {
   PaperOrderResult,
   Trading212DemoOrderAttempt,
   Trading212DemoOrder,
+  Trading212DemoOrderBook,
   Trading212DemoOrderBookAction,
   AlpacaPaperOrderAttempt,
   AlpacaPaperOrder,
@@ -52,6 +54,11 @@ function isOpenAlpacaOrder(order: AlpacaPaperOrder) {
 function canCancelAlpacaOrder(order: AlpacaPaperOrder) {
   return ['new', 'accepted', 'pending_new', 'partially_filled'].includes(order.providerStatus)
     && order.cancelState === 'NONE';
+}
+
+function canCancelTrading212Order(order: Trading212DemoOrder) {
+  return ['CONFIRMED', 'NEW', 'PARTIALLY_FILLED'].includes(order.providerStatus)
+    && (order.cancelState ?? 'NONE') === 'NONE';
 }
 
 type DraftForm = {
@@ -172,10 +179,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [paperCancelIdempotencyKey, setPaperCancelIdempotencyKey] = useState<string>();
   const [alpacaIdempotencyKey, setAlpacaIdempotencyKey] = useState<string>();
   const [trading212IdempotencyKey, setTrading212IdempotencyKey] = useState<string>();
-  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit'>();
+  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel'>();
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
   const [cancelReview, setCancelReview] = useState<{ book: AlpacaPaperOrderBook; order: AlpacaPaperOrder }>();
+  const [trading212CancelReview, setTrading212CancelReview] = useState<{ book: Trading212DemoOrderBook; order: Trading212DemoOrder; connectionId: string; accountLabel: string }>();
   const confirmationRef = useRef<HTMLDivElement>(null);
   const confirmationTriggerRef = useRef<HTMLElement | null>(null);
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
@@ -235,6 +243,34 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     confirmationTriggerRef.current = null;
     queueMicrotask(() => { if (trigger?.isConnected) trigger.focus(); else document.getElementById('order-proposal-title')?.focus(); });
   }, [paperConfirmation]);
+  useEffect(() => {
+    if (!paperConfirmation) return;
+    const shell = document.querySelector<HTMLElement>('.app-shell');
+    if (shell) shell.inert = true;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (!paperBusy && !ordersBusy && !trading212OrdersBusy) {
+          setPaperConfirmation(undefined);
+          setCancelReview(undefined);
+          setTrading212CancelReview(undefined);
+        }
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [...(confirmationRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !confirmationRef.current?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !confirmationRef.current?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (shell) shell.inert = false;
+    };
+  }, [paperConfirmation, paperBusy, ordersBusy, trading212OrdersBusy]);
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
@@ -472,11 +508,15 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setOrdersBusy(false); }
   };
 
-  const refreshTrading212Orders = async (action: Trading212DemoOrderBookAction, providerOrderId?: string) => {
-    if (!trading212OrdersAccount) return;
+  const refreshTrading212Orders = async (action: Trading212DemoOrderBookAction, providerOrderId?: string, targetConnectionId = trading212ConnectionId, expectedRemoteAccountId?: string) => {
+    if (!targetConnectionId) return;
     setTrading212OrdersBusy(true); setError(undefined); setNotice('');
     try {
-      const account = await request('account.get', { workspaceId, connectionId: trading212OrdersAccount.connectionId });
+      const account = await request('account.get', { workspaceId, connectionId: targetConnectionId });
+      if (account.connectionId !== targetConnectionId || account.providerId !== 'trading212' || account.environment !== 'DEMO'
+        || account.connectionState !== 'CONNECTED' || (expectedRemoteAccountId && account.data?.remoteAccountId !== expectedRemoteAccountId)) {
+        throw localGuardError('ORDER_STATUS_UNKNOWN', 'The selected Trading 212 Demo account changed. Select it again and review the order before requesting cancellation.');
+      }
       const result = await request('trading212.demo.orders.refresh', {
         workspaceId,
         connectionId: account.connectionId,
@@ -491,6 +531,59 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         const retryAt = action === 'PENDING' ? result.rateLimits.pendingOrdersRetryAt : action === 'DETAIL' ? result.rateLimits.orderDetailRetryAt : result.rateLimits.historyRetryAt;
         setNotice('Trading 212 Demo read is degraded: ' + (result.reason ?? 'provider data was incomplete') + '. Existing observations were kept.' + (retryAt ? ' Retry ' + retryLabel(retryAt) + '.' : ''));
       }
+      return result;
+    } catch (cause) { setError(cause); }
+    finally { setTrading212OrdersBusy(false); }
+  };
+
+  const reviewTrading212Order = async (order: Trading212DemoOrder) => {
+    const connectionId = trading212ConnectionId;
+    const accountSummary = trading212Accounts.find(account => account.connectionId === connectionId);
+    const remoteAccountId = accountSummary?.data?.remoteAccountId;
+    if (!accountSummary || !remoteAccountId || !canCancelTrading212Order(order)) return;
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setError(undefined); setNotice('');
+    try {
+      const book = await refreshTrading212Orders('DETAIL', order.providerOrderId, connectionId, remoteAccountId);
+      if (!book || book.status !== 'CURRENT') throw localGuardError('ORDER_STATUS_UNKNOWN', 'Trading 212 could not verify the selected order. Refresh and review again before requesting cancellation.');
+      const reviewed = book.orders.find(item => item.providerOrderId === order.providerOrderId);
+      if (!reviewed || !reviewed.pending || !canCancelTrading212Order(reviewed)) {
+        throw localGuardError('ORDER_NOT_CANCELABLE', 'The provider order is no longer cancelable. Refresh its current provider status.');
+      }
+      setTrading212CancelReview({ book, order: reviewed, connectionId, accountLabel: accountSummary.label });
+      setPaperConfirmation('trading212-cancel');
+    } catch (cause) { setError(cause); }
+  };
+
+  const cancelTrading212Order = async () => {
+    if (!trading212CancelReview) return;
+    setTrading212OrdersBusy(true); setError(undefined); setNotice('');
+    try {
+      const { book: reviewedBook, order, connectionId } = trading212CancelReview;
+      const account = await request('account.get', { workspaceId, connectionId });
+      if (account.connectionId !== connectionId || account.providerId !== 'trading212' || account.environment !== 'DEMO'
+        || account.connectionState !== 'CONNECTED' || account.data?.remoteAccountId !== reviewedBook.remoteAccountId) {
+        throw localGuardError('ORDER_STATUS_UNKNOWN', 'The reviewed Trading 212 Demo account identity changed. Refresh the account and order before trying again.');
+      }
+      const updatedBook = await request('trading212.demo.orders.cancel', {
+        workspaceId,
+        connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        providerOrderId: order.providerOrderId,
+        expectedBookStateVersion: reviewedBook.stateVersion,
+        idempotencyKey: crypto.randomUUID(),
+        confirmed: true,
+      });
+      queryClient.setQueryData(['trading212-demo-orders', workspaceId, connectionId], { book: updatedBook });
+      const updatedOrder = updatedBook.orders.find(item => item.providerOrderId === order.providerOrderId);
+      setNotice(updatedOrder?.cancelError === 'ORDER_CANCEL_STATUS_UNKNOWN'
+        ? `Trading 212 Demo cancellation outcome for ${order.providerOrderId} is unknown. It remains pending provider confirmation; refresh this exact order before taking further action.`
+        : updatedOrder?.cancelState === 'PENDING'
+          ? `Trading 212 Demo accepted the cancellation request for ${order.providerOrderId}. The order remains pending provider confirmation.`
+          : updatedOrder?.cancelError
+            ? `Trading 212 Demo did not accept cancellation for ${order.providerOrderId}: ${updatedOrder.cancelError}. The provider order remains ${updatedOrder.providerStatus}.`
+            : `Trading 212 Demo cancellation state for ${order.providerOrderId}: ${updatedOrder?.providerStatus ?? 'unknown'}.`);
+      setTrading212CancelReview(undefined);
     } catch (cause) { setError(cause); }
     finally { setTrading212OrdersBusy(false); }
   };
@@ -560,7 +653,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setPaperBusy(false); }
   };
 
-  const openPaperConfirmation = (action: 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit') => {
+  const openPaperConfirmation = (action: 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel') => {
     confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPaperConfirmation(action);
   };
@@ -571,8 +664,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     else if (action === 'alpaca-submit') await submitAlpacaProposal();
     else if (action === 'trading212-submit') await submitTrading212Proposal();
     else if (action === 'alpaca-cancel') await cancelAlpacaOrder();
+    else if (action === 'trading212-cancel') await cancelTrading212Order();
     else await cancelPaperOrder();
     setPaperConfirmation(undefined);
+    setCancelReview(undefined);
+    setTrading212CancelReview(undefined);
   };
 
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
@@ -677,7 +773,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         </p>
         <h3>Pending orders ({trading212OrderBook.orders.filter(order => order.pending).length})</h3>
         {!trading212OrderBook.orders.some(order => order.pending) && trading212OrderBook.status === 'CURRENT' && <p className="muted">No pending Trading 212 Demo orders were returned.</p>}
-        {trading212OrderBook.orders.filter(order => order.pending).map(order => <Trading212OrderCard key={order.providerOrderId} order={order} pending onRefresh={() => void refreshTrading212Orders('DETAIL', order.providerOrderId)} busy={trading212OrdersBusy} />)}
+        {trading212OrderBook.orders.filter(order => order.pending).map(order => <Trading212OrderCard key={order.providerOrderId} order={order} pending onRefresh={() => void refreshTrading212Orders('DETAIL', order.providerOrderId)} onReviewCancel={trading212OrderBook.status === 'CURRENT' && trading212OrdersAccount?.connectionState === 'CONNECTED' && canCancelTrading212Order(order) ? () => void reviewTrading212Order(order) : undefined} busy={trading212OrdersBusy} />)}
         <div className="section-heading">
           <h3>Order history ({trading212OrderBook.orders.filter(order => !order.pending).length})</h3>
           <button type="button" onClick={() => void refreshTrading212Orders('HISTORY')} disabled={!trading212OrdersAccount || trading212OrdersAccount.connectionState !== 'CONNECTED' || trading212OrdersBusy}>
@@ -687,16 +783,17 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         {!trading212OrderBook.orders.some(order => !order.pending) && trading212OrderBook.historyStarted && trading212OrderBook.status === 'CURRENT' && <p className="muted">No historical Trading 212 Demo orders were returned.</p>}
         {trading212OrderBook.orders.filter(order => !order.pending).map(order => <Trading212OrderCard key={order.providerOrderId} order={order} pending={false} busy={trading212OrdersBusy} />)}
         <p className="muted">History pages loaded: {trading212OrderBook.historyPageCount} · {trading212OrderBook.historyComplete ? 'complete' : 'more may be available'}</p>
-        <p className="muted">Endpoint limits: pending {retryLabel(trading212OrderBook.rateLimits.pendingOrdersRetryAt)} · detail {retryLabel(trading212OrderBook.rateLimits.orderDetailRetryAt)} · history {retryLabel(trading212OrderBook.rateLimits.historyRetryAt)}.</p>
+      <p className="muted">Endpoint limits: pending {retryLabel(trading212OrderBook.rateLimits.pendingOrdersRetryAt)} · detail {retryLabel(trading212OrderBook.rateLimits.orderDetailRetryAt)} · history {retryLabel(trading212OrderBook.rateLimits.historyRetryAt)} · cancel {retryLabel(trading212OrderBook.rateLimits.cancelOrderRetryAt)}.</p>
       </>}
     </section>
-    {paperConfirmation && <div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}>
+    {paperConfirmation && createPortal(<div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}>
       <div className="picker-dialog-heading"><div>
-        <h2 id="paper-confirm-title">{paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submission' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'alpaca-cancel' ? 'Confirm Alpaca Paper cancellation' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2>
-        <p className="muted">{paperConfirmation === 'trading212-submit' ? 'This sends one order to the connected Trading 212 Demo account. It never uses a Live endpoint; an acknowledgement is not a fill.' : paperConfirmation === 'alpaca-submit' ? 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.' : paperConfirmation === 'alpaca-cancel' ? 'The account and order were just reread from Alpaca Paper. Review the exact filled and remaining quantities before confirming.' : 'This changes the TradeX simulation only.'}</p>
+        <h2 id="paper-confirm-title">{paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submission' : paperConfirmation === 'trading212-cancel' ? 'Confirm Trading 212 Demo cancellation' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'alpaca-cancel' ? 'Confirm Alpaca Paper cancellation' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2>
+        <p className="muted">{paperConfirmation === 'trading212-submit' ? 'This sends one order to the connected Trading 212 Demo account. It never uses a Live endpoint; an acknowledgement is not a fill.' : paperConfirmation === 'trading212-cancel' ? 'The exact Trading 212 Demo account and order were just reread. A provider acknowledgement is not proof of cancellation; fills may race this request.' : paperConfirmation === 'alpaca-submit' ? 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.' : paperConfirmation === 'alpaca-cancel' ? 'The account and order were just reread from Alpaca Paper. Review the exact filled and remaining quantities before confirming.' : 'This changes the TradeX simulation only.'}</p>
       </div></div>
-      <p>{paperConfirmation === 'trading212-submit' ? 'Submit this exact immutable Proposal to Trading 212 Demo?' : paperConfirmation === 'alpaca-submit' ? 'Submit the exact Alpaca Paper Proposal shown below?' : paperConfirmation === 'alpaca-cancel' ? 'Send a cancellation request for this exact Alpaca Paper order?' : paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p>
+      <p>{paperConfirmation === 'trading212-submit' ? 'Submit this exact immutable Proposal to Trading 212 Demo?' : paperConfirmation === 'trading212-cancel' ? 'Send one cancellation request for this exact Trading 212 Demo order?' : paperConfirmation === 'alpaca-submit' ? 'Submit the exact Alpaca Paper Proposal shown below?' : paperConfirmation === 'alpaca-cancel' ? 'Send a cancellation request for this exact Alpaca Paper order?' : paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p>
       {paperConfirmation === 'alpaca-cancel' && cancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>ALPACA_PAPER · {ordersAccount?.label ?? 'Unavailable'} · {cancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{cancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{cancelReview.order.instrumentId ?? cancelReview.order.symbol} · {cancelReview.order.side.toUpperCase()}</dd></div><div><dt>Provider status</dt><dd>{cancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{cancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{cancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last observation</dt><dd>{new Date(cancelReview.order.observedAt).toLocaleString()}</dd></div></dl>}
+      {paperConfirmation === 'trading212-cancel' && trading212CancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>Trading 212 Demo · TRADING212_DEMO · {trading212CancelReview.accountLabel} · {trading212CancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{trading212CancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{trading212CancelReview.order.symbol} · {trading212CancelReview.order.side}</dd></div><div><dt>Provider / normalized status</dt><dd>{trading212CancelReview.order.providerStatus} / {trading212CancelReview.order.normalizedStatus}</dd></div><div><dt>Filled quantity</dt><dd>{trading212CancelReview.order.filledQuantity ?? 'Unavailable'}</dd></div><div><dt>Remaining quantity</dt><dd>{trading212CancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Filled value</dt><dd>{trading212CancelReview.order.filledValue == null ? 'Unavailable' : `${trading212CancelReview.order.filledValue} ${trading212CancelReview.order.currency ?? 'currency unavailable'}`}</dd></div><div><dt>Last provider observation</dt><dd>{new Date(trading212CancelReview.order.observedAt).toLocaleString()}</dd></div><div><dt>Provider acknowledgement</dt><dd>Acceptance only; cancellation is not confirmed until a later provider observation.</dd></div></dl>}
       {(paperConfirmation === 'alpaca-submit' || paperConfirmation === 'trading212-submit') && proposalDetail.data && <dl className="proposal-fields">
         <div><dt>Environment / account</dt><dd>{paperConfirmation === 'trading212-submit' ? 'Trading 212 Demo · TRADING212_DEMO' : 'Alpaca Paper'} · {accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'} · {accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}</dd></div>
         <div><dt>Instrument / side</dt><dd>{proposalDetail.data.fields.instrumentId} · {proposalDetail.data.fields.side}</dd></div>
@@ -705,15 +802,16 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         {paperConfirmation === 'trading212-submit' && proposalDetail.data.fields.orderType === 'MARKET' && <div><dt>Extended hours</dt><dd>Off</dd></div>}
         <div><dt>Proposal / hash</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div>
       </dl>}
-      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); }} disabled={paperBusy || ordersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy}>{paperBusy || ordersBusy ? 'Working…' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submit' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'alpaca-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div>
-    </div></div>}
+      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy ? 'Working…' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submit' : paperConfirmation === 'trading212-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'alpaca-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div>
+    </div></div>, document.body)}
   </>;
 }
 
-function Trading212OrderCard({ order, pending, onRefresh, busy }: {
+function Trading212OrderCard({ order, pending, onRefresh, onReviewCancel, busy }: {
   order: Trading212DemoOrder;
   pending: boolean;
   onRefresh?: () => void;
+  onReviewCancel?: () => void;
   busy: boolean;
 }) {
   return <article className="order-book-order">
@@ -728,6 +826,10 @@ function Trading212OrderCard({ order, pending, onRefresh, busy }: {
       <div><dt>Submitted</dt><dd>{new Date(order.submittedAt).toLocaleString()}</dd></div>
       {order.attemptId && <div><dt>TradeX attempt</dt><dd>{order.attemptId}</dd></div>}
     </dl>
+    {order.cancelState === 'SUBMITTING' && <p className="muted" role="status">Cancellation request is being sent. The provider order remains pending verification.</p>}
+    {order.cancelState === 'PENDING' && <p className="muted" role="status">Cancellation request accepted or outcome unknown; refresh this exact order for provider confirmation.</p>}
+    {order.cancelError && order.cancelError !== 'ORDER_CANCEL_STATUS_UNKNOWN' && <p className="error-text" role="status">Cancellation request was not accepted: {order.cancelError}</p>}
+    {pending && onReviewCancel && <button type="button" onClick={onReviewCancel} disabled={busy}>Review cancellation</button>}
     {pending && onRefresh && <button type="button" onClick={onRefresh} disabled={busy}>{busy ? 'Refreshing order…' : 'Refresh known order details'}</button>}
     {!pending && !order.pending && order.normalizedStatus === 'OPEN' && <p className="muted" role="status">This order was not returned in the latest pending-order read; the displayed status is its last provider observation.</p>}
   </article>;

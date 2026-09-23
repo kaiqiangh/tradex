@@ -296,6 +296,7 @@ pub struct IpcSchema {
     pub trading212_demo_order_book_query: Trading212DemoOrderBookQuery,
     pub trading212_demo_order_book_query_result: Trading212DemoOrderBookQueryResult,
     pub trading212_demo_order_book_refresh: Trading212DemoOrderBookRefresh,
+    pub trading212_demo_order_cancel: Trading212DemoOrderCancel,
     pub trading212_demo_order_book: Trading212DemoOrderBook,
     pub trading212_demo_order: Trading212DemoOrder,
     pub alpaca_paper_order_submit: AlpacaPaperOrderSubmit,
@@ -2778,6 +2779,16 @@ pub enum Trading212DemoNormalizedOrderStatus {
     Rejected,
     Replacing,
     Replaced,
+    Expired,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Trading212DemoCancelState {
+    #[default]
+    None,
+    Submitting,
+    Pending,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2800,6 +2811,9 @@ pub struct Trading212DemoRateLimits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 64))]
     pub history_retry_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub cancel_order_retry_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2842,6 +2856,14 @@ pub struct Trading212DemoOrder {
     #[schemars(length(min = 1, max = 64))]
     pub observed_at: String,
     pub origin: Trading212DemoOrderOrigin,
+    #[serde(default)]
+    pub cancel_state: Trading212DemoCancelState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub cancel_idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub cancel_error: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub attempt_id: Option<String>,
@@ -2911,6 +2933,24 @@ pub struct Trading212DemoOrderBookRefresh {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
     pub provider_order_id: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212DemoOrderCancel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_book_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: String,
+    pub confirmed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

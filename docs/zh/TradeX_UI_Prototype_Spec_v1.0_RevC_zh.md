@@ -828,6 +828,12 @@ Trading 212 Demo 的明确提交确认是独立于 Live 审批的 provider 写�
 
 尚未同步、加载、空、当前、stale/degraded 和限流状态均使用清晰文字，并显示最近成功读取及 endpoint 下次重试时间。读取不完整时保留最后可信订单并说明错误。读取进行中或所选账户断开时禁用刷新操作。仅已保存待处理订单显示详情刷新；provider 确认终态后须移除该操作。使用原生 button/select、可见焦点、status/alert 语义、可换行的订单事实，并验证 390/768px 布局。本区域不自动轮询、不增加私有流，也不提供写入/撤单控件。
 
+### 14.5.2 Trading 212 Demo 撤单复核（S18 #63）
+
+只有在 Demo 账户当前且已连接、订单仍待处理、最新原始状态为 `CONFIRMED`、`NEW` 或 `PARTIALLY_FILLED`，并且没有正在提交/等待确认的撤单时，订单卡才显示“复核撤单”。激活后先刷新该准确订单详情，再显示用户确认。对话框列出 `Trading 212 Demo · TRADING212_DEMO`、捕获的账户标签与远端账户 ID、完整 provider order ID、标的/方向、原始和归一状态、精确已成交/剩余数量、可用时的成交金额/币种及观察时间，并说明 provider acknowledgement 不等于撤单已确认。
+
+对话框使用 `aria-modal`，使应用 shell inert，初始焦点落在“继续检查”，并限制 Tab/Shift+Tab 焦点循环；Escape 或“继续检查”仅关闭、不发送请求，并恢复焦点。只有独立的“确认撤单请求”控件才会针对捕获的 connection、订单和订单簿版本发送一次请求。已接受或结果未知的请求保持可见的 pending，并提供准确订单详情刷新；在 provider 证据允许新的决定前隐藏再次撤单操作。包括接受撤单后的竞态在内，provider 确认的成交仍可见并优先于本地 pending 状态。验证 768 px 与 390 px 的键盘操作和溢出。本节 §14.5.2 是独立写入复核流程；§14.5.1 保持只读。
+
 ## 14.6 Screener 复核与结果流程（C2/C3）
 
 明确分步：Describe → Parse → Inspect/edit FilterSpec → Run → Results。提供 schema 支持的 universe、谓词、阈值、排序/排名和结果上限编辑。解析后修改自然语言会使解释陈旧，必须重新 Parse；结构化编辑使旧结果失效。Run 使用当前展示且已验证的 FilterSpec 版本。

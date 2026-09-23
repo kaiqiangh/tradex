@@ -396,6 +396,46 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await ui.getByRole('status').filter({ hasText: /Trading 212 Demo order detail refreshed at/ }).waitFor({ state: 'visible' });
       assert.match(await partialOrder.innerText(), /PARTIALLY_FILLED \/ PARTIALLY_FILLED/);
       assert.match(await partialOrder.innerText(), /33\.125/);
+      await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      const cancelDialog = ui.getByRole('dialog', { name: 'Confirm Trading 212 Demo cancellation', exact: true });
+      await cancelDialog.waitFor({ state: 'visible' });
+      assert.equal(await ui.locator('.app-shell').evaluate(element => element.inert), true, 'The background remains inert while reviewing a provider cancellation');
+      assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Keep reviewing', 'Focus starts on the safe dismissal action');
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Shift+Tab');
+      assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Confirm cancellation request', 'Reverse tab stays inside the confirmation dialog');
+      await ui.getByRole('button', { name: 'Confirm cancellation request', exact: true }).press('Tab');
+      assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Keep reviewing', 'Forward tab wraps inside the confirmation dialog');
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Escape');
+      assert.equal(await cancelDialog.isVisible(), false, 'Escape dismisses the unconfirmed provider action');
+      assert.equal(await ui.locator('.app-shell').evaluate(element => element.inert), false, 'Dismissal restores the background');
+      assert.equal(await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 1);
+      await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      await cancelDialog.waitFor({ state: 'visible' });
+      const cancelReview = await cancelDialog.innerText();
+      assert.match(cancelReview, /Trading 212 Demo · TRADING212_DEMO/);
+      assert.ok(cancelReview.includes(label));
+      assert.match(cancelReview, /9007199254740995/);
+      assert.match(cancelReview, /PARTIALLY_FILLED \/ PARTIALLY_FILLED/);
+      assert.match(cancelReview, /Filled quantity\s+0\.25/);
+      assert.match(cancelReview, /Remaining quantity\s+0\.984567890123456789/);
+      assert.match(cancelReview, /Acceptance only; cancellation is not confirmed/);
+      for (const width of [768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Trading 212 cancel confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
+      assert.equal(await cancelDialog.isVisible(), false, 'Dismissing the cancel review must leave the provider order unchanged');
+      assert.equal(await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 1);
+      await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      await cancelDialog.waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'Confirm cancellation request', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: /accepted the cancellation request.*remains pending provider confirmation/ }).waitFor({ state: 'visible' });
+      assert.match(await partialOrder.innerText(), /PARTIALLY_FILLED \/ PARTIALLY_FILLED/);
+      assert.match(await partialOrder.innerText(), /Cancellation request accepted or outcome unknown/);
+      assert.equal(await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 0);
+      assert.equal(await partialOrder.getByRole('button', { name: 'Refresh known order details', exact: true }).count(), 1);
+      observed.push('Trading 212 Demo cancellation requires fresh exact-order review and explicit confirmation; dismissal sends no request, acceptance stays pending provider truth, and the dialog fits 768px and 390px.');
       for (const width of [768, 390]) {
         await viewport.set({ width, height: 900 });
         const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));

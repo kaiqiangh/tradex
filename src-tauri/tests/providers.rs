@@ -1077,6 +1077,418 @@ fn trading212_submit_request(
     )
 }
 
+const T212_TEST_ORDER_ID: &str = "9007199254740995";
+
+fn trading212_test_order(status: &str, filled: &str, filled_value: &str) -> Value {
+    let filled = serde_json::from_str::<Value>(filled).unwrap();
+    let filled_value = serde_json::from_str::<Value>(filled_value).unwrap();
+    json!({
+        "id":9007199254740995u64,"ticker":"AAPL_US_EQ","side":"BUY",
+        "type":"LIMIT","timeInForce":"DAY","strategy":"QUANTITY","quantity":5,
+        "filledQuantity":filled,"filledValue":filled_value,"currency":"GBP",
+        "status":status,"createdAt":"2026-09-23T10:00:00Z"
+    })
+}
+
+fn refresh_trading212_orders(
+    cp: &mut ControlPlane,
+    workspace: &Value,
+    account: &Value,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    action: &str,
+    order_id: Option<&str>,
+) -> Value {
+    let mut payload = json!({
+        "workspaceId":workspace,"connectionId":account["connectionId"],
+        "expectedConnectionStateVersion":account["stateVersion"],"action":action
+    });
+    if let Some(order_id) = order_id {
+        payload["providerOrderId"] = json!(order_id);
+    }
+    execute_main(
+        cp,
+        envelope("trading212.demo.orders.refresh", payload),
+        vault,
+        http,
+    )
+}
+
+fn ready_trading212_cancel_order(
+    cp: &mut ControlPlane,
+    workspace: &Value,
+    account: &Value,
+    vault: &impl CredentialVault,
+    http: &Http,
+) -> Value {
+    let order = trading212_test_order("PARTIALLY_FILLED", "1", "25");
+    *http.trading212_order_list.borrow_mut() = Some(vec![order.clone()]);
+    http.trading212_order_details
+        .borrow_mut()
+        .insert(T212_TEST_ORDER_ID.into(), order);
+    let pending = refresh_trading212_orders(cp, workspace, account, vault, http, "PENDING", None);
+    assert_eq!(pending["ok"], true, "{pending}");
+    let reviewed = refresh_trading212_orders(
+        cp,
+        workspace,
+        account,
+        vault,
+        http,
+        "DETAIL",
+        Some(T212_TEST_ORDER_ID),
+    );
+    assert_eq!(reviewed["ok"], true, "{reviewed}");
+    reviewed["data"].clone()
+}
+
+fn trading212_cancel_request(
+    workspace: &Value,
+    account: &Value,
+    book: &Value,
+    confirmed: bool,
+    key: &str,
+) -> Value {
+    envelope(
+        "trading212.demo.orders.cancel",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "providerOrderId":T212_TEST_ORDER_ID,
+            "expectedBookStateVersion":book["stateVersion"],
+            "idempotencyKey":key,"confirmed":confirmed
+        }),
+    )
+}
+
+fn edit_trading212_book_projection(
+    workspace_path: &std::path::Path,
+    connection_id: &Value,
+    edit: impl FnOnce(&mut Value),
+) {
+    let connection = rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+    let (workspace_id, raw): (String, String) = connection
+        .query_row(
+            "SELECT workspace_id,projection FROM trading212_demo_order_books WHERE connection_id=?1",
+            [connection_id.as_str().unwrap()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    let mut book: Value = serde_json::from_str(&raw).unwrap();
+    edit(&mut book);
+    connection
+        .execute(
+            "UPDATE trading212_demo_order_books SET projection=?1 WHERE workspace_id=?2 AND connection_id=?3",
+            rusqlite::params![serde_json::to_string(&book).unwrap(), workspace_id, connection_id.as_str().unwrap()],
+        )
+        .unwrap();
+}
+
+fn saved_trading212_order(workspace_path: &std::path::Path, connection_id: &Value) -> Value {
+    let connection = rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+    let raw: String = connection
+        .query_row(
+            "SELECT projection FROM trading212_demo_order_books WHERE connection_id=?1",
+            [connection_id.as_str().unwrap()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    serde_json::from_str::<Value>(&raw).unwrap()["orders"][0].clone()
+}
+
+#[test]
+fn trading212_demo_cancel_is_persisted_once_and_a_racing_fill_wins() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741301);
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let book = ready_trading212_cancel_order(&mut cp, &workspace, &account, &vault, &http);
+    assert_eq!(book["status"], "CURRENT");
+    assert_eq!(book["orders"][0]["cancelState"], "NONE");
+
+    let request = trading212_cancel_request(&workspace, &account, &book, true, "t212-cancel-1");
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    assert_eq!(
+        saved_trading212_order(folder.path(), &account["connectionId"])["cancelState"],
+        "SUBMITTING",
+        "the cancel intent must commit before provider I/O"
+    );
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let accepted = cp.complete_provider(&job, outcome);
+    assert_eq!(accepted["ok"], true, "{accepted}");
+    assert_eq!(
+        http.trading212_delete_calls.borrow().as_slice(),
+        ["/api/v0/equity/orders/9007199254740995"]
+    );
+    assert_eq!(accepted["data"]["status"], "STALE");
+    assert_eq!(
+        accepted["data"]["orders"][0]["providerStatus"],
+        "PARTIALLY_FILLED"
+    );
+    assert_eq!(accepted["data"]["orders"][0]["cancelState"], "PENDING");
+    assert_eq!(accepted["data"]["orders"][0]["filledQuantity"], "1");
+
+    let duplicate = trading212_cancel_request(
+        &workspace,
+        &account,
+        &accepted["data"],
+        true,
+        "t212-cancel-2",
+    );
+    assert!(cp.prepare_provider_for(&duplicate, "main").is_err());
+    assert_eq!(http.trading212_delete_calls.borrow().len(), 1);
+
+    std::thread::sleep(std::time::Duration::from_millis(1_100));
+    let still_partial = refresh_trading212_orders(
+        &mut cp,
+        &workspace,
+        &account,
+        &vault,
+        &http,
+        "DETAIL",
+        Some(T212_TEST_ORDER_ID),
+    );
+    assert_eq!(still_partial["ok"], true, "{still_partial}");
+    assert_eq!(still_partial["data"]["status"], "CURRENT");
+    assert_eq!(still_partial["data"]["orders"][0]["cancelState"], "PENDING");
+    let duplicate_pending = trading212_cancel_request(
+        &workspace,
+        &account,
+        &still_partial["data"],
+        true,
+        "t212-cancel-3",
+    );
+    assert_eq!(
+        cp.prepare_provider_for(&duplicate_pending, "main")
+            .err()
+            .unwrap()
+            .code,
+        "STATE_VERSION_CONFLICT"
+    );
+    assert_eq!(http.trading212_delete_calls.borrow().len(), 1);
+
+    http.trading212_order_details.borrow_mut().insert(
+        T212_TEST_ORDER_ID.into(),
+        trading212_test_order("FILLED", "5", "125"),
+    );
+    std::thread::sleep(std::time::Duration::from_millis(1_100));
+    let reconciled = refresh_trading212_orders(
+        &mut cp,
+        &workspace,
+        &account,
+        &vault,
+        &http,
+        "DETAIL",
+        Some(T212_TEST_ORDER_ID),
+    );
+    assert_eq!(reconciled["ok"], true, "{reconciled}");
+    let order = &reconciled["data"]["orders"][0];
+    assert_eq!(order["providerStatus"], "FILLED");
+    assert_eq!(order["filledQuantity"], "5");
+    assert_eq!(order["remainingQuantity"], "0");
+    assert_eq!(order["pending"], false);
+    assert_eq!(order["cancelState"], "NONE");
+    assert_eq!(http.trading212_delete_calls.borrow().len(), 1);
+    let terminal_cancel = trading212_cancel_request(
+        &workspace,
+        &account,
+        &reconciled["data"],
+        true,
+        "t212-cancel-3",
+    );
+    assert_eq!(
+        cp.prepare_provider_for(&terminal_cancel, "main")
+            .err()
+            .unwrap()
+            .code,
+        "ORDER_NOT_CANCELABLE"
+    );
+    assert_eq!(http.trading212_delete_calls.borrow().len(), 1);
+}
+
+#[test]
+fn trading212_demo_cancel_rejects_unconfirmed_expired_stale_and_unknown_review() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741302);
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let book = ready_trading212_cancel_order(&mut cp, &workspace, &account, &vault, &http);
+
+    let unconfirmed = trading212_cancel_request(&workspace, &account, &book, false, "missing");
+    assert_eq!(
+        cp.prepare_provider_for(&unconfirmed, "main")
+            .err()
+            .unwrap()
+            .code,
+        "ORDER_CONFIRMATION_REQUIRED"
+    );
+
+    let observed_at = book["orders"][0]["observedAt"].clone();
+    edit_trading212_book_projection(folder.path(), &account["connectionId"], |persisted| {
+        persisted["orders"][0]["observedAt"] = json!("2000-01-01T00:00:00Z");
+    });
+    let expired = trading212_cancel_request(&workspace, &account, &book, true, "expired");
+    assert_eq!(
+        cp.prepare_provider_for(&expired, "main")
+            .err()
+            .unwrap()
+            .code,
+        "ORDER_CONFIRMATION_EXPIRED"
+    );
+
+    edit_trading212_book_projection(folder.path(), &account["connectionId"], |persisted| {
+        persisted["orders"][0]["observedAt"] = observed_at;
+        persisted["status"] = json!("STALE");
+    });
+    let stale = trading212_cancel_request(&workspace, &account, &book, true, "stale");
+    assert_eq!(
+        cp.prepare_provider_for(&stale, "main").err().unwrap().code,
+        "STATE_VERSION_CONFLICT"
+    );
+
+    edit_trading212_book_projection(folder.path(), &account["connectionId"], |persisted| {
+        persisted["status"] = json!("CURRENT");
+    });
+    http.trading212_order_details.borrow_mut().insert(
+        T212_TEST_ORDER_ID.into(),
+        trading212_test_order("FUTURE_STATUS", "1", "25"),
+    );
+    std::thread::sleep(std::time::Duration::from_millis(1_100));
+    let unknown = refresh_trading212_orders(
+        &mut cp,
+        &workspace,
+        &account,
+        &vault,
+        &http,
+        "DETAIL",
+        Some(T212_TEST_ORDER_ID),
+    );
+    assert_eq!(unknown["ok"], true, "{unknown}");
+    assert_eq!(unknown["data"]["status"], "DEGRADED");
+    assert_eq!(unknown["data"]["reason"], "PROVIDER_DATA_INCOMPLETE");
+    let cancel_unknown =
+        trading212_cancel_request(&workspace, &account, &unknown["data"], true, "unknown");
+    assert_eq!(
+        cp.prepare_provider_for(&cancel_unknown, "main")
+            .err()
+            .unwrap()
+            .code,
+        "STATE_VERSION_CONFLICT"
+    );
+    assert!(http.trading212_delete_calls.borrow().is_empty());
+}
+
+#[test]
+fn trading212_demo_cancel_account_change_and_timeout_never_repeat_delete() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741303);
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let book = ready_trading212_cancel_order(&mut cp, &workspace, &account, &vault, &http);
+
+    http.trading212_identity.set(9007199254741304);
+    let changed = execute_main(
+        &mut cp,
+        trading212_cancel_request(&workspace, &account, &book, true, "changed-account"),
+        &vault,
+        &http,
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    assert_eq!(changed["data"]["status"], "DEGRADED");
+    assert_eq!(changed["data"]["reason"], "PROVIDER_REVIEW_REQUIRED");
+    assert_eq!(changed["data"]["orders"][0]["cancelState"], "NONE");
+    assert!(http.trading212_delete_calls.borrow().is_empty());
+
+    let timeout_folder = tempfile::tempdir().unwrap();
+    let mut timeout_cp = ControlPlane::new(timeout_folder.path().to_path_buf());
+    let timeout_workspace =
+        command(&mut timeout_cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let timeout_http = Http::default();
+    timeout_http.trading212_identity.set(9007199254741305);
+    let timeout_account =
+        connected_trading212(&mut timeout_cp, &vault, &timeout_http, &timeout_workspace);
+    let timeout_book = ready_trading212_cancel_order(
+        &mut timeout_cp,
+        &timeout_workspace,
+        &timeout_account,
+        &vault,
+        &timeout_http,
+    );
+    timeout_http.trading212_delete_timeout.set(true);
+    let timeout = execute_main(
+        &mut timeout_cp,
+        trading212_cancel_request(
+            &timeout_workspace,
+            &timeout_account,
+            &timeout_book,
+            true,
+            "timeout",
+        ),
+        &vault,
+        &timeout_http,
+    );
+    assert_eq!(timeout["ok"], true, "{timeout}");
+    assert_eq!(timeout["data"]["orders"][0]["cancelState"], "PENDING");
+    assert_eq!(
+        timeout["data"]["orders"][0]["cancelError"],
+        "ORDER_CANCEL_STATUS_UNKNOWN"
+    );
+    assert_eq!(timeout_http.trading212_delete_calls.borrow().len(), 1);
+    let retry = trading212_cancel_request(
+        &timeout_workspace,
+        &timeout_account,
+        &timeout["data"],
+        true,
+        "timeout-retry",
+    );
+    assert!(timeout_cp.prepare_provider_for(&retry, "main").is_err());
+    assert_eq!(timeout_http.trading212_delete_calls.borrow().len(), 1);
+}
+
+#[test]
+fn trading212_demo_reopen_recovers_interrupted_cancel_as_unknown_without_delete() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    http.trading212_identity.set(9007199254741306);
+    let account = connected_trading212(&mut cp, &vault, &http, &workspace);
+    let book = ready_trading212_cancel_order(&mut cp, &workspace, &account, &vault, &http);
+    let request = trading212_cancel_request(&workspace, &account, &book, true, "interrupted");
+    let job = cp.prepare_provider_for(&request, "main").unwrap().unwrap();
+    assert_eq!(
+        saved_trading212_order(&path, &account["connectionId"])["cancelState"],
+        "SUBMITTING"
+    );
+    drop(job);
+    drop(cp);
+
+    let mut reopened = ControlPlane::new(path.clone());
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let recovered = saved_trading212_order(&path, &account["connectionId"]);
+    assert_eq!(recovered["cancelState"], "PENDING");
+    assert_eq!(recovered["cancelError"], "ORDER_CANCEL_STATUS_UNKNOWN");
+    assert_eq!(http.trading212_delete_calls.borrow().len(), 0);
+}
+
 #[test]
 fn alpaca_paper_order_submit_is_persisted_before_io_and_never_posts_twice() {
     let folder = tempfile::tempdir().unwrap();

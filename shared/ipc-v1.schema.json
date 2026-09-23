@@ -325,6 +325,9 @@
     "trading212DemoOrderBookRefresh": {
       "$ref": "#/$defs/Trading212DemoOrderBookRefresh"
     },
+    "trading212DemoOrderCancel": {
+      "$ref": "#/$defs/Trading212DemoOrderCancel"
+    },
     "trading212DemoOrderSubmit": {
       "$ref": "#/$defs/Trading212DemoOrderSubmit"
     },
@@ -419,6 +422,7 @@
     "trading212DemoOrderBookQuery",
     "trading212DemoOrderBookQueryResult",
     "trading212DemoOrderBookRefresh",
+    "trading212DemoOrderCancel",
     "trading212DemoOrderBook",
     "trading212DemoOrder",
     "alpacaPaperOrderSubmit",
@@ -10126,6 +10130,14 @@
         "remediationActions"
       ]
     },
+    "Trading212DemoCancelState": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "SUBMITTING",
+        "PENDING"
+      ]
+    },
     "Trading212DemoNormalizedOrderStatus": {
       "type": "string",
       "enum": [
@@ -10138,7 +10150,8 @@
         "FILLED",
         "REJECTED",
         "REPLACING",
-        "REPLACED"
+        "REPLACED",
+        "EXPIRED"
       ]
     },
     "Trading212DemoOrder": {
@@ -10151,6 +10164,26 @@
           ],
           "maxLength": 128,
           "minLength": 1
+        },
+        "cancelError": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "cancelIdempotencyKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cancelState": {
+          "$ref": "#/$defs/Trading212DemoCancelState",
+          "default": "NONE"
         },
         "currency": {
           "type": [
@@ -10598,6 +10631,53 @@
         "STALE"
       ]
     },
+    "Trading212DemoOrderCancel": {
+      "type": "object",
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedBookStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "providerOrderId",
+        "expectedBookStateVersion",
+        "idempotencyKey",
+        "confirmed"
+      ]
+    },
     "Trading212DemoOrderOrigin": {
       "type": "string",
       "enum": [
@@ -10661,6 +10741,14 @@
     "Trading212DemoRateLimits": {
       "type": "object",
       "properties": {
+        "cancelOrderRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
         "historyRetryAt": {
           "type": [
             "string",

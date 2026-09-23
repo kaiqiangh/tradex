@@ -39,10 +39,10 @@ use crate::protocol::{
     SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
     StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
     StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
-    ThreadSummary, TimeInForce, TradeXError, Trading212DemoOrderAttempt,
+    ThreadSummary, TimeInForce, TradeXError, Trading212DemoCancelState, Trading212DemoOrderAttempt,
     Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
-    Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist, WatchlistItem, Watchlists,
-    Workspace,
+    Trading212DemoOrderCancel, Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist,
+    WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, ConnectionState};
 use crate::risk::RiskPolicyState;
@@ -481,6 +481,7 @@ impl Store {
             path,
         };
         store.recover_interrupted_trading212_demo_attempts()?;
+        store.recover_interrupted_trading212_demo_cancels()?;
         store.recover_interrupted_alpaca_paper_attempts()?;
         store.recover_interrupted_alpaca_paper_cancels()?;
         Ok(store)
@@ -595,6 +596,69 @@ impl Store {
                 ).map_err(storage_error)?;
                 if updated == 1 {
                     write_alpaca_order_book_event(&tx, &book, next_sequence)?;
+                }
+                tx.commit().map_err(storage_error)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn recover_interrupted_trading212_demo_cancels(&mut self) -> Result<()> {
+        let mut query = self
+            .connection
+            .prepare("SELECT workspace_id,connection_id,sequence,projection FROM trading212_demo_order_books")
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(query);
+        for (workspace_id, connection_id, sequence, projection) in rows {
+            let mut book: Trading212DemoOrderBook = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || sequence >= MAX_SEQUENCE as i64
+                || book.workspace_id != workspace_id
+                || book.connection_id != connection_id
+                || book.state_version
+                    != trading212_demo_order_book_version(&connection_id, sequence as u64)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let mut changed = false;
+            for order in &mut book.orders {
+                if order.cancel_state == Trading212DemoCancelState::Submitting {
+                    order.cancel_state = Trading212DemoCancelState::Pending;
+                    order.cancel_error = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+                    changed = true;
+                }
+            }
+            if changed {
+                let next_sequence = sequence + 1;
+                book.status = Trading212DemoOrderBookStatus::Degraded;
+                book.reason = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+                book.observed_at = timestamp()?;
+                book.state_version =
+                    trading212_demo_order_book_version(&connection_id, next_sequence as u64);
+                validate_trading212_demo_order_book(&book)?;
+                let tx = self
+                    .connection
+                    .transaction_with_behavior(TransactionBehavior::Immediate)
+                    .map_err(storage_error)?;
+                let updated = tx.execute(
+                    "UPDATE trading212_demo_order_books SET sequence=?1,projection=?2 WHERE workspace_id=?3 AND connection_id=?4 AND sequence=?5",
+                    params![next_sequence, serde_json::to_string(&book).map_err(storage_error)?, workspace_id, connection_id, sequence],
+                ).map_err(storage_error)?;
+                if updated == 1 {
+                    write_trading212_demo_order_book_event(&tx, &book, next_sequence)?;
                 }
                 tx.commit().map_err(storage_error)?;
             }
@@ -3374,6 +3438,120 @@ impl Store {
         Ok(book)
     }
 
+    pub fn begin_trading212_demo_order_cancel(
+        &mut self,
+        input: &Trading212DemoOrderCancel,
+    ) -> Result<Trading212DemoOrderBook> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id
+            || !input.confirmed
+            || !valid_order_text(&input.expected_connection_state_version, 256)
+            || !valid_order_text(&input.expected_book_state_version, 256)
+            || !valid_order_text(&input.idempotency_key, 128)
+            || !crate::provider_io::valid_t212_order_id(&input.provider_order_id)
+        {
+            return Err(TradeXError::new("ORDER_CONFIRMATION_REQUIRED"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&input.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.state_version != input.expected_connection_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if account.provider_id != "trading212" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.credential != "CONFIGURED"
+            || account.health.authentication != "VALID"
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let mut book = load_trading212_demo_order_book(&tx, &workspace_id, &input.connection_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+        let account_id = account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.as_str())
+            .unwrap_or_default();
+        if book.state_version != input.expected_book_state_version
+            || book.remote_account_id != account_id
+            || book.status != Trading212DemoOrderBookStatus::Current
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let index = book
+            .orders
+            .iter()
+            .position(|order| order.provider_order_id == input.provider_order_id)
+            .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+        if matches!(
+            book.orders[index].cancel_state,
+            Trading212DemoCancelState::Submitting | Trading212DemoCancelState::Pending
+        ) {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if !book.orders[index].pending
+            || !matches!(
+                book.orders[index].provider_status.as_str(),
+                "CONFIRMED" | "NEW" | "PARTIALLY_FILLED"
+            )
+        {
+            return Err(TradeXError::new("ORDER_NOT_CANCELABLE"));
+        }
+        let observed_at = OffsetDateTime::parse(&book.orders[index].observed_at, &Rfc3339)
+            .map_err(|_| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+        let age = OffsetDateTime::now_utc() - observed_at;
+        if age.is_negative() || age > time::Duration::seconds(60) {
+            return Err(TradeXError::new("ORDER_CONFIRMATION_EXPIRED"));
+        }
+        book.orders[index].cancel_state = Trading212DemoCancelState::Submitting;
+        book.orders[index].cancel_idempotency_key = Some(input.idempotency_key.clone());
+        book.orders[index].cancel_error = None;
+        let sequence: i64 = tx
+            .query_row(
+                "SELECT sequence FROM trading212_demo_order_books WHERE workspace_id=?1 AND connection_id=?2",
+                params![workspace_id, input.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        let next_sequence = sequence
+            .checked_add(1)
+            .filter(|next| *next <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        book.state_version =
+            trading212_demo_order_book_version(&input.connection_id, next_sequence as u64);
+        book.observed_at = timestamp()?;
+        validate_trading212_demo_order_book(&book)?;
+        let changed = tx.execute(
+            "UPDATE trading212_demo_order_books SET sequence=?1,projection=?2 WHERE workspace_id=?3 AND connection_id=?4 AND sequence=?5",
+            params![next_sequence, serde_json::to_string(&book).map_err(storage_error)?, workspace_id, input.connection_id, sequence],
+        ).map_err(storage_error)?;
+        if changed != 1 {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        write_trading212_demo_order_book_event(&tx, &book, next_sequence)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(book)
+    }
+
     pub fn begin_alpaca_paper_order_cancel(
         &mut self,
         input: &AlpacaPaperOrderCancel,
@@ -5702,6 +5880,7 @@ fn valid_trading212_status(
             | ("REJECTED", Status::Rejected)
             | ("REPLACING", Status::Replacing)
             | ("REPLACED", Status::Replaced)
+            | ("EXPIRED", Status::Expired)
     )
 }
 
@@ -5736,6 +5915,7 @@ fn validate_trading212_demo_order_book(book: &Trading212DemoOrderBook) -> Result
             book.rate_limits.pending_orders_retry_at.as_deref(),
             book.rate_limits.order_detail_retry_at.as_deref(),
             book.rate_limits.history_retry_at.as_deref(),
+            book.rate_limits.cancel_order_retry_at.as_deref(),
         ]
         .into_iter()
         .flatten()
@@ -5756,6 +5936,14 @@ fn validate_trading212_demo_order_book(book: &Trading212DemoOrderBook) -> Result
     }
     let mut ids = std::collections::HashSet::new();
     for order in &book.orders {
+        use crate::protocol::Trading212DemoCancelState as CancelState;
+        let cancel_fields_invalid = match order.cancel_state {
+            CancelState::None => order.cancel_idempotency_key.is_some(),
+            CancelState::Submitting | CancelState::Pending => order
+                .cancel_idempotency_key
+                .as_deref()
+                .is_none_or(|value| !valid_order_text(value, 128)),
+        };
         if !crate::provider_io::valid_t212_order_id(&order.provider_order_id)
             || !valid_order_text(&order.symbol, 64)
             || !order
@@ -5774,6 +5962,15 @@ fn validate_trading212_demo_order_book(book: &Trading212DemoOrderBook) -> Result
             || !valid_order_text(&order.observed_at, 64)
             || !valid_provider_time(&order.observed_at)
             || !ids.insert(order.provider_order_id.as_str())
+            || cancel_fields_invalid
+            || order
+                .cancel_error
+                .as_deref()
+                .is_some_and(|value| !valid_order_text(value, 64))
+            || matches!(
+                order.provider_status.as_str(),
+                "CANCELLED" | "FILLED" | "REJECTED" | "REPLACED" | "EXPIRED"
+            ) && (order.pending || order.cancel_state != CancelState::None)
             || order
                 .provider_updated_at
                 .as_deref()

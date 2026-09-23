@@ -210,7 +210,8 @@ export type Trading212DemoNormalizedOrderStatus =
   | "FILLED"
   | "REJECTED"
   | "REPLACING"
-  | "REPLACED";
+  | "REPLACED"
+  | "EXPIRED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Trading212DemoOrderOrigin".
@@ -500,6 +501,11 @@ export type Trading212DemoOrderBookAction = "PENDING" | "HISTORY" | "DETAIL";
  * via the `definition` "ModelAttemptKind".
  */
 export type ModelAttemptKind = "SETUP" | "THREAD";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoCancelState".
+ */
+export type Trading212DemoCancelState = "NONE" | "SUBMITTING" | "PENDING";
 
 /**
  * Exported to JSON Schema and TypeScript, and used for renderer runtime validation.
@@ -612,6 +618,7 @@ export interface IpcSchema {
   trading212DemoOrderBookQuery: Trading212DemoOrderBookQuery;
   trading212DemoOrderBookQueryResult: Trading212DemoOrderBookQueryResult;
   trading212DemoOrderBookRefresh: Trading212DemoOrderBookRefresh;
+  trading212DemoOrderCancel: Trading212DemoOrderCancel;
   trading212DemoOrderSubmit: Trading212DemoOrderSubmit;
   turnCancel: TurnCancel;
   turnRetry: TurnRetry;
@@ -1952,6 +1959,9 @@ export interface Trading212DemoOrderBook {
  */
 export interface Trading212DemoOrder {
   attemptId?: string | null;
+  cancelError?: string | null;
+  cancelIdempotencyKey?: string | null;
+  cancelState?: "NONE" | "SUBMITTING" | "PENDING";
   currency?: string | null;
   filledQuantity?: string | null;
   filledValue?: string | null;
@@ -1975,6 +1985,7 @@ export interface Trading212DemoOrder {
  * via the `definition` "Trading212DemoRateLimits".
  */
 export interface Trading212DemoRateLimits {
+  cancelOrderRetryAt?: string | null;
   historyRetryAt?: string | null;
   orderDetailRetryAt?: string | null;
   pendingOrdersRetryAt?: string | null;
@@ -4418,6 +4429,19 @@ export interface Trading212DemoOrderBookRefresh {
   connectionId: string;
   expectedConnectionStateVersion: string;
   providerOrderId?: string | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212DemoOrderCancel".
+ */
+export interface Trading212DemoOrderCancel {
+  confirmed: boolean;
+  connectionId: string;
+  expectedBookStateVersion: string;
+  expectedConnectionStateVersion: string;
+  idempotencyKey: string;
+  providerOrderId: string;
   workspaceId: string;
 }
 /**

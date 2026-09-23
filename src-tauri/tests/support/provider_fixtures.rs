@@ -71,6 +71,9 @@ pub struct Http {
     pub trading212_post_status: Cell<Option<u16>>,
     pub trading212_post_timeout: Cell<bool>,
     pub trading212_post_response_body: RefCell<Option<Vec<u8>>>,
+    pub trading212_delete_calls: RefCell<Vec<String>>,
+    pub trading212_delete_status: Cell<Option<u16>>,
+    pub trading212_delete_timeout: Cell<bool>,
     pub trading212_identity: Cell<u64>,
     pub trading212_order_list: RefCell<Option<Vec<Value>>>,
     pub trading212_order_details: RefCell<HashMap<String, Value>>,
@@ -111,9 +114,15 @@ impl Default for Http {
             trading212_post_status: Cell::new(None),
             trading212_post_timeout: Cell::new(false),
             trading212_post_response_body: RefCell::new(None),
+            trading212_delete_calls: RefCell::new(vec![]),
+            trading212_delete_status: Cell::new(None),
+            trading212_delete_timeout: Cell::new(false),
             trading212_identity: Cell::new(9007199254740993),
             trading212_order_list: RefCell::new(None),
-            trading212_order_details: RefCell::new(HashMap::new()),
+            trading212_order_details: RefCell::new(HashMap::from([(
+                "9007199254740996".into(),
+                default_trading212_order(),
+            )])),
             trading212_history_pages: RefCell::new(HashMap::new()),
             trading212_rate_limit: RefCell::new(None),
         }
@@ -121,10 +130,11 @@ impl Default for Http {
 }
 
 fn default_trading212_order_list() -> Vec<Value> {
-    serde_json::from_str(
-        r#"[{"id":9007199254740996,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","type":"LIMIT","timeInForce":"DAY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23,"createdAt":"2026-09-20T12:00:00Z"}]"#,
-    )
-    .expect("valid Trading 212 order fixture")
+    vec![default_trading212_order()]
+}
+
+fn default_trading212_order() -> Value {
+    json!({"id":9007199254740996u64,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","type":"LIMIT","timeInForce":"DAY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23,"createdAt":"2026-09-20T12:00:00Z"})
 }
 
 impl ProviderHttp for Http {
@@ -220,6 +230,29 @@ impl ProviderHttp for Http {
                     Ok(ProviderHttpResponse {
                         status: 200,
                         body: serde_json::to_vec(&response).unwrap(),
+                    })
+                }
+                (ProviderHttpMethod::Delete, path, None)
+                    if path
+                        .strip_prefix("/api/v0/equity/orders/")
+                        .is_some_and(|id| {
+                            !id.is_empty()
+                                && id.bytes().all(|byte| byte.is_ascii_digit())
+                                && id.parse::<i64>().is_ok_and(|id| id > 0)
+                        }) =>
+                {
+                    self.calls
+                        .borrow_mut()
+                        .push(format!("{}{path}", endpoint.base_url()));
+                    self.trading212_delete_calls
+                        .borrow_mut()
+                        .push(path.to_owned());
+                    if self.trading212_delete_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    Ok(ProviderHttpResponse {
+                        status: self.trading212_delete_status.get().unwrap_or(200),
+                        body: Vec::new(),
                     })
                 }
                 _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
