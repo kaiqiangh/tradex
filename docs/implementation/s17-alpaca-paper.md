@@ -4,7 +4,7 @@
 
 前置：S02 提供方连接、S13 OrderDraft/OrderProposal、S16 Local Paper
 
-状态：S17 规范已完成；#57 已完成，#58 实现、本地验收、双语 ARD 和 Standards/Spec 复核均已完成，证据见 [S17 #58 订单/成交/撤单验收](s17-alpaca-paper-orderbook-evidence.md)；#59 私有流、断线/重连、重启 REST 对账及订单/账户 UI 已通过本地验收并关闭，证据见 [S17 #59 私有流验收](s17-alpaca-paper-stream-evidence.md)。S17 整体验收尚未完成：真实 Paper sandbox lifecycle gate 仍待完成；S18–S20、S21+ financial authority 和 S33 全量回归仍属于后续工作项。
+状态：S17 规范已完成；#57 已完成，#58 实现、本地验收、双语 ARD 和 Standards/Spec 复核均已完成，证据见 [S17 #58 订单/成交/撤单验收](s17-alpaca-paper-orderbook-evidence.md)；#59 私有流、断线/重连、重启 REST 对账及订单/账户 UI 已通过本地验收并关闭，证据见 [S17 #59 私有流验收](s17-alpaca-paper-stream-evidence.md)。2026-09-23 的真实 Paper 测试到达 `REJECTED` 且未产生券商订单；403 错误归类已在本地修复，但新的分类尚未对真实响应验证。完整记录见 [S17 Paper 外部门槛证据](s17-alpaca-paper-gate-evidence.md)。S17 整体验收尚未完成：仍需在 Paper 账户有足够 buying power 后，经用户对新订单的明确确认，完成 submit/query/observe/cancel-if-open/verify；S18–S20、S21+ financial authority 和 S33 全量回归仍属于后续工作项。
 
 ## Problem Statement
 
@@ -84,7 +84,7 @@ TradeX 已能安全连接 Alpaca Paper 并读取账户、持仓和未完成订�
 
 ## Further Notes
 
-本规范映射 PRD FR-015、FR-033 和 AC-009；UX-004 的跨环境文字状态由 S16–S20/S33 持续满足，S17 不把它提前标记为完整 VERIFIED。#57–#59 的本地实现和隔离验收证据分别记录在对应 evidence 文档中；#59 私有流、重连、重启对账和 UI 投影已通过本地 fixture 验收。FR-015 与 AC-009 仍保持 `IMPLEMENTED_UNVERIFIED`，直到真实 Alpaca Paper sandbox gate 完成；FR-033、UX-004 仍反映所有 provider 和跨阶段范围，不因 S17 子票而提前完成。
+本规范映射 PRD FR-015、FR-033 和 AC-009；UX-004 的跨环境文字状态由 S16–S20/S33 持续满足，S17 不把它提前标记为完整 VERIFIED。#57–#59 的本地实现和隔离验收证据分别记录在对应 evidence 文档中；#59 私有流、重连、重启对账和 UI 投影已通过本地 fixture 验收。真实 Paper 外部门槛的拒绝结果和当前阻塞条件见 [S17 Paper 外部门槛证据](s17-alpaca-paper-gate-evidence.md)。FR-015 与 AC-009 仍保持 `IMPLEMENTED_UNVERIFIED`，直到真实 Alpaca Paper sandbox gate 完成；FR-033、UX-004 仍反映所有 provider 和跨阶段范围，不因 S17 子票而提前完成。
 
 当前依据 Alpaca 官方个人 Trading API 文档，而不是 Alpaca Broker API：
 
