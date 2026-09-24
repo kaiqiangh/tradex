@@ -893,7 +893,7 @@ Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection sta
 
 ### 14.14 Binance Spot Testnet 准确订单撤销复核（S19 #71）
 
-仅在已连接的 Binance Spot Testnet 账户中，对 symbol 为 `BTCUSDT` 或 `ETHUSDT`、原始 provider 状态为 `NEW` 或 `PARTIALLY_FILLED`、没有现存撤销状态且不超过 60 秒的 `CURRENT` 订单观察提供“复核撤销”。无障碍确认框明确显示 Binance Spot Testnet、账户 label/远端 ID、完整 provider order ID、symbol、方向、原始状态、准确已成交/剩余数量及观察时间。说明 TradeX 会在确认后、provider 写入前重新核验账户及准确订单；provider acknowledgement 不证明撤销完成。
+仅在已连接的 Binance Spot Testnet 账户中，对 symbol 为 `BTCUSDT` 或 `ETHUSDT`、原始 provider 状态为 `NEW` 或 `PARTIALLY_FILLED`、剩余数量已知且有效、没有现存撤销状态且不超过 60 秒的 `CURRENT` 订单观察提供“复核撤销”。剩余数量缺失或无效时保持复核不可用。无障碍确认框明确显示 Binance Spot Testnet、账户 label/远端 ID、完整 provider order ID、symbol、方向、原始状态、准确已成交/剩余数量及观察时间。说明 TradeX 会在确认后、provider 写入前重新核验账户及准确订单；provider acknowledgement 不证明撤销完成。
 
 激活“复核撤销”时，先执行现有的准确订单 Detail 刷新。仅当返回订单簿为 `CURRENT`，且该准确订单对当前 connection 和远端账户仍可撤销时，才打开确认框。用户明确确认后，后端会在 provider 写入前再次核验账户及准确订单。
 

@@ -151,6 +151,170 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.testnet.cancel.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let scenario = payload.get("scenario").and_then(Value::as_str);
+                let reply = match scenario {
+                    Some("PREPARE_ORDER") => {
+                        let mut orders = http
+                            .binance_open_orders
+                            .borrow()
+                            .clone()
+                            .unwrap_or_else(fixtures::default_binance_open_orders);
+                        let updated_at = payload
+                            .get("orderUpdatedAtMs")
+                            .and_then(Value::as_u64)
+                            .unwrap_or(1788849506000u64);
+                        if !orders
+                            .iter()
+                            .any(|order| order["orderId"] == 9007199254740998u64)
+                        {
+                            orders.push(json!({
+                                "symbol":"BTCUSDT","orderId":9007199254740998u64,
+                                "clientOrderId":"fixture-private-stream-order","side":"BUY","type":"LIMIT",
+                                "timeInForce":"GTC","status":"PARTIALLY_FILLED","price":"90","origQty":"0.25",
+                                "origQuoteOrderQty":"0","executedQty":"0.1","cummulativeQuoteQty":"9",
+                                "time":updated_at.saturating_sub(70000),"updateTime":updated_at
+                            }));
+                        }
+                        if !orders
+                            .iter()
+                            .any(|order| order["orderId"] == 9007199254740997u64)
+                        {
+                            orders.push(json!({
+                                "symbol":"ETHUSDT","orderId":9007199254740997u64,
+                                "clientOrderId":"fixture-cancel-eth","side":"BUY","type":"LIMIT",
+                                "timeInForce":"GTC","status":"NEW","price":"90","origQty":"0.5",
+                                "origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0",
+                                "time":1788849503000u64,"updateTime":1788849503000u64
+                            }));
+                        }
+                        if !orders
+                            .iter()
+                            .any(|order| order["orderId"] == 9007199254740999u64)
+                        {
+                            orders.push(json!({
+                                "symbol":"ETHUSDT","orderId":9007199254740999u64,
+                                "clientOrderId":"fixture-terminal-eth","side":"BUY","type":"LIMIT",
+                                "timeInForce":"GTC","status":"NEW","price":"90","origQty":"0.25",
+                                "origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0",
+                                "time":1788849504000u64,"updateTime":1788849504000u64
+                            }));
+                        }
+                        if !orders
+                            .iter()
+                            .any(|order| order["orderId"] == 9007199254741001u64)
+                        {
+                            orders.push(json!({
+                                "symbol":"BTCUSDT","orderId":9007199254741001u64,
+                                "clientOrderId":"fixture-cancel-btc-retry","side":"SELL","type":"LIMIT",
+                                "timeInForce":"GTC","status":"NEW","price":"100","origQty":"0.05",
+                                "origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0",
+                                "time":1788849505000u64,"updateTime":1788849505000u64
+                            }));
+                        }
+                        if !orders
+                            .iter()
+                            .any(|order| order["orderId"] == 9007199254741002u64)
+                        {
+                            orders.push(json!({
+                                "symbol":"BTCUSDT","orderId":9007199254741002u64,
+                                "clientOrderId":"fixture-cancel-btc-unknown","side":"BUY","type":"LIMIT",
+                                "timeInForce":"GTC","status":"NEW","price":"100","origQty":"0.07",
+                                "origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0",
+                                "time":1788849506000u64,"updateTime":1788849506000u64
+                            }));
+                        }
+                        *http.binance_open_orders.borrow_mut() = Some(orders);
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"configured":true}})
+                    }
+                    Some("REJECTED") => {
+                        http.binance_cancel_timeout.set(false);
+                        http.binance_cancel_status.set(Some(400));
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"configured":true}})
+                    }
+                    Some("UNKNOWN") => {
+                        http.binance_cancel_status.set(None);
+                        http.binance_cancel_timeout.set(true);
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"configured":true}})
+                    }
+                    Some("RESET") => {
+                        http.binance_cancel_status.set(None);
+                        http.binance_cancel_timeout.set(false);
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"configured":true}})
+                    }
+                    Some("INVALID_QUANTITY") | Some("TERMINAL") => {
+                        let mut orders = http
+                            .binance_open_orders
+                            .borrow()
+                            .clone()
+                            .unwrap_or_else(fixtures::default_binance_open_orders);
+                        let order_id = if scenario == Some("TERMINAL") {
+                            9007199254740999u64
+                        } else {
+                            9007199254740997u64
+                        };
+                        let order = orders.iter_mut().find(|order| order["orderId"] == order_id);
+                        let configured = order.is_some();
+                        if let Some(order) = order {
+                            if scenario == Some("TERMINAL") {
+                                order["origQty"] = "0.25".into();
+                                order["executedQty"] = "0.25".into();
+                                order["cummulativeQuoteQty"] = "22.5".into();
+                                order["status"] = "FILLED".into();
+                            } else {
+                                order["origQty"] = "-0.5".into();
+                                order["executedQty"] = "0".into();
+                                order["cummulativeQuoteQty"] = "0".into();
+                                order["status"] = "NEW".into();
+                            }
+                        }
+                        *http.binance_open_orders.borrow_mut() = Some(orders);
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":configured,"data":{"configured":configured}})
+                    }
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("workspace.ready.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let reply = match workspace_id {
+                    Some(workspace_id) => match control.lock() {
+                        Ok(mut control) => match control.seed_browser_workspace_ready(workspace_id)
+                        {
+                            Ok(()) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":{"ready":true}
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    None => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("binance.testnet.stream.fixture") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let connection_id = payload.get("connectionId").and_then(Value::as_str);

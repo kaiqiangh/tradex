@@ -62,6 +62,10 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     'binance.testnet.stream.reconcile.fixture',
     { connectionId, expectedConnectionStateVersion, remoteAccountId: '9007199254740993' },
   );
+  const configureBinanceCancelFixture = (scenario, orderUpdatedAtMs) => sendIntegrationCommand(
+    'binance.testnet.cancel.fixture',
+    { scenario, ...(orderUpdatedAtMs == null ? {} : { orderUpdatedAtMs }) },
+  );
   const waitForButton = async name => {
     const button = ui.getByRole('button', { name, exact: true });
     for (let attempt = 0; attempt < 200; attempt += 1) {
@@ -74,13 +78,23 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await viewport.set({ width: 1280, height: 900 });
     await tab.getAXState({ emit: false });
     const previousPath = await ui.locator('.context .path').innerText();
-    const workspaceId = await ui.locator('.context .identity').innerText();
     const label = `${selection} QA ${Date.now()}`;
+    const isolatedWorkspaceName = 'S02 isolated account review';
+    const isolatedWorkspacePath = join(dirname(previousPath), `accounts-${Date.now()}`);
     await ui.getByRole('button', { name: 'Workspace', exact: true }).click();
     await tab.getAXState({ emit: false });
-    await ui.getByLabel('Workspace name', { exact: true }).fill('S02 isolated account review');
-    await ui.getByLabel('Local storage', { exact: true }).fill(join(dirname(previousPath), `accounts-${Date.now()}`));
+    await ui.getByLabel('Workspace name', { exact: true }).fill(isolatedWorkspaceName);
+    await ui.getByLabel('Local storage', { exact: true }).fill(isolatedWorkspacePath);
     await ui.getByRole('button', { name: 'Open workspace', exact: true }).click();
+    await ui.getByRole('button', { name: 'Open workspace', exact: true }).waitFor({ state: 'hidden' });
+    await tab.getAXState({ emit: false });
+    const openedWorkspace = await sendIntegrationCommand('workspace.open', {
+      name: isolatedWorkspaceName,
+      baseCurrency: 'USD',
+      path: isolatedWorkspacePath,
+    });
+    await sendIntegrationCommand('workspace.ready.fixture', { workspaceId: openedWorkspace.data.workspaceId });
+    await tab.reload();
     await tab.getAXState({ emit: false });
     await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
     await tab.getAXState({ emit: false });
@@ -648,10 +662,83 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       if (Number.isFinite(accountRetryAt)) await ui.waitForTimeout(Math.max(0, accountRetryAt - Date.now() + 50));
       observed.push('A fixture disconnect marks saved observations stale; bounded signed REST fixtures restore CURRENT only after reconciliation succeeds.');
 
+      const waitForBinanceReadCooldown = async () => {
+        savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+          workspaceId: isolatedWorkspaceId,
+          connectionId: existingValue,
+        });
+        const retryAt = Math.max(...[
+          savedBook.data.book.rateLimits.accountRetryAt,
+          savedBook.data.book.rateLimits.pendingOrdersRetryAt,
+          savedBook.data.book.rateLimits.orderDetailRetryAt,
+        ].map(value => Date.parse(value ?? '')).filter(Number.isFinite));
+        if (Number.isFinite(retryAt)) await ui.waitForTimeout(Math.max(0, retryAt - Date.now() + 50));
+      };
+      const refreshBinanceExactOrder = async providerOrderId => {
+        const order = binanceOrderBook.locator('.order-book-order').filter({ hasText: providerOrderId });
+        const notice = ui.getByRole('status').filter({ hasText: /Binance Testnet order detail refreshed at/ });
+        const previous = (await notice.allTextContents()).join('\n');
+        await order.getByRole('button', { name: 'Refresh exact order', exact: true }).press('Enter');
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          const current = (await notice.allTextContents()).join('\n');
+          if (current && current !== previous) return;
+          await ui.waitForTimeout(50);
+        }
+        throw new Error(`Exact order ${providerOrderId} was not refreshed`);
+      };
+      await configureBinanceCancelFixture('PREPARE_ORDER', privateStreamNow);
+      await configureBinanceCancelFixture('INVALID_QUANTITY');
+      await waitForBinanceReadCooldown();
+      await binanceOrderBook.getByRole('button', { name: 'Refresh open orders', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: /Binance Testnet open orders refreshed at/ }).waitFor({ state: 'visible' });
+
+      await configureBinanceCancelFixture('REJECTED');
+      await waitForBinanceReadCooldown();
+      await refreshBinanceExactOrder('9007199254741001');
+      const rejectedOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254741001' });
+      await waitForBinanceReadCooldown();
+      await rejectedOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      let cancelDialog = ui.getByRole('dialog', { name: 'Confirm Binance Spot Testnet cancellation', exact: true });
+      await cancelDialog.waitFor({ state: 'visible' });
+      await cancelDialog.getByRole('button', { name: 'Confirm Testnet cancellation', exact: true }).press('Enter');
+      await cancelDialog.waitFor({ state: 'hidden' });
+      await rejectedOrder.getByRole('status').filter({ hasText: /Cancellation request was not accepted: PROVIDER_CANCEL_REJECTED/ }).waitFor({ state: 'visible' });
+      await ui.getByRole('status').filter({ hasText: /did not accept cancellation.*PROVIDER_CANCEL_REJECTED.*Provider status: NEW/ }).waitFor({ state: 'visible' });
+      await configureBinanceCancelFixture('UNKNOWN');
+      await waitForBinanceReadCooldown();
+      await refreshBinanceExactOrder('9007199254741002');
+      const unknownOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254741002' });
+      await waitForBinanceReadCooldown();
+      await unknownOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      await cancelDialog.waitFor({ state: 'visible' });
+      await cancelDialog.getByRole('button', { name: 'Confirm Testnet cancellation', exact: true }).press('Enter');
+      await cancelDialog.waitFor({ state: 'hidden' });
+      await ui.getByRole('status').filter({ hasText: /outcome for 9007199254741002 is unknown.*remains pending provider confirmation/ }).waitFor({ state: 'visible' });
+      await unknownOrder.getByRole('status').filter({ hasText: /Cancellation request accepted or outcome unknown/ }).waitFor({ state: 'visible' });
+      await configureBinanceCancelFixture('RESET');
+
+      const uncertainQuantityOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254740997' });
+      await uncertainQuantityOrder.getByText('Unavailable', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await uncertainQuantityOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 0,
+        'An exact order with no usable remaining quantity cannot offer cancellation review');
+
+      await configureBinanceCancelFixture('TERMINAL');
+      await waitForBinanceReadCooldown();
+      const terminalOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254740999' });
+      await terminalOrder.getByRole('button', { name: 'Refresh exact order', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: /Binance Testnet order detail refreshed at/ }).waitFor({ state: 'visible' });
+      await terminalOrder.getByText(/ETHUSDT · BUY · FILLED/).waitFor({ state: 'visible' });
+      assert.equal(await terminalOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 0,
+        'A provider-terminal order remains visible with its terminal status and no cancellation action');
+
       const partialOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254740998' });
+      await waitForBinanceReadCooldown();
+      await waitForBinanceReadCooldown();
+      await refreshBinanceExactOrder('9007199254740998');
+      await waitForBinanceReadCooldown();
       await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       await ui.getByRole('status').filter({ hasText: /Binance Testnet order detail refreshed at/ }).waitFor({ state: 'visible' });
-      let cancelDialog = ui.getByRole('dialog', { name: 'Confirm Binance Spot Testnet cancellation', exact: true });
+      cancelDialog = ui.getByRole('dialog', { name: 'Confirm Binance Spot Testnet cancellation', exact: true });
       await cancelDialog.waitFor({ state: 'visible' });
       const cancelReview = await cancelDialog.innerText();
       assert.match(cancelReview, /saved Testnet order observation/);
@@ -693,7 +780,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.equal(cancelOrder?.providerStatus, 'CANCELED');
       assert.equal(cancelOrder?.pending, false);
       assert.equal(savedBook.data.book.fills.filter(fill => fill.tradeId === '9101').length, 1, 'cancellation must retain the partial fill');
-      observed.push('Binance Testnet cancellation review exposes exact account/order and quantities; Escape is read-only, explicit confirmation records CANCELED, and the prior fill remains.');
+      await ui.getByRole('status').filter({ hasText: /Binance Testnet provider status for 9007199254740998: CANCELED/ }).waitFor({ state: 'visible' });
+      observed.push('Binance Testnet cancellation exposes accessible rejection, unknown, and terminal outcomes; unusable remaining quantity blocks review; Escape is read-only, explicit confirmation records CANCELED, and the prior fill remains.');
 
 
       for (const width of [1280, 768, 390]) {

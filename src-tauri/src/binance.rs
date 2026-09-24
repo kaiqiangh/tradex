@@ -570,11 +570,16 @@ fn merge_testnet_order(
         if fresh.provider_updated_at_ms < old.provider_updated_at_ms
             || filled_order == std::cmp::Ordering::Less
             || (!old.pending && fresh.pending)
-            || (fresh.provider_updated_at_ms == old.provider_updated_at_ms
-                && filled_order == std::cmp::Ordering::Equal
-                && (old.provider_status == fresh.provider_status
-                    || old.provider_status == "FILLED"))
         {
+            return Ok(());
+        }
+        if fresh.provider_updated_at_ms == old.provider_updated_at_ms
+            && filled_order == std::cmp::Ordering::Equal
+            && (old.provider_status == fresh.provider_status || old.provider_status == "FILLED")
+        {
+            if old.provider_status == fresh.provider_status {
+                orders[index].observed_at = fresh.observed_at;
+            }
             return Ok(());
         }
         let mut fresh = fresh;
@@ -1488,7 +1493,9 @@ fn same_testnet_order_review(left: &BinanceTestnetOrder, right: &BinanceTestnetO
 }
 
 fn testnet_cancelable(order: &BinanceTestnetOrder) -> bool {
-    order.pending && matches!(order.provider_status.as_str(), "NEW" | "PARTIALLY_FILLED")
+    order.pending
+        && order.remaining_quantity.is_some()
+        && matches!(order.provider_status.as_str(), "NEW" | "PARTIALLY_FILLED")
 }
 
 fn clear_cancel(order: &mut BinanceTestnetOrder) {
@@ -2893,6 +2900,44 @@ mod tests {
                 "O":1_788_849_600_000u64, "T":update_time, "t":trade_id, "Q":"0", "Y":quote, "Z":quote
             }
         })
+    }
+
+    #[test]
+    fn exact_refresh_advances_unchanged_order_observation_without_resetting_cancel_intent() {
+        let raw = json!({
+            "symbol":"BTCUSDT","orderId":"9007199254741002",
+            "clientOrderId":"fixture-cancel-btc-unknown","side":"BUY","type":"LIMIT",
+            "timeInForce":"GTC","status":"NEW","price":"100","origQty":"0.07",
+            "origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0",
+            "time":1788849506000u64,"updateTime":1788849506000u64
+        });
+        let mut original = parse_testnet_book_order(&raw, "2026-09-24T18:54:52Z").unwrap();
+        original.cancel_state = BinanceTestnetOrderCancelState::Pending;
+        original.cancel_idempotency_key = Some("cancel-intent-1".into());
+        original.cancel_error = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+        let mut orders = vec![original];
+
+        let fresh = parse_testnet_book_order(&raw, "2026-09-24T18:56:00Z").unwrap();
+        merge_testnet_order(&mut orders, fresh).unwrap();
+        assert_eq!(orders[0].observed_at, "2026-09-24T18:56:00Z");
+        assert_eq!(
+            orders[0].cancel_state,
+            BinanceTestnetOrderCancelState::Pending
+        );
+        assert_eq!(
+            orders[0].cancel_idempotency_key.as_deref(),
+            Some("cancel-intent-1")
+        );
+        assert_eq!(
+            orders[0].cancel_error.as_deref(),
+            Some("ORDER_CANCEL_STATUS_UNKNOWN")
+        );
+
+        let mut stale_raw = raw;
+        stale_raw["updateTime"] = 1788849505999u64.into();
+        let stale = parse_testnet_book_order(&stale_raw, "2026-09-24T18:57:00Z").unwrap();
+        merge_testnet_order(&mut orders, stale).unwrap();
+        assert_eq!(orders[0].observed_at, "2026-09-24T18:56:00Z");
     }
 
     #[test]

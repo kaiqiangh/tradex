@@ -236,7 +236,7 @@ fn default_trading212_order_list() -> Vec<Value> {
     vec![default_trading212_order()]
 }
 
-fn default_binance_open_orders() -> Vec<Value> {
+pub fn default_binance_open_orders() -> Vec<Value> {
     vec![
         json!({"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc","side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"NEW","price":"100.2","origQty":"0.1","origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0","time":1788849500000u64,"updateTime":1788849500000u64}),
         json!({"symbol":"ODDCOINUSDT","orderId":9007199254740996u64,"clientOrderId":"fixture-open-odd","side":"SELL","type":"LIMIT","timeInForce":"GTC","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","origQuoteOrderQty":"0","executedQty":"0.1","cummulativeQuoteQty":"0.2","time":1788849501000u64,"updateTime":1788849501000u64}),

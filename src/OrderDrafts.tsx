@@ -68,7 +68,8 @@ function canCancelTrading212Order(order: Trading212DemoOrder) {
 function canCancelBinanceTestnetOrder(order: BinanceTestnetOrder) {
   const age = Date.now() - Date.parse(order.observedAt);
   return order.pending && ['NEW', 'PARTIALLY_FILLED'].includes(order.providerStatus)
-    && order.cancelState === 'NONE' && ['BTCUSDT', 'ETHUSDT'].includes(order.symbol)
+    && order.cancelState === 'NONE' && order.remainingQuantity != null
+    && ['BTCUSDT', 'ETHUSDT'].includes(order.symbol)
     && Number.isFinite(age) && age >= 0 && age <= 60_000;
 }
 

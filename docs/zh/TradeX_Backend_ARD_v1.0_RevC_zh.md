@@ -2567,7 +2567,7 @@ WebSocket 消息/帧上限为 256 KiB，并通过容量为 32 的有界 channel 
 
 ### 41.28 Binance Spot Testnet 准确订单撤销（S19 #71）
 
-版本 1 增加仅主 Trade UI 可调用的 `binance.testnet.orders.cancel` 命令，输入为 `{workspaceId, connectionId, expectedConnectionStateVersion, symbol, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}`，返回已保存的 `BinanceTestnetOrderBook`。仅允许已连接的 `binance` / `TESTNET` 账户，以及处于 `NEW` 或 `PARTIALLY_FILLED` 状态的准确 `BTCUSDT` / `ETHUSDT` 订单。已保存订单观察必须为 `CURRENT`，匹配账户/订单簿版本和远端身份，且不超过 60 秒。Provider I/O 前先在事务中持久化 `SUBMITTING`、UUID 幂等键、新订单簿版本和 outbox event。应用重新打开时，遗留的 `SUBMITTING` 转为结果未知的 `PENDING`，绝不重发。
+版本 1 增加仅主 Trade UI 可调用的 `binance.testnet.orders.cancel` 命令，输入为 `{workspaceId, connectionId, expectedConnectionStateVersion, symbol, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}`，返回已保存的 `BinanceTestnetOrderBook`。仅允许已连接的 `binance` / `TESTNET` 账户，以及状态为 `NEW` 或 `PARTIALLY_FILLED` 且剩余数量已知、有效的准确 `BTCUSDT` / `ETHUSDT` 订单。已保存订单观察必须为 `CURRENT`，匹配账户/订单簿版本和远端身份，且不超过 60 秒。Provider I/O 前先在事务中持久化 `SUBMITTING`、UUID 幂等键、新订单簿版本和 outbox event。应用重新打开时，遗留的 `SUBMITTING` 转为结果未知的 `PENDING`，绝不重发。
 
 用户明确确认后，特权 adapter 先将 `/api/v3/account` 与已保存远端 `uid` 核对，再在写入前立即签名读取准确订单 `GET /api/v3/order`。它会与用户复核时的观察比较不可变订单身份、原始状态、已成交/剩余数量及 provider 更新时间。订单发生变化则返回 `ORDER_CHANGED_REVIEW_AGAIN`；订单已终结则保存该结果且不发送 DELETE；不支持的状态则拒绝。随后最多只发送一次签名 `DELETE /api/v3/order`，参数严格为准确 symbol、十进制字符串 order ID，以及用作 `newClientOrderId` 的已保存 UUID。不允许撤销全部、cancel-replace、任意路由、Live endpoint、Agent 或 Gateway 路径。确定的写前拒绝仍保留幂等键以防重放；传输/解析结果不明时保存 `PENDING` / `ORDER_CANCEL_STATUS_UNKNOWN`，禁止盲目重发。
 

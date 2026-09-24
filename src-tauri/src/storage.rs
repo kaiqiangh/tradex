@@ -3882,7 +3882,10 @@ impl Store {
         if order.cancel_state != BinanceTestnetOrderCancelState::None {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        if !order.pending || !matches!(order.provider_status.as_str(), "NEW" | "PARTIALLY_FILLED") {
+        if !order.pending
+            || order.remaining_quantity.is_none()
+            || !matches!(order.provider_status.as_str(), "NEW" | "PARTIALLY_FILLED")
+        {
             return Err(TradeXError::new("ORDER_NOT_CANCELABLE"));
         }
         let observed_at = OffsetDateTime::parse(&order.observed_at, &Rfc3339)

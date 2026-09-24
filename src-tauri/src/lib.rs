@@ -456,6 +456,29 @@ fn failure_reply(id: String, error: TradeXError) -> Value {
     json!({"requestId":id,"schemaVersion":1,"ok":false,"error":error})
 }
 
+#[cfg(feature = "integration-test")]
+fn browser_fixture_dispatch(
+    control: &mut ControlPlane,
+    command: &str,
+    payload: Value,
+) -> Result<Value> {
+    let result = control.dispatch(json!({
+        "requestId":uuid::Uuid::new_v4().to_string(),
+        "schemaVersion":1,
+        "command":command,
+        "payload":payload
+    }));
+    if result["ok"] == true {
+        Ok(result["data"].clone())
+    } else {
+        let code = result["error"]["code"]
+            .as_str()
+            .unwrap_or("IPC_CONTROL_PLANE_UNAVAILABLE")
+            .to_owned();
+        Err(TradeXError::new(&code))
+    }
+}
+
 fn provider_order_consumer_allowed(consumer: &str) -> bool {
     consumer == "main" || (cfg!(feature = "integration-test") && consumer == "stdio")
 }
@@ -4175,6 +4198,83 @@ impl ControlPlane {
         account.health.reason =
             "Disposable deletion fixture; no provider connection was made.".into();
         self.persist_account(account)
+    }
+
+    #[cfg(feature = "integration-test")]
+    pub fn seed_browser_workspace_ready(&mut self, workspace_id: &str) -> Result<()> {
+        self.require_workspace(workspace_id)?;
+        {
+            let store = self.store.as_mut().unwrap();
+            let mut model = store.model()?;
+            let route = model::ModelRoute {
+                provider: model::ModelProvider::Chatgpt,
+                model_id: "gpt-5.6-sol".into(),
+                thinking_type: None,
+                verified_at: Some("2026-09-24T00:00:00Z".into()),
+            };
+            model.chatgpt.configured = true;
+            model.chatgpt.status = model::ModelHealth::Ready;
+            model.chatgpt.routes = vec![route.clone()];
+            model.default_route = Some(route.selection());
+            model.current_route = Some(route);
+            store.save_model(model, "model.provider.changed")?;
+
+            let mut gateway = store.gateway()?;
+            gateway.status = gateway::GatewayStatus::Running;
+            gateway.desired_running = true;
+            gateway.installed = true;
+            gateway.model_available = true;
+            gateway.discovered_model_count = 1;
+            store.save_gateway(gateway)?;
+        }
+
+        let mut risk =
+            browser_fixture_dispatch(self, "risk.get_policy", json!({"workspaceId":workspace_id}))?;
+        if risk["onboardingCompleted"] == true {
+            return Ok(());
+        }
+        let mut step = risk["onboardingStep"].as_u64().unwrap_or(1) as u8;
+        let mut version = risk["stateVersion"].as_str().unwrap_or_default().to_owned();
+        while step < 4 {
+            step += 1;
+            risk = browser_fixture_dispatch(
+                self,
+                "onboarding.set_step",
+                json!({"workspaceId":workspace_id,"expectedStateVersion":version,"step":step}),
+            )?;
+            version = risk["stateVersion"].as_str().unwrap_or_default().to_owned();
+        }
+        if risk["configured"] != true {
+            risk = browser_fixture_dispatch(
+                self,
+                "risk.save_policy",
+                json!({
+                    "workspaceId":workspace_id,
+                    "expectedStateVersion":version,
+                    "policy":{
+                        "maxOrderNotional":null,
+                        "maxSingleInstrumentExposurePercent":"10.25",
+                        "maxDailyTradedNotional":null,
+                        "maxDailyRealizedLoss":null,
+                        "staleQuoteThresholdSeconds":3,
+                        "marketOrdersEnabled":false,
+                        "liveInactivityTimeoutMinutes":20
+                    }
+                }),
+            )?;
+            version = risk["stateVersion"].as_str().unwrap_or_default().to_owned();
+        }
+        risk = browser_fixture_dispatch(
+            self,
+            "onboarding.set_step",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":version,"step":5}),
+        )?;
+        browser_fixture_dispatch(
+            self,
+            "onboarding.complete",
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["stateVersion"]}),
+        )?;
+        Ok(())
     }
 
     fn prepare_trading212_demo_order_submit(

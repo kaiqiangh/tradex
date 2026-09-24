@@ -876,6 +876,26 @@ fn testnet_cancel_is_single_exact_delete_and_reconciles_terminal_status() {
         &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
     );
     assert_eq!(pending["data"]["status"], "CURRENT", "{pending}");
+    let unconfirmed = request(
+        "binance.testnet.orders.cancel",
+        json!({
+            "workspaceId":workspace,
+            "connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "symbol":"BTCUSDT",
+            "providerOrderId":"9007199254740995",
+            "expectedBookStateVersion":pending["data"]["stateVersion"],
+            "idempotencyKey":"00000000-0000-4000-8000-000000000001",
+            "confirmed":false
+        }),
+    );
+    let unconfirmed_error = match cp.prepare_provider_for(&unconfirmed, "main") {
+        Err(error) => error,
+        Ok(_) => panic!("an unconfirmed cancellation must not create a provider job"),
+    };
+    assert_eq!(unconfirmed_error.code, "ORDER_CONFIRMATION_REQUIRED");
+    assert!(http.binance_cancel_calls.borrow().is_empty());
+
     let cancelled = cancel_testnet_order(
         &mut cp,
         &vault,
@@ -903,6 +923,90 @@ fn testnet_cancel_is_single_exact_delete_and_reconciles_terminal_status() {
     assert!(path.contains("orderId=9007199254740995"));
     assert!(path.contains("newClientOrderId=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"));
     assert!(!path.contains("openOrders"));
+}
+
+#[test]
+fn testnet_cancel_rechecks_terminal_provider_status_before_delete() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    *http.binance_open_orders.borrow_mut() = Some(vec![json!({
+        "symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc",
+        "side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"FILLED",
+        "price":"100.2","origQty":"0.1","origQuoteOrderQty":"0","executedQty":"0.1",
+        "cummulativeQuoteQty":"10.02","time":1788849500000u64,"updateTime":1788849505000u64
+    })]);
+
+    let result = cancel_testnet_order(
+        &mut cp,
+        &vault,
+        &http,
+        &workspace,
+        &account,
+        &pending["data"],
+        "9007199254740995",
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    );
+    assert_eq!(result["ok"], true, "{result}");
+    let order = result["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(order["providerStatus"], "FILLED");
+    assert_eq!(order["pending"], false);
+    assert!(http.binance_cancel_calls.borrow().is_empty());
+}
+
+#[test]
+fn testnet_cancel_rejects_unknown_remaining_quantity_before_delete() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let mut remote_orders = fixtures::default_binance_open_orders();
+    remote_orders[0]["origQty"] = "-0.1".into();
+    *http.binance_open_orders.borrow_mut() = Some(remote_orders);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    assert_eq!(pending["ok"], true, "{pending}");
+    let order = pending["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(order["pending"], true);
+    assert!(order["remainingQuantity"].is_null());
+    let unreviewable = request(
+        "binance.testnet.orders.cancel",
+        json!({
+            "workspaceId":workspace,
+            "connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "symbol":"BTCUSDT",
+            "providerOrderId":"9007199254740995",
+            "expectedBookStateVersion":pending["data"]["stateVersion"],
+            "idempotencyKey":"ffffffff-ffff-4fff-8fff-ffffffffffff",
+            "confirmed":true
+        }),
+    );
+    let error = match cp.prepare_provider_for(&unreviewable, "main") {
+        Err(error) => error,
+        Ok(_) => panic!("an order with unknown remaining quantity must not create a provider job"),
+    };
+    assert_eq!(error.code, "ORDER_NOT_CANCELABLE");
+    assert!(http.binance_cancel_calls.borrow().is_empty());
 }
 
 #[test]

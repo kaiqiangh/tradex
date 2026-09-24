@@ -636,7 +636,7 @@ Order Drafts 仅对绑定已连接 Binance `TESTNET` 账户的不可变 `BINANCE
 
 ### 13.15.1 Binance Spot Testnet 准确订单撤销（S19 #71）
 
-仅当 `BINANCE_TESTNET` 账户已连接，且准确 `BTCUSDT` / `ETHUSDT` 订单的已保存观察为 `CURRENT`、不超过 60 秒、状态是 `NEW` 或 `PARTIALLY_FILLED` 且未在撤销时，显示“复核撤销”。激活后先执行现有的准确订单 Detail 刷新；仅当返回订单簿为 `CURRENT`，且准确订单对当前 connection 和远端账户仍可撤销时，才打开复核框。显示账户/订单身份、状态、已成交和剩余数量以及观察时间。用户确认后，后端会独立校验捕获的账户/订单簿版本、远端账户身份和新鲜度，并在写入前重新读取准确账户和订单。订单变化时必须重新复核；已终结订单只记录状态，不发送 DELETE。
+仅当 `BINANCE_TESTNET` 账户已连接，且准确 `BTCUSDT` / `ETHUSDT` 订单的已保存观察为 `CURRENT`、不超过 60 秒、状态是 `NEW` 或 `PARTIALLY_FILLED`、剩余数量已知且有效并且未在撤销时，显示“复核撤销”。激活后先执行现有的准确订单 Detail 刷新；仅当返回订单簿为 `CURRENT`，且准确订单对当前 connection 和远端账户仍可撤销时，才打开复核框。显示账户/订单身份、状态、已成交和剩余数量以及观察时间；剩余数量缺失或无效时保持复核不可用。用户确认后，后端会独立校验捕获的账户/订单簿版本、远端身份和新鲜度，并在写入前重新读取准确账户和订单。订单变化时必须重新复核；已终结订单只记录状态，不发送 DELETE。
 
 仅通过主 Trade UI 发送有类型的 `binance.testnet.orders.cancel` command。`SUBMITTING` 与 `PENDING` 分开呈现；请求已被接受不等于撤销完成，结果不明时保持 pending 且不得再次请求。后续准确订单读取或私有流 event 决定终态并保留竞态成交。不提供 Live、撤销全部、Agent 或 Order Gateway 控件。
 
