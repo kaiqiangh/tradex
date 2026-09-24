@@ -77,6 +77,38 @@ type DraftForm = {
   clientLabel: string;
 };
 type DraftField = keyof DraftForm;
+type PaperConfirmation = 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit';
+
+const paperConfirmationCopy: Record<PaperConfirmation, { title: string; explanation: string; prompt: string; confirmLabel: string }> = {
+  submit: {
+    title: 'Confirm Local Paper submission', explanation: 'This changes the TradeX simulation only.',
+    prompt: 'Submit the selected immutable proposal to Local Paper?', confirmLabel: 'Confirm submit',
+  },
+  cancel: {
+    title: 'Confirm Local Paper cancellation', explanation: 'This changes the TradeX simulation only.',
+    prompt: 'Cancel the remaining quantity of this Local Paper order?', confirmLabel: 'Confirm cancel',
+  },
+  'alpaca-submit': {
+    title: 'Confirm Alpaca Paper submission', explanation: 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.',
+    prompt: 'Submit the exact Alpaca Paper Proposal shown below?', confirmLabel: 'Confirm Alpaca Paper submit',
+  },
+  'alpaca-cancel': {
+    title: 'Confirm Alpaca Paper cancellation', explanation: 'The account and order were just reread from Alpaca Paper. Review the exact filled and remaining quantities before confirming.',
+    prompt: 'Send a cancellation request for this exact Alpaca Paper order?', confirmLabel: 'Confirm cancellation request',
+  },
+  'trading212-submit': {
+    title: 'Confirm Trading 212 Demo submission', explanation: 'This sends one order to the connected Trading 212 Demo account. It never uses a Live endpoint; an acknowledgement is not a fill.',
+    prompt: 'Submit this exact immutable Proposal to Trading 212 Demo?', confirmLabel: 'Confirm Trading 212 Demo submit',
+  },
+  'trading212-cancel': {
+    title: 'Confirm Trading 212 Demo cancellation', explanation: 'The exact Trading 212 Demo account and order were just reread. A provider acknowledgement is not proof of cancellation; fills may race this request.',
+    prompt: 'Send one cancellation request for this exact Trading 212 Demo order?', confirmLabel: 'Confirm cancellation request',
+  },
+  'binance-testnet-submit': {
+    title: 'Confirm Binance Spot Testnet submission', explanation: 'This sends one order to Binance Spot Testnet only. The endpoint is fixed to Testnet; an acknowledgement is not a fill.',
+    prompt: 'Submit this exact immutable Proposal to Binance Spot Testnet?', confirmLabel: 'Confirm Binance Testnet submit',
+  },
+};
 
 const initialForm: DraftForm = {
   accountId: '', venue: 'TRADEX_SIM', environment: 'LOCAL_PAPER', instrumentId: 'equity:US:AAPL',
@@ -183,7 +215,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [trading212IdempotencyKey, setTrading212IdempotencyKey] = useState<string>();
   const [binanceTestnetIdempotencyKey, setBinanceTestnetIdempotencyKey] = useState<string>();
   const [binanceTestnetReview, setBinanceTestnetReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
-  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit'>();
+  const [paperConfirmation, setPaperConfirmation] = useState<PaperConfirmation>();
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
   const [cancelReview, setCancelReview] = useState<{ book: AlpacaPaperOrderBook; order: AlpacaPaperOrder }>();
@@ -887,10 +919,10 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     </section>
     {paperConfirmation && createPortal(<div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}>
       <div className="picker-dialog-heading"><div>
-        <h2 id="paper-confirm-title">{paperConfirmation === 'binance-testnet-submit' ? 'Confirm Binance Spot Testnet submission' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submission' : paperConfirmation === 'trading212-cancel' ? 'Confirm Trading 212 Demo cancellation' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'alpaca-cancel' ? 'Confirm Alpaca Paper cancellation' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2>
-        <p className="muted">{paperConfirmation === 'binance-testnet-submit' ? 'This sends one order to Binance Spot Testnet only. The endpoint is fixed to Testnet; an acknowledgement is not a fill.' : paperConfirmation === 'trading212-submit' ? 'This sends one order to the connected Trading 212 Demo account. It never uses a Live endpoint; an acknowledgement is not a fill.' : paperConfirmation === 'trading212-cancel' ? 'The exact Trading 212 Demo account and order were just reread. A provider acknowledgement is not proof of cancellation; fills may race this request.' : paperConfirmation === 'alpaca-submit' ? 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.' : paperConfirmation === 'alpaca-cancel' ? 'The account and order were just reread from Alpaca Paper. Review the exact filled and remaining quantities before confirming.' : 'This changes the TradeX simulation only.'}</p>
+        <h2 id="paper-confirm-title">{paperConfirmationCopy[paperConfirmation].title}</h2>
+        <p className="muted">{paperConfirmationCopy[paperConfirmation].explanation}</p>
       </div></div>
-      <p>{paperConfirmation === 'binance-testnet-submit' ? 'Submit this exact immutable Proposal to Binance Spot Testnet?' : paperConfirmation === 'trading212-submit' ? 'Submit this exact immutable Proposal to Trading 212 Demo?' : paperConfirmation === 'trading212-cancel' ? 'Send one cancellation request for this exact Trading 212 Demo order?' : paperConfirmation === 'alpaca-submit' ? 'Submit the exact Alpaca Paper Proposal shown below?' : paperConfirmation === 'alpaca-cancel' ? 'Send a cancellation request for this exact Alpaca Paper order?' : paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p>
+      <p>{paperConfirmationCopy[paperConfirmation].prompt}</p>
       {paperConfirmation === 'alpaca-cancel' && cancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>ALPACA_PAPER · {ordersAccount?.label ?? 'Unavailable'} · {cancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{cancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{cancelReview.order.instrumentId ?? cancelReview.order.symbol} · {cancelReview.order.side.toUpperCase()}</dd></div><div><dt>Provider status</dt><dd>{cancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{cancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{cancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last observation</dt><dd>{new Date(cancelReview.order.observedAt).toLocaleString()}</dd></div></dl>}
       {paperConfirmation === 'trading212-cancel' && trading212CancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>Trading 212 Demo · TRADING212_DEMO · {trading212CancelReview.accountLabel} · {trading212CancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{trading212CancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{trading212CancelReview.order.symbol} · {trading212CancelReview.order.side}</dd></div><div><dt>Provider / normalized status</dt><dd>{trading212CancelReview.order.providerStatus} / {trading212CancelReview.order.normalizedStatus}</dd></div><div><dt>Filled quantity</dt><dd>{trading212CancelReview.order.filledQuantity ?? 'Unavailable'}</dd></div><div><dt>Remaining quantity</dt><dd>{trading212CancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Filled value</dt><dd>{trading212CancelReview.order.filledValue == null ? 'Unavailable' : `${trading212CancelReview.order.filledValue} ${trading212CancelReview.order.currency ?? 'currency unavailable'}`}</dd></div><div><dt>Last provider observation</dt><dd>{new Date(trading212CancelReview.order.observedAt).toLocaleString()}</dd></div><div><dt>Provider acknowledgement</dt><dd>Acceptance only; cancellation is not confirmed until a later provider observation.</dd></div></dl>}
       {(paperConfirmation === 'alpaca-submit' || paperConfirmation === 'trading212-submit' || paperConfirmation === 'binance-testnet-submit') && proposalDetail.data && <dl className="proposal-fields">
@@ -905,7 +937,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         {paperConfirmation === 'trading212-submit' && proposalDetail.data.fields.orderType === 'MARKET' && <div><dt>Extended hours</dt><dd>Off</dd></div>}
         <div><dt>Proposal / hash</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div>
       </dl>}
-      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy ? 'Working…' : paperConfirmation === 'binance-testnet-submit' ? 'Confirm Binance Testnet submit' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submit' : paperConfirmation === 'trading212-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'alpaca-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div>
+      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy ? 'Working…' : paperConfirmationCopy[paperConfirmation].confirmLabel}</button></div>
     </div></div>, document.body)}
   </>;
 }
