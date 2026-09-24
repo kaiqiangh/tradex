@@ -630,6 +630,10 @@ Order Drafts 仅对绑定已连接 Binance `TESTNET` 账户的不可变 `BINANCE
 
 选择/重新打开 Proposal 时读取已保存 attempt。UI 区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 与 `REJECTED`；acknowledgement 仅表示 Binance 已接受，绝不展示为 fill。重复提交只读取已保存 attempt，不能再发 POST。`UNKNOWN_RECONCILING` 禁用重新提交，只提供按已保存 `clientOrderId` 显式查询；无结果时 attempt 保持 unknown。Loading/error/reload 使用 status/alert 语义。确认框限制焦点，Escape/Keep reviewing 安全关闭，关闭后恢复焦点。在 390、768、1280 px 检查身份与状态标签。不暴露 Binance Live 或 Agent 写入控件。
 
+### 13.15 Binance Spot Testnet 私有更新与恢复（S19 #70）
+
+在所选且已连接的 `BINANCE_TESTNET` 账户下，Order Drafts 展示已保存订单簿、文字形式的私有流/reconciliation 健康状态及最近事件时间。`executionReport` 更新通过现有账户 aggregate event 刷新已保存订单查询。有效账户持仓更新只替换明确变更的资产；stale/degraded/reconciling 状态保留最后可信记录。仅提供 delta 的余额事件或未知事件会让 reconciliation 保持可见的 required，直至固定 REST 路由读取成功。未知订单状态继续显示且非终态。此界面不增加 user-data stream 控件、Live 或 Local Paper 路径或任何权限；保留显式 pending/history/detail 读取控件，并验证键盘操作以及 390/768/1280 px 布局。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

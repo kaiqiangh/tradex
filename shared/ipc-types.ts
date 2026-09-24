@@ -1358,6 +1358,7 @@ export interface BinanceTestnetOrderBook {
    */
   orders: BinanceTestnetOrder[];
   pendingOrdersObservedAt?: string | null;
+  privateStreamBalanceUpdateAtMs?: number | null;
   rateLimits: BinanceTestnetOrderBookRateLimits;
   reason?: string | null;
   remoteAccountId: string;

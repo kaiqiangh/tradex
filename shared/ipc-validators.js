@@ -36841,6 +36841,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				"maxLength": 64,
 				"minLength": 1
 			},
+			"privateStreamBalanceUpdateAtMs": {
+				"type": ["integer", "null"],
+				"format": "uint64",
+				"maximum": 9007199254740991,
+				"minimum": 0
+			},
 			"rateLimits": { "$ref": "#/$defs/BinanceTestnetOrderBookRateLimits" },
 			"reason": {
 				"type": ["string", "null"],
@@ -38918,71 +38924,77 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																var valid0 = _errs77 === errors;
 															} else var valid0 = true;
 															if (valid0) {
-																if (data.rateLimits !== void 0) {
-																	let data36 = data.rateLimits;
+																if (data.privateStreamBalanceUpdateAtMs !== void 0) {
+																	let data36 = data.privateStreamBalanceUpdateAtMs;
 																	const _errs79 = errors;
-																	if (errors === errors) {
-																		if (data36 && typeof data36 == "object" && !Array.isArray(data36)) {
-																			const _errs82 = errors;
-																			for (const key4 in data36) if (!(key4 === "accountRetryAt" || key4 === "historyRetryAt" || key4 === "orderDetailRetryAt" || key4 === "pendingOrdersRetryAt")) {
+																	if (!(typeof data36 == "number" && !(data36 % 1) && !isNaN(data36)) && data36 !== null) {
+																		validate484.errors = [{
+																			instancePath: instancePath + "/privateStreamBalanceUpdateAtMs",
+																			schemaPath: "#/properties/privateStreamBalanceUpdateAtMs/type",
+																			keyword: "type",
+																			params: { type: schema106.properties.privateStreamBalanceUpdateAtMs.type },
+																			message: "must be integer,null"
+																		}];
+																		return false;
+																	}
+																	if (errors === _errs79) {
+																		if (typeof data36 == "number") {
+																			if (data36 > 9007199254740991 || isNaN(data36)) {
 																				validate484.errors = [{
-																					instancePath: instancePath + "/rateLimits",
-																					schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/additionalProperties",
-																					keyword: "additionalProperties",
-																					params: { additionalProperty: key4 },
-																					message: "must NOT have additional properties"
+																					instancePath: instancePath + "/privateStreamBalanceUpdateAtMs",
+																					schemaPath: "#/properties/privateStreamBalanceUpdateAtMs/maximum",
+																					keyword: "maximum",
+																					params: {
+																						comparison: "<=",
+																						limit: 9007199254740991
+																					},
+																					message: "must be <= 9007199254740991"
+																				}];
+																				return false;
+																			} else if (data36 < 0 || isNaN(data36)) {
+																				validate484.errors = [{
+																					instancePath: instancePath + "/privateStreamBalanceUpdateAtMs",
+																					schemaPath: "#/properties/privateStreamBalanceUpdateAtMs/minimum",
+																					keyword: "minimum",
+																					params: {
+																						comparison: ">=",
+																						limit: 0
+																					},
+																					message: "must be >= 0"
 																				}];
 																				return false;
 																			}
-																			if (_errs82 === errors) {
-																				if (data36.accountRetryAt !== void 0) {
-																					let data37 = data36.accountRetryAt;
-																					const _errs83 = errors;
-																					if (typeof data37 !== "string" && data37 !== null) {
-																						validate484.errors = [{
-																							instancePath: instancePath + "/rateLimits/accountRetryAt",
-																							schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/type",
-																							keyword: "type",
-																							params: { type: schema110.properties.accountRetryAt.type },
-																							message: "must be string,null"
-																						}];
-																						return false;
-																					}
-																					if (errors === _errs83) {
-																						if (typeof data37 === "string") {
-																							if (func1(data37) > 64) {
-																								validate484.errors = [{
-																									instancePath: instancePath + "/rateLimits/accountRetryAt",
-																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/maxLength",
-																									keyword: "maxLength",
-																									params: { limit: 64 },
-																									message: "must NOT have more than 64 characters"
-																								}];
-																								return false;
-																							} else if (func1(data37) < 1) {
-																								validate484.errors = [{
-																									instancePath: instancePath + "/rateLimits/accountRetryAt",
-																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/minLength",
-																									keyword: "minLength",
-																									params: { limit: 1 },
-																									message: "must NOT have fewer than 1 characters"
-																								}];
-																								return false;
-																							}
-																						}
-																					}
-																					var valid12 = _errs83 === errors;
-																				} else var valid12 = true;
-																				if (valid12) {
-																					if (data36.historyRetryAt !== void 0) {
-																						let data38 = data36.historyRetryAt;
+																		}
+																	}
+																	var valid0 = _errs79 === errors;
+																} else var valid0 = true;
+																if (valid0) {
+																	if (data.rateLimits !== void 0) {
+																		let data37 = data.rateLimits;
+																		const _errs81 = errors;
+																		if (errors === errors) {
+																			if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
+																				const _errs84 = errors;
+																				for (const key4 in data37) if (!(key4 === "accountRetryAt" || key4 === "historyRetryAt" || key4 === "orderDetailRetryAt" || key4 === "pendingOrdersRetryAt")) {
+																					validate484.errors = [{
+																						instancePath: instancePath + "/rateLimits",
+																						schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/additionalProperties",
+																						keyword: "additionalProperties",
+																						params: { additionalProperty: key4 },
+																						message: "must NOT have additional properties"
+																					}];
+																					return false;
+																				}
+																				if (_errs84 === errors) {
+																					if (data37.accountRetryAt !== void 0) {
+																						let data38 = data37.accountRetryAt;
 																						const _errs85 = errors;
 																						if (typeof data38 !== "string" && data38 !== null) {
 																							validate484.errors = [{
-																								instancePath: instancePath + "/rateLimits/historyRetryAt",
-																								schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/type",
+																								instancePath: instancePath + "/rateLimits/accountRetryAt",
+																								schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/type",
 																								keyword: "type",
-																								params: { type: schema110.properties.historyRetryAt.type },
+																								params: { type: schema110.properties.accountRetryAt.type },
 																								message: "must be string,null"
 																							}];
 																							return false;
@@ -38991,8 +39003,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							if (typeof data38 === "string") {
 																								if (func1(data38) > 64) {
 																									validate484.errors = [{
-																										instancePath: instancePath + "/rateLimits/historyRetryAt",
-																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/maxLength",
+																										instancePath: instancePath + "/rateLimits/accountRetryAt",
+																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/maxLength",
 																										keyword: "maxLength",
 																										params: { limit: 64 },
 																										message: "must NOT have more than 64 characters"
@@ -39000,8 +39012,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									return false;
 																								} else if (func1(data38) < 1) {
 																									validate484.errors = [{
-																										instancePath: instancePath + "/rateLimits/historyRetryAt",
-																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/minLength",
+																										instancePath: instancePath + "/rateLimits/accountRetryAt",
+																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/minLength",
 																										keyword: "minLength",
 																										params: { limit: 1 },
 																										message: "must NOT have fewer than 1 characters"
@@ -39013,15 +39025,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						var valid12 = _errs85 === errors;
 																					} else var valid12 = true;
 																					if (valid12) {
-																						if (data36.orderDetailRetryAt !== void 0) {
-																							let data39 = data36.orderDetailRetryAt;
+																						if (data37.historyRetryAt !== void 0) {
+																							let data39 = data37.historyRetryAt;
 																							const _errs87 = errors;
 																							if (typeof data39 !== "string" && data39 !== null) {
 																								validate484.errors = [{
-																									instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
-																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/type",
+																									instancePath: instancePath + "/rateLimits/historyRetryAt",
+																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/type",
 																									keyword: "type",
-																									params: { type: schema110.properties.orderDetailRetryAt.type },
+																									params: { type: schema110.properties.historyRetryAt.type },
 																									message: "must be string,null"
 																								}];
 																								return false;
@@ -39030,8 +39042,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								if (typeof data39 === "string") {
 																									if (func1(data39) > 64) {
 																										validate484.errors = [{
-																											instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
-																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/maxLength",
+																											instancePath: instancePath + "/rateLimits/historyRetryAt",
+																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/maxLength",
 																											keyword: "maxLength",
 																											params: { limit: 64 },
 																											message: "must NOT have more than 64 characters"
@@ -39039,8 +39051,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										return false;
 																									} else if (func1(data39) < 1) {
 																										validate484.errors = [{
-																											instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
-																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/minLength",
+																											instancePath: instancePath + "/rateLimits/historyRetryAt",
+																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/minLength",
 																											keyword: "minLength",
 																											params: { limit: 1 },
 																											message: "must NOT have fewer than 1 characters"
@@ -39052,15 +39064,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							var valid12 = _errs87 === errors;
 																						} else var valid12 = true;
 																						if (valid12) {
-																							if (data36.pendingOrdersRetryAt !== void 0) {
-																								let data40 = data36.pendingOrdersRetryAt;
+																							if (data37.orderDetailRetryAt !== void 0) {
+																								let data40 = data37.orderDetailRetryAt;
 																								const _errs89 = errors;
 																								if (typeof data40 !== "string" && data40 !== null) {
 																									validate484.errors = [{
-																										instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
-																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/type",
+																										instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
+																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/type",
 																										keyword: "type",
-																										params: { type: schema110.properties.pendingOrdersRetryAt.type },
+																										params: { type: schema110.properties.orderDetailRetryAt.type },
 																										message: "must be string,null"
 																									}];
 																									return false;
@@ -39069,8 +39081,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									if (typeof data40 === "string") {
 																										if (func1(data40) > 64) {
 																											validate484.errors = [{
-																												instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
-																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/maxLength",
+																												instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
+																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/maxLength",
 																												keyword: "maxLength",
 																												params: { limit: 64 },
 																												message: "must NOT have more than 64 characters"
@@ -39078,8 +39090,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											return false;
 																										} else if (func1(data40) < 1) {
 																											validate484.errors = [{
-																												instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
-																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/minLength",
+																												instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
+																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/minLength",
 																												keyword: "minLength",
 																												params: { limit: 1 },
 																												message: "must NOT have fewer than 1 characters"
@@ -39090,119 +39102,120 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								}
 																								var valid12 = _errs89 === errors;
 																							} else var valid12 = true;
+																							if (valid12) {
+																								if (data37.pendingOrdersRetryAt !== void 0) {
+																									let data41 = data37.pendingOrdersRetryAt;
+																									const _errs91 = errors;
+																									if (typeof data41 !== "string" && data41 !== null) {
+																										validate484.errors = [{
+																											instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
+																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/type",
+																											keyword: "type",
+																											params: { type: schema110.properties.pendingOrdersRetryAt.type },
+																											message: "must be string,null"
+																										}];
+																										return false;
+																									}
+																									if (errors === _errs91) {
+																										if (typeof data41 === "string") {
+																											if (func1(data41) > 64) {
+																												validate484.errors = [{
+																													instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
+																													schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/maxLength",
+																													keyword: "maxLength",
+																													params: { limit: 64 },
+																													message: "must NOT have more than 64 characters"
+																												}];
+																												return false;
+																											} else if (func1(data41) < 1) {
+																												validate484.errors = [{
+																													instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
+																													schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/minLength",
+																													keyword: "minLength",
+																													params: { limit: 1 },
+																													message: "must NOT have fewer than 1 characters"
+																												}];
+																												return false;
+																											}
+																										}
+																									}
+																									var valid12 = _errs91 === errors;
+																								} else var valid12 = true;
+																							}
 																						}
 																					}
 																				}
-																			}
-																		} else {
-																			validate484.errors = [{
-																				instancePath: instancePath + "/rateLimits",
-																				schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/type",
-																				keyword: "type",
-																				params: { type: "object" },
-																				message: "must be object"
-																			}];
-																			return false;
-																		}
-																	}
-																	var valid0 = _errs79 === errors;
-																} else var valid0 = true;
-																if (valid0) {
-																	if (data.reason !== void 0) {
-																		let data41 = data.reason;
-																		const _errs91 = errors;
-																		if (typeof data41 !== "string" && data41 !== null) {
-																			validate484.errors = [{
-																				instancePath: instancePath + "/reason",
-																				schemaPath: "#/properties/reason/type",
-																				keyword: "type",
-																				params: { type: schema106.properties.reason.type },
-																				message: "must be string,null"
-																			}];
-																			return false;
-																		}
-																		if (errors === _errs91) {
-																			if (typeof data41 === "string") {
-																				if (func1(data41) > 256) {
-																					validate484.errors = [{
-																						instancePath: instancePath + "/reason",
-																						schemaPath: "#/properties/reason/maxLength",
-																						keyword: "maxLength",
-																						params: { limit: 256 },
-																						message: "must NOT have more than 256 characters"
-																					}];
-																					return false;
-																				} else if (func1(data41) < 1) {
-																					validate484.errors = [{
-																						instancePath: instancePath + "/reason",
-																						schemaPath: "#/properties/reason/minLength",
-																						keyword: "minLength",
-																						params: { limit: 1 },
-																						message: "must NOT have fewer than 1 characters"
-																					}];
-																					return false;
-																				}
+																			} else {
+																				validate484.errors = [{
+																					instancePath: instancePath + "/rateLimits",
+																					schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/type",
+																					keyword: "type",
+																					params: { type: "object" },
+																					message: "must be object"
+																				}];
+																				return false;
 																			}
 																		}
-																		var valid0 = _errs91 === errors;
+																		var valid0 = _errs81 === errors;
 																	} else var valid0 = true;
 																	if (valid0) {
-																		if (data.remoteAccountId !== void 0) {
-																			let data42 = data.remoteAccountId;
+																		if (data.reason !== void 0) {
+																			let data42 = data.reason;
 																			const _errs93 = errors;
+																			if (typeof data42 !== "string" && data42 !== null) {
+																				validate484.errors = [{
+																					instancePath: instancePath + "/reason",
+																					schemaPath: "#/properties/reason/type",
+																					keyword: "type",
+																					params: { type: schema106.properties.reason.type },
+																					message: "must be string,null"
+																				}];
+																				return false;
+																			}
 																			if (errors === _errs93) {
 																				if (typeof data42 === "string") {
-																					if (func1(data42) > 128) {
+																					if (func1(data42) > 256) {
 																						validate484.errors = [{
-																							instancePath: instancePath + "/remoteAccountId",
-																							schemaPath: "#/properties/remoteAccountId/maxLength",
+																							instancePath: instancePath + "/reason",
+																							schemaPath: "#/properties/reason/maxLength",
 																							keyword: "maxLength",
-																							params: { limit: 128 },
-																							message: "must NOT have more than 128 characters"
+																							params: { limit: 256 },
+																							message: "must NOT have more than 256 characters"
 																						}];
 																						return false;
 																					} else if (func1(data42) < 1) {
 																						validate484.errors = [{
-																							instancePath: instancePath + "/remoteAccountId",
-																							schemaPath: "#/properties/remoteAccountId/minLength",
+																							instancePath: instancePath + "/reason",
+																							schemaPath: "#/properties/reason/minLength",
 																							keyword: "minLength",
 																							params: { limit: 1 },
 																							message: "must NOT have fewer than 1 characters"
 																						}];
 																						return false;
 																					}
-																				} else {
-																					validate484.errors = [{
-																						instancePath: instancePath + "/remoteAccountId",
-																						schemaPath: "#/properties/remoteAccountId/type",
-																						keyword: "type",
-																						params: { type: "string" },
-																						message: "must be string"
-																					}];
-																					return false;
 																				}
 																			}
 																			var valid0 = _errs93 === errors;
 																		} else var valid0 = true;
 																		if (valid0) {
-																			if (data.stateVersion !== void 0) {
-																				let data43 = data.stateVersion;
+																			if (data.remoteAccountId !== void 0) {
+																				let data43 = data.remoteAccountId;
 																				const _errs95 = errors;
 																				if (errors === _errs95) {
 																					if (typeof data43 === "string") {
-																						if (func1(data43) > 256) {
+																						if (func1(data43) > 128) {
 																							validate484.errors = [{
-																								instancePath: instancePath + "/stateVersion",
-																								schemaPath: "#/properties/stateVersion/maxLength",
+																								instancePath: instancePath + "/remoteAccountId",
+																								schemaPath: "#/properties/remoteAccountId/maxLength",
 																								keyword: "maxLength",
-																								params: { limit: 256 },
-																								message: "must NOT have more than 256 characters"
+																								params: { limit: 128 },
+																								message: "must NOT have more than 128 characters"
 																							}];
 																							return false;
 																						} else if (func1(data43) < 1) {
 																							validate484.errors = [{
-																								instancePath: instancePath + "/stateVersion",
-																								schemaPath: "#/properties/stateVersion/minLength",
+																								instancePath: instancePath + "/remoteAccountId",
+																								schemaPath: "#/properties/remoteAccountId/minLength",
 																								keyword: "minLength",
 																								params: { limit: 1 },
 																								message: "must NOT have fewer than 1 characters"
@@ -39211,8 +39224,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						}
 																					} else {
 																						validate484.errors = [{
-																							instancePath: instancePath + "/stateVersion",
-																							schemaPath: "#/properties/stateVersion/type",
+																							instancePath: instancePath + "/remoteAccountId",
+																							schemaPath: "#/properties/remoteAccountId/type",
 																							keyword: "type",
 																							params: { type: "string" },
 																							message: "must be string"
@@ -39223,69 +39236,108 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				var valid0 = _errs95 === errors;
 																			} else var valid0 = true;
 																			if (valid0) {
-																				if (data.status !== void 0) {
-																					let data44 = data.status;
+																				if (data.stateVersion !== void 0) {
+																					let data44 = data.stateVersion;
 																					const _errs97 = errors;
-																					if (typeof data44 !== "string") {
-																						validate484.errors = [{
-																							instancePath: instancePath + "/status",
-																							schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/type",
-																							keyword: "type",
-																							params: { type: "string" },
-																							message: "must be string"
-																						}];
-																						return false;
-																					}
-																					if (!(data44 === "NEVER_SYNCED" || data44 === "CURRENT" || data44 === "DEGRADED" || data44 === "STALE")) {
-																						validate484.errors = [{
-																							instancePath: instancePath + "/status",
-																							schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/enum",
-																							keyword: "enum",
-																							params: { allowedValues: schema111.enum },
-																							message: "must be equal to one of the allowed values"
-																						}];
-																						return false;
+																					if (errors === _errs97) {
+																						if (typeof data44 === "string") {
+																							if (func1(data44) > 256) {
+																								validate484.errors = [{
+																									instancePath: instancePath + "/stateVersion",
+																									schemaPath: "#/properties/stateVersion/maxLength",
+																									keyword: "maxLength",
+																									params: { limit: 256 },
+																									message: "must NOT have more than 256 characters"
+																								}];
+																								return false;
+																							} else if (func1(data44) < 1) {
+																								validate484.errors = [{
+																									instancePath: instancePath + "/stateVersion",
+																									schemaPath: "#/properties/stateVersion/minLength",
+																									keyword: "minLength",
+																									params: { limit: 1 },
+																									message: "must NOT have fewer than 1 characters"
+																								}];
+																								return false;
+																							}
+																						} else {
+																							validate484.errors = [{
+																								instancePath: instancePath + "/stateVersion",
+																								schemaPath: "#/properties/stateVersion/type",
+																								keyword: "type",
+																								params: { type: "string" },
+																								message: "must be string"
+																							}];
+																							return false;
+																						}
 																					}
 																					var valid0 = _errs97 === errors;
 																				} else var valid0 = true;
 																				if (valid0) {
-																					if (data.workspaceId !== void 0) {
-																						let data45 = data.workspaceId;
-																						const _errs100 = errors;
-																						if (errors === _errs100) {
-																							if (typeof data45 === "string") {
-																								if (func1(data45) > 128) {
+																					if (data.status !== void 0) {
+																						let data45 = data.status;
+																						const _errs99 = errors;
+																						if (typeof data45 !== "string") {
+																							validate484.errors = [{
+																								instancePath: instancePath + "/status",
+																								schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/type",
+																								keyword: "type",
+																								params: { type: "string" },
+																								message: "must be string"
+																							}];
+																							return false;
+																						}
+																						if (!(data45 === "NEVER_SYNCED" || data45 === "CURRENT" || data45 === "DEGRADED" || data45 === "STALE")) {
+																							validate484.errors = [{
+																								instancePath: instancePath + "/status",
+																								schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/enum",
+																								keyword: "enum",
+																								params: { allowedValues: schema111.enum },
+																								message: "must be equal to one of the allowed values"
+																							}];
+																							return false;
+																						}
+																						var valid0 = _errs99 === errors;
+																					} else var valid0 = true;
+																					if (valid0) {
+																						if (data.workspaceId !== void 0) {
+																							let data46 = data.workspaceId;
+																							const _errs102 = errors;
+																							if (errors === _errs102) {
+																								if (typeof data46 === "string") {
+																									if (func1(data46) > 128) {
+																										validate484.errors = [{
+																											instancePath: instancePath + "/workspaceId",
+																											schemaPath: "#/properties/workspaceId/maxLength",
+																											keyword: "maxLength",
+																											params: { limit: 128 },
+																											message: "must NOT have more than 128 characters"
+																										}];
+																										return false;
+																									} else if (func1(data46) < 1) {
+																										validate484.errors = [{
+																											instancePath: instancePath + "/workspaceId",
+																											schemaPath: "#/properties/workspaceId/minLength",
+																											keyword: "minLength",
+																											params: { limit: 1 },
+																											message: "must NOT have fewer than 1 characters"
+																										}];
+																										return false;
+																									}
+																								} else {
 																									validate484.errors = [{
 																										instancePath: instancePath + "/workspaceId",
-																										schemaPath: "#/properties/workspaceId/maxLength",
-																										keyword: "maxLength",
-																										params: { limit: 128 },
-																										message: "must NOT have more than 128 characters"
-																									}];
-																									return false;
-																								} else if (func1(data45) < 1) {
-																									validate484.errors = [{
-																										instancePath: instancePath + "/workspaceId",
-																										schemaPath: "#/properties/workspaceId/minLength",
-																										keyword: "minLength",
-																										params: { limit: 1 },
-																										message: "must NOT have fewer than 1 characters"
+																										schemaPath: "#/properties/workspaceId/type",
+																										keyword: "type",
+																										params: { type: "string" },
+																										message: "must be string"
 																									}];
 																									return false;
 																								}
-																							} else {
-																								validate484.errors = [{
-																									instancePath: instancePath + "/workspaceId",
-																									schemaPath: "#/properties/workspaceId/type",
-																									keyword: "type",
-																									params: { type: "string" },
-																									message: "must be string"
-																								}];
-																								return false;
 																							}
-																						}
-																						var valid0 = _errs100 === errors;
-																					} else var valid0 = true;
+																							var valid0 = _errs102 === errors;
+																						} else var valid0 = true;
+																					}
 																				}
 																			}
 																		}
@@ -40777,71 +40829,77 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																var valid0 = _errs77 === errors;
 															} else var valid0 = true;
 															if (valid0) {
-																if (data.rateLimits !== void 0) {
-																	let data36 = data.rateLimits;
+																if (data.privateStreamBalanceUpdateAtMs !== void 0) {
+																	let data36 = data.privateStreamBalanceUpdateAtMs;
 																	const _errs79 = errors;
-																	if (errors === errors) {
-																		if (data36 && typeof data36 == "object" && !Array.isArray(data36)) {
-																			const _errs82 = errors;
-																			for (const key4 in data36) if (!(key4 === "accountRetryAt" || key4 === "historyRetryAt" || key4 === "orderDetailRetryAt" || key4 === "pendingOrdersRetryAt")) {
+																	if (!(typeof data36 == "number" && !(data36 % 1) && !isNaN(data36)) && data36 !== null) {
+																		validate71.errors = [{
+																			instancePath: instancePath + "/privateStreamBalanceUpdateAtMs",
+																			schemaPath: "#/properties/privateStreamBalanceUpdateAtMs/type",
+																			keyword: "type",
+																			params: { type: schema106.properties.privateStreamBalanceUpdateAtMs.type },
+																			message: "must be integer,null"
+																		}];
+																		return false;
+																	}
+																	if (errors === _errs79) {
+																		if (typeof data36 == "number") {
+																			if (data36 > 9007199254740991 || isNaN(data36)) {
 																				validate71.errors = [{
-																					instancePath: instancePath + "/rateLimits",
-																					schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/additionalProperties",
-																					keyword: "additionalProperties",
-																					params: { additionalProperty: key4 },
-																					message: "must NOT have additional properties"
+																					instancePath: instancePath + "/privateStreamBalanceUpdateAtMs",
+																					schemaPath: "#/properties/privateStreamBalanceUpdateAtMs/maximum",
+																					keyword: "maximum",
+																					params: {
+																						comparison: "<=",
+																						limit: 9007199254740991
+																					},
+																					message: "must be <= 9007199254740991"
+																				}];
+																				return false;
+																			} else if (data36 < 0 || isNaN(data36)) {
+																				validate71.errors = [{
+																					instancePath: instancePath + "/privateStreamBalanceUpdateAtMs",
+																					schemaPath: "#/properties/privateStreamBalanceUpdateAtMs/minimum",
+																					keyword: "minimum",
+																					params: {
+																						comparison: ">=",
+																						limit: 0
+																					},
+																					message: "must be >= 0"
 																				}];
 																				return false;
 																			}
-																			if (_errs82 === errors) {
-																				if (data36.accountRetryAt !== void 0) {
-																					let data37 = data36.accountRetryAt;
-																					const _errs83 = errors;
-																					if (typeof data37 !== "string" && data37 !== null) {
-																						validate71.errors = [{
-																							instancePath: instancePath + "/rateLimits/accountRetryAt",
-																							schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/type",
-																							keyword: "type",
-																							params: { type: schema110.properties.accountRetryAt.type },
-																							message: "must be string,null"
-																						}];
-																						return false;
-																					}
-																					if (errors === _errs83) {
-																						if (typeof data37 === "string") {
-																							if (func1(data37) > 64) {
-																								validate71.errors = [{
-																									instancePath: instancePath + "/rateLimits/accountRetryAt",
-																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/maxLength",
-																									keyword: "maxLength",
-																									params: { limit: 64 },
-																									message: "must NOT have more than 64 characters"
-																								}];
-																								return false;
-																							} else if (func1(data37) < 1) {
-																								validate71.errors = [{
-																									instancePath: instancePath + "/rateLimits/accountRetryAt",
-																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/minLength",
-																									keyword: "minLength",
-																									params: { limit: 1 },
-																									message: "must NOT have fewer than 1 characters"
-																								}];
-																								return false;
-																							}
-																						}
-																					}
-																					var valid12 = _errs83 === errors;
-																				} else var valid12 = true;
-																				if (valid12) {
-																					if (data36.historyRetryAt !== void 0) {
-																						let data38 = data36.historyRetryAt;
+																		}
+																	}
+																	var valid0 = _errs79 === errors;
+																} else var valid0 = true;
+																if (valid0) {
+																	if (data.rateLimits !== void 0) {
+																		let data37 = data.rateLimits;
+																		const _errs81 = errors;
+																		if (errors === errors) {
+																			if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
+																				const _errs84 = errors;
+																				for (const key4 in data37) if (!(key4 === "accountRetryAt" || key4 === "historyRetryAt" || key4 === "orderDetailRetryAt" || key4 === "pendingOrdersRetryAt")) {
+																					validate71.errors = [{
+																						instancePath: instancePath + "/rateLimits",
+																						schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/additionalProperties",
+																						keyword: "additionalProperties",
+																						params: { additionalProperty: key4 },
+																						message: "must NOT have additional properties"
+																					}];
+																					return false;
+																				}
+																				if (_errs84 === errors) {
+																					if (data37.accountRetryAt !== void 0) {
+																						let data38 = data37.accountRetryAt;
 																						const _errs85 = errors;
 																						if (typeof data38 !== "string" && data38 !== null) {
 																							validate71.errors = [{
-																								instancePath: instancePath + "/rateLimits/historyRetryAt",
-																								schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/type",
+																								instancePath: instancePath + "/rateLimits/accountRetryAt",
+																								schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/type",
 																								keyword: "type",
-																								params: { type: schema110.properties.historyRetryAt.type },
+																								params: { type: schema110.properties.accountRetryAt.type },
 																								message: "must be string,null"
 																							}];
 																							return false;
@@ -40850,8 +40908,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							if (typeof data38 === "string") {
 																								if (func1(data38) > 64) {
 																									validate71.errors = [{
-																										instancePath: instancePath + "/rateLimits/historyRetryAt",
-																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/maxLength",
+																										instancePath: instancePath + "/rateLimits/accountRetryAt",
+																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/maxLength",
 																										keyword: "maxLength",
 																										params: { limit: 64 },
 																										message: "must NOT have more than 64 characters"
@@ -40859,8 +40917,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									return false;
 																								} else if (func1(data38) < 1) {
 																									validate71.errors = [{
-																										instancePath: instancePath + "/rateLimits/historyRetryAt",
-																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/minLength",
+																										instancePath: instancePath + "/rateLimits/accountRetryAt",
+																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/accountRetryAt/minLength",
 																										keyword: "minLength",
 																										params: { limit: 1 },
 																										message: "must NOT have fewer than 1 characters"
@@ -40872,15 +40930,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						var valid12 = _errs85 === errors;
 																					} else var valid12 = true;
 																					if (valid12) {
-																						if (data36.orderDetailRetryAt !== void 0) {
-																							let data39 = data36.orderDetailRetryAt;
+																						if (data37.historyRetryAt !== void 0) {
+																							let data39 = data37.historyRetryAt;
 																							const _errs87 = errors;
 																							if (typeof data39 !== "string" && data39 !== null) {
 																								validate71.errors = [{
-																									instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
-																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/type",
+																									instancePath: instancePath + "/rateLimits/historyRetryAt",
+																									schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/type",
 																									keyword: "type",
-																									params: { type: schema110.properties.orderDetailRetryAt.type },
+																									params: { type: schema110.properties.historyRetryAt.type },
 																									message: "must be string,null"
 																								}];
 																								return false;
@@ -40889,8 +40947,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								if (typeof data39 === "string") {
 																									if (func1(data39) > 64) {
 																										validate71.errors = [{
-																											instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
-																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/maxLength",
+																											instancePath: instancePath + "/rateLimits/historyRetryAt",
+																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/maxLength",
 																											keyword: "maxLength",
 																											params: { limit: 64 },
 																											message: "must NOT have more than 64 characters"
@@ -40898,8 +40956,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																										return false;
 																									} else if (func1(data39) < 1) {
 																										validate71.errors = [{
-																											instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
-																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/minLength",
+																											instancePath: instancePath + "/rateLimits/historyRetryAt",
+																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/historyRetryAt/minLength",
 																											keyword: "minLength",
 																											params: { limit: 1 },
 																											message: "must NOT have fewer than 1 characters"
@@ -40911,15 +40969,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							var valid12 = _errs87 === errors;
 																						} else var valid12 = true;
 																						if (valid12) {
-																							if (data36.pendingOrdersRetryAt !== void 0) {
-																								let data40 = data36.pendingOrdersRetryAt;
+																							if (data37.orderDetailRetryAt !== void 0) {
+																								let data40 = data37.orderDetailRetryAt;
 																								const _errs89 = errors;
 																								if (typeof data40 !== "string" && data40 !== null) {
 																									validate71.errors = [{
-																										instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
-																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/type",
+																										instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
+																										schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/type",
 																										keyword: "type",
-																										params: { type: schema110.properties.pendingOrdersRetryAt.type },
+																										params: { type: schema110.properties.orderDetailRetryAt.type },
 																										message: "must be string,null"
 																									}];
 																									return false;
@@ -40928,8 +40986,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									if (typeof data40 === "string") {
 																										if (func1(data40) > 64) {
 																											validate71.errors = [{
-																												instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
-																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/maxLength",
+																												instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
+																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/maxLength",
 																												keyword: "maxLength",
 																												params: { limit: 64 },
 																												message: "must NOT have more than 64 characters"
@@ -40937,8 +40995,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											return false;
 																										} else if (func1(data40) < 1) {
 																											validate71.errors = [{
-																												instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
-																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/minLength",
+																												instancePath: instancePath + "/rateLimits/orderDetailRetryAt",
+																												schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/orderDetailRetryAt/minLength",
 																												keyword: "minLength",
 																												params: { limit: 1 },
 																												message: "must NOT have fewer than 1 characters"
@@ -40949,119 +41007,120 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								}
 																								var valid12 = _errs89 === errors;
 																							} else var valid12 = true;
+																							if (valid12) {
+																								if (data37.pendingOrdersRetryAt !== void 0) {
+																									let data41 = data37.pendingOrdersRetryAt;
+																									const _errs91 = errors;
+																									if (typeof data41 !== "string" && data41 !== null) {
+																										validate71.errors = [{
+																											instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
+																											schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/type",
+																											keyword: "type",
+																											params: { type: schema110.properties.pendingOrdersRetryAt.type },
+																											message: "must be string,null"
+																										}];
+																										return false;
+																									}
+																									if (errors === _errs91) {
+																										if (typeof data41 === "string") {
+																											if (func1(data41) > 64) {
+																												validate71.errors = [{
+																													instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
+																													schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/maxLength",
+																													keyword: "maxLength",
+																													params: { limit: 64 },
+																													message: "must NOT have more than 64 characters"
+																												}];
+																												return false;
+																											} else if (func1(data41) < 1) {
+																												validate71.errors = [{
+																													instancePath: instancePath + "/rateLimits/pendingOrdersRetryAt",
+																													schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/properties/pendingOrdersRetryAt/minLength",
+																													keyword: "minLength",
+																													params: { limit: 1 },
+																													message: "must NOT have fewer than 1 characters"
+																												}];
+																												return false;
+																											}
+																										}
+																									}
+																									var valid12 = _errs91 === errors;
+																								} else var valid12 = true;
+																							}
 																						}
 																					}
 																				}
-																			}
-																		} else {
-																			validate71.errors = [{
-																				instancePath: instancePath + "/rateLimits",
-																				schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/type",
-																				keyword: "type",
-																				params: { type: "object" },
-																				message: "must be object"
-																			}];
-																			return false;
-																		}
-																	}
-																	var valid0 = _errs79 === errors;
-																} else var valid0 = true;
-																if (valid0) {
-																	if (data.reason !== void 0) {
-																		let data41 = data.reason;
-																		const _errs91 = errors;
-																		if (typeof data41 !== "string" && data41 !== null) {
-																			validate71.errors = [{
-																				instancePath: instancePath + "/reason",
-																				schemaPath: "#/properties/reason/type",
-																				keyword: "type",
-																				params: { type: schema106.properties.reason.type },
-																				message: "must be string,null"
-																			}];
-																			return false;
-																		}
-																		if (errors === _errs91) {
-																			if (typeof data41 === "string") {
-																				if (func1(data41) > 256) {
-																					validate71.errors = [{
-																						instancePath: instancePath + "/reason",
-																						schemaPath: "#/properties/reason/maxLength",
-																						keyword: "maxLength",
-																						params: { limit: 256 },
-																						message: "must NOT have more than 256 characters"
-																					}];
-																					return false;
-																				} else if (func1(data41) < 1) {
-																					validate71.errors = [{
-																						instancePath: instancePath + "/reason",
-																						schemaPath: "#/properties/reason/minLength",
-																						keyword: "minLength",
-																						params: { limit: 1 },
-																						message: "must NOT have fewer than 1 characters"
-																					}];
-																					return false;
-																				}
+																			} else {
+																				validate71.errors = [{
+																					instancePath: instancePath + "/rateLimits",
+																					schemaPath: "#/$defs/BinanceTestnetOrderBookRateLimits/type",
+																					keyword: "type",
+																					params: { type: "object" },
+																					message: "must be object"
+																				}];
+																				return false;
 																			}
 																		}
-																		var valid0 = _errs91 === errors;
+																		var valid0 = _errs81 === errors;
 																	} else var valid0 = true;
 																	if (valid0) {
-																		if (data.remoteAccountId !== void 0) {
-																			let data42 = data.remoteAccountId;
+																		if (data.reason !== void 0) {
+																			let data42 = data.reason;
 																			const _errs93 = errors;
+																			if (typeof data42 !== "string" && data42 !== null) {
+																				validate71.errors = [{
+																					instancePath: instancePath + "/reason",
+																					schemaPath: "#/properties/reason/type",
+																					keyword: "type",
+																					params: { type: schema106.properties.reason.type },
+																					message: "must be string,null"
+																				}];
+																				return false;
+																			}
 																			if (errors === _errs93) {
 																				if (typeof data42 === "string") {
-																					if (func1(data42) > 128) {
+																					if (func1(data42) > 256) {
 																						validate71.errors = [{
-																							instancePath: instancePath + "/remoteAccountId",
-																							schemaPath: "#/properties/remoteAccountId/maxLength",
+																							instancePath: instancePath + "/reason",
+																							schemaPath: "#/properties/reason/maxLength",
 																							keyword: "maxLength",
-																							params: { limit: 128 },
-																							message: "must NOT have more than 128 characters"
+																							params: { limit: 256 },
+																							message: "must NOT have more than 256 characters"
 																						}];
 																						return false;
 																					} else if (func1(data42) < 1) {
 																						validate71.errors = [{
-																							instancePath: instancePath + "/remoteAccountId",
-																							schemaPath: "#/properties/remoteAccountId/minLength",
+																							instancePath: instancePath + "/reason",
+																							schemaPath: "#/properties/reason/minLength",
 																							keyword: "minLength",
 																							params: { limit: 1 },
 																							message: "must NOT have fewer than 1 characters"
 																						}];
 																						return false;
 																					}
-																				} else {
-																					validate71.errors = [{
-																						instancePath: instancePath + "/remoteAccountId",
-																						schemaPath: "#/properties/remoteAccountId/type",
-																						keyword: "type",
-																						params: { type: "string" },
-																						message: "must be string"
-																					}];
-																					return false;
 																				}
 																			}
 																			var valid0 = _errs93 === errors;
 																		} else var valid0 = true;
 																		if (valid0) {
-																			if (data.stateVersion !== void 0) {
-																				let data43 = data.stateVersion;
+																			if (data.remoteAccountId !== void 0) {
+																				let data43 = data.remoteAccountId;
 																				const _errs95 = errors;
 																				if (errors === _errs95) {
 																					if (typeof data43 === "string") {
-																						if (func1(data43) > 256) {
+																						if (func1(data43) > 128) {
 																							validate71.errors = [{
-																								instancePath: instancePath + "/stateVersion",
-																								schemaPath: "#/properties/stateVersion/maxLength",
+																								instancePath: instancePath + "/remoteAccountId",
+																								schemaPath: "#/properties/remoteAccountId/maxLength",
 																								keyword: "maxLength",
-																								params: { limit: 256 },
-																								message: "must NOT have more than 256 characters"
+																								params: { limit: 128 },
+																								message: "must NOT have more than 128 characters"
 																							}];
 																							return false;
 																						} else if (func1(data43) < 1) {
 																							validate71.errors = [{
-																								instancePath: instancePath + "/stateVersion",
-																								schemaPath: "#/properties/stateVersion/minLength",
+																								instancePath: instancePath + "/remoteAccountId",
+																								schemaPath: "#/properties/remoteAccountId/minLength",
 																								keyword: "minLength",
 																								params: { limit: 1 },
 																								message: "must NOT have fewer than 1 characters"
@@ -41070,8 +41129,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																						}
 																					} else {
 																						validate71.errors = [{
-																							instancePath: instancePath + "/stateVersion",
-																							schemaPath: "#/properties/stateVersion/type",
+																							instancePath: instancePath + "/remoteAccountId",
+																							schemaPath: "#/properties/remoteAccountId/type",
 																							keyword: "type",
 																							params: { type: "string" },
 																							message: "must be string"
@@ -41082,69 +41141,108 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																				var valid0 = _errs95 === errors;
 																			} else var valid0 = true;
 																			if (valid0) {
-																				if (data.status !== void 0) {
-																					let data44 = data.status;
+																				if (data.stateVersion !== void 0) {
+																					let data44 = data.stateVersion;
 																					const _errs97 = errors;
-																					if (typeof data44 !== "string") {
-																						validate71.errors = [{
-																							instancePath: instancePath + "/status",
-																							schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/type",
-																							keyword: "type",
-																							params: { type: "string" },
-																							message: "must be string"
-																						}];
-																						return false;
-																					}
-																					if (!(data44 === "NEVER_SYNCED" || data44 === "CURRENT" || data44 === "DEGRADED" || data44 === "STALE")) {
-																						validate71.errors = [{
-																							instancePath: instancePath + "/status",
-																							schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/enum",
-																							keyword: "enum",
-																							params: { allowedValues: schema111.enum },
-																							message: "must be equal to one of the allowed values"
-																						}];
-																						return false;
+																					if (errors === _errs97) {
+																						if (typeof data44 === "string") {
+																							if (func1(data44) > 256) {
+																								validate71.errors = [{
+																									instancePath: instancePath + "/stateVersion",
+																									schemaPath: "#/properties/stateVersion/maxLength",
+																									keyword: "maxLength",
+																									params: { limit: 256 },
+																									message: "must NOT have more than 256 characters"
+																								}];
+																								return false;
+																							} else if (func1(data44) < 1) {
+																								validate71.errors = [{
+																									instancePath: instancePath + "/stateVersion",
+																									schemaPath: "#/properties/stateVersion/minLength",
+																									keyword: "minLength",
+																									params: { limit: 1 },
+																									message: "must NOT have fewer than 1 characters"
+																								}];
+																								return false;
+																							}
+																						} else {
+																							validate71.errors = [{
+																								instancePath: instancePath + "/stateVersion",
+																								schemaPath: "#/properties/stateVersion/type",
+																								keyword: "type",
+																								params: { type: "string" },
+																								message: "must be string"
+																							}];
+																							return false;
+																						}
 																					}
 																					var valid0 = _errs97 === errors;
 																				} else var valid0 = true;
 																				if (valid0) {
-																					if (data.workspaceId !== void 0) {
-																						let data45 = data.workspaceId;
-																						const _errs100 = errors;
-																						if (errors === _errs100) {
-																							if (typeof data45 === "string") {
-																								if (func1(data45) > 128) {
+																					if (data.status !== void 0) {
+																						let data45 = data.status;
+																						const _errs99 = errors;
+																						if (typeof data45 !== "string") {
+																							validate71.errors = [{
+																								instancePath: instancePath + "/status",
+																								schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/type",
+																								keyword: "type",
+																								params: { type: "string" },
+																								message: "must be string"
+																							}];
+																							return false;
+																						}
+																						if (!(data45 === "NEVER_SYNCED" || data45 === "CURRENT" || data45 === "DEGRADED" || data45 === "STALE")) {
+																							validate71.errors = [{
+																								instancePath: instancePath + "/status",
+																								schemaPath: "#/$defs/BinanceTestnetOrderBookStatus/enum",
+																								keyword: "enum",
+																								params: { allowedValues: schema111.enum },
+																								message: "must be equal to one of the allowed values"
+																							}];
+																							return false;
+																						}
+																						var valid0 = _errs99 === errors;
+																					} else var valid0 = true;
+																					if (valid0) {
+																						if (data.workspaceId !== void 0) {
+																							let data46 = data.workspaceId;
+																							const _errs102 = errors;
+																							if (errors === _errs102) {
+																								if (typeof data46 === "string") {
+																									if (func1(data46) > 128) {
+																										validate71.errors = [{
+																											instancePath: instancePath + "/workspaceId",
+																											schemaPath: "#/properties/workspaceId/maxLength",
+																											keyword: "maxLength",
+																											params: { limit: 128 },
+																											message: "must NOT have more than 128 characters"
+																										}];
+																										return false;
+																									} else if (func1(data46) < 1) {
+																										validate71.errors = [{
+																											instancePath: instancePath + "/workspaceId",
+																											schemaPath: "#/properties/workspaceId/minLength",
+																											keyword: "minLength",
+																											params: { limit: 1 },
+																											message: "must NOT have fewer than 1 characters"
+																										}];
+																										return false;
+																									}
+																								} else {
 																									validate71.errors = [{
 																										instancePath: instancePath + "/workspaceId",
-																										schemaPath: "#/properties/workspaceId/maxLength",
-																										keyword: "maxLength",
-																										params: { limit: 128 },
-																										message: "must NOT have more than 128 characters"
-																									}];
-																									return false;
-																								} else if (func1(data45) < 1) {
-																									validate71.errors = [{
-																										instancePath: instancePath + "/workspaceId",
-																										schemaPath: "#/properties/workspaceId/minLength",
-																										keyword: "minLength",
-																										params: { limit: 1 },
-																										message: "must NOT have fewer than 1 characters"
+																										schemaPath: "#/properties/workspaceId/type",
+																										keyword: "type",
+																										params: { type: "string" },
+																										message: "must be string"
 																									}];
 																									return false;
 																								}
-																							} else {
-																								validate71.errors = [{
-																									instancePath: instancePath + "/workspaceId",
-																									schemaPath: "#/properties/workspaceId/type",
-																									keyword: "type",
-																									params: { type: "string" },
-																									message: "must be string"
-																								}];
-																								return false;
 																							}
-																						}
-																						var valid0 = _errs100 === errors;
-																					} else var valid0 = true;
+																							var valid0 = _errs102 === errors;
+																						} else var valid0 = true;
+																					}
 																				}
 																			}
 																		}

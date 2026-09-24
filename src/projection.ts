@@ -1,5 +1,5 @@
 import generatedValidators from '../shared/ipc-validators.js';
-import type { AccountConnection, AlpacaPaperOrderAttempt, AlpacaPaperOrderBook, BinanceTestnetOrderAttempt, DomainEvent, DomainProjection, GatewayState, ModelState, RiskPolicyState, Snapshot, Thread, Trading212DemoOrderAttempt, Trading212DemoOrderBook, Workspace } from '../shared/ipc-types.ts';
+import type { AccountConnection, AlpacaPaperOrderAttempt, AlpacaPaperOrderBook, BinanceTestnetOrderAttempt, BinanceTestnetOrderBook, DomainEvent, DomainProjection, GatewayState, ModelState, RiskPolicyState, Snapshot, Thread, Trading212DemoOrderAttempt, Trading212DemoOrderBook, Workspace } from '../shared/ipc-types.ts';
 
 const validators = generatedValidators as Record<string, (value: unknown) => boolean>;
 
@@ -14,9 +14,9 @@ export interface Projection<T = Workspace> {
   seen: Map<number, string>;
 }
 
-function projectionKind(p: DomainProjection) { return 'threadId' in p ? 'thread' : 'attemptId' in p ? ('environment' in p ? 'binance-testnet-order-attempt' : 'clientOrderId' in p ? 'alpaca-paper-order-attempt' : 'trading212-demo-order-attempt') : 'orders' in p ? ('environment' in p ? 'trading212-demo-order-book' : 'alpaca-paper-order-book') : 'connectionId' in p ? 'account' : 'pinnedVersion' in p ? 'model-gateway' : 'chatgpt' in p ? 'model' : 'hardRules' in p ? 'risk' : 'workspace'; }
+function projectionKind(p: DomainProjection) { return 'threadId' in p ? 'thread' : 'attemptId' in p ? ('environment' in p ? 'binance-testnet-order-attempt' : 'clientOrderId' in p ? 'alpaca-paper-order-attempt' : 'trading212-demo-order-attempt') : 'orders' in p ? ('environment' in p ? p.environment === 'TESTNET' ? 'binance-testnet-order-book' : 'trading212-demo-order-book' : 'alpaca-paper-order-book') : 'connectionId' in p ? 'account' : 'pinnedVersion' in p ? 'model-gateway' : 'chatgpt' in p ? 'model' : 'hardRules' in p ? 'risk' : 'workspace'; }
 
-function snapshotOf<T>(value: unknown, kind: 'workspace' | 'account' | 'model-gateway' | 'model' | 'risk' | 'thread' | 'alpaca-paper-order-attempt' | 'trading212-demo-order-attempt' | 'binance-testnet-order-attempt' | 'alpaca-paper-order-book' | 'trading212-demo-order-book'): Projection<T> {
+function snapshotOf<T>(value: unknown, kind: 'workspace' | 'account' | 'model-gateway' | 'model' | 'risk' | 'thread' | 'alpaca-paper-order-attempt' | 'trading212-demo-order-attempt' | 'binance-testnet-order-attempt' | 'alpaca-paper-order-book' | 'trading212-demo-order-book' | 'binance-testnet-order-book'): Projection<T> {
   const snapshot = decode<Snapshot>('Snapshot', value);
   const p = snapshot.projection;
   const id = 'threadId' in p ? p.threadId : 'attemptId' in p ? p.attemptId : 'connectionId' in p ? p.connectionId : p.workspaceId;
@@ -36,6 +36,7 @@ export function fromTrading212DemoAttemptSnapshot(value: unknown): Projection<Tr
 export function fromBinanceTestnetAttemptSnapshot(value: unknown): Projection<BinanceTestnetOrderAttempt> { return snapshotOf(value, 'binance-testnet-order-attempt'); }
 export function fromAlpacaPaperOrderBookSnapshot(value: unknown): Projection<AlpacaPaperOrderBook> { return snapshotOf(value, 'alpaca-paper-order-book'); }
 export function fromTrading212DemoOrderBookSnapshot(value: unknown): Projection<Trading212DemoOrderBook> { return snapshotOf(value, 'trading212-demo-order-book'); }
+export function fromBinanceTestnetOrderBookSnapshot(value: unknown): Projection<BinanceTestnetOrderBook> { return snapshotOf(value, 'binance-testnet-order-book'); }
 
 export function applyEvent<T extends DomainProjection>(current: Projection<T>, value: unknown): Projection<T> {
   const event = decode<DomainEvent>('DomainEvent', value);
@@ -46,7 +47,8 @@ export function applyEvent<T extends DomainProjection>(current: Projection<T>, v
   const binanceAttempt = attempt && 'environment' in p;
   const alpacaAttempt = attempt && 'clientOrderId' in p && !binanceAttempt;
   const book = 'orders' in p;
-  const trading212Book = book && 'environment' in p;
+  const binanceBook = book && 'environment' in p && p.environment === 'TESTNET';
+  const trading212Book = book && 'environment' in p && p.environment === 'DEMO';
   const account = 'connectionId' in p && !attempt && !book;
   const id = thread ? p.threadId : attempt ? p.attemptId : account || book ? p.connectionId : p.workspaceId;
   const kind = projectionKind(p);
@@ -55,7 +57,7 @@ export function applyEvent<T extends DomainProjection>(current: Projection<T>, v
     : attempt
     ? event.eventType === (binanceAttempt ? 'binance.testnet.order.attempt.changed' : alpacaAttempt ? 'alpaca.paper.order.attempt.changed' : 'trading212.demo.order.attempt.changed')
     : book
-    ? event.eventType === (trading212Book ? 'trading212.demo.order.book.changed' : 'alpaca.paper.order.book.changed')
+    ? event.eventType === (binanceBook ? 'binance.testnet.order.book.changed' : trading212Book ? 'trading212.demo.order.book.changed' : 'alpaca.paper.order.book.changed')
     : account
     ? event.eventType === 'account.health.changed'
     : kind === 'model-gateway'

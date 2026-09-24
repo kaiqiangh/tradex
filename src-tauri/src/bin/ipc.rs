@@ -151,6 +151,156 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.testnet.stream.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let connection_id = payload.get("connectionId").and_then(Value::as_str);
+                let state_version = payload
+                    .get("expectedConnectionStateVersion")
+                    .and_then(Value::as_str);
+                let remote_account_id = payload.get("remoteAccountId").and_then(Value::as_str);
+                let subscription_id = payload.get("subscriptionId").and_then(Value::as_u64);
+                let stream_frame = payload.get("frame");
+                let reply = match (
+                    connection_id,
+                    state_version,
+                    remote_account_id,
+                    subscription_id,
+                    stream_frame,
+                ) {
+                    (
+                        Some(connection_id),
+                        Some(state_version),
+                        Some(remote_account_id),
+                        Some(subscription_id),
+                        Some(stream_frame),
+                    ) => match control.lock() {
+                        Ok(mut control) => match control.apply_binance_private_stream_frame(
+                            connection_id,
+                            state_version,
+                            remote_account_id,
+                            stream_frame,
+                            subscription_id,
+                            &[fixtures::KEY.into(), fixtures::SECRET.into()],
+                        ) {
+                            Ok(needs_reconciliation) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":{"accepted":true,"needsReconciliation":needs_reconciliation}
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.testnet.stream.disconnect.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let connection_id = payload.get("connectionId").and_then(Value::as_str);
+                let state_version = payload
+                    .get("expectedConnectionStateVersion")
+                    .and_then(Value::as_str);
+                let reply = match (connection_id, state_version) {
+                    (Some(connection_id), Some(state_version)) => match control.lock() {
+                        Ok(mut control) => match control.update_binance_private_stream_health(
+                            connection_id,
+                            state_version,
+                            "DEGRADED",
+                            "DEGRADED",
+                            "Binance Spot Testnet private stream fixture disconnected.",
+                        ) {
+                            Ok(()) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":{"accepted":true}
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.testnet.stream.reconcile.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let connection_id = payload.get("connectionId").and_then(Value::as_str);
+                let state_version = payload
+                    .get("expectedConnectionStateVersion")
+                    .and_then(Value::as_str);
+                let remote_account_id = payload.get("remoteAccountId").and_then(Value::as_str);
+                let reply = match (connection_id, state_version, remote_account_id) {
+                    (Some(connection_id), Some(state_version), Some(remote_account_id)) => {
+                        match control.lock() {
+                            Ok(mut control) => {
+                                match control.binance_private_stream_order_book(connection_id) {
+                                    Ok(book) => {
+                                        http.mirror_binance_private_stream_book(&book);
+                                        match control.reconcile_binance_private_stream_fixture(
+                                            connection_id,
+                                            state_version,
+                                            remote_account_id,
+                                            &[fixtures::KEY.into(), fixtures::SECRET.into()],
+                                            &http,
+                                        ) {
+                                            Ok(()) => json!({
+                                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                                "data":{"accepted":true,"reconciled":true}
+                                            }),
+                                            Err(error) => json!({
+                                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                                "error":error
+                                            }),
+                                        }
+                                    }
+                                    Err(error) => json!({
+                                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                        "error":error
+                                    }),
+                                }
+                            }
+                            Err(_) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                            }),
+                        }
+                    }
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("account.delete.fixture.seed") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);

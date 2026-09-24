@@ -209,6 +209,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   });
   const binanceTestnetOrderBook = binanceTestnetOrdersQuery.data?.book;
   const binanceTestnetOrdersAccount = binanceTestnetAccounts.find(account => account.connectionId === binanceTestnetOrdersConnectionId);
+  const binanceStreamAccount = useDomainProjection('account', binanceTestnetOrdersConnectionId || undefined, fromAccountSnapshot);
+  useEffect(() => {
+    if (binanceTestnetOrdersConnectionId && binanceStreamAccount.data) {
+      void queryClient.invalidateQueries({ queryKey: ['binance-testnet-orders', workspaceId, binanceTestnetOrdersConnectionId] });
+    }
+  }, [binanceStreamAccount.data?.health.privateStream, binanceStreamAccount.data?.health.reconciliation, binanceStreamAccount.data?.lastPrivateStreamEventAt, binanceStreamAccount.data?.updatedAt, binanceTestnetOrdersConnectionId, queryClient, workspaceId]);
   const catalog = useQuery({ queryKey: ['market-catalog', workspaceId, 'order-draft'], queryFn: () => request('market.catalog', { workspaceId, query: '', tier: marketTier }) });
   const [selectedId, setSelectedId] = useState<string>();
   const [selectedProposalId, setSelectedProposalId] = useState<string>();
@@ -961,7 +967,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     </section>
     <section className="card order-book-panel" aria-labelledby="binance-testnet-order-book-title">
       <div className="section-heading">
-        <div><h2 id="binance-testnet-order-book-title">Binance Spot Testnet orders, fills and balances</h2><p className="muted">Provider observations · TESTNET only · manual REST refresh</p></div>
+        <div><h2 id="binance-testnet-order-book-title">Binance Spot Testnet orders, fills and balances</h2><p className="muted">Provider observations · TESTNET only · private stream with explicit REST reads</p></div>
         <div className="order-book-actions">
           <label className="field">Testnet account<select aria-label="Binance Testnet account" value={binanceTestnetOrdersConnectionId} onChange={event => setBinanceTestnetOrdersConnectionId(event.target.value)}><option value="">Select a Binance Testnet account</option>{binanceTestnetAccounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.data?.remoteAccountId ?? account.connectionId}</option>)}</select></label>
           <button type="button" onClick={() => void refreshBinanceTestnetOrders('PENDING')} disabled={!binanceTestnetOrdersAccount || binanceTestnetOrdersAccount.connectionState !== 'CONNECTED' || binanceTestnetOrdersBusy}>{binanceTestnetOrdersBusy ? 'Checking Binance…' : 'Refresh open orders'}</button>
@@ -971,6 +977,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {accounts.isPending && <p role="status">Loading linked accounts…</p>}
       {!accounts.isPending && !binanceTestnetAccounts.length && <p className="muted">Connect a Binance Testnet account to view its provider orders, fills and balances.</p>}
       {binanceTestnetOrdersAccount && binanceTestnetOrdersAccount.connectionState !== 'CONNECTED' && <p className="error-text" role="status">This Binance Testnet account is disconnected. Saved observations remain available; reconnect it before refreshing provider data.</p>}
+      {binanceTestnetOrdersAccount && <p className="muted" role="status">Private stream: {binanceStreamAccount.data?.health.privateStream ?? binanceTestnetOrdersAccount.health.privateStream} · Reconciliation: {binanceStreamAccount.data?.health.reconciliation ?? binanceTestnetOrdersAccount.health.reconciliation} · Last event: {binanceStreamAccount.data?.lastPrivateStreamEventAt ? new Date(binanceStreamAccount.data.lastPrivateStreamEventAt).toLocaleString() : binanceTestnetOrdersAccount.lastPrivateStreamEventAt ? new Date(binanceTestnetOrdersAccount.lastPrivateStreamEventAt).toLocaleString() : 'Not yet'}</p>}
       {binanceTestnetOrdersQuery.isPending && binanceTestnetOrdersConnectionId && <p role="status">Loading saved Binance Testnet observations…</p>}
       {binanceTestnetOrdersQuery.isError && <div className="error-text" role="alert"><p>Saved Binance Testnet observations are unavailable.</p><button type="button" onClick={() => void binanceTestnetOrdersQuery.refetch()}>Reload saved observations</button></div>}
       {binanceTestnetOrderBook && <>

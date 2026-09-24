@@ -8,6 +8,8 @@ use std::sync::{
 use tauri::{Manager, ipc::Channel};
 #[cfg(target_os = "macos")]
 use tradex::alpaca_stream::AlpacaPrivateStreamSupervisor;
+#[cfg(target_os = "macos")]
+use tradex::binance_stream::{BinancePrivateStreamSupervisor, mark_connected_accounts_degraded};
 use tradex::{
     BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
     gateway_process::GatewayHost,
@@ -26,6 +28,7 @@ struct Service(
     BacktestSupervisor,
     Arc<AtomicBool>,
     #[cfg(target_os = "macos")] AlpacaPrivateStreamSupervisor,
+    #[cfg(target_os = "macos")] BinancePrivateStreamSupervisor,
 );
 
 #[tauri::command]
@@ -54,6 +57,8 @@ async fn control(
     let backtest_supervisor = service.4.clone();
     #[cfg(target_os = "macos")]
     let private_stream_supervisor = service.6.clone();
+    #[cfg(target_os = "macos")]
+    let binance_stream_supervisor = service.7.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
@@ -142,6 +147,10 @@ async fn control(
             backtest_supervisor.stop_all();
             #[cfg(target_os = "macos")]
             private_stream_supervisor.pause();
+            #[cfg(target_os = "macos")]
+            binance_stream_supervisor.pause();
+            #[cfg(target_os = "macos")]
+            mark_connected_accounts_degraded(&engine);
         }
         let command = request.get("command").and_then(Value::as_str);
         if command == Some("turn.start") || command == Some("turn.retry") {
@@ -191,12 +200,20 @@ async fn control(
                     if opening_workspace {
                         private_stream_supervisor.resume();
                     }
+                    #[cfg(target_os = "macos")]
+                    if opening_workspace {
+                        binance_stream_supervisor.resume();
+                    }
                     return reply;
                 }
                 Err(error) => {
                     #[cfg(target_os = "macos")]
                     if opening_workspace {
                         private_stream_supervisor.resume();
+                    }
+                    #[cfg(target_os = "macos")]
+                    if opening_workspace {
+                        binance_stream_supervisor.resume();
                     }
                     return failed(&request, &error.code);
                 }
@@ -245,6 +262,8 @@ fn main() {
             #[cfg(target_os = "macos")]
             let private_stream_supervisor = AlpacaPrivateStreamSupervisor::new();
             #[cfg(target_os = "macos")]
+            let binance_stream_supervisor = BinancePrivateStreamSupervisor::new();
+            #[cfg(target_os = "macos")]
             app.manage(Service(
                 engine.clone(),
                 gateway.clone(),
@@ -253,6 +272,7 @@ fn main() {
                 BacktestSupervisor::new(),
                 exiting.clone(),
                 private_stream_supervisor.clone(),
+                binance_stream_supervisor.clone(),
             ));
             #[cfg(not(target_os = "macos"))]
             app.manage(Service(
@@ -268,6 +288,10 @@ fn main() {
             #[cfg(target_os = "macos")]
             let stream_supervisor = private_stream_supervisor.clone();
             #[cfg(target_os = "macos")]
+            let binance_stream_engine = engine.clone();
+            #[cfg(target_os = "macos")]
+            let binance_supervisor = binance_stream_supervisor.clone();
+            #[cfg(target_os = "macos")]
             let stream_exiting = exiting.clone();
             #[cfg(target_os = "macos")]
             std::thread::spawn(move || {
@@ -276,6 +300,16 @@ fn main() {
                     std::thread::sleep(std::time::Duration::from_millis(250));
                 }
                 stream_supervisor.stop_all();
+            });
+            #[cfg(target_os = "macos")]
+            let binance_stream_exiting = exiting.clone();
+            #[cfg(target_os = "macos")]
+            std::thread::spawn(move || {
+                while !binance_stream_exiting.load(Ordering::Acquire) {
+                    binance_supervisor.sync(binance_stream_engine.clone());
+                    std::thread::sleep(std::time::Duration::from_millis(250));
+                }
+                binance_supervisor.stop_all();
             });
             std::thread::spawn(move || {
                 while !exiting.load(Ordering::Acquire) {
@@ -325,6 +359,12 @@ fn main() {
             if matches!(event, tauri::RunEvent::Resumed) {
                 app.state::<Service>().6.restart_all();
             }
+            #[cfg(target_os = "macos")]
+            if matches!(event, tauri::RunEvent::Resumed) {
+                app.state::<Service>().7.restart_all();
+                let service = app.state::<Service>();
+                mark_connected_accounts_degraded(&service.0);
+            }
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<Service>().2.stop_all();
                 app.state::<Service>().3.stop_all();
@@ -332,6 +372,13 @@ fn main() {
                 app.state::<Service>().5.store(true, Ordering::Release);
                 #[cfg(target_os = "macos")]
                 app.state::<Service>().6.stop_all();
+                #[cfg(target_os = "macos")]
+                app.state::<Service>().7.stop_all();
+                #[cfg(target_os = "macos")]
+                {
+                    let service = app.state::<Service>();
+                    mark_connected_accounts_degraded(&service.0);
+                }
                 if let Ok(mut gateway) = app.state::<Service>().1.lock() {
                     gateway.stop();
                 }

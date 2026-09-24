@@ -38,6 +38,42 @@ const SERVICE: &str = "com.tradex.broker.credentials";
 static TRADING212_ENDPOINT_LIMITS: OnceLock<Mutex<HashMap<(String, &'static str), i64>>> =
     OnceLock::new();
 
+pub(crate) fn binance_testnet_private_stream_subscription(
+    http: &impl ProviderHttp,
+    secrets: &[String],
+    current: &impl Fn() -> bool,
+) -> Result<(String, Value)> {
+    binance::private_stream_subscription(http, secrets, current)
+}
+
+pub(crate) fn verify_binance_testnet_private_stream_account(
+    http: &impl ProviderHttp,
+    secrets: &[String],
+    remote_account_id: &str,
+    current: &impl Fn() -> bool,
+) -> Result<()> {
+    binance::verify_private_stream_account(http, secrets, remote_account_id, current)
+}
+
+pub(crate) fn apply_binance_testnet_private_stream_frame(
+    book: &mut BinanceTestnetOrderBook,
+    frame: &Value,
+    subscription_id: u64,
+    secrets: &[String],
+) -> Result<Option<(String, bool)>> {
+    binance::apply_testnet_private_stream_frame(book, frame, subscription_id, secrets)
+        .map(|update| update.map(|update| (update.event_at, update.reconciliation_required)))
+}
+
+pub(crate) fn reconcile_binance_testnet_private_stream(
+    book: &mut BinanceTestnetOrderBook,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<()> {
+    binance::reconcile_testnet_order_book(book, secrets, http, current)
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Trading212Endpoint {
     PendingOrders,

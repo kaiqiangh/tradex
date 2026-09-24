@@ -522,9 +522,12 @@ fn merge_testnet_order(
         if old.client_order_id != fresh.client_order_id {
             return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
         }
+        let filled_order = decimal_cmp(&fresh.filled_quantity, &old.filled_quantity)?;
         if fresh.provider_updated_at_ms < old.provider_updated_at_ms
-            || decimal_cmp(&fresh.filled_quantity, &old.filled_quantity)?
-                == std::cmp::Ordering::Less
+            || filled_order == std::cmp::Ordering::Less
+            || (!old.pending && fresh.pending)
+            || (fresh.provider_updated_at_ms == old.provider_updated_at_ms
+                && filled_order == std::cmp::Ordering::Equal)
         {
             return Ok(());
         }
@@ -543,6 +546,175 @@ fn merge_testnet_order(
             .then_with(|| left.provider_order_id.cmp(&right.provider_order_id))
     });
     Ok(())
+}
+
+pub(super) struct TestnetPrivateStreamUpdate {
+    pub event_at: String,
+    pub reconciliation_required: bool,
+}
+
+fn provider_event_time(value: u64) -> Result<String> {
+    let nanos = i128::from(value)
+        .checked_mul(1_000_000)
+        .ok_or_else(invalid)?;
+    time::OffsetDateTime::from_unix_timestamp_nanos(nanos)
+        .map_err(|_| invalid())?
+        .format(&time::format_description::well_known::Rfc3339)
+        .map_err(|_| invalid())
+}
+
+fn stream_order(value: &Value, observed_at: &str) -> Result<BinanceTestnetOrder> {
+    let order = json!({
+        "orderId": value["i"],
+        "symbol": value["s"],
+        "clientOrderId": value["c"],
+        "side": value["S"],
+        "type": value["o"],
+        "timeInForce": value["f"],
+        "status": value["X"],
+        "price": value["p"],
+        "origQty": value["q"],
+        "origQuoteOrderQty": value["Q"],
+        "executedQty": value["z"],
+        "cummulativeQuoteQty": value["Z"],
+        "time": value["O"],
+        "updateTime": value["T"],
+    });
+    parse_testnet_book_order(&order, observed_at)
+}
+
+fn stream_fill(value: &Value, observed_at: &str) -> Result<BinanceTestnetFill> {
+    let is_buyer = match value["S"].as_str() {
+        Some("BUY") => true,
+        Some("SELL") => false,
+        _ => return Err(invalid()),
+    };
+    let fill = json!({
+        "id": value["t"],
+        "orderId": value["i"],
+        "symbol": value["s"],
+        "isBuyer": is_buyer,
+        "price": value["L"],
+        "qty": value["l"],
+        "quoteQty": value["Y"],
+        "commission": value["n"],
+        "commissionAsset": value["N"],
+        "time": value["T"],
+    });
+    parse_testnet_fill(&fill, observed_at)
+}
+
+fn stream_balance(value: &Value) -> Result<BinanceTestnetBalance> {
+    let asset = text(value, "a", 32)?;
+    let free = positive(&value["f"])?;
+    let locked = positive(&value["l"])?;
+    Ok(BinanceTestnetBalance {
+        asset,
+        total: total(&free, &locked)?,
+        free,
+        locked,
+    })
+}
+
+pub(super) fn apply_testnet_private_stream_frame(
+    book: &mut BinanceTestnetOrderBook,
+    frame: &Value,
+    subscription_id: u64,
+    secrets: &[String],
+) -> Result<Option<TestnetPrivateStreamUpdate>> {
+    if contains_secret(frame, secrets) || frame["subscriptionId"].as_u64() != Some(subscription_id)
+    {
+        return Err(invalid());
+    }
+    let event = frame.get("event").ok_or_else(invalid)?;
+    let event_type = text(event, "e", 64)?;
+    if event_type == "eventStreamTerminated" {
+        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+    }
+    let event_at = provider_event_time(provider_time(event, "E")?)?;
+    let before = book.clone();
+    let mut reconciliation_required = false;
+    match event_type.as_str() {
+        "executionReport" => {
+            let mut order = stream_order(event, &event_at)?;
+            if let Some(attempt) = book.orders.iter().find(|existing| {
+                existing.symbol == order.symbol
+                    && existing.provider_order_id == order.provider_order_id
+                    && existing.client_order_id == order.client_order_id
+            }) {
+                order.origin = attempt.origin;
+                order.attempt_id = attempt.attempt_id.clone();
+            }
+            let trade = event["x"].as_str() == Some("TRADE")
+                && event["t"].as_i64().is_some_and(|id| id > 0);
+            merge_testnet_order(&mut book.orders, order)?;
+            if trade {
+                merge_testnet_fill(&mut book.fills, stream_fill(event, &event_at)?)?;
+            }
+        }
+        "outboundAccountPosition" => {
+            let update_at_ms = provider_time(event, "u")?;
+            let balances = event["B"].as_array().ok_or_else(invalid)?;
+            if balances.len() > 5000 {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            let mut changed = HashSet::new();
+            let balances = balances
+                .iter()
+                .map(|value| {
+                    let balance = stream_balance(value)?;
+                    if !changed.insert(balance.asset.clone()) {
+                        return Err(invalid());
+                    }
+                    Ok(balance)
+                })
+                .collect::<Result<Vec<_>>>()?;
+            match book.private_stream_balance_update_at_ms {
+                Some(previous) if update_at_ms < previous => return Ok(None),
+                Some(previous) if update_at_ms == previous => {
+                    for fresh in &balances {
+                        let old = book.balances.iter().find(|old| old.asset == fresh.asset);
+                        if old != Some(fresh) {
+                            return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+                        }
+                    }
+                    return Ok(None);
+                }
+                _ => (),
+            }
+            for fresh in balances {
+                book.balances.retain(|old| old.asset != fresh.asset);
+                if fresh.total != "0" {
+                    book.balances.push(fresh);
+                }
+            }
+            book.balances
+                .sort_by(|left, right| left.asset.cmp(&right.asset));
+            book.private_stream_balance_update_at_ms = Some(update_at_ms);
+            book.balances_observed_at = Some(event_at.clone());
+        }
+        "balanceUpdate" => {
+            provider_time(event, "T")?;
+            text(event, "a", 32)?;
+            crate::provider_io::decimal(&event["d"])?;
+            reconciliation_required = true;
+        }
+        _ => reconciliation_required = true,
+    }
+    if *book == before && !reconciliation_required {
+        return Ok(None);
+    }
+    book.observed_at = crate::storage::timestamp()?;
+    if reconciliation_required {
+        book.status = BinanceTestnetOrderBookStatus::Stale;
+        book.reason = Some("PRIVATE_STREAM_RECONCILIATION_REQUIRED".into());
+    } else {
+        book.reason = None;
+    }
+    Ok(Some(TestnetPrivateStreamUpdate {
+        event_at,
+        reconciliation_required,
+    }))
 }
 
 fn merge_testnet_fill(
@@ -959,6 +1131,150 @@ pub(super) fn refresh_testnet_order_book(
         }
     }
     Ok(())
+}
+
+pub(super) fn reconcile_testnet_order_book(
+    book: &mut BinanceTestnetOrderBook,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<()> {
+    let trusted = book.clone();
+    let result = (|| -> Result<()> {
+        for (action, symbol) in [
+            (BinanceTestnetOrderBookAction::Pending, None),
+            (BinanceTestnetOrderBookAction::Account, None),
+        ] {
+            reconcile_action(book, action, symbol, secrets, http, current)?;
+        }
+        for symbol in ["BTCUSDT", "ETHUSDT"] {
+            let mut complete = false;
+            for _ in 0..5 {
+                reconcile_action(
+                    book,
+                    BinanceTestnetOrderBookAction::History,
+                    Some(symbol),
+                    secrets,
+                    http,
+                    current,
+                )?;
+                complete = book
+                    .history
+                    .iter()
+                    .find(|history| history.symbol == symbol)
+                    .is_some_and(|history| history.complete);
+                if complete {
+                    break;
+                }
+            }
+            if !complete {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+        }
+        book.reason = None;
+        reconcile_action(
+            book,
+            BinanceTestnetOrderBookAction::Pending,
+            None,
+            secrets,
+            http,
+            current,
+        )?;
+        if book.reason.as_deref() == Some("ORDER_STATUS_REFRESH_REQUIRED") {
+            return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+        }
+        book.status = BinanceTestnetOrderBookStatus::Current;
+        book.reason = None;
+        let observed_at = crate::storage::timestamp()?;
+        book.last_successful_sync_at = Some(observed_at.clone());
+        book.observed_at = observed_at;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        let observed_at = crate::storage::timestamp()?;
+        *book = trusted;
+        book.status = if error.code == "STATE_VERSION_CONFLICT" {
+            BinanceTestnetOrderBookStatus::Stale
+        } else {
+            BinanceTestnetOrderBookStatus::Degraded
+        };
+        book.reason = Some(error.code.clone());
+        book.observed_at = observed_at;
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub(super) fn private_stream_subscription(
+    http: &impl ProviderHttp,
+    secrets: &[String],
+    current: &impl Fn() -> bool,
+) -> Result<(String, Value)> {
+    if secrets.len() != 2 {
+        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+    }
+    let (timestamp, _) = server_time(http, current)?;
+    let signed = format!(
+        "apiKey={}&recvWindow=5000&timestamp={timestamp}",
+        secrets[0]
+    );
+    let signature = signature(&signed, &secrets[1])?;
+    let request_id = uuid::Uuid::new_v4().to_string();
+    Ok((
+        request_id.clone(),
+        json!({
+            "id": request_id,
+            "method": "userDataStream.subscribe.signature",
+            "params": {
+                "apiKey": secrets[0],
+                "recvWindow": 5000,
+                "timestamp": timestamp,
+                "signature": signature,
+            }
+        }),
+    ))
+}
+
+pub(super) fn verify_private_stream_account(
+    http: &impl ProviderHttp,
+    secrets: &[String],
+    remote_account_id: &str,
+    current: &impl Fn() -> bool,
+) -> Result<()> {
+    binance_account(http, secrets, current, remote_account_id).map(|_| ())
+}
+
+fn reconcile_action(
+    book: &mut BinanceTestnetOrderBook,
+    action: BinanceTestnetOrderBookAction,
+    symbol: Option<&str>,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<()> {
+    book.rate_limits.account_retry_at = None;
+    match action {
+        BinanceTestnetOrderBookAction::Pending => {
+            book.rate_limits.pending_orders_retry_at = None;
+        }
+        BinanceTestnetOrderBookAction::Account => (),
+        BinanceTestnetOrderBookAction::History => {
+            book.rate_limits.history_retry_at = None;
+        }
+        BinanceTestnetOrderBookAction::Detail => return Err(invalid()),
+    }
+    refresh_testnet_order_book(book, action, symbol, None, secrets, http, current)?;
+    match book.status {
+        BinanceTestnetOrderBookStatus::Current => Ok(()),
+        BinanceTestnetOrderBookStatus::Stale
+            if book.reason.as_deref() == Some("ORDER_STATUS_REFRESH_REQUIRED") =>
+        {
+            Ok(())
+        }
+        _ => Err(TradeXError::new(
+            book.reason.as_deref().unwrap_or("PROVIDER_DATA_INCOMPLETE"),
+        )),
+    }
 }
 
 fn response_value(response: ProviderHttpResponse, secrets: &[String]) -> Result<Value> {
@@ -2143,6 +2459,60 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn stream_book() -> BinanceTestnetOrderBook {
+        serde_json::from_value(json!({
+            "workspaceId": "workspace-test",
+            "connectionId": "connection-test",
+            "remoteAccountId": "42",
+            "environment": "TESTNET",
+            "status": "CURRENT",
+            "stateVersion": "book-v1",
+            "lastSuccessfulSyncAt": "2026-09-24T10:00:00Z",
+            "pendingOrdersObservedAt": "2026-09-24T10:00:00Z",
+            "balancesObservedAt": "2026-09-24T10:00:00Z",
+            "privateStreamBalanceUpdateAtMs": null,
+            "observedAt": "2026-09-24T10:00:00Z",
+            "reason": null,
+            "rateLimits": {
+                "pendingOrdersRetryAt": null,
+                "accountRetryAt": null,
+                "historyRetryAt": null,
+                "orderDetailRetryAt": null
+            },
+            "history": [
+                {"symbol":"BTCUSDT","started":false,"complete":false,"pageCount":0,"lastObservedAt":null,"nextOrderId":null,"nextTradeId":null},
+                {"symbol":"ETHUSDT","started":false,"complete":false,"pageCount":0,"lastObservedAt":null,"nextOrderId":null,"nextTradeId":null}
+            ],
+            "orders": [],
+            "fills": [],
+            "balances": []
+        }))
+        .unwrap()
+    }
+
+    fn execution_report(
+        execution: &str,
+        status: &str,
+        filled: &str,
+        quote: &str,
+        event_time: u64,
+        update_time: u64,
+        trade_id: i64,
+        last_quantity: &str,
+    ) -> Value {
+        json!({
+            "subscriptionId": 7,
+            "event": {
+                "e":"executionReport", "E":event_time, "s":"BTCUSDT", "c":"fixture-client-order",
+                "S":"BUY", "o":"LIMIT", "f":"GTC", "q":"0.25", "p":"90",
+                "x":execution, "X":status, "i":9007199254740995u64,
+                "l":last_quantity, "z":filled, "L":"90", "n":"0", "N":"USDT",
+                "O":1_788_849_600_000u64, "T":update_time, "t":trade_id, "Q":"0", "Y":quote, "Z":quote
+            }
+        })
+    }
+
     #[test]
     fn signing_decimal_and_route_bounds_match_external_contracts() {
         // RFC 4231 test case 1, independent of the integration fixture verifier.
@@ -2198,5 +2568,138 @@ mod tests {
         ));
         assert!(!allows(ProviderEndpoint::BinanceTestnet, &restriction));
         assert!(allows(ProviderEndpoint::BinanceLive, &restriction));
+    }
+
+    #[test]
+    fn private_stream_deduplicates_fills_and_ignores_late_order_state() {
+        let mut book = stream_book();
+        let secrets = vec!["fixture-key".into(), "fixture-secret".into()];
+        let fill = execution_report(
+            "TRADE",
+            "PARTIALLY_FILLED",
+            "0.1",
+            "9",
+            1_788_849_700_000,
+            1_788_849_700_000,
+            9001,
+            "0.1",
+        );
+
+        let update = apply_testnet_private_stream_frame(&mut book, &fill, 7, &secrets)
+            .unwrap()
+            .unwrap();
+        assert!(!update.reconciliation_required);
+        assert_eq!(book.orders.len(), 1);
+        assert_eq!(book.orders[0].provider_status, "PARTIALLY_FILLED");
+        assert!(book.orders[0].pending);
+        assert_eq!(book.orders[0].filled_quantity, "0.1");
+        assert_eq!(book.fills.len(), 1);
+        assert!(
+            apply_testnet_private_stream_frame(&mut book, &fill, 7, &secrets)
+                .unwrap()
+                .is_none()
+        );
+
+        let late = execution_report(
+            "NEW",
+            "NEW",
+            "0",
+            "0",
+            1_788_849_699_000,
+            1_788_849_699_000,
+            -1,
+            "0",
+        );
+        assert!(
+            apply_testnet_private_stream_frame(&mut book, &late, 7, &secrets)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(book.orders.len(), 1);
+        assert_eq!(book.orders[0].provider_status, "PARTIALLY_FILLED");
+        assert_eq!(book.orders[0].filled_quantity, "0.1");
+        assert_eq!(book.fills.len(), 1);
+    }
+
+    #[test]
+    fn private_stream_merges_account_assets_and_requires_reconciliation_for_deltas() {
+        let mut book = stream_book();
+        let secrets = vec!["fixture-key".into(), "fixture-secret".into()];
+        for (updated, asset, free) in [(200, "USDT", "10"), (201, "BTC", "0.5")] {
+            let frame = json!({
+                "subscriptionId":7,
+                "event":{"e":"outboundAccountPosition","E":1_788_849_700_000u64 + updated,"u":updated,
+                    "B":[{"a":asset,"f":free,"l":"0"}]}
+            });
+            assert!(
+                !apply_testnet_private_stream_frame(&mut book, &frame, 7, &secrets)
+                    .unwrap()
+                    .unwrap()
+                    .reconciliation_required
+            );
+        }
+        assert_eq!(book.balances.len(), 2);
+        assert_eq!(book.private_stream_balance_update_at_ms, Some(201));
+        let stale = json!({"subscriptionId":7,"event":{"e":"outboundAccountPosition","E":1_788_849_699_000u64,"u":199,"B":[{"a":"USDT","f":"1","l":"0"}]}});
+        assert!(
+            apply_testnet_private_stream_frame(&mut book, &stale, 7, &secrets)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(book.balances[1].free, "10");
+
+        let before = book.balances.clone();
+        let delta = json!({"subscriptionId":7,"event":{"e":"balanceUpdate","E":1_788_849_702_000u64,"T":1_788_849_702_000u64,"a":"USDT","d":"-2.5"}});
+        let update = apply_testnet_private_stream_frame(&mut book, &delta, 7, &secrets)
+            .unwrap()
+            .unwrap();
+        assert!(update.reconciliation_required);
+        assert_eq!(book.status, BinanceTestnetOrderBookStatus::Stale);
+        assert_eq!(book.balances, before);
+    }
+
+    #[test]
+    fn private_stream_rejects_wrong_subscription_and_secret_reflection() {
+        let mut book = stream_book();
+        let secrets = vec!["fixture-key".into(), "fixture-secret".into()];
+        let valid = execution_report(
+            "NEW",
+            "MYSTERY_STATUS",
+            "0",
+            "0",
+            1_788_849_700_000,
+            1_788_849_700_000,
+            -1,
+            "0",
+        );
+        assert_eq!(
+            apply_testnet_private_stream_frame(&mut book, &valid, 8, &secrets)
+                .err()
+                .unwrap()
+                .code,
+            "PROVIDER_RESPONSE_INVALID"
+        );
+        let reflected = json!({"subscriptionId":7,"event":{"e":"notice","E":1_788_849_700_000u64,"message":"fixture-secret"}});
+        assert_eq!(
+            apply_testnet_private_stream_frame(&mut book, &reflected, 7, &secrets)
+                .err()
+                .unwrap()
+                .code,
+            "PROVIDER_RESPONSE_INVALID"
+        );
+
+        let unknown = execution_report(
+            "NEW",
+            "MYSTERY_STATUS",
+            "0",
+            "0",
+            1_788_849_700_000,
+            1_788_849_700_000,
+            -1,
+            "0",
+        );
+        apply_testnet_private_stream_frame(&mut book, &unknown, 7, &secrets).unwrap();
+        assert_eq!(book.orders[0].provider_status, "MYSTERY_STATUS");
+        assert!(book.orders[0].pending);
     }
 }

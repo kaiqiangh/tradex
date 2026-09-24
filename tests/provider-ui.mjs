@@ -33,6 +33,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
   const observed = [];
   let alpacaClientOrderId;
   let alpacaConnectionStateVersion;
+  let binanceConnectionStateVersion;
   const injectPrivateStream = (connectionId, expectedConnectionStateVersion, frame) => sendIntegrationCommand(
     'alpaca.paper.stream.fixture',
     { connectionId, expectedConnectionStateVersion, remoteAccountId: '81161e77-bafd-44bb-b2a0-60b9055e3cd4', frame },
@@ -40,6 +41,24 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
   const injectPrivateStreamDisconnect = (connectionId, expectedConnectionStateVersion) => sendIntegrationCommand(
     'alpaca.paper.stream.disconnect.fixture',
     { connectionId, expectedConnectionStateVersion },
+  );
+  const injectBinancePrivateStream = (connectionId, expectedConnectionStateVersion, frame) => sendIntegrationCommand(
+    'binance.testnet.stream.fixture',
+    {
+      connectionId,
+      expectedConnectionStateVersion,
+      remoteAccountId: '9007199254740993',
+      subscriptionId: 7,
+      frame,
+    },
+  );
+  const disconnectBinancePrivateStream = (connectionId, expectedConnectionStateVersion) => sendIntegrationCommand(
+    'binance.testnet.stream.disconnect.fixture',
+    { connectionId, expectedConnectionStateVersion },
+  );
+  const reconcileBinancePrivateStream = (connectionId, expectedConnectionStateVersion) => sendIntegrationCommand(
+    'binance.testnet.stream.reconcile.fixture',
+    { connectionId, expectedConnectionStateVersion, remoteAccountId: '9007199254740993' },
   );
   const waitForButton = async name => {
     const button = ui.getByRole('button', { name, exact: true });
@@ -138,6 +157,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await refresh.press('Enter');
     await waitForVersionChange(ui, detail, afterReuseVersion, 'Manual account refresh did not commit a new state');
     alpacaConnectionStateVersion = await detail.getAttribute('data-state-version') ?? undefined;
+    if (selection === 'binance/TESTNET') binanceConnectionStateVersion = await detail.getAttribute('data-state-version') ?? undefined;
     await tab.getAXState({ emit: false });
     assert.equal(await ui.getByRole('alert').count(), 0);
     assert.equal(await ui.getByRole('heading', { name: 'Workspace', exact: true }).isVisible(), true);
@@ -517,6 +537,88 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
         assert.ok(size.scroll <= size.width, `Binance Testnet Proposal overflow at ${width}px: ${JSON.stringify(size)}`);
       }
       observed.push('Reload recovers the saved Testnet attempt and removes the submit action, preventing a second UI write.');
+
+      const binanceOrderBook = ui.locator('.order-book-panel').filter({ has: ui.getByLabel('Binance Testnet account', { exact: true }) });
+      await binanceOrderBook.getByLabel('Binance Testnet account', { exact: true }).selectOption(existingValue);
+      const snapshot = {
+        subscriptionId: 7,
+        event: {
+          e: 'outboundAccountPosition', E: 1788849701000, u: 1788849701000,
+          B: [{ a: 'USDT', f: '950.5', l: '2.5' }],
+        },
+      };
+      await injectBinancePrivateStream(existingValue, binanceConnectionStateVersion, snapshot);
+      let savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      assert.equal(savedBook.data.book.balances.find(balance => balance.asset === 'USDT')?.free, '950.5');
+      assert.equal(savedBook.data.book.balances.find(balance => balance.asset === 'USDT')?.locked, '2.5');
+      const streamHealth = ui.getByRole('status').filter({ hasText: 'Private stream:' });
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((await streamHealth.innerText()).includes('Private stream: CONNECTED · Reconciliation: REQUIRED')) break;
+        await ui.waitForTimeout(50);
+      }
+      assert.match(await streamHealth.innerText(), /Private stream: CONNECTED · Reconciliation: REQUIRED/);
+      await reconcileBinancePrivateStream(existingValue, binanceConnectionStateVersion);
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((await streamHealth.innerText()).includes('Private stream: CONNECTED · Reconciliation: CURRENT')) break;
+        await ui.waitForTimeout(50);
+      }
+      assert.match(await streamHealth.innerText(), /Private stream: CONNECTED · Reconciliation: CURRENT/);
+
+      const executionReport = (execution, status, filled, quote, eventTime, updateTime, tradeId, lastQuantity) => ({
+        subscriptionId: 7,
+        event: {
+          e: 'executionReport', E: eventTime, s: 'BTCUSDT', c: 'fixture-private-stream-order',
+          S: 'BUY', o: 'LIMIT', f: 'GTC', q: '0.25', p: '90',
+          x: execution, X: status, i: 9007199254740998, l: lastQuantity, z: filled,
+          L: '90', n: '0', N: 'USDT', T: updateTime, t: tradeId, Q: '0', Z: quote,
+        },
+      });
+      const partialFill = executionReport('TRADE', 'PARTIALLY_FILLED', '0.1', '9', 1788849702000, 1788849702000, 9101, '0.1');
+      await injectBinancePrivateStream(existingValue, binanceConnectionStateVersion, partialFill);
+      await binanceOrderBook.getByText(/Trade 9101 · order 9007199254740998/).waitFor({ state: 'visible' });
+      await injectBinancePrivateStream(existingValue, binanceConnectionStateVersion, partialFill);
+      await injectBinancePrivateStream(
+        existingValue,
+        binanceConnectionStateVersion,
+        executionReport('NEW', 'NEW', '0', '0', 1788849701000, 1788849701000, -1, '0'),
+      );
+      savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      assert.equal(savedBook.data.book.fills.filter(fill => fill.tradeId === '9101').length, 1);
+      assert.equal(savedBook.data.book.orders.find(order => order.providerOrderId === '9007199254740998')?.providerStatus, 'PARTIALLY_FILLED');
+      assert.equal(savedBook.data.book.orders.find(order => order.providerOrderId === '9007199254740998')?.filledQuantity, '0.1');
+      observed.push('Rust/SQLite persists Binance account and execution reports; repeated trades stay single and a late NEW event cannot roll back cumulative fills.');
+
+      await disconnectBinancePrivateStream(existingValue, binanceConnectionStateVersion);
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((await streamHealth.innerText()).includes('Private stream: DEGRADED · Reconciliation: DEGRADED')) break;
+        await ui.waitForTimeout(50);
+      }
+      assert.match(await streamHealth.innerText(), /Private stream: DEGRADED · Reconciliation: DEGRADED/);
+      savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      assert.equal(savedBook.data.book.status, 'STALE');
+      await reconcileBinancePrivateStream(existingValue, binanceConnectionStateVersion);
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((await streamHealth.innerText()).includes('Private stream: CONNECTED · Reconciliation: CURRENT')) break;
+        await ui.waitForTimeout(50);
+      }
+      assert.match(await streamHealth.innerText(), /Private stream: CONNECTED · Reconciliation: CURRENT/);
+      observed.push('A fixture disconnect marks saved observations stale; bounded signed REST fixtures restore CURRENT only after reconciliation succeeds.');
+
+      for (const width of [1280, 768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Binance private stream order book overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      observed.push('Binance stream health, balances, fills, and recovery remain accessible without horizontal overflow at 390px, 768px, and 1280px.');
       await viewport.set({ width: 1280, height: 900 });
       await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });

@@ -3328,6 +3328,9 @@ pub struct BinanceTestnetOrderBook {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 64))]
     pub balances_observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(max = 9_007_199_254_740_991_u64))]
+    pub private_stream_balance_update_at_ms: Option<u64>,
     #[schemars(length(min = 1, max = 64))]
     pub observed_at: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

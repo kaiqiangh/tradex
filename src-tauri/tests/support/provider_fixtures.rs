@@ -5,6 +5,8 @@ use std::{
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
 };
+#[cfg(feature = "integration-test")]
+use tradex::protocol::BinanceTestnetOrderBook;
 use tradex::{
     protocol::{Result, TradeXError},
     provider_io::{
@@ -155,6 +157,71 @@ impl Default for Http {
             binance_exchange_info: RefCell::new(None),
             binance_reference_price: RefCell::new(None),
             binance_reference_price_status: Cell::new(None),
+        }
+    }
+}
+
+impl Http {
+    #[cfg(feature = "integration-test")]
+    pub fn mirror_binance_private_stream_book(&self, book: &BinanceTestnetOrderBook) {
+        let order = |row: &tradex::protocol::BinanceTestnetOrder| {
+            json!({
+                "symbol": row.symbol,
+                "orderId": row.provider_order_id,
+                "clientOrderId": row.client_order_id,
+                "side": row.side,
+                "type": row.order_type,
+                "timeInForce": row.time_in_force,
+                "status": row.provider_status,
+                "price": row.price.as_deref().unwrap_or("0"),
+                "origQty": row.quantity.as_deref().unwrap_or("0"),
+                "origQuoteOrderQty": row.quote_quantity.as_deref().unwrap_or("0"),
+                "executedQty": row.filled_quantity,
+                "cummulativeQuoteQty": row.filled_quote_quantity.as_deref().unwrap_or("0"),
+                "time": row.submitted_at_ms,
+                "updateTime": row.provider_updated_at_ms
+            })
+        };
+        let fill = |row: &tradex::protocol::BinanceTestnetFill| {
+            json!({
+                "id": row.trade_id,
+                "orderId": row.provider_order_id,
+                "symbol": row.symbol,
+                "isBuyer": row.side == "BUY",
+                "price": row.price,
+                "qty": row.quantity,
+                "quoteQty": row.quote_quantity,
+                "commission": row.commission,
+                "commissionAsset": row.commission_asset,
+                "time": row.executed_at_ms
+            })
+        };
+        *self.binance_open_orders.borrow_mut() = Some(
+            book.orders
+                .iter()
+                .filter(|row| row.pending)
+                .map(&order)
+                .collect(),
+        );
+        let mut orders = self.binance_order_history.borrow_mut();
+        let mut trades = self.binance_trade_history.borrow_mut();
+        for symbol in ["BTCUSDT", "ETHUSDT"] {
+            orders.insert(
+                symbol.into(),
+                book.orders
+                    .iter()
+                    .filter(|row| row.symbol == symbol)
+                    .map(&order)
+                    .collect(),
+            );
+            trades.insert(
+                symbol.into(),
+                book.fills
+                    .iter()
+                    .filter(|row| row.symbol == symbol)
+                    .map(&fill)
+                    .collect(),
+            );
         }
     }
 }

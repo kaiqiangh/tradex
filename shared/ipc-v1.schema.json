@@ -3485,6 +3485,15 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "privateStreamBalanceUpdateAtMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
         "rateLimits": {
           "$ref": "#/$defs/BinanceTestnetOrderBookRateLimits"
         },

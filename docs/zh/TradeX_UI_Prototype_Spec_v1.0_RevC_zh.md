@@ -886,3 +886,7 @@ Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection sta
 对 `BINANCE_TESTNET` Proposal，使用明确的 Binance Spot Testnet 确认框，展示捕获的账户 label、完整 connection ID 与远端账户 ID，以及准确不可变 Proposal/hash、instrument、方向、数量类型/数值、订单类型、有效期、限价、maximum spend 和 venue。确认后重新验证同一已连接的 `TESTNET` identity 与 Proposal。身份或 Proposal 已变化时返回审阅；界面绝不转到 Live。
 
 提交后区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 和 `REJECTED`。Acknowledgement 表示 provider 接受，不是 fill。重复激活和重新打开都读取已保存 attempt，不能再发第二个 POST。未知结果保持冻结并禁用重提，只允许显式查询其已保存 client order ID；查无结果时仍保持 unknown。不支持的订单形式或 provider filter 必须明确说明，不能强行映射/舍入 Proposal。对话框遵循 §14.9 的键盘/焦点契约。在 390、768、1280 px 检查账户 identity、状态和控件；原型 fixture 证据与 provider runtime 证据分开。
+
+### 14.13 Binance Spot Testnet 实时订单簿更新（S19 #70）
+
+在 Order Drafts 中选择已连接的 `BINANCE_TESTNET` 账户后，显示已保存订单、成交、余额，以及可读的私有流/REST reconciliation 状态和最近事件时间。Stream 更新通过账户健康 event 刷新已保存订单视图；尚未同步、加载、当前、stale、degraded 和需要 reconciliation 状态均使用无障碍状态文案。断流/恢复期间保留最后可信观察；未知 provider 状态可见且不视为终态。保留手动读取控件和既有仅主 Trade 的边界。不增加流控件或金融权限。使用 Rust-backed 集成 fixture 验证键盘操作和 390/768/1280 px 布局；可点击原型不作为 provider 证据。

@@ -2551,7 +2551,19 @@ Adapter 固定使用 `https://testnet.binance.vision`，并严格限制 `/api/v3
 
 持久化的 `BinanceTestnetOrderBook` 按 workspace、connection、远端账户字符串和固定的 `TESTNET` 环境隔离。它保存有界的订单、成交、资产余额、逐交易对历史游标及最近读取时间、开放订单与余额各自的成功观察时间、endpoint 重试截止时间、最近一次请求的状态/时间、单调版本，以及 `binance.testnet.order.book.changed` outbox event。顶层状态只描述最近一次请求；对应 provider 读取成功前，页面不得把某个分区表示为空。provider 订单 ID 与 trade ID 始终是十进制字符串；数量、价格、报价累计值、手续费和余额均为精确十进制字符串。Binance 历史中的负数 `cummulativeQuoteQty` 哨兵值会显示为不可用，绝不用于估值。仅当 provider 基础资产数量可用时，才用精确十进制减法计算剩余数量。手续费按 provider trade 显示精确 commission 与手续费资产。仅当 `clientOrderId` 与同一 workspace、connection、远端账户的已保存 attempt 完全匹配时，订单才标为 `TRADE_X`，其他订单均标为 `EXTERNAL`。未知 provider 状态继续显示，不会被当作终态。不会推断加密资产的美元估值。
 
-这些读取命令只由主 Trade UI 发起。本阶段不增加提交重试、撤单、自动轮询、user-data stream、Live 路由、Local Paper 耦合、Agent 写权限或 Order Gateway 权限；stream 收敛和准确撤单由后续独立的 S19 tickets 处理。
+这些读取命令只由主 Trade UI 发起。本阶段不增加提交重试、撤单、Live 路由、Local Paper 耦合、Agent 写权限或 Order Gateway 权限。私有流收敛单独规定于 §41.27；订单读取命令仍为显式用户操作。
+
+### 41.27 Binance Spot Testnet 签名 user-data stream（S19 #70）
+
+桌面服务为每个已连接且远端身份已核验的 `binance` / `TESTNET` 账户运行一个 worker。它只读取该 connection 的双字段 Keychain 凭据，通过固定 Testnet REST host 重新核验 `/api/v3/account`，且只连接 `wss://ws-api.testnet.binance.vision/ws-api/v3`。认证使用签名 WebSocket API 方法 `userDataStream.subscribe.signature`；worker 校验订阅响应，并要求每个事件的 `subscriptionId` 精确匹配。API key、secret、signature、签名请求及原始认证帧不会进入 renderer IPC、event、SQLite 或普通日志。Renderer 不提供 host、credential、subscription、远端身份或权限。Workspace 替换时先取消旧 worker 再启动新 worker；应用 resume 会重启 worker。
+
+WebSocket 消息/帧上限为 256 KiB，并通过容量为 32 的有界 channel 串行进入 Rust 校验与 SQLite 写入。每帧都绑定当前 workspace、connection state version、远端账户 ID、`TESTNET` 环境和已确认的 subscription。`executionReport` 按交易对/订单 ID 合并准确 provider order identity 与累计十进制数量；只有带正 trade ID 的 `TRADE` execution 才接受为 fill，并按交易对/trade ID 合并。较旧时间戳或较低累计成交不能回滚状态，重复 fill 幂等，身份冲突 fail closed，未知原始状态保留并视为非终态。`outboundAccountPosition` 仅替换 provider 明确变更的资产余额，并忽略较旧账户更新时间；`balanceUpdate` 只提供 delta，因此只会标记需要 reconciliation，不会猜测 free/locked 余额。未知事件类型同样要求 reconciliation。秘密反射、身份/时间戳/十进制格式错误、帧过大或订阅不匹配均 fail closed，且不会清除已保存观察。
+
+已接受的订单/账户观察通过既有 `binance-testnet-order-book` 和账户健康投影更新，不增加公开 streaming IPC command。两个投影与各自的 `binance.testnet.order.book.changed` / `account.health.changed` outbox event 在同一个 SQLite transaction 中提交。完全重复的帧不会产生重复 fill 或 event。账户健康状态提供可读的私有流状态、reconciliation 状态和最近事件时间；账户 event 会使 Order Drafts 现有的已保存订单查询失效。
+
+断流、`eventStreamTerminated`、workspace reopen 和系统 resume 会将 stream 标为 degraded；认证失败使用 `AUTH_FAILED`。这两种情况下都会将已保存订单簿标为 stale。之后 worker 只通过现有固定 `/api/v3` 只读路由核验准确账户、读取开放订单与余额，并为 `BTCUSDT` 和 `ETHUSDT` 推进有界的 `allOrders` / `myTrades` 历史。恢复受现有订单/fill 投影 5,000 行上限及 provider 单页 1,000 行上限约束。触及边界时历史仍明确标为 incomplete；只有所需读取成功后账户 reconciliation 才能报告 `CURRENT`。Provider 418/429 冷却、重定向、畸形/不完整响应及账户身份变化均 fail closed 并保留先前可信观察。陈旧订单簿不会显示为 current。
+
+唯一运行时测试 seam 是现有 Rust Control Plane、临时 SQLite/outbox、内存 Keychain 与受控 loopback WebSocket/HTTP fixture；浏览器验收经仅集成测试可用的 Rust bridge 注入已清理 fixture，并在 390、768、1280 px 检查无障碍流状态/reconciliation 文案。不会使用真实 Testnet key 或下单。不增加 listen-key 生命周期、其他交易对、Live stream、Local Paper、Agent 访问、金融审批、reservation 或 Order Gateway 权限。
 
 ## 42. Backend-to-Frontend Event Surface
 

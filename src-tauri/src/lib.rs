@@ -4,6 +4,8 @@ extern crate self as tradex;
 #[cfg(target_os = "macos")]
 pub mod alpaca_stream;
 pub mod backtest;
+#[cfg(target_os = "macos")]
+pub mod binance_stream;
 pub mod capability;
 pub mod codex_runtime;
 pub mod data_sources;
@@ -529,6 +531,7 @@ fn empty_binance_testnet_order_book(
         last_successful_sync_at: None,
         pending_orders_observed_at: None,
         balances_observed_at: None,
+        private_stream_balance_update_at_ms: None,
         observed_at: storage::timestamp()?,
         reason: None,
         rate_limits: BinanceTestnetOrderBookRateLimits {
@@ -4902,6 +4905,265 @@ impl ControlPlane {
                     && account.data.is_some()
             })
             .collect())
+    }
+
+    pub fn binance_private_stream_accounts(&self) -> Result<Vec<AccountConnection>> {
+        let Some(store) = self.store.as_ref() else {
+            return Ok(Vec::new());
+        };
+        Ok(store
+            .accounts()?
+            .into_iter()
+            .filter(|account| {
+                account.provider_id == "binance"
+                    && account.environment == "TESTNET"
+                    && account.connection_state == ConnectionState::Connected
+                    && account.health.credential == "CONFIGURED"
+                    && account.data.is_some()
+            })
+            .collect())
+    }
+
+    pub fn binance_private_stream_account_current(
+        &self,
+        connection_id: &str,
+        expected_state_version: &str,
+        remote_account_id: &str,
+    ) -> bool {
+        self.binance_private_stream_accounts()
+            .is_ok_and(|accounts| {
+                accounts.iter().any(|account| {
+                    account.connection_id == connection_id
+                        && account.state_version == expected_state_version
+                        && account
+                            .data
+                            .as_ref()
+                            .is_some_and(|data| data.remote_account_id == remote_account_id)
+                })
+            })
+    }
+
+    pub fn binance_private_stream_order_book(
+        &self,
+        connection_id: &str,
+    ) -> Result<BinanceTestnetOrderBook> {
+        let account = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?
+            .account(connection_id)?;
+        if account.provider_id != "binance"
+            || account.environment != "TESTNET"
+            || account.connection_state != ConnectionState::Connected
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        if let Some(book) = self
+            .store
+            .as_ref()
+            .unwrap()
+            .binance_testnet_order_book(&account.workspace_id, connection_id)?
+        {
+            Ok(book)
+        } else {
+            empty_binance_testnet_order_book(&account)
+        }
+    }
+
+    pub fn update_binance_private_stream_health(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        private_stream: &str,
+        reconciliation: &str,
+        reason: &str,
+    ) -> Result<()> {
+        let mut book = {
+            let store = self
+                .store
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            let account = store.account(connection_id)?;
+            if account.state_version != expected_state_version
+                || account.provider_id != "binance"
+                || account.environment != "TESTNET"
+                || account.connection_state != ConnectionState::Connected
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            store.binance_testnet_order_book(&account.workspace_id, connection_id)?
+        };
+        if let Some(book) = &mut book
+            && (private_stream != "CONNECTED" || reconciliation != "CURRENT")
+        {
+            book.status = BinanceTestnetOrderBookStatus::Stale;
+            book.reason = Some(if reconciliation == "DEGRADED" {
+                "PRIVATE_STREAM_DISCONNECTED".into()
+            } else {
+                "PRIVATE_STREAM_RECONCILIATION_REQUIRED".into()
+            });
+            book.observed_at = storage::timestamp()?;
+        }
+        self.persist_binance_private_stream_state(
+            connection_id,
+            expected_state_version,
+            book,
+            private_stream,
+            reconciliation,
+            reason,
+            None,
+        )?;
+        Ok(())
+    }
+
+    pub fn apply_binance_private_stream_frame(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        remote_account_id: &str,
+        frame: &Value,
+        subscription_id: u64,
+        secrets: &[String],
+    ) -> Result<bool> {
+        if !self.binance_private_stream_account_current(
+            connection_id,
+            expected_state_version,
+            remote_account_id,
+        ) {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let (mut book, account_health) = {
+            let store = self
+                .store
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            let account = store.account(connection_id)?;
+            let book = store
+                .binance_testnet_order_book(&account.workspace_id, connection_id)?
+                .unwrap_or(empty_binance_testnet_order_book(&account)?);
+            (book, account.health)
+        };
+        let Some((event_at, reconciliation_required)) =
+            provider_io::apply_binance_testnet_private_stream_frame(
+                &mut book,
+                frame,
+                subscription_id,
+                secrets,
+            )?
+        else {
+            return Ok(false);
+        };
+        let (reconciliation, reason) = if reconciliation_required {
+            (
+                "REQUIRED",
+                "Binance Testnet requires REST reconciliation after a non-snapshot event.",
+            )
+        } else {
+            (
+                if account_health.reconciliation == "CURRENT" {
+                    "CURRENT"
+                } else {
+                    "REQUIRED"
+                },
+                "Binance Testnet private stream observation was applied.",
+            )
+        };
+        if reconciliation != "CURRENT" {
+            book.status = BinanceTestnetOrderBookStatus::Stale;
+            book.reason = Some("PRIVATE_STREAM_RECONCILIATION_REQUIRED".into());
+        }
+        self.persist_binance_private_stream_state(
+            connection_id,
+            expected_state_version,
+            Some(book),
+            "CONNECTED",
+            reconciliation,
+            reason,
+            Some(&event_at),
+        )?;
+        Ok(reconciliation_required)
+    }
+
+    pub fn persist_binance_private_stream_state(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        book: Option<BinanceTestnetOrderBook>,
+        private_stream: &str,
+        reconciliation: &str,
+        reason: &str,
+        last_event_at: Option<&str>,
+    ) -> Result<()> {
+        let (_book, book_event, account_event) = self
+            .store
+            .as_mut()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?
+            .save_binance_private_stream_state(
+                connection_id,
+                expected_state_version,
+                book,
+                private_stream,
+                reconciliation,
+                reason,
+                last_event_at,
+            )?;
+        if let Some(event) = book_event {
+            self.publish(&event);
+        }
+        self.publish(&account_event);
+        Ok(())
+    }
+
+    #[cfg(feature = "integration-test")]
+    pub fn reconcile_binance_private_stream_fixture(
+        &mut self,
+        connection_id: &str,
+        expected_state_version: &str,
+        remote_account_id: &str,
+        secrets: &[String],
+        http: &impl provider_io::ProviderHttp,
+    ) -> Result<()> {
+        if !self.binance_private_stream_account_current(
+            connection_id,
+            expected_state_version,
+            remote_account_id,
+        ) {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let mut book = self.binance_private_stream_order_book(connection_id)?;
+        let current = || {
+            self.binance_private_stream_account_current(
+                connection_id,
+                expected_state_version,
+                remote_account_id,
+            )
+        };
+        match provider_io::reconcile_binance_testnet_private_stream(
+            &mut book, secrets, http, &current,
+        ) {
+            Ok(()) => self.persist_binance_private_stream_state(
+                connection_id,
+                expected_state_version,
+                Some(book),
+                "CONNECTED",
+                "CURRENT",
+                "Binance Testnet REST fixture reconciliation completed.",
+                None,
+            ),
+            Err(error) => {
+                let code = error.code.clone();
+                self.persist_binance_private_stream_state(
+                    connection_id,
+                    expected_state_version,
+                    Some(book),
+                    "CONNECTED",
+                    "DEGRADED",
+                    &code,
+                    None,
+                )?;
+                Err(error)
+            }
+        }
     }
 
     pub fn update_alpaca_private_stream_health(
