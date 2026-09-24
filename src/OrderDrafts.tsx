@@ -975,24 +975,27 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {binanceTestnetOrdersQuery.isError && <div className="error-text" role="alert"><p>Saved Binance Testnet observations are unavailable.</p><button type="button" onClick={() => void binanceTestnetOrdersQuery.refetch()}>Reload saved observations</button></div>}
       {binanceTestnetOrderBook && <>
         <p className={binanceTestnetOrderBook.status === 'DEGRADED' || binanceTestnetOrderBook.status === 'STALE' ? 'error-text' : 'muted'} role={binanceTestnetOrderBook.status === 'DEGRADED' ? 'alert' : 'status'}>
-          {binanceTestnetOrderBook.status === 'CURRENT' ? `Current provider observations · received ${new Date(binanceTestnetOrderBook.observedAt).toLocaleString()}` : binanceTestnetOrderBook.status === 'NEVER_SYNCED' ? 'No provider read has completed; refresh orders or balances to load observations.' : `Provider read is ${binanceTestnetOrderBook.status.toLowerCase()}: ${binanceTestnetOrderBook.reason ?? 'showing the last saved observations'}.`}
-          {binanceTestnetOrderBook.lastSuccessfulSyncAt && ` Last successful read: ${new Date(binanceTestnetOrderBook.lastSuccessfulSyncAt).toLocaleString()}.`}
+          {binanceTestnetOrderBook.status === 'CURRENT' ? `Most recent provider read succeeded · TradeX observed it at ${new Date(binanceTestnetOrderBook.observedAt).toLocaleString()}.` : binanceTestnetOrderBook.status === 'NEVER_SYNCED' ? 'No provider read has completed; refresh orders or balances to load observations.' : `Most recent provider read is ${binanceTestnetOrderBook.status.toLowerCase()}: ${binanceTestnetOrderBook.reason ?? 'showing the last saved observations'}.`}
+          {binanceTestnetOrderBook.lastSuccessfulSyncAt && ` Last successful request: ${new Date(binanceTestnetOrderBook.lastSuccessfulSyncAt).toLocaleString()}.`}
         </p>
         <h3>Spot balances ({binanceTestnetOrderBook.balances.length})</h3>
-        {!binanceTestnetOrderBook.balances.length && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No nonzero Spot balances were returned. No USD valuation is inferred.</p>}
+        <p className="muted">{binanceTestnetOrderBook.balancesObservedAt ? `Last balance observation: ${new Date(binanceTestnetOrderBook.balancesObservedAt).toLocaleString()}.` : 'Balances have not been read yet.'}</p>
+        {!binanceTestnetOrderBook.balances.length && binanceTestnetOrderBook.balancesObservedAt && <p className="muted">No nonzero Spot balances were returned by that account read. No USD valuation is inferred.</p>}
         {binanceTestnetOrderBook.balances.map(balance => <article className="order-book-fill" key={balance.asset}>
           <strong>{balance.asset}</strong><dl className="order-book-facts"><div><dt>Free</dt><dd>{balance.free}</dd></div><div><dt>Locked</dt><dd>{balance.locked}</dd></div><div><dt>Total</dt><dd>{balance.total}</dd></div></dl><small>TESTNET provider balance · no fiat valuation</small>
         </article>)}
         <h3>Open orders ({binanceTestnetOrderBook.orders.filter(order => order.pending).length})</h3>
-        {!binanceTestnetOrderBook.orders.some(order => order.pending) && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No open Binance Testnet orders were returned.</p>}
+        <p className="muted">{binanceTestnetOrderBook.pendingOrdersObservedAt ? `Open orders last read: ${new Date(binanceTestnetOrderBook.pendingOrdersObservedAt).toLocaleString()}.` : 'Open orders have not been read yet.'}</p>
+        {!binanceTestnetOrderBook.orders.some(order => order.pending) && binanceTestnetOrderBook.pendingOrdersObservedAt && <p className="muted">No open orders were returned by that provider read.</p>}
         {binanceTestnetOrderBook.orders.filter(order => order.pending).map(order => <BinanceTestnetOrderCard key={`${order.symbol}:${order.providerOrderId}`} order={order} busy={binanceTestnetOrdersBusy} onRefresh={() => void refreshBinanceTestnetOrders('DETAIL', order.symbol, order.providerOrderId)} />)}
         <h3>Order history ({binanceTestnetOrderBook.orders.filter(order => !order.pending).length})</h3>
-        {!binanceTestnetOrderBook.orders.some(order => !order.pending) && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No historical Binance Testnet orders have been loaded yet.</p>}
+        {!binanceTestnetOrderBook.orders.some(order => !order.pending) && !binanceTestnetOrderBook.history.some(history => history.started) && <p className="muted">Supported Binance Testnet order history has not been loaded yet.</p>}
+        {!binanceTestnetOrderBook.orders.some(order => !order.pending) && binanceTestnetOrderBook.history.some(history => history.started) && <p className="muted">No terminal orders are present in the loaded history pages.</p>}
         {binanceTestnetOrderBook.orders.filter(order => !order.pending).map(order => <BinanceTestnetOrderCard key={`${order.symbol}:${order.providerOrderId}`} order={order} busy={binanceTestnetOrdersBusy} onRefresh={() => void refreshBinanceTestnetOrders('DETAIL', order.symbol, order.providerOrderId)} />)}
         <div className="section-heading"><h3>Supported order and trade history</h3><span className="muted">Pages are bounded to 1,000 records per endpoint.</span></div>
         {binanceTestnetOrderBook.history.map(history => <div className="order-book-actions" key={history.symbol}>
           <button type="button" onClick={() => void refreshBinanceTestnetOrders('HISTORY', history.symbol)} disabled={!binanceTestnetOrdersAccount || binanceTestnetOrdersAccount.connectionState !== 'CONNECTED' || binanceTestnetOrdersBusy}>{binanceTestnetOrdersBusy ? 'Loading…' : history.complete ? `Restart ${history.symbol} history scan` : history.started ? `Load next ${history.symbol} page` : `Load ${history.symbol} history`}</button>
-          <span className="muted">{history.symbol}: {history.started ? `${history.pageCount} page(s) loaded · ${history.complete ? 'complete' : 'more provider records remain'}` : 'not loaded'}</span>
+          <span className="muted">{history.symbol}: {history.started ? `${history.pageCount} page(s) loaded · ${history.complete ? 'complete' : 'more provider records remain'}${history.lastObservedAt ? ` · read ${new Date(history.lastObservedAt).toLocaleString()}` : ''}` : 'not loaded'}</span>
         </div>)}
         <h3>Provider fills and fees ({binanceTestnetOrderBook.fills.length})</h3>
         {!binanceTestnetOrderBook.fills.length && binanceTestnetOrderBook.history.some(history => history.started) && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No trade rows were returned for the loaded history pages.</p>}

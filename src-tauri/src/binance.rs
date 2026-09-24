@@ -719,6 +719,7 @@ fn fetch_testnet_history(
     }
     let state = history_state_mut(book, symbol)?;
     state.started = true;
+    state.last_observed_at = Some(observed_at.to_owned());
     state.page_count = state
         .page_count
         .checked_add(1)
@@ -901,6 +902,15 @@ pub(super) fn refresh_testnet_order_book(
     let observed_at = crate::storage::timestamp()?;
     match result {
         Ok(()) => {
+            match action {
+                BinanceTestnetOrderBookAction::Pending => {
+                    candidate.pending_orders_observed_at = Some(observed_at.clone());
+                }
+                BinanceTestnetOrderBookAction::Account => {
+                    candidate.balances_observed_at = Some(observed_at.clone());
+                }
+                BinanceTestnetOrderBookAction::History | BinanceTestnetOrderBookAction::Detail => {}
+            }
             if pending_reconciliation_required && action != BinanceTestnetOrderBookAction::Pending {
                 candidate.status = BinanceTestnetOrderBookStatus::Stale;
                 candidate.reason = Some("ORDER_STATUS_REFRESH_REQUIRED".into());

@@ -2549,7 +2549,7 @@ Adapter 固定使用 `https://testnet.binance.vision`，并严格限制 `/api/v3
 
 每种 action 都有持久化重试截止时间及保守的后端请求间隔；429 和 418 响应会延长对应截止时间。历史页最多 1,000 行，即 provider 允许的最大页大小。每个交易对从 provider ID `1` 开始，分别跟踪精确字符串订单游标和成交游标；满页结果会保持 incomplete，直到后续空页证明历史耗尽。HTTP、解析、identity 和限流失败会保留最近可信记录，并把订单簿标记为 `DEGRADED` 或 `STALE`；不完整历史不会显示为 complete。只有当成功的 `/api/v3/account` 响应与已保存的远端 `uid` 一致时，才接受其中精确的 `free` 与 `locked` 资产字符串。
 
-持久化的 `BinanceTestnetOrderBook` 按 workspace、connection、远端账户字符串和固定的 `TESTNET` 环境隔离。它保存有界的订单、成交、资产余额、逐交易对历史游标、endpoint 重试截止时间、最近成功时间与 TradeX 观察时间、状态/原因、单调版本，以及 `binance.testnet.order.book.changed` outbox event。provider 订单 ID 与 trade ID 始终是十进制字符串；数量、价格、报价累计值、手续费和余额均为精确十进制字符串。Binance 历史中的负数 `cummulativeQuoteQty` 哨兵值会显示为不可用，绝不用于估值。仅当 provider 基础资产数量可用时，才用精确十进制减法计算剩余数量。手续费按 provider trade 显示精确 commission 与手续费资产。仅当 `clientOrderId` 与同一 workspace、connection、远端账户的已保存 attempt 完全匹配时，订单才标为 `TRADE_X`，其他订单均标为 `EXTERNAL`。未知 provider 状态继续显示，不会被当作终态。不会推断加密资产的美元估值。
+持久化的 `BinanceTestnetOrderBook` 按 workspace、connection、远端账户字符串和固定的 `TESTNET` 环境隔离。它保存有界的订单、成交、资产余额、逐交易对历史游标及最近读取时间、开放订单与余额各自的成功观察时间、endpoint 重试截止时间、最近一次请求的状态/时间、单调版本，以及 `binance.testnet.order.book.changed` outbox event。顶层状态只描述最近一次请求；对应 provider 读取成功前，页面不得把某个分区表示为空。provider 订单 ID 与 trade ID 始终是十进制字符串；数量、价格、报价累计值、手续费和余额均为精确十进制字符串。Binance 历史中的负数 `cummulativeQuoteQty` 哨兵值会显示为不可用，绝不用于估值。仅当 provider 基础资产数量可用时，才用精确十进制减法计算剩余数量。手续费按 provider trade 显示精确 commission 与手续费资产。仅当 `clientOrderId` 与同一 workspace、connection、远端账户的已保存 attempt 完全匹配时，订单才标为 `TRADE_X`，其他订单均标为 `EXTERNAL`。未知 provider 状态继续显示，不会被当作终态。不会推断加密资产的美元估值。
 
 这些读取命令只由主 Trade UI 发起。本阶段不增加提交重试、撤单、自动轮询、user-data stream、Live 路由、Local Paper 耦合、Agent 写权限或 Order Gateway 权限；stream 收敛和准确撤单由后续独立的 S19 tickets 处理。
 

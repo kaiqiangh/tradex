@@ -527,6 +527,8 @@ fn empty_binance_testnet_order_book(
         status: BinanceTestnetOrderBookStatus::NeverSynced,
         state_version: format!("binance-testnet-order-book:{}:0", account.connection_id),
         last_successful_sync_at: None,
+        pending_orders_observed_at: None,
+        balances_observed_at: None,
         observed_at: storage::timestamp()?,
         reason: None,
         rate_limits: BinanceTestnetOrderBookRateLimits {
@@ -542,6 +544,7 @@ fn empty_binance_testnet_order_book(
                 started: false,
                 complete: false,
                 page_count: 0,
+                last_observed_at: None,
                 next_order_id: None,
                 next_trade_id: None,
             })

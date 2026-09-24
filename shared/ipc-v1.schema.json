@@ -3090,6 +3090,14 @@
         "complete": {
           "type": "boolean"
         },
+        "lastObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
         "nextOrderId": {
           "type": [
             "string",
@@ -3418,6 +3426,14 @@
           },
           "maxItems": 5000
         },
+        "balancesObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
         "connectionId": {
           "type": "string",
           "maxLength": 128,
@@ -3460,6 +3476,14 @@
             "$ref": "#/$defs/BinanceTestnetOrder"
           },
           "maxItems": 5000
+        },
+        "pendingOrdersObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
         },
         "rateLimits": {
           "$ref": "#/$defs/BinanceTestnetOrderBookRateLimits"

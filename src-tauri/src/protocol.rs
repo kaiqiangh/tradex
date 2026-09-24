@@ -3278,6 +3278,9 @@ pub struct BinanceTestnetHistoryState {
     #[schemars(range(max = 9_007_199_254_740_991_u64))]
     pub page_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub last_observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
     pub next_order_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3319,6 +3322,12 @@ pub struct BinanceTestnetOrderBook {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 64))]
     pub last_successful_sync_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub pending_orders_observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub balances_observed_at: Option<String>,
     #[schemars(length(min = 1, max = 64))]
     pub observed_at: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

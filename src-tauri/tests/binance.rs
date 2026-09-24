@@ -696,6 +696,7 @@ fn testnet_order_book_keeps_exact_history_balances_and_account_boundaries() {
         .find(|row| row["symbol"] == "BTCUSDT")
         .unwrap();
     assert_eq!(btc_history["complete"], true);
+    assert!(btc_history["lastObservedAt"].is_string());
     assert_eq!(btc_history["pageCount"], 1);
     assert_eq!(btc_history["nextOrderId"], Value::Null);
     assert_eq!(btc_history["nextTradeId"], Value::Null);
@@ -769,6 +770,8 @@ fn testnet_order_book_keeps_exact_history_balances_and_account_boundaries() {
         None,
     );
     assert_eq!(balances["data"]["status"], "CURRENT", "{balances}");
+    assert!(balances["data"]["balancesObservedAt"].is_string());
+    assert!(balances["data"]["pendingOrdersObservedAt"].is_null());
     let usdt = balances["data"]["balances"]
         .as_array()
         .unwrap()
@@ -805,6 +808,8 @@ fn testnet_exact_order_refresh_accepts_any_saved_provider_symbol() {
         &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
     );
     assert_eq!(pending["ok"], true, "{pending}");
+    assert!(pending["data"]["pendingOrdersObservedAt"].is_string());
+    assert!(pending["data"]["balancesObservedAt"].is_null());
     assert!(
         pending["data"]["orders"]
             .as_array()

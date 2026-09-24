@@ -6557,6 +6557,13 @@ fn validate_binance_testnet_order_book(book: &BinanceTestnetOrderBook) -> Result
             .as_deref()
             .is_some_and(|v| !valid_order_text(v, 64) || !valid_provider_time(v))
         || [
+            book.pending_orders_observed_at.as_deref(),
+            book.balances_observed_at.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|v| !valid_order_text(v, 64) || !valid_provider_time(v))
+        || [
             book.rate_limits.pending_orders_retry_at.as_deref(),
             book.rate_limits.account_retry_at.as_deref(),
             book.rate_limits.history_retry_at.as_deref(),
@@ -6586,6 +6593,10 @@ fn validate_binance_testnet_order_book(book: &BinanceTestnetOrderBook) -> Result
                 .next_trade_id
                 .as_deref()
                 .is_some_and(|v| !valid_binance_id(v))
+            || state
+                .last_observed_at
+                .as_deref()
+                .is_some_and(|v| !valid_order_text(v, 64) || !valid_provider_time(v))
         {
             return Err(invalid());
         }

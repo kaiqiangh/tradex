@@ -1262,6 +1262,7 @@ export interface BinanceTestnetFill {
  */
 export interface BinanceTestnetHistoryState {
   complete: boolean;
+  lastObservedAt?: string | null;
   nextOrderId?: string | null;
   nextTradeId?: string | null;
   pageCount: number;
@@ -1339,6 +1340,7 @@ export interface BinanceTestnetOrderBook {
    * @maxItems 5000
    */
   balances: BinanceTestnetBalance[];
+  balancesObservedAt?: string | null;
   connectionId: string;
   environment: "TESTNET";
   /**
@@ -1355,6 +1357,7 @@ export interface BinanceTestnetOrderBook {
    * @maxItems 5000
    */
   orders: BinanceTestnetOrder[];
+  pendingOrdersObservedAt?: string | null;
   rateLimits: BinanceTestnetOrderBookRateLimits;
   reason?: string | null;
   remoteAccountId: string;
