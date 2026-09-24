@@ -294,7 +294,13 @@ impl ProviderHttp for Http {
                     if let Some(status) = self.binance_post_status.get() {
                         return Ok(ProviderHttpResponse {
                             status,
-                            body: br#"{"code":-1013,"msg":"synthetic rejection"}"#.to_vec(),
+                            body: self
+                                .binance_post_response_body
+                                .borrow_mut()
+                                .take()
+                                .unwrap_or_else(|| {
+                                    br#"{"code":-1013,"msg":"synthetic rejection"}"#.to_vec()
+                                }),
                         });
                     }
                     if let Some(body) = self.binance_post_response_body.borrow_mut().take() {

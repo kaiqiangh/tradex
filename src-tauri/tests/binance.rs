@@ -248,6 +248,71 @@ fn testnet_market_quote_submit_persists_once_before_io_and_keeps_ack_separate_fr
 }
 
 #[test]
+fn testnet_provider_rejection_is_persisted_redacted_and_never_retried() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let proposal = testnet_proposal(
+        &mut cp, &workspace, &account, "MARKET", "QUOTE", "25", "DAY",
+    );
+    let submit = testnet_submit_request(&workspace, &account, &proposal);
+    http.binance_post_status.set(Some(400));
+    *http.binance_post_response_body.borrow_mut() = Some(
+        serde_json::to_vec(&json!({
+            "code":-2010,
+            "msg":format!("provider reflected {} {}", fixtures::KEY, fixtures::SECRET)
+        }))
+        .unwrap(),
+    );
+
+    let job = cp.prepare_provider_for(&submit, "main").unwrap().unwrap();
+    let saved_before_io = call(
+        &mut cp,
+        "binance.testnet.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(saved_before_io["data"]["attempt"]["state"], "SUBMITTING");
+
+    let outcome = job.run(
+        &vault,
+        |_| fixtures::credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "REJECTED");
+    assert_eq!(reply["data"]["errorCode"], "ORDER_PROVIDER_REJECTED");
+    assert_eq!(http.binance_posts.borrow().len(), 1);
+    assert!(cp.prepare_provider_for(&submit, "main").unwrap().is_none());
+    assert_eq!(http.binance_posts.borrow().len(), 1);
+
+    let attempt = call(
+        &mut cp,
+        "binance.testnet.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(attempt["data"]["attempt"]["state"], "REJECTED");
+    assert_eq!(
+        attempt["data"]["attempt"]["errorCode"],
+        "ORDER_PROVIDER_REJECTED"
+    );
+    let snapshot = call(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"binance-testnet-order-attempt","aggregateId":reply["data"]["attemptId"]}),
+    );
+    assert_eq!(snapshot["data"]["lastSequence"], 2);
+    let persisted = json!({"reply":reply,"attempt":attempt,"snapshot":snapshot}).to_string();
+    assert!(!persisted.contains(fixtures::KEY));
+    assert!(!persisted.contains(fixtures::SECRET));
+    assert!(!persisted.contains("provider reflected"));
+}
+
+#[test]
 fn unknown_testnet_submit_is_query_only_until_client_order_id_is_found() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());
