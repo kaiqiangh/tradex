@@ -20,7 +20,7 @@ fn run(
     vault: &impl CredentialVault,
     http: &impl ProviderHttp,
 ) -> Value {
-    let job = cp.prepare_provider(&req).unwrap().unwrap();
+    let job = cp.prepare_provider_for(&req, "main").unwrap().unwrap();
     let result = job.run(
         vault,
         |_| fixtures::credentials(),
@@ -104,6 +104,255 @@ fn lifecycle(vault: &impl CredentialVault) {
         );
         assert_eq!(disconnected["data"]["health"]["credential"], "MISSING");
     }
+}
+
+fn connected_testnet(
+    cp: &mut ControlPlane,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    workspace: &Value,
+) -> Value {
+    let tested = run(
+        cp,
+        request(
+            "provider.connect",
+            json!({"step":"test","workspaceId":workspace,"providerId":"binance","environment":"TESTNET","label":"Testnet orders"}),
+        ),
+        vault,
+        http,
+    );
+    assert_eq!(tested["ok"], true, "{tested}");
+    let mut confirm = mutation(&tested["data"]);
+    confirm["step"] = "confirm".into();
+    confirm["acknowledgeUnverified"] = true.into();
+    let accepted = call(cp, "provider.connect", confirm);
+    assert_eq!(accepted["ok"], true, "{accepted}");
+    accepted["data"].clone()
+}
+
+fn testnet_proposal(
+    cp: &mut ControlPlane,
+    workspace: &Value,
+    account: &Value,
+    order_type: &str,
+    quantity_type: &str,
+    quantity: &str,
+    tif: &str,
+) -> Value {
+    let mut fields = json!({
+        "accountId":account["connectionId"],"venue":"BINANCE",
+        "environment":"BINANCE_TESTNET","instrumentId":"crypto:BTC/USDT:spot",
+        "side":"BUY","orderType":order_type,
+        "quantity":{"type":quantity_type,"value":quantity},"timeInForce":tif
+    });
+    if order_type == "LIMIT" {
+        fields["limitPrice"] = "100".into();
+    }
+    let draft = call(
+        cp,
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":fields}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = call(
+        cp,
+        "trade.generate_proposal",
+        json!({"workspaceId":workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    call(
+        cp,
+        "trade.proposal.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    )["data"]
+        .clone()
+}
+
+fn testnet_submit_request(workspace: &Value, account: &Value, proposal: &Value) -> Value {
+    request(
+        "binance.testnet.order.submit",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "proposalId":proposal["proposalId"],
+            "expectedProposalStateVersion":proposal["stateVersion"],
+            "proposalHash":proposal["proposalHash"],
+            "idempotencyKey":"testnet-order-1","confirmedTestnetOrder":true
+        }),
+    )
+}
+
+#[test]
+fn testnet_market_quote_submit_persists_once_before_io_and_keeps_ack_separate_from_fill() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let proposal = testnet_proposal(
+        &mut cp, &workspace, &account, "MARKET", "QUOTE", "25", "DAY",
+    );
+    let submit = testnet_submit_request(&workspace, &account, &proposal);
+
+    let forbidden = cp.prepare_provider_for(&submit, "research");
+    assert_eq!(forbidden.err().unwrap().code, "ORDER_SUBMIT_FORBIDDEN");
+    let job = cp.prepare_provider_for(&submit, "main").unwrap().unwrap();
+    let saved = call(
+        &mut cp,
+        "binance.testnet.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(saved["data"]["attempt"]["state"], "SUBMITTING");
+    assert!(
+        http.binance_posts.borrow().is_empty(),
+        "the attempt must commit before provider I/O"
+    );
+
+    let outcome = job.run(
+        &vault,
+        |_| fixtures::credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "ACKNOWLEDGED");
+    assert_eq!(reply["data"]["providerOrderId"], "9007199254740997");
+    assert_eq!(
+        reply["data"].get("fill"),
+        None,
+        "an acknowledgement is not a fill"
+    );
+    assert_eq!(http.binance_posts.borrow().len(), 1);
+    let sent = http.binance_posts.borrow()[0].clone();
+    assert!(sent.contains("quoteOrderQty=25"));
+    assert!(sent.contains("newClientOrderId="));
+    assert!(!sent.contains("quantity="));
+
+    assert!(cp.prepare_provider_for(&submit, "main").unwrap().is_none());
+    assert_eq!(
+        http.binance_posts.borrow().len(),
+        1,
+        "duplicate submission must reuse its saved attempt"
+    );
+    let snapshot = call(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"binance-testnet-order-attempt","aggregateId":reply["data"]["attemptId"]}),
+    );
+    assert_eq!(snapshot["data"]["lastSequence"], 2);
+    let encoded = serde_json::to_string(&reply).unwrap();
+    assert!(!encoded.contains(fixtures::KEY));
+    assert!(!encoded.contains(fixtures::SECRET));
+}
+
+#[test]
+fn unknown_testnet_submit_is_query_only_until_client_order_id_is_found() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let proposal = testnet_proposal(
+        &mut cp, &workspace, &account, "MARKET", "QUOTE", "25", "DAY",
+    );
+    let submit = testnet_submit_request(&workspace, &account, &proposal);
+    http.binance_post_timeout.set(true);
+    http.binance_hide_order_lookup.set(true);
+
+    let unknown = run(&mut cp, submit.clone(), &vault, &http);
+    assert_eq!(unknown["ok"], true, "{unknown}");
+    assert_eq!(unknown["data"]["state"], "UNKNOWN_RECONCILING");
+    assert_eq!(http.binance_posts.borrow().len(), 1);
+    assert!(cp.prepare_provider_for(&submit, "main").unwrap().is_none());
+    assert_eq!(
+        http.binance_posts.borrow().len(),
+        1,
+        "duplicate cannot repeat POST"
+    );
+
+    http.binance_hide_order_lookup.set(false);
+    let reconcile = request(
+        "binance.testnet.order.reconcile",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "proposalId":proposal["proposalId"]
+        }),
+    );
+    let job = cp
+        .prepare_provider_for(&reconcile, "main")
+        .unwrap()
+        .unwrap();
+    let outcome = job.run(
+        &vault,
+        |_| fixtures::credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let recovered = cp.complete_provider(&job, outcome);
+    assert_eq!(recovered["ok"], true, "{recovered}");
+    assert_eq!(recovered["data"]["state"], "ACKNOWLEDGED");
+    assert_eq!(recovered["data"]["providerOrderId"], "9007199254740997");
+    assert_eq!(
+        http.binance_posts.borrow().len(),
+        1,
+        "reconciliation is GET-only"
+    );
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .all(|call| call.starts_with("https://testnet.binance.vision/"))
+    );
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .all(|call| !call.contains("/sapi/"))
+    );
+}
+
+#[test]
+fn testnet_filters_reject_quote_minimum_and_unaligned_base_quantity_before_post() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let quote_proposal = testnet_proposal(
+        &mut cp, &workspace, &account, "MARKET", "QUOTE", "25", "DAY",
+    );
+    *http.binance_exchange_info.borrow_mut() = Some(
+        json!({"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","filters":[{"filterType":"NOTIONAL","minNotional":"30","maxNotional":"0","applyMinToMarket":true,"applyMaxToMarket":false,"avgPriceMins":5}]}]}),
+    );
+    let quote_reply = run(
+        &mut cp,
+        testnet_submit_request(&workspace, &account, &quote_proposal),
+        &vault,
+        &http,
+    );
+    assert_eq!(quote_reply["data"]["state"], "REJECTED", "{quote_reply}");
+    assert_eq!(quote_reply["data"]["errorCode"], "ORDER_FILTER_REJECTED");
+    assert!(http.binance_posts.borrow().is_empty());
+
+    *http.binance_exchange_info.borrow_mut() = Some(
+        json!({"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","filters":[{"filterType":"PRICE_FILTER","minPrice":"0.01","maxPrice":"1000000","tickSize":"0.01"},{"filterType":"LOT_SIZE","minQty":"0.03","maxQty":"9000","stepSize":"0.03"},{"filterType":"NOTIONAL","minNotional":"5","maxNotional":"0","applyMinToMarket":true,"applyMaxToMarket":false,"avgPriceMins":5}]}]}),
+    );
+    let limit_proposal =
+        testnet_proposal(&mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC");
+    let mut limit_submit = testnet_submit_request(&workspace, &account, &limit_proposal);
+    limit_submit["payload"]["idempotencyKey"] = "testnet-order-filter-2".into();
+    let limit_reply = run(&mut cp, limit_submit, &vault, &http);
+    assert_eq!(limit_reply["data"]["state"], "REJECTED", "{limit_reply}");
+    assert_eq!(limit_reply["data"]["errorCode"], "ORDER_FILTER_REJECTED");
+    assert!(
+        http.binance_posts.borrow().is_empty(),
+        "misaligned base quantity is not rounded and posted"
+    );
 }
 
 #[test]

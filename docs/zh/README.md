@@ -22,6 +22,8 @@
 
 原型交互/交付仍为 **NOT PASS**：此次文档修订未修改 HTML/CSS/JS。QA Report 记录实际观察和 QA-01–QA-13 回归场景；QA-13 指出点击式原型没有符合条件账户的永久删除路径，S18 #66 运行时实现证据单独处理。UI Spec §14 定义修复目标。不得将目标写清楚当成原型已修复，也不得因此宣称其他运行时/券商集成通过。既有开放产品决策继续按 PRD 管理。
 
+S19 #68 在 Backend ARD §41.25、Frontend ARD §13.14 和 UI Spec §14.12 增加 Binance Spot Testnet 提交/恢复契约。Fixture 测试覆盖本地 adapter 与持久化状态转换，但不等于 provider-hosted Testnet runtime 验收。点击式原型保持未修改。
+
 ## 术语和同步规则
 
 - Agent Mode 保留 Ask / Research / Backtest / Trade；Execution Context 区分只读/历史模拟与具体 Local Paper / Paper / Demo / Testnet / Live 环境。

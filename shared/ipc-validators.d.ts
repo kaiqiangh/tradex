@@ -60,6 +60,12 @@ declare const validators: {
   BacktestRunState: (value: unknown) => boolean;
   BacktestRunSummary: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
+  BinanceTestnetOrderAttempt: (value: unknown) => boolean;
+  BinanceTestnetOrderAttemptQuery: (value: unknown) => boolean;
+  BinanceTestnetOrderAttemptQueryResult: (value: unknown) => boolean;
+  BinanceTestnetOrderAttemptState: (value: unknown) => boolean;
+  BinanceTestnetOrderReconcile: (value: unknown) => boolean;
+  BinanceTestnetOrderSubmit: (value: unknown) => boolean;
   CapabilityDecision: (value: unknown) => boolean;
   CapabilityLevel: (value: unknown) => boolean;
   CapabilityQuery: (value: unknown) => boolean;

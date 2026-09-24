@@ -79,6 +79,13 @@ pub struct Http {
     pub trading212_order_details: RefCell<HashMap<String, Value>>,
     pub trading212_history_pages: RefCell<HashMap<String, Value>>,
     pub trading212_rate_limit: RefCell<Option<ProviderRateLimit>>,
+    pub binance_posts: RefCell<Vec<String>>,
+    pub binance_post_timeout: Cell<bool>,
+    pub binance_post_status: Cell<Option<u16>>,
+    pub binance_post_response_body: RefCell<Option<Vec<u8>>>,
+    pub binance_order_by_client_id: RefCell<Option<Value>>,
+    pub binance_hide_order_lookup: Cell<bool>,
+    pub binance_exchange_info: RefCell<Option<Value>>,
 }
 impl Default for Http {
     fn default() -> Self {
@@ -125,6 +132,13 @@ impl Default for Http {
             )])),
             trading212_history_pages: RefCell::new(HashMap::new()),
             trading212_rate_limit: RefCell::new(None),
+            binance_posts: RefCell::new(vec![]),
+            binance_post_timeout: Cell::new(false),
+            binance_post_status: Cell::new(None),
+            binance_post_response_body: RefCell::new(None),
+            binance_order_by_client_id: RefCell::new(None),
+            binance_hide_order_lookup: Cell::new(false),
+            binance_exchange_info: RefCell::new(None),
         }
     }
 }
@@ -259,6 +273,69 @@ impl ProviderHttp for Http {
             };
         }
         if endpoint != ProviderEndpoint::AlpacaPaper {
+            if endpoint == ProviderEndpoint::BinanceTestnet {
+                if method == ProviderHttpMethod::Get && path.starts_with("/api/v3/exchangeInfo?") {
+                    assert!(headers.is_empty());
+                    return Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(
+                            &self
+                                .binance_exchange_info
+                                .borrow()
+                                .clone()
+                                .unwrap_or_else(default_binance_exchange_info),
+                        )
+                        .unwrap(),
+                    });
+                }
+                if method == ProviderHttpMethod::Post && path.starts_with("/api/v3/order?") {
+                    let _ = self.get(endpoint, path, headers)?;
+                    self.binance_posts.borrow_mut().push(path.to_owned());
+                    if let Some(status) = self.binance_post_status.get() {
+                        return Ok(ProviderHttpResponse {
+                            status,
+                            body: br#"{"code":-1013,"msg":"synthetic rejection"}"#.to_vec(),
+                        });
+                    }
+                    if let Some(body) = self.binance_post_response_body.borrow_mut().take() {
+                        return Ok(ProviderHttpResponse { status: 200, body });
+                    }
+                    let client_order_id = path
+                        .split('&')
+                        .find_map(|pair| pair.strip_prefix("newClientOrderId="))
+                        .unwrap_or("tradex-fixture-order");
+                    let value = |key: &str| {
+                        path.split('&')
+                            .find_map(|pair| pair.strip_prefix(&format!("{key}=")))
+                            .unwrap_or("")
+                    };
+                    let response = json!({
+                        "symbol":"BTCUSDT","orderId":"9007199254740997",
+                        "clientOrderId":client_order_id,"transactTime":1788849600000u64,
+                        "price":if value("price").is_empty() { "0.00000000" } else { value("price") },
+                        "origQty":if value("quantity").is_empty() { "0.00000000" } else { value("quantity") },
+                        "origQuoteOrderQty":if value("quoteOrderQty").is_empty() { "0.00000000" } else { value("quoteOrderQty") },
+                        "executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000",
+                        "status":"NEW","timeInForce":if value("timeInForce").is_empty() { "GTC" } else { value("timeInForce") },
+                        "type":value("type"),"side":value("side"),"workingTime":1788849600000u64,
+                        "selfTradePreventionMode":"NONE"
+                    });
+                    *self.binance_order_by_client_id.borrow_mut() = Some(response.clone());
+                    if self.binance_post_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    return Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&response).unwrap(),
+                    });
+                }
+                return match (method, body) {
+                    (ProviderHttpMethod::Get, None) => self
+                        .get(endpoint, path, headers)
+                        .map(|body| ProviderHttpResponse { status: 200, body }),
+                    _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+                };
+            }
             return match (method, body) {
                 (ProviderHttpMethod::Get, None) => self
                     .get(endpoint, path, headers)
@@ -460,6 +537,24 @@ impl ProviderHttp for Http {
                 assert!(headers.is_empty());
                 return Ok(br#"{"serverTime":1788849600000}"#.to_vec());
             }
+            if path == "/api/v3/exchangeInfo?symbol=BTCUSDT" {
+                assert!(headers.is_empty());
+                return serde_json::to_vec(
+                    &self
+                        .binance_exchange_info
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(default_binance_exchange_info),
+                )
+                .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            if matches!(
+                path,
+                "/api/v3/ticker/price?symbol=BTCUSDT" | "/api/v3/avgPrice?symbol=BTCUSDT"
+            ) {
+                assert!(headers.is_empty());
+                return Ok(br#"{"symbol":"BTCUSDT","price":"100","mins":5}"#.to_vec());
+            }
             assert_eq!(headers["X-MBX-APIKEY"], KEY);
             assert!(headers["X-MBX-APIKEY"].is_sensitive());
             assert_eq!(headers.len(), 1);
@@ -470,9 +565,8 @@ impl ProviderHttp for Http {
             mac.update(params.as_bytes());
             mac.verify_slice(&hex::decode(sig).unwrap()).unwrap();
             let timestamp = params
-                .strip_prefix("timestamp=")
-                .unwrap()
-                .strip_suffix("&recvWindow=5000")
+                .split('&')
+                .find_map(|pair| pair.strip_prefix("timestamp="))
                 .unwrap()
                 .parse::<u64>()
                 .unwrap();
@@ -483,6 +577,12 @@ impl ProviderHttp for Http {
             return Ok(serde_json::to_vec(&match route {
                 "/api/v3/account"=>json!({"uid":9007199254740993u64,"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"测试币","free":"0.1","locked":"0.2"}]}),
                 "/api/v3/openOrders"=>json!([{"symbol":"BTCUSDT","orderId":9007199254740995u64,"side":"BUY","status":"NEW","price":"100.2","origQty":"0.1","executedQty":"0","origQuoteOrderQty":"0"},{"symbol":"测试币USDT","orderId":9007199254740995u64,"side":"SELL","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","executedQty":"0.1","origQuoteOrderQty":"0"}]),
+                "/api/v3/order" => {
+                    let lookup = path.split('&').find_map(|pair| pair.strip_prefix("origClientOrderId="));
+                    self.binance_order_by_client_id.borrow().clone()
+                        .filter(|order| !self.binance_hide_order_lookup.get() && lookup == order["clientOrderId"].as_str())
+                        .unwrap_or(Value::Null)
+                },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
                     json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":true,"enableWithdrawals":false,"enableInternalTransfer":false,"enableMargin":false,"enableFutures":false,"permitsUniversalTransfer":false,"enableVanillaOptions":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":false})
@@ -575,4 +675,8 @@ impl ProviderHttp for Http {
         };
         Ok(serde_json::to_vec(&response).unwrap())
     }
+}
+
+fn default_binance_exchange_info() -> Value {
+    json!({"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","filters":[{"filterType":"PRICE_FILTER","minPrice":"0.01","maxPrice":"1000000","tickSize":"0.01"},{"filterType":"LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"MARKET_LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"NOTIONAL","minNotional":"5","maxNotional":"0","applyMinToMarket":true,"applyMaxToMarket":false,"avgPriceMins":5}]}]})
 }

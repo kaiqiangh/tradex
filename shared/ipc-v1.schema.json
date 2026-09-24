@@ -112,6 +112,21 @@
     "backtestRunSummary": {
       "$ref": "#/$defs/BacktestRunSummary"
     },
+    "binanceTestnetOrderAttempt": {
+      "$ref": "#/$defs/BinanceTestnetOrderAttempt"
+    },
+    "binanceTestnetOrderAttemptQuery": {
+      "$ref": "#/$defs/BinanceTestnetOrderAttemptQuery"
+    },
+    "binanceTestnetOrderAttemptQueryResult": {
+      "$ref": "#/$defs/BinanceTestnetOrderAttemptQueryResult"
+    },
+    "binanceTestnetOrderReconcile": {
+      "$ref": "#/$defs/BinanceTestnetOrderReconcile"
+    },
+    "binanceTestnetOrderSubmit": {
+      "$ref": "#/$defs/BinanceTestnetOrderSubmit"
+    },
     "capabilityQuery": {
       "$ref": "#/$defs/CapabilityQuery"
     },
@@ -438,6 +453,11 @@
     "alpacaPaperOrderBook",
     "alpacaPaperOrder",
     "alpacaPaperFill",
+    "binanceTestnetOrderSubmit",
+    "binanceTestnetOrderAttemptQuery",
+    "binanceTestnetOrderAttemptQueryResult",
+    "binanceTestnetOrderReconcile",
+    "binanceTestnetOrderAttempt",
     "artifactSave",
     "artifactQuery",
     "artifactExport",
@@ -2923,6 +2943,242 @@
         "available"
       ]
     },
+    "BinanceTestnetOrderAttempt": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "clientOrderId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "const": "TESTNET"
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/BinanceTestnetOrderAttemptState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attemptId",
+        "workspaceId",
+        "connectionId",
+        "remoteAccountId",
+        "proposalId",
+        "proposalHash",
+        "environment",
+        "clientOrderId",
+        "state",
+        "reason",
+        "stateVersion",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BinanceTestnetOrderAttemptQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "BinanceTestnetOrderAttemptQueryResult": {
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceTestnetOrderAttempt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "BinanceTestnetOrderAttemptState": {
+      "type": "string",
+      "enum": [
+        "SUBMITTING",
+        "ACKNOWLEDGED",
+        "UNKNOWN_RECONCILING",
+        "REJECTED"
+      ]
+    },
+    "BinanceTestnetOrderReconcile": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "proposalId"
+      ]
+    },
+    "BinanceTestnetOrderSubmit": {
+      "type": "object",
+      "properties": {
+        "confirmedTestnetOrder": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedProposalStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "proposalId",
+        "expectedProposalStateVersion",
+        "proposalHash",
+        "idempotencyKey",
+        "confirmedTestnetOrder"
+      ]
+    },
     "CapabilityDecision": {
       "type": "object",
       "properties": {
@@ -3559,7 +3815,8 @@
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
-            "alpaca-paper-order-book"
+            "alpaca-paper-order-book",
+            "binance-testnet-order-attempt"
           ]
         },
         "eventId": {
@@ -3580,7 +3837,8 @@
             "trading212.demo.order.attempt.changed",
             "trading212.demo.order.book.changed",
             "alpaca.paper.order.attempt.changed",
-            "alpaca.paper.order.book.changed"
+            "alpaca.paper.order.book.changed",
+            "binance.testnet.order.attempt.changed"
           ]
         },
         "occurredAt": {
@@ -3642,6 +3900,9 @@
         },
         {
           "$ref": "#/$defs/AlpacaPaperOrderBook"
+        },
+        {
+          "$ref": "#/$defs/BinanceTestnetOrderAttempt"
         },
         {
           "$ref": "#/$defs/Trading212DemoOrderBook"
@@ -7227,6 +7488,12 @@
           "$ref": "#/$defs/AlpacaPaperOrderBookQueryResult"
         },
         {
+          "$ref": "#/$defs/BinanceTestnetOrderAttempt"
+        },
+        {
+          "$ref": "#/$defs/BinanceTestnetOrderAttemptQueryResult"
+        },
+        {
           "$ref": "#/$defs/PaperOrderResult"
         },
         {
@@ -8792,7 +9059,8 @@
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
-            "alpaca-paper-order-book"
+            "alpaca-paper-order-book",
+            "binance-testnet-order-attempt"
           ]
         },
         "lastSequence": {
@@ -9443,7 +9711,8 @@
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
-            "alpaca-paper-order-book"
+            "alpaca-paper-order-book",
+            "binance-testnet-order-attempt"
           ]
         },
         "lastSequence": {
@@ -11270,7 +11539,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 19,
+          "maximum": 20,
           "minimum": 1
         },
         "workspaceId": {

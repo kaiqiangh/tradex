@@ -880,3 +880,9 @@ QA Report 的 QA-01–QA-13 是本章细化要求的最低回归集合。通过�
 Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection state=`FAILED` 或 `DISCONNECTED` 且 credential health=`MISSING` 时提供“删除本地账户”。打开原生 accessible confirmation dialog，通过完整 connection ID、账户 label、provider 和 environment 明确标识捕获的准确记录，并说明会永久删除 TradeX 本地账户详情与账户/订单簿观察。明确说明不会向 Trading 212 发请求、不会撤销 provider key 或取消 provider order，也不改变其他任何账户。初始焦点位于 Cancel；dialog 限制键盘焦点，Escape/Cancel 不发送 command。失败时显示后端拒绝/存储结果且保持可操作；成功后播报完成、刷新列表/上下文、移除已删除详情，并将焦点还给触发控件或 Account connections 标题。验证 390 px 与 768 px 布局。
 
 该 UI 仅调用版本 1 的 `account.delete`，携带 workspace、准确 connection ID 与预期 state version。不发送 Keychain 引用，也不调用 provider I/O。后端独立检查删除资格与未解决金融活动；`ACKNOWLEDGED` attempt 在其准确关联订单获得持久化且已识别的终态观察、`pending: false` 前仍属未解决。点击原型证据必须与运行时集成证据分开。
+
+## 14.12 Binance Spot Testnet 提交与恢复（S19 #68）
+
+对 `BINANCE_TESTNET` Proposal，使用明确的 Binance Spot Testnet 确认框，展示捕获的账户 label、完整 connection ID 与远端账户 ID，以及准确不可变 Proposal/hash、instrument、方向、数量类型/数值、订单类型、有效期、限价、maximum spend 和 venue。确认后重新验证同一已连接的 `TESTNET` identity 与 Proposal。身份或 Proposal 已变化时返回审阅；界面绝不转到 Live。
+
+提交后区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 和 `REJECTED`。Acknowledgement 表示 provider 接受，不是 fill。重复激活和重新打开都读取已保存 attempt，不能再发第二个 POST。未知结果保持冻结并禁用重提，只允许显式查询其已保存 client order ID；查无结果时仍保持 unknown。不支持的订单形式或 provider filter 必须明确说明，不能强行映射/舍入 Proposal。对话框遵循 §14.9 的键盘/焦点契约。在 390、768、1280 px 检查账户 identity、状态和控件；原型 fixture 证据与 provider runtime 证据分开。

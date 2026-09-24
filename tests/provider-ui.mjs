@@ -444,6 +444,82 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await ui.getByText('More', { exact: true }).press('Enter');
       await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    } else if (selection === 'binance/TESTNET') {
+      const isolatedWorkspaceId = await ui.locator('.context .identity').innerText();
+      await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+      const editor = ui.locator('.order-draft-editor');
+      await editor.getByRole('combobox', { name: 'Account', exact: true }).selectOption(existingValue);
+      await editor.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('crypto:BTC/USDT:spot');
+      await editor.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('MARKET');
+      await editor.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('QUOTE');
+      await editor.getByRole('textbox', { name: 'Quantity', exact: true }).fill('25');
+      const selectedValues = await ui.evaluate(() => Array.from(document.querySelectorAll('.order-draft-editor select')).map(select => select.value));
+      assert.equal(selectedValues[0], 'BINANCE_TESTNET');
+      assert.equal(selectedValues[3], 'BINANCE');
+      await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+      const proposalRow = ui.locator('.order-proposal-row').first();
+      const proposalId = (await proposalRow.innerText()).split('\n')[1].split('·')[1].trim();
+      const submit = ui.getByRole('button', { name: 'Submit Binance Spot Testnet order', exact: true });
+      await submit.waitFor({ state: 'visible' });
+      await submit.press('Enter');
+      const dialog = ui.getByRole('dialog', { name: 'Confirm Binance Spot Testnet submission', exact: true });
+      await dialog.waitFor({ state: 'visible' });
+      const review = await dialog.innerText();
+      assert.match(review, /This sends one order to Binance Spot Testnet only/);
+      assert.ok(review.includes(label));
+      assert.match(review, /9007199254740993/);
+      assert.match(review, /crypto:BTC\/USDT:spot · BUY/);
+      assert.match(review, /25 QUOTE · MARKET · DAY/);
+      assert.match(review, /BINANCE · BINANCE_TESTNET/);
+      assert.match(review, /Proposal \/ hash[\s\S]*sha256:/);
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
+      assert.equal(await dialog.isVisible(), false, 'Dismissing review must not submit a provider order');
+      assert.equal((await sendIntegrationCommand('binance.testnet.order.attempt.get', {
+        workspaceId: isolatedWorkspaceId, proposalId,
+      })).data.attempt, null, 'Dismissing confirmation must leave SQLite without an order attempt');
+      assert.equal(await submit.isVisible(), true);
+      observed.push('The real Trade UI builds a Binance Testnet Proposal; its exact account, remote identity, symbol, quote quantity, order type, TIF and hash are reviewed, and dismissal creates no SQLite attempt.');
+
+      await submit.press('Enter');
+      await dialog.waitFor({ state: 'visible' });
+      for (const width of [768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Binance Testnet confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      await ui.getByRole('button', { name: 'Confirm Binance Testnet submit', exact: true }).press('Enter');
+      const attempt = ui.getByRole('region', { name: 'Binance Spot Testnet order attempt', exact: true });
+      await attempt.getByText('Binance Spot Testnet · TESTNET · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.match(await attempt.innerText(), /9007199254740993/);
+      assert.match(await attempt.innerText(), /Provider order 9007199254740997 · provider status NEW/);
+      assert.match(await attempt.innerText(), /Binance acknowledged the order\. This is not fill evidence\./);
+      assert.equal(await attempt.locator('p').evaluateAll(elements => elements.some(element => element.textContent?.startsWith('Fill '))), false);
+      assert.equal(await ui.getByRole('button', { name: 'Submit Binance Spot Testnet order', exact: true }).count(), 0);
+      observed.push('Explicit confirmation traverses the Rust IPC/provider fixture and persists one ACKNOWLEDGED SQLite attempt; the UI keeps provider acknowledgement separate from fills.');
+
+      await viewport.set({ width: 1280, height: 900 });
+      await tab.reload();
+      await tab.getAXState();
+      await (await waitForButton('Order Drafts')).press('Enter');
+      await ui.locator('.order-proposal-row').first().waitFor({ state: 'visible' });
+      await ui.locator('.order-proposal-row').first().press('Enter');
+      await ui.getByRole('region', { name: 'Binance Spot Testnet order attempt', exact: true })
+        .getByText('Binance Spot Testnet · TESTNET · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await ui.getByRole('button', { name: 'Submit Binance Spot Testnet order', exact: true }).count(), 0);
+      for (const width of [1280, 768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Binance Testnet Proposal overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      observed.push('Reload recovers the saved Testnet attempt and removes the submit action, preventing a second UI write.');
+      await viewport.set({ width: 1280, height: 900 });
+      await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     }
 
     for (const width of [768, 390]) {

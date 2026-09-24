@@ -20,6 +20,8 @@ The 2026-09-05 documentation revision clarifies expiry/reservation rules, Gatewa
 
 Prototype interaction/handoff remains **NOT PASS**: HTML/CSS/JS were not changed in this documentation revision. QA-13 records that the clickable prototype has no permanent eligible-account removal path; S18 #66 runtime implementation evidence is separate. Use the QA Report for observations and the UI Spec for intended behavior. This does not certify other broker/runtime integrations or close existing open product decisions.
 
+S19 #68 adds a Binance Spot Testnet submission/recovery contract in Backend ARD §41.25, Frontend ARD §13.14, and UI Spec §14.12. Fixture tests exercise the local adapter and durable state transitions; they do not establish provider-hosted Testnet runtime evidence. The clickable prototype remains unchanged.
+
 ## Chinese synchronized set
 
 [Chinese index](./zh/README.md) links all six English/Chinese document pairs: PRD, UI Spec, frontend/backend ARDs, Coverage Matrix, and QA Report. [Chinese prototype guide](./prototype/README_zh.md) accompanies the same fixture.

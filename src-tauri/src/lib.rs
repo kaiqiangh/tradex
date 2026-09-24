@@ -38,6 +38,8 @@ use protocol::{
     ArtifactQuery, ArtifactSave, BacktestCancel, BacktestCompareRequest, BacktestComparison,
     BacktestCurveSummary, BacktestFailure, BacktestFieldDifference, BacktestMetricComparison,
     BacktestMetricDelta, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestRunState,
+    BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult,
+    BinanceTestnetOrderAttemptState, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit,
     CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection, EmptyPayload, EventSink,
     MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier, OpenWorkspace, PaperOrderSubmit,
     PortfolioQuery, ResearchFinding, ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus,
@@ -978,6 +980,19 @@ impl ControlPlane {
                     .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?;
                 Ok((json!(AlpacaPaperOrderAttemptQueryResult { attempt }), None))
             }
+            "binance.testnet.order.attempt.get" => {
+                let input: BinanceTestnetOrderAttemptQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .binance_testnet_order_attempt(&input.workspace_id, &input.proposal_id)?;
+                Ok((
+                    json!(BinanceTestnetOrderAttemptQueryResult { attempt }),
+                    None,
+                ))
+            }
             "alpaca.paper.orders.get" => {
                 let input: AlpacaPaperOrderBookQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -1028,6 +1043,42 @@ impl ControlPlane {
                     .unwrap()
                     .alpaca_paper_order_attempt(&input.workspace_id, &input.proposal_id)?
                     .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+                Ok((json!(attempt), Some(attempt.state_version.clone())))
+            }
+            "binance.testnet.order.submit" | "binance.testnet.order.reconcile" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+                }
+                let (workspace_id, connection_id, proposal_id, proposal_hash) =
+                    if request.command == "binance.testnet.order.submit" {
+                        let input: BinanceTestnetOrderSubmit = payload(request.payload)?;
+                        (
+                            input.workspace_id,
+                            input.connection_id,
+                            input.proposal_id,
+                            input.proposal_hash,
+                        )
+                    } else {
+                        let input: BinanceTestnetOrderReconcile = payload(request.payload)?;
+                        (
+                            input.workspace_id,
+                            input.connection_id,
+                            input.proposal_id,
+                            String::new(),
+                        )
+                    };
+                self.require_workspace(&workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .binance_testnet_order_attempt(&workspace_id, &proposal_id)?
+                    .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+                if attempt.connection_id != connection_id
+                    || (!proposal_hash.is_empty() && attempt.proposal_hash != proposal_hash)
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
                 Ok((json!(attempt), Some(attempt.state_version.clone())))
             }
             "paper.order.submit" => {
@@ -3942,6 +3993,12 @@ impl ControlPlane {
             "alpaca.paper.order.reconcile" => {
                 return self.prepare_alpaca_paper_order_reconcile(request, consumer);
             }
+            "binance.testnet.order.submit" => {
+                return self.prepare_binance_testnet_order_submit(request, consumer);
+            }
+            "binance.testnet.order.reconcile" => {
+                return self.prepare_binance_testnet_order_reconcile(request, consumer);
+            }
             "alpaca.paper.orders.refresh" => {
                 return self.prepare_alpaca_paper_order_book_refresh(request, consumer);
             }
@@ -4019,6 +4076,8 @@ impl ControlPlane {
             alpaca_order_book: None,
             alpaca_order_id: None,
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4111,6 +4170,8 @@ impl ControlPlane {
             alpaca_order_book: None,
             alpaca_order_id: None,
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4188,6 +4249,8 @@ impl ControlPlane {
             alpaca_order_book: None,
             alpaca_order_id: None,
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4240,6 +4303,132 @@ impl ControlPlane {
             alpaca_order_book: None,
             alpaca_order_id: None,
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
+        }))
+    }
+
+    fn prepare_binance_testnet_order_submit(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: BinanceTestnetOrderSubmit = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "binance" || account.environment != "TESTNET" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if let Some(existing) = self
+            .store
+            .as_ref()
+            .unwrap()
+            .binance_testnet_order_attempt(&input.workspace_id, &input.proposal_id)?
+        {
+            if existing.connection_id != input.connection_id
+                || existing.proposal_hash != input.proposal_hash
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            return Ok(None);
+        }
+        let proposal = self
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&input.proposal_id)?;
+        if proposal.workspace_id != input.workspace_id
+            || proposal.proposal_hash != input.proposal_hash
+            || proposal.state_version != input.expected_proposal_state_version
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        provider_io::validate_binance_testnet_proposal(&proposal, &account.connection_id)?;
+        let (attempt, created) = self
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_binance_testnet_order_attempt(&input)?;
+        if !created {
+            return Ok(None);
+        }
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::BinanceTestnetSubmit,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+            binance_testnet_attempt: Some(attempt),
+            binance_testnet_proposal: Some(proposal),
+        }))
+    }
+
+    fn prepare_binance_testnet_order_reconcile(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: BinanceTestnetOrderReconcile = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "binance" || account.environment != "TESTNET" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let attempt = self
+            .store
+            .as_ref()
+            .unwrap()
+            .binance_testnet_order_attempt(&input.workspace_id, &input.proposal_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+        if attempt.connection_id != account.connection_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if attempt.state != BinanceTestnetOrderAttemptState::UnknownReconciling {
+            return Ok(None);
+        }
+        let proposal = self
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&input.proposal_id)?;
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::BinanceTestnetReconcile,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+            binance_testnet_attempt: Some(attempt),
+            binance_testnet_proposal: Some(proposal),
         }))
     }
 
@@ -4286,6 +4475,8 @@ impl ControlPlane {
             alpaca_order_book: Some(book),
             alpaca_order_id: None,
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4354,6 +4545,8 @@ impl ControlPlane {
             alpaca_order_book: None,
             alpaca_order_id: None,
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4399,6 +4592,8 @@ impl ControlPlane {
             alpaca_order_book: None,
             alpaca_order_id: None,
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4447,6 +4642,8 @@ impl ControlPlane {
             alpaca_order_book: Some(book),
             alpaca_order_id: Some(input.provider_order_id),
             alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4490,6 +4687,8 @@ impl ControlPlane {
             alpaca_order_book: Some(book),
             alpaca_order_id: Some(input.provider_order_id),
             alpaca_expected_order: Some(reviewed),
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
         }))
     }
 
@@ -4683,6 +4882,46 @@ impl ControlPlane {
     }
 
     pub fn complete_provider(&mut self, job: &ProviderJob, outcome: ProviderOutcome) -> Value {
+        if matches!(
+            job.kind,
+            JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
+        ) {
+            if job.session != self.session {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("STATE_VERSION_CONFLICT"),
+                );
+            }
+            let attempt = outcome.binance_testnet_attempt.or_else(|| {
+                job.binance_testnet_attempt.clone().map(|mut attempt| {
+                    attempt.state = BinanceTestnetOrderAttemptState::UnknownReconciling;
+                    attempt.error_code = Some("ORDER_STATUS_UNKNOWN".into());
+                    attempt.reason = "Provider outcome was unavailable. Query the saved client order ID before taking any further action.".into();
+                    attempt
+                })
+            });
+            let Some(attempt) = attempt else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"),
+                );
+            };
+            return match self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_binance_testnet_order_attempt(&attempt)
+            {
+                Ok(attempt) => json!({
+                    "requestId":job.request_id,
+                    "schemaVersion":1,
+                    "ok":true,
+                    "stateVersion":attempt.state_version,
+                    "data":attempt
+                }),
+                Err(error) => failure_reply(job.request_id.clone(), error),
+            };
+        }
         if job.kind == JobKind::Trading212DemoSubmit {
             if job.session != self.session {
                 return failure_reply(
@@ -6704,6 +6943,9 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute("DROP TABLE trading212_demo_order_books", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE binance_testnet_order_attempts", [])
             .unwrap();
         migration_database
             .pragma_update(None, "user_version", 8)

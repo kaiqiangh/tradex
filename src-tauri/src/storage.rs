@@ -28,10 +28,11 @@ use crate::protocol::{
     AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit, Artifact,
     ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
     ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
-    BacktestRunState, BacktestRunSummary, DomainEvent, DomainProjection, EventSink,
-    ExecutionContext, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder,
-    LocalPaperState, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary,
-    OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
+    BacktestRunState, BacktestRunSummary, BinanceTestnetOrderAttempt,
+    BinanceTestnetOrderAttemptState, BinanceTestnetOrderSubmit, DomainEvent, DomainProjection,
+    EventSink, ExecutionContext, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill,
+    LocalPaperOrder, LocalPaperState, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields,
+    OrderDraftLibrary, OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
     OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
     OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
     OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult,
@@ -49,7 +50,7 @@ use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 19;
+pub(crate) const SCHEMA_VERSION: u32 = 20;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -458,6 +459,25 @@ impl Store {
                 CREATE INDEX trading212_demo_order_books_connection ON trading212_demo_order_books(connection_id);
                 PRAGMA user_version=19;").map_err(storage_error)?;
             }
+            if version < 20 {
+                tx.execute_batch("CREATE TABLE binance_testnet_order_attempts (
+                    workspace_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    connection_id TEXT NOT NULL,
+                    proposal_id TEXT NOT NULL,
+                    client_order_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    state TEXT NOT NULL CHECK(state IN ('SUBMITTING','ACKNOWLEDGED','UNKNOWN_RECONCILING','REJECTED')),
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,attempt_id),
+                    UNIQUE(workspace_id,proposal_id),
+                    UNIQUE(workspace_id,idempotency_key),
+                    UNIQUE(connection_id,client_order_id)
+                );
+                CREATE INDEX binance_testnet_attempts_connection_state ON binance_testnet_order_attempts(connection_id,state);
+                PRAGMA user_version=20;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -484,6 +504,7 @@ impl Store {
         store.recover_interrupted_trading212_demo_attempts()?;
         store.recover_interrupted_trading212_demo_cancels()?;
         store.recover_interrupted_alpaca_paper_attempts()?;
+        store.recover_interrupted_binance_testnet_attempts()?;
         store.recover_interrupted_alpaca_paper_cancels()?;
         Ok(store)
     }
@@ -719,6 +740,61 @@ impl Store {
         Ok(())
     }
 
+    fn recover_interrupted_binance_testnet_attempts(&mut self) -> Result<()> {
+        let mut query = self.connection.prepare(
+            "SELECT workspace_id,attempt_id,sequence,projection FROM binance_testnet_order_attempts WHERE state='SUBMITTING'",
+        ).map_err(storage_error)?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let attempts = rows
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(query);
+        for (workspace_id, attempt_id, sequence, projection) in attempts {
+            if sequence < 1 || sequence >= MAX_SEQUENCE as i64 {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let mut attempt: BinanceTestnetOrderAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if attempt.attempt_id != attempt_id
+                || attempt.workspace_id != workspace_id
+                || attempt.state != BinanceTestnetOrderAttemptState::Submitting
+                || attempt.environment != "TESTNET"
+                || attempt.state_version
+                    != format!("binance-testnet-attempt:{attempt_id}:{sequence}")
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            attempt.state = BinanceTestnetOrderAttemptState::UnknownReconciling;
+            attempt.error_code = Some("ORDER_STATUS_UNKNOWN".into());
+            attempt.reason = "The workspace reopened during submission. Query Binance Spot Testnet by client order ID; do not resubmit.".into();
+            attempt.updated_at = timestamp()?;
+            let next = sequence + 1;
+            attempt.state_version = format!("binance-testnet-attempt:{attempt_id}:{next}");
+            let tx = self
+                .connection
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(storage_error)?;
+            let updated = tx.execute(
+                "UPDATE binance_testnet_order_attempts SET sequence=?1,state='UNKNOWN_RECONCILING',projection=?2 WHERE workspace_id=?3 AND attempt_id=?4 AND sequence=?5 AND state='SUBMITTING'",
+                params![next, serde_json::to_string(&attempt).map_err(storage_error)?, workspace_id, attempt_id, sequence],
+            ).map_err(storage_error)?;
+            if updated == 1 {
+                write_binance_testnet_attempt_event(&tx, &attempt, next)?;
+            }
+            tx.commit().map_err(storage_error)?;
+        }
+        Ok(())
+    }
+
     pub fn record_open(&mut self) -> Result<DomainEvent> {
         let tx = self
             .connection
@@ -838,6 +914,9 @@ impl Store {
                     }
                     "alpaca-paper-order-attempt" => {
                         event.event_type != "alpaca.paper.order.attempt.changed"
+                    }
+                    "binance-testnet-order-attempt" => {
+                        event.event_type != "binance.testnet.order.attempt.changed"
                     }
                     "alpaca-paper-order-book" => {
                         event.event_type != "alpaca.paper.order.book.changed"
@@ -1822,6 +1901,33 @@ impl Store {
                 aggregate_type: kind.into(),
                 aggregate_id: id.into(),
                 projection: DomainProjection::AlpacaPaperOrderAttempt(Box::new(attempt)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "binance-testnet-order-attempt" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, proposal_id, projection): (i64, String, String) = self.connection
+                .query_row(
+                    "SELECT sequence,proposal_id,projection FROM binance_testnet_order_attempts WHERE workspace_id=?1 AND attempt_id=?2",
+                    params![workspace_id, id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else { storage_error(error) })?;
+            let attempt: BinanceTestnetOrderAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || load_binance_testnet_attempt(&self.connection, &workspace_id, &proposal_id)?
+                    .as_ref()
+                    != Some(&attempt)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::BinanceTestnetOrderAttempt(Box::new(attempt)),
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
@@ -3549,6 +3655,18 @@ impl Store {
         load_alpaca_paper_attempt(&self.connection, workspace_id, proposal_id)
     }
 
+    pub fn binance_testnet_order_attempt(
+        &self,
+        workspace_id: &str,
+        proposal_id: &str,
+    ) -> Result<Option<BinanceTestnetOrderAttempt>> {
+        if self.workspace_id()? != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(proposal_id)?;
+        load_binance_testnet_attempt(&self.connection, workspace_id, proposal_id)
+    }
+
     pub fn trading212_demo_order_attempt(
         &self,
         workspace_id: &str,
@@ -4423,6 +4541,247 @@ impl Store {
         write_alpaca_paper_attempt_event(&tx, &attempt, 1)?;
         tx.commit().map_err(storage_error)?;
         Ok((attempt, true))
+    }
+
+    pub fn begin_binance_testnet_order_attempt(
+        &mut self,
+        input: &BinanceTestnetOrderSubmit,
+    ) -> Result<(BinanceTestnetOrderAttempt, bool)> {
+        let workspace_id = self.workspace_id()?;
+        if input.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(&input.proposal_id)?;
+        if !input.confirmed_testnet_order
+            || !valid_order_text(&input.expected_connection_state_version, 256)
+            || !valid_order_text(&input.expected_proposal_state_version, 256)
+            || !valid_order_text(&input.idempotency_key, 128)
+            || !valid_proposal_hash(&input.proposal_hash)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        if let Some(existing) =
+            load_binance_testnet_attempt(&tx, &workspace_id, &input.proposal_id)?
+        {
+            if existing.connection_id != input.connection_id
+                || existing.proposal_hash != input.proposal_hash
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            tx.commit().map_err(storage_error)?;
+            return Ok((existing, false));
+        }
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&input.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.state_version != input.expected_connection_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if account.provider_id != "binance" || account.environment != "TESTNET" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.connection != "ONLINE"
+            || account.health.authentication != "VALID"
+            || account.health.credential != "CONFIGURED"
+            || account.blocked_permissions()
+            || (account.permissions.scope == "UNVERIFIED" && !account.permissions.acknowledged)
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let remote_account_id = account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.clone())
+            .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+        let (row_workspace_id, draft_id, draft_version, proposal_hash, sequence, projection): (
+            String, String, i64, String, i64, String
+        ) = tx.query_row(
+            "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 AND proposal_id=?2",
+            params![workspace_id, input.proposal_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+        ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+            TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
+        } else { storage_error(error) })?;
+        let stored = decode_stored_order_proposal(
+            &projection,
+            &input.proposal_id,
+            &row_workspace_id,
+            &draft_id,
+            draft_version,
+            &proposal_hash,
+            sequence,
+            &workspace_id,
+        )?;
+        let proposal = materialize_order_proposal(&tx, stored)?;
+        if proposal.proposal_hash != input.proposal_hash
+            || proposal.state_version != input.expected_proposal_state_version
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if proposal.status != OrderProposalStatus::NeedsApproval
+            || proposal.fields.environment != ExecutionContext::BinanceTestnet
+            || proposal.fields.account_id.as_deref() != Some(input.connection_id.as_str())
+        {
+            return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
+        }
+        crate::provider_io::validate_binance_testnet_proposal(&proposal, &input.connection_id)?;
+        let unresolved: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM binance_testnet_order_attempts WHERE connection_id=?1 AND state IN ('SUBMITTING','UNKNOWN_RECONCILING'))",
+            [&input.connection_id],
+            |row| row.get(0),
+        ).map_err(storage_error)?;
+        if unresolved {
+            return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+        }
+        let consumed_sequence = (proposal.history.len() as i64)
+            .checked_add(1)
+            .filter(|value| *value <= 32)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let now = timestamp()?;
+        let attempt_id = Uuid::new_v4().to_string();
+        let attempt = BinanceTestnetOrderAttempt {
+            attempt_id: attempt_id.clone(),
+            workspace_id: workspace_id.clone(),
+            connection_id: input.connection_id.clone(),
+            remote_account_id,
+            proposal_id: input.proposal_id.clone(),
+            proposal_hash: input.proposal_hash.clone(),
+            environment: "TESTNET".into(),
+            client_order_id: format!(
+                "tx-{}",
+                Uuid::parse_str(&attempt_id)
+                    .map_err(storage_error)?
+                    .simple()
+            ),
+            state: BinanceTestnetOrderAttemptState::Submitting,
+            provider_order_id: None,
+            provider_status: None,
+            error_code: None,
+            reason: "Submitting to Binance Spot Testnet; provider status is pending.".into(),
+            state_version: format!("binance-testnet-attempt:{attempt_id}:1"),
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        };
+        tx.execute(
+            "INSERT INTO order_proposal_events(proposal_id,workspace_id,sequence,event,reason,occurred_at) VALUES(?1,?2,?3,'CONSUMED',?4,?5)",
+            params![input.proposal_id, workspace_id, consumed_sequence, "Binance Testnet submission attempt persisted.", now],
+        ).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO binance_testnet_order_attempts(workspace_id,attempt_id,connection_id,proposal_id,client_order_id,idempotency_key,sequence,state,projection) VALUES(?1,?2,?3,?4,?5,?6,1,'SUBMITTING',?7)",
+            params![workspace_id, attempt_id, input.connection_id, input.proposal_id, attempt.client_order_id, input.idempotency_key, serde_json::to_string(&attempt).map_err(storage_error)?],
+        ).map_err(|error| if error.to_string().contains("UNIQUE") {
+            TradeXError::new("ORDER_PROPOSAL_CONSUMED")
+        } else { storage_error(error) })?;
+        write_binance_testnet_attempt_event(&tx, &attempt, 1)?;
+        tx.commit().map_err(storage_error)?;
+        Ok((attempt, true))
+    }
+
+    pub fn complete_binance_testnet_order_attempt(
+        &mut self,
+        result: &BinanceTestnetOrderAttempt,
+    ) -> Result<BinanceTestnetOrderAttempt> {
+        let workspace_id = self.workspace_id()?;
+        if result.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (sequence, projection): (i64, String) = tx.query_row(
+            "SELECT sequence,projection FROM binance_testnet_order_attempts WHERE workspace_id=?1 AND attempt_id=?2 AND connection_id=?3 AND proposal_id=?4",
+            params![workspace_id, result.attempt_id, result.connection_id, result.proposal_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+            TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+        } else { storage_error(error) })?;
+        let current: BinanceTestnetOrderAttempt = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if current.attempt_id != result.attempt_id
+            || current.client_order_id != result.client_order_id
+            || current.proposal_hash != result.proposal_hash
+            || current.remote_account_id != result.remote_account_id
+            || current.environment != "TESTNET"
+            || result.environment != "TESTNET"
+            || sequence < 1
+            || sequence >= MAX_SEQUENCE as i64
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        if current.state == BinanceTestnetOrderAttemptState::Acknowledged
+            && result.state != BinanceTestnetOrderAttemptState::Acknowledged
+        {
+            tx.commit().map_err(storage_error)?;
+            return Ok(current);
+        }
+        if !matches!(
+            (current.state, result.state),
+            (
+                BinanceTestnetOrderAttemptState::Submitting,
+                BinanceTestnetOrderAttemptState::Acknowledged
+                    | BinanceTestnetOrderAttemptState::UnknownReconciling
+                    | BinanceTestnetOrderAttemptState::Rejected
+            ) | (
+                BinanceTestnetOrderAttemptState::UnknownReconciling,
+                BinanceTestnetOrderAttemptState::Acknowledged
+                    | BinanceTestnetOrderAttemptState::UnknownReconciling
+            )
+        ) {
+            return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+        }
+        let mut next = result.clone();
+        next.updated_at = timestamp()?;
+        next.state_version = format!(
+            "binance-testnet-attempt:{}:{}",
+            next.attempt_id,
+            sequence + 1
+        );
+        if next.reason.is_empty()
+            || next.reason.len() > 256
+            || next.reason.chars().any(char::is_control)
+            || next
+                .error_code
+                .as_deref()
+                .is_some_and(|value| !valid_order_text(value, 64))
+            || next
+                .provider_status
+                .as_deref()
+                .is_some_and(|value| !valid_order_text(value, 64))
+            || next.provider_order_id.as_deref().is_some_and(|value| {
+                value.is_empty()
+                    || value.len() > 20
+                    || !value.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        {
+            return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+        }
+        let encoded = serde_json::to_string(&next).map_err(storage_error)?;
+        tx.execute(
+            "UPDATE binance_testnet_order_attempts SET sequence=?1,state=?2,projection=?3 WHERE workspace_id=?4 AND attempt_id=?5 AND sequence=?6",
+            params![sequence + 1, binance_attempt_state_name(next.state), encoded, workspace_id, next.attempt_id, sequence],
+        ).map_err(storage_error)?;
+        write_binance_testnet_attempt_event(&tx, &next, sequence + 1)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(next)
     }
 
     pub fn complete_alpaca_paper_order_attempt(
@@ -5931,6 +6290,47 @@ fn write_alpaca_paper_attempt_event(
     Ok(())
 }
 
+fn binance_attempt_state_name(state: BinanceTestnetOrderAttemptState) -> &'static str {
+    match state {
+        BinanceTestnetOrderAttemptState::Submitting => "SUBMITTING",
+        BinanceTestnetOrderAttemptState::Acknowledged => "ACKNOWLEDGED",
+        BinanceTestnetOrderAttemptState::UnknownReconciling => "UNKNOWN_RECONCILING",
+        BinanceTestnetOrderAttemptState::Rejected => "REJECTED",
+    }
+}
+
+fn write_binance_testnet_attempt_event(
+    tx: &Transaction<'_>,
+    attempt: &BinanceTestnetOrderAttempt,
+    sequence: i64,
+) -> Result<()> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "binance.testnet.order.attempt.changed".into(),
+        schema_version: 1,
+        occurred_at: attempt.updated_at.clone(),
+        aggregate_type: "binance-testnet-order-attempt".into(),
+        aggregate_id: attempt.attempt_id.clone(),
+        sequence: u64::try_from(sequence).map_err(storage_error)?,
+        payload: DomainProjection::BinanceTestnetOrderAttempt(Box::new(attempt.clone())),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES(?1,?2,?3,?4,?5)",
+        params![
+            event.aggregate_type,
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?,
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(())
+}
+
 fn alpaca_order_book_version(connection_id: &str, sequence: u64) -> String {
     format!("alpaca-paper-order-book:{connection_id}:{sequence}")
 }
@@ -6349,6 +6749,55 @@ fn load_alpaca_paper_attempt(
         || !valid_order_text(&attempt.reason, 256)
         || !valid_order_text(&attempt.created_at, 64)
         || !valid_order_text(&attempt.updated_at, 64)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(Some(attempt))
+}
+
+fn load_binance_testnet_attempt(
+    connection: &Connection,
+    workspace_id: &str,
+    proposal_id: &str,
+) -> Result<Option<BinanceTestnetOrderAttempt>> {
+    let row: Option<(String, String, String, i64, String, String)> = connection.query_row(
+        "SELECT attempt_id,connection_id,client_order_id,sequence,state,projection FROM binance_testnet_order_attempts WHERE workspace_id=?1 AND proposal_id=?2",
+        params![workspace_id, proposal_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+    ).optional().map_err(storage_error)?;
+    let Some((attempt_id, connection_id, client_order_id, sequence, state, projection)) = row
+    else {
+        return Ok(None);
+    };
+    let attempt: BinanceTestnetOrderAttempt = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || sequence > MAX_SEQUENCE as i64
+        || attempt.attempt_id != attempt_id
+        || attempt.workspace_id != workspace_id
+        || attempt.connection_id != connection_id
+        || attempt.proposal_id != proposal_id
+        || attempt.environment != "TESTNET"
+        || attempt.client_order_id != client_order_id
+        || state != binance_attempt_state_name(attempt.state)
+        || attempt.state_version != format!("binance-testnet-attempt:{attempt_id}:{sequence}")
+        || !valid_proposal_hash(&attempt.proposal_hash)
+        || !valid_order_text(&attempt.remote_account_id, 128)
+        || !valid_order_text(&attempt.client_order_id, 36)
+        || !valid_order_text(&attempt.reason, 256)
+        || !valid_order_text(&attempt.created_at, 64)
+        || !valid_order_text(&attempt.updated_at, 64)
+        || attempt.provider_order_id.as_deref().is_some_and(|value| {
+            value.is_empty() || value.len() > 20 || !value.bytes().all(|byte| byte.is_ascii_digit())
+        })
+        || attempt
+            .error_code
+            .as_deref()
+            .is_some_and(|value| !valid_order_text(value, 64))
+        || attempt
+            .provider_status
+            .as_deref()
+            .is_some_and(|value| !valid_order_text(value, 64))
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }

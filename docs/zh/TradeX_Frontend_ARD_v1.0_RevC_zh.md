@@ -624,6 +624,12 @@ Accounts 仅在所选 Trading 212 Demo connection 处于 FAILED 或 DISCONNECTED
 
 ---
 
+### 13.14 Binance Spot Testnet Proposal 提交与恢复（S19 #68）
+
+Order Drafts 仅对绑定已连接 Binance `TESTNET` 账户的不可变 `BINANCE_TESTNET` Proposal 提供提交。确认前捕获准确 connection ID、账户 label 和远端账户 ID，并与 Proposal hash、instrument/venue、方向、数量类型/数值、订单类型、有效期、限价和 maximum spend 一同展示。用户确认后重新读取 Proposal 和账户；若 Proposal 已变化或捕获的 Testnet 账户 identity 不再匹配，则停止操作并要求重新审阅。只有主 Trade UI 可调用有类型的 Testnet submit command。
+
+选择/重新打开 Proposal 时读取已保存 attempt。UI 区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 与 `REJECTED`；acknowledgement 仅表示 Binance 已接受，绝不展示为 fill。重复提交只读取已保存 attempt，不能再发 POST。`UNKNOWN_RECONCILING` 禁用重新提交，只提供按已保存 `clientOrderId` 显式查询；无结果时 attempt 保持 unknown。Loading/error/reload 使用 status/alert 语义。确认框限制焦点，Escape/Keep reviewing 安全关闭，关闭后恢复焦点。在 390、768、1280 px 检查身份与状态标签。不暴露 Binance Live 或 Agent 写入控件。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

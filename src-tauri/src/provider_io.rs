@@ -3,11 +3,12 @@ use crate::{
     protocol::{
         AlpacaPaperCancelState, AlpacaPaperFill, AlpacaPaperFillSource, AlpacaPaperOrder,
         AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook,
-        AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, ExecutionContext, OrderProposal,
-        OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
-        Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrder,
-        Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
-        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin,
+        AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, BinanceTestnetOrderAttempt,
+        BinanceTestnetOrderAttemptState, ExecutionContext, OrderProposal, OrderQuantityType,
+        OrderSide, OrderType, Result, TimeInForce, TradeXError, Trading212DemoCancelState,
+        Trading212DemoNormalizedOrderStatus, Trading212DemoOrder, Trading212DemoOrderAttempt,
+        Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
+        Trading212DemoOrderOrigin,
     },
     providers::*,
 };
@@ -289,6 +290,9 @@ impl ProviderEndpoint {
                             path,
                             "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
                         ))
+                    || (self == Self::BinanceTestnet
+                        && path.starts_with("/api/v3/order?")
+                        && self.allows(path))
             }
             ProviderHttpMethod::Delete => {
                 self == Self::AlpacaPaper
@@ -537,6 +541,13 @@ impl ProviderHttp for BrokerHttp {
                     .header(reqwest::header::CONTENT_TYPE, "application/json")
                     .body(body)
             }
+            ProviderHttpMethod::Post
+                if endpoint == ProviderEndpoint::BinanceTestnet && body.is_none() =>
+            {
+                self.client()?
+                    .post(format!("{}{path}", endpoint.base_url()))
+                    .headers(headers)
+            }
             ProviderHttpMethod::Delete if body.is_none() => self
                 .client()?
                 .delete(format!("{}{path}", endpoint.base_url()))
@@ -587,6 +598,8 @@ pub(crate) enum JobKind {
     AlpacaPaperOrderBookRefresh,
     AlpacaPaperOrderReview,
     AlpacaPaperOrderCancel,
+    BinanceTestnetSubmit,
+    BinanceTestnetReconcile,
 }
 
 pub struct ProviderJob {
@@ -603,6 +616,8 @@ pub struct ProviderJob {
     pub(crate) alpaca_order_book: Option<AlpacaPaperOrderBook>,
     pub(crate) alpaca_order_id: Option<String>,
     pub(crate) alpaca_expected_order: Option<AlpacaPaperOrder>,
+    pub(crate) binance_testnet_attempt: Option<BinanceTestnetOrderAttempt>,
+    pub(crate) binance_testnet_proposal: Option<OrderProposal>,
 }
 
 pub(crate) struct Observation {
@@ -626,6 +641,7 @@ pub struct ProviderOutcome {
     pub(crate) trading212_demo_order_book: Option<Trading212DemoOrderBook>,
     pub(crate) alpaca_paper_attempt: Option<AlpacaPaperOrderAttempt>,
     pub(crate) alpaca_paper_order_book: Option<AlpacaPaperOrderBook>,
+    pub(crate) binance_testnet_attempt: Option<BinanceTestnetOrderAttempt>,
 }
 
 impl ProviderJob {
@@ -656,6 +672,7 @@ impl ProviderJob {
                 trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
             };
         }
         if matches!(
@@ -663,6 +680,12 @@ impl ProviderJob {
             JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
         ) {
             return self.run_alpaca_paper_order(vault, http, current);
+        }
+        if matches!(
+            self.kind,
+            JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
+        ) {
+            return self.run_binance_testnet_order(vault, http, current);
         }
         if self.kind == JobKind::Trading212DemoSubmit {
             return self.run_trading212_demo_order(vault, http, current);
@@ -869,6 +892,7 @@ impl ProviderJob {
                 trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
             },
             Err(error) => ProviderOutcome {
                 observation: None,
@@ -878,6 +902,7 @@ impl ProviderJob {
                 trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
             },
         }
     }
@@ -897,6 +922,7 @@ impl ProviderJob {
                 trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1012,6 +1038,7 @@ impl ProviderJob {
             trading212_demo_order_book: None,
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
         }
     }
 
@@ -1030,6 +1057,7 @@ impl ProviderJob {
                 trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1280,6 +1308,7 @@ impl ProviderJob {
             trading212_demo_order_book: Some(book),
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
         }
     }
 
@@ -1417,6 +1446,76 @@ impl ProviderJob {
         Ok(())
     }
 
+    fn run_binance_testnet_order(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let Some(attempt) = self.binance_testnet_attempt.clone() else {
+            return ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
+                credential: "MISSING".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+            };
+        };
+        let Some(proposal) = self.binance_testnet_proposal.as_ref() else {
+            return ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
+                credential: "MISSING".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+            };
+        };
+        let result = (|| -> Result<BinanceTestnetOrderAttempt> {
+            if self.account.provider_id != "binance"
+                || self.account.environment != "TESTNET"
+                || !matches!(
+                    self.kind,
+                    JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
+                )
+            {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            let secret = vault.get(&self.account.credential_ref())?;
+            let values = secret.values()?;
+            let reconcile = self.kind == JobKind::BinanceTestnetReconcile;
+            Ok(binance::run_testnet_order(
+                &attempt, proposal, reconcile, &values, http, &current,
+            ))
+        })();
+        let attempt = result.unwrap_or_else(|error| {
+            let mut attempt = attempt;
+            attempt.state = if self.kind == JobKind::BinanceTestnetReconcile {
+                BinanceTestnetOrderAttemptState::UnknownReconciling
+            } else {
+                BinanceTestnetOrderAttemptState::Rejected
+            };
+            attempt.error_code = Some(error.code.clone());
+            attempt.reason = error.message;
+            attempt
+        });
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: "CONFIGURED".into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: Some(attempt),
+        }
+    }
+
     fn run_alpaca_paper_order(
         &self,
         vault: &impl CredentialVault,
@@ -1432,6 +1531,7 @@ impl ProviderJob {
                 trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1612,6 +1712,7 @@ impl ProviderJob {
             trading212_demo_order_book: None,
             alpaca_paper_attempt: Some(attempt),
             alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
         }
     }
 
@@ -1630,6 +1731,7 @@ impl ProviderJob {
                 trading212_demo_order_book: None,
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1740,6 +1842,7 @@ impl ProviderJob {
             trading212_demo_order_book: None,
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: Some(book),
+            binance_testnet_attempt: None,
         }
     }
 
@@ -2795,6 +2898,13 @@ pub(crate) fn validate_alpaca_paper_proposal(
         updated_at: "preflight".into(),
     };
     alpaca_order_request(proposal, &attempt).map(|_| ())
+}
+
+pub(crate) fn validate_binance_testnet_proposal(
+    proposal: &OrderProposal,
+    connection_id: &str,
+) -> Result<()> {
+    binance::validate_binance_testnet_proposal(proposal, connection_id)
 }
 
 pub(crate) fn validate_trading212_demo_proposal(

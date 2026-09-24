@@ -624,6 +624,12 @@ Accounts offers “Delete local account” only when the selected Trading 212 De
 
 ---
 
+### 13.14 Binance Spot Testnet Proposal submission and recovery (S19 #68)
+
+Order Drafts offers submission only for an immutable `BINANCE_TESTNET` Proposal bound to a connected Binance `TESTNET` account. Before confirmation, capture the exact connection ID, label and remote account ID and show them with the Proposal hash, instrument/venue, side, quantity type/value, order type, time in force, limit and maximum spend. Re-read the Proposal and account after confirmation; if the Proposal changed or the captured Testnet account identity no longer matches, stop and ask the user to review again. Only the main Trade UI can call the typed Testnet submit command.
+
+The saved attempt is loaded on selection/reopen. The UI distinguishes `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, and `REJECTED`; acknowledgement means accepted by Binance and is never displayed as a fill. Duplicate submit reads the saved attempt and cannot issue another POST. `UNKNOWN_RECONCILING` disables resubmit and offers only an explicit query by the saved `clientOrderId`; an absent query leaves the attempt unknown. Loading/error/reload states use status/alert semantics. The confirmation traps focus, supports safe dismissal with Escape/Keep reviewing, and restores focus. Test the identity and state labels at 390, 768, and 1280 px. No Binance Live or Agent write control is exposed.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

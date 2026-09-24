@@ -19,6 +19,7 @@ import type {
   AlpacaPaperOrderAttempt,
   AlpacaPaperOrder,
   AlpacaPaperOrderBook,
+  BinanceTestnetOrderAttempt,
   OrderQuantityType,
   OrderSide,
   OrderType,
@@ -143,6 +144,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const accounts = useQuery({ queryKey: ['accounts', workspaceId, 'order-draft'], queryFn: () => request('account.list', { workspaceId }) });
   const alpacaAccounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'alpaca' && account.environment === 'PAPER') ?? [], [accounts.data?.accounts]);
   const trading212Accounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'trading212' && account.environment === 'DEMO') ?? [], [accounts.data?.accounts]);
+  const binanceTestnetAccounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'binance' && account.environment === 'TESTNET') ?? [], [accounts.data?.accounts]);
   const [ordersConnectionId, setOrdersConnectionId] = useState('');
   const ordersQuery = useQuery({
     queryKey: ['alpaca-paper-orders', workspaceId, ordersConnectionId],
@@ -179,7 +181,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [paperCancelIdempotencyKey, setPaperCancelIdempotencyKey] = useState<string>();
   const [alpacaIdempotencyKey, setAlpacaIdempotencyKey] = useState<string>();
   const [trading212IdempotencyKey, setTrading212IdempotencyKey] = useState<string>();
-  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel'>();
+  const [binanceTestnetIdempotencyKey, setBinanceTestnetIdempotencyKey] = useState<string>();
+  const [binanceTestnetReview, setBinanceTestnetReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
+  const [paperConfirmation, setPaperConfirmation] = useState<'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit'>();
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
   const [cancelReview, setCancelReview] = useState<{ book: AlpacaPaperOrderBook; order: AlpacaPaperOrder }>();
@@ -198,6 +202,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     queryKey: ['trading212-demo-attempt', workspaceId, selectedProposalId],
     queryFn: () => request('trading212.demo.order.attempt.get', { workspaceId, proposalId: selectedProposalId! }),
     enabled: Boolean(selectedProposalId) && proposalDetail.data?.fields.environment === 'TRADING212_DEMO',
+    refetchOnMount: 'always',
+  });
+  const binanceTestnetAttempt = useQuery({
+    queryKey: ['binance-testnet-attempt', workspaceId, selectedProposalId],
+    queryFn: () => request('binance.testnet.order.attempt.get', { workspaceId, proposalId: selectedProposalId! }),
+    enabled: Boolean(selectedProposalId) && proposalDetail.data?.fields.environment === 'BINANCE_TESTNET',
     refetchOnMount: 'always',
   });
   const selected = useMemo(() => newMode ? undefined : library.data?.drafts.find(draft => draft.draftId === selectedId), [library.data?.drafts, newMode, selectedId]);
@@ -233,6 +243,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setPaperCancelIdempotencyKey(undefined);
     setAlpacaIdempotencyKey(undefined);
     setTrading212IdempotencyKey(undefined);
+    setBinanceTestnetIdempotencyKey(undefined);
+    setBinanceTestnetReview(undefined);
   }, [selectedProposalId]);
   useEffect(() => {
     if (paperConfirmation) {
@@ -254,6 +266,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
           setPaperConfirmation(undefined);
           setCancelReview(undefined);
           setTrading212CancelReview(undefined);
+          setBinanceTestnetReview(undefined);
         }
         return;
       }
@@ -473,6 +486,78 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setPaperBusy(false); }
   };
 
+  const submitBinanceTestnetProposal = async () => {
+    const proposal = proposalDetail.data;
+    const reviewedAccount = binanceTestnetReview;
+    if (!proposal || proposal.fields.environment !== 'BINANCE_TESTNET' || !proposal.fields.accountId
+      || !reviewedAccount || reviewedAccount.connectionId !== proposal.fields.accountId) return;
+    setPaperBusy(true); setError(undefined); setNotice('');
+    const idempotencyKey = binanceTestnetIdempotencyKey ?? crypto.randomUUID();
+    setBinanceTestnetIdempotencyKey(idempotencyKey);
+    try {
+      const prior = await request('binance.testnet.order.attempt.get', { workspaceId, proposalId: proposal.proposalId });
+      if (prior.attempt) {
+        queryClient.setQueryData(['binance-testnet-attempt', workspaceId, proposal.proposalId], prior);
+        setNotice('A saved Binance Testnet attempt already exists. Its status is shown below; no second order was sent.');
+        return;
+      }
+      const [currentProposal, account] = await Promise.all([
+        request('trade.proposal.get', { workspaceId, proposalId: proposal.proposalId }),
+        request('account.get', { workspaceId, connectionId: proposal.fields.accountId }),
+      ]);
+      if (currentProposal.proposalHash !== proposal.proposalHash
+        || currentProposal.stateVersion !== proposal.stateVersion
+        || currentProposal.status !== 'NEEDS_APPROVAL') {
+        throw localGuardError('STATE_VERSION_CONFLICT', 'The reviewed Proposal changed. Reload it before submitting.');
+      }
+      if (account.connectionId !== reviewedAccount.connectionId || account.providerId !== 'binance'
+        || account.environment !== 'TESTNET' || account.connectionState !== 'CONNECTED'
+        || account.data?.remoteAccountId !== reviewedAccount.remoteAccountId) {
+        throw localGuardError('PROVIDER_UNSUPPORTED', 'Connect and confirm this exact Binance Testnet account before submitting.');
+      }
+      const attempt = await request('binance.testnet.order.submit', {
+        workspaceId,
+        connectionId: account.connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        proposalId: currentProposal.proposalId,
+        expectedProposalStateVersion: currentProposal.stateVersion,
+        proposalHash: currentProposal.proposalHash,
+        idempotencyKey,
+        confirmedTestnetOrder: true,
+      });
+      if (attempt.connectionId !== reviewedAccount.connectionId || attempt.remoteAccountId !== reviewedAccount.remoteAccountId) {
+        throw localGuardError('STATE_VERSION_CONFLICT', 'The Binance Testnet account identity changed during submission. Reload the saved attempt before taking another action.');
+      }
+      queryClient.setQueryData(['binance-testnet-attempt', workspaceId, proposal.proposalId], { attempt });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId, proposal.proposalId] });
+      setNotice(attempt.state === 'UNKNOWN_RECONCILING'
+        ? 'Binance Testnet returned an unknown result. Do not resubmit; query this saved client order ID.'
+        : `Binance Testnet attempt ${attempt.state}. Provider acknowledgement is not fill evidence.`);
+    } catch (cause) { setError(cause); }
+    finally { setPaperBusy(false); }
+  };
+
+  const reconcileBinanceTestnetAttempt = async (attempt: BinanceTestnetOrderAttempt) => {
+    setPaperBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId: attempt.connectionId });
+      if (account.providerId !== 'binance' || account.environment !== 'TESTNET'
+        || account.data?.remoteAccountId !== attempt.remoteAccountId) {
+        throw localGuardError('PROVIDER_UNSUPPORTED', 'Reconciliation is limited to the saved Binance Testnet account identity.');
+      }
+      const result = await request('binance.testnet.order.reconcile', {
+        workspaceId,
+        connectionId: attempt.connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        proposalId: attempt.proposalId,
+      });
+      queryClient.setQueryData(['binance-testnet-attempt', workspaceId, attempt.proposalId], { attempt: result });
+      setNotice(`Binance Testnet attempt ${result.state}. No order was resubmitted.`);
+    } catch (cause) { setError(cause); }
+    finally { setPaperBusy(false); }
+  };
+
   const reconcileAlpacaAttempt = async (attempt: AlpacaPaperOrderAttempt) => {
     setPaperBusy(true); setError(undefined); setNotice('');
     try {
@@ -657,18 +742,32 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPaperConfirmation(action);
   };
+  const openBinanceTestnetConfirmation = () => {
+    const proposal = proposalDetail.data;
+    const account = proposal?.fields.accountId && binanceTestnetAccounts.find(item => item.connectionId === proposal.fields.accountId);
+    if (!proposal || proposal.fields.environment !== 'BINANCE_TESTNET' || !account
+      || account.connectionState !== 'CONNECTED' || !account.data?.remoteAccountId) {
+      setError(localGuardError('STATE_STALE', 'Reload the connected Binance Testnet account before reviewing this Proposal.'));
+      return;
+    }
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setBinanceTestnetReview({ connectionId: account.connectionId, accountLabel: account.label, remoteAccountId: account.data.remoteAccountId });
+    setPaperConfirmation('binance-testnet-submit');
+  };
   const confirmPaperAction = async () => {
     const action = paperConfirmation;
     if (!action) return;
     if (action === 'submit') await submitProposal();
     else if (action === 'alpaca-submit') await submitAlpacaProposal();
     else if (action === 'trading212-submit') await submitTrading212Proposal();
+    else if (action === 'binance-testnet-submit') await submitBinanceTestnetProposal();
     else if (action === 'alpaca-cancel') await cancelAlpacaOrder();
     else if (action === 'trading212-cancel') await cancelTrading212Order();
     else await cancelPaperOrder();
     setPaperConfirmation(undefined);
     setCancelReview(undefined);
     setTrading212CancelReview(undefined);
+    setBinanceTestnetReview(undefined);
   };
 
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
@@ -709,7 +808,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {proposals.isPending && <p role="status">Loading proposal history…</p>}
       {proposals.isError && <p className="error-text" role="alert">{explainError(proposals.error)}</p>}
       {!proposals.isPending && !proposals.isError && !selectedProposals.length && <p className="muted">Save a draft, then generate a proposal for its immutable snapshot.</p>}
-      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{!selectedProposalId && <p className="muted">Choose a proposal to inspect its details.</p>}{selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}{selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
+      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{!selectedProposalId && <p className="muted">Choose a proposal to inspect its details.</p>}{selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}{selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
     </section>
     <section className="card order-book-panel" aria-labelledby="alpaca-order-book-title">
       <div className="section-heading">
@@ -788,21 +887,25 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     </section>
     {paperConfirmation && createPortal(<div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}>
       <div className="picker-dialog-heading"><div>
-        <h2 id="paper-confirm-title">{paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submission' : paperConfirmation === 'trading212-cancel' ? 'Confirm Trading 212 Demo cancellation' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'alpaca-cancel' ? 'Confirm Alpaca Paper cancellation' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2>
-        <p className="muted">{paperConfirmation === 'trading212-submit' ? 'This sends one order to the connected Trading 212 Demo account. It never uses a Live endpoint; an acknowledgement is not a fill.' : paperConfirmation === 'trading212-cancel' ? 'The exact Trading 212 Demo account and order were just reread. A provider acknowledgement is not proof of cancellation; fills may race this request.' : paperConfirmation === 'alpaca-submit' ? 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.' : paperConfirmation === 'alpaca-cancel' ? 'The account and order were just reread from Alpaca Paper. Review the exact filled and remaining quantities before confirming.' : 'This changes the TradeX simulation only.'}</p>
+        <h2 id="paper-confirm-title">{paperConfirmation === 'binance-testnet-submit' ? 'Confirm Binance Spot Testnet submission' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submission' : paperConfirmation === 'trading212-cancel' ? 'Confirm Trading 212 Demo cancellation' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submission' : paperConfirmation === 'alpaca-cancel' ? 'Confirm Alpaca Paper cancellation' : paperConfirmation === 'submit' ? 'Confirm Local Paper submission' : 'Confirm Local Paper cancellation'}</h2>
+        <p className="muted">{paperConfirmation === 'binance-testnet-submit' ? 'This sends one order to Binance Spot Testnet only. The endpoint is fixed to Testnet; an acknowledgement is not a fill.' : paperConfirmation === 'trading212-submit' ? 'This sends one order to the connected Trading 212 Demo account. It never uses a Live endpoint; an acknowledgement is not a fill.' : paperConfirmation === 'trading212-cancel' ? 'The exact Trading 212 Demo account and order were just reread. A provider acknowledgement is not proof of cancellation; fills may race this request.' : paperConfirmation === 'alpaca-submit' ? 'This sends the exact Proposal to Alpaca Paper simulation only. It never uses a Live endpoint.' : paperConfirmation === 'alpaca-cancel' ? 'The account and order were just reread from Alpaca Paper. Review the exact filled and remaining quantities before confirming.' : 'This changes the TradeX simulation only.'}</p>
       </div></div>
-      <p>{paperConfirmation === 'trading212-submit' ? 'Submit this exact immutable Proposal to Trading 212 Demo?' : paperConfirmation === 'trading212-cancel' ? 'Send one cancellation request for this exact Trading 212 Demo order?' : paperConfirmation === 'alpaca-submit' ? 'Submit the exact Alpaca Paper Proposal shown below?' : paperConfirmation === 'alpaca-cancel' ? 'Send a cancellation request for this exact Alpaca Paper order?' : paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p>
+      <p>{paperConfirmation === 'binance-testnet-submit' ? 'Submit this exact immutable Proposal to Binance Spot Testnet?' : paperConfirmation === 'trading212-submit' ? 'Submit this exact immutable Proposal to Trading 212 Demo?' : paperConfirmation === 'trading212-cancel' ? 'Send one cancellation request for this exact Trading 212 Demo order?' : paperConfirmation === 'alpaca-submit' ? 'Submit the exact Alpaca Paper Proposal shown below?' : paperConfirmation === 'alpaca-cancel' ? 'Send a cancellation request for this exact Alpaca Paper order?' : paperConfirmation === 'submit' ? 'Submit the selected immutable proposal to Local Paper?' : 'Cancel the remaining quantity of this Local Paper order?'}</p>
       {paperConfirmation === 'alpaca-cancel' && cancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>ALPACA_PAPER · {ordersAccount?.label ?? 'Unavailable'} · {cancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{cancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{cancelReview.order.instrumentId ?? cancelReview.order.symbol} · {cancelReview.order.side.toUpperCase()}</dd></div><div><dt>Provider status</dt><dd>{cancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{cancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{cancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last observation</dt><dd>{new Date(cancelReview.order.observedAt).toLocaleString()}</dd></div></dl>}
       {paperConfirmation === 'trading212-cancel' && trading212CancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>Trading 212 Demo · TRADING212_DEMO · {trading212CancelReview.accountLabel} · {trading212CancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{trading212CancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{trading212CancelReview.order.symbol} · {trading212CancelReview.order.side}</dd></div><div><dt>Provider / normalized status</dt><dd>{trading212CancelReview.order.providerStatus} / {trading212CancelReview.order.normalizedStatus}</dd></div><div><dt>Filled quantity</dt><dd>{trading212CancelReview.order.filledQuantity ?? 'Unavailable'}</dd></div><div><dt>Remaining quantity</dt><dd>{trading212CancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Filled value</dt><dd>{trading212CancelReview.order.filledValue == null ? 'Unavailable' : `${trading212CancelReview.order.filledValue} ${trading212CancelReview.order.currency ?? 'currency unavailable'}`}</dd></div><div><dt>Last provider observation</dt><dd>{new Date(trading212CancelReview.order.observedAt).toLocaleString()}</dd></div><div><dt>Provider acknowledgement</dt><dd>Acceptance only; cancellation is not confirmed until a later provider observation.</dd></div></dl>}
-      {(paperConfirmation === 'alpaca-submit' || paperConfirmation === 'trading212-submit') && proposalDetail.data && <dl className="proposal-fields">
-        <div><dt>Environment / account</dt><dd>{paperConfirmation === 'trading212-submit' ? 'Trading 212 Demo · TRADING212_DEMO' : 'Alpaca Paper'} · {accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'} · {accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}</dd></div>
+      {(paperConfirmation === 'alpaca-submit' || paperConfirmation === 'trading212-submit' || paperConfirmation === 'binance-testnet-submit') && proposalDetail.data && <dl className="proposal-fields">
+        <div><dt>Environment / account</dt><dd>{paperConfirmation === 'binance-testnet-submit' ? `Binance Spot Testnet · TESTNET · ${binanceTestnetReview?.accountLabel ?? 'Unavailable'}` : paperConfirmation === 'trading212-submit' ? 'Trading 212 Demo · TRADING212_DEMO' : 'Alpaca Paper'} · {paperConfirmation === 'binance-testnet-submit' ? binanceTestnetReview?.remoteAccountId ?? 'provider account ID unavailable' : accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'}{paperConfirmation === 'binance-testnet-submit' ? '' : ` · ${accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}`}</dd></div>
+        {paperConfirmation === 'binance-testnet-submit' && <div><dt>Connection ID</dt><dd>{binanceTestnetReview?.connectionId ?? 'Unavailable'}</dd></div>}
         <div><dt>Instrument / side</dt><dd>{proposalDetail.data.fields.instrumentId} · {proposalDetail.data.fields.side}</dd></div>
         <div><dt>Quantity / order</dt><dd>{proposalDetail.data.fields.quantity.value} {proposalDetail.data.fields.quantity.type} · {proposalDetail.data.fields.orderType} · {proposalDetail.data.fields.timeInForce}</dd></div>
+        <div><dt>Venue / context</dt><dd>{proposalDetail.data.fields.venue} · {proposalDetail.data.fields.environment}</dd></div>
+        <div><dt>Maximum spend</dt><dd>{proposalDetail.data.fields.maximumSpend ?? '—'}</dd></div>
         <div><dt>Limit</dt><dd>{proposalDetail.data.fields.limitPrice ?? '—'}</dd></div>
+        <div><dt>Client label</dt><dd>{proposalDetail.data.fields.clientLabel ?? '—'}</dd></div>
         {paperConfirmation === 'trading212-submit' && proposalDetail.data.fields.orderType === 'MARKET' && <div><dt>Extended hours</dt><dd>Off</dd></div>}
         <div><dt>Proposal / hash</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div>
       </dl>}
-      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy ? 'Working…' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submit' : paperConfirmation === 'trading212-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'alpaca-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div>
+      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy ? 'Working…' : paperConfirmation === 'binance-testnet-submit' ? 'Confirm Binance Testnet submit' : paperConfirmation === 'trading212-submit' ? 'Confirm Trading 212 Demo submit' : paperConfirmation === 'trading212-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'alpaca-submit' ? 'Confirm Alpaca Paper submit' : paperConfirmation === 'alpaca-cancel' ? 'Confirm cancellation request' : paperConfirmation === 'submit' ? 'Confirm submit' : 'Confirm cancel'}</button></div>
     </div></div>, document.body)}
   </>;
 }
@@ -835,7 +938,7 @@ function Trading212OrderCard({ order, pending, onRefresh, onReviewCancel, busy }
   </article>;
 }
 
-function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, onAlpacaSubmit, onAlpacaReconcile, onReloadAlpacaAttempt, alpacaAttempt, alpacaAttemptLoading, alpacaAttemptError, alpacaAccount, onTrading212Submit, onReloadTrading212Attempt, trading212Attempt, trading212AttemptLoading, trading212AttemptError, trading212Account, submitBusy, cancelBusy, result }: {
+function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, onAlpacaSubmit, onAlpacaReconcile, onReloadAlpacaAttempt, alpacaAttempt, alpacaAttemptLoading, alpacaAttemptError, alpacaAccount, onTrading212Submit, onReloadTrading212Attempt, trading212Attempt, trading212AttemptLoading, trading212AttemptError, trading212Account, onBinanceTestnetSubmit, onBinanceTestnetReconcile, onReloadBinanceTestnetAttempt, binanceTestnetAttempt, binanceTestnetAttemptLoading, binanceTestnetAttemptError, binanceTestnetAccount, submitBusy, cancelBusy, result }: {
   proposal: OrderProposal;
   onRefresh: () => void;
   refreshBusy: boolean;
@@ -854,6 +957,13 @@ function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, 
   trading212AttemptLoading: boolean;
   trading212AttemptError: unknown;
   trading212Account?: AccountConnection;
+  onBinanceTestnetSubmit: () => void;
+  onBinanceTestnetReconcile: (attempt: BinanceTestnetOrderAttempt) => void;
+  onReloadBinanceTestnetAttempt: () => void;
+  binanceTestnetAttempt?: BinanceTestnetOrderAttempt;
+  binanceTestnetAttemptLoading: boolean;
+  binanceTestnetAttemptError: unknown;
+  binanceTestnetAccount?: AccountConnection;
   submitBusy: boolean;
   cancelBusy: boolean;
   result?: PaperOrderResult;
@@ -864,6 +974,9 @@ function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, 
   const trading212Ready = trading212Account?.providerId === 'trading212'
     && trading212Account.environment === 'DEMO'
     && trading212Account.connectionState === 'CONNECTED';
+  const binanceTestnetReady = binanceTestnetAccount?.providerId === 'binance'
+    && binanceTestnetAccount.environment === 'TESTNET'
+    && binanceTestnetAccount.connectionState === 'CONNECTED';
   return <div className="proposal-read-only" aria-label="Proposal detail">
     <div className="proposal-meta"><strong>{proposal.status}</strong><span>Draft v{proposal.draftVersion}</span><span>{proposal.proposalId}</span><span>{proposal.proposalHash}</span></div>
     <dl className="proposal-fields"><div><dt>Instrument</dt><dd>{proposal.fields.instrumentId}</dd></div><div><dt>Account</dt><dd>{proposal.fields.accountId ?? 'Local Paper account'}</dd></div><div><dt>Side / type</dt><dd>{proposal.fields.side} · {proposal.fields.orderType}</dd></div><div><dt>Quantity</dt><dd>{proposal.fields.quantity.value} {proposal.fields.quantity.type}</dd></div><div><dt>Limit price</dt><dd>{proposal.fields.limitPrice ?? '—'}</dd></div><div><dt>Maximum spend</dt><dd>{proposal.fields.maximumSpend ?? '—'}</dd></div><div><dt>Venue / context</dt><dd>{proposal.fields.venue} · {proposal.fields.environment === 'TRADING212_DEMO' ? 'Trading 212 Demo · TRADING212_DEMO' : proposal.fields.environment}</dd></div><div><dt>Time in force</dt><dd>{proposal.fields.timeInForce}</dd></div><div><dt>Client label</dt><dd>{proposal.fields.clientLabel ?? '—'}</dd></div><div><dt>Estimated notional</dt><dd>{proposal.estimatedNotional ? `${proposal.estimatedNotional} ${proposal.estimatedNotionalCurrency ?? ''}` : proposal.estimatedNotionalReason ?? 'Unavailable'}</dd></div></dl>
@@ -880,6 +993,10 @@ function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, 
     {proposal.fields.environment === 'TRADING212_DEMO' && Boolean(trading212AttemptError) && <div className="error-text" role="alert"><p>Saved Trading 212 Demo attempt is unavailable. Reload it before taking another action.</p><button type="button" onClick={onReloadTrading212Attempt}>Reload attempt</button></div>}
     {proposal.fields.environment === 'TRADING212_DEMO' && trading212Attempt && <section className="notice" aria-label="Trading 212 Demo order attempt"><strong>Trading 212 Demo · TRADING212_DEMO · {trading212Attempt.state}</strong><p>{trading212Attempt.reason}</p><p>Account {trading212Attempt.remoteAccountId} · Proposal {trading212Attempt.proposalId} · {trading212Attempt.proposalHash}</p>{trading212Attempt.providerOrderId && <p>Provider order {trading212Attempt.providerOrderId} · provider status {trading212Attempt.providerStatus ?? 'Unavailable'}</p>}<p>Updated {new Date(trading212Attempt.updatedAt).toLocaleString()}</p>{trading212Attempt.state === 'ACKNOWLEDGED' && <p>Trading 212 acknowledged the order. This is not fill evidence.</p>}{trading212Attempt.state === 'SUBMITTING' && <p role="status">Submission is still pending. Reload this attempt to check its saved state.</p>}{trading212Attempt.state === 'UNKNOWN_RECONCILING' && <p className="error-text">Result unknown. Do not resubmit; the attempt remains frozen until later provider-order reconciliation.</p>}{trading212Attempt.state === 'REJECTED' && <p className="error-text">This Proposal's attempt was rejected and cannot be submitted again. Refresh the Proposal before a new reviewed attempt.</p>}</section>}
     {proposal.status === 'NEEDS_APPROVAL' && proposal.fields.environment === 'TRADING212_DEMO' && !trading212Attempt && !trading212AttemptLoading && !trading212AttemptError && <>{trading212Ready ? <button type="button" className="primary" onClick={onTrading212Submit} disabled={submitBusy}>{submitBusy ? 'Submitting Trading 212 Demo order…' : 'Submit Trading 212 Demo order'}</button> : <p className="muted">Connect and confirm this Trading 212 Demo account before submitting the Proposal.</p>}</>}
+    {proposal.fields.environment === 'BINANCE_TESTNET' && binanceTestnetAttemptLoading && <p role="status">Loading saved Binance Testnet attempt…</p>}
+    {proposal.fields.environment === 'BINANCE_TESTNET' && Boolean(binanceTestnetAttemptError) && <div className="error-text" role="alert"><p>Saved Binance Testnet attempt is unavailable. Reload it before taking another action.</p><button type="button" onClick={onReloadBinanceTestnetAttempt}>Reload attempt</button></div>}
+    {proposal.fields.environment === 'BINANCE_TESTNET' && binanceTestnetAttempt && <section className="notice" aria-label="Binance Spot Testnet order attempt"><strong>Binance Spot Testnet · TESTNET · {binanceTestnetAttempt.state}</strong><p>{binanceTestnetAttempt.reason}</p><p>Account {binanceTestnetAttempt.remoteAccountId} · client order {binanceTestnetAttempt.clientOrderId}</p><p>Proposal {binanceTestnetAttempt.proposalId} · {binanceTestnetAttempt.proposalHash}</p>{binanceTestnetAttempt.providerOrderId && <p>Provider order {binanceTestnetAttempt.providerOrderId} · provider status {binanceTestnetAttempt.providerStatus ?? 'Unavailable'}</p>}<p>Updated {new Date(binanceTestnetAttempt.updatedAt).toLocaleString()}</p>{binanceTestnetAttempt.state === 'ACKNOWLEDGED' && <p>Binance acknowledged the order. This is not fill evidence.</p>}{binanceTestnetAttempt.state === 'SUBMITTING' && <><p role="status">Submission is still pending. Reload this saved attempt before taking further action.</p><button type="button" onClick={onReloadBinanceTestnetAttempt} disabled={submitBusy}>Reload saved attempt</button></>}{binanceTestnetAttempt.state === 'UNKNOWN_RECONCILING' && <><p className="error-text">Result unknown. Do not resubmit; the attempt remains frozen until the saved client order ID is found or reconciled.</p><button type="button" onClick={() => onBinanceTestnetReconcile(binanceTestnetAttempt)} disabled={submitBusy}>{submitBusy ? 'Checking Binance Testnet…' : 'Reconcile by client order ID'}</button></>}{binanceTestnetAttempt.state === 'REJECTED' && <p className="error-text">This Proposal's attempt was rejected and cannot be submitted again. Refresh the Proposal before a new reviewed attempt.</p>}</section>}
+    {proposal.status === 'NEEDS_APPROVAL' && proposal.fields.environment === 'BINANCE_TESTNET' && !binanceTestnetAttempt && !binanceTestnetAttemptLoading && !binanceTestnetAttemptError && <>{binanceTestnetReady ? <button type="button" className="primary" onClick={onBinanceTestnetSubmit} disabled={submitBusy}>{submitBusy ? 'Submitting Binance Testnet order…' : 'Submit Binance Spot Testnet order'}</button> : <p className="muted">Connect and confirm this Binance Testnet account before submitting the Proposal.</p>}</>}
     {result?.proposalId === proposal.proposalId && <section className="notice" aria-label="Local Paper order result"><strong>TRADEX_SIMULATION · {result.order.state}</strong><p>{result.disclosure}</p><p>Order {result.order.orderId} · {result.order.filledQuantity} filled · {result.order.remainingQuantity} remaining · quote {result.quote.price} {result.quote.currency} · {result.quote.scenarioId}</p>{result.fill && <p>Fill {result.fill.fillId} · {result.fill.quantity} @ {result.fill.price} {result.fill.currency}</p>}<p>Proposal hash: {result.proposalHash}</p>{['ACCEPTED', 'PARTIALLY_FILLED'].includes(result.order.state) && <button type="button" onClick={onCancel} disabled={cancelBusy}>{cancelBusy ? 'Cancelling Local Paper order…' : 'Cancel Local Paper order'}</button>}</section>}
     <h3>History</h3><ol className="proposal-history">{proposal.history.map((entry, index) => <li key={`${entry.event}-${entry.occurredAt}-${index}`}><strong>{entry.event}</strong><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time>{entry.reason && <span>{entry.reason}</span>}</li>)}</ol>
   </div>;

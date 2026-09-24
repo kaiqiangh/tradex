@@ -2533,6 +2533,16 @@ HTTP 200 只表示已接受，并不表示已撤销：设置本地 `cancelState:
 
 账户资格检查与删除由控制面命令串行化及进程级 workspace lock 保护；删除在一个 immediate SQLite transaction 中重新读取目标身份/版本、账户订单、订单簿和 attempt 状态后提交。成功会删除账户 projection（包括非秘密、确定性的 credential reference）、account aggregate outbox 观察、按 connection 作用域保存的 Trading 212 Demo 订单簿 projection，以及该订单簿的 aggregate outbox 观察。账户/订单簿/attempt 验证或任意存储失败都会回滚。终态 proposal/attempt 审计历史遵循现有保留规则。不会发起 provider 请求，也不会调用 Keychain API；此操作不能撤销 provider key、取消 provider order 或影响其他账户。不增加 schema migration 或通用账户删除 API。
 
+### 41.25 Binance Spot Testnet 提交与未知结果恢复（S19 #68）
+
+版本 1 主 Trade 命令为：`binance.testnet.order.submit`，载荷 `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId, expectedProposalStateVersion, proposalHash, idempotencyKey, confirmedTestnetOrder}`，返回 `BinanceTestnetOrderAttempt`；`binance.testnet.order.attempt.get`，载荷 `{workspaceId, proposalId}`，返回 `{attempt?}`；以及 `binance.testnet.order.reconcile`，载荷 `{workspaceId, connectionId, expectedConnectionStateVersion, proposalId}`，返回 `BinanceTestnetOrderAttempt`。只有主 Trade surface 可准备 submit/reconcile job；Research 和 Agent consumer 会被拒绝。持久聚合为 `binance-testnet-order-attempt`，事件为 `binance.testnet.order.attempt.changed`，支持有版本的 snapshot/replay。数据库 migration 20 增加 attempt 持久表，并将重启时中断的 `SUBMITTING` 转为 `UNKNOWN_RECONCILING`。
+
+Provider I/O 前通过一个 immediate SQLite transaction 重新检查已连接的 Binance `TESTNET` 账户、已确认的 key scope、准确远端账户 ID、不可变的 `NEEDS_APPROVAL` Proposal/hash/version 及能力支持，消费 Proposal 和幂等键，并持久化带稳定 `newClientOrderId` 的 `SUBMITTING` attempt 与 outbox event。任何写入请求前都已有持久化 attempt。重复提交返回已保存的 attempt，不会再次 POST；每个 connection 同时只允许一个未解决的 submit。
+
+Adapter 固定使用 `https://testnet.binance.vision`，并严格限制 `/api/v3` 路由和参数。它从 `/api/v3/time` 获取 Binance server time，使用 HMAC-SHA256 签署 query 参数，并将 API key header 标记为敏感；renderer 不能选择 URL。Testnet 下单支持 canonical BTC/USDT 与 ETH/USDT Spot 标的：`DAY` 语义的 Market + BASE 数量，或仅 BUY 的 QUOTE 数量；Limit + BASE 数量，以及精确的 `GTC`、`IOC`、`FOK`。不支持的有效期和订单形式会明确拒绝。提交前重新检查 `/api/v3/account` identity、`SPOT` 和 `canTrade`、原生资产 free balance、当前 `/api/v3/exchangeInfo` filters，以及必要时的 market 参考价。数量范围/步长、价格 tick、notional、maximum spend 和余额均以精确十进制校验；TradeX 不会为符合 provider filter 而舍入 Proposal。订单写入仅允许对 Testnet `/api/v3/order` 发送 POST；本命令不包含 Live 下单 POST 或 `/sapi` 路由。
+
+验证通过的 provider 响应将 attempt 置为 `ACKNOWLEDGED`，以十进制字符串保留 provider order ID，并记录 provider status 表示已接受；此 attempt 不合成 fills。确定性 provider rejection 转为 `REJECTED`。超时、传输歧义或无法核对准确 client-order identity 的响应，会按已保存的 `origClientOrderId` 查询；查不到或证据不足时保持 `UNKNOWN_RECONCILING`。恢复仅对准确的已保存 client order ID 执行 GET。重复命令和空查询都不能消除未知状态或重发订单。本阶段不增加自动轮询、撤单、Live 下单、Agent 写入或 Order Gateway 权限。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
