@@ -2,6 +2,7 @@
 // All interaction stays on the public UI and the real, isolated Rust dispatcher.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { dirname, join } from 'node:path';
 
 export async function checkWorkspaceUI(tab, browser) {
   const ui = tab.playwright;
@@ -10,17 +11,27 @@ export async function checkWorkspaceUI(tab, browser) {
   try {
     await viewport.set({ width: 1280, height: 860 });
     await tab.getAXState({ emit: false });
+    const bootstrapResponse = await fetch('http://127.0.0.1:1420/__integration/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: randomUUID(), schemaVersion: 1, command: 'workspace.open', payload: {} }),
+    });
+    const bootstrapResult = await bootstrapResponse.json();
+    assert.equal(bootstrapResponse.status, 200);
+    assert.equal(bootstrapResult.ok, true, JSON.stringify(bootstrapResult.error));
+    const isolatedWorkspacePath = join(dirname(bootstrapResult.data.path), `s01-${randomUUID()}`);
     await ui.getByRole('button', { name: 'Workspace', exact: true }).click();
     await tab.getAXState({ emit: false });
     await ui.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('S01 Browser Research');
     await ui.getByRole('combobox', { name: 'Base currency', exact: true }).selectOption('EUR');
+    await ui.getByLabel('Local storage', { exact: true }).fill(isolatedWorkspacePath);
     await ui.getByRole('button', { name: 'Open workspace', exact: true }).click();
-    await ui.getByRole('button', { name: 'Open workspace', exact: true }).waitFor({ state: 'hidden' });
+    await ui.getByLabel('Workspace name', { exact: true }).waitFor({ state: 'hidden' });
     await tab.getAXState({ emit: false });
     const openResponse = await fetch('http://127.0.0.1:1420/__integration/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: randomUUID(), schemaVersion: 1, command: 'workspace.open', payload: { name: 'S01 Browser Research', baseCurrency: 'EUR' } }),
+      body: JSON.stringify({ requestId: randomUUID(), schemaVersion: 1, command: 'workspace.open', payload: { name: 'S01 Browser Research', baseCurrency: 'EUR', path: isolatedWorkspacePath } }),
     });
     assert.equal(openResponse.status, 200, 'The Rust integration bridge should reopen only this temporary workspace');
     const openResult = await openResponse.json();
@@ -34,12 +45,14 @@ export async function checkWorkspaceUI(tab, browser) {
     const fixtureResult = await fixtureReady.json();
     assert.equal(fixtureResult.ok, true, JSON.stringify(fixtureResult.error));
     await tab.reload();
+    await ui.getByRole('complementary', { name: 'Workspace', exact: true }).waitFor({ state: 'visible' });
     await tab.getAXState({ emit: false });
     const identity = await ui.getByRole('complementary', { name: 'Workspace', exact: true }).innerText();
     assert.match(identity, /S01 Browser Research/);
     assert.match(identity, /EUR/);
     assert.equal(await ui.getByRole('button', { name: 'Create Thread', exact: true }).isEnabled(), true);
     await tab.reload();
+    await ui.getByRole('complementary', { name: 'Workspace', exact: true }).waitFor({ state: 'visible' });
     await tab.getAXState({ emit: false });
     assert.equal(await ui.getByRole('complementary', { name: 'Workspace', exact: true }).innerText(), identity);
     assert.equal(await ui.getByRole('alert').count(), 0);

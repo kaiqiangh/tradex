@@ -86,7 +86,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await ui.getByLabel('Workspace name', { exact: true }).fill(isolatedWorkspaceName);
     await ui.getByLabel('Local storage', { exact: true }).fill(isolatedWorkspacePath);
     await ui.getByRole('button', { name: 'Open workspace', exact: true }).click();
-    await ui.getByRole('button', { name: 'Open workspace', exact: true }).waitFor({ state: 'hidden' });
+    await ui.getByLabel('Workspace name', { exact: true }).waitFor({ state: 'hidden' });
     await tab.getAXState({ emit: false });
     const openedWorkspace = await sendIntegrationCommand('workspace.open', {
       name: isolatedWorkspaceName,

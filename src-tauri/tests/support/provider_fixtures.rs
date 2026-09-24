@@ -169,6 +169,7 @@ impl Default for Http {
 
 impl Http {
     #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
     pub fn mirror_binance_private_stream_book(&self, book: &BinanceTestnetOrderBook) {
         let order = |row: &tradex::protocol::BinanceTestnetOrder| {
             json!({
