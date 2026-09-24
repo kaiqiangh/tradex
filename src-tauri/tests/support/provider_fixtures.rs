@@ -86,6 +86,8 @@ pub struct Http {
     pub binance_order_by_client_id: RefCell<Option<Value>>,
     pub binance_hide_order_lookup: Cell<bool>,
     pub binance_exchange_info: RefCell<Option<Value>>,
+    pub binance_reference_price: RefCell<Option<Value>>,
+    pub binance_reference_price_status: Cell<Option<u16>>,
 }
 impl Default for Http {
     fn default() -> Self {
@@ -139,6 +141,8 @@ impl Default for Http {
             binance_order_by_client_id: RefCell::new(None),
             binance_hide_order_lookup: Cell::new(false),
             binance_exchange_info: RefCell::new(None),
+            binance_reference_price: RefCell::new(None),
+            binance_reference_price_status: Cell::new(None),
         }
     }
 }
@@ -274,6 +278,31 @@ impl ProviderHttp for Http {
         }
         if endpoint != ProviderEndpoint::AlpacaPaper {
             if endpoint == ProviderEndpoint::BinanceTestnet {
+                if method == ProviderHttpMethod::Get
+                    && matches!(
+                        path,
+                        "/api/v3/referencePrice?symbol=BTCUSDT"
+                            | "/api/v3/referencePrice?symbol=ETHUSDT"
+                    )
+                {
+                    assert!(headers.is_empty());
+                    self.calls
+                        .borrow_mut()
+                        .push(format!("{}{path}", endpoint.base_url()));
+                    let body = self
+                        .binance_reference_price
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(|| json!({
+                            "symbol": if path.ends_with("ETHUSDT") { "ETHUSDT" } else { "BTCUSDT" },
+                            "referencePrice": null,
+                            "timestamp": 1788849600000u64
+                        }));
+                    return Ok(ProviderHttpResponse {
+                        status: self.binance_reference_price_status.get().unwrap_or(200),
+                        body: serde_json::to_vec(&body).unwrap(),
+                    });
+                }
                 if method == ProviderHttpMethod::Get && path.starts_with("/api/v3/exchangeInfo?") {
                     assert!(headers.is_empty());
                     return Ok(ProviderHttpResponse {
@@ -683,6 +712,6 @@ impl ProviderHttp for Http {
     }
 }
 
-fn default_binance_exchange_info() -> Value {
+pub fn default_binance_exchange_info() -> Value {
     json!({"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","filters":[{"filterType":"PRICE_FILTER","minPrice":"0.01","maxPrice":"1000000","tickSize":"0.01"},{"filterType":"LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"MARKET_LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"NOTIONAL","minNotional":"5","maxNotional":"0","applyMinToMarket":true,"applyMaxToMarket":false,"avgPriceMins":5}]}]})
 }

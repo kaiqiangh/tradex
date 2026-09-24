@@ -139,10 +139,32 @@ fn testnet_proposal(
     quantity: &str,
     tif: &str,
 ) -> Value {
+    testnet_proposal_side(
+        cp,
+        workspace,
+        account,
+        order_type,
+        quantity_type,
+        quantity,
+        tif,
+        "BUY",
+    )
+}
+
+fn testnet_proposal_side(
+    cp: &mut ControlPlane,
+    workspace: &Value,
+    account: &Value,
+    order_type: &str,
+    quantity_type: &str,
+    quantity: &str,
+    tif: &str,
+    side: &str,
+) -> Value {
     let mut fields = json!({
         "accountId":account["connectionId"],"venue":"BINANCE",
         "environment":"BINANCE_TESTNET","instrumentId":"crypto:BTC/USDT:spot",
-        "side":"BUY","orderType":order_type,
+        "side":side,"orderType":order_type,
         "quantity":{"type":quantity_type,"value":quantity},"timeInForce":tif
     });
     if order_type == "LIMIT" {
@@ -381,7 +403,7 @@ fn unknown_testnet_submit_is_query_only_until_client_order_id_is_found() {
 }
 
 #[test]
-fn testnet_filters_reject_quote_minimum_and_unaligned_base_quantity_before_post() {
+fn testnet_filters_and_percent_price_rules_fail_closed_before_post() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());
     let vault = fixtures::Vault::default();
@@ -417,6 +439,146 @@ fn testnet_filters_reject_quote_minimum_and_unaligned_base_quantity_before_post(
     assert!(
         http.binance_posts.borrow().is_empty(),
         "misaligned base quantity is not rounded and posted"
+    );
+
+    let base_info = fixtures::default_binance_exchange_info();
+    for (key, price_filter, error) in [
+        (
+            "testnet-order-percent",
+            json!({"filterType":"PERCENT_PRICE","multiplierDown":"0.8","multiplierUp":"0.9","avgPriceMins":5}),
+            "ORDER_FILTER_REJECTED",
+        ),
+        (
+            "testnet-order-percent-side",
+            json!({"filterType":"PERCENT_PRICE_BY_SIDE","bidMultiplierDown":"0.8","bidMultiplierUp":"0.9","askMultiplierDown":"0.5","askMultiplierUp":"2","avgPriceMins":5}),
+            "ORDER_FILTER_REJECTED",
+        ),
+        (
+            "testnet-order-percent-interval",
+            json!({"filterType":"PERCENT_PRICE","multiplierDown":"0.8","multiplierUp":"1.2","avgPriceMins":1}),
+            "ORDER_FILTERS_UNAVAILABLE",
+        ),
+    ] {
+        let mut info = base_info.clone();
+        info["symbols"][0]["filters"]
+            .as_array_mut()
+            .unwrap()
+            .push(price_filter);
+        *http.binance_exchange_info.borrow_mut() = Some(info);
+        let proposal =
+            testnet_proposal(&mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC");
+        let mut submit = testnet_submit_request(&workspace, &account, &proposal);
+        submit["payload"]["idempotencyKey"] = key.into();
+        let reply = run(&mut cp, submit, &vault, &http);
+        assert_eq!(reply["data"]["state"], "REJECTED", "{reply}");
+        assert_eq!(reply["data"]["errorCode"], error, "{reply}");
+    }
+    let mut reference_info = base_info.clone();
+    reference_info["symbols"][0]["filters"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"filterType":"PERCENT_PRICE","multiplierDown":"0.9","multiplierUp":"1.1","avgPriceMins":5}));
+    *http.binance_exchange_info.borrow_mut() = Some(reference_info);
+    *http.binance_reference_price.borrow_mut() = Some(json!({
+        "symbol":"BTCUSDT","referencePrice":"200","timestamp":1788849600000u64
+    }));
+    let avg_price_calls = http
+        .calls
+        .borrow()
+        .iter()
+        .filter(|call| call.ends_with("/api/v3/avgPrice?symbol=BTCUSDT"))
+        .count();
+    let proposal = testnet_proposal(&mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC");
+    let mut submit = testnet_submit_request(&workspace, &account, &proposal);
+    submit["payload"]["idempotencyKey"] = "testnet-order-reference-price".into();
+    let reply = run(&mut cp, submit, &vault, &http);
+    assert_eq!(reply["data"]["state"], "REJECTED", "{reply}");
+    assert_eq!(reply["data"]["errorCode"], "ORDER_FILTER_REJECTED");
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|call| call.ends_with("/api/v3/avgPrice?symbol=BTCUSDT"))
+            .count(),
+        avg_price_calls,
+        "a non-null reference price takes precedence over the average-price fallback"
+    );
+
+    http.binance_reference_price_status.set(Some(503));
+    *http.binance_reference_price.borrow_mut() = Some(json!({"code":-1000,"msg":"unavailable"}));
+    let avg_price_calls = http
+        .calls
+        .borrow()
+        .iter()
+        .filter(|call| call.ends_with("/api/v3/avgPrice?symbol=BTCUSDT"))
+        .count();
+    let proposal = testnet_proposal(&mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC");
+    let mut submit = testnet_submit_request(&workspace, &account, &proposal);
+    submit["payload"]["idempotencyKey"] = "testnet-order-reference-error".into();
+    let reply = run(&mut cp, submit, &vault, &http);
+    assert_eq!(reply["data"]["state"], "REJECTED", "{reply}");
+    assert_eq!(reply["data"]["errorCode"], "ORDER_FILTERS_UNAVAILABLE");
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|call| call.ends_with("/api/v3/avgPrice?symbol=BTCUSDT"))
+            .count(),
+        avg_price_calls,
+        "a reference endpoint error must not silently select another price source"
+    );
+    assert!(http.binance_posts.borrow().is_empty());
+
+    let mut sell_info = base_info.clone();
+    sell_info["symbols"][0]["filters"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"filterType":"PERCENT_PRICE_BY_SIDE","bidMultiplierDown":"0.5","bidMultiplierUp":"2","askMultiplierDown":"0.8","askMultiplierUp":"0.9","avgPriceMins":0}));
+    *http.binance_exchange_info.borrow_mut() = Some(sell_info);
+    *http.binance_reference_price.borrow_mut() = None;
+    http.binance_reference_price_status.set(None);
+    let ticker_calls = http
+        .calls
+        .borrow()
+        .iter()
+        .filter(|call| call.ends_with("/api/v3/ticker/price?symbol=BTCUSDT"))
+        .count();
+    let proposal = testnet_proposal_side(
+        &mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC", "SELL",
+    );
+    let mut submit = testnet_submit_request(&workspace, &account, &proposal);
+    submit["payload"]["idempotencyKey"] = "testnet-order-percent-sell".into();
+    let reply = run(&mut cp, submit, &vault, &http);
+    assert_eq!(reply["data"]["state"], "REJECTED", "{reply}");
+    assert_eq!(reply["data"]["errorCode"], "ORDER_FILTER_REJECTED");
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|call| call.ends_with("/api/v3/ticker/price?symbol=BTCUSDT"))
+            .count(),
+        ticker_calls + 1,
+        "avgPriceMins=0 uses the last-price endpoint"
+    );
+    assert!(http.binance_posts.borrow().is_empty());
+
+    let mut boundary_info = base_info;
+    boundary_info["symbols"][0]["filters"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"filterType":"PERCENT_PRICE","multiplierDown":"1","multiplierUp":"1","avgPriceMins":5}));
+    *http.binance_exchange_info.borrow_mut() = Some(boundary_info);
+    let proposal = testnet_proposal(&mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC");
+    let mut submit = testnet_submit_request(&workspace, &account, &proposal);
+    submit["payload"]["idempotencyKey"] = "testnet-order-percent-boundary".into();
+    let reply = run(&mut cp, submit, &vault, &http);
+    assert_eq!(reply["data"]["state"], "ACKNOWLEDGED", "{reply}");
+    assert_eq!(http.binance_posts.borrow().len(), 1);
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .any(|call| call.ends_with("/api/v3/avgPrice?symbol=BTCUSDT"))
     );
 }
 

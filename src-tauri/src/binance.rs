@@ -1,5 +1,7 @@
 use super::*;
-use crate::protocol::{BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, OrderProposal};
+use crate::protocol::{
+    BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, OrderProposal, OrderSide,
+};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::{
@@ -22,6 +24,8 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
                 | "/api/v3/exchangeInfo?symbol=ETHUSDT"
                 | "/api/v3/avgPrice?symbol=BTCUSDT"
                 | "/api/v3/avgPrice?symbol=ETHUSDT"
+                | "/api/v3/referencePrice?symbol=BTCUSDT"
+                | "/api/v3/referencePrice?symbol=ETHUSDT"
                 | "/api/v3/ticker/price?symbol=BTCUSDT"
                 | "/api/v3/ticker/price?symbol=ETHUSDT"
         )
@@ -505,6 +509,39 @@ fn validate_exchange_filters(
             &price_filter["maxPrice"],
             &price_filter["tickSize"],
         )?;
+        let mut seen = HashSet::new();
+        for price_filter in symbol["filters"].as_array().ok_or_else(invalid)? {
+            let kind = price_filter["filterType"].as_str().ok_or_else(invalid)?;
+            let (down, up) = match kind {
+                "PERCENT_PRICE" => (
+                    &price_filter["multiplierDown"],
+                    &price_filter["multiplierUp"],
+                ),
+                "PERCENT_PRICE_BY_SIDE" => match fields.side {
+                    OrderSide::Buy => (
+                        &price_filter["bidMultiplierDown"],
+                        &price_filter["bidMultiplierUp"],
+                    ),
+                    OrderSide::Sell => (
+                        &price_filter["askMultiplierDown"],
+                        &price_filter["askMultiplierUp"],
+                    ),
+                },
+                _ => continue,
+            };
+            if !seen.insert(kind) {
+                return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
+            }
+            let reference =
+                reference_price.ok_or_else(|| TradeXError::new("ORDER_FILTERS_UNAVAILABLE"))?;
+            let minimum = multiply(reference, &positive(down)?)?;
+            let maximum = multiply(reference, &positive(up)?)?;
+            if decimal_cmp(&price, &minimum)? == std::cmp::Ordering::Less
+                || decimal_cmp(&price, &maximum)? == std::cmp::Ordering::Greater
+            {
+                return Err(TradeXError::new("ORDER_FILTER_REJECTED"));
+            }
+        }
     }
     let notionals = symbol["filters"]
         .as_array()
@@ -563,27 +600,72 @@ fn reference_price(
     http: &impl ProviderHttp,
     symbol: &str,
     exchange_symbol: &Value,
+    proposal: &OrderProposal,
     secrets: &[String],
     current: &impl Fn() -> bool,
 ) -> Result<String> {
     let filters = exchange_symbol["filters"].as_array().ok_or_else(invalid)?;
+    let is_market = proposal.fields.order_type == OrderType::Market;
     let mut avg_minutes = None;
+    let mut conflicting_intervals = false;
+    let mut seen = HashSet::new();
     for item in filters.iter().filter(|item| {
         matches!(
             item["filterType"].as_str(),
-            Some("MIN_NOTIONAL" | "NOTIONAL")
+            Some("MIN_NOTIONAL" | "NOTIONAL") if is_market
+        ) || matches!(
+            item["filterType"].as_str(),
+            Some("PERCENT_PRICE" | "PERCENT_PRICE_BY_SIDE") if !is_market
         )
     }) {
-        if let Some(value) = item.get("avgPriceMins").and_then(Value::as_u64) {
-            if avg_minutes
-                .replace(value)
-                .is_some_and(|existing| existing != value)
-            {
-                return Err(invalid());
-            }
+        let kind = item["filterType"].as_str().ok_or_else(invalid)?;
+        if !seen.insert(kind) {
+            return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
         }
+        let value = item["avgPriceMins"]
+            .as_u64()
+            .ok_or_else(|| TradeXError::new("ORDER_FILTERS_UNAVAILABLE"))?;
+        conflicting_intervals |= avg_minutes
+            .replace(value)
+            .is_some_and(|existing| existing != value);
     }
-    let endpoint = if avg_minutes.unwrap_or(0) == 0 {
+    let reference_path = format!("/api/v3/referencePrice?symbol={symbol}");
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let response = http.request(
+        ProviderEndpoint::BinanceTestnet,
+        ProviderHttpMethod::Get,
+        &reference_path,
+        HeaderMap::new(),
+        None,
+    )?;
+    if response.status == 200 {
+        let reference = response_value(response, secrets)?;
+        if reference["symbol"].as_str() != Some(symbol)
+            || !reference["timestamp"].as_u64().is_some_and(valid_time)
+        {
+            return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
+        }
+        match reference.get("referencePrice") {
+            Some(Value::Null) => (),
+            Some(Value::String(price)) => {
+                let price = positive(&Value::String(price.clone()))?;
+                if price == "0" {
+                    return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
+                }
+                return Ok(price);
+            }
+            _ => return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE")),
+        }
+    } else {
+        return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
+    }
+    if conflicting_intervals {
+        return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
+    }
+    let avg_minutes = avg_minutes.ok_or_else(|| TradeXError::new("ORDER_FILTERS_UNAVAILABLE"))?;
+    let endpoint = if avg_minutes == 0 {
         "ticker/price"
     } else {
         "avgPrice"
@@ -602,7 +684,11 @@ fn reference_price(
     if response.status != 200 {
         return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
     }
-    positive(&response_value(response, secrets)?["price"])
+    let response = response_value(response, secrets)?;
+    if avg_minutes > 0 && response["mins"].as_u64() != Some(avg_minutes) {
+        return Err(TradeXError::new("ORDER_FILTERS_UNAVAILABLE"));
+    }
+    positive(&response["price"])
 }
 
 fn account_balance(account: &Value, asset: &str) -> Result<String> {
@@ -852,13 +938,25 @@ pub(super) fn run_testnet_order(
             instrument.base.as_deref().ok_or_else(invalid)?,
             instrument.quote.as_deref().ok_or_else(invalid)?,
         )?;
-        let needs_reference = proposal.fields.quantity.r#type == OrderQuantityType::Base
-            && proposal.fields.order_type == OrderType::Market;
+        let needs_reference = (proposal.fields.quantity.r#type == OrderQuantityType::Base
+            && proposal.fields.order_type == OrderType::Market)
+            || (proposal.fields.order_type == OrderType::Limit
+                && exchange_symbol["filters"]
+                    .as_array()
+                    .is_some_and(|filters| {
+                        filters.iter().any(|filter| {
+                            matches!(
+                                filter["filterType"].as_str(),
+                                Some("PERCENT_PRICE" | "PERCENT_PRICE_BY_SIDE")
+                            )
+                        })
+                    }));
         let reference = if needs_reference {
             Some(reference_price(
                 http,
                 &symbol,
                 &exchange_symbol,
+                proposal,
                 secrets,
                 current,
             )?)
@@ -1356,6 +1454,13 @@ mod tests {
             "/sapi/v1/account/apiRestrictions?timestamp=1788849600000&recvWindow=5000&signature={}",
             "a".repeat(64)
         );
+        let reference_price = "/api/v3/referencePrice?symbol=BTCUSDT";
+        assert!(allows(ProviderEndpoint::BinanceTestnet, reference_price));
+        assert!(!allows(ProviderEndpoint::BinanceLive, reference_price));
+        assert!(!allows(
+            ProviderEndpoint::BinanceTestnet,
+            "/api/v3/referencePrice?symbol=BNBUSDT"
+        ));
         assert!(!allows(ProviderEndpoint::BinanceTestnet, &restriction));
         assert!(allows(ProviderEndpoint::BinanceLive, &restriction));
     }
