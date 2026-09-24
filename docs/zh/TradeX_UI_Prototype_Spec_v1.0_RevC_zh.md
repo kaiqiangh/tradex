@@ -890,3 +890,11 @@ Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection sta
 ### 14.13 Binance Spot Testnet 实时订单簿更新（S19 #70）
 
 在 Order Drafts 中选择已连接的 `BINANCE_TESTNET` 账户后，显示已保存订单、成交、余额，以及可读的私有流/REST reconciliation 状态和最近事件时间。Stream 更新通过账户健康 event 刷新已保存订单视图；尚未同步、加载、当前、stale、degraded 和需要 reconciliation 状态均使用无障碍状态文案。断流/恢复期间保留最后可信观察；未知 provider 状态可见且不视为终态。保留手动读取控件和既有仅主 Trade 的边界。不增加流控件或金融权限。使用 Rust-backed 集成 fixture 验证键盘操作和 390/768/1280 px 布局；可点击原型不作为 provider 证据。
+
+### 14.14 Binance Spot Testnet 准确订单撤销复核（S19 #71）
+
+仅在已连接的 Binance Spot Testnet 账户中，对 symbol 为 `BTCUSDT` 或 `ETHUSDT`、原始 provider 状态为 `NEW` 或 `PARTIALLY_FILLED`、没有现存撤销状态且不超过 60 秒的 `CURRENT` 订单观察提供“复核撤销”。无障碍确认框明确显示 Binance Spot Testnet、账户 label/远端 ID、完整 provider order ID、symbol、方向、原始状态、准确已成交/剩余数量及观察时间。说明 TradeX 会在确认后、provider 写入前重新核验账户及准确订单；provider acknowledgement 不证明撤销完成。
+
+激活“复核撤销”时，先执行现有的准确订单 Detail 刷新。仅当返回订单簿为 `CURRENT`，且该准确订单对当前 connection 和远端账户仍可撤销时，才打开确认框。用户明确确认后，后端会在 provider 写入前再次核验账户及准确订单。
+
+复核本身只读。Escape/继续复核不会发送 command，并在关闭后恢复焦点。用户明确确认后才发送捕获的 connection/book version、准确订单身份、新生成的幂等 UUID 和 `confirmed: true`；若 provider 订单已变化，要求重新复核且不发送 DELETE。使用独立无障碍文字区分 `SUBMITTING`、已确认 provider 终态，以及结果不明的 `PENDING`。保留与撤销竞态的成交。不增加 Live、Agent、撤销全部、Local Paper 或通用撤销控件。使用 Rust-backed integration fixture 验证键盘操作和 390、768、1280 px 布局；fixture 不等于 provider-hosted Testnet 证据。

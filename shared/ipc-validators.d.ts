@@ -75,6 +75,8 @@ declare const validators: {
   BinanceTestnetOrderBookRateLimits: (value: unknown) => boolean;
   BinanceTestnetOrderBookRefresh: (value: unknown) => boolean;
   BinanceTestnetOrderBookStatus: (value: unknown) => boolean;
+  BinanceTestnetOrderCancel: (value: unknown) => boolean;
+  BinanceTestnetOrderCancelState: (value: unknown) => boolean;
   BinanceTestnetOrderOrigin: (value: unknown) => boolean;
   BinanceTestnetOrderReconcile: (value: unknown) => boolean;
   BinanceTestnetOrderSubmit: (value: unknown) => boolean;

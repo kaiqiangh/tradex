@@ -2,9 +2,9 @@
 
 **Generated / 生成日期:** 2026-09-24
 
-Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, and S19 Binance Spot Testnet submission, recovery, and private-stream contract, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
+Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, and S19 Binance Spot Testnet submission, recovery, private-stream, and exact-order cancellation contract, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
 
-以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约，以及 S19 Binance Spot Testnet 提交、恢复和私有流契约后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
+以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约，以及 S19 Binance Spot Testnet 提交、恢复、私有流和准确订单撤销契约后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
 
 This manifest excludes its own hash to avoid self-reference. Existing docs/agents workflow guides are outside this product-document manifest. The root README.md describes the application build; docs/implementation tracks delivery separately from this product-document manifest.
 
@@ -13,16 +13,16 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | File / 文件 | Purpose / 用途 | Lines / 行数 | SHA-256 |
 |---|---|---:|---|
 | `AGENTS.md` | Agent entry point / Agent 文档入口 | 30 | `c3242039e90c7f6c684b0de2fd3de2ad16132839293b508facb06ecbd14be9dc` |
-| `docs/README.md` | English documentation index | 42 | `fb68101776288dcf8df2c51ad95f3f4cfaeabb52c3e908c8fb113a653c0ea139` |
-| `docs/zh/README.md` | 中文文档目录 | 39 | `078c9e981fa0f864ee64811d52e30b73a8903e6c0ef30012ec9ab189d5ee3d76` |
+| `docs/README.md` | English documentation index | 44 | `0a5ed2db1e3b07f67775e9401bec35450a3a445cd554c73071b079c37421749c` |
+| `docs/zh/README.md` | 中文文档目录 | 41 | `7105333da8033a2a4e52e5fc7b607a3b8b130675ab5962f7f396d89074fb5736` |
 | `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3658 | `d5e7d8a7aab7a2bdb87b3e7a2b3788112c04bdc7550353edd7924fdf304d306c` |
 | `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3648 | `3699e38894d1baa94f9dac656d8ae06b07b4297bcdfc3b98b8bc986e8b6dbc13` |
-| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1183 | `3f80fb6c821aabf0f7b8fbaff626e62f8fc51fd6c017db3893008b35afe4e32c` |
-| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 892 | `9fa23fbcd9d0ecbd30addb89dac267f8fb9019607f9c50155230e3b1d2c09aab` |
-| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1057 | `1292c6558224c696ba7dfc24b41e7d0a553915c7a1570106de21815c8c28ebd4` |
-| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1055 | `f2ce6da112b78b4f6e475c8616e4b584b841373302f9eafadea074a2c66a8e30` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2840 | `abebbf868e7f7508057c4bb825d0a7f06c3ef0b0ff382544dab47a0ba73b576c` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2838 | `3ca7860aaae754f94a3f185bf1346e7705ca778e25bf900fb8f0c7c51d974ff2` |
+| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1191 | `186690fd4d3781baa620e4d629100451527157c2bf6453ab8e3232ff4fb2a5e2` |
+| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 900 | `c478a8b0291889e7bc5a296fb324a8493e50ff43539d6e3f93f70f9e40558089` |
+| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1063 | `e566a80d61528274b43c1e30e4b9aab9aa6db6246d57fe53efe994c5d346e347` |
+| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1061 | `8ae09b7232d8d95358d848d929ace41f8a314856cc37d82d34bf0a465974c944` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2848 | `ba7960010a95d920b4ee9bf86a93ad06c52f62f5c5a55ea8718f9e5472e95389` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2846 | `ff2205707d989ee9aa8f16b27a7f6eceb6d23d49ba49a52be5458f47ae6039f8` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 214 | `d30b1d9392e31d9263d9a347a54c03ea3faabacf6560e3cb16ecaa1d968cbeb6` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 214 | `ebeae223e08a188c6474d100b3263156f9fbff90bb653ad48db2f0ddf4f7b24b` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 188 | `5d1b2619f2fbe829a17684e1b2d32ca54c496386e5c32932d8c90c168178bc73` |

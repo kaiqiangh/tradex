@@ -2565,6 +2565,14 @@ Disconnect, `eventStreamTerminated`, workspace reopen, and system resume mark th
 
 The only runtime test seam is the existing Rust Control Plane over temporary SQLite/outbox, with a memory Keychain and controlled loopback WebSocket/HTTP fixtures; browser acceptance injects sanitized fixtures through the integration-only Rust bridge and checks accessible stream/reconciliation text at 390, 768, and 1280 px. No live Testnet key or order is used. No listen-key lifecycle, other symbols, Live stream, Local Paper, Agent access, financial approval, reservation, or Order Gateway authority is added.
 
+### 41.28 Binance Spot Testnet exact-order cancellation (S19 #71)
+
+Version-1 adds primary Trade UI command `binance.testnet.orders.cancel`, accepting `{workspaceId, connectionId, expectedConnectionStateVersion, symbol, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}` and returning the saved `BinanceTestnetOrderBook`. Only connected `binance` / `TESTNET` accounts and exact `BTCUSDT` / `ETHUSDT` orders in `NEW` or `PARTIALLY_FILLED` state are eligible. The saved order observation must be `CURRENT`, match the account/book versions and remote identity, and be no more than 60 seconds old. A transaction stores `SUBMITTING`, its UUID idempotency key, a new book version and outbox event before provider I/O. A reopened `SUBMITTING` attempt becomes `PENDING` with unknown outcome and is never resent.
+
+After explicit confirmation, the privileged adapter rechecks `/api/v3/account` against the saved remote `uid`, then makes a signed exact-order `GET /api/v3/order` immediately before the write. It compares immutable order identity, raw status, filled and remaining quantities, and provider update time with the reviewed observation. A changed order returns `ORDER_CHANGED_REVIEW_AGAIN`; a now-terminal order is saved without a DELETE; unsupported status is rejected. Only then may the adapter send one signed `DELETE /api/v3/order` with the exact symbol, decimal-string order ID, and saved UUID as `newClientOrderId`. No cancel-all, cancel-replace, arbitrary route, Live endpoint, Agent, or Gateway path is allowed. Definite pre-write rejection retains the idempotency key to prevent replay; transport/parse ambiguity is `PENDING` / `ORDER_CANCEL_STATUS_UNKNOWN` and is never blindly resent.
+
+A DELETE response is only an acknowledgement. A follow-up exact-order GET or the signed private stream must establish provider state; a fill, including a fill racing the acknowledgement, remains authoritative. The result merges onto the newest durable order book and fills instead of overwriting concurrent stream updates; conflicts retain the latest trusted fill and mark the book stale for reconciliation. Order-book projection and event commit atomically. Fixture tests use synthetic Testnet responses and temporary SQLite; they do not call Binance or place a real order.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

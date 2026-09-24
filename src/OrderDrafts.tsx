@@ -21,6 +21,7 @@ import type {
   AlpacaPaperOrderBook,
   BinanceTestnetOrderAttempt,
   BinanceTestnetOrder,
+  BinanceTestnetOrderBook,
   BinanceTestnetOrderBookAction,
   OrderQuantityType,
   OrderSide,
@@ -64,6 +65,13 @@ function canCancelTrading212Order(order: Trading212DemoOrder) {
     && (order.cancelState ?? 'NONE') === 'NONE';
 }
 
+function canCancelBinanceTestnetOrder(order: BinanceTestnetOrder) {
+  const age = Date.now() - Date.parse(order.observedAt);
+  return order.pending && ['NEW', 'PARTIALLY_FILLED'].includes(order.providerStatus)
+    && order.cancelState === 'NONE' && ['BTCUSDT', 'ETHUSDT'].includes(order.symbol)
+    && Number.isFinite(age) && age >= 0 && age <= 60_000;
+}
+
 type DraftForm = {
   accountId: string;
   venue: string;
@@ -79,7 +87,7 @@ type DraftForm = {
   clientLabel: string;
 };
 type DraftField = keyof DraftForm;
-type PaperConfirmation = 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit';
+type PaperConfirmation = 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit' | 'binance-testnet-cancel';
 
 const paperConfirmationCopy: Record<PaperConfirmation, { title: string; explanation: string; prompt: string; confirmLabel: string }> = {
   submit: {
@@ -109,6 +117,10 @@ const paperConfirmationCopy: Record<PaperConfirmation, { title: string; explanat
   'binance-testnet-submit': {
     title: 'Confirm Binance Spot Testnet submission', explanation: 'This sends one order to Binance Spot Testnet only. The endpoint is fixed to Testnet; an acknowledgement is not a fill.',
     prompt: 'Submit this exact immutable Proposal to Binance Spot Testnet?', confirmLabel: 'Confirm Binance Testnet submit',
+  },
+  'binance-testnet-cancel': {
+    title: 'Confirm Binance Spot Testnet cancellation', explanation: 'Review the saved Testnet order observation. TradeX rechecks the exact account and order after you confirm, immediately before the provider write; acknowledgement is not proof of cancellation and fills can race this request.',
+    prompt: 'Send one cancellation request for this exact Binance Spot Testnet order?', confirmLabel: 'Confirm Testnet cancellation',
   },
 };
 
@@ -238,6 +250,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [binanceTestnetOrdersBusy, setBinanceTestnetOrdersBusy] = useState(false);
   const [cancelReview, setCancelReview] = useState<{ book: AlpacaPaperOrderBook; order: AlpacaPaperOrder }>();
   const [trading212CancelReview, setTrading212CancelReview] = useState<{ book: Trading212DemoOrderBook; order: Trading212DemoOrder; connectionId: string; accountLabel: string }>();
+  const [binanceTestnetCancelReview, setBinanceTestnetCancelReview] = useState<{ book: BinanceTestnetOrderBook; order: BinanceTestnetOrder; connectionId: string; accountLabel: string }>();
   const confirmationRef = useRef<HTMLDivElement>(null);
   const confirmationTriggerRef = useRef<HTMLElement | null>(null);
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
@@ -318,10 +331,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        if (!paperBusy && !ordersBusy && !trading212OrdersBusy) {
+        if (!paperBusy && !ordersBusy && !trading212OrdersBusy && !binanceTestnetOrdersBusy) {
           setPaperConfirmation(undefined);
           setCancelReview(undefined);
           setTrading212CancelReview(undefined);
+          setBinanceTestnetCancelReview(undefined);
           setBinanceTestnetReview(undefined);
         }
         return;
@@ -339,7 +353,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       window.removeEventListener('keydown', onKeyDown);
       if (shell) shell.inert = false;
     };
-  }, [paperConfirmation, paperBusy, ordersBusy, trading212OrdersBusy]);
+  }, [paperConfirmation, paperBusy, ordersBusy, trading212OrdersBusy, binanceTestnetOrdersBusy]);
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
@@ -701,6 +715,61 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setBinanceTestnetOrdersBusy(false); }
   };
 
+  const reviewBinanceTestnetOrder = async (order: BinanceTestnetOrder) => {
+    const connectionId = binanceTestnetOrdersConnectionId;
+    const accountSummary = binanceTestnetAccounts.find(account => account.connectionId === connectionId);
+    const remoteAccountId = accountSummary?.data?.remoteAccountId;
+    const book = binanceTestnetOrderBook;
+    if (!accountSummary || !remoteAccountId || !book || book.status !== 'CURRENT' || !canCancelBinanceTestnetOrder(order)) return;
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setError(undefined); setNotice('');
+    try {
+      const refreshedBook = await refreshBinanceTestnetOrders('DETAIL', order.symbol, order.providerOrderId);
+      if (!refreshedBook || refreshedBook.status !== 'CURRENT') {
+        throw localGuardError('ORDER_STATUS_UNKNOWN', 'Binance could not verify the selected order. Refresh and review again before requesting cancellation.');
+      }
+      if (refreshedBook.connectionId !== connectionId || refreshedBook.remoteAccountId !== remoteAccountId || book.remoteAccountId !== remoteAccountId) {
+        throw localGuardError('ORDER_STATUS_UNKNOWN', 'The selected Binance Testnet account changed. Refresh linked accounts before reviewing cancellation.');
+      }
+      const reviewed = refreshedBook.orders.find(item => item.symbol === order.symbol && item.providerOrderId === order.providerOrderId);
+      if (!reviewed || !canCancelBinanceTestnetOrder(reviewed)) {
+        throw localGuardError('ORDER_NOT_CANCELABLE', 'The exact Binance Testnet order is no longer open and cancelable. Refresh its current provider status.');
+      }
+      setBinanceTestnetCancelReview({ book: refreshedBook, order: reviewed, connectionId, accountLabel: accountSummary.label });
+      setPaperConfirmation('binance-testnet-cancel');
+    } catch (cause) { setError(cause); }
+  };
+
+  const cancelBinanceTestnetOrder = async () => {
+    if (!binanceTestnetCancelReview) return;
+    const { book: reviewedBook, order, connectionId } = binanceTestnetCancelReview;
+    setBinanceTestnetOrdersBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId });
+      if (account.connectionId !== connectionId || account.providerId !== 'binance' || account.environment !== 'TESTNET'
+        || account.connectionState !== 'CONNECTED' || account.data?.remoteAccountId !== reviewedBook.remoteAccountId) {
+        throw localGuardError('ORDER_STATUS_UNKNOWN', 'The reviewed Binance Testnet account identity changed. Refresh the account and order before trying again.');
+      }
+      const updatedBook = await request('binance.testnet.orders.cancel', {
+        workspaceId, connectionId, expectedConnectionStateVersion: account.stateVersion,
+        symbol: order.symbol, providerOrderId: order.providerOrderId,
+        expectedBookStateVersion: reviewedBook.stateVersion,
+        idempotencyKey: crypto.randomUUID(), confirmed: true,
+      });
+      queryClient.setQueryData(['binance-testnet-orders', workspaceId, connectionId], { book: updatedBook });
+      const updatedOrder = updatedBook.orders.find(item => item.symbol === order.symbol && item.providerOrderId === order.providerOrderId);
+      setNotice(updatedOrder?.cancelError === 'ORDER_CANCEL_STATUS_UNKNOWN'
+        ? `Binance Testnet cancellation outcome for ${order.providerOrderId} is unknown. It remains pending provider confirmation; refresh this exact order before taking further action.`
+        : updatedOrder?.cancelState === 'PENDING'
+          ? `Binance Testnet accepted the cancellation request for ${order.providerOrderId}. The order remains pending provider confirmation.`
+          : updatedOrder?.cancelError
+            ? `Binance Testnet did not accept cancellation for ${order.providerOrderId}: ${updatedOrder.cancelError}. Provider status: ${updatedOrder.providerStatus}.`
+            : `Binance Testnet provider status for ${order.providerOrderId}: ${updatedOrder?.providerStatus ?? 'unknown'}.`);
+      setBinanceTestnetCancelReview(undefined);
+    } catch (cause) { setError(cause); }
+    finally { setBinanceTestnetOrdersBusy(false); }
+  };
+
   const reviewTrading212Order = async (order: Trading212DemoOrder) => {
     const connectionId = trading212ConnectionId;
     const accountSummary = trading212Accounts.find(account => account.connectionId === connectionId);
@@ -843,10 +912,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     else if (action === 'binance-testnet-submit') await submitBinanceTestnetProposal();
     else if (action === 'alpaca-cancel') await cancelAlpacaOrder();
     else if (action === 'trading212-cancel') await cancelTrading212Order();
+    else if (action === 'binance-testnet-cancel') await cancelBinanceTestnetOrder();
     else await cancelPaperOrder();
     setPaperConfirmation(undefined);
     setCancelReview(undefined);
     setTrading212CancelReview(undefined);
+    setBinanceTestnetCancelReview(undefined);
     setBinanceTestnetReview(undefined);
   };
 
@@ -994,7 +1065,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <h3>Open orders ({binanceTestnetOrderBook.orders.filter(order => order.pending).length})</h3>
         <p className="muted">{binanceTestnetOrderBook.pendingOrdersObservedAt ? `Open orders last read: ${new Date(binanceTestnetOrderBook.pendingOrdersObservedAt).toLocaleString()}.` : 'Open orders have not been read yet.'}</p>
         {!binanceTestnetOrderBook.orders.some(order => order.pending) && binanceTestnetOrderBook.pendingOrdersObservedAt && <p className="muted">No open orders were returned by that provider read.</p>}
-        {binanceTestnetOrderBook.orders.filter(order => order.pending).map(order => <BinanceTestnetOrderCard key={`${order.symbol}:${order.providerOrderId}`} order={order} busy={binanceTestnetOrdersBusy} onRefresh={() => void refreshBinanceTestnetOrders('DETAIL', order.symbol, order.providerOrderId)} />)}
+        {binanceTestnetOrderBook.orders.filter(order => order.pending).map(order => <BinanceTestnetOrderCard key={`${order.symbol}:${order.providerOrderId}`} order={order} busy={binanceTestnetOrdersBusy} onRefresh={() => void refreshBinanceTestnetOrders('DETAIL', order.symbol, order.providerOrderId)} onReviewCancel={binanceTestnetOrderBook.status === 'CURRENT' && binanceTestnetOrdersAccount?.connectionState === 'CONNECTED' && canCancelBinanceTestnetOrder(order) ? () => void reviewBinanceTestnetOrder(order) : undefined} />)}
         <h3>Order history ({binanceTestnetOrderBook.orders.filter(order => !order.pending).length})</h3>
         {!binanceTestnetOrderBook.orders.some(order => !order.pending) && !binanceTestnetOrderBook.history.some(history => history.started) && <p className="muted">Supported Binance Testnet order history has not been loaded yet.</p>}
         {!binanceTestnetOrderBook.orders.some(order => !order.pending) && binanceTestnetOrderBook.history.some(history => history.started) && <p className="muted">No terminal orders are present in the loaded history pages.</p>}
@@ -1022,6 +1093,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <p>{paperConfirmationCopy[paperConfirmation].prompt}</p>
       {paperConfirmation === 'alpaca-cancel' && cancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>ALPACA_PAPER · {ordersAccount?.label ?? 'Unavailable'} · {cancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{cancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{cancelReview.order.instrumentId ?? cancelReview.order.symbol} · {cancelReview.order.side.toUpperCase()}</dd></div><div><dt>Provider status</dt><dd>{cancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{cancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{cancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last observation</dt><dd>{new Date(cancelReview.order.observedAt).toLocaleString()}</dd></div></dl>}
       {paperConfirmation === 'trading212-cancel' && trading212CancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>Trading 212 Demo · TRADING212_DEMO · {trading212CancelReview.accountLabel} · {trading212CancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{trading212CancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{trading212CancelReview.order.symbol} · {trading212CancelReview.order.side}</dd></div><div><dt>Provider / normalized status</dt><dd>{trading212CancelReview.order.providerStatus} / {trading212CancelReview.order.normalizedStatus}</dd></div><div><dt>Filled quantity</dt><dd>{trading212CancelReview.order.filledQuantity ?? 'Unavailable'}</dd></div><div><dt>Remaining quantity</dt><dd>{trading212CancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Filled value</dt><dd>{trading212CancelReview.order.filledValue == null ? 'Unavailable' : `${trading212CancelReview.order.filledValue} ${trading212CancelReview.order.currency ?? 'currency unavailable'}`}</dd></div><div><dt>Last provider observation</dt><dd>{new Date(trading212CancelReview.order.observedAt).toLocaleString()}</dd></div><div><dt>Provider acknowledgement</dt><dd>Acceptance only; cancellation is not confirmed until a later provider observation.</dd></div></dl>}
+      {paperConfirmation === 'binance-testnet-cancel' && binanceTestnetCancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>Binance Spot Testnet · TESTNET · {binanceTestnetCancelReview.accountLabel} · {binanceTestnetCancelReview.book.remoteAccountId}</dd></div><div><dt>Connection ID</dt><dd>{binanceTestnetCancelReview.connectionId}</dd></div><div><dt>Symbol / provider order</dt><dd>{binanceTestnetCancelReview.order.symbol} · {binanceTestnetCancelReview.order.providerOrderId}</dd></div><div><dt>Side / provider status</dt><dd>{binanceTestnetCancelReview.order.side} · {binanceTestnetCancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{binanceTestnetCancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{binanceTestnetCancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last provider observation</dt><dd>{new Date(binanceTestnetCancelReview.order.observedAt).toLocaleString()}</dd></div><div><dt>Provider acknowledgement</dt><dd>Acceptance only; exact provider status confirms cancellation, and fills can race this request.</dd></div></dl>}
       {(paperConfirmation === 'alpaca-submit' || paperConfirmation === 'trading212-submit' || paperConfirmation === 'binance-testnet-submit') && proposalDetail.data && <dl className="proposal-fields">
         <div><dt>Environment / account</dt><dd>{paperConfirmation === 'binance-testnet-submit' ? `Binance Spot Testnet · TESTNET · ${binanceTestnetReview?.accountLabel ?? 'Unavailable'}` : paperConfirmation === 'trading212-submit' ? 'Trading 212 Demo · TRADING212_DEMO' : 'Alpaca Paper'} · {paperConfirmation === 'binance-testnet-submit' ? binanceTestnetReview?.remoteAccountId ?? 'provider account ID unavailable' : accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'}{paperConfirmation === 'binance-testnet-submit' ? '' : ` · ${accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}`}</dd></div>
         {paperConfirmation === 'binance-testnet-submit' && <div><dt>Connection ID</dt><dd>{binanceTestnetReview?.connectionId ?? 'Unavailable'}</dd></div>}
@@ -1034,7 +1106,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         {paperConfirmation === 'trading212-submit' && proposalDetail.data.fields.orderType === 'MARKET' && <div><dt>Extended hours</dt><dd>Off</dd></div>}
         <div><dt>Proposal / hash</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div>
       </dl>}
-      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy ? 'Working…' : paperConfirmationCopy[paperConfirmation].confirmLabel}</button></div>
+      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetCancelReview(undefined); setBinanceTestnetReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy ? 'Working…' : paperConfirmationCopy[paperConfirmation].confirmLabel}</button></div>
     </div></div>, document.body)}
   </>;
 }
@@ -1067,9 +1139,10 @@ function Trading212OrderCard({ order, pending, onRefresh, onReviewCancel, busy }
   </article>;
 }
 
-function BinanceTestnetOrderCard({ order, onRefresh, busy }: {
+function BinanceTestnetOrderCard({ order, onRefresh, onReviewCancel, busy }: {
   order: BinanceTestnetOrder;
   onRefresh: () => void;
+  onReviewCancel?: () => void;
   busy: boolean;
 }) {
   return <article className="order-book-order">
@@ -1084,6 +1157,10 @@ function BinanceTestnetOrderCard({ order, onRefresh, busy }: {
       <div><dt>Submitted</dt><dd>{new Date(order.submittedAtMs).toLocaleString()}</dd></div>
       {order.attemptId && <div><dt>TradeX attempt</dt><dd>{order.attemptId}</dd></div>}
     </dl>
+    {order.cancelState === 'SUBMITTING' && <p className="muted" role="status">Cancellation request is being sent. The provider order remains pending verification.</p>}
+    {order.cancelState === 'PENDING' && <p className="muted" role="status">Cancellation request accepted or outcome unknown; refresh this exact order for provider confirmation.</p>}
+    {order.cancelError && order.cancelError !== 'ORDER_CANCEL_STATUS_UNKNOWN' && <p className="error-text" role="status">Cancellation request was not accepted: {order.cancelError}</p>}
+    {order.pending && onReviewCancel && <button type="button" onClick={onReviewCancel} disabled={busy}>Review cancellation</button>}
     <button type="button" onClick={onRefresh} disabled={busy}>{busy ? 'Refreshing…' : 'Refresh exact order'}</button>
   </article>;
 }

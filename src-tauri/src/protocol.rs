@@ -332,6 +332,7 @@ pub struct IpcSchema {
     pub binance_testnet_order_book_query: BinanceTestnetOrderBookQuery,
     pub binance_testnet_order_book_query_result: BinanceTestnetOrderBookQueryResult,
     pub binance_testnet_order_book_refresh: BinanceTestnetOrderBookRefresh,
+    pub binance_testnet_order_cancel: BinanceTestnetOrderCancel,
     pub binance_testnet_order_book: BinanceTestnetOrderBook,
     pub binance_testnet_order: BinanceTestnetOrder,
     pub binance_testnet_fill: BinanceTestnetFill,
@@ -3172,6 +3173,15 @@ pub enum BinanceTestnetOrderOrigin {
     External,
 }
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceTestnetOrderCancelState {
+    #[default]
+    None,
+    Submitting,
+    Pending,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BinanceTestnetOrderBookAction {
@@ -3223,6 +3233,14 @@ pub struct BinanceTestnetOrder {
     pub observed_at: String,
     pub pending: bool,
     pub origin: BinanceTestnetOrderOrigin,
+    #[serde(default)]
+    pub cancel_state: BinanceTestnetOrderCancelState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 36))]
+    pub cancel_idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub cancel_error: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub attempt_id: Option<String>,
@@ -3378,6 +3396,26 @@ pub struct BinanceTestnetOrderBookRefresh {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
     pub provider_order_id: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetOrderCancel {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(regex(pattern = "^(BTCUSDT|ETHUSDT)$"))]
+    pub symbol: String,
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_book_state_version: String,
+    #[schemars(regex(pattern = "^[A-Za-z0-9_-]{36}$"))]
+    pub idempotency_key: String,
+    pub confirmed: bool,
 }
 
 #[derive(Deserialize, JsonSchema)]

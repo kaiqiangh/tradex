@@ -26,6 +26,8 @@ S19 #68 在 Backend ARD §41.25、Frontend ARD §13.14 和 UI Spec §14.12 增�
 
 S19 #70 在 Backend ARD §41.27、Frontend ARD §13.15 和 UI Spec §14.13 增加 Binance Spot Testnet 签名私有流与 REST 恢复契约。实现已在 `dev` 使用 fixture 验证；未使用真实 Testnet 凭据、未调用 provider、未下单。父 Spec #67 仍等待 provider-hosted Testnet 验收，点击式原型保持未修改。
 
+S19 #71 在 Backend ARD §41.28、Frontend ARD §13.15.1 和 UI Spec §14.14 增加 Binance Spot Testnet 准确订单撤销。Rust-backed fixture 覆盖持久化意图、单次准确 DELETE、结果不明时不重放、provider 订单变化和竞态成交。[本地实现证据](../implementation/s19-binance-testnet-cancel-evidence_zh.md)。未使用真实 Testnet 凭据、未调用 provider、未下单；父 Spec #67 和 provider-hosted ticket #72 仍开放。点击式原型未修改。
+
 ## 术语和同步规则
 
 - Agent Mode 保留 Ask / Research / Backtest / Trade；Execution Context 区分只读/历史模拟与具体 Local Paper / Paper / Demo / Testnet / Live 环境。

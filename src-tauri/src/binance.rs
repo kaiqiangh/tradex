@@ -2,8 +2,8 @@ use super::*;
 use crate::protocol::{
     BinanceTestnetBalance, BinanceTestnetFill, BinanceTestnetHistoryState, BinanceTestnetOrder,
     BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook,
-    BinanceTestnetOrderBookAction, BinanceTestnetOrderBookStatus, BinanceTestnetOrderOrigin,
-    OrderProposal, OrderSide,
+    BinanceTestnetOrderBookAction, BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancelState,
+    BinanceTestnetOrderOrigin, OrderProposal, OrderSide,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -255,6 +255,47 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     }
 }
 
+pub(super) fn allows_cancel(path: &str) -> bool {
+    let Some((route, query)) = path.split_once('?') else {
+        return false;
+    };
+    if route != "/api/v3/order" {
+        return false;
+    }
+    let Some((unsigned, signature)) = query.split_once("&signature=") else {
+        return false;
+    };
+    let mut values = BTreeMap::new();
+    for pair in unsigned.split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            return false;
+        };
+        if values.insert(key, value).is_some() {
+            return false;
+        }
+    }
+    values.len() == 5
+        && signature.len() == 64
+        && signature
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        && values
+            .get("symbol")
+            .is_some_and(|value| matches!(*value, "BTCUSDT" | "ETHUSDT"))
+        && values
+            .get("orderId")
+            .is_some_and(|value| valid_order_id(value))
+        && values
+            .get("newClientOrderId")
+            .is_some_and(|value| valid_client_order_id(value))
+        && values.get("recvWindow") == Some(&"5000")
+        && values.get("timestamp").is_some_and(|value| {
+            value.len() == 13
+                && value.bytes().all(|byte| byte.is_ascii_digit())
+                && value.parse::<u64>().is_ok_and(valid_time)
+        })
+}
+
 fn valid_client_order_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 36
@@ -470,6 +511,9 @@ fn parse_testnet_book_order(value: &Value, observed_at: &str) -> Result<BinanceT
             Some("FILLED" | "CANCELED" | "REJECTED" | "EXPIRED" | "EXPIRED_IN_MATCH")
         ),
         origin: BinanceTestnetOrderOrigin::External,
+        cancel_state: BinanceTestnetOrderCancelState::None,
+        cancel_idempotency_key: None,
+        cancel_error: None,
         attempt_id: None,
     };
     if !valid_binance_symbol(&order.symbol)
@@ -527,9 +571,21 @@ fn merge_testnet_order(
             || filled_order == std::cmp::Ordering::Less
             || (!old.pending && fresh.pending)
             || (fresh.provider_updated_at_ms == old.provider_updated_at_ms
-                && filled_order == std::cmp::Ordering::Equal)
+                && filled_order == std::cmp::Ordering::Equal
+                && (old.provider_status == fresh.provider_status
+                    || old.provider_status == "FILLED"))
         {
             return Ok(());
+        }
+        let mut fresh = fresh;
+        if fresh.pending {
+            fresh.cancel_state = old.cancel_state;
+            fresh.cancel_idempotency_key = old.cancel_idempotency_key.clone();
+            fresh.cancel_error = old.cancel_error.clone();
+        } else {
+            fresh.cancel_state = BinanceTestnetOrderCancelState::None;
+            fresh.cancel_idempotency_key = None;
+            fresh.cancel_error = None;
         }
         orders[index] = fresh;
     } else {
@@ -1131,6 +1187,332 @@ pub(super) fn refresh_testnet_order_book(
         }
     }
     Ok(())
+}
+
+pub(super) fn cancel_testnet_order(
+    book: &mut BinanceTestnetOrderBook,
+    symbol: &str,
+    provider_order_id: &str,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+    cancel_may_have_been_sent: &mut bool,
+) -> Result<()> {
+    let index = book
+        .orders
+        .iter()
+        .position(|order| order.symbol == symbol && order.provider_order_id == provider_order_id)
+        .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+    let reviewed = book.orders[index].clone();
+    let cancel_id = reviewed
+        .cancel_idempotency_key
+        .as_deref()
+        .filter(|_| reviewed.cancel_state == BinanceTestnetOrderCancelState::Submitting)
+        .ok_or_else(|| TradeXError::new("ORDER_CONFIRMATION_REQUIRED"))?;
+
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    binance_account(http, secrets, current, &book.remote_account_id)?;
+    let order = get_testnet_order(http, &reviewed, secrets, current)?;
+    merge_testnet_order(&mut book.orders, order)?;
+    book.status = BinanceTestnetOrderBookStatus::Current;
+    book.reason = None;
+    let fresh = book.orders[index].clone();
+    if !fresh.pending {
+        clear_cancel(&mut book.orders[index]);
+        book.observed_at = crate::storage::timestamp()?;
+        book.status = BinanceTestnetOrderBookStatus::Current;
+        book.reason = None;
+        return Ok(());
+    }
+    if !same_testnet_order_review(&reviewed, &fresh) {
+        finish_cancel_rejected(
+            &mut book.orders[index],
+            cancel_id,
+            "ORDER_CHANGED_REVIEW_AGAIN",
+        );
+        book.reason = Some("ORDER_CHANGED_REVIEW_AGAIN".into());
+        book.status = BinanceTestnetOrderBookStatus::Stale;
+        return Ok(());
+    }
+    if !testnet_cancelable(&fresh) {
+        finish_cancel_rejected(&mut book.orders[index], cancel_id, "ORDER_NOT_CANCELABLE");
+        book.reason = Some("ORDER_NOT_CANCELABLE".into());
+        book.status = BinanceTestnetOrderBookStatus::Stale;
+        return Ok(());
+    }
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+
+    let (server, sampled) = server_time(http, current)?;
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    *cancel_may_have_been_sent = true;
+    let params = [
+        ("symbol", symbol),
+        ("orderId", provider_order_id),
+        ("newClientOrderId", cancel_id),
+    ];
+    let response = signed_request(
+        http,
+        ProviderHttpMethod::Delete,
+        "/api/v3/order",
+        &params,
+        secrets,
+        server,
+        sampled,
+        current,
+    );
+    let response = match response {
+        Ok(response) if response.status == 200 => response,
+        Ok(response) if matches!(response.status, 400 | 401 | 403 | 404 | 418 | 429) => {
+            *cancel_may_have_been_sent = false;
+            let code = match response.status {
+                400 => "PROVIDER_CANCEL_REJECTED",
+                401 | 403 => "PROVIDER_AUTHENTICATION_FAILED",
+                404 => "ORDER_STATUS_UNKNOWN",
+                418 => "PROVIDER_IP_BANNED",
+                _ => "PROVIDER_RATE_LIMITED",
+            };
+            finish_cancel_rejected(&mut book.orders[index], cancel_id, code);
+            match get_testnet_order(http, &fresh, secrets, current) {
+                Ok(order) => {
+                    merge_testnet_order(&mut book.orders, order)?;
+                    let updated = &mut book.orders[index];
+                    if !updated.pending {
+                        clear_cancel(updated);
+                    } else if updated.cancel_state == BinanceTestnetOrderCancelState::None {
+                        updated.cancel_idempotency_key = Some(cancel_id.to_owned());
+                        updated.cancel_error = Some(code.into());
+                    }
+                    book.status = BinanceTestnetOrderBookStatus::Current;
+                    book.reason = Some(code.into());
+                }
+                Err(_) => {
+                    mark_cancel_unknown(book, index, cancel_id);
+                }
+            }
+            book.observed_at = crate::storage::timestamp()?;
+            return Ok(());
+        }
+        Ok(_) | Err(_) => {
+            mark_cancel_unknown(book, index, cancel_id);
+            book.observed_at = crate::storage::timestamp()?;
+            let _ = reconcile_testnet_cancel_order(book, index, &fresh, secrets, http, current);
+            return Ok(());
+        }
+    };
+
+    match parse_testnet_cancel_ack(response, &fresh, secrets) {
+        Ok(mut acknowledged) => {
+            acknowledged.cancel_state = BinanceTestnetOrderCancelState::Pending;
+            acknowledged.cancel_idempotency_key = Some(cancel_id.to_owned());
+            acknowledged.cancel_error = None;
+            merge_testnet_order(&mut book.orders, acknowledged)?;
+            set_cancel_pending(&mut book.orders[index], cancel_id, "");
+            match reconcile_testnet_cancel_order(book, index, &fresh, secrets, http, current) {
+                Ok(()) => (),
+                Err(_) => {
+                    mark_cancel_unknown(book, index, cancel_id);
+                }
+            }
+        }
+        Err(_) => {
+            mark_cancel_unknown(book, index, cancel_id);
+            let _ = reconcile_testnet_cancel_order(book, index, &fresh, secrets, http, current);
+        }
+    }
+    book.observed_at = crate::storage::timestamp()?;
+    Ok(())
+}
+
+pub(crate) fn merge_testnet_cancel_observation(
+    latest: &mut BinanceTestnetOrderBook,
+    outcome: &BinanceTestnetOrderBook,
+    symbol: &str,
+    provider_order_id: &str,
+) -> Result<()> {
+    merge_cancel_observation_into_latest(latest, outcome, symbol, provider_order_id)
+}
+
+pub(super) fn merge_cancel_observation_into_latest(
+    latest: &mut BinanceTestnetOrderBook,
+    outcome: &BinanceTestnetOrderBook,
+    symbol: &str,
+    provider_order_id: &str,
+) -> Result<()> {
+    let index = latest
+        .orders
+        .iter()
+        .position(|order| order.symbol == symbol && order.provider_order_id == provider_order_id)
+        .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+    let local_key = latest.orders[index].cancel_idempotency_key.clone();
+    let fresh = outcome
+        .orders
+        .iter()
+        .find(|order| order.symbol == symbol && order.provider_order_id == provider_order_id)
+        .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?
+        .clone();
+    merge_testnet_order(&mut latest.orders, fresh.clone())?;
+    let merged = &mut latest.orders[index];
+    if let Some(local_key) = local_key {
+        if !merged.pending {
+            clear_cancel(merged);
+        } else if fresh.pending
+            && fresh.cancel_idempotency_key.as_deref() == Some(local_key.as_str())
+        {
+            merged.cancel_state = fresh.cancel_state;
+            merged.cancel_idempotency_key = Some(local_key);
+            merged.cancel_error = fresh.cancel_error;
+        } else {
+            merged.cancel_state = BinanceTestnetOrderCancelState::Pending;
+            merged.cancel_idempotency_key = Some(local_key);
+            merged.cancel_error = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+        }
+    }
+    for fill in outcome
+        .fills
+        .iter()
+        .filter(|fill| fill.symbol == symbol && fill.provider_order_id == provider_order_id)
+    {
+        merge_testnet_fill(&mut latest.fills, fill.clone())?;
+    }
+    latest.status = BinanceTestnetOrderBookStatus::Stale;
+    latest.reason = Some("ORDER_BOOK_CHANGED_DURING_CANCEL".into());
+    Ok(())
+}
+
+fn reconcile_testnet_cancel_order(
+    book: &mut BinanceTestnetOrderBook,
+    index: usize,
+    reviewed: &BinanceTestnetOrder,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<()> {
+    match get_testnet_order(http, reviewed, secrets, current) {
+        Ok(order) => {
+            merge_testnet_order(&mut book.orders, order)?;
+            let order = &mut book.orders[index];
+            if !order.pending {
+                clear_cancel(order);
+                book.status = BinanceTestnetOrderBookStatus::Current;
+                book.reason = None;
+            } else if matches!(
+                order.cancel_state,
+                BinanceTestnetOrderCancelState::Submitting
+                    | BinanceTestnetOrderCancelState::Pending
+            ) {
+                order.cancel_state = BinanceTestnetOrderCancelState::Pending;
+                book.status = BinanceTestnetOrderBookStatus::Current;
+                book.reason = None;
+            }
+            Ok(())
+        }
+        Err(error) => {
+            book.status = BinanceTestnetOrderBookStatus::Degraded;
+            book.reason = Some(error.code.clone());
+            Err(error)
+        }
+    }
+}
+
+fn get_testnet_order(
+    http: &impl ProviderHttp,
+    reviewed: &BinanceTestnetOrder,
+    secrets: &[String],
+    current: &impl Fn() -> bool,
+) -> Result<BinanceTestnetOrder> {
+    let params = [
+        ("symbol", reviewed.symbol.as_str()),
+        ("orderId", reviewed.provider_order_id.as_str()),
+    ];
+    let value = signed_book_read(http, "/api/v3/order", &params, secrets, current)?;
+    let fresh = parse_testnet_book_order(&value, &crate::storage::timestamp()?)?;
+    if !same_testnet_order_identity(reviewed, &fresh) {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+    }
+    Ok(fresh)
+}
+
+fn parse_testnet_cancel_ack(
+    response: ProviderHttpResponse,
+    reviewed: &BinanceTestnetOrder,
+    secrets: &[String],
+) -> Result<BinanceTestnetOrder> {
+    let mut value = response_value(response, secrets)?;
+    if value["symbol"].as_str() != Some(reviewed.symbol.as_str())
+        || provider_id(&value, "orderId")? != reviewed.provider_order_id
+        || value["origClientOrderId"].as_str() != Some(reviewed.client_order_id.as_str())
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+    }
+    let transact_time = provider_time(&value, "transactTime")?;
+    value["clientOrderId"] = reviewed.client_order_id.clone().into();
+    value["time"] = reviewed.submitted_at_ms.into();
+    value["updateTime"] = transact_time.into();
+    let mut acknowledged = parse_testnet_book_order(&value, &crate::storage::timestamp()?)?;
+    if !same_testnet_order_identity(reviewed, &acknowledged)
+        || acknowledged.quantity != reviewed.quantity
+        || acknowledged.quote_quantity != reviewed.quote_quantity
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+    }
+    acknowledged.provider_status = reviewed.provider_status.clone();
+    acknowledged.pending = reviewed.pending;
+    Ok(acknowledged)
+}
+
+fn same_testnet_order_identity(left: &BinanceTestnetOrder, right: &BinanceTestnetOrder) -> bool {
+    left.provider_order_id == right.provider_order_id
+        && left.symbol == right.symbol
+        && left.client_order_id == right.client_order_id
+        && left.side == right.side
+        && left.order_type == right.order_type
+        && left.time_in_force == right.time_in_force
+        && left.quantity == right.quantity
+        && left.quote_quantity == right.quote_quantity
+        && left.submitted_at_ms == right.submitted_at_ms
+}
+
+fn same_testnet_order_review(left: &BinanceTestnetOrder, right: &BinanceTestnetOrder) -> bool {
+    same_testnet_order_identity(left, right)
+        && left.provider_status == right.provider_status
+        && left.filled_quantity == right.filled_quantity
+        && left.filled_quote_quantity == right.filled_quote_quantity
+        && left.remaining_quantity == right.remaining_quantity
+        && left.provider_updated_at_ms == right.provider_updated_at_ms
+}
+
+fn testnet_cancelable(order: &BinanceTestnetOrder) -> bool {
+    order.pending && matches!(order.provider_status.as_str(), "NEW" | "PARTIALLY_FILLED")
+}
+
+fn clear_cancel(order: &mut BinanceTestnetOrder) {
+    order.cancel_state = BinanceTestnetOrderCancelState::None;
+    order.cancel_idempotency_key = None;
+    order.cancel_error = None;
+}
+
+fn finish_cancel_rejected(order: &mut BinanceTestnetOrder, key: &str, error: &str) {
+    order.cancel_state = BinanceTestnetOrderCancelState::None;
+    order.cancel_idempotency_key = Some(key.to_owned());
+    order.cancel_error = Some(error.to_owned());
+}
+
+fn set_cancel_pending(order: &mut BinanceTestnetOrder, key: &str, error: &str) {
+    order.cancel_state = BinanceTestnetOrderCancelState::Pending;
+    order.cancel_idempotency_key = Some(key.to_owned());
+    order.cancel_error = (!error.is_empty()).then(|| error.to_owned());
+}
+
+fn mark_cancel_unknown(book: &mut BinanceTestnetOrderBook, index: usize, key: &str) {
+    set_cancel_pending(&mut book.orders[index], key, "ORDER_CANCEL_STATUS_UNKNOWN");
+    book.status = BinanceTestnetOrderBookStatus::Degraded;
+    book.reason = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
 }
 
 pub(super) fn reconcile_testnet_order_book(

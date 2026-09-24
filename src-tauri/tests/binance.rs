@@ -170,6 +170,36 @@ fn refresh_testnet_book(
     )
 }
 
+fn cancel_testnet_order(
+    cp: &mut ControlPlane,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    workspace: &Value,
+    account: &Value,
+    book: &Value,
+    provider_order_id: &str,
+    idempotency_key: &str,
+) -> Value {
+    run(
+        cp,
+        request(
+            "binance.testnet.orders.cancel",
+            json!({
+                "workspaceId":workspace,
+                "connectionId":account["connectionId"],
+                "expectedConnectionStateVersion":account["stateVersion"],
+                "symbol":"BTCUSDT",
+                "providerOrderId":provider_order_id,
+                "expectedBookStateVersion":book["stateVersion"],
+                "idempotencyKey":idempotency_key,
+                "confirmed":true
+            }),
+        ),
+        vault,
+        http,
+    )
+}
+
 fn testnet_proposal(
     cp: &mut ControlPlane,
     workspace: &Value,
@@ -832,6 +862,446 @@ fn testnet_exact_order_refresh_accepts_any_saved_provider_symbol() {
     );
     assert_eq!(detail["ok"], true, "{detail}");
     assert_eq!(detail["data"]["reason"], "PROVIDER_RATE_LIMITED");
+}
+
+#[test]
+fn testnet_cancel_is_single_exact_delete_and_reconciles_terminal_status() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    assert_eq!(pending["data"]["status"], "CURRENT", "{pending}");
+    let cancelled = cancel_testnet_order(
+        &mut cp,
+        &vault,
+        &http,
+        &workspace,
+        &account,
+        &pending["data"],
+        "9007199254740995",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+    assert_eq!(cancelled["ok"], true, "{cancelled}");
+    let order = cancelled["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(order["providerStatus"], "CANCELED");
+    assert_eq!(order["cancelState"], "NONE");
+    assert!(order["cancelIdempotencyKey"].is_null());
+    assert_eq!(http.binance_cancel_calls.borrow().len(), 1);
+    let path = http.binance_cancel_calls.borrow()[0].clone();
+    assert!(path.starts_with("/api/v3/order?"));
+    assert!(path.contains("symbol=BTCUSDT"));
+    assert!(path.contains("orderId=9007199254740995"));
+    assert!(path.contains("newClientOrderId=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"));
+    assert!(!path.contains("openOrders"));
+}
+
+#[test]
+fn testnet_cancel_definitive_rejection_is_retained_and_never_replayed() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    http.binance_cancel_status.set(Some(400));
+    let rejected = cancel_testnet_order(
+        &mut cp,
+        &vault,
+        &http,
+        &workspace,
+        &account,
+        &pending["data"],
+        "9007199254740995",
+        "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    );
+    assert_eq!(rejected["ok"], true, "{rejected}");
+    let order = rejected["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(order["providerStatus"], "NEW");
+    assert_eq!(order["cancelState"], "NONE");
+    assert_eq!(
+        order["cancelIdempotencyKey"],
+        "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+    );
+    assert_eq!(order["cancelError"], "PROVIDER_CANCEL_REJECTED");
+
+    let replay = cp.prepare_provider_for(
+        &request(
+            "binance.testnet.orders.cancel",
+            json!({
+                "workspaceId":workspace,
+                "connectionId":account["connectionId"],
+                "expectedConnectionStateVersion":account["stateVersion"],
+                "symbol":"BTCUSDT",
+                "providerOrderId":"9007199254740995",
+                "expectedBookStateVersion":rejected["data"]["stateVersion"],
+                "idempotencyKey":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+                "confirmed":true
+            }),
+        ),
+        "main",
+    );
+    let replay_error = match replay {
+        Err(error) => error,
+        Ok(_) => panic!("a rejected cancellation must not create a second provider job"),
+    };
+    assert_eq!(replay_error.code, "STATE_VERSION_CONFLICT");
+    assert_eq!(http.binance_cancel_calls.borrow().len(), 1);
+}
+
+#[test]
+fn testnet_cancel_reopen_recovers_unknown_intent_without_delete_or_replay() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    let cancel_key = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    let job = cp
+        .prepare_provider_for(
+            &request(
+                "binance.testnet.orders.cancel",
+                json!({
+                    "workspaceId":workspace,
+                    "connectionId":account["connectionId"],
+                    "expectedConnectionStateVersion":account["stateVersion"],
+                    "symbol":"BTCUSDT",
+                    "providerOrderId":"9007199254740995",
+                    "expectedBookStateVersion":pending["data"]["stateVersion"],
+                    "idempotencyKey":cancel_key,
+                    "confirmed":true
+                }),
+            ),
+            "main",
+        )
+        .unwrap()
+        .unwrap();
+    assert!(http.binance_cancel_calls.borrow().is_empty());
+    drop(job);
+    drop(cp);
+
+    let mut reopened = ControlPlane::new(path);
+    let opened = call(&mut reopened, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let recovered = call(
+        &mut reopened,
+        "binance.testnet.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(recovered["ok"], true, "{recovered}");
+    assert_eq!(recovered["data"]["book"]["status"], "DEGRADED");
+    let order = recovered["data"]["book"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(order["cancelState"], "PENDING");
+    assert_eq!(order["cancelError"], "ORDER_CANCEL_STATUS_UNKNOWN");
+    assert_eq!(order["cancelIdempotencyKey"], cancel_key);
+
+    let account_after_open = call(
+        &mut reopened,
+        "account.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    let probed = run(
+        &mut reopened,
+        request("provider.probe", mutation(&account_after_open["data"])),
+        &vault,
+        &http,
+    );
+    assert_eq!(probed["ok"], true, "{probed}");
+    let replay = reopened.prepare_provider_for(
+        &request(
+            "binance.testnet.orders.cancel",
+            json!({
+                "workspaceId":workspace,
+                "connectionId":account["connectionId"],
+                "expectedConnectionStateVersion":probed["data"]["stateVersion"],
+                "symbol":"BTCUSDT",
+                "providerOrderId":"9007199254740995",
+                "expectedBookStateVersion":recovered["data"]["book"]["stateVersion"],
+                "idempotencyKey":cancel_key,
+                "confirmed":true
+            }),
+        ),
+        "main",
+    );
+    let replay_error = match replay {
+        Err(error) => error,
+        Ok(_) => panic!("a recovered cancellation must not create a second provider job"),
+    };
+    assert_eq!(replay_error.code, "STATE_VERSION_CONFLICT");
+    assert!(http.binance_cancel_calls.borrow().is_empty());
+}
+
+#[test]
+fn testnet_cancel_rechecks_exact_order_and_never_resends_unknown_outcome() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    let mut remote_orders = vec![json!({
+        "symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc",
+        "side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"NEW",
+        "price":"100.2","origQty":"0.1","origQuoteOrderQty":"0","executedQty":"0",
+        "cummulativeQuoteQty":"0","time":1788849500000u64,"updateTime":1788849500000u64
+    })];
+    remote_orders[0]["status"] = "PARTIALLY_FILLED".into();
+    remote_orders[0]["executedQty"] = "0.02".into();
+    remote_orders[0]["cummulativeQuoteQty"] = "2.004".into();
+    remote_orders[0]["updateTime"] = 1788849502000u64.into();
+    *http.binance_open_orders.borrow_mut() = Some(remote_orders);
+    let changed = cancel_testnet_order(
+        &mut cp,
+        &vault,
+        &http,
+        &workspace,
+        &account,
+        &pending["data"],
+        "9007199254740995",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    assert_eq!(http.binance_cancel_calls.borrow().len(), 0);
+    let changed_order = changed["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(changed_order["providerStatus"], "PARTIALLY_FILLED");
+    assert_eq!(changed_order["filledQuantity"], "0.02");
+    assert_eq!(changed_order["cancelError"], "ORDER_CHANGED_REVIEW_AGAIN");
+
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let uncertain_workspace =
+        call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &uncertain_workspace);
+    let pending = refresh_testnet_book(
+        &mut cp,
+        &vault,
+        &http,
+        &uncertain_workspace,
+        &account,
+        "PENDING",
+        None,
+        None,
+    );
+    http.binance_cancel_timeout.set(true);
+    let uncertain = cancel_testnet_order(
+        &mut cp,
+        &vault,
+        &http,
+        &uncertain_workspace,
+        &account,
+        &pending["data"],
+        "9007199254740995",
+        "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    );
+    assert_eq!(uncertain["ok"], true, "{uncertain}");
+    let uncertain_order = uncertain["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(uncertain_order["cancelState"], "PENDING");
+    assert_eq!(
+        uncertain_order["cancelError"],
+        "ORDER_CANCEL_STATUS_UNKNOWN"
+    );
+    http.binance_cancel_timeout.set(false);
+    let replay = cp.prepare_provider_for(
+        &request(
+            "binance.testnet.orders.cancel",
+            json!({
+                "workspaceId":uncertain_workspace,
+                "connectionId":account["connectionId"],
+                "expectedConnectionStateVersion":account["stateVersion"],
+                "symbol":"BTCUSDT",
+                "providerOrderId":"9007199254740995",
+                "expectedBookStateVersion":uncertain["data"]["stateVersion"],
+                "idempotencyKey":"cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                "confirmed":true
+            }),
+        ),
+        "main",
+    );
+    let replay_error = match replay {
+        Err(error) => error,
+        Ok(_) => panic!("an uncertain cancellation must not create a second provider job"),
+    };
+    assert_eq!(replay_error.code, "STATE_VERSION_CONFLICT");
+    assert_eq!(http.binance_cancel_calls.borrow().len(), 1);
+}
+
+#[test]
+fn testnet_cancel_completion_merges_concurrent_partial_and_full_private_stream_fills() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    let job = cp
+        .prepare_provider_for(
+            &request(
+                "binance.testnet.orders.cancel",
+                json!({
+                    "workspaceId":workspace,
+                    "connectionId":account["connectionId"],
+                    "expectedConnectionStateVersion":account["stateVersion"],
+                    "symbol":"BTCUSDT",
+                    "providerOrderId":"9007199254740995",
+                    "expectedBookStateVersion":pending["data"]["stateVersion"],
+                    "idempotencyKey":"dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+                    "confirmed":true
+                }),
+            ),
+            "main",
+        )
+        .unwrap()
+        .unwrap();
+    let outcome = job.run(
+        &vault,
+        |_| fixtures::credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let secrets = vec![fixtures::KEY.to_owned(), fixtures::SECRET.to_owned()];
+    let cancel_update_time = http
+        .binance_open_orders
+        .borrow()
+        .as_ref()
+        .unwrap()
+        .iter()
+        .find(|order| order["orderId"] == 9007199254740995u64)
+        .unwrap()["updateTime"]
+        .as_u64()
+        .unwrap();
+    let execution_report = |status: &str,
+                            filled: &str,
+                            quote: &str,
+                            update_time: u64,
+                            trade_id: u64,
+                            last_quantity: &str| {
+        json!({
+            "subscriptionId":7,
+            "event":{
+                "e":"executionReport","E":update_time,"s":"BTCUSDT","c":"fixture-open-btc",
+                "S":"BUY","o":"LIMIT","f":"GTC","q":"0.1","p":"100.2",
+                "x":"TRADE","X":status,"i":9007199254740995u64,
+                "l":last_quantity,"z":filled,"L":"100.2","n":"0.001","N":"USDT",
+                "T":update_time,"t":trade_id,"O":1788849500000u64,"Q":"0","Y":quote,"Z":quote
+            }
+        })
+    };
+    let partial = execution_report(
+        "PARTIALLY_FILLED",
+        "0.04",
+        "4.008",
+        cancel_update_time + 1,
+        9201,
+        "0.04",
+    );
+    cp.apply_binance_private_stream_frame(
+        account["connectionId"].as_str().unwrap(),
+        account["stateVersion"].as_str().unwrap(),
+        "9007199254740993",
+        &partial,
+        7,
+        &secrets,
+    )
+    .unwrap();
+    let interim = call(
+        &mut cp,
+        "binance.testnet.orders.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(interim["ok"], true, "{interim}");
+    let interim_order = interim["data"]["book"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(interim_order["filledQuantity"], "0.04", "{interim}");
+    assert_eq!(
+        interim_order["providerStatus"], "PARTIALLY_FILLED",
+        "{interim}"
+    );
+
+    let full = execution_report(
+        "FILLED",
+        "0.1",
+        "10.02",
+        cancel_update_time + 2,
+        9202,
+        "0.06",
+    );
+    cp.apply_binance_private_stream_frame(
+        account["connectionId"].as_str().unwrap(),
+        account["stateVersion"].as_str().unwrap(),
+        "9007199254740993",
+        &full,
+        7,
+        &secrets,
+    )
+    .unwrap();
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["reason"], "ORDER_BOOK_CHANGED_DURING_CANCEL");
+    let order = reply["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(order["providerStatus"], "FILLED", "{reply}");
+    assert_eq!(order["filledQuantity"], "0.1");
+    assert_eq!(order["cancelState"], "NONE", "{reply}");
+    assert!(order["cancelIdempotencyKey"].is_null());
+    let trade_ids = reply["data"]["fills"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|fill| fill["tradeId"].as_str().unwrap())
+        .collect::<std::collections::HashSet<_>>();
+    assert_eq!(trade_ids, ["9201", "9202"].into_iter().collect());
+    assert_eq!(http.binance_cancel_calls.borrow().len(), 1);
 }
 
 #[test]

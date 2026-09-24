@@ -44,14 +44,14 @@ use protocol::{
     BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderAttemptState,
     BinanceTestnetOrderBook, BinanceTestnetOrderBookAction, BinanceTestnetOrderBookQuery,
     BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRateLimits,
-    BinanceTestnetOrderBookRefresh, BinanceTestnetOrderBookStatus, BinanceTestnetOrderReconcile,
-    BinanceTestnetOrderSubmit, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection,
-    EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier,
-    OpenWorkspace, PaperOrderSubmit, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result,
-    RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure,
-    StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategyRunState,
-    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
-    ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
+    BinanceTestnetOrderBookRefresh, BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancel,
+    BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, CommandEnvelope, DataSourceProbe,
+    DataSourceQuery, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery,
+    MarketGetQuery, MarketTier, OpenWorkspace, PaperOrderSubmit, PortfolioQuery, ResearchFinding,
+    ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel,
+    StrategyFailure, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest,
+    StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
+    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
     Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderAttemptState,
     Trading212DemoOrderBook, Trading212DemoOrderBookAction, Trading212DemoOrderBookQuery,
     Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh,
@@ -4066,6 +4066,9 @@ impl ControlPlane {
             "binance.testnet.orders.refresh" => {
                 return self.prepare_binance_testnet_order_book_refresh(request, consumer);
             }
+            "binance.testnet.orders.cancel" => {
+                return self.prepare_binance_testnet_order_cancel(request, consumer);
+            }
             "alpaca.paper.orders.refresh" => {
                 return self.prepare_alpaca_paper_order_book_refresh(request, consumer);
             }
@@ -4593,6 +4596,57 @@ impl ControlPlane {
             binance_testnet_book_action: Some(input.action),
             binance_testnet_book_symbol: input.symbol,
             binance_testnet_book_order_id: input.provider_order_id,
+        }))
+    }
+
+    fn prepare_binance_testnet_order_cancel(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: BinanceTestnetOrderCancel = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "binance" || account.environment != "TESTNET" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if account.connection_state != ConnectionState::Connected
+            || account.health.credential != "CONFIGURED"
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let book = self
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_binance_testnet_order_cancel(&input)?;
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::BinanceTestnetOrderCancel,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
+            binance_testnet_order_book: Some(book),
+            binance_testnet_book_action: None,
+            binance_testnet_book_symbol: Some(input.symbol),
+            binance_testnet_book_order_id: Some(input.provider_order_id),
         }))
     }
 
@@ -5391,6 +5445,76 @@ impl ControlPlane {
                 .unwrap()
                 .complete_binance_testnet_order_book(book)
             {
+                Ok((book, event)) => {
+                    self.publish(&event);
+                    json!({
+                        "requestId":job.request_id,
+                        "schemaVersion":1,
+                        "ok":true,
+                        "stateVersion":book.state_version,
+                        "data":book
+                    })
+                }
+                Err(error) => failure_reply(job.request_id.clone(), error),
+            };
+        }
+        if job.kind == JobKind::BinanceTestnetOrderCancel {
+            if job.session != self.session {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("STATE_VERSION_CONFLICT"),
+                );
+            }
+            let Some(symbol) = job.binance_testnet_book_symbol.as_deref() else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("IPC_PAYLOAD_INVALID"),
+                );
+            };
+            let Some(provider_order_id) = job.binance_testnet_book_order_id.as_deref() else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("IPC_PAYLOAD_INVALID"),
+                );
+            };
+            let expected_cancel_id = job
+                .binance_testnet_order_book
+                .as_ref()
+                .and_then(|book| {
+                    book.orders.iter().find(|order| {
+                        order.symbol == symbol && order.provider_order_id == provider_order_id
+                    })
+                })
+                .and_then(|order| order.cancel_idempotency_key.as_deref());
+            let Some(expected_cancel_id) = expected_cancel_id else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_STATUS_UNKNOWN"),
+                );
+            };
+            let book = outcome.binance_testnet_order_book.or_else(|| {
+                job.binance_testnet_order_book.clone().map(|mut book| {
+                    book.status = BinanceTestnetOrderBookStatus::Degraded;
+                    book.reason = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+                    book
+                })
+            });
+            let Some(book) = book else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_CANCEL_STATUS_UNKNOWN"),
+                );
+            };
+            return match self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_binance_testnet_order_cancel(
+                    book,
+                    symbol,
+                    provider_order_id,
+                    expected_cancel_id,
+                ) {
                 Ok((book, event)) => {
                     self.publish(&event);
                     json!({

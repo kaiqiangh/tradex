@@ -634,6 +634,12 @@ The saved attempt is loaded on selection/reopen. The UI distinguishes `SUBMITTIN
 
 On the selected connected `BINANCE_TESTNET` account, Order Drafts displays the saved order book and the account's textual private-stream/reconciliation health plus last event time. `executionReport` updates refresh the saved order query through the existing account aggregate event. Valid account-position updates replace only changed assets; stale/degraded/reconciling states retain the last trusted rows. A delta-only balance event or unknown event keeps reconciliation visibly required until fixed-route REST reads succeed. Unknown order statuses remain visible and nonterminal. The surface adds no user-data stream controls, Live or Local Paper path, or authority. Preserve the explicit manual pending/history/detail read controls and verify keyboard access and 390/768/1280 px layouts.
 
+### 13.15.1 Binance Spot Testnet exact-order cancellation (S19 #71)
+
+Show “Review cancellation” only for a connected `BINANCE_TESTNET` account and a saved `CURRENT` observation of an exact `BTCUSDT` / `ETHUSDT` order in `NEW` or `PARTIALLY_FILLED` state, observed within 60 seconds and not already cancelling. Activating it first refreshes that exact-order Detail. Open the review only when the returned book is `CURRENT` and the exact order remains cancelable for the selected connection and remote account. Show the account/order identity, status, filled and remaining quantities, and observation time. After confirmation, the backend independently checks the captured account/book versions, remote account identity and freshness, then re-reads the exact account and order before writing. Any changed order requires a new review; a terminal order is recorded without a DELETE.
+
+Send only the typed `binance.testnet.orders.cancel` command from the main Trade UI. Render `SUBMITTING` and `PENDING` distinctly; acceptance is not cancellation, and an ambiguous result stays pending with no repeat request. A later exact-order read or private-stream event determines terminal status and preserves racing fills. No Live, cancel-all, Agent, or Order Gateway control is exposed.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

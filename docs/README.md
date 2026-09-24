@@ -24,6 +24,8 @@ S19 #68 adds a Binance Spot Testnet submission/recovery contract in Backend ARD 
 
 S19 #70 adds the Binance Spot Testnet signed private-stream and REST-recovery contract in Backend ARD §41.27, Frontend ARD §13.15, and UI Spec §14.13. The implementation is fixture-verified on `dev`; no real Testnet credentials, provider calls, or orders were used. Parent Spec #67 remains open for provider-hosted Testnet acceptance, and the clickable prototype remains unchanged.
 
+S19 #71 adds exact-order Binance Spot Testnet cancellation in Backend ARD §41.28, Frontend ARD §13.15.1, and UI Spec §14.14. Rust-backed fixtures cover durable intent, one exact DELETE, ambiguity without replay, remote changes, and racing fills. [Local implementation evidence](./implementation/s19-binance-testnet-cancel-evidence.md). No real Testnet credentials, provider calls, or orders were used; parent Spec #67 and provider-hosted ticket #72 remain open. The clickable prototype is unchanged.
+
 ## Chinese synchronized set
 
 [Chinese index](./zh/README.md) links all six English/Chinese document pairs: PRD, UI Spec, frontend/backend ARDs, Coverage Matrix, and QA Report. [Chinese prototype guide](./prototype/README_zh.md) accompanies the same fixture.

@@ -90,6 +90,9 @@ pub struct Http {
     pub binance_order_history: RefCell<HashMap<String, Vec<Value>>>,
     pub binance_trade_history: RefCell<HashMap<String, Vec<Value>>>,
     pub binance_read_statuses: RefCell<HashMap<String, u16>>,
+    pub binance_cancel_calls: RefCell<Vec<String>>,
+    pub binance_cancel_timeout: Cell<bool>,
+    pub binance_cancel_status: Cell<Option<u16>>,
     pub binance_retry_after_seconds: Cell<Option<u64>>,
     pub binance_uid: Cell<u64>,
     pub binance_hide_order_lookup: Cell<bool>,
@@ -151,6 +154,9 @@ impl Default for Http {
             binance_order_history: RefCell::new(HashMap::new()),
             binance_trade_history: RefCell::new(HashMap::new()),
             binance_read_statuses: RefCell::new(HashMap::new()),
+            binance_cancel_calls: RefCell::new(vec![]),
+            binance_cancel_timeout: Cell::new(false),
+            binance_cancel_status: Cell::new(None),
             binance_retry_after_seconds: Cell::new(None),
             binance_uid: Cell::new(9007199254740993),
             binance_hide_order_lookup: Cell::new(false),
@@ -228,6 +234,13 @@ impl Http {
 
 fn default_trading212_order_list() -> Vec<Value> {
     vec![default_trading212_order()]
+}
+
+fn default_binance_open_orders() -> Vec<Value> {
+    vec![
+        json!({"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc","side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"NEW","price":"100.2","origQty":"0.1","origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0","time":1788849500000u64,"updateTime":1788849500000u64}),
+        json!({"symbol":"ODDCOINUSDT","orderId":9007199254740996u64,"clientOrderId":"fixture-open-odd","side":"SELL","type":"LIMIT","timeInForce":"GTC","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","origQuoteOrderQty":"0","executedQty":"0.1","cummulativeQuoteQty":"0.2","time":1788849501000u64,"updateTime":1788849501000u64}),
+    ]
 }
 
 fn default_trading212_order() -> Value {
@@ -441,6 +454,79 @@ impl ProviderHttp for Http {
                     return Ok(ProviderHttpResponse {
                         status: 200,
                         body: serde_json::to_vec(&response).unwrap(),
+                    });
+                }
+                if method == ProviderHttpMethod::Delete && path.starts_with("/api/v3/order?") {
+                    let _ = self.get(endpoint, path, headers)?;
+                    self.binance_cancel_calls.borrow_mut().push(path.to_owned());
+                    if self.binance_cancel_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    if let Some(status) = self.binance_cancel_status.get() {
+                        return Ok(ProviderHttpResponse {
+                            status,
+                            body: br#"{"code":-2011,"msg":"synthetic cancel rejection"}"#.to_vec(),
+                        });
+                    }
+                    let param = |name: &str| {
+                        path.split_once('?')
+                            .into_iter()
+                            .flat_map(|(_, query)| query.split('&'))
+                            .find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+                    };
+                    let symbol = param("symbol").unwrap_or_default();
+                    let order_id = param("orderId").unwrap_or_default();
+                    let client_cancel_id = param("newClientOrderId").unwrap_or_default();
+                    let mut orders = self
+                        .binance_open_orders
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(default_binance_open_orders);
+                    let Some(index) = orders.iter().position(|order| {
+                        order["symbol"] == symbol
+                            && (order["orderId"].as_str() == Some(order_id)
+                                || order["orderId"]
+                                    .as_u64()
+                                    .is_some_and(|id| id.to_string() == order_id))
+                    }) else {
+                        return Ok(ProviderHttpResponse {
+                            status: 400,
+                            body: br#"{"code":-2011,"msg":"unknown order"}"#.to_vec(),
+                        });
+                    };
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis()
+                        .try_into()
+                        .unwrap_or(u64::MAX);
+                    let mut provider_order = orders[index].clone();
+                    provider_order["status"] = "CANCELED".into();
+                    provider_order["updateTime"] = provider_order["updateTime"]
+                        .as_u64()
+                        .unwrap_or(0)
+                        .max(now_ms)
+                        .saturating_add(1)
+                        .into();
+                    let mut acknowledgement = provider_order.clone();
+                    acknowledgement["origClientOrderId"] = provider_order["clientOrderId"].clone();
+                    acknowledgement["clientOrderId"] = client_cancel_id.into();
+                    acknowledgement["transactTime"] = now_ms.saturating_add(1).into();
+                    orders[index] = provider_order.clone();
+                    *self.binance_open_orders.borrow_mut() = Some(orders);
+                    if let Some(history) = self.binance_order_history.borrow_mut().get_mut(symbol)
+                        && let Some(order) = history.iter_mut().find(|order| {
+                            order["orderId"].as_str() == Some(order_id)
+                                || order["orderId"]
+                                    .as_u64()
+                                    .is_some_and(|id| id.to_string() == order_id)
+                        })
+                    {
+                        *order = provider_order;
+                    }
+                    return Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&acknowledgement).unwrap(),
                     });
                 }
                 return match (method, body) {
@@ -716,10 +802,7 @@ impl ProviderHttp for Http {
             }
             return Ok(serde_json::to_vec(&match route {
                 "/api/v3/account"=>json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]}),
-                "/api/v3/openOrders"=>json!(self.binance_open_orders.borrow().clone().unwrap_or_else(|| vec![
-                    json!({"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc","side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"NEW","price":"100.2","origQty":"0.1","origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0","time":1788849500000u64,"updateTime":1788849500000u64}),
-                    json!({"symbol":"ODDCOINUSDT","orderId":9007199254740996u64,"clientOrderId":"fixture-open-odd","side":"SELL","type":"LIMIT","timeInForce":"GTC","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","origQuoteOrderQty":"0","executedQty":"0.1","cummulativeQuoteQty":"0.2","time":1788849501000u64,"updateTime":1788849501000u64})
-                ])),
+                "/api/v3/openOrders"=>json!(self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders)),
                 "/api/v3/allOrders" => {
                     let symbol = param("symbol").unwrap_or_default();
                     let cursor = param("orderId").and_then(|value| value.parse::<u64>().ok()).unwrap_or(0);
@@ -744,8 +827,9 @@ impl ProviderHttp for Http {
                     } else {
                         let symbol = param("symbol").unwrap_or_default();
                         let order_id = param("orderId").unwrap_or_default();
+                        let open_orders = self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders);
                         self.binance_order_history.borrow().get(symbol).into_iter().flatten()
-                            .chain(self.binance_open_orders.borrow().as_ref().into_iter().flatten())
+                            .chain(open_orders.iter())
                             .find(|order| order["symbol"] == symbol && (order["orderId"].as_str() == Some(order_id) || order["orderId"].as_u64().is_some_and(|id| id.to_string() == order_id)))
                             .cloned().unwrap_or(Value::Null)
                     }

@@ -525,6 +525,11 @@ export type StrategyFixtureScenario = "SUCCESS" | "FAILURE" | "CANCELLED";
 export type Trading212DemoOrderBookAction = "PENDING" | "HISTORY" | "DETAIL";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderCancelState".
+ */
+export type BinanceTestnetOrderCancelState = "NONE" | "SUBMITTING" | "PENDING";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ModelAttemptKind".
  */
 export type ModelAttemptKind = "SETUP" | "THREAD";
@@ -586,6 +591,7 @@ export interface IpcSchema {
   binanceTestnetOrderBookQueryResult: BinanceTestnetOrderBookQueryResult;
   binanceTestnetOrderBookRateLimits: BinanceTestnetOrderBookRateLimits;
   binanceTestnetOrderBookRefresh: BinanceTestnetOrderBookRefresh;
+  binanceTestnetOrderCancel: BinanceTestnetOrderCancel;
   binanceTestnetOrderReconcile: BinanceTestnetOrderReconcile;
   binanceTestnetOrderSubmit: BinanceTestnetOrderSubmit;
   capabilityQuery: CapabilityQuery;
@@ -1275,6 +1281,9 @@ export interface BinanceTestnetHistoryState {
  */
 export interface BinanceTestnetOrder {
   attemptId?: string | null;
+  cancelError?: string | null;
+  cancelIdempotencyKey?: string | null;
+  cancelState?: "NONE" | "SUBMITTING" | "PENDING";
   clientOrderId: string;
   filledQuantity: string;
   filledQuoteQuantity?: string | null;
@@ -1401,6 +1410,20 @@ export interface BinanceTestnetOrderBookRefresh {
   expectedConnectionStateVersion: string;
   providerOrderId?: string | null;
   symbol?: string | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderCancel".
+ */
+export interface BinanceTestnetOrderCancel {
+  confirmed: boolean;
+  connectionId: string;
+  expectedBookStateVersion: string;
+  expectedConnectionStateVersion: string;
+  idempotencyKey: string;
+  providerOrderId: string;
+  symbol: string;
   workspaceId: string;
 }
 /**

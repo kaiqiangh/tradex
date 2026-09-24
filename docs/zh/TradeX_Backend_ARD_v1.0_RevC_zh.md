@@ -2565,6 +2565,14 @@ WebSocket 消息/帧上限为 256 KiB，并通过容量为 32 的有界 channel 
 
 唯一运行时测试 seam 是现有 Rust Control Plane、临时 SQLite/outbox、内存 Keychain 与受控 loopback WebSocket/HTTP fixture；浏览器验收经仅集成测试可用的 Rust bridge 注入已清理 fixture，并在 390、768、1280 px 检查无障碍流状态/reconciliation 文案。不会使用真实 Testnet key 或下单。不增加 listen-key 生命周期、其他交易对、Live stream、Local Paper、Agent 访问、金融审批、reservation 或 Order Gateway 权限。
 
+### 41.28 Binance Spot Testnet 准确订单撤销（S19 #71）
+
+版本 1 增加仅主 Trade UI 可调用的 `binance.testnet.orders.cancel` 命令，输入为 `{workspaceId, connectionId, expectedConnectionStateVersion, symbol, providerOrderId, expectedBookStateVersion, idempotencyKey, confirmed}`，返回已保存的 `BinanceTestnetOrderBook`。仅允许已连接的 `binance` / `TESTNET` 账户，以及处于 `NEW` 或 `PARTIALLY_FILLED` 状态的准确 `BTCUSDT` / `ETHUSDT` 订单。已保存订单观察必须为 `CURRENT`，匹配账户/订单簿版本和远端身份，且不超过 60 秒。Provider I/O 前先在事务中持久化 `SUBMITTING`、UUID 幂等键、新订单簿版本和 outbox event。应用重新打开时，遗留的 `SUBMITTING` 转为结果未知的 `PENDING`，绝不重发。
+
+用户明确确认后，特权 adapter 先将 `/api/v3/account` 与已保存远端 `uid` 核对，再在写入前立即签名读取准确订单 `GET /api/v3/order`。它会与用户复核时的观察比较不可变订单身份、原始状态、已成交/剩余数量及 provider 更新时间。订单发生变化则返回 `ORDER_CHANGED_REVIEW_AGAIN`；订单已终结则保存该结果且不发送 DELETE；不支持的状态则拒绝。随后最多只发送一次签名 `DELETE /api/v3/order`，参数严格为准确 symbol、十进制字符串 order ID，以及用作 `newClientOrderId` 的已保存 UUID。不允许撤销全部、cancel-replace、任意路由、Live endpoint、Agent 或 Gateway 路径。确定的写前拒绝仍保留幂等键以防重放；传输/解析结果不明时保存 `PENDING` / `ORDER_CANCEL_STATUS_UNKNOWN`，禁止盲目重发。
+
+DELETE 响应只代表收到请求。后续准确订单 GET 或签名私有流才是 provider 状态依据；包括与确认竞态的成交都必须保留。结果合并到最新持久化订单簿和成交，而不覆盖并发私有流更新；发生冲突时保留最新可信成交并将订单簿标为 stale、要求 reconciliation。订单簿投影与 event 原子提交。Fixture 使用合成 Testnet 响应及临时 SQLite，不调用 Binance 或创建真实订单。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

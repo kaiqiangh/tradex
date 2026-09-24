@@ -440,9 +440,13 @@ fn main() -> io::Result<()> {
                         }
                         reply
                     }
-                    Ok(None) | Err(_) => {
+                    Ok(None) => {
                         control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()))
                     }
+                    Err(error) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":error
+                    }),
                 },
                 Err(_) => json!({
                     "requestId":request["requestId"],"schemaVersion":1,"ok":false,

@@ -23,7 +23,9 @@ async function sendIntegrationCommand(command, payload, expectedOk = true) {
   assert.equal(response.status, 200, 'The Rust integration command endpoint remains available');
   const result = await response.json();
   assert.equal(result.requestId, requestId);
-  assert.equal(result.ok, expectedOk, JSON.stringify(result.error));
+  const frame = payload?.frame?.event;
+  const frameLabel = frame ? ` ${frame.e}/${frame.x ?? '-'}/${frame.X ?? '-'}` : '';
+  assert.equal(result.ok, expectedOk, `${command}${frameLabel}: ${JSON.stringify(result.error)}`);
   return result;
 }
 
@@ -110,7 +112,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     } else if (selection.startsWith('binance/')) {
       assert.match(text, /100000000000000000000\.0000000000000000001/);
       assert.match(text, /USDT/);
-      assert.match(text, /测试币/);
+      assert.match(text, /ODDCOIN/);
       assert.match(text, /BTCUSDT:9007199254740995/);
       assert.match(text, /Per asset/);
       if (verified) assert.match(text, /DISARMED/);
@@ -540,10 +542,11 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
 
       const binanceOrderBook = ui.locator('.order-book-panel').filter({ has: ui.getByLabel('Binance Testnet account', { exact: true }) });
       await binanceOrderBook.getByLabel('Binance Testnet account', { exact: true }).selectOption(existingValue);
+      const privateStreamNow = Date.now();
       const snapshot = {
         subscriptionId: 7,
         event: {
-          e: 'outboundAccountPosition', E: 1788849701000, u: 1788849701000,
+          e: 'outboundAccountPosition', E: privateStreamNow - 75_000, u: privateStreamNow - 75_000,
           B: [{ a: 'USDT', f: '950.5', l: '2.5' }],
         },
       };
@@ -570,20 +573,46 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       const executionReport = (execution, status, filled, quote, eventTime, updateTime, tradeId, lastQuantity) => ({
         subscriptionId: 7,
         event: {
-          e: 'executionReport', E: eventTime, s: 'BTCUSDT', c: 'fixture-private-stream-order',
+          e: 'executionReport', E: eventTime, s: 'BTCUSDT', c: 'fixture-private-stream-order', O: privateStreamNow - 70_000,
           S: 'BUY', o: 'LIMIT', f: 'GTC', q: '0.25', p: '90',
           x: execution, X: status, i: 9007199254740998, l: lastQuantity, z: filled,
-          L: '90', n: '0', N: 'USDT', T: updateTime, t: tradeId, Q: '0', Z: quote,
+          L: '90', n: '0', N: 'USDT', T: updateTime, t: tradeId, Q: '0', Y: quote, Z: quote,
         },
       });
-      const partialFill = executionReport('TRADE', 'PARTIALLY_FILLED', '0.1', '9', 1788849702000, 1788849702000, 9101, '0.1');
+      await injectBinancePrivateStream(
+        existingValue,
+        binanceConnectionStateVersion,
+        executionReport('NEW', 'NEW', '0', '0', privateStreamNow - 65_000, privateStreamNow - 65_000, -1, '0'),
+      );
+      const staleOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254740998' });
+      await staleOrder.waitFor({ state: 'visible' });
+      assert.equal(await staleOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 0,
+        'Orders observed more than 60 seconds ago must not offer cancellation review');
+      savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      const expiredCancel = await sendIntegrationCommand('binance.testnet.orders.cancel', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+        expectedConnectionStateVersion: binanceConnectionStateVersion,
+        expectedBookStateVersion: savedBook.data.book.stateVersion,
+        symbol: 'BTCUSDT',
+        providerOrderId: '9007199254740998',
+        idempotencyKey: randomUUID(),
+        confirmed: true,
+      }, false);
+      assert.equal(expiredCancel.error.code, 'ORDER_CONFIRMATION_EXPIRED', 'The IPC bridge must preserve the backend rejection');
+      observed.push('A saved order observation older than 60 seconds cannot open the cancel review; Rust rejects a direct stale confirmation with ORDER_CONFIRMATION_EXPIRED through IPC.');
+
+      const partialFill = executionReport('TRADE', 'PARTIALLY_FILLED', '0.1', '9', privateStreamNow, privateStreamNow, 9101, '0.1');
       await injectBinancePrivateStream(existingValue, binanceConnectionStateVersion, partialFill);
       await binanceOrderBook.getByText(/Trade 9101 · order 9007199254740998/).waitFor({ state: 'visible' });
       await injectBinancePrivateStream(existingValue, binanceConnectionStateVersion, partialFill);
       await injectBinancePrivateStream(
         existingValue,
         binanceConnectionStateVersion,
-        executionReport('NEW', 'NEW', '0', '0', 1788849701000, 1788849701000, -1, '0'),
+        executionReport('NEW', 'NEW', '0', '0', privateStreamNow - 1_000, privateStreamNow - 1_000, -1, '0'),
       );
       savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
         workspaceId: isolatedWorkspaceId,
@@ -611,7 +640,61 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
         await ui.waitForTimeout(50);
       }
       assert.match(await streamHealth.innerText(), /Private stream: CONNECTED · Reconciliation: CURRENT/);
+      savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      const accountRetryAt = Date.parse(savedBook.data.book.rateLimits.accountRetryAt ?? '');
+      if (Number.isFinite(accountRetryAt)) await ui.waitForTimeout(Math.max(0, accountRetryAt - Date.now() + 50));
       observed.push('A fixture disconnect marks saved observations stale; bounded signed REST fixtures restore CURRENT only after reconciliation succeeds.');
+
+      const partialOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254740998' });
+      await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: /Binance Testnet order detail refreshed at/ }).waitFor({ state: 'visible' });
+      let cancelDialog = ui.getByRole('dialog', { name: 'Confirm Binance Spot Testnet cancellation', exact: true });
+      await cancelDialog.waitFor({ state: 'visible' });
+      const cancelReview = await cancelDialog.innerText();
+      assert.match(cancelReview, /saved Testnet order observation/);
+      assert.ok(cancelReview.includes(existingValue), 'review must identify the exact TradeX account');
+      assert.match(cancelReview, /Binance Spot Testnet · TESTNET/);
+      assert.match(cancelReview, /Connection ID/);
+      assert.match(cancelReview, /BTCUSDT · 9007199254740998/);
+      assert.match(cancelReview, /BUY · PARTIALLY_FILLED/);
+      assert.match(cancelReview, /Filled quantity\s+0\.1/);
+      assert.match(cancelReview, /Remaining quantity\s+0\.15/);
+      for (const width of [390, 768, 1280]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Binance cancellation review overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Escape');
+      await cancelDialog.waitFor({ state: 'hidden' });
+      savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      let cancelOrder = savedBook.data.book.orders.find(order => order.providerOrderId === '9007199254740998');
+      assert.equal(cancelOrder?.providerStatus, 'PARTIALLY_FILLED', 'dismissal must not cancel the provider order');
+      assert.equal(cancelOrder?.cancelState, 'NONE');
+      assert.equal(savedBook.data.book.fills.filter(fill => fill.tradeId === '9101').length, 1);
+      const retryAtAfterReview = Date.parse(savedBook.data.book.rateLimits.accountRetryAt ?? '');
+      if (Number.isFinite(retryAtAfterReview)) await ui.waitForTimeout(Math.max(0, retryAtAfterReview - Date.now() + 50));
+      await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: /Binance Testnet order detail refreshed at/ }).waitFor({ state: 'visible' });
+      cancelDialog = ui.getByRole('dialog', { name: 'Confirm Binance Spot Testnet cancellation', exact: true });
+      await cancelDialog.waitFor({ state: 'visible' });
+      await cancelDialog.getByRole('button', { name: 'Confirm Testnet cancellation', exact: true }).press('Enter');
+      await cancelDialog.waitFor({ state: 'hidden' });
+      savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      cancelOrder = savedBook.data.book.orders.find(order => order.providerOrderId === '9007199254740998');
+      assert.equal(cancelOrder?.providerStatus, 'CANCELED');
+      assert.equal(cancelOrder?.pending, false);
+      assert.equal(savedBook.data.book.fills.filter(fill => fill.tradeId === '9101').length, 1, 'cancellation must retain the partial fill');
+      observed.push('Binance Testnet cancellation review exposes exact account/order and quantities; Escape is read-only, explicit confirmation records CANCELED, and the prior fill remains.');
+
 
       for (const width of [1280, 768, 390]) {
         await viewport.set({ width, height: 900 });

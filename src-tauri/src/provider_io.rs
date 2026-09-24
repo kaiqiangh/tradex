@@ -5,11 +5,11 @@ use crate::{
         AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook,
         AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, BinanceTestnetOrderAttempt,
         BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookAction,
-        BinanceTestnetOrderBookStatus, ExecutionContext, OrderProposal, OrderQuantityType,
-        OrderSide, OrderType, Result, TimeInForce, TradeXError, Trading212DemoCancelState,
-        Trading212DemoNormalizedOrderStatus, Trading212DemoOrder, Trading212DemoOrderAttempt,
-        Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
-        Trading212DemoOrderOrigin,
+        BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancelState, ExecutionContext,
+        OrderProposal, OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
+        Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrder,
+        Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
+        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin,
     },
     providers::*,
 };
@@ -53,6 +53,15 @@ pub(crate) fn verify_binance_testnet_private_stream_account(
     current: &impl Fn() -> bool,
 ) -> Result<()> {
     binance::verify_private_stream_account(http, secrets, remote_account_id, current)
+}
+
+pub(crate) fn merge_binance_testnet_cancel_observation(
+    latest: &mut BinanceTestnetOrderBook,
+    outcome: &BinanceTestnetOrderBook,
+    symbol: &str,
+    provider_order_id: &str,
+) -> Result<()> {
+    binance::merge_testnet_cancel_observation(latest, outcome, symbol, provider_order_id)
 }
 
 pub(crate) fn apply_binance_testnet_private_stream_frame(
@@ -337,6 +346,7 @@ impl ProviderEndpoint {
                         .strip_prefix("/v2/orders/")
                         .is_some_and(valid_provider_order_id)
                     || self == Self::Trading212Demo && valid_t212_order_detail_path(path)
+                    || self == Self::BinanceTestnet && binance::allows_cancel(path)
             }
         }
     }
@@ -652,6 +662,7 @@ pub(crate) enum JobKind {
     BinanceTestnetSubmit,
     BinanceTestnetReconcile,
     BinanceTestnetOrderBookRefresh,
+    BinanceTestnetOrderCancel,
 }
 
 pub struct ProviderJob {
@@ -746,6 +757,9 @@ impl ProviderJob {
             return self.run_binance_testnet_order(vault, http, current);
         }
         if self.kind == JobKind::BinanceTestnetOrderBookRefresh {
+            return self.run_binance_testnet_order_book(vault, http, current);
+        }
+        if self.kind == JobKind::BinanceTestnetOrderCancel {
             return self.run_binance_testnet_order_book(vault, http, current);
         }
         if self.kind == JobKind::Trading212DemoSubmit {
@@ -1606,6 +1620,7 @@ impl ProviderJob {
             };
         };
         let mut credential = "MISSING";
+        let mut cancel_may_have_been_sent = false;
         let result = (|| -> Result<BinanceTestnetOrderBook> {
             if self.account.provider_id != "binance"
                 || self.account.environment != "TESTNET"
@@ -1620,18 +1635,34 @@ impl ProviderJob {
                 return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
             }
             credential = "CONFIGURED";
-            let action = self
-                .binance_testnet_book_action
-                .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
-            binance::refresh_testnet_order_book(
-                &mut book,
-                action,
-                self.binance_testnet_book_symbol.as_deref(),
-                self.binance_testnet_book_order_id.as_deref(),
-                &values,
-                http,
-                &current,
-            )?;
+            if self.kind == JobKind::BinanceTestnetOrderCancel {
+                binance::cancel_testnet_order(
+                    &mut book,
+                    self.binance_testnet_book_symbol
+                        .as_deref()
+                        .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
+                    self.binance_testnet_book_order_id
+                        .as_deref()
+                        .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
+                    &values,
+                    http,
+                    &current,
+                    &mut cancel_may_have_been_sent,
+                )?;
+            } else {
+                let action = self
+                    .binance_testnet_book_action
+                    .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+                binance::refresh_testnet_order_book(
+                    &mut book,
+                    action,
+                    self.binance_testnet_book_symbol.as_deref(),
+                    self.binance_testnet_book_order_id.as_deref(),
+                    &values,
+                    http,
+                    &current,
+                )?;
+            }
             Ok(book.clone())
         })();
         if let Err(error) = result {
@@ -1640,8 +1671,26 @@ impl ProviderJob {
             } else {
                 BinanceTestnetOrderBookStatus::Degraded
             };
-            book.reason = Some(error.code);
+            book.reason = Some(error.code.clone());
             book.observed_at = crate::storage::timestamp().unwrap_or(book.observed_at);
+            let cancel_error = book.reason.clone().unwrap_or_else(|| error.code.clone());
+            if self.kind == JobKind::BinanceTestnetOrderCancel
+                && let Some(order_id) = self.binance_testnet_book_order_id.as_deref()
+                && let Some(symbol) = self.binance_testnet_book_symbol.as_deref()
+                && let Some(order) = book
+                    .orders
+                    .iter_mut()
+                    .find(|order| order.symbol == symbol && order.provider_order_id == order_id)
+                && order.cancel_state == BinanceTestnetOrderCancelState::Submitting
+            {
+                if cancel_may_have_been_sent {
+                    order.cancel_state = BinanceTestnetOrderCancelState::Pending;
+                    order.cancel_error = Some("ORDER_CANCEL_STATUS_UNKNOWN".into());
+                } else {
+                    order.cancel_state = BinanceTestnetOrderCancelState::None;
+                    order.cancel_error = Some(cancel_error);
+                }
+            }
         }
         ProviderOutcome {
             observation: None,

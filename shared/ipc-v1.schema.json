@@ -148,6 +148,9 @@
     "binanceTestnetOrderBookRefresh": {
       "$ref": "#/$defs/BinanceTestnetOrderBookRefresh"
     },
+    "binanceTestnetOrderCancel": {
+      "$ref": "#/$defs/BinanceTestnetOrderCancel"
+    },
     "binanceTestnetOrderReconcile": {
       "$ref": "#/$defs/BinanceTestnetOrderReconcile"
     },
@@ -488,6 +491,7 @@
     "binanceTestnetOrderBookQuery",
     "binanceTestnetOrderBookQueryResult",
     "binanceTestnetOrderBookRefresh",
+    "binanceTestnetOrderCancel",
     "binanceTestnetOrderBook",
     "binanceTestnetOrder",
     "binanceTestnetFill",
@@ -3145,6 +3149,26 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "cancelError": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "cancelIdempotencyKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 36,
+          "minLength": 1
+        },
+        "cancelState": {
+          "$ref": "#/$defs/BinanceTestnetOrderCancelState",
+          "default": "NONE"
+        },
         "clientOrderId": {
           "type": "string",
           "maxLength": 36,
@@ -3674,6 +3698,65 @@
         "CURRENT",
         "DEGRADED",
         "STALE"
+      ]
+    },
+    "BinanceTestnetOrderCancel": {
+      "type": "object",
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedBookStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{36}$"
+        },
+        "providerOrderId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^(BTCUSDT|ETHUSDT)$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "symbol",
+        "providerOrderId",
+        "expectedBookStateVersion",
+        "idempotencyKey",
+        "confirmed"
+      ]
+    },
+    "BinanceTestnetOrderCancelState": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "SUBMITTING",
+        "PENDING"
       ]
     },
     "BinanceTestnetOrderOrigin": {
