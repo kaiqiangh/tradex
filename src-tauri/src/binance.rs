@@ -1,16 +1,92 @@
 use super::*;
 use crate::protocol::{
-    BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, OrderProposal, OrderSide,
+    BinanceTestnetBalance, BinanceTestnetFill, BinanceTestnetHistoryState, BinanceTestnetOrder,
+    BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook,
+    BinanceTestnetOrderBookAction, BinanceTestnetOrderBookStatus, BinanceTestnetOrderOrigin,
+    OrderProposal, OrderSide,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::{
     collections::{BTreeMap, HashSet},
+    sync::atomic::{AtomicU16, AtomicU64, Ordering},
     time::Instant,
 };
 
+// ponytail: process-wide cooldown; use shared OS storage if multiple TradeX processes share one egress IP.
+static TESTNET_IP_RETRY_AT: AtomicU64 = AtomicU64::new(0);
+static TESTNET_IP_RETRY_STATUS: AtomicU16 = AtomicU16::new(0);
+
 fn time_error() -> TradeXError {
     TradeXError::new("CLOCK_SKEW")
+}
+
+fn rate_limit_code(status: u16) -> Option<&'static str> {
+    match status {
+        418 => Some("PROVIDER_IP_BANNED"),
+        429 => Some("PROVIDER_RATE_LIMITED"),
+        _ => None,
+    }
+}
+
+pub(super) fn observe_ip_rate_limit(status: u16, rate_limit: Option<&ProviderRateLimit>) {
+    let Some(code) = rate_limit_code(status) else {
+        return;
+    };
+    let fallback = if status == 418 { 120 } else { 60 };
+    let seconds = rate_limit
+        .and_then(|limit| limit.retry_after_seconds)
+        .unwrap_or(fallback)
+        .clamp(1, 259_200);
+    let retry_at = time::OffsetDateTime::now_utc()
+        .unix_timestamp()
+        .saturating_add(seconds as i64)
+        .max(0) as u64;
+    let previous = TESTNET_IP_RETRY_AT.fetch_max(retry_at, Ordering::SeqCst);
+    if status == 418 || retry_at >= previous {
+        TESTNET_IP_RETRY_STATUS.store(
+            if code == "PROVIDER_IP_BANNED" {
+                418
+            } else {
+                429
+            },
+            Ordering::SeqCst,
+        );
+    }
+}
+
+pub(super) fn check_testnet_ip_cooldown() -> Result<()> {
+    let retry_at = TESTNET_IP_RETRY_AT.load(Ordering::SeqCst);
+    if retry_at > time::OffsetDateTime::now_utc().unix_timestamp().max(0) as u64 {
+        let status = TESTNET_IP_RETRY_STATUS.load(Ordering::SeqCst);
+        Err(TradeXError::new(if status == 418 {
+            "PROVIDER_IP_BANNED"
+        } else {
+            "PROVIDER_RATE_LIMITED"
+        }))
+    } else {
+        Ok(())
+    }
+}
+
+fn testnet_ip_retry_at() -> Option<(String, &'static str)> {
+    let retry_at = TESTNET_IP_RETRY_AT.load(Ordering::SeqCst);
+    if retry_at <= time::OffsetDateTime::now_utc().unix_timestamp().max(0) as u64 {
+        return None;
+    }
+    let status = TESTNET_IP_RETRY_STATUS.load(Ordering::SeqCst);
+    let value = time::OffsetDateTime::from_unix_timestamp(retry_at as i64).ok()?;
+    let formatted = value
+        .format(&time::format_description::well_known::Rfc3339)
+        .ok()?;
+    Some((
+        formatted,
+        if status == 418 {
+            "PROVIDER_IP_BANNED"
+        } else {
+            "PROVIDER_RATE_LIMITED"
+        },
+    ))
 }
 
 pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
@@ -37,7 +113,11 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     };
     if !matches!(
         route,
-        "/api/v3/account" | "/api/v3/openOrders" | "/api/v3/order"
+        "/api/v3/account"
+            | "/api/v3/openOrders"
+            | "/api/v3/order"
+            | "/api/v3/allOrders"
+            | "/api/v3/myTrades"
     ) && !(endpoint == ProviderEndpoint::BinanceLive
         && route == "/sapi/v1/account/apiRestrictions")
     {
@@ -74,17 +154,44 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     keys.remove("recvWindow");
     match route {
         "/api/v3/account" | "/api/v3/openOrders" => keys.is_empty(),
+        "/api/v3/allOrders" => {
+            endpoint == ProviderEndpoint::BinanceTestnet
+                && keys
+                    .iter()
+                    .all(|key| matches!(*key, "symbol" | "limit" | "orderId"))
+                && matches!(values.get("symbol"), Some(&"BTCUSDT" | &"ETHUSDT"))
+                && values.get("limit") == Some(&"1000")
+                && values.get("orderId").is_none_or(|id| valid_order_id(id))
+        }
+        "/api/v3/myTrades" => {
+            endpoint == ProviderEndpoint::BinanceTestnet
+                && keys
+                    .iter()
+                    .all(|key| matches!(*key, "symbol" | "limit" | "fromId"))
+                && matches!(values.get("symbol"), Some(&"BTCUSDT" | &"ETHUSDT"))
+                && values.get("limit") == Some(&"1000")
+                && values.get("fromId").is_none_or(|id| valid_order_id(id))
+        }
         "/api/v3/order" => {
             let symbol = values
                 .get("symbol")
                 .is_some_and(|value| matches!(*value, "BTCUSDT" | "ETHUSDT"));
-            let query_order = keys
+            let query_order_by_client = keys
                 .iter()
                 .all(|key| matches!(*key, "symbol" | "origClientOrderId"))
+                && keys.len() == 2
                 && symbol
                 && values
                     .get("origClientOrderId")
                     .is_some_and(|value| valid_client_order_id(value));
+            let query_order_by_id = keys.iter().all(|key| matches!(*key, "symbol" | "orderId"))
+                && keys.len() == 2
+                && values
+                    .get("symbol")
+                    .is_some_and(|value| valid_binance_symbol(value))
+                && values
+                    .get("orderId")
+                    .is_some_and(|value| valid_order_id(value));
             let new_order = endpoint == ProviderEndpoint::BinanceTestnet
                 && keys.iter().all(|key| {
                     matches!(
@@ -139,7 +246,7 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
                     }
                     _ => false,
                 };
-            query_order || new_order
+            query_order_by_client || query_order_by_id || new_order
         }
         "/sapi/v1/account/apiRestrictions" => {
             endpoint == ProviderEndpoint::BinanceLive && keys.is_empty()
@@ -154,6 +261,23 @@ fn valid_client_order_id(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+}
+
+fn valid_order_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 20
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+        && value
+            .parse::<u64>()
+            .is_ok_and(|id| id > 0 && id <= i64::MAX as u64)
+}
+
+fn valid_binance_symbol(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 32
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
 }
 
 fn decimal_field(value: &str) -> bool {
@@ -171,6 +295,7 @@ fn signed_request(
     sampled: Instant,
     current: &impl Fn() -> bool,
 ) -> Result<ProviderHttpResponse> {
+    check_testnet_ip_cooldown()?;
     if sampled.elapsed() > Duration::from_secs(60) || !current() {
         return Err(time_error());
     }
@@ -194,27 +319,34 @@ fn signed_request(
     key.set_sensitive(true);
     let mut headers = HeaderMap::new();
     headers.insert("X-MBX-APIKEY", key);
-    http.request(
+    let (response, rate_limit) = http.request_with_rate_limit(
         ProviderEndpoint::BinanceTestnet,
         method,
         &path,
         headers,
         None,
-    )
+    )?;
+    observe_ip_rate_limit(response.status, rate_limit.as_ref());
+    Ok(response)
 }
 
 fn server_time(http: &impl ProviderHttp, current: &impl Fn() -> bool) -> Result<(u64, Instant)> {
+    check_testnet_ip_cooldown()?;
     if !current() {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
     let started = Instant::now();
-    let response = http.request(
+    let (response, rate_limit) = http.request_with_rate_limit(
         ProviderEndpoint::BinanceTestnet,
         ProviderHttpMethod::Get,
         "/api/v3/time",
         HeaderMap::new(),
         None,
     )?;
+    observe_ip_rate_limit(response.status, rate_limit.as_ref());
+    if let Some(code) = rate_limit_code(response.status) {
+        return Err(TradeXError::new(code));
+    }
     if response.status != 200 || started.elapsed() > Duration::from_secs(2) {
         return Err(time_error());
     }
@@ -224,6 +356,599 @@ fn server_time(http: &impl ProviderHttp, current: &impl Fn() -> bool) -> Result<
         .filter(|value| valid_time(*value))
         .ok_or_else(time_error)?;
     Ok((value, Instant::now()))
+}
+
+fn signed_book_read(
+    http: &impl ProviderHttp,
+    route: &str,
+    params: &[(&str, &str)],
+    secrets: &[String],
+    current: &impl Fn() -> bool,
+) -> Result<Value> {
+    let (server, sampled) = server_time(http, current)?;
+    let response = signed_request(
+        http,
+        ProviderHttpMethod::Get,
+        route,
+        params,
+        secrets,
+        server,
+        sampled,
+        current,
+    )?;
+    if response.status != 200 {
+        return Err(match response.status {
+            418 => TradeXError::new("PROVIDER_IP_BANNED"),
+            429 => TradeXError::new("PROVIDER_RATE_LIMITED"),
+            401 | 403 => TradeXError::new("PROVIDER_AUTHENTICATION_FAILED"),
+            404 => TradeXError::new("ORDER_STATUS_UNKNOWN"),
+            _ => TradeXError::new("PROVIDER_UNAVAILABLE"),
+        });
+    }
+    response_value(response, secrets)
+}
+
+fn iso_after(seconds: i64) -> Result<String> {
+    time::OffsetDateTime::now_utc()
+        .checked_add(time::Duration::seconds(seconds))
+        .ok_or_else(invalid)?
+        .format(&time::format_description::well_known::Rfc3339)
+        .map_err(|_| invalid())
+}
+
+fn retry_active(value: Option<&String>) -> bool {
+    value
+        .and_then(|value| {
+            time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok()
+        })
+        .is_some_and(|value| value > time::OffsetDateTime::now_utc())
+}
+
+fn provider_id(value: &Value, field: &str) -> Result<String> {
+    match &value[field] {
+        Value::String(id) if valid_order_id(id) => Ok(id.clone()),
+        Value::Number(number) => number
+            .as_u64()
+            .filter(|id| *id > 0 && *id <= i64::MAX as u64)
+            .map(|id| id.to_string())
+            .ok_or_else(invalid),
+        _ => Err(invalid()),
+    }
+}
+
+fn provider_time(value: &Value, field: &str) -> Result<u64> {
+    value[field]
+        .as_u64()
+        .filter(|value| *value <= crate::protocol::MAX_SEQUENCE)
+        .ok_or_else(invalid)
+}
+
+fn optional_nonnegative_decimal(value: &Value) -> Result<Option<String>> {
+    let raw = value.as_str().ok_or_else(invalid)?;
+    let parsed = decimal(&Value::String(raw.to_owned()))?;
+    if parsed.starts_with('-') {
+        Ok(None)
+    } else {
+        Ok(Some(parsed))
+    }
+}
+
+fn parse_testnet_book_order(value: &Value, observed_at: &str) -> Result<BinanceTestnetOrder> {
+    let quantity = optional_nonnegative_decimal(&value["origQty"])?;
+    let filled_quantity = positive(&value["executedQty"])?;
+    let remaining_quantity = quantity
+        .as_deref()
+        .map(|quantity| crate::provider_io::decimal_subtract(quantity, &filled_quantity))
+        .transpose()?;
+    let order = BinanceTestnetOrder {
+        provider_order_id: provider_id(value, "orderId")?,
+        symbol: text(value, "symbol", 32)?,
+        client_order_id: text(value, "clientOrderId", 36)?,
+        side: text(value, "side", 16)?,
+        order_type: text(value, "type", 32)?,
+        time_in_force: value["timeInForce"]
+            .as_str()
+            .filter(|value| !value.is_empty() && value.len() <= 32)
+            .unwrap_or("UNSPECIFIED")
+            .to_owned(),
+        provider_status: text(value, "status", 64)?,
+        price: optional_nonnegative_decimal(&value["price"])?,
+        quantity,
+        quote_quantity: optional_nonnegative_decimal(&value["origQuoteOrderQty"])?,
+        filled_quantity,
+        filled_quote_quantity: optional_nonnegative_decimal(&value["cummulativeQuoteQty"])?,
+        remaining_quantity,
+        submitted_at_ms: provider_time(value, "time")?,
+        provider_updated_at_ms: value
+            .get("updateTime")
+            .and_then(Value::as_u64)
+            .filter(|value| *value <= crate::protocol::MAX_SEQUENCE)
+            .unwrap_or(provider_time(value, "time")?),
+        observed_at: observed_at.to_owned(),
+        pending: !matches!(
+            value["status"].as_str(),
+            Some("FILLED" | "CANCELED" | "REJECTED" | "EXPIRED" | "EXPIRED_IN_MATCH")
+        ),
+        origin: BinanceTestnetOrderOrigin::External,
+        attempt_id: None,
+    };
+    if !valid_binance_symbol(&order.symbol)
+        || !matches!(order.side.as_str(), "BUY" | "SELL")
+        || order.provider_status.is_empty()
+    {
+        return Err(invalid());
+    }
+    Ok(order)
+}
+
+fn parse_testnet_fill(value: &Value, observed_at: &str) -> Result<BinanceTestnetFill> {
+    let commission = positive(&value["commission"])?;
+    let fill = BinanceTestnetFill {
+        trade_id: provider_id(value, "id")?,
+        provider_order_id: provider_id(value, "orderId")?,
+        symbol: text(value, "symbol", 32)?,
+        side: if value["isBuyer"].as_bool().ok_or_else(invalid)? {
+            "BUY".into()
+        } else {
+            "SELL".into()
+        },
+        price: positive(&value["price"])?,
+        quantity: positive(&value["qty"])?,
+        quote_quantity: positive(&value["quoteQty"])?,
+        commission,
+        commission_asset: text(value, "commissionAsset", 32)?,
+        executed_at_ms: provider_time(value, "time")?,
+        observed_at: observed_at.to_owned(),
+    };
+    if !valid_binance_symbol(&fill.symbol)
+        || fill.price == "0"
+        || fill.quantity == "0"
+        || fill.quote_quantity == "0"
+        || fill.commission_asset.is_empty()
+    {
+        return Err(invalid());
+    }
+    Ok(fill)
+}
+
+fn merge_testnet_order(
+    orders: &mut Vec<BinanceTestnetOrder>,
+    fresh: BinanceTestnetOrder,
+) -> Result<()> {
+    if let Some(index) = orders.iter().position(|old| {
+        old.provider_order_id == fresh.provider_order_id && old.symbol == fresh.symbol
+    }) {
+        let old = &orders[index];
+        if old.client_order_id != fresh.client_order_id {
+            return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+        }
+        if fresh.provider_updated_at_ms < old.provider_updated_at_ms
+            || decimal_cmp(&fresh.filled_quantity, &old.filled_quantity)?
+                == std::cmp::Ordering::Less
+        {
+            return Ok(());
+        }
+        orders[index] = fresh;
+    } else {
+        orders.push(fresh);
+    }
+    if orders.len() > 5000 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    orders.sort_by(|left, right| {
+        right
+            .submitted_at_ms
+            .cmp(&left.submitted_at_ms)
+            .then_with(|| left.symbol.cmp(&right.symbol))
+            .then_with(|| left.provider_order_id.cmp(&right.provider_order_id))
+    });
+    Ok(())
+}
+
+fn merge_testnet_fill(
+    fills: &mut Vec<BinanceTestnetFill>,
+    fresh: BinanceTestnetFill,
+) -> Result<()> {
+    if let Some(old) = fills
+        .iter()
+        .find(|old| old.trade_id == fresh.trade_id && old.symbol == fresh.symbol)
+    {
+        if old.provider_order_id != fresh.provider_order_id
+            || old.price != fresh.price
+            || old.quantity != fresh.quantity
+            || old.quote_quantity != fresh.quote_quantity
+            || old.commission != fresh.commission
+            || old.commission_asset != fresh.commission_asset
+            || old.side != fresh.side
+            || old.executed_at_ms != fresh.executed_at_ms
+        {
+            return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+        }
+        return Ok(());
+    }
+    fills.push(fresh);
+    if fills.len() > 5000 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    fills.sort_by(|left, right| {
+        right
+            .executed_at_ms
+            .cmp(&left.executed_at_ms)
+            .then_with(|| left.symbol.cmp(&right.symbol))
+            .then_with(|| left.trade_id.cmp(&right.trade_id))
+    });
+    Ok(())
+}
+
+fn binance_account(
+    http: &impl ProviderHttp,
+    secrets: &[String],
+    current: &impl Fn() -> bool,
+    remote_account_id: &str,
+) -> Result<Value> {
+    let account = signed_book_read(http, "/api/v3/account", &[], secrets, current)?;
+    if numeric_id(&account, "uid")? != remote_account_id
+        || account["accountType"].as_str() != Some("SPOT")
+    {
+        return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+    }
+    Ok(account)
+}
+
+fn account_balances(account: &Value) -> Result<Vec<BinanceTestnetBalance>> {
+    let rows = account["balances"].as_array().ok_or_else(invalid)?;
+    if rows.len() > 5000 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    let mut assets = HashSet::new();
+    rows.iter()
+        .filter_map(|row| {
+            let result = (|| -> Result<BinanceTestnetBalance> {
+                let asset = text(row, "asset", 32)?;
+                if !assets.insert(asset.clone()) {
+                    return Err(invalid());
+                }
+                let free = positive(&row["free"])?;
+                let locked = positive(&row["locked"])?;
+                let total = total(&free, &locked)?;
+                Ok(BinanceTestnetBalance {
+                    asset,
+                    free,
+                    locked,
+                    total,
+                })
+            })();
+            Some(result)
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(|mut balances| {
+            balances.retain(|balance| balance.total != "0");
+            balances.sort_by(|left, right| left.asset.cmp(&right.asset));
+            balances
+        })
+}
+
+fn history_state_mut<'a>(
+    book: &'a mut BinanceTestnetOrderBook,
+    symbol: &str,
+) -> Result<&'a mut BinanceTestnetHistoryState> {
+    book.history
+        .iter_mut()
+        .find(|state| state.symbol == symbol)
+        .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))
+}
+
+fn fetch_testnet_history(
+    book: &mut BinanceTestnetOrderBook,
+    symbol: &str,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+    observed_at: &str,
+) -> Result<()> {
+    if !matches!(symbol, "BTCUSDT" | "ETHUSDT") {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    let state = book
+        .history
+        .iter()
+        .find(|state| state.symbol == symbol)
+        .cloned()
+        .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+    let start_from_beginning = !state.started || state.complete;
+    let mut order_cursor = state
+        .next_order_id
+        .clone()
+        .or_else(|| start_from_beginning.then(|| "1".into()));
+    let mut trade_cursor = state
+        .next_trade_id
+        .clone()
+        .or_else(|| start_from_beginning.then(|| "1".into()));
+    if start_from_beginning || order_cursor.is_some() {
+        let mut params = vec![("symbol", symbol), ("limit", "1000")];
+        if let Some(cursor) = order_cursor.as_deref() {
+            params.push(("orderId", cursor));
+        }
+        let value = signed_book_read(http, "/api/v3/allOrders", &params, secrets, current)?;
+        let rows = value.as_array().ok_or_else(invalid)?;
+        if rows.len() > 1000 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        for row in rows {
+            if row["symbol"].as_str() != Some(symbol) {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+            }
+            merge_testnet_order(
+                &mut book.orders,
+                parse_testnet_book_order(row, observed_at)?,
+            )?;
+        }
+        order_cursor = if rows.len() == 1000 {
+            Some(increment_id(&provider_id(
+                rows.last().ok_or_else(invalid)?,
+                "orderId",
+            )?)?)
+        } else {
+            None
+        };
+    }
+    if start_from_beginning || trade_cursor.is_some() {
+        let mut params = vec![("symbol", symbol), ("limit", "1000")];
+        if let Some(cursor) = trade_cursor.as_deref() {
+            params.push(("fromId", cursor));
+        }
+        let value = signed_book_read(http, "/api/v3/myTrades", &params, secrets, current)?;
+        let rows = value.as_array().ok_or_else(invalid)?;
+        if rows.len() > 1000 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        for row in rows {
+            if row["symbol"].as_str() != Some(symbol) {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+            }
+            merge_testnet_fill(&mut book.fills, parse_testnet_fill(row, observed_at)?)?;
+        }
+        trade_cursor = if rows.len() == 1000 {
+            Some(increment_id(&provider_id(
+                rows.last().ok_or_else(invalid)?,
+                "id",
+            )?)?)
+        } else {
+            None
+        };
+    }
+    let state = history_state_mut(book, symbol)?;
+    state.started = true;
+    state.page_count = state
+        .page_count
+        .checked_add(1)
+        .filter(|count| *count <= crate::protocol::MAX_SEQUENCE)
+        .ok_or_else(invalid)?;
+    state.next_order_id = order_cursor;
+    state.next_trade_id = trade_cursor;
+    state.complete = state.next_order_id.is_none() && state.next_trade_id.is_none();
+    Ok(())
+}
+
+fn increment_id(value: &str) -> Result<String> {
+    if !valid_order_id(value) {
+        return Err(invalid());
+    }
+    let mut digits = value.bytes().collect::<Vec<_>>();
+    let mut carry = true;
+    for digit in digits.iter_mut().rev() {
+        if !carry {
+            break;
+        }
+        if *digit == b'9' {
+            *digit = b'0';
+        } else {
+            *digit += 1;
+            carry = false;
+        }
+    }
+    if carry {
+        digits.insert(0, b'1');
+    }
+    let next = String::from_utf8(digits).map_err(|_| invalid())?;
+    if valid_order_id(&next) {
+        Ok(next)
+    } else {
+        Err(invalid())
+    }
+}
+
+pub(super) fn refresh_testnet_order_book(
+    book: &mut BinanceTestnetOrderBook,
+    action: BinanceTestnetOrderBookAction,
+    symbol: Option<&str>,
+    provider_order_id: Option<&str>,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<()> {
+    let account_retry = book.rate_limits.account_retry_at.as_ref();
+    let action_retry = match action {
+        BinanceTestnetOrderBookAction::Pending => book.rate_limits.pending_orders_retry_at.as_ref(),
+        BinanceTestnetOrderBookAction::Account => account_retry,
+        BinanceTestnetOrderBookAction::History => book.rate_limits.history_retry_at.as_ref(),
+        BinanceTestnetOrderBookAction::Detail => book.rate_limits.order_detail_retry_at.as_ref(),
+    };
+    if retry_active(account_retry) || retry_active(action_retry) {
+        book.status = BinanceTestnetOrderBookStatus::Degraded;
+        book.reason = Some("PROVIDER_RATE_LIMITED".into());
+        book.observed_at = crate::storage::timestamp()?;
+        return Ok(());
+    }
+    if let Some((deadline, code)) = testnet_ip_retry_at() {
+        book.rate_limits.account_retry_at = Some(deadline.clone());
+        match action {
+            BinanceTestnetOrderBookAction::Pending => {
+                book.rate_limits.pending_orders_retry_at = Some(deadline)
+            }
+            BinanceTestnetOrderBookAction::Account => (),
+            BinanceTestnetOrderBookAction::History => {
+                book.rate_limits.history_retry_at = Some(deadline)
+            }
+            BinanceTestnetOrderBookAction::Detail => {
+                book.rate_limits.order_detail_retry_at = Some(deadline)
+            }
+        }
+        book.status = BinanceTestnetOrderBookStatus::Degraded;
+        book.reason = Some(code.into());
+        book.observed_at = crate::storage::timestamp()?;
+        return Ok(());
+    }
+    let args_valid = match action {
+        BinanceTestnetOrderBookAction::Pending | BinanceTestnetOrderBookAction::Account => {
+            symbol.is_none() && provider_order_id.is_none()
+        }
+        BinanceTestnetOrderBookAction::History => {
+            matches!(symbol, Some("BTCUSDT" | "ETHUSDT")) && provider_order_id.is_none()
+        }
+        BinanceTestnetOrderBookAction::Detail => {
+            matches!(symbol, Some("BTCUSDT" | "ETHUSDT"))
+                && provider_order_id.is_some_and(valid_order_id)
+                && provider_order_id.is_some_and(|id| {
+                    book.orders.iter().any(|order| {
+                        order.symbol == symbol.unwrap_or_default() && order.provider_order_id == id
+                    })
+                })
+        }
+    };
+    if !args_valid {
+        book.status = BinanceTestnetOrderBookStatus::Degraded;
+        book.reason = Some("IPC_PAYLOAD_INVALID".into());
+        book.observed_at = crate::storage::timestamp()?;
+        return Ok(());
+    }
+    let mut candidate = book.clone();
+    let account_interval = match action {
+        BinanceTestnetOrderBookAction::Pending | BinanceTestnetOrderBookAction::Account => 20,
+        _ => 30,
+    };
+    candidate.rate_limits.account_retry_at = Some(iso_after(account_interval)?);
+    match action {
+        BinanceTestnetOrderBookAction::Pending => {
+            candidate.rate_limits.pending_orders_retry_at = Some(iso_after(30)?);
+        }
+        BinanceTestnetOrderBookAction::Account => (),
+        BinanceTestnetOrderBookAction::History => {
+            candidate.rate_limits.history_retry_at = Some(iso_after(30)?);
+        }
+        BinanceTestnetOrderBookAction::Detail => {
+            candidate.rate_limits.order_detail_retry_at = Some(iso_after(5)?);
+        }
+    }
+    let observed_at = crate::storage::timestamp()?;
+    let pending_reconciliation_required =
+        book.reason.as_deref() == Some("ORDER_STATUS_REFRESH_REQUIRED");
+    candidate.reason = None;
+    let result = (|| -> Result<()> {
+        if !current() {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let account = binance_account(http, secrets, current, &candidate.remote_account_id)?;
+        match action {
+            BinanceTestnetOrderBookAction::Pending => {
+                let response = signed_book_read(http, "/api/v3/openOrders", &[], secrets, current)?;
+                let rows = response.as_array().ok_or_else(invalid)?;
+                if rows.len() > 5000 {
+                    return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                }
+                let mut ids = HashSet::new();
+                for row in rows {
+                    let fresh = parse_testnet_book_order(row, &observed_at)?;
+                    ids.insert((fresh.symbol.clone(), fresh.provider_order_id.clone()));
+                    merge_testnet_order(&mut candidate.orders, fresh)?;
+                }
+                let missing_open = candidate.orders.iter().any(|order| {
+                    order.pending
+                        && !ids.contains(&(order.symbol.clone(), order.provider_order_id.clone()))
+                });
+                if missing_open {
+                    candidate.status = BinanceTestnetOrderBookStatus::Stale;
+                    candidate.reason = Some("ORDER_STATUS_REFRESH_REQUIRED".into());
+                }
+            }
+            BinanceTestnetOrderBookAction::Account => {
+                candidate.balances = account_balances(&account)?;
+            }
+            BinanceTestnetOrderBookAction::History => {
+                fetch_testnet_history(
+                    &mut candidate,
+                    symbol.ok_or_else(invalid)?,
+                    secrets,
+                    http,
+                    current,
+                    &observed_at,
+                )?;
+            }
+            BinanceTestnetOrderBookAction::Detail => {
+                let symbol = symbol.ok_or_else(invalid)?;
+                let provider_order_id = provider_order_id.ok_or_else(invalid)?;
+                let query = [("symbol", symbol), ("orderId", provider_order_id)];
+                let response = signed_book_read(http, "/api/v3/order", &query, secrets, current)?;
+                let fresh = parse_testnet_book_order(&response, &observed_at)?;
+                if fresh.provider_order_id != provider_order_id || fresh.symbol != symbol {
+                    return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+                }
+                merge_testnet_order(&mut candidate.orders, fresh)?;
+            }
+        }
+        Ok(())
+    })();
+    let observed_at = crate::storage::timestamp()?;
+    match result {
+        Ok(()) => {
+            if pending_reconciliation_required && action != BinanceTestnetOrderBookAction::Pending {
+                candidate.status = BinanceTestnetOrderBookStatus::Stale;
+                candidate.reason = Some("ORDER_STATUS_REFRESH_REQUIRED".into());
+            } else if candidate.reason.as_deref() != Some("ORDER_STATUS_REFRESH_REQUIRED") {
+                candidate.status = BinanceTestnetOrderBookStatus::Current;
+                candidate.reason = None;
+            }
+            candidate.last_successful_sync_at = Some(observed_at.clone());
+            candidate.observed_at = observed_at;
+            *book = candidate;
+        }
+        Err(error) => {
+            book.rate_limits = candidate.rate_limits;
+            if matches!(
+                error.code.as_str(),
+                "PROVIDER_RATE_LIMITED" | "PROVIDER_IP_BANNED"
+            ) {
+                let deadline = testnet_ip_retry_at()
+                    .map(|(deadline, _)| deadline)
+                    .unwrap_or(iso_after(if error.code == "PROVIDER_IP_BANNED" {
+                        120
+                    } else {
+                        60
+                    })?);
+                book.rate_limits.account_retry_at = Some(deadline.clone());
+                match action {
+                    BinanceTestnetOrderBookAction::Pending => {
+                        book.rate_limits.pending_orders_retry_at = Some(deadline)
+                    }
+                    BinanceTestnetOrderBookAction::Account => (),
+                    BinanceTestnetOrderBookAction::History => {
+                        book.rate_limits.history_retry_at = Some(deadline)
+                    }
+                    BinanceTestnetOrderBookAction::Detail => {
+                        book.rate_limits.order_detail_retry_at = Some(deadline)
+                    }
+                }
+            }
+            book.status = if error.code == "STATE_VERSION_CONFLICT" {
+                BinanceTestnetOrderBookStatus::Stale
+            } else {
+                BinanceTestnetOrderBookStatus::Degraded
+            };
+            book.reason = Some(error.code);
+            book.observed_at = observed_at;
+        }
+    }
+    Ok(())
 }
 
 fn response_value(response: ProviderHttpResponse, secrets: &[String]) -> Result<Value> {

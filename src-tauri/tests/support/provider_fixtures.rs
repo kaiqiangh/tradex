@@ -84,6 +84,12 @@ pub struct Http {
     pub binance_post_status: Cell<Option<u16>>,
     pub binance_post_response_body: RefCell<Option<Vec<u8>>>,
     pub binance_order_by_client_id: RefCell<Option<Value>>,
+    pub binance_open_orders: RefCell<Option<Vec<Value>>>,
+    pub binance_order_history: RefCell<HashMap<String, Vec<Value>>>,
+    pub binance_trade_history: RefCell<HashMap<String, Vec<Value>>>,
+    pub binance_read_statuses: RefCell<HashMap<String, u16>>,
+    pub binance_retry_after_seconds: Cell<Option<u64>>,
+    pub binance_uid: Cell<u64>,
     pub binance_hide_order_lookup: Cell<bool>,
     pub binance_exchange_info: RefCell<Option<Value>>,
     pub binance_reference_price: RefCell<Option<Value>>,
@@ -139,6 +145,12 @@ impl Default for Http {
             binance_post_status: Cell::new(None),
             binance_post_response_body: RefCell::new(None),
             binance_order_by_client_id: RefCell::new(None),
+            binance_open_orders: RefCell::new(None),
+            binance_order_history: RefCell::new(HashMap::new()),
+            binance_trade_history: RefCell::new(HashMap::new()),
+            binance_read_statuses: RefCell::new(HashMap::new()),
+            binance_retry_after_seconds: Cell::new(None),
+            binance_uid: Cell::new(9007199254740993),
             binance_hide_order_lookup: Cell::new(false),
             binance_exchange_info: RefCell::new(None),
             binance_reference_price: RefCell::new(None),
@@ -365,9 +377,17 @@ impl ProviderHttp for Http {
                     });
                 }
                 return match (method, body) {
-                    (ProviderHttpMethod::Get, None) => self
-                        .get(endpoint, path, headers)
-                        .map(|body| ProviderHttpResponse { status: 200, body }),
+                    (ProviderHttpMethod::Get, None) => {
+                        let body = self.get(endpoint, path, headers)?;
+                        let route = path.split('?').next().unwrap_or(path);
+                        let status = self
+                            .binance_read_statuses
+                            .borrow()
+                            .get(route)
+                            .copied()
+                            .unwrap_or(200);
+                        Ok(ProviderHttpResponse { status, body })
+                    }
                     _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
                 };
             }
@@ -543,7 +563,20 @@ impl ProviderHttp for Http {
         body: Option<&Value>,
     ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
         let response = self.request(endpoint, method, path, headers, body)?;
-        let rate_limit = self.trading212_rate_limit.borrow_mut().take();
+        let rate_limit = if endpoint == ProviderEndpoint::BinanceTestnet
+            && matches!(response.status, 418 | 429)
+        {
+            self.binance_retry_after_seconds
+                .take()
+                .map(|retry_after_seconds| ProviderRateLimit {
+                    retry_after_seconds: Some(retry_after_seconds),
+                    ..ProviderRateLimit::default()
+                })
+        } else if endpoint == ProviderEndpoint::Trading212Demo {
+            self.trading212_rate_limit.borrow_mut().take()
+        } else {
+            None
+        };
         Ok((response, rate_limit))
     }
 
@@ -606,17 +639,49 @@ impl ProviderHttp for Http {
                 .parse::<u64>()
                 .unwrap();
             assert!((1788849600000..1788849660000).contains(&timestamp));
+            let param = |name: &str| {
+                params
+                    .split('&')
+                    .find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+            };
             if self.fail.get() {
                 return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
             }
             return Ok(serde_json::to_vec(&match route {
-                "/api/v3/account"=>json!({"uid":9007199254740993u64,"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"测试币","free":"0.1","locked":"0.2"}]}),
-                "/api/v3/openOrders"=>json!([{"symbol":"BTCUSDT","orderId":9007199254740995u64,"side":"BUY","status":"NEW","price":"100.2","origQty":"0.1","executedQty":"0","origQuoteOrderQty":"0"},{"symbol":"测试币USDT","orderId":9007199254740995u64,"side":"SELL","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","executedQty":"0.1","origQuoteOrderQty":"0"}]),
+                "/api/v3/account"=>json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]}),
+                "/api/v3/openOrders"=>json!(self.binance_open_orders.borrow().clone().unwrap_or_else(|| vec![
+                    json!({"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc","side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"NEW","price":"100.2","origQty":"0.1","origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0","time":1788849500000u64,"updateTime":1788849500000u64}),
+                    json!({"symbol":"ODDCOINUSDT","orderId":9007199254740996u64,"clientOrderId":"fixture-open-odd","side":"SELL","type":"LIMIT","timeInForce":"GTC","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","origQuoteOrderQty":"0","executedQty":"0.1","cummulativeQuoteQty":"0.2","time":1788849501000u64,"updateTime":1788849501000u64})
+                ])),
+                "/api/v3/allOrders" => {
+                    let symbol = param("symbol").unwrap_or_default();
+                    let cursor = param("orderId").and_then(|value| value.parse::<u64>().ok()).unwrap_or(0);
+                    let limit = param("limit").and_then(|value| value.parse::<usize>().ok()).unwrap_or(1000);
+                    Value::Array(self.binance_order_history.borrow().get(symbol).cloned().unwrap_or_default().into_iter()
+                        .filter(|row| row["orderId"].as_str().and_then(|id| id.parse::<u64>().ok()).or_else(|| row["orderId"].as_u64()).is_some_and(|id| id >= cursor))
+                        .take(limit).collect::<Vec<_>>())
+                },
+                "/api/v3/myTrades" => {
+                    let symbol = param("symbol").unwrap_or_default();
+                    let cursor = param("fromId").and_then(|value| value.parse::<u64>().ok()).unwrap_or(0);
+                    let limit = param("limit").and_then(|value| value.parse::<usize>().ok()).unwrap_or(1000);
+                    Value::Array(self.binance_trade_history.borrow().get(symbol).cloned().unwrap_or_default().into_iter()
+                        .filter(|row| row["id"].as_str().and_then(|id| id.parse::<u64>().ok()).or_else(|| row["id"].as_u64()).is_some_and(|id| id >= cursor))
+                        .take(limit).collect::<Vec<_>>())
+                },
                 "/api/v3/order" => {
-                    let lookup = path.split('&').find_map(|pair| pair.strip_prefix("origClientOrderId="));
-                    self.binance_order_by_client_id.borrow().clone()
-                        .filter(|order| !self.binance_hide_order_lookup.get() && lookup == order["clientOrderId"].as_str())
-                        .unwrap_or(Value::Null)
+                    if let Some(lookup) = param("origClientOrderId") {
+                        self.binance_order_by_client_id.borrow().clone()
+                            .filter(|order| !self.binance_hide_order_lookup.get() && Some(lookup) == order["clientOrderId"].as_str())
+                            .unwrap_or(Value::Null)
+                    } else {
+                        let symbol = param("symbol").unwrap_or_default();
+                        let order_id = param("orderId").unwrap_or_default();
+                        self.binance_order_history.borrow().get(symbol).into_iter().flatten()
+                            .chain(self.binance_open_orders.borrow().as_ref().into_iter().flatten())
+                            .find(|order| order["symbol"] == symbol && (order["orderId"].as_str() == Some(order_id) || order["orderId"].as_u64().is_some_and(|id| id.to_string() == order_id)))
+                            .cloned().unwrap_or(Value::Null)
+                    }
                 },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);

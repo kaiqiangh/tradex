@@ -112,11 +112,21 @@ fn connected_testnet(
     http: &impl ProviderHttp,
     workspace: &Value,
 ) -> Value {
+    connected_testnet_labeled(cp, vault, http, workspace, "Testnet orders")
+}
+
+fn connected_testnet_labeled(
+    cp: &mut ControlPlane,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    workspace: &Value,
+    label: &str,
+) -> Value {
     let tested = run(
         cp,
         request(
             "provider.connect",
-            json!({"step":"test","workspaceId":workspace,"providerId":"binance","environment":"TESTNET","label":"Testnet orders"}),
+            json!({"step":"test","workspaceId":workspace,"providerId":"binance","environment":"TESTNET","label":label}),
         ),
         vault,
         http,
@@ -128,6 +138,36 @@ fn connected_testnet(
     let accepted = call(cp, "provider.connect", confirm);
     assert_eq!(accepted["ok"], true, "{accepted}");
     accepted["data"].clone()
+}
+
+fn refresh_testnet_book(
+    cp: &mut ControlPlane,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    workspace: &Value,
+    account: &Value,
+    action: &str,
+    symbol: Option<&str>,
+    provider_order_id: Option<&str>,
+) -> Value {
+    let mut payload = json!({
+        "workspaceId":workspace,
+        "connectionId":account["connectionId"],
+        "expectedConnectionStateVersion":account["stateVersion"],
+        "action":action
+    });
+    if let Some(symbol) = symbol {
+        payload["symbol"] = json!(symbol);
+    }
+    if let Some(provider_order_id) = provider_order_id {
+        payload["providerOrderId"] = json!(provider_order_id);
+    }
+    run(
+        cp,
+        request("binance.testnet.orders.refresh", payload),
+        vault,
+        http,
+    )
 }
 
 fn testnet_proposal(
@@ -579,6 +619,235 @@ fn testnet_filters_and_percent_price_rules_fail_closed_before_post() {
             .borrow()
             .iter()
             .any(|call| call.ends_with("/api/v3/avgPrice?symbol=BTCUSDT"))
+    );
+}
+
+#[test]
+fn testnet_order_book_keeps_exact_history_balances_and_account_boundaries() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let trade_x = connected_testnet_labeled(&mut cp, &vault, &http, &workspace, "History account");
+    let proposal = testnet_proposal(&mut cp, &workspace, &trade_x, "LIMIT", "BASE", "0.1", "GTC");
+    let submitted = run(
+        &mut cp,
+        testnet_submit_request(&workspace, &trade_x, &proposal),
+        &vault,
+        &http,
+    );
+    assert_eq!(submitted["data"]["state"], "ACKNOWLEDGED", "{submitted}");
+    assert_eq!(submitted["data"].get("fill"), None);
+    let attempt = call(
+        &mut cp,
+        "binance.testnet.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    )["data"]["attempt"]
+        .clone();
+    let client_order_id = attempt["clientOrderId"].as_str().unwrap();
+
+    *http.binance_order_history.borrow_mut() = std::collections::HashMap::from([(
+        "BTCUSDT".into(),
+        vec![
+            json!({
+                "symbol":"BTCUSDT","orderId":"9007199254740997","clientOrderId":client_order_id,
+                "side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"PARTIALLY_FILLED",
+                "price":"100","origQty":"0.1","origQuoteOrderQty":"0",
+                "executedQty":"0.012345678901234567","cummulativeQuoteQty":"1.2345678901234567",
+                "time":1788849500000u64,"updateTime":1788849510000u64
+            }),
+            json!({
+                "symbol":"BTCUSDT","orderId":"9007199254741001","clientOrderId":"external-order-1",
+                "side":"SELL","type":"LIMIT","timeInForce":"GTC","status":"FILLED",
+                "price":"100","origQty":"2","origQuoteOrderQty":"0",
+                "executedQty":"2","cummulativeQuoteQty":"200",
+                "time":1788849400000u64,"updateTime":1788849500000u64
+            }),
+        ],
+    )]);
+    *http.binance_trade_history.borrow_mut() = std::collections::HashMap::from([(
+        "BTCUSDT".into(),
+        vec![json!({
+            "symbol":"BTCUSDT","id":"9007199254741002","orderId":"9007199254740997",
+            "price":"100","qty":"0.012345678901234567","quoteQty":"1.2345678901234567",
+            "commission":"0.000000000000000003","commissionAsset":"BNB",
+            "time":1788849510000u64,"isBuyer":true
+        })],
+    )]);
+
+    let history = refresh_testnet_book(
+        &mut cp,
+        &vault,
+        &http,
+        &workspace,
+        &trade_x,
+        "HISTORY",
+        Some("BTCUSDT"),
+        None,
+    );
+    assert_eq!(history["ok"], true, "{history}");
+    assert_eq!(history["data"]["status"], "CURRENT");
+    let btc_history = history["data"]["history"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["symbol"] == "BTCUSDT")
+        .unwrap();
+    assert_eq!(btc_history["complete"], true);
+    assert_eq!(btc_history["pageCount"], 1);
+    assert_eq!(btc_history["nextOrderId"], Value::Null);
+    assert_eq!(btc_history["nextTradeId"], Value::Null);
+    assert!(http.calls.borrow().iter().any(|path| {
+        path.contains("/api/v3/allOrders?symbol=BTCUSDT&limit=1000&orderId=1&timestamp=")
+    }));
+    assert!(http.calls.borrow().iter().any(|path| {
+        path.contains("/api/v3/myTrades?symbol=BTCUSDT&limit=1000&fromId=1&timestamp=")
+    }));
+    let local_order = history["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740997")
+        .unwrap();
+    assert_eq!(local_order["origin"], "TRADE_X");
+    assert_eq!(local_order["attemptId"], attempt["attemptId"]);
+    assert_eq!(local_order["filledQuantity"], "0.012345678901234567");
+    assert_eq!(local_order["filledQuoteQuantity"], "1.2345678901234567");
+    assert_eq!(local_order["remainingQuantity"], "0.087654321098765433");
+    let external_order = history["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254741001")
+        .unwrap();
+    assert_eq!(external_order["origin"], "EXTERNAL");
+    assert!(external_order.get("attemptId").is_none());
+    assert_eq!(history["data"]["fills"][0]["tradeId"], "9007199254741002");
+    assert_eq!(
+        history["data"]["fills"][0]["commission"],
+        "0.000000000000000003"
+    );
+    assert_eq!(history["data"]["fills"][0]["commissionAsset"], "BNB");
+
+    let snapshot = call(
+        &mut cp,
+        "domain.snapshot",
+        json!({"aggregateType":"binance-testnet-order-book","aggregateId":trade_x["connectionId"]}),
+    );
+    assert_eq!(snapshot["data"]["lastSequence"], 1);
+    drop(cp);
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(call(&mut reopened, "workspace.open", json!({}))["ok"], true);
+    let durable = call(
+        &mut reopened,
+        "binance.testnet.orders.get",
+        json!({"workspaceId":workspace,"connectionId":trade_x["connectionId"]}),
+    );
+    assert_eq!(durable["data"]["book"]["status"], "STALE");
+    assert_eq!(
+        durable["data"]["book"]["orders"][0]["providerOrderId"],
+        "9007199254740997"
+    );
+    assert_eq!(
+        durable["data"]["book"]["fills"][0]["tradeId"],
+        "9007199254741002"
+    );
+
+    http.binance_uid.set(9007199254740994);
+    let balance_account =
+        connected_testnet_labeled(&mut reopened, &vault, &http, &workspace, "Balance account");
+    let balances = refresh_testnet_book(
+        &mut reopened,
+        &vault,
+        &http,
+        &workspace,
+        &balance_account,
+        "ACCOUNT",
+        None,
+        None,
+    );
+    assert_eq!(balances["data"]["status"], "CURRENT", "{balances}");
+    let usdt = balances["data"]["balances"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|balance| balance["asset"] == "USDT")
+        .unwrap();
+    assert_eq!(usdt["total"], "100000000000000000000.0000000000000000001");
+    assert!(usdt.get("usdValue").is_none());
+    let isolated_history = call(
+        &mut reopened,
+        "binance.testnet.orders.get",
+        json!({"workspaceId":workspace,"connectionId":balance_account["connectionId"]}),
+    );
+    assert_eq!(isolated_history["data"]["book"]["orders"], json!([]));
+    assert_eq!(
+        isolated_history["data"]["book"]["balances"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[test]
+fn testnet_order_history_stops_after_one_provider_page_and_keeps_exact_next_id() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let orders = (1u64..=1000)
+        .map(|offset| {
+            let id = 9007199254740000u64 + offset;
+            json!({
+                "symbol":"BTCUSDT","orderId":id.to_string(),"clientOrderId":format!("external-{offset}"),
+                "side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"FILLED",
+                "price":"100","origQty":"1","origQuoteOrderQty":"0",
+                "executedQty":"1","cummulativeQuoteQty":"100",
+                "time":1788849500000u64 + offset,"updateTime":1788849500000u64 + offset
+            })
+        })
+        .collect::<Vec<_>>();
+    http.binance_order_history
+        .borrow_mut()
+        .insert("BTCUSDT".into(), orders);
+    http.binance_trade_history
+        .borrow_mut()
+        .insert("BTCUSDT".into(), vec![]);
+
+    let page = refresh_testnet_book(
+        &mut cp,
+        &vault,
+        &http,
+        &workspace,
+        &account,
+        "HISTORY",
+        Some("BTCUSDT"),
+        None,
+    );
+    assert_eq!(page["ok"], true, "{page}");
+    assert_eq!(page["data"]["orders"].as_array().unwrap().len(), 1000);
+    let btc_history = page["data"]["history"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["symbol"] == "BTCUSDT")
+        .unwrap();
+    assert_eq!(btc_history["pageCount"], 1);
+    assert_eq!(btc_history["complete"], false);
+    assert_eq!(btc_history["nextOrderId"], "9007199254741001");
+    assert_eq!(btc_history["nextTradeId"], Value::Null);
+    assert_eq!(
+        http.calls
+            .borrow()
+            .iter()
+            .filter(|path| path.contains("/api/v3/allOrders?"))
+            .count(),
+        1
     );
 }
 

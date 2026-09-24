@@ -2543,6 +2543,16 @@ The adapter uses the fixed `https://testnet.binance.vision` host and a strict `/
 
 A verified provider response transitions to `ACKNOWLEDGED`, preserving the provider order ID as a decimal string and status as provider acceptance only; this attempt does not synthesize fills. A definitive provider rejection becomes `REJECTED`. A timeout, transport ambiguity, or response that cannot verify the exact client-order identity triggers a query by the saved `origClientOrderId`; an absent or inconclusive query remains `UNKNOWN_RECONCILING`. Reconciliation is GET-only by that exact saved client order ID. Neither a duplicate command nor an empty query clears uncertainty or resubmits the order. No automatic polling, cancel, Live order, Agent write, or Order Gateway permission is added in this slice.
 
+### 41.26 Binance Spot Testnet orders, fills, and balances (S19 #69)
+
+Version-1 primary Trade commands are `binance.testnet.orders.get` with `{workspaceId, connectionId}` and result `{book?}`, plus `binance.testnet.orders.refresh` with `{workspaceId, connectionId, expectedConnectionStateVersion, action, symbol?, providerOrderId?}` and result `BinanceTestnetOrderBook`. Actions are `PENDING`, `ACCOUNT`, `HISTORY`, and `DETAIL`. The active connected Binance `TESTNET` account is revalidated against `/api/v3/account` before each action. `PENDING` reads open orders, `ACCOUNT` reads balances, `HISTORY` reads one bounded page of `/api/v3/allOrders` and `/api/v3/myTrades` for one supported symbol, and `DETAIL` reads one exact order already present in the saved book. Only fixed `/api/v3` routes and the supported `BTCUSDT` / `ETHUSDT` history symbols are permitted. No renderer-provided URL, route, or arbitrary provider ID is accepted.
+
+Each action has a persisted retry deadline and a conservative backend request interval; 429 and 418 responses extend the relevant deadline. History pages are capped at the provider maximum of 1,000 rows. Each symbol starts at provider ID `1` and tracks separate exact-string order and trade cursors; a full page remains incomplete until a later page proves exhaustion. HTTP, parse, identity, and rate-limit failures retain the last trusted rows and mark the book `DEGRADED` or `STALE`; an incomplete history page is never presented as complete. A successful `/api/v3/account` response must match the saved remote `uid` before its exact `free` and `locked` asset strings are accepted.
+
+The durable `BinanceTestnetOrderBook` is bound to workspace, connection, remote-account string, and constant `TESTNET` environment. It stores bounded orders, fills, asset balances, per-symbol history cursors, endpoint retry deadlines, last-successful and TradeX observation times, status/reason, monotonic version, and `binance.testnet.order.book.changed` outbox events. Provider order IDs and trade IDs stay decimal strings; quantities, price, quote totals, commissions, and balances stay exact decimal strings. Binance's negative `cummulativeQuoteQty` history sentinel is exposed as unavailable, never as a valuation. Remaining base quantity is derived with exact decimal subtraction only when provider base quantity is available. Fees are shown per provider trade as exact commission plus commission asset. An order is `TRADE_X` only when its exact `clientOrderId` matches a saved attempt for the same workspace, connection, and remote account; all others are `EXTERNAL`. Unknown provider statuses stay visible and are not treated as terminal. No USD valuation is inferred for crypto balances.
+
+These reads are main Trade UI commands only. They add no submit retry, cancellation, automatic polling, user-data stream, Live route, Local Paper coupling, Agent write, or Order Gateway authority; stream convergence and exact cancellation remain separate S19 tickets.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
@@ -2575,6 +2585,7 @@ provider.health.changed
 alpaca.paper.order.attempt.changed
 trading212.demo.order.attempt.changed
 trading212.demo.order.book.changed
+binance.testnet.order.book.changed
 ```
 
 Event payloads carry canonical IDs and versioned schemas.

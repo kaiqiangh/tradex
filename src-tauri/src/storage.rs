@@ -29,10 +29,11 @@ use crate::protocol::{
     ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
     ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
     BacktestRunState, BacktestRunSummary, BinanceTestnetOrderAttempt,
-    BinanceTestnetOrderAttemptState, BinanceTestnetOrderSubmit, DomainEvent, DomainProjection,
-    EventSink, ExecutionContext, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill,
-    LocalPaperOrder, LocalPaperState, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields,
-    OrderDraftLibrary, OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
+    BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookStatus,
+    BinanceTestnetOrderOrigin, BinanceTestnetOrderSubmit, DomainEvent, DomainProjection, EventSink,
+    ExecutionContext, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder,
+    LocalPaperState, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary,
+    OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
     OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
     OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
     OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult,
@@ -50,7 +51,7 @@ use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::RiskPolicyState;
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 20;
+pub(crate) const SCHEMA_VERSION: u32 = 21;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -477,6 +478,17 @@ impl Store {
                 );
                 CREATE INDEX binance_testnet_attempts_connection_state ON binance_testnet_order_attempts(connection_id,state);
                 PRAGMA user_version=20;").map_err(storage_error)?;
+            }
+            if version < 21 {
+                tx.execute_batch("CREATE TABLE binance_testnet_order_books (
+                    workspace_id TEXT NOT NULL,
+                    connection_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,connection_id)
+                );
+                CREATE INDEX binance_testnet_order_books_connection ON binance_testnet_order_books(connection_id);
+                PRAGMA user_version=21;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -923,6 +935,9 @@ impl Store {
                     }
                     "trading212-demo-order-book" => {
                         event.event_type != "trading212.demo.order.book.changed"
+                    }
+                    "binance-testnet-order-book" => {
+                        event.event_type != "binance.testnet.order.book.changed"
                     }
                     _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
                 }
@@ -1928,6 +1943,25 @@ impl Store {
                 aggregate_type: kind.into(),
                 aggregate_id: id.into(),
                 projection: DomainProjection::BinanceTestnetOrderAttempt(Box::new(attempt)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "binance-testnet-order-book" {
+            let workspace_id = self.workspace_id()?;
+            let book = load_binance_testnet_order_book(&self.connection, &workspace_id, id)?
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            let sequence: i64 = self
+                .connection
+                .query_row(
+                    "SELECT sequence FROM binance_testnet_order_books WHERE workspace_id=?1 AND connection_id=?2",
+                    params![workspace_id, id],
+                    |row| row.get(0),
+                )
+                .map_err(storage_error)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::BinanceTestnetOrderBook(Box::new(book)),
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
@@ -3667,6 +3701,41 @@ impl Store {
         load_binance_testnet_attempt(&self.connection, workspace_id, proposal_id)
     }
 
+    pub fn binance_testnet_order_book(
+        &self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<Option<BinanceTestnetOrderBook>> {
+        if workspace_id != self.workspace_id()? || !valid_order_text(connection_id, 128) {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let account = self.account(connection_id)?;
+        account.validate_persisted(workspace_id)?;
+        if account.provider_id != "binance" || account.environment != "TESTNET" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let remote_account_id = account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.as_str())
+            .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+        let mut book =
+            load_binance_testnet_order_book(&self.connection, workspace_id, connection_id)?;
+        if book
+            .as_ref()
+            .is_some_and(|book| book.remote_account_id != remote_account_id)
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        if let Some(book) = &mut book
+            && book.status == BinanceTestnetOrderBookStatus::Current
+        {
+            book.status = BinanceTestnetOrderBookStatus::Stale;
+            book.reason = Some("REFRESH_REQUIRED".into());
+        }
+        Ok(book)
+    }
+
     pub fn trading212_demo_order_attempt(
         &self,
         workspace_id: &str,
@@ -3963,6 +4032,123 @@ impl Store {
         write_alpaca_order_book_event(&tx, &book, next_sequence)?;
         tx.commit().map_err(storage_error)?;
         Ok((book, reviewed, true))
+    }
+
+    pub fn complete_binance_testnet_order_book(
+        &mut self,
+        mut book: BinanceTestnetOrderBook,
+    ) -> Result<(BinanceTestnetOrderBook, DomainEvent)> {
+        let workspace_id = self.workspace_id()?;
+        if book.workspace_id != workspace_id || book.environment != "TESTNET" {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&book.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.provider_id != "binance"
+            || account.environment != "TESTNET"
+            || account
+                .data
+                .as_ref()
+                .map(|data| data.remote_account_id.as_str())
+                != Some(book.remote_account_id.as_str())
+        {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        let row: Option<(i64, String)> = tx
+            .query_row(
+                "SELECT sequence,projection FROM binance_testnet_order_books WHERE workspace_id=?1 AND connection_id=?2",
+                params![workspace_id, book.connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let sequence = if let Some((sequence, projection)) = row {
+            let current: BinanceTestnetOrderBook = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || current.state_version
+                    != binance_testnet_order_book_version(&book.connection_id, sequence as u64)
+                || book.state_version != current.state_version
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            sequence
+        } else {
+            if book.state_version != binance_testnet_order_book_version(&book.connection_id, 0) {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            0
+        };
+        let mut query = tx
+            .prepare(
+                "SELECT client_order_id,projection FROM binance_testnet_order_attempts WHERE workspace_id=?1 AND connection_id=?2",
+            )
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map(params![workspace_id, book.connection_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(query);
+        let mut known_orders = std::collections::HashMap::new();
+        for (client_order_id, projection) in rows {
+            let attempt: BinanceTestnetOrderAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if attempt.connection_id != book.connection_id
+                || attempt.workspace_id != workspace_id
+                || attempt.environment != "TESTNET"
+                || attempt.remote_account_id != book.remote_account_id
+                || attempt.client_order_id != client_order_id
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            known_orders.insert(client_order_id, attempt.attempt_id);
+        }
+        for order in &mut book.orders {
+            if let Some(attempt_id) = known_orders.get(&order.client_order_id) {
+                order.origin = BinanceTestnetOrderOrigin::TradeX;
+                order.attempt_id = Some(attempt_id.clone());
+            } else {
+                order.origin = BinanceTestnetOrderOrigin::External;
+                order.attempt_id = None;
+            }
+        }
+        validate_binance_testnet_order_book(&book)?;
+        let next_sequence = sequence
+            .checked_add(1)
+            .filter(|next| *next <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        book.state_version =
+            binance_testnet_order_book_version(&book.connection_id, next_sequence as u64);
+        let encoded = serde_json::to_string(&book).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO binance_testnet_order_books(workspace_id,connection_id,sequence,projection) VALUES(?1,?2,?3,?4) ON CONFLICT(workspace_id,connection_id) DO UPDATE SET sequence=excluded.sequence,projection=excluded.projection",
+            params![workspace_id, book.connection_id, next_sequence, encoded],
+        )
+        .map_err(storage_error)?;
+        let event = write_binance_testnet_order_book_event(&tx, &book, next_sequence)?;
+        tx.commit().map_err(storage_error)?;
+        Ok((book, event))
     }
 
     pub fn complete_alpaca_paper_order_book(
@@ -6339,6 +6525,167 @@ fn trading212_demo_order_book_version(connection_id: &str, sequence: u64) -> Str
     format!("trading212-demo-order-book:{connection_id}:{sequence}")
 }
 
+fn binance_testnet_order_book_version(connection_id: &str, sequence: u64) -> String {
+    format!("binance-testnet-order-book:{connection_id}:{sequence}")
+}
+
+fn binance_terminal_status(status: &str) -> bool {
+    matches!(
+        status,
+        "FILLED" | "CANCELED" | "REJECTED" | "EXPIRED" | "EXPIRED_IN_MATCH"
+    )
+}
+
+fn validate_binance_testnet_order_book(book: &BinanceTestnetOrderBook) -> Result<()> {
+    let invalid = || TradeXError::new("WORKSPACE_INTEGRITY_FAILED");
+    if !valid_order_text(&book.workspace_id, 128)
+        || !valid_order_text(&book.connection_id, 128)
+        || !valid_order_text(&book.remote_account_id, 128)
+        || book.environment != "TESTNET"
+        || !valid_order_text(&book.state_version, 256)
+        || !valid_provider_time(&book.observed_at)
+        || book.orders.len() > 5000
+        || book.fills.len() > 5000
+        || book.balances.len() > 5000
+        || book.history.len() != 2
+        || book
+            .reason
+            .as_deref()
+            .is_some_and(|v| !valid_order_text(v, 256))
+        || book
+            .last_successful_sync_at
+            .as_deref()
+            .is_some_and(|v| !valid_order_text(v, 64) || !valid_provider_time(v))
+        || [
+            book.rate_limits.pending_orders_retry_at.as_deref(),
+            book.rate_limits.account_retry_at.as_deref(),
+            book.rate_limits.history_retry_at.as_deref(),
+            book.rate_limits.order_detail_retry_at.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|v| !valid_order_text(v, 64) || !valid_provider_time(v))
+    {
+        return Err(invalid());
+    }
+    let mut history_symbols = std::collections::HashSet::new();
+    for state in &book.history {
+        if !matches!(state.symbol.as_str(), "BTCUSDT" | "ETHUSDT")
+            || !history_symbols.insert(state.symbol.as_str())
+            || state.started != (state.page_count > 0)
+            || state.complete && (state.next_order_id.is_some() || state.next_trade_id.is_some())
+            || !state.started
+                && (state.complete
+                    || state.next_order_id.is_some()
+                    || state.next_trade_id.is_some())
+            || state
+                .next_order_id
+                .as_deref()
+                .is_some_and(|v| !valid_binance_id(v))
+            || state
+                .next_trade_id
+                .as_deref()
+                .is_some_and(|v| !valid_binance_id(v))
+        {
+            return Err(invalid());
+        }
+    }
+    let mut order_ids = std::collections::HashSet::new();
+    for order in &book.orders {
+        let key = format!("{}:{}", order.symbol, order.provider_order_id);
+        if !valid_binance_id(&order.provider_order_id)
+            || !valid_order_text(&order.symbol, 32)
+            || !valid_order_text(&order.client_order_id, 36)
+            || !valid_order_text(&order.side, 16)
+            || !valid_order_text(&order.order_type, 32)
+            || !valid_order_text(&order.time_in_force, 32)
+            || !valid_order_text(&order.provider_status, 64)
+            || !valid_order_text(&order.filled_quantity, 64)
+            || !valid_provider_time(&order.observed_at)
+            || order.submitted_at_ms > MAX_SEQUENCE
+            || order.provider_updated_at_ms > MAX_SEQUENCE
+            || !order_ids.insert(key)
+            || !valid_provider_decimal(&order.filled_quantity, true)
+            || order
+                .quantity
+                .as_deref()
+                .is_some_and(|v| !valid_provider_decimal(v, true))
+            || order
+                .quote_quantity
+                .as_deref()
+                .is_some_and(|v| !valid_provider_decimal(v, true))
+            || order
+                .filled_quote_quantity
+                .as_deref()
+                .is_some_and(|v| !valid_provider_decimal(v, true))
+            || order
+                .remaining_quantity
+                .as_deref()
+                .is_some_and(|v| !valid_provider_decimal(v, true))
+            || order.pending == binance_terminal_status(&order.provider_status)
+            || (order.origin == BinanceTestnetOrderOrigin::TradeX) != order.attempt_id.is_some()
+            || order
+                .attempt_id
+                .as_deref()
+                .is_some_and(|v| !valid_order_text(v, 128))
+        {
+            return Err(invalid());
+        }
+        if let Some(quantity) = &order.quantity {
+            let remaining = crate::provider_io::decimal_subtract(quantity, &order.filled_quantity)
+                .map_err(|_| invalid())?;
+            if order.remaining_quantity.as_ref() != Some(&remaining) {
+                return Err(invalid());
+            }
+        } else if order.remaining_quantity.is_some() {
+            return Err(invalid());
+        }
+    }
+    let mut fill_ids = std::collections::HashSet::new();
+    for fill in &book.fills {
+        let key = format!("{}:{}", fill.symbol, fill.trade_id);
+        if !valid_binance_id(&fill.trade_id)
+            || !valid_binance_id(&fill.provider_order_id)
+            || !valid_order_text(&fill.symbol, 32)
+            || !valid_order_text(&fill.side, 16)
+            || !valid_order_text(&fill.commission_asset, 32)
+            || !valid_order_text(&fill.observed_at, 64)
+            || !valid_provider_time(&fill.observed_at)
+            || fill.executed_at_ms > MAX_SEQUENCE
+            || !fill_ids.insert(key)
+            || !valid_provider_decimal(&fill.price, true)
+            || !valid_provider_decimal(&fill.quantity, false)
+            || !valid_provider_decimal(&fill.quote_quantity, true)
+            || !valid_provider_decimal(&fill.commission, true)
+        {
+            return Err(invalid());
+        }
+    }
+    let mut assets = std::collections::HashSet::new();
+    for balance in &book.balances {
+        if !valid_order_text(&balance.asset, 32)
+            || !assets.insert(balance.asset.as_str())
+            || !valid_provider_decimal(&balance.free, true)
+            || !valid_provider_decimal(&balance.locked, true)
+            || !valid_provider_decimal(&balance.total, true)
+            || crate::provider_io::decimal_subtract(&balance.total, &balance.free)
+                .map_or(true, |locked| locked != balance.locked)
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(())
+}
+
+fn valid_binance_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 20
+        && value.bytes().all(|b| b.is_ascii_digit())
+        && value
+            .parse::<u64>()
+            .is_ok_and(|v| v > 0 && v <= i64::MAX as u64)
+}
+
 fn provider_order_id_valid(id: &str) -> bool {
     id.len() == 36 && Uuid::parse_str(id).is_ok()
 }
@@ -6645,6 +6992,67 @@ fn write_trading212_demo_order_book_event(
         aggregate_id: book.connection_id.clone(),
         sequence: u64::try_from(sequence).map_err(storage_error)?,
         payload: DomainProjection::Trading212DemoOrderBook(Box::new(book.clone())),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES(?1,?2,?3,?4,?5)",
+        params![
+            event.aggregate_type,
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?,
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn load_binance_testnet_order_book(
+    connection: &Connection,
+    workspace_id: &str,
+    connection_id: &str,
+) -> Result<Option<BinanceTestnetOrderBook>> {
+    let row: Option<(i64, String)> = connection
+        .query_row(
+            "SELECT sequence,projection FROM binance_testnet_order_books WHERE workspace_id=?1 AND connection_id=?2",
+            params![workspace_id, connection_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((sequence, projection)) = row else {
+        return Ok(None);
+    };
+    let book: BinanceTestnetOrderBook = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || book.workspace_id != workspace_id
+        || book.connection_id != connection_id
+        || book.state_version != binance_testnet_order_book_version(connection_id, sequence as u64)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    validate_binance_testnet_order_book(&book)?;
+    Ok(Some(book))
+}
+
+fn write_binance_testnet_order_book_event(
+    tx: &Transaction<'_>,
+    book: &BinanceTestnetOrderBook,
+    sequence: i64,
+) -> Result<DomainEvent> {
+    if sequence < 1 || sequence > MAX_SEQUENCE as i64 {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "binance.testnet.order.book.changed".into(),
+        schema_version: 1,
+        occurred_at: book.observed_at.clone(),
+        aggregate_type: "binance-testnet-order-book".into(),
+        aggregate_id: book.connection_id.clone(),
+        sequence: u64::try_from(sequence).map_err(storage_error)?,
+        payload: DomainProjection::BinanceTestnetOrderBook(Box::new(book.clone())),
     };
     tx.execute(
         "INSERT INTO outbox VALUES(?1,?2,?3,?4,?5)",

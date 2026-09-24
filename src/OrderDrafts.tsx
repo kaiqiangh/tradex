@@ -20,6 +20,8 @@ import type {
   AlpacaPaperOrder,
   AlpacaPaperOrderBook,
   BinanceTestnetOrderAttempt,
+  BinanceTestnetOrder,
+  BinanceTestnetOrderBookAction,
   OrderQuantityType,
   OrderSide,
   OrderType,
@@ -198,6 +200,15 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   });
   const trading212OrderBook = trading212OrdersQuery.data?.book;
   const trading212OrdersAccount = trading212Accounts.find(account => account.connectionId === trading212ConnectionId);
+  const [binanceTestnetOrdersConnectionId, setBinanceTestnetOrdersConnectionId] = useState('');
+  const binanceTestnetOrdersQuery = useQuery({
+    queryKey: ['binance-testnet-orders', workspaceId, binanceTestnetOrdersConnectionId],
+    queryFn: () => request('binance.testnet.orders.get', { workspaceId, connectionId: binanceTestnetOrdersConnectionId }),
+    enabled: Boolean(binanceTestnetOrdersConnectionId),
+    refetchOnMount: 'always',
+  });
+  const binanceTestnetOrderBook = binanceTestnetOrdersQuery.data?.book;
+  const binanceTestnetOrdersAccount = binanceTestnetAccounts.find(account => account.connectionId === binanceTestnetOrdersConnectionId);
   const catalog = useQuery({ queryKey: ['market-catalog', workspaceId, 'order-draft'], queryFn: () => request('market.catalog', { workspaceId, query: '', tier: marketTier }) });
   const [selectedId, setSelectedId] = useState<string>();
   const [selectedProposalId, setSelectedProposalId] = useState<string>();
@@ -218,6 +229,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [paperConfirmation, setPaperConfirmation] = useState<PaperConfirmation>();
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
+  const [binanceTestnetOrdersBusy, setBinanceTestnetOrdersBusy] = useState(false);
   const [cancelReview, setCancelReview] = useState<{ book: AlpacaPaperOrderBook; order: AlpacaPaperOrder }>();
   const [trading212CancelReview, setTrading212CancelReview] = useState<{ book: Trading212DemoOrderBook; order: Trading212DemoOrder; connectionId: string; accountLabel: string }>();
   const confirmationRef = useRef<HTMLDivElement>(null);
@@ -265,6 +277,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     if (!trading212ConnectionId && trading212Accounts.length) setTrading212ConnectionId(trading212Accounts[0].connectionId);
     if (trading212ConnectionId && accounts.data && !trading212Accounts.some(account => account.connectionId === trading212ConnectionId)) setTrading212ConnectionId('');
   }, [accounts.data, trading212Accounts, trading212ConnectionId]);
+  useEffect(() => {
+    if (!binanceTestnetOrdersConnectionId && binanceTestnetAccounts.length) {
+      setBinanceTestnetOrdersConnectionId((binanceTestnetAccounts.find(account => account.connectionState === 'CONNECTED') ?? binanceTestnetAccounts[0]).connectionId);
+    }
+    if (binanceTestnetOrdersConnectionId && accounts.data && !binanceTestnetAccounts.some(account => account.connectionId === binanceTestnetOrdersConnectionId)) setBinanceTestnetOrdersConnectionId('');
+  }, [accounts.data, binanceTestnetAccounts, binanceTestnetOrdersConnectionId]);
   useEffect(() => { if (detail.data) setForm(fromDraft(detail.data)); }, [detail.data]);
   useEffect(() => {
     if (!selectedId || newMode || !selectedProposals.some(proposal => proposal.proposalId === selectedProposalId)) setSelectedProposalId(undefined);
@@ -653,6 +671,30 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setTrading212OrdersBusy(false); }
   };
 
+  const refreshBinanceTestnetOrders = async (action: BinanceTestnetOrderBookAction, symbol?: string, providerOrderId?: string) => {
+    const targetConnectionId = binanceTestnetOrdersConnectionId;
+    if (!targetConnectionId) return;
+    setBinanceTestnetOrdersBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId: targetConnectionId });
+      if (account.connectionId !== targetConnectionId || account.providerId !== 'binance' || account.environment !== 'TESTNET'
+        || account.connectionState !== 'CONNECTED' || (binanceTestnetOrderBook && account.data?.remoteAccountId !== binanceTestnetOrderBook.remoteAccountId)) {
+        throw localGuardError('ORDER_STATUS_UNKNOWN', 'The selected Binance Testnet account changed or is disconnected. Refresh linked accounts before reading provider data.');
+      }
+      const result = await request('binance.testnet.orders.refresh', {
+        workspaceId, connectionId: account.connectionId, expectedConnectionStateVersion: account.stateVersion, action,
+        ...(symbol ? { symbol } : {}), ...(providerOrderId ? { providerOrderId } : {}),
+      });
+      queryClient.setQueryData(['binance-testnet-orders', workspaceId, account.connectionId], { book: result });
+      const retryAt = result.rateLimits.accountRetryAt ?? (action === 'PENDING' ? result.rateLimits.pendingOrdersRetryAt : action === 'HISTORY' ? result.rateLimits.historyRetryAt : result.rateLimits.orderDetailRetryAt);
+      setNotice(result.status === 'CURRENT'
+        ? `Binance Testnet ${action === 'PENDING' ? 'open orders' : action === 'ACCOUNT' ? 'balances' : action === 'HISTORY' ? `${symbol} history` : 'order detail'} refreshed at ${new Date(result.observedAt).toLocaleString()}.`
+        : `Binance Testnet read is ${result.status.toLowerCase()}: ${result.reason ?? 'provider data is incomplete'}. Existing observations were kept.${retryAt ? ` Retry ${retryLabel(retryAt)}.` : ''}`);
+      return result;
+    } catch (cause) { setError(cause); }
+    finally { setBinanceTestnetOrdersBusy(false); }
+  };
+
   const reviewTrading212Order = async (order: Trading212DemoOrder) => {
     const connectionId = trading212ConnectionId;
     const accountSummary = trading212Accounts.find(account => account.connectionId === connectionId);
@@ -917,6 +959,51 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <p className="muted">Endpoint limits: pending {retryLabel(trading212OrderBook.rateLimits.pendingOrdersRetryAt)} · detail {retryLabel(trading212OrderBook.rateLimits.orderDetailRetryAt)} · history {retryLabel(trading212OrderBook.rateLimits.historyRetryAt)} · cancel {retryLabel(trading212OrderBook.rateLimits.cancelOrderRetryAt)}.</p>
       </>}
     </section>
+    <section className="card order-book-panel" aria-labelledby="binance-testnet-order-book-title">
+      <div className="section-heading">
+        <div><h2 id="binance-testnet-order-book-title">Binance Spot Testnet orders, fills and balances</h2><p className="muted">Provider observations · TESTNET only · manual REST refresh</p></div>
+        <div className="order-book-actions">
+          <label className="field">Testnet account<select aria-label="Binance Testnet account" value={binanceTestnetOrdersConnectionId} onChange={event => setBinanceTestnetOrdersConnectionId(event.target.value)}><option value="">Select a Binance Testnet account</option>{binanceTestnetAccounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.label} · {account.data?.remoteAccountId ?? account.connectionId}</option>)}</select></label>
+          <button type="button" onClick={() => void refreshBinanceTestnetOrders('PENDING')} disabled={!binanceTestnetOrdersAccount || binanceTestnetOrdersAccount.connectionState !== 'CONNECTED' || binanceTestnetOrdersBusy}>{binanceTestnetOrdersBusy ? 'Checking Binance…' : 'Refresh open orders'}</button>
+          <button type="button" onClick={() => void refreshBinanceTestnetOrders('ACCOUNT')} disabled={!binanceTestnetOrdersAccount || binanceTestnetOrdersAccount.connectionState !== 'CONNECTED' || binanceTestnetOrdersBusy}>{binanceTestnetOrdersBusy ? 'Checking Binance…' : 'Refresh balances'}</button>
+        </div>
+      </div>
+      {accounts.isPending && <p role="status">Loading linked accounts…</p>}
+      {!accounts.isPending && !binanceTestnetAccounts.length && <p className="muted">Connect a Binance Testnet account to view its provider orders, fills and balances.</p>}
+      {binanceTestnetOrdersAccount && binanceTestnetOrdersAccount.connectionState !== 'CONNECTED' && <p className="error-text" role="status">This Binance Testnet account is disconnected. Saved observations remain available; reconnect it before refreshing provider data.</p>}
+      {binanceTestnetOrdersQuery.isPending && binanceTestnetOrdersConnectionId && <p role="status">Loading saved Binance Testnet observations…</p>}
+      {binanceTestnetOrdersQuery.isError && <div className="error-text" role="alert"><p>Saved Binance Testnet observations are unavailable.</p><button type="button" onClick={() => void binanceTestnetOrdersQuery.refetch()}>Reload saved observations</button></div>}
+      {binanceTestnetOrderBook && <>
+        <p className={binanceTestnetOrderBook.status === 'DEGRADED' || binanceTestnetOrderBook.status === 'STALE' ? 'error-text' : 'muted'} role={binanceTestnetOrderBook.status === 'DEGRADED' ? 'alert' : 'status'}>
+          {binanceTestnetOrderBook.status === 'CURRENT' ? `Current provider observations · received ${new Date(binanceTestnetOrderBook.observedAt).toLocaleString()}` : binanceTestnetOrderBook.status === 'NEVER_SYNCED' ? 'No provider read has completed; refresh orders or balances to load observations.' : `Provider read is ${binanceTestnetOrderBook.status.toLowerCase()}: ${binanceTestnetOrderBook.reason ?? 'showing the last saved observations'}.`}
+          {binanceTestnetOrderBook.lastSuccessfulSyncAt && ` Last successful read: ${new Date(binanceTestnetOrderBook.lastSuccessfulSyncAt).toLocaleString()}.`}
+        </p>
+        <h3>Spot balances ({binanceTestnetOrderBook.balances.length})</h3>
+        {!binanceTestnetOrderBook.balances.length && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No nonzero Spot balances were returned. No USD valuation is inferred.</p>}
+        {binanceTestnetOrderBook.balances.map(balance => <article className="order-book-fill" key={balance.asset}>
+          <strong>{balance.asset}</strong><dl className="order-book-facts"><div><dt>Free</dt><dd>{balance.free}</dd></div><div><dt>Locked</dt><dd>{balance.locked}</dd></div><div><dt>Total</dt><dd>{balance.total}</dd></div></dl><small>TESTNET provider balance · no fiat valuation</small>
+        </article>)}
+        <h3>Open orders ({binanceTestnetOrderBook.orders.filter(order => order.pending).length})</h3>
+        {!binanceTestnetOrderBook.orders.some(order => order.pending) && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No open Binance Testnet orders were returned.</p>}
+        {binanceTestnetOrderBook.orders.filter(order => order.pending).map(order => <BinanceTestnetOrderCard key={`${order.symbol}:${order.providerOrderId}`} order={order} busy={binanceTestnetOrdersBusy} onRefresh={() => void refreshBinanceTestnetOrders('DETAIL', order.symbol, order.providerOrderId)} />)}
+        <h3>Order history ({binanceTestnetOrderBook.orders.filter(order => !order.pending).length})</h3>
+        {!binanceTestnetOrderBook.orders.some(order => !order.pending) && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No historical Binance Testnet orders have been loaded yet.</p>}
+        {binanceTestnetOrderBook.orders.filter(order => !order.pending).map(order => <BinanceTestnetOrderCard key={`${order.symbol}:${order.providerOrderId}`} order={order} busy={binanceTestnetOrdersBusy} onRefresh={() => void refreshBinanceTestnetOrders('DETAIL', order.symbol, order.providerOrderId)} />)}
+        <div className="section-heading"><h3>Supported order and trade history</h3><span className="muted">Pages are bounded to 1,000 records per endpoint.</span></div>
+        {binanceTestnetOrderBook.history.map(history => <div className="order-book-actions" key={history.symbol}>
+          <button type="button" onClick={() => void refreshBinanceTestnetOrders('HISTORY', history.symbol)} disabled={!binanceTestnetOrdersAccount || binanceTestnetOrdersAccount.connectionState !== 'CONNECTED' || binanceTestnetOrdersBusy}>{binanceTestnetOrdersBusy ? 'Loading…' : history.complete ? `Restart ${history.symbol} history scan` : history.started ? `Load next ${history.symbol} page` : `Load ${history.symbol} history`}</button>
+          <span className="muted">{history.symbol}: {history.started ? `${history.pageCount} page(s) loaded · ${history.complete ? 'complete' : 'more provider records remain'}` : 'not loaded'}</span>
+        </div>)}
+        <h3>Provider fills and fees ({binanceTestnetOrderBook.fills.length})</h3>
+        {!binanceTestnetOrderBook.fills.length && binanceTestnetOrderBook.history.some(history => history.started) && binanceTestnetOrderBook.status === 'CURRENT' && <p className="muted">No trade rows were returned for the loaded history pages.</p>}
+        {binanceTestnetOrderBook.fills.map(fill => <article className="order-book-fill" key={`${fill.symbol}:${fill.tradeId}`}>
+          <strong>{fill.symbol} · {fill.side} · {fill.quantity} @ {fill.price}</strong>
+          <small>Trade {fill.tradeId} · order {fill.providerOrderId} · quote {fill.quoteQuantity} · executed {new Date(fill.executedAtMs).toLocaleString()}</small>
+          <small>Fee {fill.commission} {fill.commissionAsset} · provider observation {new Date(fill.observedAt).toLocaleString()}</small>
+        </article>)}
+        <p className="muted">Endpoint cooldowns: open orders {retryLabel(binanceTestnetOrderBook.rateLimits.pendingOrdersRetryAt)} · account {retryLabel(binanceTestnetOrderBook.rateLimits.accountRetryAt)} · history {retryLabel(binanceTestnetOrderBook.rateLimits.historyRetryAt)} · exact order {retryLabel(binanceTestnetOrderBook.rateLimits.orderDetailRetryAt)}.</p>
+      </>}
+    </section>
     {paperConfirmation && createPortal(<div className="picker-backdrop"><div className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-confirm-title" ref={confirmationRef}>
       <div className="picker-dialog-heading"><div>
         <h2 id="paper-confirm-title">{paperConfirmationCopy[paperConfirmation].title}</h2>
@@ -967,6 +1054,27 @@ function Trading212OrderCard({ order, pending, onRefresh, onReviewCancel, busy }
     {pending && onReviewCancel && <button type="button" onClick={onReviewCancel} disabled={busy}>Review cancellation</button>}
     {pending && onRefresh && <button type="button" onClick={onRefresh} disabled={busy}>{busy ? 'Refreshing order…' : 'Refresh known order details'}</button>}
     {!pending && !order.pending && order.normalizedStatus === 'OPEN' && <p className="muted" role="status">This order was not returned in the latest pending-order read; the displayed status is its last provider observation.</p>}
+  </article>;
+}
+
+function BinanceTestnetOrderCard({ order, onRefresh, busy }: {
+  order: BinanceTestnetOrder;
+  onRefresh: () => void;
+  busy: boolean;
+}) {
+  return <article className="order-book-order">
+    <div><strong>{order.symbol} · {order.side} · {order.providerStatus}</strong><small>BINANCE_TESTNET · {order.origin === 'TRADE_X' ? 'TradeX proposal' : 'External provider order'} · observed {new Date(order.observedAt).toLocaleString()}</small></div>
+    <dl className="order-book-facts">
+      <div><dt>Provider order / client ID</dt><dd>{order.providerOrderId} / {order.clientOrderId}</dd></div>
+      <div><dt>Order type / time in force</dt><dd>{order.orderType} · {order.timeInForce}</dd></div>
+      <div><dt>Quantity / quote target</dt><dd>{order.quantity ?? 'Unavailable'} / {order.quoteQuantity ?? 'Unavailable'}</dd></div>
+      <div><dt>Cumulative filled base / quote</dt><dd>{order.filledQuantity} / {order.filledQuoteQuantity ?? 'Unavailable'}</dd></div>
+      <div><dt>Remaining base quantity</dt><dd>{order.remainingQuantity ?? 'Unavailable'}</dd></div>
+      <div><dt>Provider updated</dt><dd>{new Date(order.providerUpdatedAtMs).toLocaleString()}</dd></div>
+      <div><dt>Submitted</dt><dd>{new Date(order.submittedAtMs).toLocaleString()}</dd></div>
+      {order.attemptId && <div><dt>TradeX attempt</dt><dd>{order.attemptId}</dd></div>}
+    </dl>
+    <button type="button" onClick={onRefresh} disabled={busy}>{busy ? 'Refreshing…' : 'Refresh exact order'}</button>
   </article>;
 }
 

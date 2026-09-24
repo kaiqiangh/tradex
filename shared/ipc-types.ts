@@ -57,9 +57,24 @@ export type BacktestFixtureScenario =
   | "DATASET_HASH_MISMATCH";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderOrigin".
+ */
+export type BinanceTestnetOrderOrigin = "TRADE_X" | "EXTERNAL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BinanceTestnetOrderAttemptState".
  */
 export type BinanceTestnetOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderBookStatus".
+ */
+export type BinanceTestnetOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRADED" | "STALE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderBookAction".
+ */
+export type BinanceTestnetOrderBookAction = "PENDING" | "ACCOUNT" | "HISTORY" | "DETAIL";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AgentMode".
@@ -105,7 +120,8 @@ export type DomainProjection =
   | AlpacaPaperOrderAttempt
   | AlpacaPaperOrderBook
   | BinanceTestnetOrderAttempt
-  | Trading212DemoOrderBook;
+  | Trading212DemoOrderBook
+  | BinanceTestnetOrderBook;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayStatus".
@@ -368,6 +384,8 @@ export type ReplyData =
   | AlpacaPaperOrderBookQueryResult
   | BinanceTestnetOrderAttempt
   | BinanceTestnetOrderAttemptQueryResult
+  | BinanceTestnetOrderBook
+  | BinanceTestnetOrderBookQueryResult
   | PaperOrderResult
   | Artifact
   | ArtifactLibrary
@@ -556,9 +574,18 @@ export interface IpcSchema {
   backtestRunQuery: BacktestRunQuery;
   backtestRunRequest: BacktestRunRequest;
   backtestRunSummary: BacktestRunSummary;
+  binanceTestnetBalance: BinanceTestnetBalance;
+  binanceTestnetFill: BinanceTestnetFill;
+  binanceTestnetHistoryState: BinanceTestnetHistoryState;
+  binanceTestnetOrder: BinanceTestnetOrder;
   binanceTestnetOrderAttempt: BinanceTestnetOrderAttempt;
   binanceTestnetOrderAttemptQuery: BinanceTestnetOrderAttemptQuery;
   binanceTestnetOrderAttemptQueryResult: BinanceTestnetOrderAttemptQueryResult;
+  binanceTestnetOrderBook: BinanceTestnetOrderBook;
+  binanceTestnetOrderBookQuery: BinanceTestnetOrderBookQuery;
+  binanceTestnetOrderBookQueryResult: BinanceTestnetOrderBookQueryResult;
+  binanceTestnetOrderBookRateLimits: BinanceTestnetOrderBookRateLimits;
+  binanceTestnetOrderBookRefresh: BinanceTestnetOrderBookRefresh;
   binanceTestnetOrderReconcile: BinanceTestnetOrderReconcile;
   binanceTestnetOrderSubmit: BinanceTestnetOrderSubmit;
   capabilityQuery: CapabilityQuery;
@@ -1204,6 +1231,70 @@ export interface BacktestRunRequest {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetBalance".
+ */
+export interface BinanceTestnetBalance {
+  asset: string;
+  free: string;
+  locked: string;
+  total: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetFill".
+ */
+export interface BinanceTestnetFill {
+  commission: string;
+  commissionAsset: string;
+  executedAtMs: number;
+  observedAt: string;
+  price: string;
+  providerOrderId: string;
+  quantity: string;
+  quoteQuantity: string;
+  side: string;
+  symbol: string;
+  tradeId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetHistoryState".
+ */
+export interface BinanceTestnetHistoryState {
+  complete: boolean;
+  nextOrderId?: string | null;
+  nextTradeId?: string | null;
+  pageCount: number;
+  started: boolean;
+  symbol: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrder".
+ */
+export interface BinanceTestnetOrder {
+  attemptId?: string | null;
+  clientOrderId: string;
+  filledQuantity: string;
+  filledQuoteQuantity?: string | null;
+  observedAt: string;
+  orderType: string;
+  origin: BinanceTestnetOrderOrigin;
+  pending: boolean;
+  price?: string | null;
+  providerOrderId: string;
+  providerStatus: string;
+  providerUpdatedAtMs: number;
+  quantity?: string | null;
+  quoteQuantity?: string | null;
+  remainingQuantity?: string | null;
+  side: string;
+  submittedAtMs: number;
+  symbol: string;
+  timeInForce: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BinanceTestnetOrderAttempt".
  */
 export interface BinanceTestnetOrderAttempt {
@@ -1238,6 +1329,75 @@ export interface BinanceTestnetOrderAttemptQuery {
  */
 export interface BinanceTestnetOrderAttemptQueryResult {
   attempt?: BinanceTestnetOrderAttempt | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderBook".
+ */
+export interface BinanceTestnetOrderBook {
+  /**
+   * @maxItems 5000
+   */
+  balances: BinanceTestnetBalance[];
+  connectionId: string;
+  environment: "TESTNET";
+  /**
+   * @maxItems 5000
+   */
+  fills: BinanceTestnetFill[];
+  /**
+   * @maxItems 2
+   */
+  history: [] | [BinanceTestnetHistoryState] | [BinanceTestnetHistoryState, BinanceTestnetHistoryState];
+  lastSuccessfulSyncAt?: string | null;
+  observedAt: string;
+  /**
+   * @maxItems 5000
+   */
+  orders: BinanceTestnetOrder[];
+  rateLimits: BinanceTestnetOrderBookRateLimits;
+  reason?: string | null;
+  remoteAccountId: string;
+  stateVersion: string;
+  status: BinanceTestnetOrderBookStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderBookRateLimits".
+ */
+export interface BinanceTestnetOrderBookRateLimits {
+  accountRetryAt?: string | null;
+  historyRetryAt?: string | null;
+  orderDetailRetryAt?: string | null;
+  pendingOrdersRetryAt?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderBookQuery".
+ */
+export interface BinanceTestnetOrderBookQuery {
+  connectionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderBookQueryResult".
+ */
+export interface BinanceTestnetOrderBookQueryResult {
+  book?: BinanceTestnetOrderBook | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTestnetOrderBookRefresh".
+ */
+export interface BinanceTestnetOrderBookRefresh {
+  action: BinanceTestnetOrderBookAction;
+  connectionId: string;
+  expectedConnectionStateVersion: string;
+  providerOrderId?: string | null;
+  symbol?: string | null;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1368,7 +1528,8 @@ export interface DomainEvent {
     | "trading212-demo-order-book"
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book"
-    | "binance-testnet-order-attempt";
+    | "binance-testnet-order-attempt"
+    | "binance-testnet-order-book";
   eventId: string;
   eventType:
     | "workspace.opened"
@@ -1383,7 +1544,8 @@ export interface DomainEvent {
     | "trading212.demo.order.book.changed"
     | "alpaca.paper.order.attempt.changed"
     | "alpaca.paper.order.book.changed"
-    | "binance.testnet.order.attempt.changed";
+    | "binance.testnet.order.attempt.changed"
+    | "binance.testnet.order.book.changed";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -2571,7 +2733,8 @@ export interface Snapshot {
     | "trading212-demo-order-book"
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book"
-    | "binance-testnet-order-attempt";
+    | "binance-testnet-order-attempt"
+    | "binance-testnet-order-book";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -2633,7 +2796,8 @@ export interface SubscriptionAck {
     | "trading212-demo-order-book"
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book"
-    | "binance-testnet-order-attempt";
+    | "binance-testnet-order-attempt"
+    | "binance-testnet-order-book";
   lastSequence: number;
   replayedCount: number;
 }

@@ -112,6 +112,18 @@
     "backtestRunSummary": {
       "$ref": "#/$defs/BacktestRunSummary"
     },
+    "binanceTestnetBalance": {
+      "$ref": "#/$defs/BinanceTestnetBalance"
+    },
+    "binanceTestnetFill": {
+      "$ref": "#/$defs/BinanceTestnetFill"
+    },
+    "binanceTestnetHistoryState": {
+      "$ref": "#/$defs/BinanceTestnetHistoryState"
+    },
+    "binanceTestnetOrder": {
+      "$ref": "#/$defs/BinanceTestnetOrder"
+    },
     "binanceTestnetOrderAttempt": {
       "$ref": "#/$defs/BinanceTestnetOrderAttempt"
     },
@@ -120,6 +132,21 @@
     },
     "binanceTestnetOrderAttemptQueryResult": {
       "$ref": "#/$defs/BinanceTestnetOrderAttemptQueryResult"
+    },
+    "binanceTestnetOrderBook": {
+      "$ref": "#/$defs/BinanceTestnetOrderBook"
+    },
+    "binanceTestnetOrderBookQuery": {
+      "$ref": "#/$defs/BinanceTestnetOrderBookQuery"
+    },
+    "binanceTestnetOrderBookQueryResult": {
+      "$ref": "#/$defs/BinanceTestnetOrderBookQueryResult"
+    },
+    "binanceTestnetOrderBookRateLimits": {
+      "$ref": "#/$defs/BinanceTestnetOrderBookRateLimits"
+    },
+    "binanceTestnetOrderBookRefresh": {
+      "$ref": "#/$defs/BinanceTestnetOrderBookRefresh"
     },
     "binanceTestnetOrderReconcile": {
       "$ref": "#/$defs/BinanceTestnetOrderReconcile"
@@ -458,6 +485,15 @@
     "binanceTestnetOrderAttemptQueryResult",
     "binanceTestnetOrderReconcile",
     "binanceTestnetOrderAttempt",
+    "binanceTestnetOrderBookQuery",
+    "binanceTestnetOrderBookQueryResult",
+    "binanceTestnetOrderBookRefresh",
+    "binanceTestnetOrderBook",
+    "binanceTestnetOrder",
+    "binanceTestnetFill",
+    "binanceTestnetBalance",
+    "binanceTestnetHistoryState",
+    "binanceTestnetOrderBookRateLimits",
     "artifactSave",
     "artifactQuery",
     "artifactExport",
@@ -2943,6 +2979,284 @@
         "available"
       ]
     },
+    "BinanceTestnetBalance": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "free": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "locked": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "total": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "free",
+        "locked",
+        "total"
+      ]
+    },
+    "BinanceTestnetFill": {
+      "type": "object",
+      "properties": {
+        "commission": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "commissionAsset": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "executedAtMs": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "price": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quoteQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "tradeId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tradeId",
+        "providerOrderId",
+        "symbol",
+        "side",
+        "price",
+        "quantity",
+        "quoteQuantity",
+        "commission",
+        "commissionAsset",
+        "executedAtMs",
+        "observedAt"
+      ]
+    },
+    "BinanceTestnetHistoryState": {
+      "type": "object",
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "nextOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "nextTradeId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "pageCount": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "started": {
+          "type": "boolean"
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^(BTCUSDT|ETHUSDT)$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "started",
+        "complete",
+        "pageCount"
+      ]
+    },
+    "BinanceTestnetOrder": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "clientOrderId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 1
+        },
+        "filledQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "filledQuoteQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderType": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "origin": {
+          "$ref": "#/$defs/BinanceTestnetOrderOrigin"
+        },
+        "pending": {
+          "type": "boolean"
+        },
+        "price": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "providerStatus": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerUpdatedAtMs": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "quantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quoteQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "remainingQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "submittedAtMs": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "timeInForce": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerOrderId",
+        "symbol",
+        "clientOrderId",
+        "side",
+        "orderType",
+        "timeInForce",
+        "providerStatus",
+        "filledQuantity",
+        "submittedAtMs",
+        "providerUpdatedAtMs",
+        "observedAt",
+        "pending",
+        "origin"
+      ]
+    },
     "BinanceTestnetOrderAttempt": {
       "type": "object",
       "properties": {
@@ -3092,6 +3406,248 @@
         "ACKNOWLEDGED",
         "UNKNOWN_RECONCILING",
         "REJECTED"
+      ]
+    },
+    "BinanceTestnetOrderBook": {
+      "type": "object",
+      "properties": {
+        "balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BinanceTestnetBalance"
+          },
+          "maxItems": 5000
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "const": "TESTNET"
+        },
+        "fills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BinanceTestnetFill"
+          },
+          "maxItems": 5000
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BinanceTestnetHistoryState"
+          },
+          "maxItems": 2
+        },
+        "lastSuccessfulSyncAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BinanceTestnetOrder"
+          },
+          "maxItems": 5000
+        },
+        "rateLimits": {
+          "$ref": "#/$defs/BinanceTestnetOrderBookRateLimits"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/BinanceTestnetOrderBookStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "remoteAccountId",
+        "environment",
+        "status",
+        "stateVersion",
+        "observedAt",
+        "rateLimits",
+        "history",
+        "orders",
+        "fills",
+        "balances"
+      ]
+    },
+    "BinanceTestnetOrderBookAction": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "ACCOUNT",
+        "HISTORY",
+        "DETAIL"
+      ]
+    },
+    "BinanceTestnetOrderBookQuery": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId"
+      ]
+    },
+    "BinanceTestnetOrderBookQueryResult": {
+      "type": "object",
+      "properties": {
+        "book": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceTestnetOrderBook"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "BinanceTestnetOrderBookRateLimits": {
+      "type": "object",
+      "properties": {
+        "accountRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "historyRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderDetailRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "pendingOrdersRetryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "BinanceTestnetOrderBookRefresh": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/BinanceTestnetOrderBookAction"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{1,20}$"
+        },
+        "symbol": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(BTCUSDT|ETHUSDT)$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "action"
+      ]
+    },
+    "BinanceTestnetOrderBookStatus": {
+      "type": "string",
+      "enum": [
+        "NEVER_SYNCED",
+        "CURRENT",
+        "DEGRADED",
+        "STALE"
+      ]
+    },
+    "BinanceTestnetOrderOrigin": {
+      "type": "string",
+      "enum": [
+        "TRADE_X",
+        "EXTERNAL"
       ]
     },
     "BinanceTestnetOrderReconcile": {
@@ -3816,7 +4372,8 @@
             "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book",
-            "binance-testnet-order-attempt"
+            "binance-testnet-order-attempt",
+            "binance-testnet-order-book"
           ]
         },
         "eventId": {
@@ -3838,7 +4395,8 @@
             "trading212.demo.order.book.changed",
             "alpaca.paper.order.attempt.changed",
             "alpaca.paper.order.book.changed",
-            "binance.testnet.order.attempt.changed"
+            "binance.testnet.order.attempt.changed",
+            "binance.testnet.order.book.changed"
           ]
         },
         "occurredAt": {
@@ -3906,6 +4464,9 @@
         },
         {
           "$ref": "#/$defs/Trading212DemoOrderBook"
+        },
+        {
+          "$ref": "#/$defs/BinanceTestnetOrderBook"
         }
       ]
     },
@@ -7494,6 +8055,12 @@
           "$ref": "#/$defs/BinanceTestnetOrderAttemptQueryResult"
         },
         {
+          "$ref": "#/$defs/BinanceTestnetOrderBook"
+        },
+        {
+          "$ref": "#/$defs/BinanceTestnetOrderBookQueryResult"
+        },
+        {
           "$ref": "#/$defs/PaperOrderResult"
         },
         {
@@ -9060,7 +9627,8 @@
             "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book",
-            "binance-testnet-order-attempt"
+            "binance-testnet-order-attempt",
+            "binance-testnet-order-book"
           ]
         },
         "lastSequence": {
@@ -9712,7 +10280,8 @@
             "trading212-demo-order-book",
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book",
-            "binance-testnet-order-attempt"
+            "binance-testnet-order-attempt",
+            "binance-testnet-order-book"
           ]
         },
         "lastSequence": {
@@ -11539,7 +12108,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 20,
+          "maximum": 21,
           "minimum": 1
         },
         "workspaceId": {

@@ -4,7 +4,8 @@ use crate::{
         AlpacaPaperCancelState, AlpacaPaperFill, AlpacaPaperFillSource, AlpacaPaperOrder,
         AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook,
         AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, BinanceTestnetOrderAttempt,
-        BinanceTestnetOrderAttemptState, ExecutionContext, OrderProposal, OrderQuantityType,
+        BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookAction,
+        BinanceTestnetOrderBookStatus, ExecutionContext, OrderProposal, OrderQuantityType,
         OrderSide, OrderType, Result, TimeInForce, TradeXError, Trading212DemoCancelState,
         Trading212DemoNormalizedOrderStatus, Trading212DemoOrder, Trading212DemoOrderAttempt,
         Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
@@ -370,10 +371,17 @@ fn rate_limit(headers: &HeaderMap) -> Option<ProviderRateLimit> {
                 .format(&time::format_description::well_known::Rfc3339)
                 .ok()
         });
-    (remaining.is_some() || reset_at.is_some()).then_some(ProviderRateLimit {
-        remaining,
-        reset_at,
-    })
+    let retry_after_seconds = headers
+        .get("retry-after")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok());
+    (remaining.is_some() || reset_at.is_some() || retry_after_seconds.is_some()).then_some(
+        ProviderRateLimit {
+            remaining,
+            reset_at,
+            retry_after_seconds,
+        },
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -392,6 +400,7 @@ pub struct ProviderHttpResponse {
 pub struct ProviderRateLimit {
     pub remaining: Option<u64>,
     pub reset_at: Option<String>,
+    pub retry_after_seconds: Option<u64>,
 }
 
 pub trait ProviderHttp {
@@ -522,6 +531,9 @@ impl ProviderHttp for BrokerHttp {
         headers: HeaderMap,
         body: Option<&Value>,
     ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        if endpoint == ProviderEndpoint::BinanceTestnet {
+            binance::check_testnet_ip_cooldown()?;
+        }
         if !endpoint.allows_method(method, path) {
             return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
         }
@@ -565,6 +577,9 @@ impl ProviderHttp for BrokerHttp {
         }
         let status = response.status().as_u16();
         let rate_limit = rate_limit(response.headers());
+        if endpoint == ProviderEndpoint::BinanceTestnet {
+            binance::observe_ip_rate_limit(status, rate_limit.as_ref());
+        }
         let mut bytes = Vec::new();
         response
             .take(MAX_RESPONSE + 1)
@@ -600,6 +615,7 @@ pub(crate) enum JobKind {
     AlpacaPaperOrderCancel,
     BinanceTestnetSubmit,
     BinanceTestnetReconcile,
+    BinanceTestnetOrderBookRefresh,
 }
 
 pub struct ProviderJob {
@@ -618,6 +634,10 @@ pub struct ProviderJob {
     pub(crate) alpaca_expected_order: Option<AlpacaPaperOrder>,
     pub(crate) binance_testnet_attempt: Option<BinanceTestnetOrderAttempt>,
     pub(crate) binance_testnet_proposal: Option<OrderProposal>,
+    pub(crate) binance_testnet_order_book: Option<BinanceTestnetOrderBook>,
+    pub(crate) binance_testnet_book_action: Option<BinanceTestnetOrderBookAction>,
+    pub(crate) binance_testnet_book_symbol: Option<String>,
+    pub(crate) binance_testnet_book_order_id: Option<String>,
 }
 
 pub(crate) struct Observation {
@@ -642,6 +662,7 @@ pub struct ProviderOutcome {
     pub(crate) alpaca_paper_attempt: Option<AlpacaPaperOrderAttempt>,
     pub(crate) alpaca_paper_order_book: Option<AlpacaPaperOrderBook>,
     pub(crate) binance_testnet_attempt: Option<BinanceTestnetOrderAttempt>,
+    pub(crate) binance_testnet_order_book: Option<BinanceTestnetOrderBook>,
 }
 
 impl ProviderJob {
@@ -673,6 +694,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             };
         }
         if matches!(
@@ -686,6 +708,9 @@ impl ProviderJob {
             JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
         ) {
             return self.run_binance_testnet_order(vault, http, current);
+        }
+        if self.kind == JobKind::BinanceTestnetOrderBookRefresh {
+            return self.run_binance_testnet_order_book(vault, http, current);
         }
         if self.kind == JobKind::Trading212DemoSubmit {
             return self.run_trading212_demo_order(vault, http, current);
@@ -893,6 +918,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             },
             Err(error) => ProviderOutcome {
                 observation: None,
@@ -903,6 +929,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             },
         }
     }
@@ -923,6 +950,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1039,6 +1067,7 @@ impl ProviderJob {
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: None,
             binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
         }
     }
 
@@ -1058,6 +1087,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1309,6 +1339,7 @@ impl ProviderJob {
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: None,
             binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
         }
     }
 
@@ -1462,6 +1493,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             };
         };
         let Some(proposal) = self.binance_testnet_proposal.as_ref() else {
@@ -1474,6 +1506,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             };
         };
         let result = (|| -> Result<BinanceTestnetOrderAttempt> {
@@ -1513,6 +1546,77 @@ impl ProviderJob {
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: None,
             binance_testnet_attempt: Some(attempt),
+            binance_testnet_order_book: None,
+        }
+    }
+
+    fn run_binance_testnet_order_book(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let Some(mut book) = self.binance_testnet_order_book.clone() else {
+            return ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("ORDER_STATUS_UNKNOWN")),
+                credential: "MISSING".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
+            };
+        };
+        let mut credential = "MISSING";
+        let result = (|| -> Result<BinanceTestnetOrderBook> {
+            if self.account.provider_id != "binance"
+                || self.account.environment != "TESTNET"
+                || self.account.connection_state != ConnectionState::Connected
+                || self.account.health.credential != "CONFIGURED"
+            {
+                return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+            }
+            let secret = vault.get(&self.account.credential_ref())?;
+            let values = secret.values()?;
+            if values.len() != 2 {
+                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+            }
+            credential = "CONFIGURED";
+            let action = self
+                .binance_testnet_book_action
+                .ok_or_else(|| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+            binance::refresh_testnet_order_book(
+                &mut book,
+                action,
+                self.binance_testnet_book_symbol.as_deref(),
+                self.binance_testnet_book_order_id.as_deref(),
+                &values,
+                http,
+                &current,
+            )?;
+            Ok(book.clone())
+        })();
+        if let Err(error) = result {
+            book.status = if error.code == "STATE_VERSION_CONFLICT" {
+                BinanceTestnetOrderBookStatus::Stale
+            } else {
+                BinanceTestnetOrderBookStatus::Degraded
+            };
+            book.reason = Some(error.code);
+            book.observed_at = crate::storage::timestamp().unwrap_or(book.observed_at);
+        }
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: credential.into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
+            binance_testnet_order_book: Some(book),
         }
     }
 
@@ -1532,6 +1636,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1713,6 +1818,7 @@ impl ProviderJob {
             alpaca_paper_attempt: Some(attempt),
             alpaca_paper_order_book: None,
             binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
         }
     }
 
@@ -1732,6 +1838,7 @@ impl ProviderJob {
                 alpaca_paper_attempt: None,
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1843,6 +1950,7 @@ impl ProviderJob {
             alpaca_paper_attempt: None,
             alpaca_paper_order_book: Some(book),
             binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
         }
     }
 

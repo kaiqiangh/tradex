@@ -300,6 +300,7 @@ fn trading212_demo_order_book_reads_are_scoped_bounded_and_event_persisted() {
     *http.trading212_rate_limit.borrow_mut() = Some(ProviderRateLimit {
         remaining: Some(0),
         reset_at: Some("2099-01-01T00:00:00Z".into()),
+        retry_after_seconds: None,
     });
     let refresh = |action: &str, order_id: Option<&str>| {
         let mut payload = json!({

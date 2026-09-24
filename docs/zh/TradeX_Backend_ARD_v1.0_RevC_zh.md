@@ -2543,6 +2543,16 @@ Adapter 固定使用 `https://testnet.binance.vision`，并严格限制 `/api/v3
 
 验证通过的 provider 响应将 attempt 置为 `ACKNOWLEDGED`，以十进制字符串保留 provider order ID，并记录 provider status 表示已接受；此 attempt 不合成 fills。确定性 provider rejection 转为 `REJECTED`。超时、传输歧义或无法核对准确 client-order identity 的响应，会按已保存的 `origClientOrderId` 查询；查不到或证据不足时保持 `UNKNOWN_RECONCILING`。恢复仅对准确的已保存 client order ID 执行 GET。重复命令和空查询都不能消除未知状态或重发订单。本阶段不增加自动轮询、撤单、Live 下单、Agent 写入或 Order Gateway 权限。
 
+### 41.26 Binance Spot Testnet 订单、成交与余额（S19 #69）
+
+版本 1 的主 Trade 命令包括 `binance.testnet.orders.get`，载荷 `{workspaceId, connectionId}`，结果 `{book?}`；以及 `binance.testnet.orders.refresh`，载荷 `{workspaceId, connectionId, expectedConnectionStateVersion, action, symbol?, providerOrderId?}`，结果为 `BinanceTestnetOrderBook`。action 为 `PENDING`、`ACCOUNT`、`HISTORY` 和 `DETAIL`。每次执行前都会通过 `/api/v3/account` 重新核验当前已连接的 Binance `TESTNET` account。`PENDING` 读取开放订单，`ACCOUNT` 读取余额，`HISTORY` 针对一个受支持的交易对读取 `/api/v3/allOrders` 与 `/api/v3/myTrades` 的单页有界历史，`DETAIL` 只读取已保存订单簿中的一个准确订单。只允许固定的 `/api/v3` 路径，以及受支持的 `BTCUSDT` / `ETHUSDT` 历史交易对。renderer 不能提供 URL、路由或任意 provider ID。
+
+每种 action 都有持久化重试截止时间及保守的后端请求间隔；429 和 418 响应会延长对应截止时间。历史页最多 1,000 行，即 provider 允许的最大页大小。每个交易对从 provider ID `1` 开始，分别跟踪精确字符串订单游标和成交游标；满页结果会保持 incomplete，直到后续空页证明历史耗尽。HTTP、解析、identity 和限流失败会保留最近可信记录，并把订单簿标记为 `DEGRADED` 或 `STALE`；不完整历史不会显示为 complete。只有当成功的 `/api/v3/account` 响应与已保存的远端 `uid` 一致时，才接受其中精确的 `free` 与 `locked` 资产字符串。
+
+持久化的 `BinanceTestnetOrderBook` 按 workspace、connection、远端账户字符串和固定的 `TESTNET` 环境隔离。它保存有界的订单、成交、资产余额、逐交易对历史游标、endpoint 重试截止时间、最近成功时间与 TradeX 观察时间、状态/原因、单调版本，以及 `binance.testnet.order.book.changed` outbox event。provider 订单 ID 与 trade ID 始终是十进制字符串；数量、价格、报价累计值、手续费和余额均为精确十进制字符串。Binance 历史中的负数 `cummulativeQuoteQty` 哨兵值会显示为不可用，绝不用于估值。仅当 provider 基础资产数量可用时，才用精确十进制减法计算剩余数量。手续费按 provider trade 显示精确 commission 与手续费资产。仅当 `clientOrderId` 与同一 workspace、connection、远端账户的已保存 attempt 完全匹配时，订单才标为 `TRADE_X`，其他订单均标为 `EXTERNAL`。未知 provider 状态继续显示，不会被当作终态。不会推断加密资产的美元估值。
+
+这些读取命令只由主 Trade UI 发起。本阶段不增加提交重试、撤单、自动轮询、user-data stream、Live 路由、Local Paper 耦合、Agent 写权限或 Order Gateway 权限；stream 收敛和准确撤单由后续独立的 S19 tickets 处理。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
@@ -2575,6 +2585,7 @@ provider.health.changed
 alpaca.paper.order.attempt.changed
 trading212.demo.order.attempt.changed
 trading212.demo.order.book.changed
+binance.testnet.order.book.changed
 ```
 
 Event payload 使用 canonical IDs 和 versioned schemas。

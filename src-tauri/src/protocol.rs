@@ -129,7 +129,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -205,6 +205,8 @@ pub enum ReplyData {
     AlpacaPaperOrderBookQuery(Box<AlpacaPaperOrderBookQueryResult>),
     BinanceTestnetOrderAttempt(Box<BinanceTestnetOrderAttempt>),
     BinanceTestnetOrderAttemptQuery(Box<BinanceTestnetOrderAttemptQueryResult>),
+    BinanceTestnetOrderBook(Box<BinanceTestnetOrderBook>),
+    BinanceTestnetOrderBookQuery(Box<BinanceTestnetOrderBookQueryResult>),
     PaperOrderResult(Box<PaperOrderResult>),
     Artifact(Box<Artifact>),
     ArtifactLibrary(ArtifactLibrary),
@@ -327,6 +329,15 @@ pub struct IpcSchema {
     pub binance_testnet_order_attempt_query_result: BinanceTestnetOrderAttemptQueryResult,
     pub binance_testnet_order_reconcile: BinanceTestnetOrderReconcile,
     pub binance_testnet_order_attempt: BinanceTestnetOrderAttempt,
+    pub binance_testnet_order_book_query: BinanceTestnetOrderBookQuery,
+    pub binance_testnet_order_book_query_result: BinanceTestnetOrderBookQueryResult,
+    pub binance_testnet_order_book_refresh: BinanceTestnetOrderBookRefresh,
+    pub binance_testnet_order_book: BinanceTestnetOrderBook,
+    pub binance_testnet_order: BinanceTestnetOrder,
+    pub binance_testnet_fill: BinanceTestnetFill,
+    pub binance_testnet_balance: BinanceTestnetBalance,
+    pub binance_testnet_history_state: BinanceTestnetHistoryState,
+    pub binance_testnet_order_book_rate_limits: BinanceTestnetOrderBookRateLimits,
     pub artifact_save: ArtifactSave,
     pub artifact_query: ArtifactQuery,
     pub artifact_export: ArtifactExport,
@@ -383,7 +394,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 20))]
+    #[schemars(range(min = 1, max = 21))]
     pub storage_schema_version: u32,
 }
 
@@ -3145,6 +3156,218 @@ pub struct BinanceTestnetOrderReconcile {
     pub proposal_id: String,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceTestnetOrderBookStatus {
+    NeverSynced,
+    Current,
+    Degraded,
+    Stale,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceTestnetOrderOrigin {
+    TradeX,
+    External,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceTestnetOrderBookAction {
+    Pending,
+    Account,
+    History,
+    Detail,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetOrder {
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub symbol: String,
+    #[schemars(length(min = 1, max = 36))]
+    pub client_order_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub side: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub order_type: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub time_in_force: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub price: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub quote_quantity: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub filled_quantity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub filled_quote_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub remaining_quantity: Option<String>,
+    #[schemars(range(max = 9_007_199_254_740_991_u64))]
+    pub submitted_at_ms: u64,
+    #[schemars(range(max = 9_007_199_254_740_991_u64))]
+    pub provider_updated_at_ms: u64,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub pending: bool,
+    pub origin: BinanceTestnetOrderOrigin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub attempt_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetFill {
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub trade_id: String,
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub symbol: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub side: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub quantity: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub quote_quantity: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub commission: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub commission_asset: String,
+    #[schemars(range(max = 9_007_199_254_740_991_u64))]
+    pub executed_at_ms: u64,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetBalance {
+    #[schemars(length(min = 1, max = 32))]
+    pub asset: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub free: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub locked: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub total: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetHistoryState {
+    #[schemars(regex(pattern = "^(BTCUSDT|ETHUSDT)$"))]
+    pub symbol: String,
+    pub started: bool,
+    pub complete: bool,
+    #[schemars(range(max = 9_007_199_254_740_991_u64))]
+    pub page_count: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub next_order_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub next_trade_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetOrderBookRateLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub pending_orders_retry_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub account_retry_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub history_retry_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub order_detail_retry_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetOrderBook {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub remote_account_id: String,
+    #[schemars(extend("const" = "TESTNET"))]
+    pub environment: String,
+    pub status: BinanceTestnetOrderBookStatus,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub last_successful_sync_at: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: Option<String>,
+    pub rate_limits: BinanceTestnetOrderBookRateLimits,
+    #[schemars(length(max = 2))]
+    pub history: Vec<BinanceTestnetHistoryState>,
+    #[schemars(length(max = 5000))]
+    pub orders: Vec<BinanceTestnetOrder>,
+    #[schemars(length(max = 5000))]
+    pub fills: Vec<BinanceTestnetFill>,
+    #[schemars(length(max = 5000))]
+    pub balances: Vec<BinanceTestnetBalance>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetOrderBookQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetOrderBookQueryResult {
+    pub book: Option<BinanceTestnetOrderBook>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTestnetOrderBookRefresh {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    pub action: BinanceTestnetOrderBookAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(regex(pattern = "^(BTCUSDT|ETHUSDT)$"))]
+    pub symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(regex(pattern = "^[0-9]{1,20}$"))]
+    pub provider_order_id: Option<String>,
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AlpacaPaperOrderReconcile {
@@ -3640,6 +3863,7 @@ pub enum DomainProjection {
     AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
     BinanceTestnetOrderAttempt(Box<BinanceTestnetOrderAttempt>),
     Trading212DemoOrderBook(Box<Trading212DemoOrderBook>),
+    BinanceTestnetOrderBook(Box<BinanceTestnetOrderBook>),
 }
 
 impl DomainProjection {
@@ -3656,6 +3880,7 @@ impl DomainProjection {
             Self::AlpacaPaperOrderBook(b) => &b.connection_id,
             Self::BinanceTestnetOrderAttempt(a) => &a.attempt_id,
             Self::Trading212DemoOrderBook(b) => &b.connection_id,
+            Self::BinanceTestnetOrderBook(b) => &b.connection_id,
         }
     }
     pub fn kind(&self) -> &str {
@@ -3671,6 +3896,7 @@ impl DomainProjection {
             Self::AlpacaPaperOrderBook(_) => "alpaca-paper-order-book",
             Self::BinanceTestnetOrderAttempt(_) => "binance-testnet-order-attempt",
             Self::Trading212DemoOrderBook(_) => "trading212-demo-order-book",
+            Self::BinanceTestnetOrderBook(_) => "binance-testnet-order-book",
         }
     }
 }
@@ -3680,12 +3906,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -3697,7 +3923,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
