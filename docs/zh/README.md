@@ -24,6 +24,8 @@
 
 S19 #68 在 Backend ARD §41.25、Frontend ARD §13.14 和 UI Spec §14.12 增加 Binance Spot Testnet 提交/恢复契约。Fixture 测试覆盖本地 adapter 与持久化状态转换，但不等于 provider-hosted Testnet runtime 验收。点击式原型保持未修改。
 
+S19 #70 在 Backend ARD §41.27、Frontend ARD §13.15 和 UI Spec §14.13 增加 Binance Spot Testnet 签名私有流与 REST 恢复契约。实现已在 `dev` 使用 fixture 验证；未使用真实 Testnet 凭据、未调用 provider、未下单。父 Spec #67 仍等待 provider-hosted Testnet 验收，点击式原型保持未修改。
+
 ## 术语和同步规则
 
 - Agent Mode 保留 Ask / Research / Backtest / Trade；Execution Context 区分只读/历史模拟与具体 Local Paper / Paper / Demo / Testnet / Live 环境。

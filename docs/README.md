@@ -22,6 +22,8 @@ Prototype interaction/handoff remains **NOT PASS**: HTML/CSS/JS were not changed
 
 S19 #68 adds a Binance Spot Testnet submission/recovery contract in Backend ARD §41.25, Frontend ARD §13.14, and UI Spec §14.12. Fixture tests exercise the local adapter and durable state transitions; they do not establish provider-hosted Testnet runtime evidence. The clickable prototype remains unchanged.
 
+S19 #70 adds the Binance Spot Testnet signed private-stream and REST-recovery contract in Backend ARD §41.27, Frontend ARD §13.15, and UI Spec §14.13. The implementation is fixture-verified on `dev`; no real Testnet credentials, provider calls, or orders were used. Parent Spec #67 remains open for provider-hosted Testnet acceptance, and the clickable prototype remains unchanged.
+
 ## Chinese synchronized set
 
 [Chinese index](./zh/README.md) links all six English/Chinese document pairs: PRD, UI Spec, frontend/backend ARDs, Coverage Matrix, and QA Report. [Chinese prototype guide](./prototype/README_zh.md) accompanies the same fixture.
