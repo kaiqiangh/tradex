@@ -160,6 +160,7 @@ fn main() -> io::Result<()> {
                             .binance_open_orders
                             .borrow()
                             .clone()
+                            .filter(|orders| !orders.is_empty())
                             .unwrap_or_else(fixtures::default_binance_open_orders);
                         let updated_at = payload
                             .get("orderUpdatedAtMs")
@@ -223,6 +224,18 @@ fn main() -> io::Result<()> {
                                 "timeInForce":"GTC","status":"NEW","price":"100","origQty":"0.07",
                                 "origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0",
                                 "time":1788849506000u64,"updateTime":1788849506000u64
+                            }));
+                        }
+                        if !orders
+                            .iter()
+                            .any(|order| order["orderId"] == 9007199254741003u64)
+                        {
+                            orders.push(json!({
+                                "symbol":"ETHUSDT","orderId":9007199254741003u64,
+                                "clientOrderId":"fixture-cancel-eth-zero-remaining","side":"BUY","type":"LIMIT",
+                                "timeInForce":"GTC","status":"PARTIALLY_FILLED","price":"90","origQty":"0.25",
+                                "origQuoteOrderQty":"0","executedQty":"0.25","cummulativeQuoteQty":"22.5",
+                                "time":1788849507000u64,"updateTime":1788849507000u64
                             }));
                         }
                         *http.binance_open_orders.borrow_mut() = Some(orders);

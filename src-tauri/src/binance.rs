@@ -1494,7 +1494,10 @@ fn same_testnet_order_review(left: &BinanceTestnetOrder, right: &BinanceTestnetO
 
 fn testnet_cancelable(order: &BinanceTestnetOrder) -> bool {
     order.pending
-        && order.remaining_quantity.is_some()
+        && order
+            .remaining_quantity
+            .as_deref()
+            .is_some_and(|quantity| quantity != "0")
         && matches!(order.provider_status.as_str(), "NEW" | "PARTIALLY_FILLED")
 }
 

@@ -19,3 +19,9 @@
 - `cargo fmt --all`、`node --check tests/provider-ui.mjs` 和 `git diff --check` 已通过。
 - `cargo check --features desktop --bin tradex` 已通过。
 - `cargo clippy --workspace --all-targets -- -D warnings` 被基线 `2ceaa61` 已存在的 6 项 Clippy finding 阻断：5 项 library warning 位于 signed request/history/order merge/private-stream helper，1 项位于 private-stream 测试 helper。此次撤销代码中新引入的多余引用已修复；没有把无关的 #70 清理并入本票。
+
+## 后续验证 — 2026-09-25
+
+撤销 guard 现在要求剩余数量严格大于零。Provider 十进制值会先规范化再比较，因此即使 provider 将已全部成交的订单标为 `PARTIALLY_FILLED`，其规范化剩余数量 `0` 也不会进入 DELETE。Renderer 和可信 storage command 都会拒绝该状态。`testnet_cancel_rejects_zero_remaining_quantity_before_delete` 已通过，并确认没有 provider 撤销调用；本次改动树上的 `npm run check`、`cargo check --features desktop --bin tradex`、格式、JavaScript 语法与空白检查均通过。
+
+Rust-backed 浏览器的定向断言也已通过：零剩余 fixture 不显示撤销复核按钮，直接调用可信 command 返回 `ORDER_NOT_CANCELABLE`。但在这些断言之后，更广泛的 provider 浏览器运行因后续 Account 响应式断言失败而未能全绿；单独重放 Account 响应式/断开/删除尾段时通过。之后一次重跑更早在复用的 provider fixture 状态处受阻。最新的整体浏览器重跑应视为未定论；上文 2026-09-24 的完整流程结果早于这次零剩余修正。

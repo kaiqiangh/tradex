@@ -3883,7 +3883,10 @@ impl Store {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         if !order.pending
-            || order.remaining_quantity.is_none()
+            || order
+                .remaining_quantity
+                .as_deref()
+                .is_none_or(|quantity| quantity == "0")
             || !matches!(order.provider_status.as_str(), "NEW" | "PARTIALLY_FILLED")
         {
             return Err(TradeXError::new("ORDER_NOT_CANCELABLE"));

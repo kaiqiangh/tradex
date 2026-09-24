@@ -19,3 +19,9 @@ The test seam uses synthetic HTTP/WebSocket responses, temporary SQLite, and the
 - `cargo fmt --all`, `node --check tests/provider-ui.mjs`, and `git diff --check` passed.
 - `cargo check --features desktop --bin tradex` — passed.
 - `cargo clippy --workspace --all-targets -- -D warnings` — blocked by six pre-existing Clippy findings already in baseline `2ceaa61`: five library warnings in the signed-request/history/order merge/private-stream helpers and one private-stream test helper. The one new needless-borrow lint in this cancellation diff was corrected; no unrelated #70 cleanup was folded into this ticket.
+
+## Follow-up — 2026-09-25
+
+The cancellation guard now requires a strictly positive remaining quantity. Provider decimals are normalized before comparison, so a fully filled order reported as `PARTIALLY_FILLED` has canonical remaining quantity `0` and cannot reach a DELETE. The renderer and trusted storage command both reject it. `testnet_cancel_rejects_zero_remaining_quantity_before_delete` passed and confirms no provider cancellation call; `npm run check`, `cargo check --features desktop --bin tradex`, formatting, JavaScript syntax, and whitespace checks passed on this follow-up tree.
+
+The focused Rust-backed browser assertions also passed: the zero-remaining fixture has no cancellation-review button and the direct trusted command returns `ORDER_NOT_CANCELABLE`. The broader provider browser run did not finish green after those assertions because a later Account responsive assertion failed; the Account responsive/disconnect/remove tail passed when replayed separately. A subsequent run was blocked earlier by reused provider-fixture state. Treat the latest broad browser rerun as inconclusive; the 2026-09-24 full-flow browser result above predates this zero-quantity follow-up.

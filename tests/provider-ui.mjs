@@ -606,10 +606,15 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
         workspaceId: isolatedWorkspaceId,
         connectionId: existingValue,
       });
+      const accountBeforeExpiredCancel = await sendIntegrationCommand('account.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      binanceConnectionStateVersion = accountBeforeExpiredCancel.data.stateVersion;
       const expiredCancel = await sendIntegrationCommand('binance.testnet.orders.cancel', {
         workspaceId: isolatedWorkspaceId,
         connectionId: existingValue,
-        expectedConnectionStateVersion: binanceConnectionStateVersion,
+        expectedConnectionStateVersion: accountBeforeExpiredCancel.data.stateVersion,
         expectedBookStateVersion: savedBook.data.book.stateVersion,
         symbol: 'BTCUSDT',
         providerOrderId: '9007199254740998',
@@ -691,6 +696,32 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await waitForBinanceReadCooldown();
       await binanceOrderBook.getByRole('button', { name: 'Refresh open orders', exact: true }).press('Enter');
       await ui.getByRole('status').filter({ hasText: /Binance Testnet open orders refreshed at/ }).waitFor({ state: 'visible' });
+
+      const zeroRemainingOrder = binanceOrderBook.locator('.order-book-order').filter({ hasText: '9007199254741003' });
+      await zeroRemainingOrder.waitFor({ state: 'visible' });
+      assert.match(await zeroRemainingOrder.innerText(), /Remaining base quantity\s+0/);
+      assert.equal(await zeroRemainingOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 0,
+        'An order with zero remaining quantity must not offer cancellation review');
+      savedBook = await sendIntegrationCommand('binance.testnet.orders.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      const activeAccount = await sendIntegrationCommand('account.get', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+      });
+      const zeroRemainingCancel = await sendIntegrationCommand('binance.testnet.orders.cancel', {
+        workspaceId: isolatedWorkspaceId,
+        connectionId: existingValue,
+        expectedConnectionStateVersion: activeAccount.data.stateVersion,
+        expectedBookStateVersion: savedBook.data.book.stateVersion,
+        symbol: 'ETHUSDT',
+        providerOrderId: '9007199254741003',
+        idempotencyKey: randomUUID(),
+        confirmed: true,
+      }, false);
+      assert.equal(zeroRemainingCancel.error.code, 'ORDER_NOT_CANCELABLE',
+        'The trusted Rust command must reject an order with no cancelable remainder');
 
       await configureBinanceCancelFixture('REJECTED');
       await waitForBinanceReadCooldown();

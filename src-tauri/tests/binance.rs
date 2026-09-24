@@ -1010,6 +1010,52 @@ fn testnet_cancel_rejects_unknown_remaining_quantity_before_delete() {
 }
 
 #[test]
+fn testnet_cancel_rejects_zero_remaining_quantity_before_delete() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let mut remote_orders = fixtures::default_binance_open_orders();
+    remote_orders[0]["status"] = "PARTIALLY_FILLED".into();
+    remote_orders[0]["executedQty"] = "0.1".into();
+    remote_orders[0]["cummulativeQuoteQty"] = "10.02".into();
+    *http.binance_open_orders.borrow_mut() = Some(remote_orders);
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    assert_eq!(pending["ok"], true, "{pending}");
+    let order = pending["data"]["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740995")
+        .unwrap();
+    assert_eq!(order["pending"], true);
+    assert_eq!(order["remainingQuantity"], "0");
+    let unreviewable = request(
+        "binance.testnet.orders.cancel",
+        json!({
+            "workspaceId":workspace,
+            "connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "symbol":"BTCUSDT",
+            "providerOrderId":"9007199254740995",
+            "expectedBookStateVersion":pending["data"]["stateVersion"],
+            "idempotencyKey":"abababab-abab-4bab-8bab-abababababab",
+            "confirmed":true
+        }),
+    );
+    let error = match cp.prepare_provider_for(&unreviewable, "main") {
+        Err(error) => error,
+        Ok(_) => panic!("an order with zero remaining quantity must not create a provider job"),
+    };
+    assert_eq!(error.code, "ORDER_NOT_CANCELABLE");
+    assert!(http.binance_cancel_calls.borrow().is_empty());
+}
+
+#[test]
 fn testnet_cancel_definitive_rejection_is_retained_and_never_replayed() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());
