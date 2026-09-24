@@ -4554,15 +4554,15 @@ impl ControlPlane {
                 matches!(input.symbol.as_deref(), Some("BTCUSDT" | "ETHUSDT"))
                     && input.provider_order_id.is_none()
             }
-            BinanceTestnetOrderBookAction::Detail => {
-                matches!(input.symbol.as_deref(), Some("BTCUSDT" | "ETHUSDT"))
-                    && input.provider_order_id.as_deref().is_some_and(|id| {
-                        book.orders.iter().any(|order| {
-                            order.symbol == input.symbol.as_deref().unwrap_or_default()
-                                && order.provider_order_id == id
-                        })
-                    })
-            }
+            BinanceTestnetOrderBookAction::Detail => input
+                .symbol
+                .as_deref()
+                .zip(input.provider_order_id.as_deref())
+                .is_some_and(|(symbol, id)| {
+                    book.orders
+                        .iter()
+                        .any(|order| order.symbol == symbol && order.provider_order_id == id)
+                }),
         };
         if !valid {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));

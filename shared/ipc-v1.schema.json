@@ -3618,7 +3618,7 @@
             "string",
             "null"
           ],
-          "pattern": "^(BTCUSDT|ETHUSDT)$"
+          "pattern": "^[A-Z0-9]{1,32}$"
         },
         "workspaceId": {
           "type": "string",

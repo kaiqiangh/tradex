@@ -807,13 +807,13 @@ pub(super) fn refresh_testnet_order_book(
             matches!(symbol, Some("BTCUSDT" | "ETHUSDT")) && provider_order_id.is_none()
         }
         BinanceTestnetOrderBookAction::Detail => {
-            matches!(symbol, Some("BTCUSDT" | "ETHUSDT"))
-                && provider_order_id.is_some_and(valid_order_id)
-                && provider_order_id.is_some_and(|id| {
-                    book.orders.iter().any(|order| {
-                        order.symbol == symbol.unwrap_or_default() && order.provider_order_id == id
-                    })
-                })
+            symbol.zip(provider_order_id).is_some_and(|(symbol, id)| {
+                valid_order_id(id)
+                    && book
+                        .orders
+                        .iter()
+                        .any(|order| order.symbol == symbol && order.provider_order_id == id)
+            })
         }
     };
     if !args_valid {

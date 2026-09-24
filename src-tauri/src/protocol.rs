@@ -3361,7 +3361,7 @@ pub struct BinanceTestnetOrderBookRefresh {
     pub expected_connection_state_version: String,
     pub action: BinanceTestnetOrderBookAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(regex(pattern = "^(BTCUSDT|ETHUSDT)$"))]
+    #[schemars(regex(pattern = "^[A-Z0-9]{1,32}$"))]
     pub symbol: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(regex(pattern = "^[0-9]{1,20}$"))]

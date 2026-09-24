@@ -793,6 +793,43 @@ fn testnet_order_book_keeps_exact_history_balances_and_account_boundaries() {
 }
 
 #[test]
+fn testnet_exact_order_refresh_accepts_any_saved_provider_symbol() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet_labeled(&mut cp, &vault, &http, &workspace, "Detail account");
+
+    let pending = refresh_testnet_book(
+        &mut cp, &vault, &http, &workspace, &account, "PENDING", None, None,
+    );
+    assert_eq!(pending["ok"], true, "{pending}");
+    assert!(
+        pending["data"]["orders"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|order| {
+                order["symbol"] == "ODDCOINUSDT" && order["providerOrderId"] == "9007199254740996"
+            })
+    );
+
+    let detail = refresh_testnet_book(
+        &mut cp,
+        &vault,
+        &http,
+        &workspace,
+        &account,
+        "DETAIL",
+        Some("ODDCOINUSDT"),
+        Some("9007199254740996"),
+    );
+    assert_eq!(detail["ok"], true, "{detail}");
+    assert_eq!(detail["data"]["reason"], "PROVIDER_RATE_LIMITED");
+}
+
+#[test]
 fn testnet_order_history_stops_after_one_provider_page_and_keeps_exact_next_id() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());

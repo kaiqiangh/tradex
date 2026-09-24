@@ -41184,7 +41184,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			},
 			"symbol": {
 				"type": ["string", "null"],
-				"pattern": "^(BTCUSDT|ETHUSDT)$"
+				"pattern": "^[A-Z0-9]{1,32}$"
 			},
 			"workspaceId": {
 				"type": "string",
@@ -41200,6 +41200,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"action"
 		]
 	};
+	var pattern19 = /* @__PURE__ */ new RegExp("^[A-Z0-9]{1,32}$", "u");
 	function validate491(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
 		let vErrors = null;
 		const evaluated0 = validate491.evaluated;
@@ -41362,13 +41363,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										return false;
 									}
 									if (typeof data4 === "string") {
-										if (!pattern10.test(data4)) {
+										if (!pattern19.test(data4)) {
 											validate491.errors = [{
 												instancePath: instancePath + "/symbol",
 												schemaPath: "#/properties/symbol/pattern",
 												keyword: "pattern",
-												params: { pattern: "^(BTCUSDT|ETHUSDT)$" },
-												message: "must match pattern \"^(BTCUSDT|ETHUSDT)$\""
+												params: { pattern: "^[A-Z0-9]{1,32}$" },
+												message: "must match pattern \"^[A-Z0-9]{1,32}$\""
 											}];
 											return false;
 										}
