@@ -565,6 +565,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     await waitForVersionChange(ui, detail, beforeCleanupVersion, 'Local cleanup did not commit a new account state');
     await ui.getByText('MISSING', { exact: true }).waitFor({ state: 'visible' });
     assert.match(await detail.innerText(), /DISCONNECTED/);
+    for (let attempt = 0; attempt < 100 && !(await remove.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
     assert.equal(await remove.isEnabled(), true);
     assert.equal(await ui.getByRole('alert').count(), 0);
     const browserErrors = await tab.dev.logs({ levels: ['error'], limit: 100 });
