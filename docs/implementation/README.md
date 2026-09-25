@@ -10,7 +10,7 @@ S20 #75 Bitget Live 订单/成交只读切片已在 `dev@983e051` 完成实现�
 
 S20 #76 私有流决策已在 `dev@3cdfbfc` 收口：Bitget 官方 Classic v2 私有频道表没有 Classic Spot 订单更新频道；UTA v3 Demo WebSocket 属于不同 API/订阅契约。TradeX 保持 REST-only 与 `NOT_CONFIGURED`，并在账户详情说明边界，证据见 [S20 #76 Bitget 私有流验收](s20-bitget-private-stream-evidence.md)。按用户范围不创建/使用 Bitget Demo 账户；#73 Demo 交易生命周期仍 OPEN，依赖 Demo 撤单的 #77 保持 OPEN 且未执行，S30 仍需普通 Live 账户真实读取与后续风险/审批/Order Gateway gate。
 
-S21 #80 完整风险策略配置与持久化已在 `dev@20113b0` 完成实现、最终全量检查和串行 Standards/Spec 审查，证据见 [S21 #80 验收](s21-risk-policy-evidence.md)。该切片只完成 policy 设置、版本化保存、拒绝路径、迁移和重开恢复；PRD §21 完整 evaluator、审批/arm 变更效果仍待 S21 后续项。FR-020 保持 `IN_PROGRESS`，J2 保持 `IMPLEMENTED_UNVERIFIED`。Bitget 在此策略夹具中只是 venue ID；按用户指示，Bitget 后续验证仅使用普通 Live 账户，不创建/使用 Demo 账户。
+S21 #80 完整风险策略配置与持久化已在 `dev@20113b0` 完成实现、最终全量检查和串行 Standards/Spec 审查，并已关闭；证据见 [S21 #80 验收](s21-risk-policy-evidence.md)。父 Spec #79 仍 OPEN。该切片只完成 policy 设置、版本化保存、拒绝路径、迁移和重开恢复；PRD §21 完整 evaluator、审批/arm 变更效果仍待 S21 后续项。FR-020 保持 `IN_PROGRESS`，J2 保持 `IMPLEMENTED_UNVERIFIED`。下一项按顺序处理 #81 确定性 RiskDecision，之后再处理 #82 policy-change effects。Bitget 在此策略夹具中只是 venue ID；按用户指示，Bitget 后续验证仅使用普通 Live 账户，不创建/使用 Demo 账户。
 
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
