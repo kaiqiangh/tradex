@@ -202,7 +202,7 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
         currency: Some(account_currency.clone()),
         buying_power: None,
         balances: vec![Balance { locked: None, restricted_available: None, asset: account_currency, available: number(&account["cash"]["availableToTrade"])?, total: optional(&account,"totalValue")?, reserved: optional(&account["cash"],"reservedForOrders")?, in_pies: optional(&account["cash"],"inPies")? }],
-        positions, open_orders: orders, capabilities: permissions.detected.clone(),
+        positions, open_orders: orders, bitget_order_book: None, capabilities: permissions.detected.clone(),
         limitations: vec![
             "Invest/Stocks ISA API only; the provider does not expose the exact account subtype or full key/IP scope. CFD and other account types are unsupported.".into(),
             "Cash and account value use the primary currency. Position prices use instrument currency; market values use wallet currency. No currency conversion is performed by TradeX.".into(),

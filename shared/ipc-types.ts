@@ -1793,6 +1793,7 @@ export interface AccountConnection {
 export interface AccountData {
   accountType: string;
   balances: Balance[];
+  bitgetOrderBook?: BitgetSpotOrderBook | null;
   buyingPower?: string | null;
   capabilities: string[];
   currency?: string | null;
@@ -1813,6 +1814,58 @@ export interface Balance {
   reserved?: string | null;
   restrictedAvailable?: string | null;
   total?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetSpotOrderBook".
+ */
+export interface BitgetSpotOrderBook {
+  /**
+   * @maxItems 2000
+   */
+  fills: BitgetSpotFill[];
+  observedAt: string;
+  /**
+   * @maxItems 16000
+   */
+  orders: BitgetSpotOrder[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetSpotFill".
+ */
+export interface BitgetSpotFill {
+  currency?: string | null;
+  observedAt: string;
+  price?: string | null;
+  providerOrderId: string;
+  providerTradeId: string;
+  quantity: string;
+  side: "BUY" | "SELL";
+  symbol: string;
+  value?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetSpotOrder".
+ */
+export interface BitgetSpotOrder {
+  createdAt?: string | null;
+  currency?: string | null;
+  filledQuantity?: string | null;
+  filledValue?: string | null;
+  kind: "NORMAL" | "TPSL" | "PLAN";
+  normalizedStatus:
+    "OPEN" | "PARTIALLY_FILLED" | "FILLED" | "TRIGGERED" | "TRIGGER_FAILED" | "CANCELED" | "REJECTED" | "UNKNOWN";
+  notional?: string | null;
+  origin: "TRADEX" | "external";
+  providerOrderId: string;
+  providerStatus: string;
+  quantity?: string | null;
+  remainingQuantity?: string | null;
+  side: "BUY" | "SELL";
+  symbol: string;
+  updatedAt?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

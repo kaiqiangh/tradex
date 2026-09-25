@@ -2573,6 +2573,14 @@ After explicit confirmation, the privileged adapter rechecks `/api/v3/account` a
 
 A DELETE response is only an acknowledgement. A follow-up exact-order GET or the signed private stream must establish provider state; a fill, including a fill racing the acknowledgement, remains authoritative. The result merges onto the newest durable order book and fills instead of overwriting concurrent stream updates; conflicts retain the latest trusted fill and mark the book stale for reconciliation. Order-book projection and event commit atomically. Fixture tests use synthetic Testnet responses and temporary SQLite; they do not call Binance or place a real order.
 
+### 41.29 Bitget Spot Live order and fill observations (#75)
+
+`AccountData` adds the optional `bitgetOrderBook` projection for an immutable `bitget` / `LIVE` connection. It contains current open orders plus recent normal, TPSL, and plan-order history, recent fill records, and a TradeX observation timestamp. Preserve provider IDs and decimal quantities/values as strings. Each order retains its kind, side, symbol, quote currency when supplied, provider status, normalized status, provider timestamps, cumulative filled base quantity/value, and remaining base quantity only when determinable. `TRIGGERED` and `TRIGGER_FAILED` describe plan-order trigger outcomes and are not fill evidence. An origin is `TRADEX` only when correlated with a persisted TradeX identity; otherwise it is the literal `external`.
+
+The selected account's explicit `account.refresh` uses only signed GET requests to the fixed Classic Spot host. Current orders and asset balances remain part of the same observation. Recent history/fills are bounded to 20 pages of at most 100 rows per history category and fills endpoint, with a 2 MiB per-response limit; current open orders are bounded to 10,000 rows across their categories, making the total order projection at most 16,000 rows. Fill pages after the first are spaced by at least one second to honor Bitget's trader-specific UID limit. Exceeding a bound, duplicate/invalid cursor or identity, or malformed/truncated data fails the refresh and preserves the last trusted AccountConnection projection. A rate-limit or provider failure never fabricates an empty successful result.
+
+Live reads omit `paptrading: 1`, cannot fall back to Demo, and expose no submit/cancel/transfer/withdrawal route. The provider is read only on explicit refresh, not by background polling. Existing records without `bitgetOrderBook` remain readable; missing values stay unavailable. Live remains DISARMED and execution BLOCKED. This account-detail slice does not complete Bitget Demo acceptance or S30 Live execution.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

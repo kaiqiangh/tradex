@@ -2837,6 +2837,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
             balances,
             positions,
             open_orders: orders,
+            bitget_order_book: None,
             capabilities: vec![
                 "account.read".into(),
                 "positions.read".into(),

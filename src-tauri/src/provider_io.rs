@@ -308,7 +308,8 @@ impl ProviderEndpoint {
     fn allows(self, path: &str) -> bool {
         match self {
             Self::AlpacaPaper => allowed_path(path),
-            Self::BitgetDemo | Self::BitgetLive => bitget::allows(path),
+            Self::BitgetDemo => bitget::allows(path),
+            Self::BitgetLive => bitget::allows(path) || bitget::allows_live_history(path),
             Self::BinanceTestnet | Self::BinanceLive => binance::allows(self, path),
             Self::Trading212Demo => {
                 matches!(
@@ -4262,6 +4263,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
             }],
             positions,
             open_orders: orders,
+            bitget_order_book: None,
             capabilities: permissions.detected.clone(),
             limitations,
         },

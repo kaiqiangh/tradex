@@ -2573,6 +2573,14 @@ WebSocket 消息/帧上限为 256 KiB，并通过容量为 32 的有界 channel 
 
 DELETE 响应只代表收到请求。后续准确订单 GET 或签名私有流才是 provider 状态依据；包括与确认竞态的成交都必须保留。结果合并到最新持久化订单簿和成交，而不覆盖并发私有流更新；发生冲突时保留最新可信成交并将订单簿标为 stale、要求 reconciliation。订单簿投影与 event 原子提交。Fixture 使用合成 Testnet 响应及临时 SQLite，不调用 Binance 或创建真实订单。
 
+### 41.29 Bitget Spot Live 订单与成交观测（#75）
+
+`AccountData` 为不可变的 `bitget` / `LIVE` connection 增加可选 `bitgetOrderBook` 投影，包含当前开放订单、近期普通单/TPSL/计划单历史、近期逐笔成交记录，以及 TradeX 观测时间。Provider ID 与十进制数量/金额保持字符串。每笔订单保留类型、方向、标的、provider 提供时的计价币、原始与归一状态、provider 时间、累计基础币成交数量/金额；仅在可确定时提供剩余基础币数量。`TRIGGERED` 与 `TRIGGER_FAILED` 表示计划单触发结果，不是成交证据。只有能与持久化 TradeX identity 关联的订单 origin 才是 `TRADEX`；否则使用字面值 `external`。
+
+用户显式执行 `account.refresh` 时，选中账户只通过固定 Classic Spot 主机上的签名 GET 请求读取；当前订单与资产余额仍属于同一次账户观测。近期历史与成交读取按每类历史 endpoint 及成交 endpoint 最多 20 页、每页最多 100 条限制，每个响应最多 2 MiB；各类当前开放订单合计最多 10,000 条，因此订单投影最多 16,000 条。为符合 Bitget 面向交易者的 UID 频率限制，成交查询的首个页面之后每页至少间隔一秒。超过任一界限、游标/identity 重复或无效、数据畸形或截断都会使刷新失败并保留最后可信的 AccountConnection 投影。限流和 provider 故障不得伪造为空的成功结果。
+
+Live 读取省略 `paptrading: 1`，不得回退到 Demo，也不暴露提交、撤销、划转或提现路由。只在用户显式刷新时访问 provider，不进行后台轮询。缺少 `bitgetOrderBook` 的旧记录仍可读取；缺失数值保持不可用。Live 始终为 DISARMED 且 execution BLOCKED。该账户详情切片不代表 Bitget Demo 验收完成，也不代表 S30 Live 执行完成。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

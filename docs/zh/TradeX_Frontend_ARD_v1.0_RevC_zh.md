@@ -640,6 +640,12 @@ Order Drafts 仅对绑定已连接 Binance `TESTNET` 账户的不可变 `BINANCE
 
 仅通过主 Trade UI 发送有类型的 `binance.testnet.orders.cancel` command。`SUBMITTING` 与 `PENDING` 分开呈现；请求已被接受不等于撤销完成，结果不明时保持 pending 且不得再次请求。后续准确订单读取或私有流 event 决定终态并保留竞态成交。不提供 Live、撤销全部、Agent 或 Order Gateway 控件。
 
+### 13.16 Bitget Spot Live 账户订单与成交（#75）
+
+选中 `bitget` / `LIVE` connection 后，Accounts 详情页显示 provider 余额，并在用户显式刷新后显示已保存的当前订单及近期历史订单/成交观测。该区域明确标注 `READ ONLY · DISARMED`。订单表展示 provider order ID；只有关联到持久化 TradeX identity 时 origin 才显示 `TRADEX`，否则显示 `external`；同时显示标的/类型、方向、准确数量或名义金额、累计基础币/计价币成交数量、仅在已知时显示剩余数量、原始/归一 provider 状态与 provider 时间。近期 fills 以 provider trade/order ID 单独识别。缺失字段显示为不可用。
+
+展示 TradeX 观测时间及 `CURRENT`、`STALE`（超过五分钟）或 `DEGRADED` 新鲜度。读取失败时保留最后保存的订单簿与账户余额；账户健康状态显示脱敏的失败/限流状态与重试状态。不进行自动 provider 轮询。宽订单/成交/余额表可用键盘滚动，并在 390、768、1280 px 检查账户详情。没有 Bitget Demo 回退或 Live 写操作。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

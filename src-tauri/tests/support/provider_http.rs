@@ -124,6 +124,25 @@ fn bitget_order_submission_is_exactly_demo_only_and_requires_paptrading() {
         !ProviderEndpoint::BitgetDemo
             .allows("/api/v2/spot/trade/orderInfo?clientOid=tx-0123456789abcdef&orderId=1")
     );
+    for path in [
+        "/api/v2/spot/trade/history-orders?limit=100",
+        "/api/v2/spot/trade/history-orders?limit=100&tpslType=tpsl&idLessThan=9007199254740997",
+        "/api/v2/spot/trade/history-plan-order?limit=100&idLessThan=9007199254740997",
+        "/api/v2/spot/trade/fills?limit=100&idLessThan=9223372036854775808",
+    ] {
+        assert!(ProviderEndpoint::BitgetLive.allows(path), "{path}");
+        assert!(!ProviderEndpoint::BitgetDemo.allows(path), "{path}");
+    }
+    for path in [
+        "/api/v2/spot/trade/history-orders?limit=100&tpslType=plan",
+        "/api/v2/spot/trade/history-plan-order?limit=100&idLessThan=0",
+    ] {
+        assert!(!ProviderEndpoint::BitgetLive.allows(path), "{path}");
+    }
+    assert!(
+        !ProviderEndpoint::BitgetLive
+            .allows_method(ProviderHttpMethod::Post, "/api/v2/spot/trade/place-order")
+    );
 
     let error = BrokerHttp::default()
         .request(

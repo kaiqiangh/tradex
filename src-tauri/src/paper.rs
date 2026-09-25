@@ -90,6 +90,7 @@ pub fn account(workspace_id: &str, base_currency: &str) -> Result<AccountConnect
             }],
             positions: vec![],
             open_orders: vec![],
+            bitget_order_book: None,
             capabilities: vec!["simulation.execute".into(), "portfolio.read".into()],
             limitations: vec![
                 DISCLOSURE.into(),

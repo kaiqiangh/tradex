@@ -2,7 +2,6 @@
 // Rust/SQLite/events are real; only provider HTTP and secret entry use explicit test fixtures.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { dirname, join } from 'node:path';
 
 async function waitForVersionChange(ui, detail, previous, message) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -77,23 +76,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
   try {
     await viewport.set({ width: 1280, height: 900 });
     await tab.getAXState({ emit: false });
-    const previousPath = await ui.locator('.context .path').innerText();
     const label = `${selection} QA ${Date.now()}`;
-    const isolatedWorkspaceName = 'S02 isolated account review';
-    const isolatedWorkspacePath = join(dirname(previousPath), `accounts-${Date.now()}`);
-    await ui.getByRole('button', { name: 'Workspace', exact: true }).click();
-    await tab.getAXState({ emit: false });
-    await ui.getByLabel('Workspace name', { exact: true }).fill(isolatedWorkspaceName);
-    await ui.getByLabel('Local storage', { exact: true }).fill(isolatedWorkspacePath);
-    await ui.getByRole('button', { name: 'Open workspace', exact: true }).click();
-    await ui.getByLabel('Workspace name', { exact: true }).waitFor({ state: 'hidden' });
-    await tab.getAXState({ emit: false });
-    const openedWorkspace = await sendIntegrationCommand('workspace.open', {
-      name: isolatedWorkspaceName,
-      baseCurrency: 'USD',
-      path: isolatedWorkspacePath,
-    });
-    await sendIntegrationCommand('workspace.ready.fixture', { workspaceId: openedWorkspace.data.workspaceId });
     await tab.reload();
     await tab.getAXState({ emit: false });
     await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
@@ -119,10 +102,33 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.match(text, /127\.0\.0\.1/);
       assert.match(text, /TPSL/);
       assert.match(text, /PLAN/);
-      assert.match(text, /plan:200/);
+      assert.match(text, /200\texternal\tBTCUSDT · PLAN\tBUY\t20/);
       assert.match(text, /0\.1234567890123456789/);
-      assert.match(text, /Filled quote value/);
-      if (selection.endsWith('/LIVE')) assert.match(text, /DISARMED/);
+      if (selection.endsWith('/LIVE')) {
+        assert.match(text, /Bitget Spot Live orders and fills · READ ONLY · DISARMED/);
+        assert.match(text, /CURRENT/);
+        assert.match(text, /Cumulative filled base \/ quote/);
+        assert.match(text, /9007199254740997/);
+        assert.match(text, /external/);
+        assert.match(text, /TRIGGERED/);
+        const orders = ui.locator('[aria-label="Bitget Live orders"]');
+        assert.equal(await orders.getAttribute('tabindex'), '0', 'Live order table must be keyboard reachable');
+        const fillsSummary = ui.locator('summary').filter({ hasText: 'Recent Bitget Live fills' });
+        await fillsSummary.press('Enter');
+        assert.match(await detail.innerText(), /9223372036854775808/);
+        assert.match(await detail.innerText(), /0\.0002/);
+        const fills = ui.locator('[aria-label="Bitget Live fills"]');
+        assert.equal(await fills.getAttribute('tabindex'), '0', 'Live fill table must be keyboard reachable');
+        for (const width of [1280, 768, 390]) {
+          await viewport.set({ width, height: 900 });
+          const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+          assert.ok(size.width <= width && size.width >= width - 20);
+          assert.ok(size.scroll <= size.width, `Bitget Live account overflow at ${width}px: ${JSON.stringify(size)}`);
+        }
+        await viewport.set({ width: 1280, height: 900 });
+      } else {
+        assert.match(text, /Filled quote value/);
+      }
     } else if (selection.startsWith('binance/')) {
       assert.match(text, /100000000000000000000\.0000000000000000001/);
       assert.match(text, /USDT/);
@@ -943,7 +949,11 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     assert.match(await detail.innerText(), /DISCONNECTED/);
     for (let attempt = 0; attempt < 100 && !(await remove.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
     assert.equal(await remove.isEnabled(), true);
-    assert.equal(await ui.getByRole('alert').count(), 0);
+    if (selection === 'bitget/LIVE') {
+      assert.match(await ui.getByRole('alert').innerText(), /last trusted provider snapshot may be stale/i);
+    } else {
+      assert.equal(await ui.getByRole('alert').count(), 0);
+    }
     const browserErrors = await tab.dev.logs({ levels: ['error'], limit: 100 });
     assert.equal(browserErrors.filter(error => !error.message.includes('chrome-extension://')).length, 0);
     observed.push('Disconnect removes local credential access; historical observations stay labeled disconnected and refresh is disabled.');

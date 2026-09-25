@@ -10,6 +10,52 @@ function mutation(a: AccountConnection) { return { workspaceId: a.workspaceId, c
 function money(value: string | null | undefined, currency?: string | null) { return value == null ? 'Unavailable' : `${value}${currency ? ` ${currency}` : ' (currency unavailable)'}`; }
 function time(value: string | null | undefined) { return value ? new Date(value).toLocaleString() : 'Not yet'; }
 
+function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
+  const book = account.data?.bitgetOrderBook;
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!book) return;
+    const observedAt = Date.parse(book.observedAt);
+    const currentTime = Date.now();
+    const timeout = window.setTimeout(
+      () => setNow(Date.now()),
+      Math.max(0, observedAt + 5 * 60_000 - currentTime + 1),
+    );
+    setNow(currentTime);
+    return () => window.clearTimeout(timeout);
+  }, [book?.observedAt]);
+  const age = book ? now - Date.parse(book.observedAt) : Number.POSITIVE_INFINITY;
+  const freshness = account.health.connection !== 'ONLINE' ? 'DEGRADED' : age >= 0 && age <= 5 * 60_000 ? 'CURRENT' : 'STALE';
+  return <section aria-labelledby="bitget-live-orders-title">
+    <h3 id="bitget-live-orders-title">Bitget Spot Live orders and fills · READ ONLY · DISARMED</h3>
+    {book ? <>
+      <p role="status"><strong>{freshness}</strong> · observed {time(book.observedAt)} · {account.health.connection} / {account.health.executionEligibility}</p>
+      <div className="table-scroll" tabIndex={0} aria-label="Bitget Live orders">
+        <table><thead><tr><th>Provider order</th><th>Origin</th><th>Symbol / kind</th><th>Side</th><th>Quantity / notional</th><th>Cumulative filled base / quote</th><th>Remaining base</th><th>Provider / normalized state</th><th>Provider times</th></tr></thead>
+          <tbody>{book.orders.map(order => <tr key={`${order.kind}:${order.providerOrderId}`}>
+            <td className="identity">{order.providerOrderId}</td><td>{order.origin}</td><td>{order.symbol} · {order.kind}</td><td>{order.side}</td>
+            <td>{order.quantity ?? money(order.notional, order.currency)}</td>
+            <td>{money(order.filledQuantity)} / {money(order.filledValue, order.currency)}</td>
+            <td>{order.remainingQuantity ?? 'Unavailable'}</td>
+            <td>{order.providerStatus} / {order.normalizedStatus}</td>
+            <td>Created {time(order.createdAt)}<br />Updated {time(order.updatedAt)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      {!book.orders.length && <p>No Bitget Live orders were returned by the provider.</p>}
+      <details><summary>Recent Bitget Live fills ({book.fills.length})</summary>
+        {book.fills.length ? <div className="table-scroll" tabIndex={0} aria-label="Bitget Live fills"><table><thead><tr><th>Provider trade / order</th><th>Symbol</th><th>Side</th><th>Quantity</th><th>Value</th><th>Price</th><th>Observed</th></tr></thead>
+          <tbody>{book.fills.map(fill => <tr key={`${fill.providerOrderId}:${fill.providerTradeId}`}>
+            <td className="identity">{fill.providerTradeId}<small className="identity">Order {fill.providerOrderId}</small></td><td>{fill.symbol}</td><td>{fill.side}</td>
+            <td>{fill.quantity}</td><td>{money(fill.value, fill.currency)}</td><td>{money(fill.price, fill.currency)}</td><td>{time(fill.observedAt)}</td>
+          </tr>)}</tbody>
+        </table></div> : <p>No recent fills were returned by the provider.</p>}
+      </details>
+    </> : <p role="status">No Bitget Live order/fill snapshot is available yet. Refresh the account to read it from the provider.</p>}
+    {book && freshness === 'DEGRADED' && <p role="alert">The last trusted provider snapshot may be stale. Check account health above and refresh manually when the connection is available.</p>}
+  </section>;
+}
+
 function LocalPaperSummary({ state }: { state: LocalPaperState }) {
   const queryClient = useQueryClient();
   const [scenario, setScenario] = useState(state.profile.scenarioId);
@@ -138,7 +184,8 @@ function AccountDetail({ account, busy, run, onDelete }: { account: AccountConne
     {account.data && <><dl className="health-grid"><div><dt>Account type</dt><dd>{account.data.accountType}</dd></div><div><dt>Provider account ID</dt><dd className="identity">{account.data.remoteAccountId}</dd></div><div><dt>Currency</dt><dd>{account.data.currency ?? 'Per asset'}</dd></div>{account.providerId === 'alpaca' && <div><dt>Buying power</dt><dd>{money(account.data.buyingPower, account.data.currency)}</dd></div>}</dl>
       <h3>Balances</h3><div className="table-scroll" tabIndex={0} aria-label="Account balances"><table><thead><tr><th>Asset</th><th>Available / Free</th><th>Equity / Asset total</th><th>{account.providerId === 'bitget' ? 'Reserved / Frozen' : 'Reserved / Locked'}</th>{account.providerId === 'bitget' && <><th>Locked</th><th>Restricted available</th></>}<th>In Pies</th><th>Effective available</th></tr></thead><tbody>{account.data.balances.map(row => <tr key={row.asset}><td>{row.asset}</td><td>{row.available}</td><td>{row.total ?? 'Unavailable'}</td><td>{row.reserved ?? 'Unavailable'}</td>{account.providerId === 'bitget' && <><td>{row.locked ?? 'Unavailable'}</td><td>{row.restrictedAvailable ?? 'Unavailable'}</td></>}<td>{row.inPies ?? 'Unavailable'}</td><td>Not computed</td></tr>)}</tbody></table></div>
       <h3>Positions</h3>{account.data.positions.length ? <div className="table-scroll" tabIndex={0} aria-label="Account positions"><table><thead><tr><th>Symbol</th><th>Quantity</th><th>Market value</th><th>Average entry</th></tr></thead><tbody>{account.data.positions.map(row => <tr key={row.symbol}><td>{row.symbol}</td><td>{row.quantity}</td><td>{money(row.marketValue, row.marketValueCurrency)}</td><td>{money(row.averageEntryPrice, row.instrumentCurrency)}</td></tr>)}</tbody></table></div> : <p>No positions returned by the provider.</p>}
-      <h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th></tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td></tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}
+      {account.providerId === 'bitget' && account.environment === 'LIVE' && <BitgetLiveOrderBook account={account} />}
+      {(account.providerId !== 'bitget' || account.environment !== 'LIVE') && <><h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th></tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td></tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}</>}
       <h3>Capabilities and limitations</h3><p>{account.data.capabilities.join(', ')}</p><ul>{account.data.limitations.map(text => <li key={text}>{text}</li>)}</ul>
     </>}
     <p className="muted">{localPaper ? 'Built-in TradeX simulation. No credential, provider connection or Live order exists for this account.' : 'Disconnect stops local access and removes the stored credential. It does not revoke the provider key or cancel external orders.'}</p>

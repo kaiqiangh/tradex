@@ -228,6 +228,61 @@ pub struct OpenOrder {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetSpotOrder {
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_order_id: String,
+    #[schemars(extend("enum" = ["NORMAL", "TPSL", "PLAN"]))]
+    pub kind: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub symbol: String,
+    #[schemars(extend("enum" = ["BUY", "SELL"]))]
+    pub side: String,
+    pub quantity: Option<String>,
+    pub notional: Option<String>,
+    pub filled_quantity: Option<String>,
+    pub filled_value: Option<String>,
+    pub remaining_quantity: Option<String>,
+    pub currency: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: String,
+    #[schemars(extend("enum" = ["OPEN", "PARTIALLY_FILLED", "FILLED", "TRIGGERED", "TRIGGER_FAILED", "CANCELED", "REJECTED", "UNKNOWN"]))]
+    pub normalized_status: String,
+    #[schemars(extend("enum" = ["TRADEX", "external"]))]
+    pub origin: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetSpotFill {
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_trade_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub symbol: String,
+    #[schemars(extend("enum" = ["BUY", "SELL"]))]
+    pub side: String,
+    pub price: Option<String>,
+    pub quantity: String,
+    pub value: Option<String>,
+    pub currency: Option<String>,
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetSpotOrderBook {
+    #[schemars(length(max = 16000))]
+    pub orders: Vec<BitgetSpotOrder>,
+    #[schemars(length(max = 2000))]
+    pub fills: Vec<BitgetSpotFill>,
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccountData {
     pub remote_account_id: String,
     pub account_type: String,
@@ -237,6 +292,8 @@ pub struct AccountData {
     pub balances: Vec<Balance>,
     pub positions: Vec<Position>,
     pub open_orders: Vec<OpenOrder>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bitget_order_book: Option<BitgetSpotOrderBook>,
     pub capabilities: Vec<String>,
     pub limitations: Vec<String>,
 }

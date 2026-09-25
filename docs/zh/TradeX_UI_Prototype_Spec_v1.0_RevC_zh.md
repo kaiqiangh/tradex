@@ -898,3 +898,9 @@ Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection sta
 激活“复核撤销”时，先执行现有的准确订单 Detail 刷新。仅当返回订单簿为 `CURRENT`，且该准确订单对当前 connection 和远端账户仍可撤销时，才打开确认框。用户明确确认后，后端会在 provider 写入前再次核验账户及准确订单。
 
 复核本身只读。Escape/继续复核不会发送 command，并在关闭后恢复焦点。用户明确确认后才发送捕获的 connection/book version、准确订单身份、新生成的幂等 UUID 和 `confirmed: true`；若 provider 订单已变化，要求重新复核且不发送 DELETE。使用独立无障碍文字区分 `SUBMITTING`、已确认 provider 终态，以及结果不明的 `PENDING`。保留与撤销竞态的成交。不增加 Live、Agent、撤销全部、Local Paper 或通用撤销控件。使用 Rust-backed integration fixture 验证键盘操作和 390、768、1280 px 布局；fixture 不等于 provider-hosted Testnet 证据。
+
+### 14.15 Bitget Spot Live 账户订单与成交（S20 #75）
+
+所选普通 Bitget Classic Spot `LIVE` 账户详情在资产余额旁显示当前订单、近期普通单/TPSL/计划单历史和近期成交。仅在用户显式刷新账户后读取，不进行 provider 轮询。区域标注 `Bitget Spot Live · READ ONLY · DISARMED`。保留完整 provider ID 与准确十进制字符串。仅当 origin 关联到持久化 TradeX identity 时显示 `TRADEX`，否则显示 `external`；并保留原始/归一状态、累计基础币成交数量与计价币金额、仅在可确定时显示剩余数量、provider 时间及 TradeX 观测新鲜度。
+
+展示 `CURRENT`、`STALE` 或 `DEGRADED`，以及最后一次成功观测时间。不完整、重复、畸形、超限、失败或限流响应都保留上一份可信快照，并显示脱敏状态/重试信息；不能把空结果伪装为成功。宽表格可内部滚动且可用键盘访问。在 390、768、1280 px 验证账户详情。不得创建/使用 Demo 账户、不得在 Live 请求上附加 Demo 的 `paptrading: 1` header、不得跨环境回退，也不得暴露任何 Live 写操作。若不存在普通 Live connection，fixture 验证与待完成的真实 provider 读取必须分开记录。

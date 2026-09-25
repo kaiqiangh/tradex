@@ -60,6 +60,20 @@ test('research venue schema keeps unavailable values nullable and rejects numeri
   }
 });
 
+test('Bitget Spot order schema accepts external origins and plan trigger states', () => {
+  const order = {
+    providerOrderId: '9007199254741002', kind: 'PLAN', symbol: 'BTCUSDT', side: 'BUY',
+    quantity: '0.0003', notional: null, filledQuantity: null, filledValue: null,
+    remainingQuantity: null, currency: 'USDT', providerStatus: 'executed',
+    normalizedStatus: 'TRIGGERED', origin: 'external',
+    createdAt: '2026-09-08T12:23:20Z', updatedAt: '2026-09-08T12:25:00Z',
+  };
+  assert.deepEqual(decode('BitgetSpotOrder', order), order);
+  assert.deepEqual(decode('BitgetSpotOrder', {
+    ...order, providerStatus: 'fail_execute', normalizedStatus: 'TRIGGER_FAILED',
+  }), { ...order, providerStatus: 'fail_execute', normalizedStatus: 'TRIGGER_FAILED' });
+});
+
 test('research payload schema rejects unbounded scenarios, artifact refs and venue rows', () => {
   const payload = {
     state: 'UNAVAILABLE', reason: 'No provider observation', focus: 'EQUITY', conclusion: null,

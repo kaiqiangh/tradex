@@ -653,6 +653,16 @@
             "$ref": "#/$defs/Balance"
           }
         },
+        "bitgetOrderBook": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BitgetSpotOrderBook"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "buyingPower": {
           "type": [
             "string",
@@ -4105,6 +4115,207 @@
         "proposalHash",
         "idempotencyKey",
         "confirmedDemoOrder"
+      ]
+    },
+    "BitgetSpotFill": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observedAt": {
+          "type": "string"
+        },
+        "price": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerTradeId": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "BUY",
+            "SELL"
+          ]
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerTradeId",
+        "providerOrderId",
+        "symbol",
+        "side",
+        "quantity",
+        "observedAt"
+      ]
+    },
+    "BitgetSpotOrder": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filledQuantity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filledValue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "NORMAL",
+            "TPSL",
+            "PLAN"
+          ]
+        },
+        "normalizedStatus": {
+          "type": "string",
+          "enum": [
+            "OPEN",
+            "PARTIALLY_FILLED",
+            "FILLED",
+            "TRIGGERED",
+            "TRIGGER_FAILED",
+            "CANCELED",
+            "REJECTED",
+            "UNKNOWN"
+          ]
+        },
+        "notional": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "TRADEX",
+            "external"
+          ]
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "remainingQuantity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "BUY",
+            "SELL"
+          ]
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerOrderId",
+        "kind",
+        "symbol",
+        "side",
+        "providerStatus",
+        "normalizedStatus",
+        "origin"
+      ]
+    },
+    "BitgetSpotOrderBook": {
+      "type": "object",
+      "properties": {
+        "fills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BitgetSpotFill"
+          },
+          "maxItems": 2000
+        },
+        "observedAt": {
+          "type": "string"
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BitgetSpotOrder"
+          },
+          "maxItems": 16000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "orders",
+        "fills",
+        "observedAt"
       ]
     },
     "CapabilityDecision": {

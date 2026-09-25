@@ -857,6 +857,64 @@ fn live_lifecycle(vault: &impl CredentialVault) {
     assert_eq!(orders[102]["kind"], "PLAN");
     assert_eq!(orders[102]["notional"], "20");
     assert_ne!(orders[0]["brokerOrderId"], orders[102]["brokerOrderId"]);
+    let book = &a["data"]["bitgetOrderBook"];
+    assert_eq!(book["orders"].as_array().unwrap().len(), 107);
+    assert_eq!(book["fills"].as_array().unwrap().len(), 1);
+    let historical = book["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254740997")
+        .unwrap();
+    assert_eq!(historical["providerStatus"], "filled");
+    assert_eq!(historical["normalizedStatus"], "FILLED");
+    assert_eq!(historical["origin"], "external");
+    assert_eq!(historical["filledQuantity"], "0.0002");
+    assert_eq!(historical["filledValue"], "14.000025");
+    let trigger = book["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254741002")
+        .unwrap();
+    assert_eq!(trigger["kind"], "PLAN");
+    assert_eq!(trigger["normalizedStatus"], "TRIGGERED");
+    assert!(trigger["filledQuantity"].is_null());
+    let trigger_failed = book["orders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|order| order["providerOrderId"] == "9007199254741000")
+        .unwrap();
+    assert_eq!(trigger_failed["normalizedStatus"], "TRIGGER_FAILED");
+    assert!(trigger_failed["filledValue"].is_null());
+    assert_eq!(book["fills"][0]["providerTradeId"], "9223372036854775808");
+    assert_eq!(book["fills"][0]["quantity"], "0.0002");
+    assert_eq!(book["fills"][0]["value"], "14.000025");
+    assert_eq!(book["fills"][0]["currency"], "USDT");
+    let paths = http.0.borrow();
+    assert!(
+        paths
+            .iter()
+            .any(|path| path == "/api/v2/spot/trade/history-orders?limit=100")
+    );
+    assert!(
+        paths
+            .iter()
+            .any(|path| path == "/api/v2/spot/trade/history-orders?limit=100&tpslType=tpsl")
+    );
+    assert!(
+        paths
+            .iter()
+            .any(|path| path == "/api/v2/spot/trade/history-plan-order?limit=100")
+    );
+    assert!(paths.iter().any(|path| path
+        == "/api/v2/spot/trade/history-plan-order?limit=100&idLessThan=9007199254741001"));
+    assert!(
+        paths
+            .iter()
+            .any(|path| path == "/api/v2/spot/trade/fills?limit=100")
+    );
     let confirm=cp.dispatch(request("provider.connect",json!({"step":"confirm","workspaceId":ws,"connectionId":a["connectionId"],"expectedStateVersion":a["stateVersion"],"acknowledgeUnverified":false})));
     assert_eq!(confirm["ok"], true, "{confirm}");
     drop(cp);
@@ -868,6 +926,13 @@ fn live_lifecycle(vault: &impl CredentialVault) {
     let list = cp.dispatch(request("account.list", json!({"workspaceId":ws})));
     let a = &list["data"]["accounts"][0];
     assert_eq!(a["data"]["openOrders"].as_array().unwrap().len(), 103);
+    assert_eq!(
+        a["data"]["bitgetOrderBook"]["orders"]
+            .as_array()
+            .unwrap()
+            .len(),
+        107
+    );
     let req = request(
         "provider.disconnect",
         json!({"workspaceId":ws,"connectionId":a["connectionId"],"expectedStateVersion":a["stateVersion"]}),
@@ -1007,6 +1072,63 @@ fn dangerous_or_unknown_scope_and_failed_refresh_do_not_gain_authority() {
         assert_eq!(a["health"]["executionEligibility"], "BLOCKED");
     }
 }
+
+#[test]
+fn overlapping_live_current_and_history_rows_keep_the_previous_account_snapshot() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let ws = cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+    let connect = request(
+        "provider.connect",
+        json!({"step":"test","workspaceId":ws,"providerId":"bitget","environment":"LIVE","label":"Live history fixture"}),
+    );
+    let job = cp.prepare_provider(&connect).unwrap().unwrap();
+    let vault = Vault::default();
+    let result = job.run(
+        &vault,
+        |_| credentials(),
+        &LivePages::default(),
+        || cp.provider_job_current(&job),
+    );
+    let connected = cp.complete_provider(&job, result);
+    assert_eq!(connected["ok"], true, "{connected}");
+    let account = &connected["data"];
+    let confirmed = cp.dispatch(request(
+        "provider.connect",
+        json!({"step":"confirm","workspaceId":ws,"connectionId":account["connectionId"],"expectedStateVersion":account["stateVersion"],"acknowledgeUnverified":false}),
+    ));
+    assert_eq!(confirmed["ok"], true, "{confirmed}");
+    let account = &confirmed["data"];
+    let previous = account["data"].clone();
+    let stamp = account["lastSuccessfulSync"].clone();
+    let refresh = request(
+        "account.refresh",
+        json!({"workspaceId":ws,"connectionId":account["connectionId"],"expectedStateVersion":account["stateVersion"]}),
+    );
+    let job = cp.prepare_provider(&refresh).unwrap().unwrap();
+    let duplicate = json!({
+        "userId":"9007199254740993","orderId":"200","symbol":"BTCUSDT",
+        "price":"1","size":"1","orderType":"limit","side":"buy","status":"filled",
+        "priceAvg":"1","baseVolume":"1","quoteVolume":"1","quoteCoin":"USDT","tpslType":"normal"
+    });
+    let result = job.run(
+        &vault,
+        |_| panic!("Refresh must use stored credentials"),
+        &ChangedResponse {
+            path: "/api/v2/spot/trade/history-orders?limit=100",
+            data: json!([duplicate]),
+        },
+        || cp.provider_job_current(&job),
+    );
+    let failed = cp.complete_provider(&job, result);
+    assert_eq!(failed["ok"], false, "{failed}");
+    assert_eq!(failed["error"]["code"], "PROVIDER_DATA_INCOMPLETE");
+    let accounts = cp.dispatch(request("account.list", json!({"workspaceId":ws})));
+    let account = &accounts["data"]["accounts"][0];
+    assert_eq!(account["data"], previous);
+    assert_eq!(account["lastSuccessfulSync"], stamp);
+}
+
 #[test]
 fn provider_schema_field_count_is_checked_before_storage_and_http() {
     for (provider, environment, values) in [
@@ -1092,10 +1214,19 @@ fn malformed_identity_time_assets_pages_and_reflected_secrets_fail_without_a_sna
     let assets = "/api/v2/spot/account/assets?assetType=all";
     let plan = "/api/v2/spot/trade/current-plan-order?limit=100";
     let normal = "/api/v2/spot/trade/unfilled-orders?limit=100&tpslType=normal";
+    let history = "/api/v2/spot/trade/history-orders?limit=100";
+    let plan_history = "/api/v2/spot/trade/history-plan-order?limit=100";
+    let fills = "/api/v2/spot/trade/fills?limit=100";
     let coin = json!({"coin":"BTC","available":"1","frozen":"0","locked":"0","limitAvailable":"0"});
     let mut negative = coin.clone();
     negative["locked"] = "-1".into();
     let bad_order = json!({"userId":"9007199254740993","orderId":"1","symbol":"BTCUSDT","size":"1","orderType":"limit","side":"buy","status":"live","tpslType":"normal","priceAvg":"1","baseVolume":"0","quoteVolume":"0"});
+    let history_order = json!({"userId":"9007199254740993","orderId":"2","symbol":"BTCUSDT","size":"1","orderType":"limit","side":"buy","status":"filled","tpslType":"normal","price":"1","priceAvg":"1","baseVolume":"1","quoteVolume":"1","quoteCoin":"USDT"});
+    let mut wrong_history_user = history_order.clone();
+    wrong_history_user["userId"] = "3".into();
+    let fill = json!({"userId":"9007199254740993","orderId":"2","tradeId":"4","symbol":"BTCUSDT","side":"buy","size":"1","amount":"1"});
+    let mut wrong_fill_user = fill.clone();
+    wrong_fill_user["userId"] = "3".into();
     let mut wrong_user = bad_order.clone();
     wrong_user["userId"] = "2".into();
     let cases = vec![
@@ -1167,6 +1298,39 @@ fn malformed_identity_time_assets_pages_and_reflected_secrets_fail_without_a_sna
             "PROVIDER_RESPONSE_INVALID",
         ),
         (plan, json!([]), "PROVIDER_RESPONSE_INVALID"),
+        (
+            history,
+            json!([wrong_history_user]),
+            "PROVIDER_IDENTITY_CHANGED",
+        ),
+        (
+            history,
+            json!([history_order.clone(), history_order.clone()]),
+            "PROVIDER_DATA_INCOMPLETE",
+        ),
+        (
+            history,
+            Value::Array(
+                (1..=101)
+                    .map(|order_id| {
+                        let mut row = history_order.clone();
+                        row["orderId"] = order_id.to_string().into();
+                        row
+                    })
+                    .collect(),
+            ),
+            "PROVIDER_DATA_INCOMPLETE",
+        ),
+        (
+            plan_history,
+            json!({"nextFlag":true,"idLessThan":"3","orderList":[{
+                "orderId":"2","symbol":"BTCUSDT","size":"1","executePrice":"1",
+                "triggerPrice":"1","status":"executed","orderType":"limit",
+                "side":"buy","planType":"amount"
+            }]}),
+            "PROVIDER_DATA_INCOMPLETE",
+        ),
+        (fills, json!([wrong_fill_user]), "PROVIDER_IDENTITY_CHANGED"),
     ];
     for (path, data, expected) in cases {
         let folder = tempfile::tempdir().unwrap();
@@ -1245,6 +1409,6 @@ fn invalidation_during_a_page_stops_further_io_and_cleans_the_new_key() {
     );
     let reply = cp.complete_provider(&job, result);
     assert_eq!(reply["error"]["code"], "STATE_VERSION_CONFLICT", "{reply}");
-    assert_eq!(http.calls.borrow().len(), 4);
+    assert_eq!(http.calls.borrow().len(), 3);
     assert!(vault.0.borrow().is_none());
 }

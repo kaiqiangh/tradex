@@ -798,6 +798,7 @@ mod tests {
             balances: vec![],
             positions: vec![],
             open_orders: vec![],
+            bitget_order_book: None,
             capabilities: vec![],
             limitations: vec![],
         });

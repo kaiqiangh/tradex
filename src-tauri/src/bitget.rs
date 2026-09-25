@@ -6,7 +6,10 @@ use crate::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use std::{collections::HashSet, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 fn id(v: &Value, key: &str) -> Result<String> {
     let s = v[key].as_str().ok_or_else(invalid)?;
@@ -18,6 +21,12 @@ fn id(v: &Value, key: &str) -> Result<String> {
 }
 fn older(a: &str, b: &str) -> bool {
     (a.len(), a) < (b.len(), b)
+}
+fn cursor_suffix(value: &str) -> bool {
+    value.is_empty()
+        || value
+            .strip_prefix("&idLessThan=")
+            .is_some_and(|cursor| id(&serde_json::json!({"id":cursor}), "id").is_ok())
 }
 pub(super) fn allows(path: &str) -> bool {
     if matches!(
@@ -38,18 +47,31 @@ pub(super) fn allows(path: &str) -> bool {
     let Some((route, query)) = path.split_once('?') else {
         return false;
     };
-    let rest = match route {
+    let allowed = match route {
         "/api/v2/spot/trade/unfilled-orders" => query
             .strip_prefix("limit=100&tpslType=normal")
-            .or_else(|| query.strip_prefix("limit=100&tpslType=tpsl")),
-        "/api/v2/spot/trade/current-plan-order" => query.strip_prefix("limit=100"),
-        _ => None,
+            .or_else(|| query.strip_prefix("limit=100&tpslType=tpsl"))
+            .is_some_and(cursor_suffix),
+        "/api/v2/spot/trade/current-plan-order" => {
+            query.strip_prefix("limit=100").is_some_and(cursor_suffix)
+        }
+        _ => false,
     };
-    rest.is_some_and(|r| {
-        r.is_empty()
-            || r.strip_prefix("&idLessThan=")
-                .is_some_and(|s| id(&serde_json::json!({"id":s}), "id").is_ok())
-    })
+    allowed
+}
+pub(super) fn allows_live_history(path: &str) -> bool {
+    let Some((route, query)) = path.split_once('?') else {
+        return false;
+    };
+    match route {
+        "/api/v2/spot/trade/history-plan-order" | "/api/v2/spot/trade/fills" => {
+            query.strip_prefix("limit=100").is_some_and(cursor_suffix)
+        }
+        "/api/v2/spot/trade/history-orders" => ["limit=100", "limit=100&tpslType=tpsl"]
+            .into_iter()
+            .any(|base| query.strip_prefix(base).is_some_and(cursor_suffix)),
+        _ => false,
+    }
 }
 fn valid_client_oid(value: &str) -> bool {
     value.starts_with("tx-")
@@ -147,46 +169,10 @@ pub(super) fn read(
         return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
     }
     let permissions = permissions(&account)?;
-    let assets = signed("/api/v2/spot/account/assets?assetType=all")?;
-    let assets = assets.as_array().ok_or_else(invalid)?;
-    if assets.len() > 10_000 {
-        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
-    }
-    let mut seen = HashSet::new();
-    let mut balances = vec![];
-    let mut positions = vec![];
-    for a in assets {
-        let asset = identifier(a, "coin")?;
-        if !seen.insert(asset.to_uppercase()) {
-            return Err(invalid());
-        }
-        let available = positive(&a["available"])?;
-        let frozen = positive(&a["frozen"])?;
-        let locked = positive(&a["locked"])?;
-        let sum = total(&total(&available, &frozen)?, &locked)?;
-        if sum != "0" {
-            positions.push(Position {
-                symbol: asset.clone(),
-                instrument_id: None,
-                quantity: sum.clone(),
-                market_value: None,
-                average_entry_price: None,
-                instrument_currency: None,
-                market_value_currency: None,
-            });
-        }
-        balances.push(Balance {
-            asset,
-            available,
-            total: Some(sum),
-            reserved: Some(frozen),
-            locked: Some(locked),
-            restricted_available: Some(positive(&a["limitAvailable"])?),
-            in_pies: None,
-        });
-    }
     let mut orders = vec![];
+    let mut bitget_orders = vec![];
     let mut ids = HashSet::new();
+    let mut book_ids = HashSet::new();
     for kind in ["normal", "tpsl", "plan"] {
         let base = if kind == "plan" {
             "/api/v2/spot/trade/current-plan-order?limit=100".into()
@@ -219,11 +205,14 @@ pub(super) fn read(
                 if minimum.as_ref().is_none_or(|c| older(&order_id, c)) {
                     minimum = Some(order_id.clone());
                 }
-                let order = order(row, kind, &identity, order_id)?;
+                let detail = bitget_order(row, kind, &identity, order_id)?;
+                let order = open_order(&detail, row)?;
                 if !ids.insert(order.broker_order_id.clone()) {
                     return Err(invalid());
                 }
+                book_ids.insert(format!("{}:{}", detail.kind, detail.provider_order_id));
                 orders.push(order);
+                bitget_orders.push(detail);
             }
             let more = if kind == "plan" {
                 page["nextFlag"].as_bool().ok_or_else(invalid)?
@@ -250,7 +239,124 @@ pub(super) fn read(
     if !current() {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
-    Ok(Observation { permissions, data: AccountData { remote_account_id: identity, account_type: "BITGET_CLASSIC_SPOT".into(), currency: None, buying_power: None, balances, positions, open_orders: orders, capabilities: vec!["account.read".into(),"positions.read".into(),"orders.read".into()], limitations: vec!["Asset totals and holdings are available + frozen + locked. Restricted availability is shown separately and is not added; no FX valuation or cost basis is inferred.".into(), "Order quote currency is unavailable until instrument metadata is resolved. Plan and TPSL observations do not enable trigger-order execution.".into(), "Classic Demo account endpoints may be unsupported. Private stream, reconciliation, risk policy and execution are not configured; Live remains disarmed.".into()] } })
+    let bitget_order_book = if endpoint == ProviderEndpoint::BitgetLive {
+        let mut history = Vec::new();
+        for kind in ["normal", "tpsl"] {
+            history.extend(history_orders(&signed, &identity, current, kind)?);
+        }
+        history.extend(history_plan_orders(&signed, current)?);
+        let mut currencies = HashMap::new();
+        for order in bitget_orders.iter().chain(history.iter()) {
+            if let Some(currency) = &order.currency {
+                let key = (order.provider_order_id.clone(), order.symbol.clone());
+                if currencies
+                    .get(&key)
+                    .is_some_and(|existing| existing != currency)
+                {
+                    return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                }
+                currencies.insert(key, currency.clone());
+            }
+        }
+        let fills = fills(&signed, &identity, &currencies, current)?;
+        for order in history {
+            if !book_ids.insert(format!("{}:{}", order.kind, order.provider_order_id)) {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            bitget_orders.push(order);
+        }
+        bitget_orders.sort_by(|left, right| {
+            right
+                .updated_at
+                .cmp(&left.updated_at)
+                .then_with(|| right.created_at.cmp(&left.created_at))
+                .then_with(|| {
+                    if older(&left.provider_order_id, &right.provider_order_id) {
+                        std::cmp::Ordering::Greater
+                    } else if older(&right.provider_order_id, &left.provider_order_id) {
+                        std::cmp::Ordering::Less
+                    } else {
+                        std::cmp::Ordering::Equal
+                    }
+                })
+        });
+        Some(BitgetSpotOrderBook {
+            orders: bitget_orders,
+            fills,
+            observed_at: crate::storage::timestamp()?,
+        })
+    } else {
+        None
+    };
+    let assets = signed("/api/v2/spot/account/assets?assetType=all")?;
+    let assets = assets.as_array().ok_or_else(invalid)?;
+    if assets.len() > 10_000 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    let mut seen = HashSet::new();
+    let mut balances = vec![];
+    let mut positions = vec![];
+    for asset_value in assets {
+        let asset = identifier(asset_value, "coin")?;
+        if !seen.insert(asset.to_uppercase()) {
+            return Err(invalid());
+        }
+        let available = positive(&asset_value["available"])?;
+        let frozen = positive(&asset_value["frozen"])?;
+        let locked = positive(&asset_value["locked"])?;
+        let sum = total(&total(&available, &frozen)?, &locked)?;
+        if sum != "0" {
+            positions.push(Position {
+                symbol: asset.clone(),
+                instrument_id: None,
+                quantity: sum.clone(),
+                market_value: None,
+                average_entry_price: None,
+                instrument_currency: None,
+                market_value_currency: None,
+            });
+        }
+        balances.push(Balance {
+            asset,
+            available,
+            total: Some(sum),
+            reserved: Some(frozen),
+            locked: Some(locked),
+            restricted_available: Some(positive(&asset_value["limitAvailable"])?),
+            in_pies: None,
+        });
+    }
+    let mut limitations = vec![
+        "Asset totals and holdings are available + frozen + locked. Restricted availability is shown separately and is not added; no FX valuation or cost basis is inferred.".into(),
+        "Order quote currency is unavailable until instrument metadata is resolved. Plan and TPSL observations do not enable trigger-order execution.".into(),
+        "Private stream, reconciliation, risk policy and execution are not configured; Live remains disarmed.".into(),
+    ];
+    if endpoint == ProviderEndpoint::BitgetLive {
+        limitations.push(
+            "Live order history and fills are read-only, limited to the provider's recent 90-day window and 2,000 rows per order category or fill query. Live execution remains disarmed.".into(),
+        );
+    } else {
+        limitations.push("Classic Demo account endpoints may be unsupported.".into());
+    }
+    Ok(Observation {
+        permissions,
+        data: AccountData {
+            remote_account_id: identity,
+            account_type: "BITGET_CLASSIC_SPOT".into(),
+            currency: None,
+            buying_power: None,
+            balances,
+            positions,
+            open_orders: orders,
+            bitget_order_book,
+            capabilities: vec![
+                "account.read".into(),
+                "positions.read".into(),
+                "orders.read".into(),
+            ],
+            limitations,
+        },
+    })
 }
 fn permissions(account: &Value) -> Result<PermissionReview> {
     let mut p = PermissionReview::default();
@@ -331,7 +437,67 @@ fn permissions(account: &Value) -> Result<PermissionReview> {
     }
     Ok(p)
 }
-fn order(v: &Value, kind: &str, identity: &str, order_id: String) -> Result<OpenOrder> {
+fn timestamp(value: &Value, field: &str) -> Result<Option<String>> {
+    let Some(value) = value.get(field) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let raw = value.as_str().ok_or_else(invalid)?;
+    let parsed = raw.parse::<u64>().map_err(|_| invalid())?;
+    let millis = if parsed < 100_000_000_000 {
+        parsed.checked_mul(1000).ok_or_else(invalid)?
+    } else {
+        parsed
+    };
+    if !valid_time(millis) {
+        return Err(invalid());
+    }
+    let instant = time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(millis) * 1_000_000)
+        .map_err(|_| invalid())?;
+    Ok(Some(
+        instant
+            .format(&time::format_description::well_known::Rfc3339)
+            .map_err(|_| invalid())?,
+    ))
+}
+
+fn normalized_status(value: &str) -> &'static str {
+    match value.to_ascii_lowercase().as_str() {
+        "new" | "live" | "not_trigger" => "OPEN",
+        "partially_filled" => "PARTIALLY_FILLED",
+        "filled" => "FILLED",
+        "executed" => "TRIGGERED",
+        "fail_execute" => "TRIGGER_FAILED",
+        "cancelled" | "canceled" => "CANCELED",
+        "rejected" => "REJECTED",
+        _ => "UNKNOWN",
+    }
+}
+
+fn optional_decimal(value: &Value, field: &str) -> Result<Option<String>> {
+    match value.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(raw)) if raw.is_empty() => Ok(None),
+        Some(value) => positive(value).map(Some),
+    }
+}
+
+fn optional_identifier(value: &Value, field: &str) -> Result<Option<String>> {
+    match value.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(raw)) if raw.is_empty() => Ok(None),
+        Some(_) => identifier(value, field).map(Some),
+    }
+}
+
+fn bitget_order(
+    v: &Value,
+    kind: &str,
+    identity: &str,
+    order_id: String,
+) -> Result<BitgetSpotOrder> {
     let plan = kind == "plan";
     if !plan && id(v, "userId")? != identity {
         return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
@@ -344,11 +510,6 @@ fn order(v: &Value, kind: &str, identity: &str, order_id: String) -> Result<Open
         return Err(invalid());
     }
     let status = text(v, "status", 32)?;
-    if (plan && status != "not_trigger")
-        || (!plan && !matches!(status.as_str(), "new" | "live" | "partially_filled"))
-    {
-        return Err(invalid());
-    }
     if !plan && v["tpslType"] != kind {
         return Err(invalid());
     }
@@ -365,39 +526,297 @@ fn order(v: &Value, kind: &str, identity: &str, order_id: String) -> Result<Open
     if size == "0" {
         return Err(invalid());
     }
-    Ok(OpenOrder {
-        broker_order_id: format!("{}:{order_id}", if plan { "plan" } else { "order" }),
+    let filled_quantity = if plan {
+        None
+    } else {
+        optional_decimal(v, "baseVolume")?
+    };
+    let filled_value = if plan {
+        None
+    } else {
+        optional_decimal(v, "quoteVolume")?
+    };
+    let quantity = (!quote).then(|| size.clone());
+    let notional = quote.then_some(size);
+    let remaining_quantity = match (&quantity, &filled_quantity) {
+        (Some(quantity), Some(filled)) => Some(provider_io::decimal_subtract(quantity, filled)?),
+        _ => None,
+    };
+    Ok(BitgetSpotOrder {
+        provider_order_id: order_id,
+        kind: kind.to_uppercase(),
         symbol: identifier(v, "symbol")?,
-        instrument_id: None,
         side: side.to_uppercase(),
-        quantity: (!quote).then(|| size.clone()),
-        notional: quote.then_some(size),
-        filled_quantity: if plan {
-            None
-        } else {
-            Some(positive(&v["baseVolume"])?)
-        },
-        filled_value: if plan {
-            None
-        } else {
-            Some(positive(&v["quoteVolume"])?)
-        },
-        currency: None,
-        status: status.to_uppercase(),
-        limit_price: if order_type == "limit" {
-            Some(positive(
-                &v[if plan { "executePrice" } else { "priceAvg" }],
-            )?)
-        } else {
-            None
-        },
-        kind: Some(kind.to_uppercase()),
-        trigger_price: if kind == "normal" {
-            None
-        } else {
-            Some(positive(&v["triggerPrice"])?)
-        },
+        quantity,
+        notional,
+        filled_quantity,
+        filled_value,
+        remaining_quantity,
+        currency: optional_identifier(v, "quoteCoin")?,
+        provider_status: status.clone(),
+        normalized_status: normalized_status(&status).into(),
+        origin: "external".into(),
+        created_at: timestamp(v, "cTime")?,
+        updated_at: timestamp(v, "uTime")?,
     })
+}
+
+fn open_order(order: &BitgetSpotOrder, raw: &Value) -> Result<OpenOrder> {
+    let limit_price = if raw["orderType"] == "limit" {
+        Some(positive(
+            &raw[if order.kind == "PLAN" {
+                "executePrice"
+            } else {
+                "priceAvg"
+            }],
+        )?)
+    } else {
+        None
+    };
+    let trigger_price = if order.kind == "NORMAL" {
+        None
+    } else {
+        Some(positive(&raw["triggerPrice"])?)
+    };
+    Ok(OpenOrder {
+        broker_order_id: format!(
+            "{}:{}",
+            order.kind.to_ascii_lowercase(),
+            order.provider_order_id
+        ),
+        symbol: order.symbol.clone(),
+        instrument_id: None,
+        side: order.side.clone(),
+        quantity: order.quantity.clone(),
+        notional: order.notional.clone(),
+        filled_quantity: order.filled_quantity.clone(),
+        filled_value: order.filled_value.clone(),
+        currency: order.currency.clone(),
+        status: order.provider_status.to_ascii_uppercase(),
+        limit_price,
+        kind: Some(order.kind.clone()),
+        trigger_price,
+    })
+}
+
+fn history_orders(
+    signed: &impl Fn(&str) -> Result<Value>,
+    identity: &str,
+    current: &impl Fn() -> bool,
+    kind: &str,
+) -> Result<Vec<BitgetSpotOrder>> {
+    const MAX_PAGES: usize = 20;
+    let base = if kind == "tpsl" {
+        "/api/v2/spot/trade/history-orders?limit=100&tpslType=tpsl"
+    } else {
+        "/api/v2/spot/trade/history-orders?limit=100"
+    };
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+    let mut cursor: Option<String> = None;
+    for page_number in 0..MAX_PAGES {
+        if !current() {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let path = cursor.as_ref().map_or_else(
+            || base.to_owned(),
+            |cursor| format!("{base}&idLessThan={cursor}"),
+        );
+        let page = signed(&path)?;
+        let rows = page.as_array().ok_or_else(invalid)?;
+        if rows.len() > 100 || result.len() + rows.len() > MAX_PAGES * 100 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let mut minimum: Option<String> = None;
+        let mut prior: Option<String> = None;
+        for row in rows {
+            let order_id = id(row, "orderId")?;
+            if cursor
+                .as_ref()
+                .is_some_and(|value| !older(&order_id, value))
+                || prior.as_ref().is_some_and(|value| !older(&order_id, value))
+                || !seen.insert(order_id.clone())
+            {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            if minimum.as_ref().is_none_or(|value| older(&order_id, value)) {
+                minimum = Some(order_id.clone());
+            }
+            prior = Some(order_id.clone());
+            result.push(bitget_order(row, kind, identity, order_id)?);
+        }
+        if rows.len() < 100 {
+            return Ok(result);
+        }
+        if page_number + 1 == MAX_PAGES {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let next = minimum.ok_or_else(invalid)?;
+        if cursor.as_ref().is_some_and(|value| !older(&next, value)) {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        cursor = Some(next);
+        std::thread::sleep(Duration::from_millis(105));
+    }
+    Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"))
+}
+
+fn history_plan_orders(
+    signed: &impl Fn(&str) -> Result<Value>,
+    current: &impl Fn() -> bool,
+) -> Result<Vec<BitgetSpotOrder>> {
+    const MAX_PAGES: usize = 20;
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+    let mut cursor: Option<String> = None;
+    for page_number in 0..MAX_PAGES {
+        if !current() {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let path = cursor.as_ref().map_or_else(
+            || "/api/v2/spot/trade/history-plan-order?limit=100".to_owned(),
+            |cursor| format!("/api/v2/spot/trade/history-plan-order?limit=100&idLessThan={cursor}"),
+        );
+        let page = signed(&path)?;
+        let rows = page["orderList"].as_array().ok_or_else(invalid)?;
+        if rows.len() > 100 || result.len() + rows.len() > MAX_PAGES * 100 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let mut minimum: Option<String> = None;
+        let mut prior: Option<String> = None;
+        for row in rows {
+            let order_id = id(row, "orderId")?;
+            if cursor
+                .as_ref()
+                .is_some_and(|value| !older(&order_id, value))
+                || prior.as_ref().is_some_and(|value| !older(&order_id, value))
+                || !seen.insert(order_id.clone())
+            {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            if minimum.as_ref().is_none_or(|value| older(&order_id, value)) {
+                minimum = Some(order_id.clone());
+            }
+            prior = Some(order_id.clone());
+            result.push(bitget_order(row, "plan", "", order_id)?);
+        }
+        if !page["nextFlag"].as_bool().ok_or_else(invalid)? {
+            return Ok(result);
+        }
+        if page_number + 1 == MAX_PAGES {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let next = id(&page, "idLessThan")?;
+        let minimum = minimum.ok_or_else(invalid)?;
+        if older(&minimum, &next) || cursor.as_ref().is_some_and(|value| !older(&next, value)) {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        cursor = Some(next);
+        std::thread::sleep(Duration::from_millis(105));
+    }
+    Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"))
+}
+
+fn fills(
+    signed: &impl Fn(&str) -> Result<Value>,
+    identity: &str,
+    currencies: &HashMap<(String, String), String>,
+    current: &impl Fn() -> bool,
+) -> Result<Vec<BitgetSpotFill>> {
+    const MAX_PAGES: usize = 20;
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+    let mut cursor: Option<String> = None;
+    for page_number in 0..MAX_PAGES {
+        if !current() {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let path = cursor.as_ref().map_or_else(
+            || "/api/v2/spot/trade/fills?limit=100".to_owned(),
+            |cursor| format!("/api/v2/spot/trade/fills?limit=100&idLessThan={cursor}"),
+        );
+        let page = signed(&path)?;
+        let rows = page.as_array().ok_or_else(invalid)?;
+        if rows.len() > 100 || result.len() + rows.len() > MAX_PAGES * 100 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let mut minimum: Option<String> = None;
+        let mut prior: Option<String> = None;
+        for row in rows {
+            let trade_id = id(row, "tradeId")?;
+            if id(row, "userId")? != identity {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+            }
+            let order_id = id(row, "orderId")?;
+            let key = format!("{order_id}:{trade_id}");
+            if cursor
+                .as_ref()
+                .is_some_and(|value| !older(&trade_id, value))
+                || prior.as_ref().is_some_and(|value| !older(&trade_id, value))
+                || !seen.insert(key)
+            {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            if minimum.as_ref().is_none_or(|value| older(&trade_id, value)) {
+                minimum = Some(trade_id.clone());
+            }
+            prior = Some(trade_id.clone());
+            let side = text(row, "side", 4)?;
+            if !matches!(side.as_str(), "buy" | "sell") {
+                return Err(invalid());
+            }
+            let symbol = identifier(row, "symbol")?;
+            let observed_at = timestamp(row, "uTime")?
+                .or(timestamp(row, "cTime")?)
+                .unwrap_or(crate::storage::timestamp()?);
+            result.push(BitgetSpotFill {
+                provider_trade_id: trade_id,
+                provider_order_id: order_id.clone(),
+                symbol: symbol.clone(),
+                side: side.to_uppercase(),
+                price: optional_decimal(row, "priceAvg")?,
+                quantity: positive(&row["size"])?,
+                value: optional_decimal(row, "amount")?,
+                currency: currencies.get(&(order_id, symbol)).cloned(),
+                observed_at,
+            });
+        }
+        if rows.len() < 100 {
+            return Ok(result);
+        }
+        if page_number + 1 == MAX_PAGES {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let next = minimum.ok_or_else(invalid)?;
+        if cursor.as_ref().is_some_and(|value| !older(&next, value)) {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        cursor = Some(next);
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fill_currency_matches_order_id_and_symbol() {
+        let currencies = HashMap::from([
+            (("200".into(), "BTCUSDT".into()), "USDT".into()),
+            (("200".into(), "ETHUSDC".into()), "USDC".into()),
+        ]);
+        let signed = |_: &str| {
+            Ok(serde_json::json!([{
+                "userId":"9007199254740993", "orderId":"200", "tradeId":"300",
+                "symbol":"BTCUSDT", "side":"buy", "priceAvg":"70000.125",
+                "size":"0.0002", "amount":"14.000025", "cTime":"1788849500000"
+            }]))
+        };
+        let result = fills(&signed, "9007199254740993", &currencies, &|| true).unwrap();
+        assert_eq!(result[0].currency.as_deref(), Some("USDT"));
+    }
 }
 
 struct DemoClock {

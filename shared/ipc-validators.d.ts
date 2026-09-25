@@ -86,6 +86,9 @@ declare const validators: {
   BitgetDemoOrderAttemptState: (value: unknown) => boolean;
   BitgetDemoOrderReconcile: (value: unknown) => boolean;
   BitgetDemoOrderSubmit: (value: unknown) => boolean;
+  BitgetSpotFill: (value: unknown) => boolean;
+  BitgetSpotOrder: (value: unknown) => boolean;
+  BitgetSpotOrderBook: (value: unknown) => boolean;
   CapabilityDecision: (value: unknown) => boolean;
   CapabilityLevel: (value: unknown) => boolean;
   CapabilityQuery: (value: unknown) => boolean;

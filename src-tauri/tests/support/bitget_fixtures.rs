@@ -94,6 +94,41 @@ impl ProviderHttp for Http {
             "/api/v2/spot/trade/current-plan-order?limit=100&idLessThan=200" => {
                 json!({"nextFlag":false,"idLessThan":"0","orderList":[]})
             }
+            "/api/v2/spot/trade/history-plan-order?limit=100" => {
+                json!({"nextFlag":true,"idLessThan":"9007199254741001","orderList":[{
+                    "orderId":"9007199254741002","symbol":"BTCUSDT","size":"0.0003",
+                    "executePrice":"70000","triggerPrice":"69000","status":"executed",
+                    "orderType":"limit","side":"buy","planType":"amount",
+                    "cTime":"1788849400000","uTime":"1788849500000"
+                }]})
+            }
+            "/api/v2/spot/trade/history-plan-order?limit=100&idLessThan=9007199254741001" => {
+                json!({"nextFlag":false,"orderList":[{
+                    "orderId":"9007199254741000","symbol":"BTCUSDT","size":"10",
+                    "executePrice":"70000","triggerPrice":"69000","status":"fail_execute",
+                    "orderType":"market","side":"sell","planType":"total",
+                    "cTime":"1788849300000","uTime":"1788849400000"
+                }]})
+            }
+            "/api/v2/spot/trade/history-orders?limit=100" => json!([{
+                "userId":"9007199254740993","orderId":"9007199254740997","clientOid":"exchange-ui-1",
+                "symbol":"BTCUSDT","price":"70000.25","size":"0.0002","orderType":"limit",
+                "side":"buy","status":"filled","priceAvg":"70000.125","baseVolume":"0.0002",
+                "quoteVolume":"14.000025","quoteCoin":"USDT","tpslType":"normal",
+                "cTime":"1788849500000","uTime":"1788849600000"
+            }]),
+            "/api/v2/spot/trade/history-orders?limit=100&tpslType=tpsl" => json!([{
+                "userId":"9007199254740993","orderId":"9007199254740996","symbol":"BTCUSDT",
+                "price":"70000","size":"0.0001","orderType":"limit","side":"sell",
+                "status":"cancelled","priceAvg":"70000","baseVolume":"0","quoteVolume":"0",
+                "quoteCoin":"USDT","tpslType":"tpsl","triggerPrice":"69000",
+                "cTime":"1788849200000","uTime":"1788849300000"
+            }]),
+            "/api/v2/spot/trade/fills?limit=100" => json!([{
+                "userId":"9007199254740993","orderId":"9007199254740997","tradeId":"9223372036854775808",
+                "symbol":"BTCUSDT","orderType":"limit","side":"buy","priceAvg":"70000.125",
+                "size":"0.0002","amount":"14.000025","cTime":"1788849500","uTime":"1788849600"
+            }]),
             "/api/v2/spot/public/symbols?symbol=BTCUSDT" => json!([
                 {"symbol":"BTCUSDT","baseCoin":"BTC","quoteCoin":"USDT","status":"online","pricePrecision":"2","quantityPrecision":"6","quotePrecision":"8","minTradeUSDT":"1"}
             ]),

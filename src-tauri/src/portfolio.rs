@@ -147,6 +147,7 @@ fn local_paper_data(account: &AccountConnection, state: &LocalPaperState) -> Acc
                 trigger_price: None,
             })
             .collect(),
+        bitget_order_book: None,
         capabilities: vec!["simulation.execute".into(), "portfolio.read".into()],
         limitations: vec![
             state.disclosure.clone(),
@@ -1455,6 +1456,7 @@ mod tests {
             }],
             positions: vec![],
             open_orders: vec![],
+            bitget_order_book: None,
             capabilities: vec![],
             limitations: vec![],
         });
@@ -1509,6 +1511,7 @@ mod tests {
                 kind: None,
                 trigger_price: None,
             }],
+            bitget_order_book: None,
             capabilities: vec![],
             limitations: vec![],
         });
@@ -1594,6 +1597,7 @@ mod tests {
                 .collect(),
             positions: vec![],
             open_orders: vec![],
+            bitget_order_book: None,
             capabilities: vec![],
             limitations: vec![],
         });
@@ -1620,6 +1624,7 @@ mod tests {
             }],
             positions: vec![],
             open_orders: vec![],
+            bitget_order_book: None,
             capabilities: vec![],
             limitations: vec![],
         });
@@ -1650,6 +1655,7 @@ mod tests {
                 market_value_currency: None,
             }],
             open_orders: vec![],
+            bitget_order_book: None,
             capabilities: vec![],
             limitations: vec![],
         });
@@ -1705,6 +1711,7 @@ mod tests {
                 })
                 .collect(),
             open_orders: vec![],
+            bitget_order_book: None,
             capabilities: vec![],
             limitations: vec![],
         });

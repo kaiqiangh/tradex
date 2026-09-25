@@ -640,6 +640,12 @@ Show “Review cancellation” only for a connected `BINANCE_TESTNET` account an
 
 Send only the typed `binance.testnet.orders.cancel` command from the main Trade UI. Render `SUBMITTING` and `PENDING` distinctly; acceptance is not cancellation, and an ambiguous result stays pending with no repeat request. A later exact-order read or private-stream event determines terminal status and preserves racing fills. No Live, cancel-all, Agent, or Order Gateway control is exposed.
 
+### 13.16 Bitget Spot Live account orders and fills (#75)
+
+The Accounts detail for a selected `bitget` / `LIVE` connection shows its provider balances and, after an explicit refresh, the saved current and recent historical order/fill observations. Label the section `READ ONLY · DISARMED`. The order table shows provider order ID, `TRADEX` only for a persisted TradeX identity (otherwise `external`), symbol/kind, side, exact quantity or notional, cumulative filled base/quote amounts, remaining quantity only when known, raw/normalized provider status, and provider times. Recent fills remain separately identifiable by provider trade and order IDs. Missing values render as unavailable.
+
+Show the TradeX observation time and `CURRENT`, `STALE` (older than five minutes), or `DEGRADED` freshness. A failed read retains the last saved order book and account balances while account health exposes the sanitized failure/rate-limit status and retry state. There is no automatic provider polling. Wide order/fill/balance tables remain keyboard-scrollable, and the account detail is checked at 390, 768, and 1280 px. No Bitget Demo fallback or Live write action is available.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle
