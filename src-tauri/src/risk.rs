@@ -558,6 +558,24 @@ pub struct RiskCheckResult {
     pub reason: String,
 }
 
+impl RiskDecisionStatus {
+    fn from_checks(checks: &[RiskCheckResult]) -> Self {
+        if checks
+            .iter()
+            .any(|check| check.outcome == RiskCheckOutcome::Reject)
+        {
+            Self::Rejected
+        } else if checks
+            .iter()
+            .any(|check| check.outcome == RiskCheckOutcome::Unavailable)
+        {
+            Self::Unavailable
+        } else {
+            Self::Allowed
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RiskDecisionInputReference {
@@ -636,21 +654,7 @@ impl RiskDecision {
         proposal_id: &str,
         sequence: u64,
     ) -> crate::protocol::Result<()> {
-        let status = if self
-            .checks
-            .iter()
-            .any(|check| check.outcome == RiskCheckOutcome::Reject)
-        {
-            RiskDecisionStatus::Rejected
-        } else if self
-            .checks
-            .iter()
-            .any(|check| check.outcome == RiskCheckOutcome::Unavailable)
-        {
-            RiskDecisionStatus::Unavailable
-        } else {
-            RiskDecisionStatus::Allowed
-        };
+        let status = RiskDecisionStatus::from_checks(&self.checks);
         if self.workspace_id != workspace_id
             || self.proposal_id != proposal_id
             || self.proposal_hash.len() != 71
@@ -1547,19 +1551,7 @@ pub(crate) fn evaluate(
         "Live inactivity timeout applies to a later Arm session, not this policy evaluation.",
     );
 
-    let status = if checks
-        .iter()
-        .any(|check| check.outcome == RiskCheckOutcome::Reject)
-    {
-        RiskDecisionStatus::Rejected
-    } else if checks
-        .iter()
-        .any(|check| check.outcome == RiskCheckOutcome::Unavailable)
-    {
-        RiskDecisionStatus::Unavailable
-    } else {
-        RiskDecisionStatus::Allowed
-    };
+    let status = RiskDecisionStatus::from_checks(&checks);
     let context = proposal.fields.environment.clone();
     RiskDecision {
         decision_id: format!("risk-decision:{}", uuid::Uuid::new_v4()),
