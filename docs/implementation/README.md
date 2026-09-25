@@ -6,9 +6,9 @@
 
 S18 #66 本地账户删除切片已在 `dev@383e4c6` 完成代码审查、隔离验证和原生确认框检查，证据见 [#66 本地账户删除验收](s18-trading212-demo-delete-evidence.md)；点击原型 QA-13 仍为 FAILED，真实 Demo gate #64 与 S33 回归仍待完成。
 
-S20 #75 Bitget Live 订单/成交只读切片已在 `dev@983e051` 完成实现、双语契约、串行 Standards/Spec 审查和 Rust-backed fixture 浏览器验证，证据见 [Bitget Live 订单与成交验收](s20-bitget-live-evidence.md)。默认工作区没有 Bitget 连接，因此真实 Live 读取仍待普通 Live 账户安全连接；未创建/使用 Demo 账户或发出真实 provider 请求，S20 Demo 与 S30 仍未完成。
+S20 #75 Bitget Live 订单/成交只读切片已在 `dev@983e051` 完成实现、双语契约、串行 Standards/Spec 审查和 Rust-backed fixture 浏览器验证，证据见 [Bitget Live 订单与成交验收](s20-bitget-live-evidence.md)。默认工作区没有 Bitget 连接，因此真实 Live 读取仍待普通 Live 账户安全连接；未创建/使用 Demo 账户或发出真实 provider 请求。2026-09-25 用户将专用 Bitget Demo 验收替换为普通账户接口范围，相关 #73/#74/#76/#77/#78 已关闭；这不代表 Demo 行为已验收，S30 的 Live 执行 gate 仍待完成。
 
-S20 #76 私有流决策已在 `dev@3cdfbfc` 收口：Bitget 官方 Classic v2 私有频道表没有 Classic Spot 订单更新频道；UTA v3 Demo WebSocket 属于不同 API/订阅契约。TradeX 保持 REST-only 与 `NOT_CONFIGURED`，并在账户详情说明边界，证据见 [S20 #76 Bitget 私有流验收](s20-bitget-private-stream-evidence.md)。按用户范围不创建/使用 Bitget Demo 账户；#73 Demo 交易生命周期仍 OPEN，依赖 Demo 撤单的 #77 保持 OPEN 且未执行，S30 仍需普通 Live 账户真实读取与后续风险/审批/Order Gateway gate。
+S20 #76 私有流决策已在 `dev@3cdfbfc` 收口：Bitget 官方 Classic v2 私有频道表没有 Classic Spot 订单更新频道；UTA v3 Demo WebSocket 属于不同 API/订阅契约。TradeX 保持 REST-only 与 `NOT_CONFIGURED`，并在账户详情说明边界，证据见 [S20 #76 Bitget 私有流验收](s20-bitget-private-stream-evidence.md)。按用户范围不创建/使用 Bitget Demo 账户；#73/#74/#76/#77/#78 均已关闭，未声称 Demo 生命周期验证通过。S30 仍需普通 Live 账户读取与后续风险/审批/Order Gateway gate。
 
 S21 #80 完整风险策略配置与持久化已在 `dev@20113b0` 完成实现、最终全量检查和串行 Standards/Spec 审查，并已关闭；证据见 [S21 #80 验收](s21-risk-policy-evidence.md)。父 Spec #79 仍 OPEN。该切片只完成 policy 设置、版本化保存、拒绝路径、迁移和重开恢复；PRD §21 完整 evaluator、审批/arm 变更效果仍待 S21 后续项。FR-020 保持 `IN_PROGRESS`，J2 保持 `IMPLEMENTED_UNVERIFIED`。#81 已完成实现和本地验证，审查结论及 issue 状态见 GitHub #81；规范见 [RiskDecision 求值与审计规范](s21-risk-decision.md)，证据见 [S21 #81 实现与验证](s21-risk-decision-evidence.md)。新决策独立追加、不改写 Proposal，缺证据 fail-closed；Bitget 仅使用普通 `BITGET_LIVE` 语境，不创建/使用 Demo 账户。之后再处理 #82 policy-change effects。
 
@@ -41,7 +41,7 @@ S21 #80 完整风险策略配置与持久化已在 `dev@20113b0` 完成实现、
 - [S17 #59 Alpaca Paper 私有流验收](s17-alpaca-paper-stream-evidence.md)：本地 WebSocket worker 断线/重连/重启 REST 对账、SQLite 恢复和 React Order/Account degraded 投影；不包含真实 sandbox gate。
 - [S18 #63 Trading 212 Demo 撤单验收](s18-trading212-demo-cancel-evidence.md)：本地 Rust-backed provider fixture 验证安全复核、一次性 DELETE、超时/身份/成交竞态、持久化恢复与键盘/窄屏交互；真实 Demo API gate 留给 #64。
 - [S20 #75 Bitget Live 订单与成交验收](s20-bitget-live-evidence.md)：普通 Live 只读实现、边界分页/精度、双语契约、Rust-backed browser fixture、390/768/1280 和双轴审查；真实 Live provider 读取待安全连接，未使用 Demo 账户。
-- [S20 #76 Bitget 私有流验收](s20-bitget-private-stream-evidence.md)：官方 Classic v2 / UTA v3 文档边界、REST-only 披露、Rust-backed Live fixture、390/768/1280 窄屏检查和串行双轴审查；未创建/使用 Demo 账户，#73 与 #77 保持 OPEN。
+- [S20 #76 Bitget 私有流验收](s20-bitget-private-stream-evidence.md)：官方 Classic v2 / UTA v3 文档边界、REST-only 披露、Rust-backed Live fixture、390/768/1280 窄屏检查和串行双轴审查；未创建/使用 Demo 账户，也未声称 Demo 行为已验证。Demo 专属 #73/#74/#76/#77/#78 已按普通账户接口范围关闭。
 - [S21 #80 风险策略配置与持久化验收](s21-risk-policy-evidence.md)：PRD §21 全字段 Settings form、public IPC validation、SQLite policy version/outbox transaction、旧 projection 兼容、Rust-backed browser save/reopen、响应式与键盘证据；不代表完整 S21 evaluator 已完成。
 - [S18 Trading 212 Demo 交易生命周期 Spec](s18-trading212-demo.md)：#60 已完成官方 API / 现有实现边界梳理。#61 提交与未知结果恢复已完成，代码提交 `873d42f`、验收证据见 [#61 evidence](s18-trading212-demo-submit-evidence.md)；实现票为 [#62 订单簿与累计成交](https://github.com/kaiqiangh/tradex/issues/62) 已本地验证并关闭（实现 `715abd7`，证据见 [#62 evidence](s18-trading212-demo-orderbook-evidence.md)）、[#63 撤单与成交竞态](https://github.com/kaiqiangh/tradex/issues/63) 已本地验证并关闭（实现代码 SHA c1f6884f700d180534a05001ed12d3e6bfda5b81，证据见 [#63 evidence](s18-trading212-demo-cancel-evidence.md)）；[#64 真实 Demo 验收 gate](https://github.com/kaiqiangh/tradex/issues/64) 依赖前三项，需用户明确授权具体 Demo 写操作。按用户要求串行执行 #62 → #63 → #64；#63 已完成，下一项是 #64。S17 #56 按用户指示保持 OPEN。
 
@@ -95,8 +95,8 @@ S21 #80 完整风险策略配置与持久化已在 `dev@20113b0` 完成实现、
 | S16 | 完成本地模拟交易与持仓更新 | S09、S13 | Local Paper 专属模拟器、标记 TradeX simulation、订单/fill/现金/持仓持久化与查询，永不穿过 Live Gateway；不把模拟结果称为 broker truth。 |
 | S17 | 完成 Alpaca Paper 交易生命周期 | S02、S13、S16 | 官方 Paper endpoints/account/capability/symbol/order/cancel/query/private stream 适配，真实 sandbox 订单状态；不实现未授权的 Alpaca Live 范围。 |
 | S18 | 完成 Trading 212 Demo 交易生命周期 | S02、S13、S16 | Provider-specific 认证、数量/TIF/取消/查询/限流/订单身份与权限能力，Demo 环境不可变；以真实官方支持能力验证，ACK 与 fill 分离。 |
-| S19 | 完成 Binance Spot Testnet 交易生命周期 | S02、S13、S16 | Spot rules、签名/time offset、BASE/QUOTE、order/client identity、private stream/reconciliation，明确 Testnet；无 margin/futures/withdrawal 路径。 |
-| S20 | 完成 Bitget Spot Demo 交易生命周期 | S02、S13、S16 | API key/secret/passphrase schema、官方 Demo 可用性与 headers/capabilities、query/cancel/fills/error/stream；不伪造不存在的 Demo API 支持。 |
+| S19 | 使用 Binance Spot 普通账户接口 | S02、S13、S16 | 保留账户身份、权限、Spot rules、签名/time offset、BASE/QUOTE、order/client identity 与观察边界；专用 Testnet 交易生命周期票已关闭，不声称 Live 下单验收通过，完整 Live gate 留给 S29。 |
+| S20 | 使用 Bitget Spot 普通账户接口 | S02、S13、S16 | 保留 API key/secret/passphrase、官方能力与 REST-only 边界；不创建/使用 Demo 账户，不声称 Demo 行为已验证，完整 Live 执行 gate 留给 S30。 |
 | S21 | 配置并执行确定性风险政策 | S08、S09、S13 | 全部 PRD §21 风险字段和硬规则；无用户政策 Live disabled、市价单默认 off；policy version/多账户范围与失效原因；Agent 无修改权限。 |
 | S22 | 显式 Arm 并批准精确金融意图 | S21 | 账户独立 arming/20 分钟超时；独立 PLACE/CANCEL approval 类型、单次/nonce/TTL/hash/版本；全量行情与最大授权支出展示，审批前与消费时校验；泛化 Codex approval 永不转成金融权限。 |
 | S23 | 原子消费审批并预留账户容量 | S22 | SQLite immediate + per-account serialization、单次消费/幂等约束、现金/敞口/open orders/并发 Thread 容量；政策保存/消费竞态；实际冲突、回滚和释放金额证据。 |
