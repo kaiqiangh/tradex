@@ -2581,6 +2581,8 @@ The selected account's explicit `account.refresh` uses only signed GET requests 
 
 Live reads omit `paptrading: 1`, cannot fall back to Demo, and expose no submit/cancel/transfer/withdrawal route. The provider is read only on explicit refresh, not by background polling. Existing records without `bitgetOrderBook` remain readable; missing values stay unavailable. Live remains DISARMED and execution BLOCKED. This account-detail slice does not complete Bitget Demo acceptance or S30 Live execution.
 
+TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. Account/order observations update only through explicit signed REST connect/refresh requests; project `privateStream` as `NOT_CONFIGURED` and disclose `Private stream unavailable · REST reconciliation` in the account limitations.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

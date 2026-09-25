@@ -329,7 +329,7 @@ pub(super) fn read(
     let mut limitations = vec![
         "Asset totals and holdings are available + frozen + locked. Restricted availability is shown separately and is not added; no FX valuation or cost basis is inferred.".into(),
         "Order quote currency is unavailable until instrument metadata is resolved. Plan and TPSL observations do not enable trigger-order execution.".into(),
-        "Private stream, reconciliation, risk policy and execution are not configured; Live remains disarmed.".into(),
+        "Private stream unavailable · REST reconciliation: Bitget Classic Spot v2 account and order observations update only through explicit signed REST connection/refresh requests. Stream health remains NOT_CONFIGURED.".into(),
     ];
     if endpoint == ProviderEndpoint::BitgetLive {
         limitations.push(

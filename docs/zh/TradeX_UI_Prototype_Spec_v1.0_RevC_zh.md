@@ -904,3 +904,5 @@ Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection sta
 所选普通 Bitget Classic Spot `LIVE` 账户详情在资产余额旁显示当前订单、近期普通单/TPSL/计划单历史和近期成交。仅在用户显式刷新账户后读取，不进行 provider 轮询。区域标注 `Bitget Spot Live · READ ONLY · DISARMED`。保留完整 provider ID 与准确十进制字符串。仅当 origin 关联到持久化 TradeX identity 时显示 `TRADEX`，否则显示 `external`；并保留原始/归一状态、累计基础币成交数量与计价币金额、仅在可确定时显示剩余数量、provider 时间及 TradeX 观测新鲜度。
 
 展示 `CURRENT`、`STALE` 或 `DEGRADED`，以及最后一次成功观测时间。不完整、重复、畸形、超限、失败或限流响应都保留上一份可信快照，并显示脱敏状态/重试信息；不能把空结果伪装为成功。宽表格可内部滚动且可用键盘访问。在 390、768、1280 px 验证账户详情。不得创建/使用 Demo 账户、不得在 Live 请求上附加 Demo 的 `paptrading: 1` header、不得跨环境回退，也不得暴露任何 Live 写操作。若不存在普通 Live connection，fixture 验证与待完成的真实 provider 读取必须分开记录。
+
+TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。显示 `Private stream unavailable · REST reconciliation`，将流健康状态保持为 `NOT_CONFIGURED`，并且仅通过用户显式连接或 REST 刷新读取更新账户/订单观测。

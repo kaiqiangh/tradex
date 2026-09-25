@@ -646,6 +646,8 @@ Order Drafts 仅对绑定已连接 Binance `TESTNET` 账户的不可变 `BINANCE
 
 展示 TradeX 观测时间及 `CURRENT`、`STALE`（超过五分钟）或 `DEGRADED` 新鲜度。读取失败时保留最后保存的订单簿与账户余额；账户健康状态显示脱敏的失败/限流状态与重试状态。不进行自动 provider 轮询。宽订单/成交/余额表可用键盘滚动，并在 390、768、1280 px 检查账户详情。没有 Bitget Demo 回退或 Live 写操作。
 
+TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户详情显示 `Private stream unavailable · REST reconciliation`；`privateStream` 保持 `NOT_CONFIGURED`，且仅通过用户显式连接或 REST 刷新读取更新观测。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

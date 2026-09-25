@@ -2581,6 +2581,8 @@ DELETE 响应只代表收到请求。后续准确订单 GET 或签名私有流�
 
 Live 读取省略 `paptrading: 1`，不得回退到 Demo，也不暴露提交、撤销、划转或提现路由。只在用户显式刷新时访问 provider，不进行后台轮询。缺少 `bitgetOrderBook` 的旧记录仍可读取；缺失数值保持不可用。Live 始终为 DISARMED 且 execution BLOCKED。该账户详情切片不代表 Bitget Demo 验收完成，也不代表 S30 Live 执行完成。
 
+TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户/订单观测仅通过用户显式连接或 REST 刷新请求读取并更新；`privateStream` 投影为 `NOT_CONFIGURED`，并在账户限制中显示 `Private stream unavailable · REST reconciliation`。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

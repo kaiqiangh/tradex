@@ -838,6 +838,18 @@ fn live_lifecycle(vault: &impl CredentialVault) {
     assert_eq!(a["permissions"]["scope"], "VERIFIED");
     assert_eq!(a["health"]["arming"], "DISARMED");
     assert_eq!(a["health"]["executionEligibility"], "BLOCKED");
+    assert_eq!(a["health"]["privateStream"], "NOT_CONFIGURED");
+    assert!(
+        a["data"]["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| {
+                item.as_str().is_some_and(|text| {
+                    text.starts_with("Private stream unavailable · REST reconciliation:")
+                })
+            })
+    );
     assert_eq!(a["data"]["balances"][0]["total"], "1000000000000000002");
     assert_eq!(a["data"]["balances"][0]["locked"], "2");
     assert_eq!(a["data"]["balances"][0]["restrictedAvailable"], "7");

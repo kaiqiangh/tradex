@@ -106,6 +106,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.match(text, /0\.1234567890123456789/);
       if (selection.endsWith('/LIVE')) {
         assert.match(text, /Bitget Spot Live orders and fills · READ ONLY · DISARMED/);
+        assert.match(text, /Private stream unavailable · REST reconciliation/);
+        assert.match(text, /Private stream\s+NOT_CONFIGURED/);
         assert.match(text, /CURRENT/);
         assert.match(text, /Cumulative filled base \/ quote/);
         assert.match(text, /9007199254740997/);

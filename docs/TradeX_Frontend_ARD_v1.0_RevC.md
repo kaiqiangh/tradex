@@ -646,6 +646,8 @@ The Accounts detail for a selected `bitget` / `LIVE` connection shows its provid
 
 Show the TradeX observation time and `CURRENT`, `STALE` (older than five minutes), or `DEGRADED` freshness. A failed read retains the last saved order book and account balances while account health exposes the sanitized failure/rate-limit status and retry state. There is no automatic provider polling. Wide order/fill/balance tables remain keyboard-scrollable, and the account detail is checked at 390, 768, and 1280 px. No Bitget Demo fallback or Live write action is available.
 
+TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. The account detail states `Private stream unavailable · REST reconciliation`; `privateStream` remains `NOT_CONFIGURED`, and observations update only through explicit connection or REST refresh reads.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle
