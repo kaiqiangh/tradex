@@ -4086,20 +4086,39 @@ impl ControlPlane {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
         let policy = store.risk_or_new()?;
-        let accounts = store.accounts()?;
-        let account = proposal.fields.account_id.as_deref().and_then(|id| {
-            accounts
-                .into_iter()
-                .find(|account| account.connection_id == id)
-        });
-        let portfolio = self.current_portfolio_snapshot(workspace_id, false)?;
-        let market = self.market_detail_for(
-            workspace_id,
-            &proposal.fields.instrument_id,
-            &MarketTier::Census,
-            false,
-        )?;
+        let unsupported_bitget_demo =
+            proposal.fields.environment == protocol::ExecutionContext::BitgetDemo;
+        let account = if unsupported_bitget_demo {
+            None
+        } else {
+            store.accounts()?.into_iter().find(|account| {
+                Some(account.connection_id.as_str()) == proposal.fields.account_id.as_deref()
+            })
+        };
+        let portfolio = if unsupported_bitget_demo {
+            None
+        } else {
+            Some(self.current_portfolio_snapshot(workspace_id, false)?)
+        };
+        let market = if unsupported_bitget_demo {
+            None
+        } else {
+            Some(self.market_detail_for(
+                workspace_id,
+                &proposal.fields.instrument_id,
+                &MarketTier::Census,
+                false,
+            )?)
+        };
         let time_status = self.time.status(workspace_id)?;
+        let portfolio_input_id = portfolio.as_ref().map_or_else(
+            || "portfolio:unavailable".into(),
+            |portfolio| format!("portfolio:{}", portfolio.observed_at),
+        );
+        let market_input_id = market
+            .as_ref()
+            .map(|market| market.instrument.instrument_id.clone())
+            .unwrap_or_else(|| proposal.fields.instrument_id.clone());
         let inputs = vec![
             risk::input_reference(
                 risk::RiskDecisionInputKind::Policy,
@@ -4122,16 +4141,18 @@ impl ControlPlane {
             )?,
             risk::input_reference(
                 risk::RiskDecisionInputKind::Portfolio,
-                format!("portfolio:{}", portfolio.observed_at),
-                Some(portfolio.observed_at.clone()),
+                portfolio_input_id,
+                portfolio
+                    .as_ref()
+                    .map(|portfolio| portfolio.observed_at.clone()),
                 &portfolio,
             )?,
             risk::input_reference(
                 risk::RiskDecisionInputKind::Market,
-                market.instrument.instrument_id.clone(),
+                market_input_id,
                 market
-                    .snapshot
                     .as_ref()
+                    .and_then(|market| market.snapshot.as_ref())
                     .map(|snapshot| snapshot.provenance.received_timestamp.clone()),
                 &market,
             )?,
@@ -4146,8 +4167,8 @@ impl ControlPlane {
             &proposal,
             policy.as_ref(),
             account.as_ref(),
-            Some(&portfolio),
-            Some(&market),
+            portfolio.as_ref(),
+            market.as_ref(),
             &time_status,
             inputs,
             storage::timestamp()?,
@@ -8614,6 +8635,8 @@ mod paper_tests {
         workspace_id: &str,
         max_order_quantity: Option<&str>,
         market_orders_enabled: bool,
+        max_daily_traded_notional: Option<&str>,
+        max_open_orders: Option<u64>,
     ) -> Value {
         let current = control.dispatch(request(
             "risk.get_policy",
@@ -8627,8 +8650,8 @@ mod paper_tests {
                 "policy":{
                     "maxOrderNotional":null,"maxOrderQuantity":max_order_quantity,
                     "maxPositionSize":null,"maxSingleInstrumentExposurePercent":null,
-                    "maxAssetClassExposurePercent":[],"maxDailyTradedNotional":null,
-                    "maxDailyRealizedLoss":null,"maxOpenOrders":null,"maxReservedCapital":null,
+                    "maxAssetClassExposurePercent":[],"maxDailyTradedNotional":max_daily_traded_notional,
+                    "maxDailyRealizedLoss":null,"maxOpenOrders":max_open_orders,"maxReservedCapital":null,
                     "allowedInstrumentIds":[],"blockedInstrumentIds":[],"allowedVenues":[],
                     "blockedVenues":[],"allowedAccountIds":[],"blockedAccountIds":[],
                     "allowedEnvironments":[],"staleQuoteThresholdSeconds":3,
@@ -8650,7 +8673,7 @@ mod paper_tests {
         if current["data"]["configured"] == true {
             return;
         }
-        save_test_risk_policy(control, workspace_id, None, true);
+        save_test_risk_policy(control, workspace_id, None, true, None, None);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -8817,7 +8840,7 @@ mod paper_tests {
             .find(|account| account.is_local_paper())
             .unwrap()
             .connection_id;
-        save_test_risk_policy(&mut control, &workspace_id, Some("2"), false);
+        save_test_risk_policy(&mut control, &workspace_id, Some("2"), false, None, None);
         let proposal = local_paper_proposal(
             &mut control,
             &workspace_id,
@@ -8847,7 +8870,14 @@ mod paper_tests {
             "PASS"
         );
 
-        save_test_risk_policy(&mut control, &workspace_id, Some("1.99999999"), false);
+        save_test_risk_policy(
+            &mut control,
+            &workspace_id,
+            Some("1.99999999"),
+            false,
+            None,
+            None,
+        );
         let over_limit = control.dispatch(evaluate());
         assert_eq!(over_limit["data"]["status"], "REJECTED", "{over_limit}");
         assert_eq!(
@@ -8859,6 +8889,268 @@ mod paper_tests {
                 .unwrap()["reasonCode"],
             "LIMIT_EXCEEDED"
         );
+    }
+
+    #[test]
+    fn daily_traded_limit_requires_trusted_time_through_public_commands() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+        save_test_risk_policy(&mut control, &workspace_id, None, false, Some("1000"), None);
+        let proposal = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:AAPL",
+            "BUY",
+            "LIMIT",
+            "1",
+            Some("100"),
+            "DAY",
+        );
+        let evaluate = || {
+            request(
+                "risk.evaluate_proposal",
+                json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+            )
+        };
+        let uncertain = control.dispatch(evaluate());
+        assert_eq!(uncertain["ok"], true, "{uncertain}");
+        let daily_check = uncertain["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["checkId"] == "DAILY_TRADED_NOTIONAL")
+            .unwrap();
+        assert_eq!(daily_check["outcome"], "UNAVAILABLE");
+        assert_eq!(daily_check["reasonCode"], "CLOCK_UNCERTAIN");
+
+        let revalidated = control.dispatch(request(
+            "time.revalidate",
+            json!({"workspaceId":workspace_id}),
+        ));
+        assert_eq!(revalidated["ok"], true, "{revalidated}");
+        assert_eq!(revalidated["data"]["confidence"], "TRUSTED");
+        let trusted = control.dispatch(evaluate());
+        assert_eq!(trusted["ok"], true, "{trusted}");
+        let trusted_daily_check = trusted["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["checkId"] == "DAILY_TRADED_NOTIONAL")
+            .unwrap();
+        assert_ne!(trusted_daily_check["reasonCode"], "CLOCK_UNCERTAIN");
+    }
+
+    #[test]
+    fn open_order_limit_counts_the_candidate_proposal() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+        save_test_risk_policy(&mut control, &workspace_id, None, false, None, Some(1));
+        let initial = control.dispatch(request("paper.get", json!({"workspaceId":workspace_id})));
+        let mut partial_profile = initial["data"]["profile"].clone();
+        partial_profile["scenarioId"] = "partial-v1".into();
+        let scenario = control.dispatch(request(
+            "paper.scenario.set",
+            json!({
+                "workspaceId":workspace_id,
+                "expectedStateVersion":initial["data"]["stateVersion"],
+                "profile":partial_profile
+            }),
+        ));
+        assert_eq!(scenario["ok"], true, "{scenario}");
+
+        let first = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:AAPL",
+            "BUY",
+            "LIMIT",
+            "4",
+            Some("100"),
+            "DAY",
+        );
+        let at_limit = control.dispatch(request(
+            "risk.evaluate_proposal",
+            json!({"workspaceId":workspace_id,"proposalId":first["proposalId"]}),
+        ));
+        assert_eq!(at_limit["ok"], true, "{at_limit}");
+        assert_eq!(at_limit["data"]["status"], "ALLOWED", "{at_limit}");
+        assert_eq!(
+            at_limit["data"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "OPEN_ORDER_COUNT")
+                .unwrap()["outcome"],
+            "PASS"
+        );
+        let submitted = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId":workspace_id,
+                "proposalId":first["proposalId"],
+                "expectedProposalStateVersion":first["stateVersion"],
+                "idempotencyKey":"risk-open-order-count-first"
+            }),
+        ));
+        assert_eq!(submitted["ok"], true, "{submitted}");
+        assert_eq!(submitted["data"]["order"]["state"], "PARTIALLY_FILLED");
+
+        let second = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:MSFT",
+            "BUY",
+            "LIMIT",
+            "1",
+            Some("90"),
+            "DAY",
+        );
+        let over_limit = control.dispatch(request(
+            "risk.evaluate_proposal",
+            json!({"workspaceId":workspace_id,"proposalId":second["proposalId"]}),
+        ));
+        assert_eq!(over_limit["ok"], true, "{over_limit}");
+        assert_eq!(over_limit["data"]["status"], "REJECTED", "{over_limit}");
+        assert_eq!(
+            over_limit["data"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "OPEN_ORDER_COUNT")
+                .unwrap()["reasonCode"],
+            "LIMIT_EXCEEDED"
+        );
+        let rejected_submit = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId":workspace_id,
+                "proposalId":second["proposalId"],
+                "expectedProposalStateVersion":second["stateVersion"],
+                "idempotencyKey":"risk-open-order-count-second"
+            }),
+        ));
+        assert_eq!(rejected_submit["ok"], false, "{rejected_submit}");
+        assert_eq!(rejected_submit["error"]["code"], "RISK_REJECTED");
+        let paper = control.dispatch(request("paper.get", json!({"workspaceId":workspace_id})));
+        assert_eq!(paper["data"]["orders"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn bitget_demo_risk_evaluation_skips_account_portfolio_and_market_reads() {
+        let directory = tempfile::tempdir().unwrap();
+        let workspace_path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(workspace_path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account = AccountConnection::new(
+            workspace_id.clone(),
+            "bitget".into(),
+            "DEMO".into(),
+            "test-bitget-demo".into(),
+        )
+        .unwrap();
+        let account_id = account.connection_id.clone();
+        let database =
+            rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "INSERT INTO accounts VALUES (?1,?2,?3,NULL,1,?4,?5)",
+                rusqlite::params![
+                    account_id,
+                    account.provider_id,
+                    account.environment,
+                    account.credential_ref(),
+                    serde_json::to_string(&account).unwrap()
+                ],
+            )
+            .unwrap();
+        let saved = control.dispatch(request(
+            "trade.save_draft",
+            json!({
+                "workspaceId":workspace_id,
+                "fields":{
+                    "accountId":account_id,
+                    "venue":"BITGET",
+                    "environment":"BITGET_DEMO",
+                    "instrumentId":"crypto:BTC/USDT:spot",
+                    "side":"BUY",
+                    "orderType":"LIMIT",
+                    "quantity":{"type":"BASE","value":"0.001"},
+                    "limitPrice":"70000",
+                    "maximumSpend":null,
+                    "timeInForce":"DAY"
+                }
+            }),
+        ));
+        assert_eq!(saved["ok"], true, "{saved}");
+        let proposal = control.dispatch(request(
+            "trade.generate_proposal",
+            json!({
+                "workspaceId":workspace_id,
+                "draftId":saved["data"]["draftId"],
+                "expectedDraftVersion":1
+            }),
+        ));
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        database
+            .execute(
+                "UPDATE accounts SET projection='{}' WHERE connection_id=?1",
+                [&account_id],
+            )
+            .unwrap();
+
+        let evaluated = control.dispatch(request(
+            "risk.evaluate_proposal",
+            json!({
+                "workspaceId":workspace_id,
+                "proposalId":proposal["data"]["proposalId"]
+            }),
+        ));
+        assert_eq!(evaluated["ok"], true, "{evaluated}");
+        assert_eq!(evaluated["data"]["status"], "UNAVAILABLE");
+        let checks = evaluated["data"]["checks"].as_array().unwrap();
+        let account_binding = checks
+            .iter()
+            .find(|check| check["checkId"] == "ACCOUNT_BINDING")
+            .unwrap();
+        assert_eq!(account_binding["outcome"], "UNAVAILABLE");
+        assert_eq!(account_binding["reasonCode"], "ACCOUNT_UNAVAILABLE");
+        let inputs = evaluated["data"]["inputs"].as_array().unwrap();
+        for kind in ["ACCOUNT", "PORTFOLIO", "MARKET"] {
+            let input = inputs.iter().find(|input| input["kind"] == kind).unwrap();
+            assert_eq!(
+                input["digest"],
+                "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+                "{input}"
+            );
+        }
     }
 
     #[test]

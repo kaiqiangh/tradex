@@ -728,7 +728,7 @@ pub(crate) fn evaluate(
     inputs: Vec<RiskDecisionInputReference>,
     evaluated_at: String,
 ) -> RiskDecision {
-    use crate::protocol::{ExecutionContext, MarketSession, OrderSide, OrderType};
+    use crate::protocol::{ExecutionContext, MarketSession, OrderSide, OrderType, TimeConfidence};
     use std::cmp::Ordering;
 
     let policy = policy_state.map(|state| &state.policy);
@@ -825,7 +825,7 @@ pub(crate) fn evaluate(
         ExecutionContext::Trading212Live => Some(("trading212", "LIVE")),
         ExecutionContext::BinanceTestnet => Some(("binance", "TESTNET")),
         ExecutionContext::BinanceLive => Some(("binance", "LIVE")),
-        ExecutionContext::BitgetDemo => Some(("bitget", "DEMO")),
+        ExecutionContext::BitgetDemo => None,
         ExecutionContext::BitgetLive => Some(("bitget", "LIVE")),
         ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => None,
     };
@@ -896,9 +896,8 @@ pub(crate) fn evaluate(
                 crate::risk::RiskPolicyEnvironment::Live
             },
         ),
-        ExecutionContext::Trading212Demo | ExecutionContext::BitgetDemo => {
-            Some(crate::risk::RiskPolicyEnvironment::Demo)
-        }
+        ExecutionContext::Trading212Demo => Some(crate::risk::RiskPolicyEnvironment::Demo),
+        ExecutionContext::BitgetDemo => None,
         ExecutionContext::BinanceTestnet => Some(crate::risk::RiskPolicyEnvironment::Testnet),
         ExecutionContext::BinanceLive | ExecutionContext::BitgetLive => {
             Some(crate::risk::RiskPolicyEnvironment::Live)
@@ -1230,26 +1229,36 @@ pub(crate) fn evaluate(
         },
     );
 
-    let daily_traded = portfolio.and_then(|portfolio| {
-        if !portfolio_complete(portfolio) {
-            return None;
-        }
-        let fills = portfolio.fills.as_ref()?;
-        let date = time_status.wall_clock.get(..10)?;
-        fills
-            .iter()
-            .filter(|fill| fill.observed_at.get(..10) == Some(date))
-            .try_fold("0".to_owned(), |total, fill| {
-                let amount = portfolio_value(&fill.value)?;
-                crate::portfolio::decimal_add(&total, amount).ok()
-            })
-    });
-    limit!(
-        RiskCheckId::DailyTradedNotional,
-        daily_traded.as_deref(),
-        policy.and_then(|policy| policy.max_daily_traded_notional.as_deref()),
-        "Daily traded notional",
-    );
+    let daily_traded_limit = policy.and_then(|policy| policy.max_daily_traded_notional.as_deref());
+    if daily_traded_limit.is_some() && time_status.confidence != TimeConfidence::Trusted {
+        push!(
+            RiskCheckId::DailyTradedNotional,
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::ClockUncertain,
+            "Trusted TimeService evidence is required to determine the current daily trading window.",
+        );
+    } else {
+        let daily_traded = portfolio.and_then(|portfolio| {
+            if !portfolio_complete(portfolio) {
+                return None;
+            }
+            let fills = portfolio.fills.as_ref()?;
+            let date = time_status.wall_clock.get(..10)?;
+            fills
+                .iter()
+                .filter(|fill| fill.observed_at.get(..10) == Some(date))
+                .try_fold("0".to_owned(), |total, fill| {
+                    let amount = portfolio_value(&fill.value)?;
+                    crate::portfolio::decimal_add(&total, amount).ok()
+                })
+        });
+        limit!(
+            RiskCheckId::DailyTradedNotional,
+            daily_traded.as_deref(),
+            daily_traded_limit,
+            "Daily traded notional",
+        );
+    }
     let daily_loss_limit = policy.and_then(|policy| policy.max_daily_realized_loss.as_deref());
     push!(
         RiskCheckId::DailyRealizedLoss,
@@ -1290,15 +1299,17 @@ pub(crate) fn evaluate(
                                 Some(count)
                             }
                             "OPEN" | "PENDING" | "ACCEPTED" | "NEW" | "PARTIALLY_FILLED"
-                            | "PENDING_CANCEL" | "CANCEL_PENDING" | "PROPOSED" => Some(count + 1),
+                            | "PENDING_CANCEL" | "CANCEL_PENDING" | "PROPOSED" => {
+                                count.checked_add(1)
+                            }
                             _ => None,
                         });
-                    match count {
+                    match count.and_then(|count| count.checked_add(1)) {
                         None => (
                             RiskCheckOutcome::Unavailable,
                             RiskDecisionReasonCode::CounterUnavailable,
                         ),
-                        Some(count) if count > maximum as u64 => (
+                        Some(projected_count) if projected_count > maximum as u64 => (
                             RiskCheckOutcome::Reject,
                             RiskDecisionReasonCode::LimitExceeded,
                         ),
@@ -1314,7 +1325,7 @@ pub(crate) fn evaluate(
         if reason == RiskDecisionReasonCode::LimitNotConfigured {
             "Open-order limit is not configured."
         } else if reason == RiskDecisionReasonCode::LimitExceeded {
-            "Workspace open-order count exceeds the configured limit."
+            "Existing workspace open orders plus this proposal exceed the configured limit."
         } else if outcome == RiskCheckOutcome::Unavailable {
             "Complete workspace open-order observations are unavailable."
         } else {
