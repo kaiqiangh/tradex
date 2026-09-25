@@ -698,6 +698,8 @@ select exact live account
 
 Global Disable All invokes one backend action and then renders the returned per-account states.
 
+The confirmation dialog names the provider, account label, `LIVE` environment, complete TradeX connection ID and observed provider account ID. Arm remains disabled when current eligibility is missing or blocked and displays the backend remediation reason; permission scope must be `VERIFIED`, even when an `UNVERIFIED` scope was acknowledged during connection review. `Disable Live` affects only the selected connection; `Disable All Live Execution` always targets every Live connection in the workspace. Keep reviewing/Escape cancel without mutation, initial focus goes to Keep reviewing, and closing restores focus to the trigger or account heading. The app reports throttled trusted pointer, keyboard and touch input through `account.activity`; background polling does not extend the inactivity deadline.
+
 ### 14.5 Approval modal
 
 Mandatory content:

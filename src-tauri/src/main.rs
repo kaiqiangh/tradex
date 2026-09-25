@@ -1,5 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "macos")]
+use block2::RcBlock;
+#[cfg(target_os = "macos")]
+use objc2_app_kit::{
+    NSApplicationDidResignActiveNotification, NSWorkspace,
+    NSWorkspaceSessionDidResignActiveNotification, NSWorkspaceWillSleepNotification,
+};
+#[cfg(target_os = "macos")]
+use objc2_foundation::{
+    NSNotificationCenter, NSNotificationName,
+};
 use serde_json::{Value, json};
 use std::sync::{
     Arc, Mutex,
@@ -189,12 +200,53 @@ async fn control(
             Ok(mut engine) => match engine.prepare_provider_for(&request, &consumer) {
                 Ok(Some(job)) => job,
                 Ok(None) => {
+                    #[cfg(feature = "integration-test")]
+                    let request = if opening_workspace
+                        && std::env::var_os("TRADEX_INTEGRATION_ARMING_FIXTURE").is_some()
+                    {
+                        let Some(path) = std::env::var_os("TRADEX_INTEGRATION_WORKSPACE") else {
+                            return failed(&request, "IPC_PAYLOAD_INVALID");
+                        };
+                        let mut request = request;
+                        request["payload"]["path"] = json!(path.to_string_lossy());
+                        request
+                    } else {
+                        request
+                    };
+                    #[cfg(feature = "integration-test")]
+                    let fixture_request = request.clone();
                     let reply = engine.dispatch_with_runtime(
                         request,
                         &consumer,
                         Some(Arc::new(move |event| events.send(event).is_ok())),
                         None,
                     );
+                    #[cfg(feature = "integration-test")]
+                    let reply = if opening_workspace
+                        && std::env::var_os("TRADEX_INTEGRATION_ARMING_FIXTURE").is_some()
+                        && reply["ok"] == true
+                    {
+                        match reply["data"]["workspaceId"].as_str() {
+                            Some(workspace_id) => {
+                                if let Err(error) =
+                                    engine.seed_browser_workspace_ready(workspace_id)
+                                {
+                                    return failed(&fixture_request, &error.code);
+                                }
+                                match engine.seed_live_arming_fixture(
+                                    workspace_id,
+                                    "trading212",
+                                    "Isolated macOS Lock QA",
+                                ) {
+                                    Ok(_) => reply,
+                                    Err(error) => failed(&fixture_request, &error.code),
+                                }
+                            }
+                            None => failed(&fixture_request, "IPC_PAYLOAD_INVALID"),
+                        }
+                    } else {
+                        reply
+                    };
                     drop(engine);
                     #[cfg(target_os = "macos")]
                     if opening_workspace {
@@ -249,16 +301,85 @@ fn failed(request: &Value, code: &str) -> Value {
     json!({"requestId":request.get("requestId").and_then(Value::as_str).unwrap_or("invalid-request"), "schemaVersion":1, "ok":false, "error":TradeXError::new(code)})
 }
 
+#[cfg(target_os = "macos")]
+fn disarm_live_for_safety_trigger(engine: &Arc<Mutex<ControlPlane>>, reason: &'static str) {
+    if let Ok(mut engine) = engine.lock()
+        && let Err(error) = engine.disarm_live_for_safety(reason)
+    {
+        eprintln!(
+            "TradeX could not disarm Live accounts after {reason}: {}",
+            error.code
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn register_live_safety_observer(
+    center: &NSNotificationCenter,
+    name: &NSNotificationName,
+    reason: &'static str,
+    engine: Arc<Mutex<ControlPlane>>,
+) {
+    let observer = RcBlock::new(move |_notification: NonNull<NSNotification>| {
+        disarm_live_for_safety_trigger(&engine, reason);
+    });
+    // These observers last for the app process lifetime; the center retains the blocks.
+    let token = unsafe {
+        center.addObserverForName_object_queue_usingBlock(Some(name), None, None, &observer)
+    };
+    std::mem::forget(token);
+}
+
+#[cfg(target_os = "macos")]
+fn register_live_safety_observers(engine: Arc<Mutex<ControlPlane>>) {
+    let workspace_center = NSWorkspace::sharedWorkspace().notificationCenter();
+    // SAFETY: These extern constants are AppKit's documented notification names.
+    let notifications = unsafe {
+        [
+            (NSWorkspaceWillSleepNotification, "OS_SLEEP"),
+            (
+                NSWorkspaceSessionDidResignActiveNotification,
+                "SESSION_INACTIVE",
+            ),
+        ]
+    };
+    for (name, reason) in notifications {
+        register_live_safety_observer(&workspace_center, name, reason, engine.clone());
+    }
+
+    // AppKit posts this public process-local event when another app takes active status.
+    // The lock screen activates loginwindow, so this also fails closed on screen lock.
+    let application_center = NSNotificationCenter::defaultCenter();
+    register_live_safety_observer(
+        &application_center,
+        unsafe { NSApplicationDidResignActiveNotification },
+        "SESSION_INACTIVE",
+        engine,
+    );
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            #[cfg(feature = "integration-test")]
+            let default = std::env::var_os("TRADEX_INTEGRATION_WORKSPACE")
+                .map(std::path::PathBuf::from)
+                .unwrap_or(app.path().home_dir()?.join(".tradex/workspaces/default"));
+            #[cfg(not(feature = "integration-test"))]
             let default = app.path().home_dir()?.join(".tradex/workspaces/default");
+            #[cfg(feature = "integration-test")]
+            let app_data = std::env::var_os("TRADEX_INTEGRATION_APP_DATA")
+                .map(std::path::PathBuf::from)
+                .unwrap_or(app.path().app_data_dir()?);
+            #[cfg(not(feature = "integration-test"))]
             let app_data = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data)?;
             let engine = Arc::new(Mutex::new(ControlPlane::new(default)));
             let gateway = Arc::new(Mutex::new(GatewayHost::new(app_data.join("models"))));
             let exiting = Arc::new(AtomicBool::new(false));
+            #[cfg(target_os = "macos")]
+            register_live_safety_observers(engine.clone());
             #[cfg(target_os = "macos")]
             let private_stream_supervisor = AlpacaPrivateStreamSupervisor::new();
             #[cfg(target_os = "macos")]
@@ -311,6 +432,21 @@ fn main() {
                 }
                 binance_supervisor.stop_all();
             });
+            let arming_engine = engine.clone();
+            let arming_exiting = exiting.clone();
+            std::thread::spawn(move || {
+                while !arming_exiting.load(Ordering::Acquire) {
+                    if let Ok(mut engine) = arming_engine.try_lock()
+                        && let Err(error) = engine.expire_live_arming()
+                    {
+                        eprintln!(
+                            "TradeX could not enforce Live inactivity deadlines: {}",
+                            error.code
+                        );
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+            });
             std::thread::spawn(move || {
                 while !exiting.load(Ordering::Acquire) {
                     if let Ok(mut host) = gateway.try_lock() {
@@ -353,7 +489,12 @@ fn main() {
             if matches!(event, tauri::RunEvent::Resumed)
                 && let Ok(mut engine) = app.state::<Service>().0.lock()
             {
-                engine.resume();
+                if let Err(error) = engine.resume() {
+                    eprintln!(
+                        "TradeX could not durably disarm Live accounts after resume: {}",
+                        error.code
+                    );
+                }
             }
             #[cfg(target_os = "macos")]
             if matches!(event, tauri::RunEvent::Resumed) {

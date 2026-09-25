@@ -4092,3 +4092,35 @@ fn alpaca_cancel_identity_mismatch_and_workspace_reopen_never_delete() {
         }
     }
 }
+
+#[test]
+fn account_arm_rejects_non_live_connections_at_the_control_plane_boundary() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let local =
+        command(&mut cp, "account.list", json!({"workspaceId":workspace}))["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|account| account["providerId"] == "local-paper")
+            .unwrap()
+            .clone();
+
+    let result = command(
+        &mut cp,
+        "account.arm",
+        json!({
+            "workspaceId": workspace,
+            "connectionId": local["connectionId"],
+            "expectedStateVersion": local["stateVersion"],
+            "confirmed": true
+        }),
+    );
+
+    assert_eq!(
+        result["ok"], false,
+        "non-Live account must never arm: {result}"
+    );
+    assert_eq!(result["error"]["code"], "LIVE_ACCOUNT_REQUIRED");
+}

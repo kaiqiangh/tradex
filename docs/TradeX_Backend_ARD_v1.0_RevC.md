@@ -984,6 +984,7 @@ Disarm affected account on:
 
 - application restart;
 - OS sleep/session lock;
+- on macOS, `NSApplicationDidResignActiveNotification`; treat every app deactivation as `SESSION_INACTIVE`, including ordinary app switches, so a lock-screen transition to loginwindow fails closed;
 - credential change;
 - account health degradation;
 - reconciliation failure;
@@ -1559,6 +1560,7 @@ On startup:
 On sleep/session lock:
 
 - disarm live accounts;
+- on macOS, also disarm when the TradeX app gives up active status to another app;
 - persist runtime checkpoint where safe;
 - on resume, reinitialize TimeService confidence;
 - reconnect private streams;
@@ -1712,6 +1714,7 @@ watchlist.delete
 watchlist.add
 watchlist.remove
 account.list
+account.activity
 account.get
 account.refresh
 account.arm
@@ -2029,13 +2032,19 @@ Version 1 adds the following exact operations. All input objects reject extra fi
 | provider.connect | `{step: "confirm", workspaceId, connectionId, expectedStateVersion, acknowledgeUnverified: boolean}` | AccountConnection; confirms only the exact successfully tested review version; unknown scope requires explicit acknowledgement and remains UNVERIFIED |
 | provider.probe / account.refresh | `{workspaceId, connectionId, expectedStateVersion}` | AccountConnection with actual read results/health; a failed read preserves prior observations and last successful sync, marks stale/error, and returns a sanitized error |
 | provider.permissions / account.get | `{workspaceId, connectionId}` | PermissionReview / AccountConnection respectively |
-| account.list | `{workspaceId}` | `{accounts: AccountConnection[]}`; includes pending/failed/disconnected records for recovery/history |
+| account.list | `{workspaceId}` | `{accounts: AccountConnection[], liveArmingEligibility: LiveArmingEligibility[]}`; includes pending/failed/disconnected records for recovery/history and fail-closed per-Live-account readiness reasons |
+| account.arm | `{workspaceId, connectionId, expectedStateVersion, confirmed: true}` | AccountConnection; revalidates trusted time, configured risk policy, provider Live support, connection/credential health, reconciliation and VERIFIED permission scope; acknowledging UNVERIFIED scope is insufficient; then persists only this account's ARMED transition and `account.arming.changed` event |
+| account.disarm | `{workspaceId, connectionId, expectedStateVersion}` | AccountConnection; disarms only the identified Live account and records the reason |
+| account.disable_all_live | `{workspaceId}` | Accounts; atomically disarms every Live account in the workspace and publishes each transition; it does not cancel a provider request already dispatched |
+| account.activity | `{workspaceId}` | `{}`; trusted foreground pointer/keyboard/touch input refreshes the in-memory inactivity deadline for currently armed accounts only; it cannot arm an account or extend consent after the backend timeout check has expired |
 | provider.disconnect | `{workspaceId, connectionId, expectedStateVersion}` | AccountConnection marked DISCONNECTED before credential cleanup; failed deletion remains DELETE_PENDING and is retryable with the new version; no provider mutation or external-order cancellation |
 | account.delete | `{workspaceId, connectionId, expectedStateVersion}` | `{connectionId}` receipt; permanently deletes only one eligible Trading 212 Demo connection's local account and order-book observations |
 
 ProviderDefinition includes `providerId`, `displayName`, `environment`, `available`, `helpText`, `fields` (`id`, `label`, `inputType`, `required`, `secret`, `maxLength`, `helpText`, applicable environment), and permission requirements. Only supported implemented combinations can enter the connection workflow; unavailable catalog entries explain why. Local Paper is built-in and credential-free; it is not a successful external probe.
 
-AccountConnection includes immutable `connectionId`, `workspaceId`, `providerId`, `environment`, `createdAt`; `label`, opaque `stateVersion`, `updatedAt`, `connectionState` (CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED); separate connection/authentication/credential/private-stream/reconciliation/execution-eligibility/arming health; optional prior account data; optional last successful sync; and PermissionReview. Account data includes remote identity/type, currency where available, exact normalized decimal balances, optional account-level buying power, positions and open orders, observed capabilities and explicit limitations. Missing values are unavailable, never zero by default. Alpaca Paper `buyingPower` is an exact decimal in the provider-reported account currency and is never inferred from cash or equity. PermissionReview distinguishes scope VERIFIED/UNVERIFIED, detected permissions, forbidden/unsupported permissions, acknowledgement and IP restriction status. Read success cannot establish complete key scope or financial authority. All Live accounts remain DISARMED; S02 supplies no execution readiness.
+AccountConnection includes immutable `connectionId`, `workspaceId`, `providerId`, `environment`, `createdAt`; `label`, opaque `stateVersion`, `updatedAt`, `connectionState` (CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED); separate connection/authentication/credential/private-stream/reconciliation/execution-eligibility/arming health, including a durable `armingReason`; optional prior account data; optional last successful sync; and PermissionReview. Account data includes remote identity/type, currency where available, exact normalized decimal balances, optional account-level buying power, positions and open orders, observed capabilities and explicit limitations. Missing values are unavailable, never zero by default. Alpaca Paper `buyingPower` is an exact decimal in the provider-reported account currency and is never inferred from cash or equity. PermissionReview distinguishes scope VERIFIED/UNVERIFIED, detected permissions, forbidden/unsupported permissions, acknowledgement and IP restriction status. Read success cannot establish complete key scope or financial authority. All Live accounts remain DISARMED after restart; S02 supplies no execution readiness.
+
+The Arm dialog binds to the provider, user label, `LIVE` environment, full TradeX `connectionId`, and observed provider account ID. Eligibility is returned by `account.list`; absence of a current eligibility row is blocked in the renderer, and `account.arm` independently rechecks every prerequisite. Arming requires VERIFIED credential-permission scope; acknowledgement of UNVERIFIED scope permits connection review only. A native deadline monitor durably applies inactivity disarm while the app is idle. `account.activity` only refreshes active monotonic deadlines from trusted renderer input; periodic account refreshes do not count as activity. App restart, session loss, OS sleep, policy weakening, account health/credential changes, and timeout disarm durably with a reason.
 
 Account observations add optional `reserved` and `inPies` decimal strings on each balance; optional `instrumentCurrency` and `marketValueCurrency` on positions; and optional `currency` / `filledValue` on open orders. `filledQuantity` is nullable/optional for provider value orders. Missing fields on stored older projections remain unavailable. Every monetary unit displayed comes from its observation currency; the workspace currency is not an implicit conversion. Trading 212 account subtype remains explicitly unavailable because the summary does not expose it. JSON-number provider values are normalized into exact decimal wire strings without binary-float conversion.
 

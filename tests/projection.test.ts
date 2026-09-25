@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyEvent, fromAlpacaPaperAttemptSnapshot, fromTrading212DemoAttemptSnapshot, fromTrading212DemoOrderBookSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
+import { applyEvent, fromAccountSnapshot, fromAlpacaPaperAttemptSnapshot, fromTrading212DemoAttemptSnapshot, fromTrading212DemoOrderBookSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
 
 const workspace = {
   workspaceId: 'workspace-one', name: 'Equity research', baseCurrency: 'EUR', path: '/workspace',
@@ -124,6 +124,26 @@ test('thread projection preserves identity and contiguous event ordering', () =>
   assert.equal(applyEvent(next, structuredClone(event)), next);
   assert.throws(() => applyEvent(next, { ...event, sequence: 4 }));
   assert.throws(() => applyEvent(next, { ...event, payload: { ...event.payload, workspaceId: 'other-workspace' } }));
+});
+
+test('account projection applies durable Live arming transitions', () => {
+  const account = {
+    connectionId: 'connection-one', connectionState: 'CONNECTED', createdAt: '2026-09-25T01:00:00Z',
+    environment: 'LIVE', label: 'Synthetic Binance Live', providerId: 'binance', stateVersion: 'connection-one:1',
+    updatedAt: '2026-09-25T01:00:00Z', workspaceId: 'workspace-one',
+    health: { arming: 'DISARMED', armingReason: 'SYNTHETIC_FIXTURE', authentication: 'VALID', connection: 'ONLINE', credential: 'CONFIGURED', executionEligibility: 'BLOCKED', privateStream: 'CURRENT', reason: 'Synthetic fixture', reconciliation: 'CURRENT' },
+    permissions: { acknowledged: false, detected: ['account.read'], forbidden: [], ipAllowList: null, ipAllowListStatus: 'UNKNOWN', scope: 'VERIFIED', unsupported: [] },
+  } as const;
+  const initial = fromAccountSnapshot({ aggregateType: 'account', aggregateId: account.connectionId, projection: account, lastSequence: 1 });
+  const event = {
+    eventId: 'arm-two', eventType: 'account.arming.changed' as const, schemaVersion: 1,
+    occurredAt: '2026-09-25T01:01:00Z', aggregateType: 'account' as const, aggregateId: account.connectionId, sequence: 2,
+    payload: { ...account, health: { ...account.health, arming: 'ARMED', armingReason: 'EXPLICIT_USER_ARM' }, stateVersion: 'connection-one:2', updatedAt: '2026-09-25T01:01:00Z' },
+  };
+  const next = applyEvent(initial, event);
+  assert.equal(next.snapshot.projection.health.arming, 'ARMED');
+  assert.equal(next.snapshot.projection.health.armingReason, 'EXPLICIT_USER_ARM');
+  assert.equal(applyEvent(next, structuredClone(event)), next);
 });
 
 test('Alpaca Paper attempts use their own aggregate identity and preserve order bindings', () => {

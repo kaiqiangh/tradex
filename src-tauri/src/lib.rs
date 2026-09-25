@@ -73,6 +73,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     thread,
+    time::{Duration, Instant},
 };
 use storage::Store;
 
@@ -80,6 +81,782 @@ struct PreparedTurn {
     thread_id: String,
     turn_id: String,
     runtime_request: codex_runtime::RuntimeRequest,
+}
+
+#[cfg(test)]
+mod live_arming_tests {
+    use super::*;
+    use crate::protocol::DomainEvent;
+
+    fn request(command: &str, payload: Value) -> Value {
+        json!({
+            "requestId": format!("live-arming-{command}"),
+            "schemaVersion": 1,
+            "command": command,
+            "payload": payload
+        })
+    }
+
+    fn dispatch(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
+        control.dispatch(request(command, payload))
+    }
+
+    fn seed_healthy_live_account(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+    ) -> AccountConnection {
+        control
+            .seed_live_arming_fixture(workspace_id, "trading212", "Live arming test")
+            .unwrap()
+    }
+
+    fn configure_risk_with_timeout(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        timeout_minutes: u64,
+    ) {
+        let current = dispatch(
+            control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(current["ok"], true, "{current}");
+        let mut policy = current["data"]["policy"].clone();
+        policy["maxSingleInstrumentExposurePercent"] = "10.25".into();
+        policy["liveInactivityTimeoutMinutes"] = timeout_minutes.into();
+        let saved = dispatch(
+            control,
+            "risk.save_policy",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": current["data"]["stateVersion"],
+                "policy": policy
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        assert_eq!(saved["data"]["configured"], true, "{saved}");
+    }
+
+    fn configure_risk(control: &mut ControlPlane, workspace_id: &str) {
+        configure_risk_with_timeout(control, workspace_id, 20);
+    }
+
+    fn arm_live_account(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account: &AccountConnection,
+    ) {
+        let result = dispatch(
+            control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace_id,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true
+            }),
+        );
+        assert_eq!(result["ok"], true, "{result}");
+        assert_eq!(result["data"]["health"]["arming"], "ARMED");
+    }
+
+    fn stored_account(control: &ControlPlane, connection_id: &str) -> AccountConnection {
+        control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(connection_id)
+            .unwrap()
+    }
+
+    fn listed_accounts(control: &mut ControlPlane, workspace_id: &str) -> Vec<AccountConnection> {
+        let result = dispatch(control, "account.list", json!({"workspaceId":workspace_id}));
+        assert_eq!(result["ok"], true, "{result}");
+        serde_json::from_value(result["data"]["accounts"].clone()).unwrap()
+    }
+
+    #[test]
+    fn live_arm_requires_a_trusted_clock_and_keeps_the_account_disarmed() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let account = seed_healthy_live_account(&mut control, &workspace);
+
+        let eligibility = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        let eligibility = eligibility["data"]["liveArmingEligibility"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(eligibility["canArm"], false);
+        assert_eq!(eligibility["reasonCode"], "CLOCK_SKEW");
+
+        let result = dispatch(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true
+            }),
+        );
+
+        assert_eq!(
+            result["ok"], false,
+            "untrusted time must block arming: {result}"
+        );
+        assert_eq!(result["error"]["code"], "CLOCK_SKEW");
+        let accounts = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        let restored = accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(restored["health"]["arming"], "DISARMED");
+
+        let revalidated = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(
+            revalidated["data"]["confidence"], "TRUSTED",
+            "{revalidated}"
+        );
+        let eligibility = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        let eligibility = eligibility["data"]["liveArmingEligibility"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(eligibility["canArm"], true);
+        assert_eq!(eligibility["reasonCode"], "READY");
+    }
+
+    #[test]
+    fn generic_codex_approval_event_does_not_arm_live_accounts() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let account = seed_healthy_live_account(&mut control, &workspace);
+        let route = model::ModelRoute {
+            provider: model::ModelProvider::Chatgpt,
+            model_id: "gpt-5.6-sol".into(),
+            thinking_type: None,
+            verified_at: Some("2026-09-25T00:00:00Z".into()),
+        };
+        let mut model = control.store.as_ref().unwrap().model().unwrap();
+        model.chatgpt.configured = true;
+        model.chatgpt.status = model::ModelHealth::Ready;
+        model.chatgpt.routes = vec![route.clone()];
+        model.default_route = Some(route.selection());
+        model.current_route = Some(route);
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(model, "model.provider.changed")
+            .unwrap();
+        let thread = dispatch(
+            &mut control,
+            "thread.create",
+            json!({
+                "workspaceId":workspace,
+                "title":"Codex approval isolation",
+                "defaultAgentMode":"ASK",
+                "defaultExecutionContext":"NONE_READ_ONLY",
+                "linkedContexts":[],
+                "model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"}
+            }),
+        );
+        assert_eq!(thread["ok"], true, "{thread}");
+        let thread_id = thread["data"]["threadId"].as_str().unwrap().to_owned();
+        let (prepared, _) = control
+            .begin_turn(serde_json::from_value(json!({
+                "workspaceId":workspace,
+                "threadId":thread_id,
+                "expectedStateVersion":thread["data"]["stateVersion"],
+                "message":"Continue the read-only thread",
+                "agentMode":"ASK",
+                "executionContext":"NONE_READ_ONLY",
+                "attachedContexts":[]
+            })).unwrap())
+            .unwrap();
+
+        control
+            .apply_runtime_event(
+                &prepared.thread_id,
+                &prepared.turn_id,
+                codex_runtime::RuntimeEvent::ItemStarted {
+                    key: "approval-request".into(),
+                    item_id: "approval-1".into(),
+                    item_type: "codex_approval".into(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(stored_account(&control, &account.connection_id).health.arming, "DISARMED");
+        let saved_thread = control.store.as_ref().unwrap().thread(&prepared.thread_id).unwrap();
+        assert!(saved_thread.turns[0].items.iter().any(|item| item.item_type == "codex_approval"));
+    }
+
+    #[test]
+    fn acknowledged_unverified_permissions_remain_blocked_for_live_arming() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let mut account = seed_healthy_live_account(&mut control, &workspace);
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        account.permissions.scope = "UNVERIFIED".into();
+        account.permissions.acknowledged = true;
+        let account = control.persist_account(account).unwrap();
+
+        let eligibility = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        let eligibility = eligibility["data"]["liveArmingEligibility"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(eligibility["canArm"], false);
+        assert_eq!(eligibility["reasonCode"], "CREDENTIAL_PERMISSION_BLOCKED");
+
+        let result = dispatch(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true
+            }),
+        );
+        assert_eq!(result["ok"], false, "{result}");
+        assert_eq!(result["error"]["code"], "CREDENTIAL_PERMISSION_BLOCKED");
+        assert_eq!(
+            stored_account(&control, &account.connection_id)
+                .health
+                .arming,
+            "DISARMED"
+        );
+    }
+
+    #[test]
+    fn explicit_arm_is_a_durable_account_event_and_workspace_restart_disarms_it() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().to_path_buf();
+        let mut control = ControlPlane::new(path.clone());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let account = seed_healthy_live_account(&mut control, &workspace);
+        let clock = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(clock["data"]["confidence"], "TRUSTED", "{clock}");
+
+        let armed = dispatch(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        assert_eq!(armed["data"]["health"]["arming"], "ARMED");
+        assert_eq!(armed["data"]["health"]["armingReason"], "EXPLICIT_USER_ARM");
+
+        let events = Arc::new(Mutex::new(Vec::<DomainEvent>::new()));
+        let event_sink = events.clone();
+        let subscribed = control.dispatch_with_events(
+            request(
+                "domain.subscribe",
+                json!({
+                    "aggregateType":"account",
+                    "aggregateId":account.connection_id,
+                    "afterSequence":1
+                }),
+            ),
+            "arming-test",
+            Some(Arc::new(move |event| {
+                event_sink.lock().unwrap().push(event);
+                true
+            })),
+        );
+        assert_eq!(subscribed["ok"], true, "{subscribed}");
+        let delivered = events.lock().unwrap();
+        assert!(delivered.iter().any(|event| {
+            event.event_type == "account.arming.changed"
+                && event.aggregate_id == account.connection_id
+                && matches!(&event.payload, DomainProjection::Account(value)
+                    if value.health.arming == "ARMED"
+                        && value.health.arming_reason == "EXPLICIT_USER_ARM")
+        }));
+        drop(delivered);
+        drop(control);
+
+        let mut reopened = ControlPlane::new(path);
+        let restored_workspace = dispatch(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(restored_workspace["ok"], true, "{restored_workspace}");
+        let accounts = dispatch(
+            &mut reopened,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        let restored = accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(restored["health"]["arming"], "DISARMED");
+        assert_eq!(restored["health"]["armingReason"], "APPLICATION_RESTART");
+    }
+
+    #[test]
+    fn account_disable_is_scoped_and_disable_all_disarms_every_live_account() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let accounts = [
+            seed_healthy_live_account(&mut control, &workspace),
+            seed_healthy_live_account(&mut control, &workspace),
+        ];
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        let armed = accounts
+            .iter()
+            .map(|account| {
+                dispatch(
+                    &mut control,
+                    "account.arm",
+                    json!({
+                        "workspaceId": workspace,
+                        "connectionId": account.connection_id,
+                        "expectedStateVersion": account.state_version,
+                        "confirmed": true
+                    }),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(armed.iter().all(|reply| reply["ok"] == true), "{armed:?}");
+
+        let disabled_one = dispatch(
+            &mut control,
+            "account.disarm",
+            json!({
+                "workspaceId": workspace,
+                "connectionId": armed[0]["data"]["connectionId"],
+                "expectedStateVersion": armed[0]["data"]["stateVersion"]
+            }),
+        );
+        assert_eq!(disabled_one["ok"], true, "{disabled_one}");
+        assert_eq!(disabled_one["data"]["health"]["arming"], "DISARMED");
+        let after_one = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        let first = after_one["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == armed[0]["data"]["connectionId"])
+            .unwrap();
+        let second = after_one["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == armed[1]["data"]["connectionId"])
+            .unwrap();
+        assert_eq!(first["health"]["arming"], "DISARMED");
+        assert_eq!(first["health"]["armingReason"], "USER_DISABLED");
+        assert_eq!(second["health"]["arming"], "ARMED");
+
+        let disabled_all = dispatch(
+            &mut control,
+            "account.disable_all_live",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(disabled_all["ok"], true, "{disabled_all}");
+        let live_after_disable_all = disabled_all["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|candidate| candidate["environment"] == "LIVE")
+            .collect::<Vec<_>>();
+        assert!(
+            live_after_disable_all
+                .iter()
+                .all(|candidate| candidate["health"]["arming"] == "DISARMED")
+        );
+        assert_eq!(
+            live_after_disable_all
+                .iter()
+                .find(|candidate| candidate["connectionId"] == armed[0]["data"]["connectionId"])
+                .unwrap()["health"]["armingReason"],
+            "USER_DISABLED"
+        );
+        assert_eq!(
+            live_after_disable_all
+                .iter()
+                .find(|candidate| candidate["connectionId"] == armed[1]["data"]["connectionId"])
+                .unwrap()["health"]["armingReason"],
+            "USER_DISABLED_ALL"
+        );
+    }
+
+    #[test]
+    fn weakened_policy_credentials_and_health_changes_revoke_live_arming() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let accounts = [
+            seed_healthy_live_account(&mut control, &workspace),
+            seed_healthy_live_account(&mut control, &workspace),
+        ];
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        for account in &accounts {
+            arm_live_account(&mut control, &workspace, account);
+        }
+
+        let current = dispatch(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace}),
+        );
+        let mut weaker_policy = current["data"]["policy"].clone();
+        weaker_policy["maxSingleInstrumentExposurePercent"] = "20.5".into();
+        let saved = dispatch(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace,
+                "expectedStateVersion":current["data"]["stateVersion"],
+                "policy":weaker_policy
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        let after_weakening = listed_accounts(&mut control, &workspace);
+        assert!(
+            after_weakening
+                .iter()
+                .filter(|account| account.environment == "LIVE")
+                .all(|account| account.health.arming == "DISARMED"
+                    && account.health.arming_reason == "RISK_POLICY_WEAKENED")
+        );
+
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        for account in &after_weakening {
+            if account.environment == "LIVE" {
+                arm_live_account(&mut control, &workspace, account);
+            }
+        }
+        let mut credential_changed = stored_account(&control, &accounts[0].connection_id);
+        credential_changed.health.credential = "MISSING".into();
+        let credential_result = control.persist_account(credential_changed).unwrap();
+        assert_eq!(credential_result.health.arming, "DISARMED");
+        assert_eq!(
+            credential_result.health.arming_reason,
+            "CREDENTIAL_OR_PERMISSION_CHANGED"
+        );
+
+        let mut health_degraded = stored_account(&control, &accounts[1].connection_id);
+        health_degraded.health.reconciliation = "STALE".into();
+        let degraded_result = control.persist_account(health_degraded).unwrap();
+        assert_eq!(degraded_result.health.arming, "DISARMED");
+        assert_eq!(
+            degraded_result.health.arming_reason,
+            "ACCOUNT_HEALTH_DEGRADED"
+        );
+
+        let mut recovered = stored_account(&control, &accounts[1].connection_id);
+        recovered.health.reconciliation = "CURRENT".into();
+        let recovered_result = control.persist_account(recovered).unwrap();
+        assert_eq!(recovered_result.health.arming, "DISARMED");
+        assert_eq!(
+            recovered_result.health.arming_reason,
+            "ACCOUNT_HEALTH_DEGRADED"
+        );
+    }
+
+    #[test]
+    fn sleep_and_resume_safety_triggers_persist_disarm_reasons() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let account = seed_healthy_live_account(&mut control, &workspace);
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        arm_live_account(&mut control, &workspace, &account);
+
+        control.disarm_live_for_safety("OS_SLEEP").unwrap();
+        let slept = stored_account(&control, &account.connection_id);
+        assert_eq!(slept.health.arming, "DISARMED");
+        assert_eq!(slept.health.arming_reason, "OS_SLEEP");
+
+        let clock = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(clock["data"]["confidence"], "TRUSTED", "{clock}");
+        arm_live_account(&mut control, &workspace, &slept);
+        control.resume().unwrap();
+        let resumed = stored_account(&control, &account.connection_id);
+        assert_eq!(resumed.health.arming, "DISARMED");
+        assert_eq!(resumed.health.arming_reason, "SESSION_RESUMED");
+        let clock = dispatch(
+            &mut control,
+            "time.status",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(clock["data"]["confidence"], "CLOCK_UNCERTAIN");
+
+        let clock = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(clock["data"]["confidence"], "TRUSTED", "{clock}");
+        arm_live_account(&mut control, &workspace, &resumed);
+        control.disarm_live_for_safety("SESSION_INACTIVE").unwrap();
+        let inactive = stored_account(&control, &account.connection_id);
+        assert_eq!(inactive.health.arming, "DISARMED");
+        assert_eq!(inactive.health.arming_reason, "SESSION_INACTIVE");
+    }
+
+    #[test]
+    fn failed_safety_disarm_blocks_commands_and_retries_until_persisted() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let accounts = [
+            seed_healthy_live_account(&mut control, &workspace),
+            seed_healthy_live_account(&mut control, &workspace),
+        ];
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        for account in &accounts {
+            arm_live_account(&mut control, &workspace, account);
+        }
+        let armed_deadlines = control.live_arming_since.len();
+
+        let database = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("workspace.sqlite3");
+        let fault = rusqlite::Connection::open(database).unwrap();
+        fault
+            .execute_batch(
+                "CREATE TRIGGER reject_outbox BEFORE INSERT ON outbox BEGIN SELECT RAISE(ABORT, 'injected safety disarm failure'); END;",
+            )
+            .unwrap();
+
+        let disarm_error = control
+            .disarm_live_for_safety("OS_SLEEP")
+            .expect_err("failed durable disarm must return an error");
+        assert_eq!(disarm_error.code, "WORKSPACE_OPEN_FAILED");
+        assert_eq!(control.live_arming_since.len(), armed_deadlines);
+
+        let blocked = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(blocked["ok"], false, "{blocked}");
+        assert_eq!(blocked["error"]["code"], "WORKSPACE_OPEN_FAILED");
+        for account in &accounts {
+            assert_eq!(
+                stored_account(&control, &account.connection_id)
+                    .health
+                    .arming,
+                "ARMED"
+            );
+        }
+
+        fault.execute_batch("DROP TRIGGER reject_outbox;").unwrap();
+        let recovered = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(recovered["ok"], true, "{recovered}");
+        assert!(control.live_arming_since.is_empty());
+        for account in &accounts {
+            let disarmed = stored_account(&control, &account.connection_id);
+            assert_eq!(disarmed.health.arming, "DISARMED");
+            assert_eq!(disarmed.health.arming_reason, "OS_SLEEP");
+        }
+    }
+
+    #[test]
+    fn inactivity_deadline_tick_disarms_without_an_ipc_request() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk_with_timeout(&mut control, &workspace, 1);
+        let account = seed_healthy_live_account(&mut control, &workspace);
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        let armed = dispatch(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        control.live_arming_since.insert(
+            account.connection_id.clone(),
+            Instant::now() - Duration::from_secs(61),
+        );
+
+        control.expire_live_arming().unwrap();
+        let expired = stored_account(&control, &account.connection_id);
+        assert_eq!(expired.health.arming, "DISARMED");
+        assert_eq!(expired.health.arming_reason, "INACTIVITY_TIMEOUT");
+    }
+
+    #[test]
+    fn trusted_ui_activity_resets_the_live_inactivity_deadline() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk_with_timeout(&mut control, &workspace, 1);
+        let account = seed_healthy_live_account(&mut control, &workspace);
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        let armed = dispatch(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        control.live_arming_since.insert(
+            account.connection_id.clone(),
+            Instant::now() - Duration::from_secs(59),
+        );
+
+        let activity = dispatch(
+            &mut control,
+            "account.activity",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(activity["ok"], true, "{activity}");
+        assert!(
+            control.live_arming_since[&account.connection_id].elapsed() < Duration::from_secs(5)
+        );
+        let accounts = dispatch(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace}),
+        );
+        let current = accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| candidate["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(current["health"]["arming"], "ARMED");
+    }
 }
 
 pub struct DataSourceProbeJob {
@@ -591,6 +1368,8 @@ pub struct ControlPlane {
     selected_local_paper_proposal: Option<(String, String)>,
     session: String,
     time: time::TimeService,
+    live_arming_since: HashMap<String, Instant>,
+    pending_live_disarm: Option<(String, bool)>,
 }
 
 impl ControlPlane {
@@ -603,6 +1382,8 @@ impl ControlPlane {
             selected_local_paper_proposal: None,
             session: uuid::Uuid::new_v4().to_string(),
             time: time::TimeService::new(),
+            live_arming_since: HashMap::new(),
+            pending_live_disarm: None,
         }
     }
 
@@ -610,7 +1391,8 @@ impl ControlPlane {
         self.dispatch_with_events(request, "headless", None)
     }
 
-    pub fn resume(&mut self) {
+    pub fn resume(&mut self) -> Result<()> {
+        self.disarm_live_for_safety("SESSION_RESUMED")?;
         if let Some(workspace_id) = self
             .store
             .as_ref()
@@ -618,6 +1400,125 @@ impl ControlPlane {
         {
             self.time.resume(&workspace_id);
         }
+        Ok(())
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
+    pub fn seed_live_arming_fixture(
+        &mut self,
+        workspace_id: &str,
+        provider_id: &str,
+        label: &str,
+    ) -> Result<AccountConnection> {
+        self.require_workspace(workspace_id)?;
+        if !matches!(provider_id, "trading212" | "binance" | "bitget") {
+            return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
+        }
+        let label = format!("SYNTHETIC · {label}");
+        self.validate_connection(workspace_id, provider_id, "LIVE", &label)?;
+        let provider = definition(provider_id, "LIVE")?;
+        let mut account = AccountConnection::new(
+            workspace_id.into(),
+            provider_id.into(),
+            "LIVE".into(),
+            label,
+        )?;
+        account.connection_state = ConnectionState::Connected;
+        account.health.connection = "ONLINE".into();
+        account.health.authentication = "VALID".into();
+        account.health.credential = "CONFIGURED".into();
+        account.health.private_stream = "CURRENT".into();
+        account.health.reconciliation = "CURRENT".into();
+        account.health.execution_eligibility = "BLOCKED".into();
+        account.health.reason =
+            "Synthetic Live arming fixture; no provider request was made.".into();
+        account.health.arming_reason = "SYNTHETIC_FIXTURE".into();
+        account.permissions.scope = "VERIFIED".into();
+        account.permissions.detected = provider.required_permissions.clone();
+        let remote_account_id = format!("synthetic-live-{}", account.connection_id);
+        account.data = Some(
+            serde_json::from_value(json!({
+                "remoteAccountId": remote_account_id,
+                "accountType": "SYNTHETIC_LIVE_FIXTURE",
+                "currency": "USD",
+                "buyingPower": null,
+                "balances": [],
+                "positions": [],
+                "openOrders": [],
+                "bitgetOrderBook": null,
+                "capabilities": provider.required_permissions,
+                "limitations": ["SYNTHETIC_FIXTURE_ONLY; no provider request was made."]
+            }))
+            .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
+        );
+        self.persist_account(account)
+    }
+
+    pub fn disarm_live_for_safety(&mut self, reason: &str) -> Result<()> {
+        self.persist_live_disarm(reason, true)
+    }
+
+    fn persist_live_disarm(&mut self, reason: &str, reset_time: bool) -> Result<()> {
+        let Some(store) = self.store.as_mut() else {
+            self.live_arming_since.clear();
+            self.pending_live_disarm = None;
+            return Ok(());
+        };
+        self.pending_live_disarm = Some((reason.to_owned(), reset_time));
+        let events = store.disarm_live_accounts(reason)?;
+        self.live_arming_since.clear();
+        self.pending_live_disarm = None;
+        for event in events {
+            self.publish(&event);
+        }
+        if reset_time
+            && let Some(workspace_id) = self
+                .store
+                .as_ref()
+                .and_then(|store| store.workspace_id().ok())
+        {
+            self.time.reset(&workspace_id);
+        }
+        Ok(())
+    }
+
+    pub fn expire_live_arming(&mut self) -> Result<()> {
+        if let Some((reason, reset_time)) = self.pending_live_disarm.clone() {
+            return self.persist_live_disarm(&reason, reset_time);
+        }
+        if self.live_arming_since.is_empty() {
+            return Ok(());
+        }
+        let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
+        if self.time.status(&workspace_id)?.confidence != protocol::TimeConfidence::Trusted {
+            return self.disarm_live_for_safety("TIME_UNTRUSTED");
+        }
+        let Some(timeout) = self
+            .store
+            .as_ref()
+            .and_then(|store| store.risk().ok())
+            .map(|risk| Duration::from_secs(risk.policy.live_inactivity_timeout_minutes * 60))
+        else {
+            return self.disarm_live_for_safety("RISK_POLICY_NOT_READY");
+        };
+        let now = Instant::now();
+        let accounts = self.store.as_ref().unwrap().accounts()?;
+        for mut account in accounts {
+            let Some(armed_at) = self.live_arming_since.get(&account.connection_id).copied() else {
+                continue;
+            };
+            if account.health.arming != "ARMED" {
+                self.live_arming_since.remove(&account.connection_id);
+                continue;
+            }
+            if now.duration_since(armed_at) >= timeout {
+                account.health.arming = "DISARMED".into();
+                account.health.arming_reason = "INACTIVITY_TIMEOUT".into();
+                let account = self.persist_account(account)?;
+                self.live_arming_since.remove(&account.connection_id);
+            }
+        }
+        Ok(())
     }
 
     pub fn dispatch_with_events(
@@ -636,15 +1537,18 @@ impl ControlPlane {
         sink: Option<EventSink>,
         runtime_access: Option<codex_runtime::RuntimeAccess>,
     ) -> Value {
-        if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
-            return self.dispatch_data_source_probe(request);
-        }
         let id = request
             .get("requestId")
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty() && s.len() <= 128)
             .unwrap_or("invalid-request")
             .to_owned();
+        if let Err(error) = self.expire_live_arming() {
+            return failure_reply(id, error);
+        }
+        if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
+            return self.dispatch_data_source_probe(request);
+        }
         match self.execute(request, consumer, sink, runtime_access.as_ref()) {
             Ok((data, version)) => {
                 let mut reply = json!({"requestId":id,"schemaVersion":1,"ok":true,"data":data});
@@ -708,6 +1612,7 @@ impl ControlPlane {
                 )?;
                 let same = self.store.as_ref().is_some_and(|store| store.path == path);
                 if same {
+                    self.disarm_live_for_safety("WORKSPACE_REOPENED")?;
                     market::ensure_history(&self.store.as_ref().unwrap().path)?;
                     self.store.as_mut().unwrap().reconcile_strategy_runs()?;
                     self.store.as_mut().unwrap().reconcile_backtest_runs()?;
@@ -721,6 +1626,7 @@ impl ControlPlane {
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     Ok((json!(event.payload), Some(version)))
                 } else {
+                    self.live_arming_since.clear();
                     if let Some(store) = self.store.as_mut() {
                         store.reconcile_strategy_runs()?;
                         store.reconcile_backtest_runs()?;
@@ -1689,9 +2595,11 @@ impl ControlPlane {
             "account.list" => {
                 let p: WorkspaceQuery = payload(request.payload)?;
                 self.require_workspace(&p.workspace_id)?;
+                let accounts = self.store.as_ref().unwrap().accounts()?;
                 Ok((
                     json!(Accounts {
-                        accounts: self.store.as_ref().unwrap().accounts()?
+                        live_arming_eligibility: self.live_arming_eligibility(&accounts),
+                        accounts,
                     }),
                     None,
                 ))
@@ -1707,6 +2615,73 @@ impl ControlPlane {
                     json!(a)
                 };
                 Ok((data, Some(a.state_version)))
+            }
+            "account.arm" => {
+                let input: AccountArmingMutation = payload(request.payload)?;
+                let mut account = self.current_account(
+                    &input.workspace_id,
+                    &input.connection_id,
+                    &input.expected_state_version,
+                )?;
+                if account.environment != "LIVE" {
+                    return Err(TradeXError::new("LIVE_ACCOUNT_REQUIRED"));
+                }
+                if !input.confirmed {
+                    return Err(TradeXError::new("LIVE_ARM_CONFIRMATION_REQUIRED"));
+                }
+                if account.health.arming == "ARMED" {
+                    return Err(TradeXError::new("LIVE_ACCOUNT_ALREADY_ARMED"));
+                }
+                if let Some(code) = self.live_arming_blocker(&account) {
+                    return Err(TradeXError::new(code));
+                }
+                account.health.arming = "ARMED".into();
+                account.health.arming_reason = "EXPLICIT_USER_ARM".into();
+                let account = self.persist_account(account)?;
+                self.live_arming_since
+                    .insert(account.connection_id.clone(), Instant::now());
+                Ok((json!(account), Some(account.state_version)))
+            }
+            "account.disarm" => {
+                let input: AccountMutation = payload(request.payload)?;
+                let mut account = self.current_account(
+                    &input.workspace_id,
+                    &input.connection_id,
+                    &input.expected_state_version,
+                )?;
+                if account.environment != "LIVE" {
+                    return Err(TradeXError::new("LIVE_ACCOUNT_REQUIRED"));
+                }
+                if account.health.arming == "DISARMED" {
+                    return Ok((json!(account), Some(account.state_version)));
+                }
+                account.health.arming = "DISARMED".into();
+                account.health.arming_reason = "USER_DISABLED".into();
+                let account = self.persist_account(account)?;
+                self.live_arming_since.remove(&account.connection_id);
+                Ok((json!(account), Some(account.state_version)))
+            }
+            "account.disable_all_live" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                self.persist_live_disarm("USER_DISABLED_ALL", false)?;
+                let accounts = self.store.as_ref().unwrap().accounts()?;
+                Ok((
+                    json!(Accounts {
+                        live_arming_eligibility: self.live_arming_eligibility(&accounts),
+                        accounts,
+                    }),
+                    None,
+                ))
+            }
+            "account.activity" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let now = Instant::now();
+                for last_active in self.live_arming_since.values_mut() {
+                    *last_active = now;
+                }
+                Ok((json!({}), None))
             }
             "account.delete" => {
                 let input: AccountMutation = payload(request.payload)?;
@@ -3991,11 +4966,138 @@ impl ControlPlane {
         Ok(a)
     }
 
-    fn persist_account(&mut self, account: AccountConnection) -> Result<AccountConnection> {
+    fn live_arming_blocker(&self, account: &AccountConnection) -> Option<&'static str> {
+        if let Some(code) = Self::live_account_health_blocker(account) {
+            return Some(code);
+        }
+        if !self
+            .store
+            .as_ref()
+            .and_then(|store| store.risk().ok())
+            .is_some_and(|risk| risk.configured)
+        {
+            return Some("RISK_POLICY_NOT_READY");
+        }
+        self.time.require_trusted().err().map(|_| "CLOCK_SKEW")
+    }
+
+    fn live_arming_eligibility(
+        &self,
+        accounts: &[AccountConnection],
+    ) -> Vec<providers::LiveArmingEligibility> {
+        accounts
+            .iter()
+            .filter(|account| account.environment == "LIVE")
+            .map(|account| {
+                let reason_code = if account.health.arming == "ARMED" {
+                    "ALREADY_ARMED"
+                } else {
+                    self.live_arming_blocker(account).unwrap_or("READY")
+                };
+                providers::LiveArmingEligibility {
+                    connection_id: account.connection_id.clone(),
+                    can_arm: reason_code == "READY",
+                    reason: match reason_code {
+                        "READY" => {
+                            "All safety checks pass. Explicit confirmation is still required."
+                        }
+                        "ALREADY_ARMED" => "This Live account is already armed.",
+                        "ACCOUNT_NOT_CONNECTED" => "Connect this account before arming.",
+                        "ACCOUNT_UNHEALTHY" => "Resolve the account health checks before arming.",
+                        "CREDENTIAL_PERMISSION_BLOCKED" => {
+                            "Review the API key permissions at the provider before arming."
+                        }
+                        "PROVIDER_LIVE_UNSUPPORTED" => {
+                            "This provider does not support Live arming in TradeX."
+                        }
+                        "RECONCILIATION_REQUIRED" => {
+                            "Refresh the account until provider state is current."
+                        }
+                        "RISK_POLICY_NOT_READY" => "Configure a valid risk policy before arming.",
+                        "CLOCK_SKEW" => "Revalidate trusted time before arming.",
+                        _ => "Live arming is unavailable until required safety checks pass.",
+                    }
+                    .into(),
+                    reason_code: reason_code.into(),
+                }
+            })
+            .collect()
+    }
+
+    fn live_account_health_blocker(account: &AccountConnection) -> Option<&'static str> {
+        if account.environment != "LIVE" {
+            return Some("LIVE_ACCOUNT_REQUIRED");
+        }
+        if account.connection_state != ConnectionState::Connected {
+            return Some("ACCOUNT_NOT_CONNECTED");
+        }
+        if account.health.connection != "ONLINE"
+            || account.health.authentication != "VALID"
+            || account.health.credential != "CONFIGURED"
+            || account.data.is_none()
+            || matches!(
+                account.health.private_stream.as_str(),
+                "DEGRADED" | "AUTH_FAILED" | "STOPPED"
+            )
+        {
+            return Some("ACCOUNT_UNHEALTHY");
+        }
+        if !account.permissions.forbidden.is_empty()
+            || !account.permissions.unsupported.is_empty()
+            || account.permissions.scope != "VERIFIED"
+        {
+            return Some("CREDENTIAL_PERMISSION_BLOCKED");
+        }
+        let Ok(provider) = definition(&account.provider_id, "LIVE") else {
+            return Some("PROVIDER_LIVE_UNSUPPORTED");
+        };
+        let capabilities = &account.data.as_ref()?.capabilities;
+        if !provider
+            .required_permissions
+            .iter()
+            .all(|required| capabilities.contains(required))
+        {
+            return Some("PROVIDER_LIVE_UNSUPPORTED");
+        }
+        if account.health.reconciliation != "CURRENT" {
+            return Some("RECONCILIATION_REQUIRED");
+        }
+        None
+    }
+
+    fn persist_account(&mut self, mut account: AccountConnection) -> Result<AccountConnection> {
+        let previous = self
+            .store
+            .as_ref()
+            .and_then(|store| store.account(&account.connection_id).ok());
+        if let Some(previous) = previous
+            && previous.health.arming == "ARMED"
+        {
+            let identity_or_permission_changed = previous.permissions != account.permissions
+                || previous.health.credential != account.health.credential
+                || previous.data.as_ref().map(|data| &data.remote_account_id)
+                    != account.data.as_ref().map(|data| &data.remote_account_id);
+            let disarm_reason = if identity_or_permission_changed {
+                Some("CREDENTIAL_OR_PERMISSION_CHANGED")
+            } else if Self::live_account_health_blocker(&account).is_some() {
+                Some("ACCOUNT_HEALTH_DEGRADED")
+            } else {
+                None
+            };
+            if let Some(reason) = disarm_reason {
+                account.health.arming = "DISARMED".into();
+                account.health.arming_reason = reason.into();
+            }
+        }
         let event = self.store.as_mut().unwrap().save_account(account)?;
         self.publish(&event);
         match event.payload {
-            DomainProjection::Account(account) => Ok(*account),
+            DomainProjection::Account(account) => {
+                if account.health.arming != "ARMED" {
+                    self.live_arming_since.remove(&account.connection_id);
+                }
+                Ok(*account)
+            }
             _ => unreachable!(),
         }
     }

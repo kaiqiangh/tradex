@@ -288,6 +288,8 @@ Permission states:
 
 Detected forbidden permissions block live readiness until removed.
 
+Live arming requires permission scope `VERIFIED`; acknowledging an `UNVERIFIED` scope does not enable Arm.
+
 ### A4. LLM Providers (Model)
 
 CLIProxyAPI surface:
@@ -536,7 +538,7 @@ Cross-account base-currency view includes FX/stablecoin provenance:
 
 ### F1. Account-scoped Live Arming
 
-Arm dialog binds to exactly one account.
+Arm dialog binds to exactly one account and shows its provider, label, `LIVE` environment, complete TradeX connection ID and provider account ID. Missing or blocked safety eligibility disables Arm and shows the backend remediation reason. Permission scope must be `VERIFIED`; acknowledging `UNVERIFIED` scope does not enable Arm. Confirming Arm does not approve or submit an order.
 
 ```text
 Trading 212 Live · ARMED
@@ -549,6 +551,7 @@ Required controls:
 - per-account `Arm Live Trading` / `Disable Live`;
 - global `Disable All Live Execution`;
 - restart/sleep/auth/reconciliation/risk weakening disarms affected account(s).
+- keyboard-operable confirmation with Cancel-first focus, Escape dismissal and focus restoration.
 
 ### F2. Limit Order Approval — Trading 212 / AAPL
 

@@ -1068,7 +1068,10 @@ impl Store {
                 || event.aggregate_type != kind
                 || match kind {
                     "workspace" => event.event_type != "workspace.opened",
-                    "account" => event.event_type != "account.health.changed",
+                    "account" => !matches!(
+                        event.event_type.as_str(),
+                        "account.health.changed" | "account.arming.changed"
+                    ),
                     "model-gateway" => event.event_type != "model.gateway.changed",
                     "model" => !matches!(
                         event.event_type.as_str(),
@@ -2466,6 +2469,7 @@ impl Store {
                 && account.health.arming != "DISARMED"
             {
                 account.health.arming = "DISARMED".into();
+                account.health.arming_reason = "RISK_POLICY_WEAKENED".into();
                 let event = save_account_tx(&tx, account, sequence + 1, &risk.updated_at)?;
                 account_events.push(event);
             }
@@ -2773,6 +2777,23 @@ impl Store {
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
+        let previous_projection: Option<String> = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&account.connection_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let arming_changed = previous_projection
+            .as_deref()
+            .map(|projection| {
+                serde_json::from_str::<AccountConnection>(projection)
+                    .map(|previous| previous.health.arming != account.health.arming)
+                    .map_err(storage_error)
+            })
+            .transpose()?
+            .unwrap_or(false);
         let previous: i64 = tx
             .query_row(
                 "SELECT COALESCE((SELECT sequence FROM accounts WHERE connection_id=?1),0)",
@@ -2795,7 +2816,12 @@ impl Store {
             params![account.connection_id,account.provider_id,account.environment,remote,sequence,account.credential_ref(),serde_json::to_string(&account).map_err(storage_error)?]).map_err(storage_error)?;
         let event = DomainEvent {
             event_id: Uuid::new_v4().to_string(),
-            event_type: "account.health.changed".into(),
+            event_type: if arming_changed {
+                "account.arming.changed"
+            } else {
+                "account.health.changed"
+            }
+            .into(),
             schema_version: 1,
             occurred_at: account.updated_at.clone(),
             aggregate_type: "account".into(),
@@ -2815,6 +2841,66 @@ impl Store {
         .map_err(storage_error)?;
         tx.commit().map_err(storage_error)?;
         Ok(event)
+    }
+
+    pub fn disarm_live_accounts(&mut self, reason: &str) -> Result<Vec<DomainEvent>> {
+        if !matches!(
+            reason,
+            "USER_DISABLED_ALL"
+                | "SESSION_RESUMED"
+                | "OS_SLEEP"
+                | "SESSION_INACTIVE"
+                | "INACTIVITY_TIMEOUT"
+                | "TIME_UNTRUSTED"
+                | "RISK_POLICY_NOT_READY"
+                | "WORKSPACE_REOPENED"
+        ) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let workspace_id = self.workspace_id()?;
+        let occurred_at = timestamp()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let armed = {
+            let mut statement = tx
+                .prepare("SELECT connection_id, sequence, projection FROM accounts WHERE environment='LIVE'")
+                .map_err(storage_error)?;
+            let rows = statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })
+                .map_err(storage_error)?;
+            rows.collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        let mut events = Vec::new();
+        for (connection_id, sequence, projection) in armed {
+            if sequence < 1 || sequence >= MAX_SEQUENCE as i64 {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let mut account: AccountConnection =
+                serde_json::from_str(&projection).map_err(storage_error)?;
+            account.validate_persisted(&workspace_id)?;
+            if account.connection_id != connection_id
+                || account.environment != "LIVE"
+                || account.state_version != format!("{}:{sequence}", account.connection_id)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if account.health.arming == "ARMED" {
+                account.health.arming = "DISARMED".into();
+                account.health.arming_reason = reason.into();
+                events.push(save_account_tx(&tx, account, sequence + 1, &occurred_at)?);
+            }
+        }
+        tx.commit().map_err(storage_error)?;
+        Ok(events)
     }
 
     pub fn save_alpaca_private_stream_health(
@@ -6554,10 +6640,18 @@ impl Store {
 
     pub fn mark_accounts_stale(&mut self) -> Result<()> {
         for mut account in self.accounts()? {
+            let was_armed = account.environment == "LIVE" && account.health.arming == "ARMED";
+            if was_armed {
+                account.health.arming = "DISARMED".into();
+                account.health.arming_reason = "APPLICATION_RESTART".into();
+            }
             if account.connection_state == ConnectionState::Disconnected
                 || (account.connection_state == ConnectionState::Failed
                     && account.health.credential == "MISSING")
             {
+                if was_armed {
+                    self.save_account(account)?;
+                }
                 continue;
             }
             if account.connection_state == ConnectionState::Connecting
@@ -8678,6 +8772,23 @@ fn save_account_tx(
     if !(1..=MAX_SEQUENCE as i64).contains(&sequence) {
         return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
     }
+    let previous_projection: Option<String> = tx
+        .query_row(
+            "SELECT projection FROM accounts WHERE connection_id=?1",
+            [&account.connection_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let arming_changed = previous_projection
+        .as_deref()
+        .map(|projection| {
+            serde_json::from_str::<AccountConnection>(projection)
+                .map(|previous| previous.health.arming != account.health.arming)
+                .map_err(storage_error)
+        })
+        .transpose()?
+        .unwrap_or(false);
     account.state_version = format!("{}:{sequence}", account.connection_id);
     account.updated_at = occurred_at.into();
     account.validate_persisted(&account.workspace_id)?;
@@ -8696,7 +8807,12 @@ fn save_account_tx(
     .map_err(storage_error)?;
     let event = DomainEvent {
         event_id: Uuid::new_v4().to_string(),
-        event_type: "account.health.changed".into(),
+        event_type: if arming_changed {
+            "account.arming.changed"
+        } else {
+            "account.health.changed"
+        }
+        .into(),
         schema_version: 1,
         occurred_at: account.updated_at.clone(),
         aggregate_type: "account".into(),

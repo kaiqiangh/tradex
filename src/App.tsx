@@ -711,6 +711,27 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState('Providers & Models');
   const state = useWorkspace();
   const workspace = state.workspace;
+  useEffect(() => {
+    const workspaceId = workspace?.workspaceId;
+    if (!workspaceId) return;
+    let lastActivitySentAt = 0;
+    const sendActivity = (event: Event) => {
+      const now = Date.now();
+      if (!event.isTrusted || now - lastActivitySentAt < 30_000) return;
+      lastActivitySentAt = now;
+      void request('account.activity', { workspaceId }).catch(() => {});
+    };
+    window.addEventListener('pointermove', sendActivity, { passive: true });
+    window.addEventListener('pointerdown', sendActivity, { passive: true });
+    window.addEventListener('keydown', sendActivity);
+    window.addEventListener('touchstart', sendActivity, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', sendActivity);
+      window.removeEventListener('pointerdown', sendActivity);
+      window.removeEventListener('keydown', sendActivity);
+      window.removeEventListener('touchstart', sendActivity);
+    };
+  }, [workspace?.workspaceId]);
   const riskProjection = useDomainProjection('risk', workspace?.workspaceId, fromRiskSnapshot);
   const modelProjection = useDomainProjection('model', workspace?.workspaceId, fromModelSnapshot);
   const risk = riskProjection.data;

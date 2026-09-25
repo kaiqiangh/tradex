@@ -42,7 +42,7 @@ fn time_commands_are_workspace_scoped_and_do_not_mutate_domain_state() {
         before
     );
 
-    control.resume();
+    control.resume().unwrap();
     let after_resume = command(
         &mut control,
         "time.status",

@@ -653,6 +653,7 @@ export type Trading212DemoCancelState = "NONE" | "SUBMITTING" | "PENDING";
  * Exported to JSON Schema and TypeScript, and used for renderer runtime validation.
  */
 export interface IpcSchema {
+  accountArmingMutation: AccountArmingMutation;
   accountMutation: AccountMutation;
   accountQuery: AccountQuery;
   aggregate: Aggregate;
@@ -795,6 +796,16 @@ export interface IpcSchema {
   workspaceOpen: OpenWorkspace;
   workspaceQuery: WorkspaceQuery;
   [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AccountArmingMutation".
+ */
+export interface AccountArmingMutation {
+  confirmed: boolean;
+  connectionId: string;
+  expectedStateVersion: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1741,6 +1752,7 @@ export interface DomainEvent {
   eventType:
     | "workspace.opened"
     | "account.health.changed"
+    | "account.arming.changed"
     | "model.gateway.changed"
     | "model.provider.changed"
     | "model.provider_attempt.changed"
@@ -2011,6 +2023,7 @@ export interface Position {
  */
 export interface AccountHealth {
   arming: string;
+  armingReason?: string;
   authentication: string;
   connection: string;
   credential: string;
@@ -3284,6 +3297,17 @@ export interface ProviderField {
  */
 export interface Accounts {
   accounts: AccountConnection[];
+  liveArmingEligibility: LiveArmingEligibility[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LiveArmingEligibility".
+ */
+export interface LiveArmingEligibility {
+  canArm: boolean;
+  connectionId: string;
+  reason: string;
+  reasonCode: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

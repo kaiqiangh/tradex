@@ -1,5 +1,6 @@
 /* Generated from Rust JSON Schema. */
 declare const validators: {
+  AccountArmingMutation: (value: unknown) => boolean;
   AccountConnection: (value: unknown) => boolean;
   AccountData: (value: unknown) => boolean;
   AccountDeletionReceipt: (value: unknown) => boolean;
@@ -128,6 +129,7 @@ declare const validators: {
   Instrument: (value: unknown) => boolean;
   InstrumentProviderMapping: (value: unknown) => boolean;
   ItemStatus: (value: unknown) => boolean;
+  LiveArmingEligibility: (value: unknown) => boolean;
   LocalPaperBalance: (value: unknown) => boolean;
   LocalPaperEvent: (value: unknown) => boolean;
   LocalPaperEventKind: (value: unknown) => boolean;

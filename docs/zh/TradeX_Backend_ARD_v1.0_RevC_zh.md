@@ -984,6 +984,7 @@ account C: DISARMED/ARMED
 
 - application restart；
 - OS sleep/session lock；
+- on macOS, `NSApplicationDidResignActiveNotification`; treat every app deactivation as `SESSION_INACTIVE`, including ordinary app switches, so a lock-screen transition to loginwindow fails closed;
 - credential change；
 - account health degradation；
 - reconciliation failure；
@@ -1559,6 +1560,7 @@ Codex queue overload 只能影响 Agent turn，不能挤占 control-plane reconc
 Sleep/session lock 时：
 
 - disarm live accounts；
+- on macOS, also disarm when the TradeX app gives up active status to another app；
 - 安全时持久化 runtime checkpoint；
 - resume 后重新建立 TimeService confidence；
 - 重连 private streams；
@@ -1712,6 +1714,7 @@ watchlist.delete
 watchlist.add
 watchlist.remove
 account.list
+account.activity
 account.get
 account.refresh
 account.arm
@@ -2029,13 +2032,19 @@ name（1–120 个字符，不含控制字符）与 baseCurrency（三个大写�
 | provider.connect | `{step: "confirm", workspaceId, connectionId, expectedStateVersion, acknowledgeUnverified: boolean}` | AccountConnection；仅确认已成功测试的精确审阅版本；未知权限须显式确认且继续标为 UNVERIFIED |
 | provider.probe / account.refresh | `{workspaceId, connectionId, expectedStateVersion}` | 实际读取结果/健康状态；读取失败保留旧观察和上次成功同步时间，标记 stale/error 并返回脱敏错误 |
 | provider.permissions / account.get | `{workspaceId, connectionId}` | 分别为 PermissionReview / AccountConnection |
-| account.list | `{workspaceId}` | `{accounts: AccountConnection[]}`；包含待处理、失败及断开记录以供恢复/历史查询 |
+| account.list | `{workspaceId}` | `{accounts: AccountConnection[], liveArmingEligibility: LiveArmingEligibility[]}`；包含待处理、失败及断开记录，并为每个 Live 账户返回 fail-closed 准备状态和原因 |
+| account.arm | `{workspaceId, connectionId, expectedStateVersion, confirmed: true}` | AccountConnection；重新校验可信时间、已配置风险策略、提供方 Live 支持、连接/凭据健康、对账及 VERIFIED 权限范围；确认 UNVERIFIED 范围仍不满足 Arm 条件；仅持久化此账户的 ARMED 转换和 `account.arming.changed` 事件 |
+| account.disarm | `{workspaceId, connectionId, expectedStateVersion}` | AccountConnection；仅撤防指定 Live 账户并记录原因 |
+| account.disable_all_live | `{workspaceId}` | Accounts；原子撤防工作区内全部 Live 账户并发布每项转换；不取消已派发的提供方请求 |
+| account.activity | `{workspaceId}` | `{}`；仅受信前台指针/键盘/触控输入可刷新当前已 Arm 账户的内存 inactivity deadline；不能 Arm 账户，也不能在后端超时检查已到期后延续同意 |
 | provider.disconnect | `{workspaceId, connectionId, expectedStateVersion}` | 删除凭据前先持久化 DISCONNECTED；删除失败保持 DELETE_PENDING，可使用新版本重试；不修改提供方、不取消外部订单 |
 | account.delete | `{workspaceId, connectionId, expectedStateVersion}` | `{connectionId}` receipt；永久删除一个符合条件的 Trading 212 Demo 连接的本地账户与订单簿观察 |
 
 ProviderDefinition 包含 `providerId`、`displayName`、`environment`、`available`、`helpText`、`fields`（`id`、`label`、`inputType`、`required`、`secret`、`maxLength`、`helpText`、适用环境）及权限要求。仅已实现的受支持组合可连接；不可用的目录项说明原因。Local Paper 内置且无需凭据，不代表外部探测成功。
 
-AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerId`、`environment`、`createdAt`；`label`、opaque `stateVersion`、`updatedAt`、`connectionState`（CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED）；分开的连接/认证/凭据/私有流/对账/执行资格/arming 健康状态；可选的既有账户数据、上次成功同步及 PermissionReview。数据包含远端身份/类型、可用时的币种、规范 decimal 字符串余额、可选账户级购买力、持仓/未完成订单、已观察能力及明确限制。缺失值不可用，不能默认零。Alpaca Paper 的 `buyingPower` 必须是提供方账户币种下的精确 decimal，不能从 cash 或 equity 推算。PermissionReview 区分 VERIFIED/UNVERIFIED、已检测权限、禁止/不支持权限、确认记录及 IP 限制状态。读取成功不代表完整密钥权限或金融授权。所有 Live 账户保持 DISARMED；S02 不授予执行资格。
+AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerId`、`environment`、`createdAt`；`label`、opaque `stateVersion`、`updatedAt`、`connectionState`（CONNECTING / REVIEW_REQUIRED / CONNECTED / FAILED / DISCONNECTED）；分开的连接/认证/凭据/私有流/对账/执行资格/arming 健康状态（含持久化的 `armingReason`）；可选的既有账户数据、上次成功同步及 PermissionReview。数据包含远端身份/类型、可用时的币种、规范 decimal 字符串余额、可选账户级购买力、持仓/未完成订单、已观察能力及明确限制。缺失值不可用，不能默认零。Alpaca Paper 的 `buyingPower` 必须是提供方账户币种下的精确 decimal，不能从 cash 或 equity 推算。PermissionReview 区分 VERIFIED/UNVERIFIED、已检测权限、禁止/不支持权限、确认记录及 IP 限制状态。读取成功不代表完整密钥权限或金融授权。应用重启后所有 Live 账户保持 DISARMED；S02 不授予执行资格。
+
+Arm 对话框绑定 provider、用户标签、`LIVE` 环境、完整 TradeX `connectionId` 及已观察的 provider account ID。资格由 `account.list` 返回；当前资格行缺失时 renderer 必须阻断，`account.arm` 还会独立重新校验全部前置条件。Arm 要求凭据权限范围为 VERIFIED；对 UNVERIFIED 范围的确认只允许完成连接审核。原生 deadline monitor 会在应用空闲时持久化执行 inactivity 撤防。`account.activity` 仅根据受信 renderer 输入刷新正在计时的单调 deadline；账户定时刷新不算用户活动。应用重启、session 失活、OS sleep、策略削弱、账户健康/凭据变化及超时都会持久化撤防及原因。
 
 账户观察在 balance 上增加可选 decimal 字符串 `reserved`、`inPies`；在 position 上增加可选 `instrumentCurrency`、`marketValueCurrency`；在 open order 上增加可选 `currency`、`filledValue`。提供方金额型订单的 `filledQuantity` 可缺失/null。旧持久化投影缺少字段时保持不可用。显示的金额单位来自对应观察币种，不将工作区币种视为隐式换算。Trading 212 summary 不提供账户子类型，应明确显示不可观测。提供方 JSON number 必须无二进制浮点转换地规范为精确 decimal wire 字符串。
 

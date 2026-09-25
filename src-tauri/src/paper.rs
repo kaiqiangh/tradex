@@ -63,6 +63,7 @@ pub fn account(workspace_id: &str, base_currency: &str) -> Result<AccountConnect
             reconciliation: "LOCAL_PROJECTION".into(),
             execution_eligibility: "SIMULATION_ONLY".into(),
             arming: "NOT_APPLICABLE".into(),
+            arming_reason: "NOT_ARMED".into(),
             reason: DISCLOSURE.into(),
         },
         permissions: PermissionReview {

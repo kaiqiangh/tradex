@@ -263,6 +263,8 @@ Permission:
 
 检测到 forbidden permission 时阻止 Live readiness。
 
+Live Arm 要求权限范围为 `VERIFIED`；确认 `UNVERIFIED` 范围不能启用 Arm。
+
 ### A4. LLM Providers (Model)
 
 CLIProxyAPI:
@@ -414,7 +416,7 @@ broker state、proposal/order identity、fill/remaining、reservation、cancel a
 
 ### F1. Account-scoped Live Arming
 
-Arm dialog 绑定单一 account:
+Arm dialog 绑定单一 account，并显示 provider、标签、`LIVE` 环境、完整 TradeX connection ID 和 provider account ID。安全资格缺失或被阻断时禁用 Arm 并显示后端 remediation reason。权限范围必须为 `VERIFIED`；确认 `UNVERIFIED` 范围不能启用 Arm。确认 Arm 不等于审批或提交订单。
 
 ```text
 Trading 212 Live · ARMED
@@ -422,7 +424,7 @@ Binance Live · DISARMED
 Bitget Live · DISARMED
 ```
 
-提供 per-account Arm/Disable + global Disable All。Restart/sleep/auth/reconciliation/risk weakening 仅对受影响账户 disarm。
+提供 per-account Arm/Disable + global Disable All。Restart/sleep/auth/reconciliation/risk weakening 仅对受影响账户 disarm。确认框可键盘操作，初始焦点在取消操作，Escape 关闭并恢复焦点。
 
 ### F2. Limit Order Approval — Trading 212 / AAPL
 

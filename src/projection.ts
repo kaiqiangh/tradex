@@ -59,7 +59,7 @@ export function applyEvent<T extends DomainProjection>(current: Projection<T>, v
     : book
     ? event.eventType === (binanceBook ? 'binance.testnet.order.book.changed' : trading212Book ? 'trading212.demo.order.book.changed' : 'alpaca.paper.order.book.changed')
     : account
-    ? event.eventType === 'account.health.changed'
+    ? event.eventType === 'account.health.changed' || event.eventType === 'account.arming.changed'
     : kind === 'model-gateway'
       ? event.eventType === 'model.gateway.changed'
       : kind === 'model'

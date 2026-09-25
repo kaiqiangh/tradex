@@ -951,12 +951,13 @@ live proposals may proceed to transaction-specific approval
 
 Arming one live account does not arm any other live account.
 
-Live execution remains transaction-specific and approval-gated while an account is ARMED.
+Live execution remains transaction-specific and approval-gated while an account is ARMED. Live arming requires verified credential-permission scope; acknowledging an `UNVERIFIED` scope permits completing connection review only and does not make the account eligible for Live arming.
 
 TradeX automatically returns the affected live account to `DISARMED` after:
 
 - application restart;
 - OS sleep or session lock;
+- on macOS, the TradeX app giving up active status to another app; this deliberately also disarms on ordinary app switches and covers the tested transition to the lock screen;
 - credential change;
 - account health degradation (single trigger source covering: authentication failure with provider reconnection, reconciliation failure, failed pre-approval/pre-execution checks, unhealthy broker state);
 - risk-policy weakening;
@@ -1575,7 +1576,7 @@ Permission safety gate:
 
 - detected withdrawal/transfer/custody permissions are **forbidden** for a TradeX live connection and block execution readiness until removed;
 - margin/leverage-management permissions are out of scope and surface a blocking or unsupported-capability warning;
-- where a provider cannot expose permission introspection, TradeX labels permission scope `UNVERIFIED`, requires explicit user acknowledgement, and keeps the limitation visible in Account Health;
+- where a provider cannot expose permission introspection, TradeX labels permission scope `UNVERIFIED`, requires explicit user acknowledgement to complete connection review, keeps the limitation visible in Account Health, and blocks Live arming;
 - connection tests persist only non-secret capability/permission metadata plus keychain references.
 
 ## 26.2 Provider-specific Account Detail

@@ -769,6 +769,7 @@ fn fixture_health() -> AccountHealth {
         reconciliation: "NOT_RUN".into(),
         execution_eligibility: "BLOCKED".into(),
         arming: "DISARMED".into(),
+        arming_reason: "NOT_ARMED".into(),
         reason: format!(
             "TRADEX_SIMULATION; scenario={FIXTURE_SCENARIO_ID}; synthetic fixture account; no provider connection was made."
         ),

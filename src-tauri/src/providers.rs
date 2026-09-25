@@ -111,6 +111,18 @@ pub struct AccountMutation {
 }
 
 #[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AccountArmingMutation {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub confirmed: bool,
+}
+
+#[derive(Deserialize, JsonSchema)]
 #[serde(tag = "step", rename_all = "camelCase", deny_unknown_fields)]
 pub enum Connect {
     #[serde(rename_all = "camelCase")]
@@ -176,7 +188,13 @@ pub struct AccountHealth {
     pub reconciliation: String,
     pub execution_eligibility: String,
     pub arming: String,
+    #[serde(default = "not_armed_reason")]
+    pub arming_reason: String,
     pub reason: String,
+}
+
+fn not_armed_reason() -> String {
+    "NOT_ARMED".into()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -321,10 +339,20 @@ pub struct AccountConnection {
     pub last_private_stream_event_at: Option<String>,
 }
 
-#[derive(Serialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Accounts {
     pub accounts: Vec<AccountConnection>,
+    pub live_arming_eligibility: Vec<LiveArmingEligibility>,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveArmingEligibility {
+    pub connection_id: String,
+    pub can_arm: bool,
+    pub reason_code: String,
+    pub reason: String,
 }
 
 impl AccountConnection {
@@ -358,6 +386,7 @@ impl AccountConnection {
                     "NOT_APPLICABLE"
                 }
                 .into(),
+                arming_reason: "NOT_ARMED".into(),
                 reason: "Complete connection testing and permission review.".into(),
             },
             permissions: PermissionReview::default(),
@@ -382,7 +411,7 @@ impl AccountConnection {
                 && provider.environment == self.environment
         });
         let valid_arming = match self.environment.as_str() {
-            "LIVE" => self.health.arming == "DISARMED",
+            "LIVE" => matches!(self.health.arming.as_str(), "DISARMED" | "ARMED"),
             "PAPER" | "DEMO" | "TESTNET" => self.health.arming == "NOT_APPLICABLE",
             "LOCAL" => self.is_local_paper() && self.health.arming == "NOT_APPLICABLE",
             _ => false,

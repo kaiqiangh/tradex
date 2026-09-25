@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountConnection, LocalPaperState } from '../shared/ipc-types.ts';
+import type { AccountConnection, Accounts as AccountList, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
 import { CommandError, desktop, browserIntegration, explainError, request } from './client.ts';
-import { fromAccountSnapshot } from './projection.ts';
+import { fromAccountSnapshot, fromRiskSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
 import { Portfolio } from './Portfolio.tsx';
 
@@ -134,9 +134,10 @@ function LocalPaperSummary({ state }: { state: LocalPaperState }) {
   </section>;
 }
 
-function AccountDetail({ account, busy, run, onDelete }: { account: AccountConnection; busy: boolean; run: (action: () => Promise<AccountConnection>) => void; onDelete: (account: AccountConnection) => Promise<{ deleted: boolean; message?: string }> }) {
+function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDelete }: { account: AccountConnection; eligibility?: LiveArmingEligibility; riskConfigured?: boolean; busy: boolean; run: (action: () => Promise<AccountConnection | AccountList>, focusId?: string) => Promise<boolean>; onDelete: (account: AccountConnection) => Promise<{ deleted: boolean; message?: string }> }) {
   const [acknowledgedVersion, setAcknowledgedVersion] = useState<string>();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmArm, setConfirmArm] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const acknowledged = acknowledgedVersion === account.stateVersion;
   const p = account.permissions;
@@ -149,6 +150,9 @@ function AccountDetail({ account, busy, run, onDelete }: { account: AccountConne
   const deleteDialog = useRef<HTMLDialogElement>(null);
   const deleteTrigger = useRef<HTMLButtonElement>(null);
   const deleteCancel = useRef<HTMLButtonElement>(null);
+  const armDialog = useRef<HTMLDialogElement>(null);
+  const armTrigger = useRef<HTMLButtonElement>(null);
+  const armCancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (confirmDelete && deleteDialog.current && !deleteDialog.current.open) {
       deleteDialog.current.showModal();
@@ -160,15 +164,40 @@ function AccountDetail({ account, busy, run, onDelete }: { account: AccountConne
       deleteTrigger.current = null;
     }
   }, [confirmDelete]);
+  useEffect(() => {
+    if (confirmArm && armDialog.current && !armDialog.current.open) {
+      armDialog.current.showModal();
+      queueMicrotask(() => armCancel.current?.focus());
+    } else if (!confirmArm && armDialog.current?.open) armDialog.current.close();
+    if (!confirmArm && armTrigger.current) {
+      if (armTrigger.current.isConnected && !armTrigger.current.disabled) armTrigger.current.focus();
+      else document.getElementById('account-detail-title')?.focus();
+      armTrigger.current = null;
+    }
+  }, [confirmArm]);
   return <section className="card account-detail" aria-labelledby="account-detail-title" data-state-version={account.stateVersion}>
     <div className="account-heading"><div><h2 id="account-detail-title">{account.label}</h2><p>{account.providerId} · {account.environment}{localPaper ? ' · LOCAL_PAPER' : ''} · {account.connectionState}</p></div>
-      <div className="account-actions">{!localPaper && <><button disabled={busy || disconnected || account.connectionState === 'CONNECTING' || ['MISSING', 'DELETE_PENDING'].includes(account.health.credential)} onClick={() => run(() => request('account.refresh', mutation(account)))}>Refresh account</button>
-        <button disabled={disconnectDisabled} onClick={() => run(() => request('provider.disconnect', mutation(account)))}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : cleanupOnly ? 'Remove local connection' : 'Disconnect'}</button>{deletable && <button type="button" onClick={() => { deleteTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null; setDeleteError(''); setConfirmDelete(true); }} disabled={busy}>Delete local account</button>}</>}</div>
+      <div className="account-actions">{!localPaper && <><button disabled={busy || disconnected || account.connectionState === 'CONNECTING' || ['MISSING', 'DELETE_PENDING'].includes(account.health.credential)} onClick={() => { void run(() => request('account.refresh', mutation(account))); }}>Refresh account</button>
+        <button disabled={disconnectDisabled} onClick={() => { void run(() => request('provider.disconnect', mutation(account))); }}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : cleanupOnly ? 'Remove local connection' : 'Disconnect'}</button>{deletable && <button type="button" onClick={() => { deleteTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null; setDeleteError(''); setConfirmDelete(true); }} disabled={busy}>Delete local account</button>}</>}</div>
     </div>
     <p className="notice">{account.health.reason}</p>
-    <dl className="health-grid">{Object.entries(account.health).filter(([key]) => key !== 'reason').map(([key, value]) => <div key={key}><dt>{({ connection: 'Connection', authentication: 'Authentication', credential: 'Credential', privateStream: 'Private stream', reconciliation: 'Reconciliation', executionEligibility: 'Execution eligibility', arming: 'Arming' } as Record<string, string>)[key]}</dt><dd>{value}</dd></div>)}
-      <div><dt>Last successful sync</dt><dd>{time(account.lastSuccessfulSync)}</dd></div><div><dt>Last private stream event</dt><dd>{time(account.lastPrivateStreamEventAt)}</dd></div><div><dt>Risk policy</dt><dd>Not configured</dd></div>
+    <dl className="health-grid">{Object.entries(account.health).filter(([key]) => key !== 'reason').map(([key, value]) => <div key={key}><dt>{({ connection: 'Connection', authentication: 'Authentication', credential: 'Credential', privateStream: 'Private stream', reconciliation: 'Reconciliation', executionEligibility: 'Execution eligibility', arming: 'Arming', armingReason: 'Arming reason' } as Record<string, string>)[key]}</dt><dd>{value}</dd></div>)}
+      <div><dt>Last successful sync</dt><dd>{time(account.lastSuccessfulSync)}</dd></div><div><dt>Last private stream event</dt><dd>{time(account.lastPrivateStreamEventAt)}</dd></div><div><dt>Risk policy</dt><dd>{riskConfigured == null ? 'Unavailable' : riskConfigured ? 'Configured' : 'Not configured'}</dd></div>
     </dl>
+    {account.environment === 'LIVE' && <section className="permission-review live-arming-controls" aria-labelledby="live-arming-title">
+      <h3 id="live-arming-title">Live execution authorization</h3>
+      <p><strong>LIVE · {account.label} · {account.providerId} · {account.health.arming}</strong></p>
+      <p id="live-arming-eligibility" role="status">{eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before arming.'}</p>
+      {account.health.arming === 'ARMED'
+        ? <button type="button" disabled={busy} onClick={() => { void run(() => request('account.disarm', mutation(account))); }}>Disable Live</button>
+        : <button type="button" id={`arm-live-trigger-${account.connectionId}`} ref={armTrigger} disabled={busy || !eligibility?.canArm || !(desktop || browserIntegration)} aria-describedby="live-arming-eligibility" onClick={() => { armTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null; setConfirmArm(true); }}>Arm Live Trading</button>}
+      <dialog ref={armDialog} className="picker-dialog live-arm-dialog" aria-labelledby="live-arm-title" onCancel={event => { event.preventDefault(); if (!busy) setConfirmArm(false); }}>
+        <div className="picker-dialog-heading"><div><h2 id="live-arm-title">Confirm Live arming</h2><p className="muted">Arming changes only this TradeX account. It does not approve or submit an order.</p></div></div>
+        <dl className="health-grid"><div><dt>Provider</dt><dd>{account.providerId}</dd></div><div><dt>Account label</dt><dd>{account.label}</dd></div><div><dt>Environment</dt><dd>LIVE</dd></div><div><dt>TradeX connection ID</dt><dd className="identity">{account.connectionId}</dd></div><div><dt>Provider account ID</dt><dd className="identity">{account.data?.remoteAccountId ?? 'Unavailable'}</dd></div></dl>
+        <p role="status">{eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before arming.'}</p>
+        <div className="picker-dialog-actions"><button ref={armCancel} type="button" onClick={() => setConfirmArm(false)} disabled={busy}>Keep reviewing</button><button type="button" className="primary" onClick={() => { void run(() => request('account.arm', { ...mutation(account), confirmed: true }), 'connections-title').then(() => setConfirmArm(false)); }} disabled={busy || !eligibility?.canArm}>{busy ? 'Arming…' : 'Arm this Live account'}</button></div>
+      </dialog>
+    </section>}
     {!localPaper && <section className="permission-review" aria-labelledby="permission-title"><h3 id="permission-title">Permission review</h3>
       <p><strong>{blocked ? 'BLOCKED' : p.scope}</strong> · IP allow-list: {p.ipAllowListStatus}</p>
       {p.ipAllowList && p.ipAllowList.length > 0 && <p>Allowed IP addresses: {p.ipAllowList.join(', ')}</p>}
@@ -178,7 +207,7 @@ function AccountDetail({ account, busy, run, onDelete }: { account: AccountConne
       {p.acknowledged && <p>Unverified scope was explicitly acknowledged for this permission review.</p>}
       {account.connectionState === 'REVIEW_REQUIRED' && <>
         {p.scope === 'UNVERIFIED' && <label className="check-field"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledgedVersion(event.target.checked ? account.stateVersion : undefined)} />I understand that permission scope is unverified and have checked the key’s permissions at the provider.</label>}
-        <button className="primary" disabled={busy || blocked || account.health.authentication !== 'VALID' || account.health.connection !== 'ONLINE' || (p.scope === 'UNVERIFIED' && !acknowledged)} onClick={() => run(() => request('provider.connect', { step: 'confirm', ...mutation(account), acknowledgeUnverified: acknowledged }))}>Confirm connection</button>
+        <button className="primary" disabled={busy || blocked || account.health.authentication !== 'VALID' || account.health.connection !== 'ONLINE' || (p.scope === 'UNVERIFIED' && !acknowledged)} onClick={() => { void run(() => request('provider.connect', { step: 'confirm', ...mutation(account), acknowledgeUnverified: acknowledged })); }}>Confirm connection</button>
       </>}
     </section>}
     {account.data && <><dl className="health-grid"><div><dt>Account type</dt><dd>{account.data.accountType}</dd></div><div><dt>Provider account ID</dt><dd className="identity">{account.data.remoteAccountId}</dd></div><div><dt>Currency</dt><dd>{account.data.currency ?? 'Per asset'}</dd></div>{account.providerId === 'alpaca' && <div><dt>Buying power</dt><dd>{money(account.data.buyingPower, account.data.currency)}</dd></div>}</dl>
@@ -201,6 +230,7 @@ function AccountDetail({ account, busy, run, onDelete }: { account: AccountConne
 export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: string; healthOnly?: boolean }) {
   const queryClient = useQueryClient();
   const catalog = useQuery({ queryKey: ['providers'], queryFn: () => request('provider.list_definitions', {}) });
+  const risk = useDomainProjection('risk', workspaceId, fromRiskSnapshot);
   const list = useQuery({ queryKey: ['accounts', workspaceId], queryFn: () => request('account.list', { workspaceId }), refetchInterval: 5000, refetchOnMount: 'always', refetchOnReconnect: 'always' });
   const paper = useQuery({ queryKey: ['paper', workspaceId], queryFn: () => request('paper.get', { workspaceId }), refetchOnMount: 'always', refetchOnReconnect: 'always' });
   const [selection, setSelection] = useState('alpaca/PAPER');
@@ -213,6 +243,7 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
   const [showPortfolio, setShowPortfolio] = useState(false);
   const restoreFocus = useRef<HTMLElement | null>(null);
   const accounts = list.data?.accounts ?? [];
+  const liveAccounts = accounts.filter(account => account.environment === 'LIVE');
   const existingAccount = connectionSource === 'new' ? undefined : accounts.find(account => account.connectionId === connectionSource);
   const canReuseExisting = Boolean(existingAccount && existingAccount.connectionState !== 'DISCONNECTED' && !['MISSING', 'DELETE_PENDING'].includes(existingAccount.health.credential));
   useEffect(() => {
@@ -232,15 +263,21 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
   const selected = useDomainProjection('account', selectedId, fromAccountSnapshot);
   const schema = catalog.data?.providers.find(p => `${p.providerId}/${p.environment}` === selection);
   const localPaperSelection = schema?.providerId === 'local-paper';
-  const run = async (action: () => Promise<AccountConnection>, focusId?: string) => {
+  const run = async (action: () => Promise<AccountConnection | AccountList>, focusId?: string): Promise<boolean> => {
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     let affectedId = selectedId;
+    let succeeded = false;
     setBusy(true); setError(null); setNotice('');
     try {
       const result = await action();
-      if (result.workspaceId !== workspaceId) throw new Error('IPC_IDENTITY_CONFLICT');
-      affectedId = result.connectionId;
-      await queryClient.invalidateQueries({ queryKey: ['account', result.connectionId] });
+      if ('workspaceId' in result) {
+        if (result.workspaceId !== workspaceId) throw new Error('IPC_IDENTITY_CONFLICT');
+        affectedId = result.connectionId;
+        await queryClient.invalidateQueries({ queryKey: ['account', result.connectionId] });
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ['account'] });
+      }
+      succeeded = true;
     } catch (failure) {
       if (failure instanceof CommandError && failure.detail.code === 'PROVIDER_ENTRY_CANCELLED') setNotice(failure.message);
       else setError(failure);
@@ -253,6 +290,7 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
       restoreFocus.current = (focusId ? document.getElementById(focusId) : trigger) ?? null;
       setBusy(false);
     }
+    return succeeded;
   };
   const deleteLocalAccount = async (account: AccountConnection) => {
     setBusy(true); setError(null); setNotice('');
@@ -299,10 +337,10 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
     {paper.isPending && <p role="status">Loading Local Paper simulation…</p>}
     {paper.data && <LocalPaperSummary state={paper.data} />}
     {!healthOnly && showPortfolio && <Portfolio workspaceId={workspaceId} />}
-    <section aria-labelledby="connections-title"><div className="section-heading"><div><h2 id="connections-title" tabIndex={-1}>Account connections</h2><p className="muted">Select an account to inspect its provider truth or TradeX simulation state.</p></div>{!healthOnly && <button type="button" onClick={() => setShowPortfolio(value => !value)} aria-expanded={showPortfolio}>{showPortfolio ? 'Hide portfolio' : 'Open portfolio'}</button>}</div>
+    <section aria-labelledby="connections-title"><div className="section-heading"><div><h2 id="connections-title" tabIndex={-1}>Account connections</h2><p className="muted">Select an account to inspect its provider truth or TradeX simulation state.</p></div><div className="account-actions">{liveAccounts.length > 0 && <button type="button" id="disable-all-live" disabled={busy} onClick={() => { void run(() => request('account.disable_all_live', { workspaceId }), 'disable-all-live').then(success => { if (success) setNotice('All Live accounts are disarmed.'); }); }}>Disable All Live Execution</button>}{!healthOnly && <button type="button" onClick={() => setShowPortfolio(value => !value)} aria-expanded={showPortfolio}>{showPortfolio ? 'Hide portfolio' : 'Open portfolio'}</button>}</div></div>
       {list.isLoading ? <p role="status">Loading local connections…</p> : !accounts.length ? <p>No account observations are available.</p> : <div className="account-list">{accounts.map(account => { const localPaper = account.providerId === 'local-paper' && account.environment === 'LOCAL'; return <button className="account-row" key={account.connectionId} aria-pressed={selectedId === account.connectionId} onClick={() => setSelectedId(account.connectionId)}><strong>{account.label}</strong><span>{account.providerId} · {account.environment}{localPaper ? ' · LOCAL_PAPER' : ''}</span>{localPaper && <small>TRADEX_SIMULATION · {account.health.reason}</small>}<span>{account.connectionState} · {account.health.connection}</span><span>Equity / balance: {account.data?.balances.map(balance => `${balance.asset} ${balance.total ?? balance.available}`).join(' · ') || 'Unavailable'}</span><span>Arming: {account.health.arming}</span><small>Last sync: {time(account.lastSuccessfulSync)}</small></button>; })}</div>}
     </section>
-    {selected.data && <AccountDetail key={selected.data.connectionId} account={selected.data} busy={busy} run={action => { void run(action); }} onDelete={deleteLocalAccount} />}
+    {selected.data && <AccountDetail key={selected.data.connectionId} account={selected.data} eligibility={list.data?.liveArmingEligibility.find(item => item.connectionId === selected.data?.connectionId)} riskConfigured={risk.data?.configured} busy={busy} run={run} onDelete={deleteLocalAccount} />}
     {selectedId && !selected.data && !selected.error && <p role="status">Restoring account state…</p>}
   </div>;
 }

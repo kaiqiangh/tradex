@@ -698,6 +698,8 @@ select exact live account
 
 Global Disable All 调用一次后端动作，再渲染后端返回的每个账户状态。
 
+确认框必须显示 provider、账户标签、`LIVE` 环境、完整 TradeX connection ID 和已观察到的 provider account ID。当前资格缺失或被阻断时禁用 Arm，并展示后端 remediation reason；权限范围必须为 `VERIFIED`，即使连接审核时已确认 `UNVERIFIED` 范围。`Disable Live` 只影响所选连接；`Disable All Live Execution` 始终作用于工作区内全部 Live 连接。Keep reviewing/Escape 取消且不写入，初始焦点位于 Keep reviewing，关闭后焦点返回触发控件或账户标题。应用只通过 `account.activity` 报告经过节流的受信指针、键盘和触控输入；后台轮询不延长 inactivity deadline。
+
 ### 14.5 Approval modal
 
 必须包含：

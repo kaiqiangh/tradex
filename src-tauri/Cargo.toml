@@ -10,7 +10,7 @@ name = "tradex"
 [features]
 default = []
 integration-test = []
-desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:objc2", "dep:objc2-app-kit", "dep:objc2-foundation"]
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:objc2", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:block2"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [[bin]]
@@ -51,8 +51,9 @@ duckdb = { version = "=1.10505.0", features = ["bundled"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"
 objc2 = { version = "=0.6.4", optional = true }
-objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSAccessibilityProtocols", "NSAlert", "NSButton", "NSControl", "NSEvent", "NSResponder", "NSSecureTextField", "NSTextField", "NSView", "NSWindow"] }
-objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSGeometry", "NSObject", "NSString"] }
+objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSAccessibilityProtocols", "NSAlert", "NSApplication", "NSButton", "NSControl", "NSEvent", "NSResponder", "NSSecureTextField", "NSTextField", "NSView", "NSWindow", "NSWorkspace"] }
+objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSGeometry", "NSObject", "NSNotification", "NSDistributedNotificationCenter", "NSOperation", "NSString", "block2"] }
+block2 = { version = "=0.6.2", optional = true }
 
 [dev-dependencies]
 tempfile = "=3.27.0"

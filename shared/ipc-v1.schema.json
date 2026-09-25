@@ -4,6 +4,9 @@
   "description": "Exported to JSON Schema and TypeScript, and used for renderer runtime validation.",
   "type": "object",
   "properties": {
+    "accountArmingMutation": {
+      "$ref": "#/$defs/AccountArmingMutation"
+    },
     "accountMutation": {
       "$ref": "#/$defs/AccountMutation"
     },
@@ -456,6 +459,7 @@
     "workspaceQuery",
     "accountQuery",
     "accountMutation",
+    "accountArmingMutation",
     "providerConnect",
     "threadCreate",
     "threadQuery",
@@ -572,6 +576,36 @@
     "watchlistInstrumentMutation"
   ],
   "$defs": {
+    "AccountArmingMutation": {
+      "type": "object",
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedStateVersion",
+        "confirmed"
+      ]
+    },
     "AccountConnection": {
       "type": "object",
       "properties": {
@@ -742,6 +776,10 @@
         "arming": {
           "type": "string"
         },
+        "armingReason": {
+          "type": "string",
+          "default": "NOT_ARMED"
+        },
         "authentication": {
           "type": "string"
         },
@@ -830,11 +868,18 @@
           "items": {
             "$ref": "#/$defs/AccountConnection"
           }
+        },
+        "liveArmingEligibility": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LiveArmingEligibility"
+          }
         }
       },
       "additionalProperties": false,
       "required": [
-        "accounts"
+        "accounts",
+        "liveArmingEligibility"
       ]
     },
     "AdjustmentStatus": {
@@ -4978,6 +5023,7 @@
           "enum": [
             "workspace.opened",
             "account.health.changed",
+            "account.arming.changed",
             "model.gateway.changed",
             "model.provider.changed",
             "model.provider_attempt.changed",
@@ -5469,6 +5515,30 @@
         "STREAMING",
         "COMPLETED",
         "FAILED"
+      ]
+    },
+    "LiveArmingEligibility": {
+      "type": "object",
+      "properties": {
+        "canArm": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "reasonCode": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "canArm",
+        "reasonCode",
+        "reason"
       ]
     },
     "LocalPaperBalance": {
