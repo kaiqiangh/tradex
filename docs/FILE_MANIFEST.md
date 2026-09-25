@@ -15,14 +15,14 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | `AGENTS.md` | Agent entry point / Agent 文档入口 | 30 | `c3242039e90c7f6c684b0de2fd3de2ad16132839293b508facb06ecbd14be9dc` |
 | `docs/README.md` | English documentation index | 46 | `ea86255aa65f024782694470dacb9dc2ddee43d13222dda6b09c3f1b9b3ae552` |
 | `docs/zh/README.md` | 中文文档目录 | 43 | `4db5f3c438205ce43c632eb09679ba6a4894055001703f426475214139fa706a` |
-| `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3658 | `d5e7d8a7aab7a2bdb87b3e7a2b3788112c04bdc7550353edd7924fdf304d306c` |
-| `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3648 | `3699e38894d1baa94f9dac656d8ae06b07b4297bcdfc3b98b8bc986e8b6dbc13` |
-| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1191 | `0c273ce40430b40a916274bcd306a476c475e64f90b695457e7ea369876149a6` |
-| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 900 | `7a2c74bf0dc49d8121e5c0aa236edd6356e5892236acab742c517ae5647f2d9a` |
-| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1063 | `49231e098ca50c544cc10209836c7fa7db255cc764ba3797f127c5cb039bb4f2` |
-| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1061 | `adb867bb09ac70091763a7c630b78dff80c4283b1e4fd923fd75e67bb76dd0b7` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2848 | `c079e3123fccba94ad735d0293e8164c1d8bda10fc3a6591fef976366b4bd003` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2846 | `a1839db8acbf0c685e5559e84e550b881d504cfe7294f6b2c09111cdb371393c` |
+| `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3664 | `ce5ba06f02906321de5c3fabc18b12d8a996923f3f32293153dfff8a6ddb7d6e` |
+| `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3654 | `9d992757d6eff88dccdcf647abd4a7bf129221d1e74afff56cc96c87bfbe7dee` |
+| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1210 | `6a57a6283de0e2200490c4a0990c5f52011fa14c4b6ebadff095b8126167605a` |
+| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 917 | `d3a0fdf05814f1c147f77d9b3c5cadac5d52b152b860944f5adb2b879f3eac2d` |
+| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1077 | `d12257fa08f16eae3152d06679ab75bac12948c144eaf4161bfc76385a5c4b5e` |
+| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1075 | `0ee3f977d1194af227a6ac3c1605a9b73d33e37c207ecea83c4238a5f0812037` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 2922 | `8ec445acaf418c12cf865570a4980d34f99b22d330dd207dad3845d70bc0f86c` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 2920 | `9d812bef6272c9af22be018a5f2f366a7bcc97d16dc563eaf042da53b91eaab0` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 214 | `d30b1d9392e31d9263d9a347a54c03ea3faabacf6560e3cb16ecaa1d968cbeb6` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 214 | `ebeae223e08a188c6474d100b3263156f9fbff90bb653ad48db2f0ddf4f7b24b` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 188 | `5d1b2619f2fbe829a17684e1b2d32ca54c496386e5c32932d8c90c168178bc73` |
