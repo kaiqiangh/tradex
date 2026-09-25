@@ -6,6 +6,8 @@
 
 S18 #66 本地账户删除切片已在 `dev@383e4c6` 完成代码审查、隔离验证和原生确认框检查，证据见 [#66 本地账户删除验收](s18-trading212-demo-delete-evidence.md)；点击原型 QA-13 仍为 FAILED，真实 Demo gate #64 与 S33 回归仍待完成。
 
+S20 #75 Bitget Live 订单/成交只读切片已在 `dev@983e051` 完成实现、双语契约、串行 Standards/Spec 审查和 Rust-backed fixture 浏览器验证，证据见 [Bitget Live 订单与成交验收](s20-bitget-live-evidence.md)。默认工作区没有 Bitget 连接，因此真实 Live 读取仍待普通 Live 账户安全连接；未创建/使用 Demo 账户或发出真实 provider 请求，S20 Demo 与 S30 仍未完成。
+
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
@@ -34,6 +36,7 @@ S18 #66 本地账户删除切片已在 `dev@383e4c6` 完成代码审查、隔离
 - [S17 #58 Alpaca Paper 订单/成交/撤单验收](s17-alpaca-paper-orderbook-evidence.md)：订单簿、fills、撤单对账的 provider fault coverage 与 fixture UI 验收；不包含 #59 trade_updates 或真实 sandbox gate。
 - [S17 #59 Alpaca Paper 私有流验收](s17-alpaca-paper-stream-evidence.md)：本地 WebSocket worker 断线/重连/重启 REST 对账、SQLite 恢复和 React Order/Account degraded 投影；不包含真实 sandbox gate。
 - [S18 #63 Trading 212 Demo 撤单验收](s18-trading212-demo-cancel-evidence.md)：本地 Rust-backed provider fixture 验证安全复核、一次性 DELETE、超时/身份/成交竞态、持久化恢复与键盘/窄屏交互；真实 Demo API gate 留给 #64。
+- [S20 #75 Bitget Live 订单与成交验收](s20-bitget-live-evidence.md)：普通 Live 只读实现、边界分页/精度、双语契约、Rust-backed browser fixture、390/768/1280 和双轴审查；真实 Live provider 读取待安全连接，未使用 Demo 账户。
 - [S18 Trading 212 Demo 交易生命周期 Spec](s18-trading212-demo.md)：#60 已完成官方 API / 现有实现边界梳理。#61 提交与未知结果恢复已完成，代码提交 `873d42f`、验收证据见 [#61 evidence](s18-trading212-demo-submit-evidence.md)；实现票为 [#62 订单簿与累计成交](https://github.com/kaiqiangh/tradex/issues/62) 已本地验证并关闭（实现 `715abd7`，证据见 [#62 evidence](s18-trading212-demo-orderbook-evidence.md)）、[#63 撤单与成交竞态](https://github.com/kaiqiangh/tradex/issues/63) 已本地验证并关闭（实现代码 SHA c1f6884f700d180534a05001ed12d3e6bfda5b81，证据见 [#63 evidence](s18-trading212-demo-cancel-evidence.md)）；[#64 真实 Demo 验收 gate](https://github.com/kaiqiangh/tradex/issues/64) 依赖前三项，需用户明确授权具体 Demo 写操作。按用户要求串行执行 #62 → #63 → #64；#63 已完成，下一项是 #64。S17 #56 按用户指示保持 OPEN。
 
 ## 1. 文档分析与实施约束
