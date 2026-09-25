@@ -15,6 +15,7 @@
 
 - `cargo fmt --all -- --check`、`node scripts/ipc-schema.mjs --check`、`npm run typecheck`、`npm run test:unit`、`npm run build`、`python3 scripts/check_requirements.py`、`git diff --check`：通过。
 - `cargo test --workspace --no-fail-fast -- --test-threads=1`：通过，146 个库级测试通过，workspace 集成测试无失败。
+- 将状态优先级收敛为共享 helper 后，`cargo test --workspace risk_decision -- --test-threads=1`：3 个 RiskDecision 单元/提交守卫集成测试通过。
 - 30 个 provider lifecycle 集成用例标记为 S21 忽略项：可信行情、市场日历或 instrument-rule evidence 尚未由所属数据工作项提供时，submit 保持 fail-closed。它们没有被计为通过。额外的 OS Keychain/native 环境测试按各自注释跳过。
 - IPC schema 检查确认 Rust / JSON Schema / TypeScript 一致；需求追踪检查覆盖 203 条需求、70 个屏幕、13 个 QA 场景和 23 个基线文件。
 - Vite 构建成功；其 bundle 超过 500 kB 的提示仍存在，不影响构建结果。
