@@ -53,6 +53,7 @@ pub struct Http {
     pub fail: Cell<bool>,
     pub identity: String,
     pub calls: RefCell<Vec<String>>,
+    pub bitget: bitget::Http,
     pub alpaca_posts: RefCell<Vec<Value>>,
     pub alpaca_order: RefCell<Option<Value>>,
     pub alpaca_order_history: RefCell<Vec<Value>>,
@@ -106,6 +107,7 @@ impl Default for Http {
             fail: Cell::new(false),
             identity: "81161e77-bafd-44bb-b2a0-60b9055e3cd4".into(),
             calls: RefCell::new(vec![]),
+            bitget: bitget::Http::default(),
             alpaca_posts: RefCell::new(vec![]),
             alpaca_order: RefCell::new(None),
             alpaca_order_history: RefCell::new(vec![]),
@@ -257,6 +259,12 @@ impl ProviderHttp for Http {
         headers: reqwest::header::HeaderMap,
         body: Option<&Value>,
     ) -> Result<ProviderHttpResponse> {
+        if matches!(
+            endpoint,
+            ProviderEndpoint::BitgetDemo | ProviderEndpoint::BitgetLive
+        ) {
+            return self.bitget.request(endpoint, method, path, headers, body);
+        }
         if endpoint == ProviderEndpoint::Trading212Demo {
             assert_eq!(
                 headers["Authorization"],
@@ -745,7 +753,7 @@ impl ProviderHttp for Http {
             tradex::provider_io::ProviderEndpoint::BitgetDemo
                 | tradex::provider_io::ProviderEndpoint::BitgetLive
         ) {
-            return bitget::Http(RefCell::new(vec![])).get(endpoint, path, headers);
+            return self.bitget.get(endpoint, path, headers);
         }
         if matches!(
             endpoint,

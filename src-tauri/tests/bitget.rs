@@ -1,9 +1,13 @@
 use serde_json::{Value, json};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tradex::{
     ControlPlane,
     protocol::{Result, TradeXError},
-    provider_io::{CredentialVault, Credentials, ProviderEndpoint, ProviderHttp},
+    provider_io::{
+        CredentialVault, Credentials, ProviderEndpoint, ProviderHttp, ProviderHttpMethod,
+        ProviderHttpResponse,
+    },
 };
 
 #[path = "support/bitget_fixtures.rs"]
@@ -70,8 +74,688 @@ impl ProviderHttp for DemoUnsupported {
     }
 }
 fn request(command: &str, payload: Value) -> Value {
-    json!({"requestId":"bitget-test","schemaVersion":1,"command":command,"payload":payload})
+    static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(0);
+    let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
+    json!({"requestId":format!("bitget-test-{request_id}"),"schemaVersion":1,"command":command,"payload":payload})
 }
+
+#[derive(Clone, Copy, Default)]
+enum DemoPostMode {
+    #[default]
+    Ack,
+    Timeout,
+    RateLimit,
+    Rejected,
+    Redirect,
+    BadJson,
+    WrongClientOid,
+}
+
+struct DemoOrders {
+    calls: RefCell<Vec<(ProviderEndpoint, ProviderHttpMethod, String, bool)>>,
+    posts: RefCell<Vec<Value>>,
+    last_order: RefCell<Option<Value>>,
+    account_info_override: RefCell<Option<Value>>,
+    post_mode: Cell<DemoPostMode>,
+}
+
+impl Default for DemoOrders {
+    fn default() -> Self {
+        Self {
+            calls: RefCell::new(vec![]),
+            posts: RefCell::new(vec![]),
+            last_order: RefCell::new(None),
+            account_info_override: RefCell::new(None),
+            post_mode: Cell::new(DemoPostMode::Ack),
+        }
+    }
+}
+
+impl DemoOrders {
+    fn respond(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<ProviderHttpResponse> {
+        assert_eq!(endpoint, ProviderEndpoint::BitgetDemo);
+        let demo_header = headers
+            .get("paptrading")
+            .and_then(|value| value.to_str().ok())
+            == Some("1");
+        self.calls
+            .borrow_mut()
+            .push((endpoint, method, path.into(), demo_header));
+        let envelope = |data: Value| json!({"code":"00000","data":data});
+        let response = match (method, path) {
+            (ProviderHttpMethod::Get, "/api/v2/public/time") => {
+                assert!(headers.is_empty());
+                json!({"code":"00000","data":{"serverTime":"1788849600000"}})
+            }
+            (ProviderHttpMethod::Get, "/api/v2/spot/account/info") => {
+                assert!(demo_header);
+                assert_signed("GET", path, None, &headers);
+                envelope(self.account_info_override.borrow().clone().unwrap_or_else(|| {
+                    json!({"userId":"9007199254740993","authorities":["coor","cpor","stor"],"ips":""})
+                }))
+            }
+            (ProviderHttpMethod::Get, "/api/v2/spot/account/assets?assetType=all") => {
+                assert!(demo_header);
+                assert_signed("GET", path, None, &headers);
+                envelope(json!([]))
+            }
+            (ProviderHttpMethod::Get, p)
+                if p.starts_with("/api/v2/spot/trade/unfilled-orders?") =>
+            {
+                assert!(demo_header);
+                assert_signed("GET", path, None, &headers);
+                envelope(json!([]))
+            }
+            (ProviderHttpMethod::Get, "/api/v2/spot/trade/current-plan-order?limit=100") => {
+                assert!(demo_header);
+                assert_signed("GET", path, None, &headers);
+                envelope(json!({"orderList":[],"nextFlag":false}))
+            }
+            (ProviderHttpMethod::Get, "/api/v2/spot/public/symbols?symbol=BTCUSDT") => {
+                envelope(json!([
+                    {"symbol":"BTCUSDT","baseCoin":"BTC","quoteCoin":"USDT","status":"online","pricePrecision":"2","quantityPrecision":"6","quotePrecision":"8","minTradeUSDT":"1"}
+                ]))
+            }
+            (ProviderHttpMethod::Get, "/api/v2/spot/market/tickers?symbol=BTCUSDT") => {
+                envelope(json!([
+                    {"symbol":"BTCUSDT","bidPr":"65000","askPr":"65001","lastPr":"65000"}
+                ]))
+            }
+            (ProviderHttpMethod::Get, p)
+                if p.starts_with("/api/v2/spot/trade/orderInfo?clientOid=") =>
+            {
+                assert!(demo_header);
+                assert_signed("GET", path, None, &headers);
+                envelope(json!([self
+                    .last_order
+                    .borrow()
+                    .clone()
+                    .expect("submitted order fixture")]))
+            }
+            (ProviderHttpMethod::Post, "/api/v2/spot/trade/place-order") => {
+                assert!(demo_header);
+                let body = body.expect("Bitget order body");
+                assert_signed("POST", path, Some(body), &headers);
+                self.posts.borrow_mut().push(body.clone());
+                let order = json!({
+                    "userId":"9007199254740993","symbol":body["symbol"],"orderId":"123456789",
+                    "clientOid":body["clientOid"],"side":body["side"],"orderType":body["orderType"],"status":"live"
+                });
+                *self.last_order.borrow_mut() = Some(order.clone());
+                let mode = self.post_mode.get();
+                return match mode {
+                    DemoPostMode::Timeout => Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
+                    DemoPostMode::RateLimit => Ok(ProviderHttpResponse {
+                        status: 429,
+                        body: br#"{"code":"429","msg":"rate limited"}"#.to_vec(),
+                    }),
+                    DemoPostMode::Rejected => Ok(ProviderHttpResponse {
+                        status: 400,
+                        body: br#"{"code":"40017","msg":"order rejected"}"#.to_vec(),
+                    }),
+                    DemoPostMode::Redirect => Ok(ProviderHttpResponse {
+                        status: 302,
+                        body: vec![],
+                    }),
+                    DemoPostMode::BadJson => Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: b"not json".to_vec(),
+                    }),
+                    DemoPostMode::WrongClientOid => Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&envelope(json!({
+                            "orderId":"123456789","clientOid":"tx-wrong"
+                        })))
+                        .unwrap(),
+                    }),
+                    DemoPostMode::Ack => Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&envelope(json!({
+                            "orderId":order["orderId"],"clientOid":order["clientOid"]
+                        })))
+                        .unwrap(),
+                    }),
+                };
+            }
+            _ => panic!(
+                "unexpected Bitget fixture request: {} {path}",
+                if method == ProviderHttpMethod::Get {
+                    "GET"
+                } else {
+                    "POST"
+                }
+            ),
+        };
+        Ok(ProviderHttpResponse {
+            status: 200,
+            body: serde_json::to_vec(&response).unwrap(),
+        })
+    }
+}
+
+fn assert_signed(
+    method: &str,
+    path: &str,
+    body: Option<&Value>,
+    headers: &reqwest::header::HeaderMap,
+) {
+    assert_eq!(headers["ACCESS-KEY"], KEY);
+    assert_eq!(headers["ACCESS-PASSPHRASE"], PASSPHRASE);
+    assert!(headers["ACCESS-KEY"].is_sensitive());
+    assert!(headers["ACCESS-PASSPHRASE"].is_sensitive());
+    assert!(headers["ACCESS-SIGN"].is_sensitive());
+    let timestamp = headers["ACCESS-TIMESTAMP"].to_str().unwrap();
+    let body = body
+        .map(|body| serde_json::to_string(body).unwrap())
+        .unwrap_or_default();
+    let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(SECRET.as_bytes()).unwrap();
+    use base64::Engine;
+    use hmac::Mac;
+    mac.update(format!("{timestamp}{method}{path}{body}").as_bytes());
+    mac.verify_slice(
+        &base64::engine::general_purpose::STANDARD
+            .decode(headers["ACCESS-SIGN"].as_bytes())
+            .unwrap(),
+    )
+    .unwrap();
+}
+
+impl ProviderHttp for DemoOrders {
+    fn get(
+        &self,
+        endpoint: ProviderEndpoint,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+    ) -> Result<Vec<u8>> {
+        Ok(self
+            .respond(endpoint, ProviderHttpMethod::Get, path, headers, None)?
+            .body)
+    }
+
+    fn request(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<ProviderHttpResponse> {
+        self.respond(endpoint, method, path, headers, body)
+    }
+}
+
+fn run_provider(
+    cp: &mut ControlPlane,
+    req: Value,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+) -> Value {
+    let job = cp.prepare_provider_for(&req, "main").unwrap().unwrap();
+    let outcome = job.run(
+        vault,
+        |_| credentials(),
+        http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, vault) {
+        cp.record_credential_cleanup(&job, cleanup);
+    }
+    reply
+}
+
+fn connected_demo(
+    cp: &mut ControlPlane,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+    workspace: &Value,
+) -> Value {
+    let tested = run_provider(
+        cp,
+        request(
+            "provider.connect",
+            json!({"step":"test","workspaceId":workspace,"providerId":"bitget","environment":"DEMO","label":"S20 fixture"}),
+        ),
+        vault,
+        http,
+    );
+    assert_eq!(tested["ok"], true, "{tested}");
+    let confirmed = cp.dispatch(request(
+        "provider.connect",
+        json!({
+            "step":"confirm","workspaceId":workspace,
+            "connectionId":tested["data"]["connectionId"],
+            "expectedStateVersion":tested["data"]["stateVersion"],
+            "acknowledgeUnverified":false
+        }),
+    ));
+    assert_eq!(confirmed["ok"], true, "{confirmed}");
+    confirmed["data"].clone()
+}
+
+fn demo_proposal(
+    cp: &mut ControlPlane,
+    workspace: &Value,
+    account: &Value,
+    order_type: &str,
+    quantity_type: &str,
+    quantity: &str,
+    tif: &str,
+    side: &str,
+) -> Value {
+    let mut fields = json!({
+        "accountId":account["connectionId"],"venue":"BITGET",
+        "environment":"BITGET_DEMO","instrumentId":"crypto:BTC/USDT:spot",
+        "side":side,"orderType":order_type,
+        "quantity":{"type":quantity_type,"value":quantity},"timeInForce":tif
+    });
+    if order_type == "LIMIT" {
+        fields["limitPrice"] = "65000".into();
+    }
+    let draft = cp.dispatch(request(
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":fields}),
+    ));
+    assert_eq!(draft["ok"], true, "{draft}");
+    let generated = cp.dispatch(request(
+        "trade.generate_proposal",
+        json!({"workspaceId":workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    ));
+    assert_eq!(generated["ok"], true, "{generated}");
+    cp.dispatch(request(
+        "trade.proposal.get",
+        json!({"workspaceId":workspace,"proposalId":generated["data"]["proposalId"]}),
+    ))["data"]
+        .clone()
+}
+
+fn demo_submit_request(workspace: &Value, account: &Value, proposal: &Value) -> Value {
+    request(
+        "bitget.demo.order.submit",
+        json!({
+            "workspaceId":workspace,"connectionId":account["connectionId"],
+            "expectedConnectionStateVersion":account["stateVersion"],
+            "proposalId":proposal["proposalId"],
+            "expectedProposalStateVersion":proposal["stateVersion"],
+            "proposalHash":proposal["proposalHash"],
+            "idempotencyKey":"bitget-demo-order-1","confirmedDemoOrder":true
+        }),
+    )
+}
+
+#[test]
+fn demo_proposal_is_persisted_before_one_signed_paptrading_submit_and_ack_is_not_fill() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = Vault::default();
+    let http = DemoOrders::default();
+    let workspace =
+        cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+    let account = connected_demo(&mut cp, &vault, &http, &workspace);
+    let proposal = demo_proposal(
+        &mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC", "BUY",
+    );
+    let submit = demo_submit_request(&workspace, &account, &proposal);
+
+    assert_eq!(
+        cp.prepare_provider_for(&submit, "research")
+            .err()
+            .unwrap()
+            .code,
+        "ORDER_SUBMIT_FORBIDDEN"
+    );
+    let job = cp.prepare_provider_for(&submit, "main").unwrap().unwrap();
+    let saved = cp.dispatch(request(
+        "bitget.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    ));
+    assert_eq!(saved["data"]["attempt"]["state"], "SUBMITTING");
+    assert!(
+        http.posts.borrow().is_empty(),
+        "persist before provider I/O"
+    );
+
+    let outcome = job.run(
+        &vault,
+        |_| credentials(),
+        &http,
+        || cp.provider_job_current(&job),
+    );
+    let reply = cp.complete_provider(&job, outcome);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["data"]["state"], "ACKNOWLEDGED");
+    assert_eq!(reply["data"]["providerOrderId"], "123456789");
+    assert_eq!(
+        reply["data"].get("fill"),
+        None,
+        "acknowledgement is not fill"
+    );
+    assert_eq!(http.posts.borrow().len(), 1);
+    let body = http.posts.borrow()[0].clone();
+    assert_eq!(body["symbol"], "BTCUSDT");
+    assert_eq!(body["side"], "buy");
+    assert_eq!(body["orderType"], "limit");
+    assert_eq!(body["force"], "gtc");
+    assert_eq!(body["size"], "0.1");
+    assert_eq!(body["price"], "65000");
+    assert!(body["clientOid"].as_str().unwrap().starts_with("tx-"));
+    assert!(body["clientOid"].as_str().unwrap().len() <= 50);
+    assert!(cp.prepare_provider_for(&submit, "main").unwrap().is_none());
+    assert_eq!(
+        http.posts.borrow().len(),
+        1,
+        "duplicate must not POST twice"
+    );
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .all(|(endpoint, method, path, paptrading)| {
+                *endpoint == ProviderEndpoint::BitgetDemo
+                    && (!(*method == ProviderHttpMethod::Post
+                        || path.starts_with("/api/v2/spot/account/")
+                        || path.starts_with("/api/v2/spot/trade/"))
+                        || *paptrading)
+            })
+    );
+    let encoded = serde_json::to_string(&reply).unwrap();
+    for secret in [KEY, SECRET, PASSPHRASE] {
+        assert!(!encoded.contains(secret));
+    }
+}
+
+#[test]
+fn changed_remote_permission_scope_blocks_demo_write_before_post() {
+    for (account_info, expected_error) in [
+        (
+            json!({"userId":"9007199254740993","authorities":["coor","cpor","stor"],"ips":"127.0.0.1"}),
+            "PROVIDER_REVIEW_REQUIRED",
+        ),
+        (
+            json!({"userId":"9007199254740993","authorities":["coor","cpor","stor","wtow"],"ips":""}),
+            "PROVIDER_PERMISSION_BLOCKED",
+        ),
+    ] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().into());
+        let vault = Vault::default();
+        let http = DemoOrders::default();
+        let workspace =
+            cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+        let account = connected_demo(&mut cp, &vault, &http, &workspace);
+        let proposal = demo_proposal(
+            &mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC", "BUY",
+        );
+        *http.account_info_override.borrow_mut() = Some(account_info);
+
+        let reply = run_provider(
+            &mut cp,
+            demo_submit_request(&workspace, &account, &proposal),
+            &vault,
+            &http,
+        );
+        assert_eq!(reply["ok"], true, "{reply}");
+        assert_eq!(reply["data"]["state"], "REJECTED");
+        assert_eq!(reply["data"]["errorCode"], expected_error);
+        assert!(
+            http.posts.borrow().is_empty(),
+            "permission drift must not POST"
+        );
+    }
+}
+
+#[test]
+fn limit_and_market_orders_use_bitget_units_and_time_in_force() {
+    let cases = [
+        (
+            "LIMIT",
+            "BASE",
+            "0.1",
+            "GTC",
+            "BUY",
+            "limit",
+            "0.1",
+            Some("gtc"),
+        ),
+        (
+            "LIMIT",
+            "BASE",
+            "0.1",
+            "IOC",
+            "BUY",
+            "limit",
+            "0.1",
+            Some("ioc"),
+        ),
+        (
+            "LIMIT",
+            "BASE",
+            "0.1",
+            "FOK",
+            "BUY",
+            "limit",
+            "0.1",
+            Some("fok"),
+        ),
+        (
+            "MARKET", "QUOTE", "100", "DAY", "BUY", "market", "100", None,
+        ),
+        (
+            "MARKET", "BASE", "0.1", "DAY", "SELL", "market", "0.1", None,
+        ),
+    ];
+    for (order_type, quantity_type, quantity, tif, side, expected_type, expected_size, force) in
+        cases
+    {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().into());
+        let vault = Vault::default();
+        let http = DemoOrders::default();
+        let workspace =
+            cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+        let account = connected_demo(&mut cp, &vault, &http, &workspace);
+        let proposal = demo_proposal(
+            &mut cp,
+            &workspace,
+            &account,
+            order_type,
+            quantity_type,
+            quantity,
+            tif,
+            side,
+        );
+        let reply = run_provider(
+            &mut cp,
+            demo_submit_request(&workspace, &account, &proposal),
+            &vault,
+            &http,
+        );
+        assert_eq!(reply["data"]["state"], "ACKNOWLEDGED", "{reply}");
+        let body = http.posts.borrow()[0].clone();
+        assert_eq!(body["side"], side.to_ascii_lowercase());
+        assert_eq!(body["orderType"], expected_type);
+        assert_eq!(body["size"], expected_size);
+        assert_eq!(body.get("force").and_then(Value::as_str), force);
+        if order_type == "LIMIT" {
+            assert_eq!(body["price"], "65000");
+        } else {
+            assert!(body.get("price").is_none());
+        }
+    }
+}
+
+#[test]
+fn unsupported_order_combinations_and_exchange_filters_block_submission() {
+    {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().into());
+        let vault = Vault::default();
+        let http = DemoOrders::default();
+        let workspace =
+            cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+        let account = connected_demo(&mut cp, &vault, &http, &workspace);
+        let unsupported = demo_proposal(
+            &mut cp, &workspace, &account, "MARKET", "BASE", "0.1", "GTC", "BUY",
+        );
+        let unsupported_error = match cp.prepare_provider_for(
+            &demo_submit_request(&workspace, &account, &unsupported),
+            "main",
+        ) {
+            Ok(_) => panic!("unsupported Market/BASE/GTC must fail closed"),
+            Err(error) => error,
+        };
+        assert_eq!(unsupported_error.code, "ORDER_CAPABILITY_UNSUPPORTED");
+        assert!(http.posts.borrow().is_empty());
+    }
+
+    for quantity in ["0.1234567", "0.000001"] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().into());
+        let vault = Vault::default();
+        let http = DemoOrders::default();
+        let workspace =
+            cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+        let account = connected_demo(&mut cp, &vault, &http, &workspace);
+        let proposal = demo_proposal(
+            &mut cp, &workspace, &account, "LIMIT", "BASE", quantity, "GTC", "BUY",
+        );
+        let reply = run_provider(
+            &mut cp,
+            demo_submit_request(&workspace, &account, &proposal),
+            &vault,
+            &http,
+        );
+        assert_eq!(reply["data"]["state"], "REJECTED", "{reply}");
+        assert_eq!(reply["data"]["errorCode"], "ORDER_FILTER_REJECTED");
+        assert!(http.posts.borrow().is_empty());
+    }
+}
+
+#[test]
+fn timeout_recovers_after_workspace_restart_by_client_oid_without_a_second_post() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = Vault::default();
+    let http = DemoOrders::default();
+    http.post_mode.set(DemoPostMode::Timeout);
+    let workspace =
+        cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+    let account = connected_demo(&mut cp, &vault, &http, &workspace);
+    let proposal = demo_proposal(
+        &mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC", "BUY",
+    );
+    let submit = demo_submit_request(&workspace, &account, &proposal);
+    let unknown = run_provider(&mut cp, submit.clone(), &vault, &http);
+    assert_eq!(unknown["data"]["state"], "UNKNOWN_RECONCILING", "{unknown}");
+    assert_eq!(http.posts.borrow().len(), 1);
+
+    drop(cp);
+    let mut cp = ControlPlane::new(folder.path().into());
+    assert_eq!(
+        cp.dispatch(request("workspace.open", json!({})))["ok"],
+        true
+    );
+    let saved = cp.dispatch(request(
+        "bitget.demo.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    ));
+    assert_eq!(saved["data"]["attempt"]["state"], "UNKNOWN_RECONCILING");
+    let accounts = cp.dispatch(request("account.list", json!({"workspaceId":workspace})));
+    let current_account = accounts["data"]["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|candidate| candidate["connectionId"] == account["connectionId"])
+        .unwrap()
+        .clone();
+    let mut retry = submit.clone();
+    retry["payload"]["expectedConnectionStateVersion"] = current_account["stateVersion"].clone();
+    assert!(cp.prepare_provider_for(&retry, "main").unwrap().is_none());
+
+    let reconciled = run_provider(
+        &mut cp,
+        request(
+            "bitget.demo.order.reconcile",
+            json!({
+                "workspaceId":workspace,"connectionId":account["connectionId"],
+                "expectedConnectionStateVersion":current_account["stateVersion"],
+                "proposalId":proposal["proposalId"]
+            }),
+        ),
+        &vault,
+        &http,
+    );
+    assert_eq!(reconciled["data"]["state"], "ACKNOWLEDGED", "{reconciled}");
+    assert_eq!(reconciled["data"]["providerOrderId"], "123456789");
+    assert_eq!(http.posts.borrow().len(), 1, "reconcile is query-only");
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .any(|(_, method, path, paptrading)| {
+                *method == ProviderHttpMethod::Get
+                    && path.starts_with("/api/v2/spot/trade/orderInfo?clientOid=tx-")
+                    && *paptrading
+            })
+    );
+}
+
+#[test]
+fn ambiguous_post_responses_stay_unknown_and_do_not_retry() {
+    for mode in [
+        DemoPostMode::RateLimit,
+        DemoPostMode::Redirect,
+        DemoPostMode::BadJson,
+        DemoPostMode::WrongClientOid,
+    ] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut cp = ControlPlane::new(folder.path().into());
+        let vault = Vault::default();
+        let http = DemoOrders::default();
+        http.post_mode.set(mode);
+        let workspace =
+            cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+        let account = connected_demo(&mut cp, &vault, &http, &workspace);
+        let proposal = demo_proposal(
+            &mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC", "BUY",
+        );
+        let submit = demo_submit_request(&workspace, &account, &proposal);
+        let reply = run_provider(&mut cp, submit.clone(), &vault, &http);
+        assert_eq!(reply["data"]["state"], "UNKNOWN_RECONCILING", "{reply}");
+        assert_eq!(http.posts.borrow().len(), 1);
+        assert!(cp.prepare_provider_for(&submit, "main").unwrap().is_none());
+        assert_eq!(http.posts.borrow().len(), 1);
+    }
+}
+
+#[test]
+fn explicit_http_rejection_is_terminal_and_cannot_be_resubmitted() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = Vault::default();
+    let http = DemoOrders::default();
+    http.post_mode.set(DemoPostMode::Rejected);
+    let workspace =
+        cp.dispatch(request("workspace.open", json!({})))["data"]["workspaceId"].clone();
+    let account = connected_demo(&mut cp, &vault, &http, &workspace);
+    let proposal = demo_proposal(
+        &mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC", "BUY",
+    );
+    let submit = demo_submit_request(&workspace, &account, &proposal);
+    let reply = run_provider(&mut cp, submit.clone(), &vault, &http);
+    assert_eq!(reply["data"]["state"], "REJECTED", "{reply}");
+    assert_eq!(reply["data"]["errorCode"], "PROVIDER_ORDER_REJECTED");
+    assert!(cp.prepare_provider_for(&submit, "main").unwrap().is_none());
+    assert_eq!(http.posts.borrow().len(), 1);
+}
+
 #[test]
 fn demo_account_rejection_keeps_three_secrets_native_and_never_falls_back_to_live() {
     let folder = tempfile::tempdir().unwrap();
@@ -141,7 +825,7 @@ fn live_lifecycle(vault: &impl CredentialVault) {
         json!({"step":"test","workspaceId":ws,"providerId":"bitget","environment":"LIVE","label":"Live contract fixture"}),
     );
     let job = cp.prepare_provider(&req).unwrap().unwrap();
-    let http = LivePages(RefCell::new(vec![]));
+    let http = LivePages::default();
     let outcome = job.run(
         vault,
         |_| credentials(),
@@ -224,7 +908,7 @@ impl ProviderHttp for ChangedResponse {
         path: &str,
         headers: reqwest::header::HeaderMap,
     ) -> Result<Vec<u8>> {
-        let bytes = LivePages(RefCell::new(vec![])).get(endpoint, path, headers)?;
+        let bytes = LivePages::default().get(endpoint, path, headers)?;
         if path == self.path {
             Ok(serde_json::to_vec(&json!({"code":"00000","data":self.data})).unwrap())
         } else {
@@ -342,7 +1026,7 @@ fn provider_schema_field_count_is_checked_before_storage_and_http() {
         );
         let job = cp.prepare_provider(&req).unwrap().unwrap();
         let vault = Vault::default();
-        let http = LivePages(RefCell::new(vec![]));
+        let http = LivePages::default();
         let outcome = job.run(
             &vault,
             |_| Credentials::new(values),
@@ -368,7 +1052,7 @@ fn changing_restricted_ip_addresses_requires_a_new_permission_review() {
         json!({"step":"test","workspaceId":ws,"providerId":"bitget","environment":"LIVE","label":"IP review fixture"}),
     );
     let job = cp.prepare_provider(&req).unwrap().unwrap();
-    let http = LivePages(RefCell::new(vec![]));
+    let http = LivePages::default();
     let result = job.run(
         &vault,
         |_| credentials(),
@@ -533,7 +1217,7 @@ fn invalidation_during_a_page_stops_further_io_and_cleans_the_new_key() {
         ) -> Result<Vec<u8>> {
             assert!(self.current.get(), "No read may follow invalidation");
             self.calls.borrow_mut().push(path.into());
-            let result = LivePages(RefCell::new(vec![])).get(endpoint, path, headers);
+            let result = LivePages::default().get(endpoint, path, headers);
             if path == "/api/v2/spot/trade/unfilled-orders?limit=100&tpslType=normal" {
                 self.current.set(false);
             }

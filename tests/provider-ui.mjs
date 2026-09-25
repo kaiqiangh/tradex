@@ -480,6 +480,78 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await ui.getByText('More', { exact: true }).press('Enter');
       await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    } else if (selection === 'bitget/DEMO') {
+      await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+      const editor = ui.locator('.order-draft-editor');
+      await editor.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('BITGET_DEMO');
+      await editor.getByRole('combobox', { name: 'Account', exact: true }).selectOption(existingValue);
+      await editor.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('crypto:BTC/USDT:spot');
+      await editor.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
+      await editor.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
+      await editor.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.1');
+      await editor.getByRole('textbox', { name: 'Limit price', exact: true }).fill('65000');
+      await editor.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
+      await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+      await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+      const submit = ui.getByRole('button', { name: 'Submit Bitget Spot Demo order', exact: true });
+      await submit.waitFor({ state: 'visible' });
+      await submit.press('Enter');
+      const dialog = ui.getByRole('dialog', { name: 'Confirm Bitget Spot Demo submission', exact: true });
+      await dialog.waitFor({ state: 'visible' });
+      assert.equal(await dialog.getAttribute('aria-modal'), 'true');
+      const review = await dialog.innerText();
+      assert.match(review, /This sends one order to the connected Bitget Demo account only/);
+      assert.ok(review.includes(label));
+      assert.match(review, /9007199254740993/);
+      assert.match(review, /crypto:BTC\/USDT:spot · BUY/);
+      assert.match(review, /0\.1 base coin \(BTC\) · LIMIT · GTC/);
+      assert.match(review, /Estimated notional\s+6500 USDT/);
+      assert.match(review, /Maximum spend\s+—/);
+      assert.match(review, /sha256:/);
+      assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Keep reviewing');
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Escape');
+      assert.equal(await dialog.isVisible(), false, 'Escape cancels without submitting the Proposal');
+      assert.equal(await ui.locator('section[aria-label="Bitget Spot Demo order attempt"]').count(), 0);
+      assert.equal(await submit.isVisible(), true);
+
+      await submit.press('Enter');
+      await dialog.waitFor({ state: 'visible' });
+      for (const width of [1280, 768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Bitget confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
+        assert.equal(await dialog.isVisible(), true);
+      }
+      await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Tab');
+      assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Confirm Bitget Demo submit');
+      await ui.getByRole('button', { name: 'Confirm Bitget Demo submit', exact: true }).press('Enter');
+      const attempt = ui.locator('section[aria-label="Bitget Spot Demo order attempt"]');
+      await attempt.getByText('Bitget Spot Demo · DEMO · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.match(await attempt.innerText(), /Account 9007199254740993 · clientOid tx-/);
+      assert.match(await attempt.innerText(), /Provider order 9876543210 · provider status Unavailable/);
+      assert.match(await attempt.innerText(), /acknowledged the request\. This is not evidence of a fill\./);
+      assert.equal(await attempt.locator('p').evaluateAll(elements => elements.some(element => element.textContent?.startsWith('Fill '))), false);
+      assert.equal(await ui.getByRole('button', { name: 'Submit Bitget Spot Demo order', exact: true }).count(), 0);
+      assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true);
+      observed.push('Bitget Demo order confirmation names the immutable Proposal and account, Escape sends no attempt, explicit keyboard confirmation records a signed fixture acknowledgement, and 390/768/1280 layouts fit.');
+
+      await viewport.set({ width: 1280, height: 900 });
+      await tab.reload();
+      await tab.getAXState();
+      await (await waitForButton('Order Drafts')).press('Enter');
+      await ui.locator('.order-proposal-row').first().waitFor({ state: 'visible' });
+      await ui.locator('.order-proposal-row').first().press('Enter');
+      await ui.locator('section[aria-label="Bitget Spot Demo order attempt"]')
+        .getByText('Bitget Spot Demo · DEMO · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await ui.getByRole('button', { name: 'Submit Bitget Spot Demo order', exact: true }).count(), 0);
+      observed.push('Reload restores the SQLite-backed Bitget Demo attempt and removes the submit action, preventing a second UI submission.');
+      await ui.getByText('More', { exact: true }).press('Enter');
+      await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     } else if (selection === 'binance/TESTNET') {
       const isolatedWorkspaceId = await ui.locator('.context .identity').innerText();
       await ui.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');

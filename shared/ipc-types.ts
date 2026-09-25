@@ -77,6 +77,11 @@ export type BinanceTestnetOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRAD
 export type BinanceTestnetOrderBookAction = "PENDING" | "ACCOUNT" | "HISTORY" | "DETAIL";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetDemoOrderAttemptState".
+ */
+export type BitgetDemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AgentMode".
  */
 export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
@@ -120,6 +125,7 @@ export type DomainProjection =
   | AlpacaPaperOrderAttempt
   | AlpacaPaperOrderBook
   | BinanceTestnetOrderAttempt
+  | BitgetDemoOrderAttempt
   | Trading212DemoOrderBook
   | BinanceTestnetOrderBook;
 /**
@@ -384,6 +390,8 @@ export type ReplyData =
   | AlpacaPaperOrderBookQueryResult
   | BinanceTestnetOrderAttempt
   | BinanceTestnetOrderAttemptQueryResult
+  | BitgetDemoOrderAttempt
+  | BitgetDemoOrderAttemptQueryResult
   | BinanceTestnetOrderBook
   | BinanceTestnetOrderBookQueryResult
   | PaperOrderResult
@@ -594,6 +602,11 @@ export interface IpcSchema {
   binanceTestnetOrderCancel: BinanceTestnetOrderCancel;
   binanceTestnetOrderReconcile: BinanceTestnetOrderReconcile;
   binanceTestnetOrderSubmit: BinanceTestnetOrderSubmit;
+  bitgetDemoOrderAttempt: BitgetDemoOrderAttempt;
+  bitgetDemoOrderAttemptQuery: BitgetDemoOrderAttemptQuery;
+  bitgetDemoOrderAttemptQueryResult: BitgetDemoOrderAttemptQueryResult;
+  bitgetDemoOrderReconcile: BitgetDemoOrderReconcile;
+  bitgetDemoOrderSubmit: BitgetDemoOrderSubmit;
   capabilityQuery: CapabilityQuery;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
@@ -1452,6 +1465,67 @@ export interface BinanceTestnetOrderSubmit {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetDemoOrderAttempt".
+ */
+export interface BitgetDemoOrderAttempt {
+  attemptId: string;
+  clientOid: string;
+  connectionId: string;
+  createdAt: string;
+  environment: "DEMO";
+  errorCode?: string | null;
+  proposalHash: string;
+  proposalId: string;
+  providerOrderId?: string | null;
+  providerStatus?: string | null;
+  reason: string;
+  remoteAccountId: string;
+  state: BitgetDemoOrderAttemptState;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetDemoOrderAttemptQuery".
+ */
+export interface BitgetDemoOrderAttemptQuery {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetDemoOrderAttemptQueryResult".
+ */
+export interface BitgetDemoOrderAttemptQueryResult {
+  attempt?: BitgetDemoOrderAttempt | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetDemoOrderReconcile".
+ */
+export interface BitgetDemoOrderReconcile {
+  connectionId: string;
+  expectedConnectionStateVersion: string;
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetDemoOrderSubmit".
+ */
+export interface BitgetDemoOrderSubmit {
+  confirmedDemoOrder: boolean;
+  connectionId: string;
+  expectedConnectionStateVersion: string;
+  expectedProposalStateVersion: string;
+  idempotencyKey: string;
+  proposalHash: string;
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CapabilityQuery".
  */
 export interface CapabilityQuery {
@@ -1556,7 +1630,8 @@ export interface DomainEvent {
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
-    | "binance-testnet-order-book";
+    | "binance-testnet-order-book"
+    | "bitget-demo-order-attempt";
   eventId: string;
   eventType:
     | "workspace.opened"
@@ -1572,7 +1647,8 @@ export interface DomainEvent {
     | "alpaca.paper.order.attempt.changed"
     | "alpaca.paper.order.book.changed"
     | "binance.testnet.order.attempt.changed"
-    | "binance.testnet.order.book.changed";
+    | "binance.testnet.order.book.changed"
+    | "bitget.demo.order.attempt.changed";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -2761,7 +2837,8 @@ export interface Snapshot {
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
-    | "binance-testnet-order-book";
+    | "binance-testnet-order-book"
+    | "bitget-demo-order-attempt";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -2824,7 +2901,8 @@ export interface SubscriptionAck {
     | "alpaca-paper-order-attempt"
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
-    | "binance-testnet-order-book";
+    | "binance-testnet-order-book"
+    | "bitget-demo-order-attempt";
   lastSequence: number;
   replayedCount: number;
 }

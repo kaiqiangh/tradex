@@ -80,6 +80,12 @@ declare const validators: {
   BinanceTestnetOrderOrigin: (value: unknown) => boolean;
   BinanceTestnetOrderReconcile: (value: unknown) => boolean;
   BinanceTestnetOrderSubmit: (value: unknown) => boolean;
+  BitgetDemoOrderAttempt: (value: unknown) => boolean;
+  BitgetDemoOrderAttemptQuery: (value: unknown) => boolean;
+  BitgetDemoOrderAttemptQueryResult: (value: unknown) => boolean;
+  BitgetDemoOrderAttemptState: (value: unknown) => boolean;
+  BitgetDemoOrderReconcile: (value: unknown) => boolean;
+  BitgetDemoOrderSubmit: (value: unknown) => boolean;
   CapabilityDecision: (value: unknown) => boolean;
   CapabilityLevel: (value: unknown) => boolean;
   CapabilityQuery: (value: unknown) => boolean;

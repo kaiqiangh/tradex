@@ -1873,7 +1873,7 @@ fn check_range_step(value: &str, min: &Value, max: &Value, step: &Value) -> Resu
     Ok(())
 }
 
-fn multiply(left: &str, right: &str) -> Result<String> {
+pub(super) fn multiply(left: &str, right: &str) -> Result<String> {
     let left = decimal(&Value::String(left.into()))?;
     let right = decimal(&Value::String(right.into()))?;
     if left.starts_with('-') || right.starts_with('-') {

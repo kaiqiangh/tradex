@@ -108,6 +108,37 @@ fn alpaca_order_book_paths_and_delete_are_bounded_to_paper_uuid_routes() {
 }
 
 #[test]
+fn bitget_order_submission_is_exactly_demo_only_and_requires_paptrading() {
+    let path = "/api/v2/spot/trade/place-order";
+    assert!(ProviderEndpoint::BitgetDemo.allows_method(ProviderHttpMethod::Post, path));
+    assert!(!ProviderEndpoint::BitgetLive.allows_method(ProviderHttpMethod::Post, path));
+    assert!(
+        !ProviderEndpoint::BitgetDemo
+            .allows_method(ProviderHttpMethod::Post, "/api/v2/spot/trade/cancel-order")
+    );
+    assert!(
+        ProviderEndpoint::BitgetDemo
+            .allows("/api/v2/spot/trade/orderInfo?clientOid=tx-0123456789abcdef")
+    );
+    assert!(
+        !ProviderEndpoint::BitgetDemo
+            .allows("/api/v2/spot/trade/orderInfo?clientOid=tx-0123456789abcdef&orderId=1")
+    );
+
+    let error = BrokerHttp::default()
+        .request(
+            ProviderEndpoint::BitgetDemo,
+            ProviderHttpMethod::Post,
+            path,
+            HeaderMap::new(),
+            Some(&json!({"symbol":"BTCUSDT"})),
+        )
+        .err()
+        .expect("a write without paptrading must be rejected locally");
+    assert_eq!(error.code, "PROVIDER_UNSUPPORTED");
+}
+
+#[test]
 fn provider_order_remaining_quantity_uses_exact_decimal_subtraction() {
     assert_eq!(decimal_subtract("10", "2.5").unwrap(), "7.5");
     assert_eq!(decimal_subtract("0.05", "0.04").unwrap(), "0.01");

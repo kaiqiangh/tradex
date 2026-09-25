@@ -129,7 +129,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -205,6 +205,8 @@ pub enum ReplyData {
     AlpacaPaperOrderBookQuery(Box<AlpacaPaperOrderBookQueryResult>),
     BinanceTestnetOrderAttempt(Box<BinanceTestnetOrderAttempt>),
     BinanceTestnetOrderAttemptQuery(Box<BinanceTestnetOrderAttemptQueryResult>),
+    BitgetDemoOrderAttempt(Box<BitgetDemoOrderAttempt>),
+    BitgetDemoOrderAttemptQuery(Box<BitgetDemoOrderAttemptQueryResult>),
     BinanceTestnetOrderBook(Box<BinanceTestnetOrderBook>),
     BinanceTestnetOrderBookQuery(Box<BinanceTestnetOrderBookQueryResult>),
     PaperOrderResult(Box<PaperOrderResult>),
@@ -329,6 +331,11 @@ pub struct IpcSchema {
     pub binance_testnet_order_attempt_query_result: BinanceTestnetOrderAttemptQueryResult,
     pub binance_testnet_order_reconcile: BinanceTestnetOrderReconcile,
     pub binance_testnet_order_attempt: BinanceTestnetOrderAttempt,
+    pub bitget_demo_order_submit: BitgetDemoOrderSubmit,
+    pub bitget_demo_order_attempt_query: BitgetDemoOrderAttemptQuery,
+    pub bitget_demo_order_attempt_query_result: BitgetDemoOrderAttemptQueryResult,
+    pub bitget_demo_order_reconcile: BitgetDemoOrderReconcile,
+    pub bitget_demo_order_attempt: BitgetDemoOrderAttempt,
     pub binance_testnet_order_book_query: BinanceTestnetOrderBookQuery,
     pub binance_testnet_order_book_query_result: BinanceTestnetOrderBookQueryResult,
     pub binance_testnet_order_book_refresh: BinanceTestnetOrderBookRefresh,
@@ -395,7 +402,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 21))]
+    #[schemars(range(min = 1, max = 22))]
     pub storage_schema_version: u32,
 }
 
@@ -3159,6 +3166,102 @@ pub struct BinanceTestnetOrderReconcile {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BitgetDemoOrderAttemptState {
+    Submitting,
+    Acknowledged,
+    UnknownReconciling,
+    Rejected,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetDemoOrderAttempt {
+    #[schemars(length(min = 1, max = 128))]
+    pub attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub remote_account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    #[schemars(extend("const" = "DEMO"))]
+    pub environment: String,
+    #[schemars(length(min = 1, max = 50))]
+    pub client_oid: String,
+    pub state: BitgetDemoOrderAttemptState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 40))]
+    pub provider_order_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub error_code: Option<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetDemoOrderSubmit {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_proposal_state_version: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub idempotency_key: String,
+    pub confirmed_demo_order: bool,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetDemoOrderAttemptQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetDemoOrderAttemptQueryResult {
+    pub attempt: Option<BitgetDemoOrderAttempt>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BitgetDemoOrderReconcile {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_connection_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BinanceTestnetOrderBookStatus {
     NeverSynced,
     Current,
@@ -3912,6 +4015,7 @@ pub enum DomainProjection {
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
     AlpacaPaperOrderBook(Box<AlpacaPaperOrderBook>),
     BinanceTestnetOrderAttempt(Box<BinanceTestnetOrderAttempt>),
+    BitgetDemoOrderAttempt(Box<BitgetDemoOrderAttempt>),
     Trading212DemoOrderBook(Box<Trading212DemoOrderBook>),
     BinanceTestnetOrderBook(Box<BinanceTestnetOrderBook>),
 }
@@ -3929,6 +4033,7 @@ impl DomainProjection {
             Self::AlpacaPaperOrderAttempt(a) => &a.attempt_id,
             Self::AlpacaPaperOrderBook(b) => &b.connection_id,
             Self::BinanceTestnetOrderAttempt(a) => &a.attempt_id,
+            Self::BitgetDemoOrderAttempt(a) => &a.attempt_id,
             Self::Trading212DemoOrderBook(b) => &b.connection_id,
             Self::BinanceTestnetOrderBook(b) => &b.connection_id,
         }
@@ -3945,6 +4050,7 @@ impl DomainProjection {
             Self::AlpacaPaperOrderAttempt(_) => "alpaca-paper-order-attempt",
             Self::AlpacaPaperOrderBook(_) => "alpaca-paper-order-book",
             Self::BinanceTestnetOrderAttempt(_) => "binance-testnet-order-attempt",
+            Self::BitgetDemoOrderAttempt(_) => "bitget-demo-order-attempt",
             Self::Trading212DemoOrderBook(_) => "trading212-demo-order-book",
             Self::BinanceTestnetOrderBook(_) => "binance-testnet-order-book",
         }
@@ -3956,12 +4062,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -3973,7 +4079,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,

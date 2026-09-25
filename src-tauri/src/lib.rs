@@ -45,13 +45,15 @@ use protocol::{
     BinanceTestnetOrderBook, BinanceTestnetOrderBookAction, BinanceTestnetOrderBookQuery,
     BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRateLimits,
     BinanceTestnetOrderBookRefresh, BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancel,
-    BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, CommandEnvelope, DataSourceProbe,
-    DataSourceQuery, DomainProjection, EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery,
-    MarketGetQuery, MarketTier, OpenWorkspace, PaperOrderSubmit, PortfolioQuery, ResearchFinding,
-    ResearchToolRequest, Result, RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel,
-    StrategyFailure, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest,
-    StrategyRunState, StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel,
-    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
+    BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BitgetDemoOrderAttemptQuery,
+    BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderAttemptState, BitgetDemoOrderReconcile,
+    BitgetDemoOrderSubmit, CommandEnvelope, DataSourceProbe, DataSourceQuery, DomainProjection,
+    EmptyPayload, EventSink, MAX_SEQUENCE, MarketCatalogQuery, MarketGetQuery, MarketTier,
+    OpenWorkspace, PaperOrderSubmit, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result,
+    RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure,
+    StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategyRunState,
+    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
+    ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
     Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderAttemptState,
     Trading212DemoOrderBook, Trading212DemoOrderBookAction, Trading212DemoOrderBookQuery,
     Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh,
@@ -1066,6 +1068,16 @@ impl ControlPlane {
                     None,
                 ))
             }
+            "bitget.demo.order.attempt.get" => {
+                let input: BitgetDemoOrderAttemptQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .bitget_demo_order_attempt(&input.workspace_id, &input.proposal_id)?;
+                Ok((json!(BitgetDemoOrderAttemptQueryResult { attempt }), None))
+            }
             "alpaca.paper.orders.get" => {
                 let input: AlpacaPaperOrderBookQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -1160,6 +1172,42 @@ impl ControlPlane {
                     .as_ref()
                     .unwrap()
                     .binance_testnet_order_attempt(&workspace_id, &proposal_id)?
+                    .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+                if attempt.connection_id != connection_id
+                    || (!proposal_hash.is_empty() && attempt.proposal_hash != proposal_hash)
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                Ok((json!(attempt), Some(attempt.state_version.clone())))
+            }
+            "bitget.demo.order.submit" | "bitget.demo.order.reconcile" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+                }
+                let (workspace_id, connection_id, proposal_id, proposal_hash) =
+                    if request.command == "bitget.demo.order.submit" {
+                        let input: BitgetDemoOrderSubmit = payload(request.payload)?;
+                        (
+                            input.workspace_id,
+                            input.connection_id,
+                            input.proposal_id,
+                            input.proposal_hash,
+                        )
+                    } else {
+                        let input: BitgetDemoOrderReconcile = payload(request.payload)?;
+                        (
+                            input.workspace_id,
+                            input.connection_id,
+                            input.proposal_id,
+                            String::new(),
+                        )
+                    };
+                self.require_workspace(&workspace_id)?;
+                let attempt = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .bitget_demo_order_attempt(&workspace_id, &proposal_id)?
                     .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
                 if attempt.connection_id != connection_id
                     || (!proposal_hash.is_empty() && attempt.proposal_hash != proposal_hash)
@@ -4086,6 +4134,12 @@ impl ControlPlane {
             "binance.testnet.order.reconcile" => {
                 return self.prepare_binance_testnet_order_reconcile(request, consumer);
             }
+            "bitget.demo.order.submit" => {
+                return self.prepare_bitget_demo_order_submit(request, consumer);
+            }
+            "bitget.demo.order.reconcile" => {
+                return self.prepare_bitget_demo_order_reconcile(request, consumer);
+            }
             "binance.testnet.orders.refresh" => {
                 return self.prepare_binance_testnet_order_book_refresh(request, consumer);
             }
@@ -4175,6 +4229,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4350,6 +4406,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4433,6 +4491,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4491,6 +4551,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4565,6 +4627,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4623,6 +4687,144 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
+        }))
+    }
+
+    fn prepare_bitget_demo_order_submit(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: BitgetDemoOrderSubmit = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "bitget" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        if let Some(existing) = self
+            .store
+            .as_ref()
+            .unwrap()
+            .bitget_demo_order_attempt(&input.workspace_id, &input.proposal_id)?
+        {
+            if existing.connection_id != input.connection_id
+                || existing.proposal_hash != input.proposal_hash
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            return Ok(None);
+        }
+        let proposal = self
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&input.proposal_id)?;
+        if proposal.workspace_id != input.workspace_id
+            || proposal.proposal_hash != input.proposal_hash
+            || proposal.state_version != input.expected_proposal_state_version
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        provider_io::validate_bitget_demo_proposal(&proposal, &account.connection_id)?;
+        let (attempt, created) = self
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_bitget_demo_order_attempt(&input)?;
+        if !created {
+            return Ok(None);
+        }
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::BitgetDemoSubmit,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
+            binance_testnet_order_book: None,
+            binance_testnet_book_action: None,
+            binance_testnet_book_symbol: None,
+            binance_testnet_book_order_id: None,
+            bitget_demo_attempt: Some(attempt),
+            bitget_demo_proposal: Some(proposal),
+        }))
+    }
+
+    fn prepare_bitget_demo_order_reconcile(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("ORDER_SUBMIT_FORBIDDEN"));
+        }
+        let input: BitgetDemoOrderReconcile = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.connection_id,
+            &input.expected_connection_state_version,
+        )?;
+        if account.provider_id != "bitget" || account.environment != "DEMO" {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let attempt = self
+            .store
+            .as_ref()
+            .unwrap()
+            .bitget_demo_order_attempt(&input.workspace_id, &input.proposal_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+        if attempt.connection_id != account.connection_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if attempt.state != BitgetDemoOrderAttemptState::UnknownReconciling {
+            return Ok(None);
+        }
+        let proposal = self
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&input.proposal_id)?;
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::BitgetDemoReconcile,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
+            binance_testnet_order_book: None,
+            binance_testnet_book_action: None,
+            binance_testnet_book_symbol: None,
+            binance_testnet_book_order_id: None,
+            bitget_demo_attempt: Some(attempt),
+            bitget_demo_proposal: Some(proposal),
         }))
     }
 
@@ -4696,6 +4898,8 @@ impl ControlPlane {
             binance_testnet_book_action: Some(input.action),
             binance_testnet_book_symbol: input.symbol,
             binance_testnet_book_order_id: input.provider_order_id,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4747,6 +4951,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: Some(input.symbol),
             binance_testnet_book_order_id: Some(input.provider_order_id),
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4799,6 +5005,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4873,6 +5081,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4924,6 +5134,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -4978,6 +5190,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -5027,6 +5241,8 @@ impl ControlPlane {
             binance_testnet_book_action: None,
             binance_testnet_book_symbol: None,
             binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
         }))
     }
 
@@ -5508,6 +5724,46 @@ impl ControlPlane {
                 .as_mut()
                 .unwrap()
                 .complete_binance_testnet_order_attempt(&attempt)
+            {
+                Ok(attempt) => json!({
+                    "requestId":job.request_id,
+                    "schemaVersion":1,
+                    "ok":true,
+                    "stateVersion":attempt.state_version,
+                    "data":attempt
+                }),
+                Err(error) => failure_reply(job.request_id.clone(), error),
+            };
+        }
+        if matches!(
+            job.kind,
+            JobKind::BitgetDemoSubmit | JobKind::BitgetDemoReconcile
+        ) {
+            if job.session != self.session {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("STATE_VERSION_CONFLICT"),
+                );
+            }
+            let attempt = outcome.bitget_demo_attempt.or_else(|| {
+                job.bitget_demo_attempt.clone().map(|mut attempt| {
+                    attempt.state = BitgetDemoOrderAttemptState::UnknownReconciling;
+                    attempt.error_code = Some("ORDER_STATUS_UNKNOWN".into());
+                    attempt.reason = "Provider outcome was unavailable. Query the saved clientOid before taking any further action.".into();
+                    attempt
+                })
+            });
+            let Some(attempt) = attempt else {
+                return failure_reply(
+                    job.request_id.clone(),
+                    TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"),
+                );
+            };
+            return match self
+                .store
+                .as_mut()
+                .unwrap()
+                .complete_bitget_demo_order_attempt(&attempt)
             {
                 Ok(attempt) => json!({
                     "requestId":job.request_id,
@@ -7655,6 +7911,9 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute("DROP TABLE binance_testnet_order_books", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE bitget_demo_order_attempts", [])
             .unwrap();
         migration_database
             .pragma_update(None, "user_version", 8)

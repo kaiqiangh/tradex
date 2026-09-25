@@ -5,11 +5,12 @@ use crate::{
         AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook,
         AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, BinanceTestnetOrderAttempt,
         BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookAction,
-        BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancelState, ExecutionContext,
-        OrderProposal, OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
-        Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrder,
-        Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
-        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin,
+        BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancelState, BitgetDemoOrderAttempt,
+        BitgetDemoOrderAttemptState, ExecutionContext, OrderProposal, OrderQuantityType, OrderSide,
+        OrderType, Result, TimeInForce, TradeXError, Trading212DemoCancelState,
+        Trading212DemoNormalizedOrderStatus, Trading212DemoOrder, Trading212DemoOrderAttempt,
+        Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
+        Trading212DemoOrderOrigin,
     },
     providers::*,
 };
@@ -339,6 +340,7 @@ impl ProviderEndpoint {
                     || (self == Self::BinanceTestnet
                         && path.starts_with("/api/v3/order?")
                         && self.allows(path))
+                    || (self == Self::BitgetDemo && path == "/api/v2/spot/trade/place-order")
             }
             ProviderHttpMethod::Delete => {
                 self == Self::AlpacaPaper
@@ -583,6 +585,15 @@ impl ProviderHttp for BrokerHttp {
         if !endpoint.allows_method(method, path) {
             return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
         }
+        if endpoint == ProviderEndpoint::BitgetDemo
+            && method == ProviderHttpMethod::Post
+            && headers
+                .get("paptrading")
+                .and_then(|value| value.to_str().ok())
+                != Some("1")
+        {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
         let request = match method {
             ProviderHttpMethod::Get if body.is_none() => self
                 .client()?
@@ -663,6 +674,8 @@ pub(crate) enum JobKind {
     BinanceTestnetReconcile,
     BinanceTestnetOrderBookRefresh,
     BinanceTestnetOrderCancel,
+    BitgetDemoSubmit,
+    BitgetDemoReconcile,
 }
 
 pub struct ProviderJob {
@@ -685,6 +698,8 @@ pub struct ProviderJob {
     pub(crate) binance_testnet_book_action: Option<BinanceTestnetOrderBookAction>,
     pub(crate) binance_testnet_book_symbol: Option<String>,
     pub(crate) binance_testnet_book_order_id: Option<String>,
+    pub(crate) bitget_demo_attempt: Option<BitgetDemoOrderAttempt>,
+    pub(crate) bitget_demo_proposal: Option<OrderProposal>,
 }
 
 pub(crate) struct Observation {
@@ -710,6 +725,7 @@ pub struct ProviderOutcome {
     pub(crate) alpaca_paper_order_book: Option<AlpacaPaperOrderBook>,
     pub(crate) binance_testnet_attempt: Option<BinanceTestnetOrderAttempt>,
     pub(crate) binance_testnet_order_book: Option<BinanceTestnetOrderBook>,
+    pub(crate) bitget_demo_attempt: Option<BitgetDemoOrderAttempt>,
 }
 
 impl ProviderJob {
@@ -742,6 +758,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         }
         if matches!(
@@ -755,6 +772,12 @@ impl ProviderJob {
             JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
         ) {
             return self.run_binance_testnet_order(vault, http, current);
+        }
+        if matches!(
+            self.kind,
+            JobKind::BitgetDemoSubmit | JobKind::BitgetDemoReconcile
+        ) {
+            return self.run_bitget_demo_order(vault, http, current);
         }
         if self.kind == JobKind::BinanceTestnetOrderBookRefresh {
             return self.run_binance_testnet_order_book(vault, http, current);
@@ -969,6 +992,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             },
             Err(error) => ProviderOutcome {
                 observation: None,
@@ -980,6 +1004,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             },
         }
     }
@@ -1001,6 +1026,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1118,6 +1144,7 @@ impl ProviderJob {
             alpaca_paper_order_book: None,
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
         }
     }
 
@@ -1138,6 +1165,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1390,6 +1418,7 @@ impl ProviderJob {
             alpaca_paper_order_book: None,
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
         }
     }
 
@@ -1544,6 +1573,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         };
         let Some(proposal) = self.binance_testnet_proposal.as_ref() else {
@@ -1557,6 +1587,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         };
         let result = (|| -> Result<BinanceTestnetOrderAttempt> {
@@ -1597,6 +1628,75 @@ impl ProviderJob {
             alpaca_paper_order_book: None,
             binance_testnet_attempt: Some(attempt),
             binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
+        }
+    }
+
+    fn run_bitget_demo_order(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let Some(attempt) = self.bitget_demo_attempt.clone() else {
+            return ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE")),
+                credential: "MISSING".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
+            };
+        };
+        let reconcile = self.kind == JobKind::BitgetDemoReconcile;
+        let result = (|| -> Result<BitgetDemoOrderAttempt> {
+            let proposal = self
+                .bitget_demo_proposal
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"))?;
+            if self.account.provider_id != "bitget" || self.account.environment != "DEMO" {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            let secret = vault.get(&self.account.credential_ref())?;
+            let values = secret.values()?;
+            Ok(bitget::run_demo_order(
+                &attempt,
+                proposal,
+                reconcile,
+                &self.account.permissions,
+                &values,
+                http,
+                &current,
+            ))
+        })();
+        let attempt = result.unwrap_or_else(|error| {
+            let mut attempt = attempt;
+            attempt.state = if reconcile {
+                BitgetDemoOrderAttemptState::UnknownReconciling
+            } else {
+                BitgetDemoOrderAttemptState::Rejected
+            };
+            attempt.provider_order_id = None;
+            attempt.provider_status = None;
+            attempt.error_code = Some(error.code.clone());
+            attempt.reason = error.message.chars().take(256).collect();
+            attempt
+        });
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: "CONFIGURED".into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
+            bitget_demo_attempt: Some(attempt),
         }
     }
 
@@ -1617,6 +1717,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         };
         let mut credential = "MISSING";
@@ -1702,6 +1803,7 @@ impl ProviderJob {
             alpaca_paper_order_book: None,
             binance_testnet_attempt: None,
             binance_testnet_order_book: Some(book),
+            bitget_demo_attempt: None,
         }
     }
 
@@ -1722,6 +1824,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1904,6 +2007,7 @@ impl ProviderJob {
             alpaca_paper_order_book: None,
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
         }
     }
 
@@ -1924,6 +2028,7 @@ impl ProviderJob {
                 alpaca_paper_order_book: None,
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -2036,6 +2141,7 @@ impl ProviderJob {
             alpaca_paper_order_book: Some(book),
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
         }
     }
 
@@ -3100,6 +3206,13 @@ pub(crate) fn validate_binance_testnet_proposal(
     binance::validate_binance_testnet_proposal(proposal, connection_id)
 }
 
+pub(crate) fn validate_bitget_demo_proposal(
+    proposal: &OrderProposal,
+    connection_id: &str,
+) -> Result<()> {
+    bitget::validate_demo_proposal(proposal, connection_id)
+}
+
 pub(crate) fn validate_trading212_demo_proposal(
     proposal: &OrderProposal,
     connection_id: &str,
@@ -3529,7 +3642,7 @@ fn alpaca_order_rejection(status: u16, body: &[u8], side: &str) -> TradeXError {
     TradeXError::new(error_code)
 }
 
-fn decimal_cmp(left: &str, right: &str) -> Result<std::cmp::Ordering> {
+pub(super) fn decimal_cmp(left: &str, right: &str) -> Result<std::cmp::Ordering> {
     if left.starts_with('-') || right.starts_with('-') {
         return Err(invalid());
     }

@@ -23,6 +23,7 @@ import type {
   BinanceTestnetOrder,
   BinanceTestnetOrderBook,
   BinanceTestnetOrderBookAction,
+  BitgetDemoOrderAttempt,
   OrderQuantityType,
   OrderSide,
   OrderType,
@@ -88,7 +89,7 @@ type DraftForm = {
   clientLabel: string;
 };
 type DraftField = keyof DraftForm;
-type PaperConfirmation = 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit' | 'binance-testnet-cancel';
+type PaperConfirmation = 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit' | 'binance-testnet-cancel' | 'bitget-demo-submit';
 
 const paperConfirmationCopy: Record<PaperConfirmation, { title: string; explanation: string; prompt: string; confirmLabel: string }> = {
   submit: {
@@ -118,6 +119,10 @@ const paperConfirmationCopy: Record<PaperConfirmation, { title: string; explanat
   'binance-testnet-submit': {
     title: 'Confirm Binance Spot Testnet submission', explanation: 'This sends one order to Binance Spot Testnet only. The endpoint is fixed to Testnet; an acknowledgement is not a fill.',
     prompt: 'Submit this exact immutable Proposal to Binance Spot Testnet?', confirmLabel: 'Confirm Binance Testnet submit',
+  },
+  'bitget-demo-submit': {
+    title: 'Confirm Bitget Spot Demo submission', explanation: 'This sends one order to the connected Bitget Demo account only. Live accounts are read-only here; an acknowledgement is not a fill.',
+    prompt: 'Submit this exact immutable Proposal to Bitget Spot Demo?', confirmLabel: 'Confirm Bitget Demo submit',
   },
   'binance-testnet-cancel': {
     title: 'Confirm Binance Spot Testnet cancellation', explanation: 'Review the saved Testnet order observation. TradeX rechecks the exact account and order after you confirm, immediately before the provider write; acknowledgement is not proof of cancellation and fills can race this request.',
@@ -192,6 +197,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const alpacaAccounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'alpaca' && account.environment === 'PAPER') ?? [], [accounts.data?.accounts]);
   const trading212Accounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'trading212' && account.environment === 'DEMO') ?? [], [accounts.data?.accounts]);
   const binanceTestnetAccounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'binance' && account.environment === 'TESTNET') ?? [], [accounts.data?.accounts]);
+  const bitgetDemoAccounts = useMemo(() => accounts.data?.accounts.filter(account => account.providerId === 'bitget' && account.environment === 'DEMO') ?? [], [accounts.data?.accounts]);
   const [ordersConnectionId, setOrdersConnectionId] = useState('');
   const ordersQuery = useQuery({
     queryKey: ['alpaca-paper-orders', workspaceId, ordersConnectionId],
@@ -244,7 +250,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [alpacaIdempotencyKey, setAlpacaIdempotencyKey] = useState<string>();
   const [trading212IdempotencyKey, setTrading212IdempotencyKey] = useState<string>();
   const [binanceTestnetIdempotencyKey, setBinanceTestnetIdempotencyKey] = useState<string>();
+  const [bitgetDemoIdempotencyKey, setBitgetDemoIdempotencyKey] = useState<string>();
   const [binanceTestnetReview, setBinanceTestnetReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
+  const [bitgetDemoReview, setBitgetDemoReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
   const [paperConfirmation, setPaperConfirmation] = useState<PaperConfirmation>();
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
@@ -272,6 +280,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     queryKey: ['binance-testnet-attempt', workspaceId, selectedProposalId],
     queryFn: () => request('binance.testnet.order.attempt.get', { workspaceId, proposalId: selectedProposalId! }),
     enabled: Boolean(selectedProposalId) && proposalDetail.data?.fields.environment === 'BINANCE_TESTNET',
+    refetchOnMount: 'always',
+  });
+  const bitgetDemoAttempt = useQuery({
+    queryKey: ['bitget-demo-attempt', workspaceId, selectedProposalId],
+    queryFn: () => request('bitget.demo.order.attempt.get', { workspaceId, proposalId: selectedProposalId! }),
+    enabled: Boolean(selectedProposalId) && proposalDetail.data?.fields.environment === 'BITGET_DEMO',
     refetchOnMount: 'always',
   });
   const selected = useMemo(() => newMode ? undefined : library.data?.drafts.find(draft => draft.draftId === selectedId), [library.data?.drafts, newMode, selectedId]);
@@ -314,7 +328,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setAlpacaIdempotencyKey(undefined);
     setTrading212IdempotencyKey(undefined);
     setBinanceTestnetIdempotencyKey(undefined);
+    setBitgetDemoIdempotencyKey(undefined);
     setBinanceTestnetReview(undefined);
+    setBitgetDemoReview(undefined);
   }, [selectedProposalId]);
   useEffect(() => {
     if (paperConfirmation) {
@@ -629,6 +645,78 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     finally { setPaperBusy(false); }
   };
 
+  const submitBitgetDemoProposal = async () => {
+    const proposal = proposalDetail.data;
+    const reviewedAccount = bitgetDemoReview;
+    if (!proposal || proposal.fields.environment !== 'BITGET_DEMO' || !proposal.fields.accountId
+      || !reviewedAccount || reviewedAccount.connectionId !== proposal.fields.accountId) return;
+    setPaperBusy(true); setError(undefined); setNotice('');
+    const idempotencyKey = bitgetDemoIdempotencyKey ?? crypto.randomUUID();
+    setBitgetDemoIdempotencyKey(idempotencyKey);
+    try {
+      const prior = await request('bitget.demo.order.attempt.get', { workspaceId, proposalId: proposal.proposalId });
+      if (prior.attempt) {
+        queryClient.setQueryData(['bitget-demo-attempt', workspaceId, proposal.proposalId], prior);
+        setNotice('A saved Bitget Demo attempt already exists. Its status is shown below; no second order was sent.');
+        return;
+      }
+      const [currentProposal, account] = await Promise.all([
+        request('trade.proposal.get', { workspaceId, proposalId: proposal.proposalId }),
+        request('account.get', { workspaceId, connectionId: proposal.fields.accountId }),
+      ]);
+      if (currentProposal.proposalHash !== proposal.proposalHash
+        || currentProposal.stateVersion !== proposal.stateVersion
+        || currentProposal.status !== 'NEEDS_APPROVAL') {
+        throw localGuardError('STATE_VERSION_CONFLICT', 'The reviewed Proposal changed. Reload it before submitting.');
+      }
+      if (account.connectionId !== reviewedAccount.connectionId || account.providerId !== 'bitget'
+        || account.environment !== 'DEMO' || account.connectionState !== 'CONNECTED'
+        || account.data?.remoteAccountId !== reviewedAccount.remoteAccountId) {
+        throw localGuardError('PROVIDER_UNSUPPORTED', 'Connect and confirm this exact Bitget Demo account before submitting.');
+      }
+      const attempt = await request('bitget.demo.order.submit', {
+        workspaceId,
+        connectionId: account.connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        proposalId: currentProposal.proposalId,
+        expectedProposalStateVersion: currentProposal.stateVersion,
+        proposalHash: currentProposal.proposalHash,
+        idempotencyKey,
+        confirmedDemoOrder: true,
+      });
+      if (attempt.connectionId !== reviewedAccount.connectionId || attempt.remoteAccountId !== reviewedAccount.remoteAccountId) {
+        throw localGuardError('STATE_VERSION_CONFLICT', 'The Bitget account identity changed during submission. Reload the saved attempt before taking another action.');
+      }
+      queryClient.setQueryData(['bitget-demo-attempt', workspaceId, proposal.proposalId], { attempt });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId, proposal.proposalId] });
+      setNotice(attempt.state === 'UNKNOWN_RECONCILING'
+        ? 'Bitget Demo returned an unknown result. Do not resubmit; reconcile the saved clientOid.'
+        : `Bitget Demo attempt ${attempt.state}. Provider acknowledgement is not fill evidence.`);
+    } catch (cause) { setError(cause); }
+    finally { setPaperBusy(false); }
+  };
+
+  const reconcileBitgetDemoAttempt = async (attempt: BitgetDemoOrderAttempt) => {
+    setPaperBusy(true); setError(undefined); setNotice('');
+    try {
+      const account = await request('account.get', { workspaceId, connectionId: attempt.connectionId });
+      if (account.providerId !== 'bitget' || account.environment !== 'DEMO'
+        || account.data?.remoteAccountId !== attempt.remoteAccountId) {
+        throw localGuardError('PROVIDER_UNSUPPORTED', 'Reconciliation is limited to the saved Bitget Demo account identity.');
+      }
+      const result = await request('bitget.demo.order.reconcile', {
+        workspaceId,
+        connectionId: attempt.connectionId,
+        expectedConnectionStateVersion: account.stateVersion,
+        proposalId: attempt.proposalId,
+      });
+      queryClient.setQueryData(['bitget-demo-attempt', workspaceId, attempt.proposalId], { attempt: result });
+      setNotice(`Bitget Demo attempt ${result.state}. No order was resubmitted.`);
+    } catch (cause) { setError(cause); }
+    finally { setPaperBusy(false); }
+  };
+
   const reconcileAlpacaAttempt = async (attempt: AlpacaPaperOrderAttempt) => {
     setPaperBusy(true); setError(undefined); setNotice('');
     try {
@@ -904,6 +992,18 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setBinanceTestnetReview({ connectionId: account.connectionId, accountLabel: account.label, remoteAccountId: account.data.remoteAccountId });
     setPaperConfirmation('binance-testnet-submit');
   };
+  const openBitgetDemoConfirmation = () => {
+    const proposal = proposalDetail.data;
+    const account = proposal?.fields.accountId && bitgetDemoAccounts.find(item => item.connectionId === proposal.fields.accountId);
+    if (!proposal || proposal.fields.environment !== 'BITGET_DEMO' || !account
+      || account.connectionState !== 'CONNECTED' || !account.data?.remoteAccountId) {
+      setError(localGuardError('STATE_STALE', 'Reload the connected Bitget Demo account before reviewing this Proposal.'));
+      return;
+    }
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setBitgetDemoReview({ connectionId: account.connectionId, accountLabel: account.label, remoteAccountId: account.data.remoteAccountId });
+    setPaperConfirmation('bitget-demo-submit');
+  };
   const confirmPaperAction = async () => {
     const action = paperConfirmation;
     if (!action) return;
@@ -911,6 +1011,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     else if (action === 'alpaca-submit') await submitAlpacaProposal();
     else if (action === 'trading212-submit') await submitTrading212Proposal();
     else if (action === 'binance-testnet-submit') await submitBinanceTestnetProposal();
+    else if (action === 'bitget-demo-submit') await submitBitgetDemoProposal();
     else if (action === 'alpaca-cancel') await cancelAlpacaOrder();
     else if (action === 'trading212-cancel') await cancelTrading212Order();
     else if (action === 'binance-testnet-cancel') await cancelBinanceTestnetOrder();
@@ -920,6 +1021,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setTrading212CancelReview(undefined);
     setBinanceTestnetCancelReview(undefined);
     setBinanceTestnetReview(undefined);
+    setBitgetDemoReview(undefined);
   };
 
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
@@ -960,7 +1062,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {proposals.isPending && <p role="status">Loading proposal history…</p>}
       {proposals.isError && <p className="error-text" role="alert">{explainError(proposals.error)}</p>}
       {!proposals.isPending && !proposals.isError && !selectedProposals.length && <p className="muted">Save a draft, then generate a proposal for its immutable snapshot.</p>}
-      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{!selectedProposalId && <p className="muted">Choose a proposal to inspect its details.</p>}{selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}{selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
+      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{!selectedProposalId && <p className="muted">Choose a proposal to inspect its details.</p>}{selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}{selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
     </section>
     <section className="card order-book-panel" aria-labelledby="alpaca-order-book-title">
       <div className="section-heading">
@@ -1095,19 +1197,21 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {paperConfirmation === 'alpaca-cancel' && cancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>ALPACA_PAPER · {ordersAccount?.label ?? 'Unavailable'} · {cancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{cancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{cancelReview.order.instrumentId ?? cancelReview.order.symbol} · {cancelReview.order.side.toUpperCase()}</dd></div><div><dt>Provider status</dt><dd>{cancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{cancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{cancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last observation</dt><dd>{new Date(cancelReview.order.observedAt).toLocaleString()}</dd></div></dl>}
       {paperConfirmation === 'trading212-cancel' && trading212CancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>Trading 212 Demo · TRADING212_DEMO · {trading212CancelReview.accountLabel} · {trading212CancelReview.book.remoteAccountId}</dd></div><div><dt>Provider order</dt><dd>{trading212CancelReview.order.providerOrderId}</dd></div><div><dt>Instrument / side</dt><dd>{trading212CancelReview.order.symbol} · {trading212CancelReview.order.side}</dd></div><div><dt>Provider / normalized status</dt><dd>{trading212CancelReview.order.providerStatus} / {trading212CancelReview.order.normalizedStatus}</dd></div><div><dt>Filled quantity</dt><dd>{trading212CancelReview.order.filledQuantity ?? 'Unavailable'}</dd></div><div><dt>Remaining quantity</dt><dd>{trading212CancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Filled value</dt><dd>{trading212CancelReview.order.filledValue == null ? 'Unavailable' : `${trading212CancelReview.order.filledValue} ${trading212CancelReview.order.currency ?? 'currency unavailable'}`}</dd></div><div><dt>Last provider observation</dt><dd>{new Date(trading212CancelReview.order.observedAt).toLocaleString()}</dd></div><div><dt>Provider acknowledgement</dt><dd>Acceptance only; cancellation is not confirmed until a later provider observation.</dd></div></dl>}
       {paperConfirmation === 'binance-testnet-cancel' && binanceTestnetCancelReview && <dl className="proposal-fields"><div><dt>Environment / account</dt><dd>Binance Spot Testnet · TESTNET · {binanceTestnetCancelReview.accountLabel} · {binanceTestnetCancelReview.book.remoteAccountId}</dd></div><div><dt>Connection ID</dt><dd>{binanceTestnetCancelReview.connectionId}</dd></div><div><dt>Symbol / provider order</dt><dd>{binanceTestnetCancelReview.order.symbol} · {binanceTestnetCancelReview.order.providerOrderId}</dd></div><div><dt>Side / provider status</dt><dd>{binanceTestnetCancelReview.order.side} · {binanceTestnetCancelReview.order.providerStatus}</dd></div><div><dt>Filled quantity</dt><dd>{binanceTestnetCancelReview.order.filledQuantity}</dd></div><div><dt>Remaining quantity</dt><dd>{binanceTestnetCancelReview.order.remainingQuantity ?? 'Unavailable'}</dd></div><div><dt>Last provider observation</dt><dd>{new Date(binanceTestnetCancelReview.order.observedAt).toLocaleString()}</dd></div><div><dt>Provider acknowledgement</dt><dd>Acceptance only; exact provider status confirms cancellation, and fills can race this request.</dd></div></dl>}
-      {(paperConfirmation === 'alpaca-submit' || paperConfirmation === 'trading212-submit' || paperConfirmation === 'binance-testnet-submit') && proposalDetail.data && <dl className="proposal-fields">
-        <div><dt>Environment / account</dt><dd>{paperConfirmation === 'binance-testnet-submit' ? `Binance Spot Testnet · TESTNET · ${binanceTestnetReview?.accountLabel ?? 'Unavailable'}` : paperConfirmation === 'trading212-submit' ? 'Trading 212 Demo · TRADING212_DEMO' : 'Alpaca Paper'} · {paperConfirmation === 'binance-testnet-submit' ? binanceTestnetReview?.remoteAccountId ?? 'provider account ID unavailable' : accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'}{paperConfirmation === 'binance-testnet-submit' ? '' : ` · ${accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}`}</dd></div>
+      {(paperConfirmation === 'alpaca-submit' || paperConfirmation === 'trading212-submit' || paperConfirmation === 'binance-testnet-submit' || paperConfirmation === 'bitget-demo-submit') && proposalDetail.data && <dl className="proposal-fields">
+        <div><dt>Environment / account</dt><dd>{paperConfirmation === 'binance-testnet-submit' ? `Binance Spot Testnet · TESTNET · ${binanceTestnetReview?.accountLabel ?? 'Unavailable'} · ${binanceTestnetReview?.remoteAccountId ?? 'provider account ID unavailable'}` : paperConfirmation === 'bitget-demo-submit' ? `Bitget Spot Demo · DEMO · ${bitgetDemoReview?.accountLabel ?? 'Unavailable'} · ${bitgetDemoReview?.remoteAccountId ?? 'provider account ID unavailable'}` : paperConfirmation === 'trading212-submit' ? 'Trading 212 Demo · TRADING212_DEMO' : 'Alpaca Paper'}{paperConfirmation === 'binance-testnet-submit' || paperConfirmation === 'bitget-demo-submit' ? '' : ` · ${accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.label ?? 'Unavailable'} · ${accounts.data?.accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)?.data?.remoteAccountId ?? 'provider account ID unavailable'}`}</dd></div>
         {paperConfirmation === 'binance-testnet-submit' && <div><dt>Connection ID</dt><dd>{binanceTestnetReview?.connectionId ?? 'Unavailable'}</dd></div>}
+        {paperConfirmation === 'bitget-demo-submit' && <div><dt>Connection ID</dt><dd>{bitgetDemoReview?.connectionId ?? 'Unavailable'}</dd></div>}
         <div><dt>Instrument / side</dt><dd>{proposalDetail.data.fields.instrumentId} · {proposalDetail.data.fields.side}</dd></div>
-        <div><dt>Quantity / order</dt><dd>{proposalDetail.data.fields.quantity.value} {proposalDetail.data.fields.quantity.type} · {proposalDetail.data.fields.orderType} · {proposalDetail.data.fields.timeInForce}</dd></div>
+        <div><dt>Quantity / order</dt><dd>{proposalDetail.data.fields.quantity.value} {proposalDetail.data.fields.quantity.type === 'BASE' ? `base coin (${proposalDetail.data.fields.instrumentId.split(':')[1]?.split('/')[0] ?? 'unavailable'})` : `quote coin (${proposalDetail.data.fields.instrumentId.split(':')[1]?.split('/')[1] ?? 'unavailable'})`} · {proposalDetail.data.fields.orderType} · {proposalDetail.data.fields.timeInForce}</dd></div>
         <div><dt>Venue / context</dt><dd>{proposalDetail.data.fields.venue} · {proposalDetail.data.fields.environment}</dd></div>
+        <div><dt>Estimated notional</dt><dd>{proposalDetail.data.estimatedNotional ? `${proposalDetail.data.estimatedNotional} ${proposalDetail.data.estimatedNotionalCurrency ?? ''}` : proposalDetail.data.estimatedNotionalReason ?? 'Unavailable'}</dd></div>
         <div><dt>Maximum spend</dt><dd>{proposalDetail.data.fields.maximumSpend ?? '—'}</dd></div>
         <div><dt>Limit</dt><dd>{proposalDetail.data.fields.limitPrice ?? '—'}</dd></div>
         <div><dt>Client label</dt><dd>{proposalDetail.data.fields.clientLabel ?? '—'}</dd></div>
         {paperConfirmation === 'trading212-submit' && proposalDetail.data.fields.orderType === 'MARKET' && <div><dt>Extended hours</dt><dd>Off</dd></div>}
         <div><dt>Proposal / hash</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div>
       </dl>}
-      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetCancelReview(undefined); setBinanceTestnetReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy ? 'Working…' : paperConfirmationCopy[paperConfirmation].confirmLabel}</button></div>
+      <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetCancelReview(undefined); setBinanceTestnetReview(undefined); setBitgetDemoReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy ? 'Working…' : paperConfirmationCopy[paperConfirmation].confirmLabel}</button></div>
     </div></div>, document.body)}
   </>;
 }
@@ -1166,7 +1270,7 @@ function BinanceTestnetOrderCard({ order, onRefresh, onReviewCancel, busy }: {
   </article>;
 }
 
-function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, onAlpacaSubmit, onAlpacaReconcile, onReloadAlpacaAttempt, alpacaAttempt, alpacaAttemptLoading, alpacaAttemptError, alpacaAccount, onTrading212Submit, onReloadTrading212Attempt, trading212Attempt, trading212AttemptLoading, trading212AttemptError, trading212Account, onBinanceTestnetSubmit, onBinanceTestnetReconcile, onReloadBinanceTestnetAttempt, binanceTestnetAttempt, binanceTestnetAttemptLoading, binanceTestnetAttemptError, binanceTestnetAccount, submitBusy, cancelBusy, result }: {
+function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, onAlpacaSubmit, onAlpacaReconcile, onReloadAlpacaAttempt, alpacaAttempt, alpacaAttemptLoading, alpacaAttemptError, alpacaAccount, onTrading212Submit, onReloadTrading212Attempt, trading212Attempt, trading212AttemptLoading, trading212AttemptError, trading212Account, onBinanceTestnetSubmit, onBinanceTestnetReconcile, onReloadBinanceTestnetAttempt, binanceTestnetAttempt, binanceTestnetAttemptLoading, binanceTestnetAttemptError, binanceTestnetAccount, onBitgetDemoSubmit, onBitgetDemoReconcile, onReloadBitgetDemoAttempt, bitgetDemoAttempt, bitgetDemoAttemptLoading, bitgetDemoAttemptError, bitgetDemoAccount, submitBusy, cancelBusy, result }: {
   proposal: OrderProposal;
   onRefresh: () => void;
   refreshBusy: boolean;
@@ -1192,6 +1296,13 @@ function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, 
   binanceTestnetAttemptLoading: boolean;
   binanceTestnetAttemptError: unknown;
   binanceTestnetAccount?: AccountConnection;
+  onBitgetDemoSubmit: () => void;
+  onBitgetDemoReconcile: (attempt: BitgetDemoOrderAttempt) => void;
+  onReloadBitgetDemoAttempt: () => void;
+  bitgetDemoAttempt?: BitgetDemoOrderAttempt;
+  bitgetDemoAttemptLoading: boolean;
+  bitgetDemoAttemptError: unknown;
+  bitgetDemoAccount?: AccountConnection;
   submitBusy: boolean;
   cancelBusy: boolean;
   result?: PaperOrderResult;
@@ -1205,6 +1316,10 @@ function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, 
   const binanceTestnetReady = binanceTestnetAccount?.providerId === 'binance'
     && binanceTestnetAccount.environment === 'TESTNET'
     && binanceTestnetAccount.connectionState === 'CONNECTED';
+  const bitgetDemoReady = bitgetDemoAccount?.providerId === 'bitget'
+    && bitgetDemoAccount.environment === 'DEMO'
+    && bitgetDemoAccount.connectionState === 'CONNECTED'
+    && Boolean(bitgetDemoAccount.data?.remoteAccountId);
   return <div className="proposal-read-only" aria-label="Proposal detail">
     <div className="proposal-meta"><strong>{proposal.status}</strong><span>Draft v{proposal.draftVersion}</span><span>{proposal.proposalId}</span><span>{proposal.proposalHash}</span></div>
     <dl className="proposal-fields"><div><dt>Instrument</dt><dd>{proposal.fields.instrumentId}</dd></div><div><dt>Account</dt><dd>{proposal.fields.accountId ?? 'Local Paper account'}</dd></div><div><dt>Side / type</dt><dd>{proposal.fields.side} · {proposal.fields.orderType}</dd></div><div><dt>Quantity</dt><dd>{proposal.fields.quantity.value} {proposal.fields.quantity.type}</dd></div><div><dt>Limit price</dt><dd>{proposal.fields.limitPrice ?? '—'}</dd></div><div><dt>Maximum spend</dt><dd>{proposal.fields.maximumSpend ?? '—'}</dd></div><div><dt>Venue / context</dt><dd>{proposal.fields.venue} · {proposal.fields.environment === 'TRADING212_DEMO' ? 'Trading 212 Demo · TRADING212_DEMO' : proposal.fields.environment}</dd></div><div><dt>Time in force</dt><dd>{proposal.fields.timeInForce}</dd></div><div><dt>Client label</dt><dd>{proposal.fields.clientLabel ?? '—'}</dd></div><div><dt>Estimated notional</dt><dd>{proposal.estimatedNotional ? `${proposal.estimatedNotional} ${proposal.estimatedNotionalCurrency ?? ''}` : proposal.estimatedNotionalReason ?? 'Unavailable'}</dd></div></dl>
@@ -1225,6 +1340,10 @@ function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, 
     {proposal.fields.environment === 'BINANCE_TESTNET' && Boolean(binanceTestnetAttemptError) && <div className="error-text" role="alert"><p>Saved Binance Testnet attempt is unavailable. Reload it before taking another action.</p><button type="button" onClick={onReloadBinanceTestnetAttempt}>Reload attempt</button></div>}
     {proposal.fields.environment === 'BINANCE_TESTNET' && binanceTestnetAttempt && <section className="notice" aria-label="Binance Spot Testnet order attempt"><strong>Binance Spot Testnet · TESTNET · {binanceTestnetAttempt.state}</strong><p>{binanceTestnetAttempt.reason}</p><p>Account {binanceTestnetAttempt.remoteAccountId} · client order {binanceTestnetAttempt.clientOrderId}</p><p>Proposal {binanceTestnetAttempt.proposalId} · {binanceTestnetAttempt.proposalHash}</p>{binanceTestnetAttempt.providerOrderId && <p>Provider order {binanceTestnetAttempt.providerOrderId} · provider status {binanceTestnetAttempt.providerStatus ?? 'Unavailable'}</p>}<p>Updated {new Date(binanceTestnetAttempt.updatedAt).toLocaleString()}</p>{binanceTestnetAttempt.state === 'ACKNOWLEDGED' && <p>Binance acknowledged the order. This is not fill evidence.</p>}{binanceTestnetAttempt.state === 'SUBMITTING' && <><p role="status">Submission is still pending. Reload this saved attempt before taking further action.</p><button type="button" onClick={onReloadBinanceTestnetAttempt} disabled={submitBusy}>Reload saved attempt</button></>}{binanceTestnetAttempt.state === 'UNKNOWN_RECONCILING' && <><p className="error-text">Result unknown. Do not resubmit; the attempt remains frozen until the saved client order ID is found or reconciled.</p><button type="button" onClick={() => onBinanceTestnetReconcile(binanceTestnetAttempt)} disabled={submitBusy}>{submitBusy ? 'Checking Binance Testnet…' : 'Reconcile by client order ID'}</button></>}{binanceTestnetAttempt.state === 'REJECTED' && <p className="error-text">This Proposal's attempt was rejected and cannot be submitted again. Refresh the Proposal before a new reviewed attempt.</p>}</section>}
     {proposal.status === 'NEEDS_APPROVAL' && proposal.fields.environment === 'BINANCE_TESTNET' && !binanceTestnetAttempt && !binanceTestnetAttemptLoading && !binanceTestnetAttemptError && <>{binanceTestnetReady ? <button type="button" className="primary" onClick={onBinanceTestnetSubmit} disabled={submitBusy}>{submitBusy ? 'Submitting Binance Testnet order…' : 'Submit Binance Spot Testnet order'}</button> : <p className="muted">Connect and confirm this Binance Testnet account before submitting the Proposal.</p>}</>}
+    {proposal.fields.environment === 'BITGET_DEMO' && bitgetDemoAttemptLoading && <p role="status">Loading saved Bitget Demo attempt…</p>}
+    {proposal.fields.environment === 'BITGET_DEMO' && Boolean(bitgetDemoAttemptError) && <div className="error-text" role="alert"><p>Saved Bitget Demo attempt is unavailable. Reload it before taking another action.</p><button type="button" onClick={onReloadBitgetDemoAttempt}>Reload attempt</button></div>}
+    {proposal.fields.environment === 'BITGET_DEMO' && bitgetDemoAttempt && <section className="notice" aria-label="Bitget Spot Demo order attempt"><strong>Bitget Spot Demo · DEMO · {bitgetDemoAttempt.state}</strong><p>{bitgetDemoAttempt.reason}</p><p>Account {bitgetDemoAttempt.remoteAccountId} · clientOid {bitgetDemoAttempt.clientOid}</p><p>Proposal {bitgetDemoAttempt.proposalId} · {bitgetDemoAttempt.proposalHash}</p>{bitgetDemoAttempt.providerOrderId && <p>Provider order {bitgetDemoAttempt.providerOrderId} · provider status {bitgetDemoAttempt.providerStatus ?? 'Unavailable'}</p>}<p>Updated {new Date(bitgetDemoAttempt.updatedAt).toLocaleString()}</p>{bitgetDemoAttempt.state === 'ACKNOWLEDGED' && <p>Bitget acknowledged the request. This is not fill evidence.</p>}{bitgetDemoAttempt.state === 'SUBMITTING' && <><p role="status">Submission is pending. Reload this saved attempt before taking further action.</p><button type="button" onClick={onReloadBitgetDemoAttempt} disabled={submitBusy}>Reload saved attempt</button></>}{bitgetDemoAttempt.state === 'UNKNOWN_RECONCILING' && <><p className="error-text">Result unknown. Do not resubmit; reconcile the saved clientOid.</p><button type="button" onClick={() => onBitgetDemoReconcile(bitgetDemoAttempt)} disabled={submitBusy}>{submitBusy ? 'Checking Bitget by clientOid…' : 'Reconcile by clientOid'}</button></>}{bitgetDemoAttempt.state === 'REJECTED' && <p className="error-text">This Proposal's attempt was rejected and cannot be submitted again. Refresh the Proposal before a new reviewed attempt.</p>}</section>}
+    {proposal.status === 'NEEDS_APPROVAL' && proposal.fields.environment === 'BITGET_DEMO' && !bitgetDemoAttempt && !bitgetDemoAttemptLoading && !bitgetDemoAttemptError && <>{bitgetDemoReady ? <button type="button" className="primary" onClick={onBitgetDemoSubmit} disabled={submitBusy}>{submitBusy ? 'Submitting Bitget Demo order…' : 'Submit Bitget Spot Demo order'}</button> : <p className="muted">Connect and confirm this Bitget Demo account before submitting the Proposal. Bitget Live remains read-only.</p>}</>}
     {result?.proposalId === proposal.proposalId && <section className="notice" aria-label="Local Paper order result"><strong>TRADEX_SIMULATION · {result.order.state}</strong><p>{result.disclosure}</p><p>Order {result.order.orderId} · {result.order.filledQuantity} filled · {result.order.remainingQuantity} remaining · quote {result.quote.price} {result.quote.currency} · {result.quote.scenarioId}</p>{result.fill && <p>Fill {result.fill.fillId} · {result.fill.quantity} @ {result.fill.price} {result.fill.currency}</p>}<p>Proposal hash: {result.proposalHash}</p>{['ACCEPTED', 'PARTIALLY_FILLED'].includes(result.order.state) && <button type="button" onClick={onCancel} disabled={cancelBusy}>{cancelBusy ? 'Cancelling Local Paper order…' : 'Cancel Local Paper order'}</button>}</section>}
     <h3>History</h3><ol className="proposal-history">{proposal.history.map((entry, index) => <li key={`${entry.event}-${entry.occurredAt}-${index}`}><strong>{entry.event}</strong><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time>{entry.reason && <span>{entry.reason}</span>}</li>)}</ol>
   </div>;

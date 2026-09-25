@@ -1,5 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
-import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
+import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 import type { Trading212DemoOrderBook, Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh } from '../shared/ipc-types.ts';
 
@@ -50,6 +50,9 @@ interface Inputs {
   'binance.testnet.orders.get': BinanceTestnetOrderBookQuery;
   'binance.testnet.orders.refresh': BinanceTestnetOrderBookRefresh;
   'binance.testnet.orders.cancel': BinanceTestnetOrderCancel;
+  'bitget.demo.order.submit': BitgetDemoOrderSubmit;
+  'bitget.demo.order.attempt.get': BitgetDemoOrderAttemptQuery;
+  'bitget.demo.order.reconcile': BitgetDemoOrderReconcile;
   'workspace.open': OpenWorkspace;
   'runtime.status': EmptyPayload;
   'time.status': WorkspaceQuery;
@@ -151,6 +154,9 @@ interface Outputs {
   'binance.testnet.orders.get': BinanceTestnetOrderBookQueryResult;
   'binance.testnet.orders.refresh': BinanceTestnetOrderBook;
   'binance.testnet.orders.cancel': BinanceTestnetOrderBook;
+  'bitget.demo.order.submit': BitgetDemoOrderAttempt;
+  'bitget.demo.order.attempt.get': BitgetDemoOrderAttemptQueryResult;
+  'bitget.demo.order.reconcile': BitgetDemoOrderAttempt;
   'workspace.open': Workspace;
   'runtime.status': RuntimeStatus;
   'time.status': TimeStatus;
@@ -252,6 +258,9 @@ const definitions = {
   'binance.testnet.orders.get': ['BinanceTestnetOrderBookQuery', 'BinanceTestnetOrderBookQueryResult'],
   'binance.testnet.orders.refresh': ['BinanceTestnetOrderBookRefresh', 'BinanceTestnetOrderBook'],
   'binance.testnet.orders.cancel': ['BinanceTestnetOrderCancel', 'BinanceTestnetOrderBook'],
+  'bitget.demo.order.submit': ['BitgetDemoOrderSubmit', 'BitgetDemoOrderAttempt'],
+  'bitget.demo.order.attempt.get': ['BitgetDemoOrderAttemptQuery', 'BitgetDemoOrderAttemptQueryResult'],
+  'bitget.demo.order.reconcile': ['BitgetDemoOrderReconcile', 'BitgetDemoOrderAttempt'],
   'workspace.open': ['OpenWorkspace', 'Workspace'],
   'runtime.status': ['EmptyPayload', 'RuntimeStatus'],
   'time.status': ['WorkspaceQuery', 'TimeStatus'],

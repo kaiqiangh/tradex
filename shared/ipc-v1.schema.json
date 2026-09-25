@@ -157,6 +157,21 @@
     "binanceTestnetOrderSubmit": {
       "$ref": "#/$defs/BinanceTestnetOrderSubmit"
     },
+    "bitgetDemoOrderAttempt": {
+      "$ref": "#/$defs/BitgetDemoOrderAttempt"
+    },
+    "bitgetDemoOrderAttemptQuery": {
+      "$ref": "#/$defs/BitgetDemoOrderAttemptQuery"
+    },
+    "bitgetDemoOrderAttemptQueryResult": {
+      "$ref": "#/$defs/BitgetDemoOrderAttemptQueryResult"
+    },
+    "bitgetDemoOrderReconcile": {
+      "$ref": "#/$defs/BitgetDemoOrderReconcile"
+    },
+    "bitgetDemoOrderSubmit": {
+      "$ref": "#/$defs/BitgetDemoOrderSubmit"
+    },
     "capabilityQuery": {
       "$ref": "#/$defs/CapabilityQuery"
     },
@@ -488,6 +503,11 @@
     "binanceTestnetOrderAttemptQueryResult",
     "binanceTestnetOrderReconcile",
     "binanceTestnetOrderAttempt",
+    "bitgetDemoOrderSubmit",
+    "bitgetDemoOrderAttemptQuery",
+    "bitgetDemoOrderAttemptQueryResult",
+    "bitgetDemoOrderReconcile",
+    "bitgetDemoOrderAttempt",
     "binanceTestnetOrderBookQuery",
     "binanceTestnetOrderBookQueryResult",
     "binanceTestnetOrderBookRefresh",
@@ -3851,6 +3871,242 @@
         "confirmedTestnetOrder"
       ]
     },
+    "BitgetDemoOrderAttempt": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "clientOid": {
+          "type": "string",
+          "maxLength": 50,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "const": "DEMO"
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/BitgetDemoOrderAttemptState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attemptId",
+        "workspaceId",
+        "connectionId",
+        "remoteAccountId",
+        "proposalId",
+        "proposalHash",
+        "environment",
+        "clientOid",
+        "state",
+        "reason",
+        "stateVersion",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BitgetDemoOrderAttemptQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "BitgetDemoOrderAttemptQueryResult": {
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BitgetDemoOrderAttempt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "BitgetDemoOrderAttemptState": {
+      "type": "string",
+      "enum": [
+        "SUBMITTING",
+        "ACKNOWLEDGED",
+        "UNKNOWN_RECONCILING",
+        "REJECTED"
+      ]
+    },
+    "BitgetDemoOrderReconcile": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "proposalId"
+      ]
+    },
+    "BitgetDemoOrderSubmit": {
+      "type": "object",
+      "properties": {
+        "confirmedDemoOrder": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedConnectionStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedProposalStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "connectionId",
+        "expectedConnectionStateVersion",
+        "proposalId",
+        "expectedProposalStateVersion",
+        "proposalHash",
+        "idempotencyKey",
+        "confirmedDemoOrder"
+      ]
+    },
     "CapabilityDecision": {
       "type": "object",
       "properties": {
@@ -4489,7 +4745,8 @@
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
-            "binance-testnet-order-book"
+            "binance-testnet-order-book",
+            "bitget-demo-order-attempt"
           ]
         },
         "eventId": {
@@ -4512,7 +4769,8 @@
             "alpaca.paper.order.attempt.changed",
             "alpaca.paper.order.book.changed",
             "binance.testnet.order.attempt.changed",
-            "binance.testnet.order.book.changed"
+            "binance.testnet.order.book.changed",
+            "bitget.demo.order.attempt.changed"
           ]
         },
         "occurredAt": {
@@ -4577,6 +4835,9 @@
         },
         {
           "$ref": "#/$defs/BinanceTestnetOrderAttempt"
+        },
+        {
+          "$ref": "#/$defs/BitgetDemoOrderAttempt"
         },
         {
           "$ref": "#/$defs/Trading212DemoOrderBook"
@@ -8171,6 +8432,12 @@
           "$ref": "#/$defs/BinanceTestnetOrderAttemptQueryResult"
         },
         {
+          "$ref": "#/$defs/BitgetDemoOrderAttempt"
+        },
+        {
+          "$ref": "#/$defs/BitgetDemoOrderAttemptQueryResult"
+        },
+        {
           "$ref": "#/$defs/BinanceTestnetOrderBook"
         },
         {
@@ -9744,7 +10011,8 @@
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
-            "binance-testnet-order-book"
+            "binance-testnet-order-book",
+            "bitget-demo-order-attempt"
           ]
         },
         "lastSequence": {
@@ -10397,7 +10665,8 @@
             "alpaca-paper-order-attempt",
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
-            "binance-testnet-order-book"
+            "binance-testnet-order-book",
+            "bitget-demo-order-attempt"
           ]
         },
         "lastSequence": {
@@ -12224,7 +12493,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 21,
+          "maximum": 22,
           "minimum": 1
         },
         "workspaceId": {

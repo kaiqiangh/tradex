@@ -307,7 +307,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
     );
     drop(control);
     let future = rusqlite::Connection::open(path).unwrap();
-    future.pragma_update(None, "user_version", 22).unwrap();
+    future.pragma_update(None, "user_version", 23).unwrap();
     let mut control = ControlPlane::new(directory.path().to_path_buf());
     assert_eq!(
         command(&mut control, "workspace.open", json!({}))["error"]["code"],
@@ -317,6 +317,6 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
         future
             .pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
             .unwrap(),
-        22
+        23
     );
 }
