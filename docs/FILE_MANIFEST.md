@@ -2,9 +2,9 @@
 
 **Generated / 生成日期:** 2026-09-25
 
-Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, and S19 Binance Spot Testnet submission, recovery, private-stream, and exact-order cancellation contract (positive remaining quantity required), not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
+Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, S19 Binance Spot Testnet submission/recovery/private-stream/cancellation contracts, and the 2026-09-25 account-interface scope update retiring dedicated Binance Testnet and Bitget Demo acceptance, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
 
-以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约，以及 S19 Binance Spot Testnet 提交、恢复、私有流和准确订单撤销契约（剩余数量必须大于零）后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
+以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约、S19 Binance Spot Testnet 提交/恢复/私有流/撤单契约，以及 2026-09-25 将专用 Binance Testnet 和 Bitget Demo 验收改为普通账户接口范围后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
 
 This manifest excludes its own hash to avoid self-reference. Existing docs/agents workflow guides are outside this product-document manifest. The root README.md describes the application build; docs/implementation tracks delivery separately from this product-document manifest.
 
@@ -13,8 +13,8 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | File / 文件 | Purpose / 用途 | Lines / 行数 | SHA-256 |
 |---|---|---:|---|
 | `AGENTS.md` | Agent entry point / Agent 文档入口 | 30 | `c3242039e90c7f6c684b0de2fd3de2ad16132839293b508facb06ecbd14be9dc` |
-| `docs/README.md` | English documentation index | 44 | `0a5ed2db1e3b07f67775e9401bec35450a3a445cd554c73071b079c37421749c` |
-| `docs/zh/README.md` | 中文文档目录 | 41 | `7105333da8033a2a4e52e5fc7b607a3b8b130675ab5962f7f396d89074fb5736` |
+| `docs/README.md` | English documentation index | 46 | `ea86255aa65f024782694470dacb9dc2ddee43d13222dda6b09c3f1b9b3ae552` |
+| `docs/zh/README.md` | 中文文档目录 | 43 | `4db5f3c438205ce43c632eb09679ba6a4894055001703f426475214139fa706a` |
 | `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3658 | `d5e7d8a7aab7a2bdb87b3e7a2b3788112c04bdc7550353edd7924fdf304d306c` |
 | `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3648 | `3699e38894d1baa94f9dac656d8ae06b07b4297bcdfc3b98b8bc986e8b6dbc13` |
 | `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1191 | `0c273ce40430b40a916274bcd306a476c475e64f90b695457e7ea369876149a6` |

@@ -22,11 +22,13 @@
 
 原型交互/交付仍为 **NOT PASS**：此次文档修订未修改 HTML/CSS/JS。QA Report 记录实际观察和 QA-01–QA-13 回归场景；QA-13 指出点击式原型没有符合条件账户的永久删除路径，S18 #66 运行时实现证据单独处理。UI Spec §14 定义修复目标。不得将目标写清楚当成原型已修复，也不得因此宣称其他运行时/券商集成通过。既有开放产品决策继续按 PRD 管理。
 
+2026-09-25 账户接口范围更新：Binance Spot Testnet issues #67–#72 与 Bitget Demo issues #73/#74/#76/#77/#78 均已关闭；Bitget Live 只读 #75 属于独立范围。专用 Testnet/Demo provider 验收范围已撤销，但这不表示 provider-hosted Testnet 或 Demo 行为已验证。既有本地 fixture 工作仍只是本地证据。未来 Binance/Bitget Live 执行仍受 S21–S30 gate 约束，包括 S29/S30 provider gate。
+
 S19 #68 在 Backend ARD §41.25、Frontend ARD §13.14 和 UI Spec §14.12 增加 Binance Spot Testnet 提交/恢复契约。Fixture 测试覆盖本地 adapter 与持久化状态转换，但不等于 provider-hosted Testnet runtime 验收。点击式原型保持未修改。
 
-S19 #70 在 Backend ARD §41.27、Frontend ARD §13.15 和 UI Spec §14.13 增加 Binance Spot Testnet 签名私有流与 REST 恢复契约。实现已在 `dev` 使用 fixture 验证；未使用真实 Testnet 凭据、未调用 provider、未下单。父 Spec #67 仍等待 provider-hosted Testnet 验收，点击式原型保持未修改。
+S19 #70 在 Backend ARD §41.27、Frontend ARD §13.15 和 UI Spec §14.13 增加 Binance Spot Testnet 签名私有流与 REST 恢复契约。实现已在 `dev` 使用 fixture 验证；未使用真实 Testnet 凭据、未调用 provider、未下单。父 Spec #67 和 provider acceptance #72 已按普通账户接口范围关闭；fixture 证据不等于 provider-hosted Testnet 验收，点击式原型保持未修改。
 
-S19 #71 在 Backend ARD §41.28、Frontend ARD §13.15.1 和 UI Spec §14.14 增加 Binance Spot Testnet 准确订单撤销。Rust-backed fixture 覆盖持久化意图、单次准确 DELETE、结果不明时不重放、provider 订单变化和竞态成交。[本地实现证据](../implementation/s19-binance-testnet-cancel-evidence_zh.md)。未使用真实 Testnet 凭据、未调用 provider、未下单；父 Spec #67 和 provider-hosted ticket #72 仍开放。点击式原型未修改。
+S19 #71 在 Backend ARD §41.28、Frontend ARD §13.15.1 和 UI Spec §14.14 增加 Binance Spot Testnet 准确订单撤销。Rust-backed fixture 覆盖持久化意图、单次准确 DELETE、结果不明时不重放、provider 订单变化和竞态成交。[本地实现证据](../implementation/s19-binance-testnet-cancel-evidence_zh.md)。未使用真实 Testnet 凭据、未调用 provider、未下单；父 Spec #67 和 provider acceptance #72 已按普通账户接口范围关闭。点击式原型未修改。
 
 ## 术语和同步规则
 
