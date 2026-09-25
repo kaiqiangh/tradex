@@ -564,6 +564,10 @@ LLM 展示 CLIProxyAPI state/version/OAuth/probe/models、DeepSeek key/probe/mod
 
 ### J2. Risk & Limits
 
+Settings 页面在入门流程的七项默认值上扩展完整 PRD §21 控制项：最大订单数量和持仓规模、分资产类别敞口、未平仓订单数、保留资金、允许/禁止的标的、交易场所和账户、环境约束、市价单滑点及价格偏离。金额和组合估值字段显示 workspace base currency；数量显示 canonical instrument base units；敞口/滑点/偏离显示百分比。未配置上限保持空白。
+
+标识列表每行填写一个 canonical instrument、venue 或 connection ID。空 allowed list 不增加 allow-list 限制；某标识同时存在于 allow/block 时以 block 为准。未选择 environment 不增加环境限制。当前支持的敞口类别为 `EQUITY` 和 `CRYPTO_SPOT`。启用市价单必须设置最大滑点。所有字段可用键盘操作并显示焦点，桌面、768 px 和 390 px 宽度均保持可读。
+
 ```text
 persist policy
 → version policy

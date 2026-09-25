@@ -599,7 +599,7 @@ function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPo
     }
   }, [risk?.stateVersion, risk, draftVersion]);
   if (!risk || !draft) return <p role="status">Loading risk policy…</p>;
-  return <RiskDefaults workspaceId={workspace.workspaceId} baseCurrency={workspace.baseCurrency} state={risk} draft={draft} onDraftChange={setDraft} />;
+  return <RiskDefaults workspaceId={workspace.workspaceId} baseCurrency={workspace.baseCurrency} state={risk} draft={draft} onDraftChange={setDraft} showFullPolicy />;
 }
 
 function TimeHealth({ workspaceId }: { workspaceId: string }) {

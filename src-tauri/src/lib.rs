@@ -3490,7 +3490,7 @@ impl ControlPlane {
         }
         let mut state = previous;
         state.policy = input.policy.into();
-        state.validate_policy()?;
+        state.validate_policy_for_save()?;
         state.mark_editing();
         state.policy_version = state
             .policy_version
@@ -4309,11 +4309,25 @@ impl ControlPlane {
                     "expectedStateVersion":version,
                     "policy":{
                         "maxOrderNotional":null,
+                        "maxOrderQuantity":null,
+                        "maxPositionSize":null,
                         "maxSingleInstrumentExposurePercent":"10.25",
+                        "maxAssetClassExposurePercent":[],
                         "maxDailyTradedNotional":null,
                         "maxDailyRealizedLoss":null,
+                        "maxOpenOrders":null,
+                        "maxReservedCapital":null,
+                        "allowedInstrumentIds":[],
+                        "blockedInstrumentIds":[],
+                        "allowedVenues":[],
+                        "blockedVenues":[],
+                        "allowedAccountIds":[],
+                        "blockedAccountIds":[],
+                        "allowedEnvironments":[],
                         "staleQuoteThresholdSeconds":3,
                         "marketOrdersEnabled":false,
+                        "maxMarketOrderSlippagePercent":null,
+                        "maxPriceDeviationPercent":null,
                         "liveInactivityTimeoutMinutes":20
                     }
                 }),
@@ -10278,7 +10292,7 @@ mod risk_tests {
         let invalid = command(
             &mut control,
             "risk.save_policy",
-            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":"1e3","maxSingleInstrumentExposurePercent":null,"maxDailyTradedNotional":null,"maxDailyRealizedLoss":null,"staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"liveInactivityTimeoutMinutes":20}}),
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":"1e3","maxOrderQuantity":null,"maxPositionSize":null,"maxSingleInstrumentExposurePercent":null,"maxAssetClassExposurePercent":[],"maxDailyTradedNotional":null,"maxDailyRealizedLoss":null,"maxOpenOrders":null,"maxReservedCapital":null,"allowedInstrumentIds":[],"blockedInstrumentIds":[],"allowedVenues":[],"blockedVenues":[],"allowedAccountIds":[],"blockedAccountIds":[],"allowedEnvironments":[],"staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"maxMarketOrderSlippagePercent":null,"maxPriceDeviationPercent":null,"liveInactivityTimeoutMinutes":20}}),
         );
         assert_eq!(invalid["error"]["code"], "RISK_POLICY_INVALID");
         let missing_field = command(
@@ -10368,7 +10382,7 @@ mod risk_tests {
         let saved = command(
             &mut control,
             "risk.save_policy",
-            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":null,"maxSingleInstrumentExposurePercent":"10.25","maxDailyTradedNotional":null,"maxDailyRealizedLoss":null,"staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"liveInactivityTimeoutMinutes":20}}),
+            json!({"workspaceId":workspace_id,"expectedStateVersion":risk["data"]["stateVersion"],"policy":{"maxOrderNotional":null,"maxOrderQuantity":null,"maxPositionSize":null,"maxSingleInstrumentExposurePercent":"10.25","maxAssetClassExposurePercent":[],"maxDailyTradedNotional":null,"maxDailyRealizedLoss":null,"maxOpenOrders":null,"maxReservedCapital":null,"allowedInstrumentIds":[],"blockedInstrumentIds":[],"allowedVenues":[],"blockedVenues":[],"allowedAccountIds":[],"blockedAccountIds":[],"allowedEnvironments":[],"staleQuoteThresholdSeconds":3,"marketOrdersEnabled":false,"maxMarketOrderSlippagePercent":null,"maxPriceDeviationPercent":null,"liveInactivityTimeoutMinutes":20}}),
         );
         assert_eq!(saved["ok"], true, "{saved}");
         assert_eq!(saved["data"]["configured"], true);
@@ -10564,5 +10578,171 @@ mod risk_tests {
             )
             .unwrap();
         drop(database);
+    }
+
+    #[test]
+    fn full_risk_policy_round_trips_through_the_public_command_after_reopen() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = command(&mut control, "workspace.open", json!({}));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let current = command(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let risk_snapshot = command(
+            &mut control,
+            "domain.snapshot",
+            json!({"aggregateType":"risk","aggregateId":workspace_id}),
+        );
+        let policy = json!({
+            "maxOrderNotional":"250.1000",
+            "maxOrderQuantity":"3.125",
+            "maxPositionSize":"1000.00",
+            "maxSingleInstrumentExposurePercent":"25.0",
+            "maxAssetClassExposurePercent":[{"assetClass":"EQUITY","maxExposurePercent":"40.5"}],
+            "maxDailyTradedNotional":"5000.00",
+            "maxDailyRealizedLoss":"100.00",
+            "maxOpenOrders":4,
+            "maxReservedCapital":"750.25",
+            "allowedInstrumentIds":["equity:US:AAPL","crypto:BTC/USDT:spot"],
+            "blockedInstrumentIds":["equity:US:MSFT"],
+            "allowedVenues":["XNAS","BITGET"],
+            "blockedVenues":[],
+            "allowedAccountIds":["connection-live-1"],
+            "blockedAccountIds":[],
+            "allowedEnvironments":["LIVE","PAPER"],
+            "marketOrdersEnabled":false,
+            "maxMarketOrderSlippagePercent":"1.25",
+            "maxPriceDeviationPercent":"3.5",
+            "staleQuoteThresholdSeconds":3,
+            "liveInactivityTimeoutMinutes":20
+        });
+        for (field, value, market_orders_enabled) in [
+            ("maxOrderNotional", json!("-1"), false),
+            ("maxOrderQuantity", json!("1.000000001"), false),
+            ("maxPositionSize", json!("0"), false),
+            ("maxSingleInstrumentExposurePercent", json!("100.01"), false),
+            (
+                "maxAssetClassExposurePercent",
+                json!([{"assetClass":"EQUITY","maxExposurePercent":"101"}]),
+                false,
+            ),
+            ("maxDailyTradedNotional", json!("0"), false),
+            ("maxDailyRealizedLoss", json!("1e3"), false),
+            ("maxOpenOrders", json!(0), false),
+            ("maxReservedCapital", json!("-1"), false),
+            ("allowedInstrumentIds", json!(["AAPL"]), false),
+            (
+                "blockedInstrumentIds",
+                json!(["equity:US:AAPL", "equity:US:AAPL"]),
+                false,
+            ),
+            ("allowedVenues", json!(["NASDAQ US"]), false),
+            ("blockedVenues", json!([""]), false),
+            ("allowedAccountIds", json!(["bad\nid"]), false),
+            (
+                "blockedAccountIds",
+                json!(["connection-live-1", "connection-live-1"]),
+                false,
+            ),
+            ("allowedEnvironments", json!(["LIVE", "LIVE"]), false),
+            ("maxMarketOrderSlippagePercent", Value::Null, true),
+            ("maxPriceDeviationPercent", json!("1e-3"), false),
+            ("staleQuoteThresholdSeconds", json!(0), false),
+            ("liveInactivityTimeoutMinutes", json!(1441), false),
+        ] {
+            let mut invalid_policy = policy.clone();
+            invalid_policy[field] = value;
+            invalid_policy["marketOrdersEnabled"] = market_orders_enabled.into();
+            let rejected = command(
+                &mut control,
+                "risk.save_policy",
+                json!({
+                    "workspaceId":workspace_id,
+                    "expectedStateVersion":current["data"]["stateVersion"],
+                    "policy":invalid_policy
+                }),
+            );
+            assert_eq!(rejected["error"]["code"], "RISK_POLICY_INVALID");
+        }
+        let mut unknown_policy = policy.clone();
+        unknown_policy["futureField"] = true.into();
+        let rejected = command(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,
+                "expectedStateVersion":current["data"]["stateVersion"],
+                "policy":unknown_policy
+            }),
+        );
+        assert_eq!(rejected["error"]["code"], "IPC_PAYLOAD_INVALID");
+        let unchanged = command(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(
+            unchanged["data"]["stateVersion"],
+            current["data"]["stateVersion"]
+        );
+        assert_eq!(unchanged["data"]["policyVersion"], 1);
+        let unchanged_snapshot = command(
+            &mut control,
+            "domain.snapshot",
+            json!({"aggregateType":"risk","aggregateId":workspace_id}),
+        );
+        assert_eq!(
+            unchanged_snapshot["data"]["lastSequence"],
+            risk_snapshot["data"]["lastSequence"]
+        );
+        let saved = command(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,
+                "expectedStateVersion":current["data"]["stateVersion"],
+                "policy":policy
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        assert_eq!(saved["data"]["policy"], policy);
+        let policy_version = saved["data"]["policyVersion"].clone();
+        let saved_snapshot = command(
+            &mut control,
+            "domain.snapshot",
+            json!({"aggregateType":"risk","aggregateId":workspace_id}),
+        );
+        assert_eq!(
+            saved_snapshot["data"]["lastSequence"].as_u64(),
+            risk_snapshot["data"]["lastSequence"].as_u64().map(|sequence| sequence + 1)
+        );
+        drop(control);
+
+        let mut reopened = ControlPlane::new(path);
+        assert_eq!(
+            command(&mut reopened, "workspace.open", json!({}))["ok"],
+            true
+        );
+        let restored = command(
+            &mut reopened,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(restored["data"]["policy"], policy);
+        assert_eq!(restored["data"]["policyVersion"], policy_version);
+        let stale_version_save = command(
+            &mut reopened,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,
+                "expectedStateVersion":current["data"]["stateVersion"],
+                "policy":policy
+            }),
+        );
+        assert_eq!(stale_version_save["error"]["code"], "STATE_VERSION_CONFLICT");
     }
 }

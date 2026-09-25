@@ -226,7 +226,9 @@ declare const validators: {
   ResearchToolRequest: (value: unknown) => boolean;
   ResearchToolResult: (value: unknown) => boolean;
   ResultEnvelope: (value: unknown) => boolean;
+  RiskAssetClassLimit: (value: unknown) => boolean;
   RiskPolicy: (value: unknown) => boolean;
+  RiskPolicyEnvironment: (value: unknown) => boolean;
   RiskPolicyInput: (value: unknown) => boolean;
   RiskPolicyState: (value: unknown) => boolean;
   RiskQuery: (value: unknown) => boolean;

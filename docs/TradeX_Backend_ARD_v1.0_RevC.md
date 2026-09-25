@@ -2112,24 +2112,36 @@ The `risk` aggregate uses `workspaceId` as its aggregate ID and is the only auth
 | onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | New `RiskPolicyState` with `onboardingCompleted: true` |
 
 ~~~ts
+type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
+type RiskAssetClass = "EQUITY" | "CRYPTO_SPOT";
+interface RiskAssetClassLimit {
+  assetClass: RiskAssetClass;
+  maxExposurePercent: string;
+}
 interface RiskPolicyInput {
   maxOrderNotional: string | null;
+  maxOrderQuantity: string | null;
+  maxPositionSize: string | null;
   maxSingleInstrumentExposurePercent: string | null;
+  maxAssetClassExposurePercent: RiskAssetClassLimit[];
   maxDailyTradedNotional: string | null;
   maxDailyRealizedLoss: string | null;
+  maxOpenOrders: number | null;
+  maxReservedCapital: string | null;
+  allowedInstrumentIds: string[];
+  blockedInstrumentIds: string[];
+  allowedVenues: string[];
+  blockedVenues: string[];
+  allowedAccountIds: string[];
+  blockedAccountIds: string[];
+  allowedEnvironments: RiskPolicyEnvironment[];
   staleQuoteThresholdSeconds: number;
   marketOrdersEnabled: boolean;
+  maxMarketOrderSlippagePercent: string | null;
+  maxPriceDeviationPercent: string | null;
   liveInactivityTimeoutMinutes: number;
 }
-interface RiskPolicy {
-  maxOrderNotional: string | null;
-  maxSingleInstrumentExposurePercent: string | null;
-  maxDailyTradedNotional: string | null;
-  maxDailyRealizedLoss: string | null;
-  staleQuoteThresholdSeconds: number;
-  marketOrdersEnabled: boolean;
-  liveInactivityTimeoutMinutes: number;
-}
+type RiskPolicy = RiskPolicyInput;
 interface RiskPolicyState {
   workspaceId: string;
   stateVersion: string;
@@ -2143,7 +2155,11 @@ interface RiskPolicyState {
 }
 ~~~
 
-Money and exposure values are decimal strings, never JSON numbers or floats. Every `RiskPolicyInput` field is required on the wire; the four monetary/exposure limits may be explicitly `null` until the user chooses them. A new policy defaults stale quote to 3 seconds, market orders to `false`, and Live inactivity timeout to 20 minutes. Accepted time bounds are 1–86,400 seconds and 1–1,440 minutes; exposure is at most 100 percent; empty, zero, scientific-notation, malformed or overlong decimals fail as `POLICY_ERROR / RISK_POLICY_INVALID`. `hardRules` is backend-owned read-only data: Live is DISARMED by default, approval remains required, stale data blocks Live, and an Agent cannot modify policy. This setup record does not implement the full S21 risk engine.
+Every `RiskPolicyInput` field is required on the wire. Money and portfolio-value limits (`maxOrderNotional`, `maxPositionSize`, `maxDailyTradedNotional`, `maxDailyRealizedLoss`, and `maxReservedCapital`) are exact decimal strings in the workspace base currency. `maxOrderQuantity` is an exact decimal in canonical instrument base units (shares or base asset units); quote-quantity proposals need trusted base-equivalent evidence before a later risk check can use this limit. Exposure, slippage, and price-deviation values are exact decimal percentages. `maxOpenOrders` is a positive integer or `null`. Financial and exposure limits remain `null` until the user chooses them; no monetary or exposure appetite is invented. Market orders default to `false`; enabling them requires an explicit maximum slippage. Stale quote defaults to 3 seconds and Live inactivity timeout to 20 minutes.
+
+Money, quantity, and percentage decimals are strings, never JSON numbers or floats. Money and exposure amounts accept at most 15 integer and 8 fractional digits; base quantity accepts 18 integer and 8 fractional digits; exposure is at most 100 percent. Slippage and price deviation accept at most 18 integer and 8 fractional digits. Decimal inputs must be positive and cannot be empty, zero, scientific notation, malformed, or overlong. `maxOpenOrders` must be a positive integer when set. Stale quote bounds are 1–86,400 seconds and Live inactivity bounds are 1–1,440 minutes. Allow/block lists contain up to 256 unique bounded identifiers; instrument IDs use canonical TradeX identity. Empty allow-lists mean no additional allow-list restriction; an empty block-list means nothing is blocked. When an identifier is in both lists, the block-list wins. An empty environment list adds no environment restriction. Per-asset-class exposure limits accept at most one entry for each currently supported class (`EQUITY`, `CRYPTO_SPOT`). Invalid or stale saves return `POLICY_ERROR / RISK_POLICY_INVALID` or `STATE_STALE / STATE_VERSION_CONFLICT` without changing the projection or outbox.
+
+New policy fields default to `null` or empty lists. A recognized pre-S21 risk projection that has the original seven setup fields receives those safe defaults when loaded; its existing values, policy version, and market-order preference are preserved. `hardRules` remains backend-owned and read-only: Live is DISARMED by default, approval remains required, stale data blocks Live, and an Agent cannot modify policy. The complete §21 evaluator and policy-change fan-out remain owned by the S21 risk tasks; onboarding continues to present the seven setup defaults.
 
 All mutations require the active workspace and exact current `stateVersion`; stale cursors return `STATE_STALE / STATE_VERSION_CONFLICT` without mutation. Progress can move only one step forward or back; a jump returns `POLICY_ERROR / ONBOARDING_STEP_INVALID`. Step 5 and completion require `configured` risk defaults and a current verified default model route from §41.5. Completion additionally checks every Live account is `DISARMED`; no onboarding command arms an account or enables Send/Live execution. A model-session reset invalidates a completed setup and reopens at Model (step 3). `risk.policy.changed` is committed atomically with the risk projection and outbox, and its `risk` snapshot/subscribe/replay follows §41.2 with contiguous per-workspace sequence. New workspaces initialize the risk table during storage schema version 5 migration; recognized older workspaces are backed up before migration.
 

@@ -760,6 +760,10 @@ LLM rows show:
 
 ### J2. Risk & Limits
 
+The Settings surface extends the seven onboarding defaults with the full PRD §21 controls: maximum order quantity and position size, per-asset-class exposure, open-order count, reserved capital, allowed/blocked instruments, venues and accounts, environment constraints, market-order slippage, and price deviation. Monetary and portfolio-value fields show the workspace base currency; quantity shows canonical instrument base units; exposure/slippage/deviation show percent. Unconfigured limits remain blank.
+
+Identifier lists accept one canonical instrument, venue, or connection ID per line. Empty allowed lists add no restriction; blocked lists take precedence when an ID appears in both. An empty environment selection adds no environment restriction. The currently supported exposure classes are `EQUITY` and `CRYPTO_SPOT`. Enabling market orders requires a maximum slippage value. Every field remains keyboard-operable with visible focus and readable at desktop, 768 px, and 390 px widths.
+
 Saving policy:
 
 ```text

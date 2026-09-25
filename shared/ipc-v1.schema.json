@@ -9209,9 +9209,75 @@
         }
       ]
     },
+    "RiskAssetClassLimit": {
+      "type": "object",
+      "properties": {
+        "assetClass": {
+          "$ref": "#/$defs/AssetClass"
+        },
+        "maxExposurePercent": {
+          "type": "string",
+          "maxLength": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "assetClass",
+        "maxExposurePercent"
+      ]
+    },
     "RiskPolicy": {
       "type": "object",
       "properties": {
+        "allowedAccountIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "allowedEnvironments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskPolicyEnvironment"
+          },
+          "maxItems": 5
+        },
+        "allowedInstrumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "allowedVenues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "blockedAccountIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "blockedInstrumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "blockedVenues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
         "liveInactivityTimeoutMinutes": {
           "type": "integer",
           "format": "uint64",
@@ -9220,6 +9286,13 @@
         },
         "marketOrdersEnabled": {
           "type": "boolean"
+        },
+        "maxAssetClassExposurePercent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskAssetClassLimit"
+          },
+          "maxItems": 2
         },
         "maxDailyRealizedLoss": {
           "type": [
@@ -9235,7 +9308,50 @@
           ],
           "maxLength": 32
         },
+        "maxMarketOrderSlippagePercent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxOpenOrders": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
         "maxOrderNotional": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxOrderQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxPositionSize": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxPriceDeviationPercent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxReservedCapital": {
           "type": [
             "string",
             "null"
@@ -9259,17 +9375,90 @@
       "additionalProperties": false,
       "required": [
         "maxOrderNotional",
+        "maxOrderQuantity",
+        "maxPositionSize",
         "maxSingleInstrumentExposurePercent",
+        "maxAssetClassExposurePercent",
         "maxDailyTradedNotional",
         "maxDailyRealizedLoss",
+        "maxOpenOrders",
+        "maxReservedCapital",
+        "allowedInstrumentIds",
+        "blockedInstrumentIds",
+        "allowedVenues",
+        "blockedVenues",
+        "allowedAccountIds",
+        "blockedAccountIds",
+        "allowedEnvironments",
         "staleQuoteThresholdSeconds",
         "marketOrdersEnabled",
+        "maxMarketOrderSlippagePercent",
+        "maxPriceDeviationPercent",
         "liveInactivityTimeoutMinutes"
+      ]
+    },
+    "RiskPolicyEnvironment": {
+      "type": "string",
+      "enum": [
+        "LOCAL_PAPER",
+        "PAPER",
+        "DEMO",
+        "TESTNET",
+        "LIVE"
       ]
     },
     "RiskPolicyInput": {
       "type": "object",
       "properties": {
+        "allowedAccountIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "allowedEnvironments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskPolicyEnvironment"
+          },
+          "maxItems": 5
+        },
+        "allowedInstrumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "allowedVenues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "blockedAccountIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "blockedInstrumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
+        "blockedVenues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256
+        },
         "liveInactivityTimeoutMinutes": {
           "type": "integer",
           "format": "uint64",
@@ -9278,6 +9467,13 @@
         },
         "marketOrdersEnabled": {
           "type": "boolean"
+        },
+        "maxAssetClassExposurePercent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskAssetClassLimit"
+          },
+          "maxItems": 2
         },
         "maxDailyRealizedLoss": {
           "type": [
@@ -9293,7 +9489,50 @@
           ],
           "maxLength": 32
         },
+        "maxMarketOrderSlippagePercent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxOpenOrders": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
         "maxOrderNotional": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxOrderQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxPositionSize": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxPriceDeviationPercent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "maxReservedCapital": {
           "type": [
             "string",
             "null"
@@ -9317,11 +9556,25 @@
       "additionalProperties": false,
       "required": [
         "maxOrderNotional",
+        "maxOrderQuantity",
+        "maxPositionSize",
         "maxSingleInstrumentExposurePercent",
+        "maxAssetClassExposurePercent",
         "maxDailyTradedNotional",
         "maxDailyRealizedLoss",
+        "maxOpenOrders",
+        "maxReservedCapital",
+        "allowedInstrumentIds",
+        "blockedInstrumentIds",
+        "allowedVenues",
+        "blockedVenues",
+        "allowedAccountIds",
+        "blockedAccountIds",
+        "allowedEnvironments",
         "staleQuoteThresholdSeconds",
         "marketOrdersEnabled",
+        "maxMarketOrderSlippagePercent",
+        "maxPriceDeviationPercent",
         "liveInactivityTimeoutMinutes"
       ]
     },

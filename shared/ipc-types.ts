@@ -169,6 +169,16 @@ export type ModelHealth = "NOT_CONFIGURED" | "UNVERIFIED" | "VERIFYING" | "READY
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyEnvironment".
+ */
+export type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AssetClass".
+ */
+export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadStatus".
  */
 export type ThreadStatus = "ACTIVE" | "ARCHIVED";
@@ -424,11 +434,6 @@ export type ToolId =
  * via the `definition` "DataSourceProbeKind".
  */
 export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AssetClass".
- */
-export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AdjustmentStatus".
@@ -1954,13 +1959,71 @@ export interface HardSafetyRule {
  * via the `definition` "RiskPolicy".
  */
 export interface RiskPolicy {
+  /**
+   * @maxItems 256
+   */
+  allowedAccountIds: string[];
+  /**
+   * @maxItems 5
+   */
+  allowedEnvironments:
+    | []
+    | [RiskPolicyEnvironment]
+    | [RiskPolicyEnvironment, RiskPolicyEnvironment]
+    | [RiskPolicyEnvironment, RiskPolicyEnvironment, RiskPolicyEnvironment]
+    | [RiskPolicyEnvironment, RiskPolicyEnvironment, RiskPolicyEnvironment, RiskPolicyEnvironment]
+    | [
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment
+      ];
+  /**
+   * @maxItems 256
+   */
+  allowedInstrumentIds: string[];
+  /**
+   * @maxItems 256
+   */
+  allowedVenues: string[];
+  /**
+   * @maxItems 256
+   */
+  blockedAccountIds: string[];
+  /**
+   * @maxItems 256
+   */
+  blockedInstrumentIds: string[];
+  /**
+   * @maxItems 256
+   */
+  blockedVenues: string[];
   liveInactivityTimeoutMinutes: number;
   marketOrdersEnabled: boolean;
+  /**
+   * @maxItems 2
+   */
+  maxAssetClassExposurePercent: [] | [RiskAssetClassLimit] | [RiskAssetClassLimit, RiskAssetClassLimit];
   maxDailyRealizedLoss: string | null;
   maxDailyTradedNotional: string | null;
+  maxMarketOrderSlippagePercent: string | null;
+  maxOpenOrders: number | null;
   maxOrderNotional: string | null;
+  maxOrderQuantity: string | null;
+  maxPositionSize: string | null;
+  maxPriceDeviationPercent: string | null;
+  maxReservedCapital: string | null;
   maxSingleInstrumentExposurePercent: string | null;
   staleQuoteThresholdSeconds: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskAssetClassLimit".
+ */
+export interface RiskAssetClassLimit {
+  assetClass: AssetClass;
+  maxExposurePercent: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -4643,11 +4706,61 @@ export interface SaveRiskPolicy {
  * via the `definition` "RiskPolicyInput".
  */
 export interface RiskPolicyInput {
+  /**
+   * @maxItems 256
+   */
+  allowedAccountIds: string[];
+  /**
+   * @maxItems 5
+   */
+  allowedEnvironments:
+    | []
+    | [RiskPolicyEnvironment]
+    | [RiskPolicyEnvironment, RiskPolicyEnvironment]
+    | [RiskPolicyEnvironment, RiskPolicyEnvironment, RiskPolicyEnvironment]
+    | [RiskPolicyEnvironment, RiskPolicyEnvironment, RiskPolicyEnvironment, RiskPolicyEnvironment]
+    | [
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment,
+        RiskPolicyEnvironment
+      ];
+  /**
+   * @maxItems 256
+   */
+  allowedInstrumentIds: string[];
+  /**
+   * @maxItems 256
+   */
+  allowedVenues: string[];
+  /**
+   * @maxItems 256
+   */
+  blockedAccountIds: string[];
+  /**
+   * @maxItems 256
+   */
+  blockedInstrumentIds: string[];
+  /**
+   * @maxItems 256
+   */
+  blockedVenues: string[];
   liveInactivityTimeoutMinutes: number;
   marketOrdersEnabled: boolean;
+  /**
+   * @maxItems 2
+   */
+  maxAssetClassExposurePercent: [] | [RiskAssetClassLimit] | [RiskAssetClassLimit, RiskAssetClassLimit];
   maxDailyRealizedLoss: string | null;
   maxDailyTradedNotional: string | null;
+  maxMarketOrderSlippagePercent: string | null;
+  maxOpenOrders: number | null;
   maxOrderNotional: string | null;
+  maxOrderQuantity: string | null;
+  maxPositionSize: string | null;
+  maxPriceDeviationPercent: string | null;
+  maxReservedCapital: string | null;
   maxSingleInstrumentExposurePercent: string | null;
   staleQuoteThresholdSeconds: number;
 }

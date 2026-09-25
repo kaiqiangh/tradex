@@ -2112,24 +2112,36 @@ LAUNCH 可先安装固定发布物，再启动并探测自己拥有的进程。S
 | onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | `onboardingCompleted: true` 的新 `RiskPolicyState` |
 
 ~~~ts
+type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
+type RiskAssetClass = "EQUITY" | "CRYPTO_SPOT";
+interface RiskAssetClassLimit {
+  assetClass: RiskAssetClass;
+  maxExposurePercent: string;
+}
 interface RiskPolicyInput {
   maxOrderNotional: string | null;
+  maxOrderQuantity: string | null;
+  maxPositionSize: string | null;
   maxSingleInstrumentExposurePercent: string | null;
+  maxAssetClassExposurePercent: RiskAssetClassLimit[];
   maxDailyTradedNotional: string | null;
   maxDailyRealizedLoss: string | null;
+  maxOpenOrders: number | null;
+  maxReservedCapital: string | null;
+  allowedInstrumentIds: string[];
+  blockedInstrumentIds: string[];
+  allowedVenues: string[];
+  blockedVenues: string[];
+  allowedAccountIds: string[];
+  blockedAccountIds: string[];
+  allowedEnvironments: RiskPolicyEnvironment[];
   staleQuoteThresholdSeconds: number;
   marketOrdersEnabled: boolean;
+  maxMarketOrderSlippagePercent: string | null;
+  maxPriceDeviationPercent: string | null;
   liveInactivityTimeoutMinutes: number;
 }
-interface RiskPolicy {
-  maxOrderNotional: string | null;
-  maxSingleInstrumentExposurePercent: string | null;
-  maxDailyTradedNotional: string | null;
-  maxDailyRealizedLoss: string | null;
-  staleQuoteThresholdSeconds: number;
-  marketOrdersEnabled: boolean;
-  liveInactivityTimeoutMinutes: number;
-}
+type RiskPolicy = RiskPolicyInput;
 interface RiskPolicyState {
   workspaceId: string;
   stateVersion: string;
@@ -2143,7 +2155,11 @@ interface RiskPolicyState {
 }
 ~~~
 
-金额和敞口使用十进制字符串，绝不使用 JSON number 或浮点。每个 `RiskPolicyInput` 字段在 wire 上都必须存在；四个金额/敞口额度在用户选择前可显式设为 `null`。新策略默认报价过期阈值 3 秒、市价单 `false`、Live inactivity timeout 20 分钟。时间边界为 1–86,400 秒和 1–1,440 分钟；敞口最多 100%；空值、零值、科学计数法、格式错误或超长小数返回 `POLICY_ERROR / RISK_POLICY_INVALID`。`hardRules` 由后端拥有且只读：Live 默认 DISARMED、仍需单独 approval、过期数据阻断 Live、Agent 不能修改策略。本设置记录不实现完整 S21 risk engine。
+每个 `RiskPolicyInput` 字段在 wire 上都必须存在。金额和组合估值上限（`maxOrderNotional`、`maxPositionSize`、`maxDailyTradedNotional`、`maxDailyRealizedLoss`、`maxReservedCapital`）是 workspace base currency 的精确十进制字符串。`maxOrderQuantity` 是 canonical instrument base units（股份或基础资产单位）的精确十进制；后续 risk check 使用此上限前，quote-quantity proposal 必须有受信的 base 等值证据。敞口、滑点、价格偏离使用精确百分比字符串。`maxOpenOrders` 是正整数或 `null`。金融/敞口上限由用户选择前保持 `null`，不得臆造金额或敞口偏好。市价单默认 `false`；启用时必须提供明确的最大滑点。过期报价默认 3 秒，Live inactivity timeout 默认 20 分钟。
+
+金额、数量、百分比均用字符串，绝不使用 JSON number 或浮点。金额和敞口上限最多 15 位整数、8 位小数；base quantity 最多 18 位整数、8 位小数；敞口最多 100%。滑点与价格偏离最多 18 位整数、8 位小数。十进制输入必须为正数；空值、零值、科学计数法、格式错误或超长均无效。`maxOpenOrders` 设置后必须为正整数。过期报价边界为 1–86,400 秒，Live inactivity 边界为 1–1,440 分钟。允许/禁止列表最多 256 个唯一且有界的标识符；instrument ID 必须使用 TradeX canonical identity。空的 allowed list 表示不增加 allow-list 限制；空的 blocked list 表示不禁止任何项目；同一标识符出现在两个列表时以禁止列表为准。空 environment list 不增加环境限制。每个当前支持的资产类别（`EQUITY`、`CRYPTO_SPOT`）最多配置一个敞口上限。无效保存或陈旧保存返回 `POLICY_ERROR / RISK_POLICY_INVALID` 或 `STATE_STALE / STATE_VERSION_CONFLICT`，且不修改 projection/outbox。
+
+新策略字段默认 `null` 或空列表。识别到仅含原七个 setup 字段的 S21 前风险 projection 时，加载时会为新增字段补入这些安全默认值；原有值、policy version 和市价单偏好都会保留。`hardRules` 仍由后端拥有且只读：Live 默认 DISARMED、仍需 approval、过期数据阻断 Live、Agent 不能修改策略。完整 §21 evaluator 与策略变更的 fan-out 由 S21 后续风险任务负责；入门流程仍展示七项 setup defaults。
 
 所有变更都要求当前 workspace 和精确的 `stateVersion`；陈旧游标返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态。进度只能前进或后退一步；越级返回 `POLICY_ERROR / ONBOARDING_STEP_INVALID`。步骤 5 和完成都要求已配置风险默认值及 §41.5 的当前已验证默认模型路由。完成还要检查每个 Live 账户为 `DISARMED`；任何入门命令都不会 arm 账户或启用 Send/Live execution。模型会话重置会使已完成设置失效并回到 Model（步骤 3）。`risk.policy.changed` 与 risk projection/outbox 在同一事务提交，`risk` snapshot/subscribe/replay 遵循 §41.2 的工作区规则和连续序列。新工作区在 storage schema version 5 迁移时初始化风险表；已识别的旧工作区迁移前先备份。
 

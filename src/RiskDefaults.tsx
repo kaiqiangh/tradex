@@ -1,25 +1,68 @@
 import { useEffect, useState } from 'react';
-import type { RiskPolicy, RiskPolicyInput, RiskPolicyState } from '../shared/ipc-types.ts';
+import type { RiskAssetClassLimit, RiskPolicy, RiskPolicyEnvironment, RiskPolicyInput, RiskPolicyState } from '../shared/ipc-types.ts';
 import { CommandError, explainError, request } from './client.ts';
 
 export type RiskDraft = {
   maxOrderNotional: string;
+  maxOrderQuantity: string;
+  maxPositionSize: string;
   maxSingleInstrumentExposurePercent: string;
+  maxEquityExposurePercent: string;
+  maxCryptoExposurePercent: string;
   maxDailyTradedNotional: string;
   maxDailyRealizedLoss: string;
+  maxOpenOrders: string;
+  maxReservedCapital: string;
+  allowedInstrumentIds: string;
+  blockedInstrumentIds: string;
+  allowedVenues: string;
+  blockedVenues: string;
+  allowedAccountIds: string;
+  blockedAccountIds: string;
+  allowedEnvironments: RiskPolicyEnvironment[];
   staleQuoteThresholdSeconds: string;
   marketOrdersEnabled: boolean;
+  maxMarketOrderSlippagePercent: string;
+  maxPriceDeviationPercent: string;
   liveInactivityTimeoutMinutes: string;
 };
 
+const environments: { value: RiskPolicyEnvironment; label: string }[] = [
+  { value: 'LOCAL_PAPER', label: 'Local Paper' },
+  { value: 'PAPER', label: 'Paper' },
+  { value: 'DEMO', label: 'Demo' },
+  { value: 'TESTNET', label: 'Testnet' },
+  { value: 'LIVE', label: 'Live' },
+];
+
+const listFromText = (value: string) => value.split('\n').map(item => item.trim()).filter(Boolean);
+const textFromList = (value: string[]) => value.join('\n');
+const optionalDecimal = (value: string) => value.trim() || null;
+
 export function draftFromPolicy(policy: RiskPolicy): RiskDraft {
+  const assetLimit = (assetClass: RiskAssetClassLimit['assetClass']) => policy.maxAssetClassExposurePercent.find(item => item.assetClass === assetClass)?.maxExposurePercent ?? '';
   return {
     maxOrderNotional: policy.maxOrderNotional ?? '',
+    maxOrderQuantity: policy.maxOrderQuantity ?? '',
+    maxPositionSize: policy.maxPositionSize ?? '',
     maxSingleInstrumentExposurePercent: policy.maxSingleInstrumentExposurePercent ?? '',
+    maxEquityExposurePercent: assetLimit('EQUITY'),
+    maxCryptoExposurePercent: assetLimit('CRYPTO_SPOT'),
     maxDailyTradedNotional: policy.maxDailyTradedNotional ?? '',
     maxDailyRealizedLoss: policy.maxDailyRealizedLoss ?? '',
+    maxOpenOrders: policy.maxOpenOrders == null ? '' : String(policy.maxOpenOrders),
+    maxReservedCapital: policy.maxReservedCapital ?? '',
+    allowedInstrumentIds: textFromList(policy.allowedInstrumentIds),
+    blockedInstrumentIds: textFromList(policy.blockedInstrumentIds),
+    allowedVenues: textFromList(policy.allowedVenues),
+    blockedVenues: textFromList(policy.blockedVenues),
+    allowedAccountIds: textFromList(policy.allowedAccountIds),
+    blockedAccountIds: textFromList(policy.blockedAccountIds),
+    allowedEnvironments: [...policy.allowedEnvironments],
     staleQuoteThresholdSeconds: String(policy.staleQuoteThresholdSeconds ?? 3),
     marketOrdersEnabled: policy.marketOrdersEnabled ?? false,
+    maxMarketOrderSlippagePercent: policy.maxMarketOrderSlippagePercent ?? '',
+    maxPriceDeviationPercent: policy.maxPriceDeviationPercent ?? '',
     liveInactivityTimeoutMinutes: String(policy.liveInactivityTimeoutMinutes ?? 20),
   };
 }
@@ -27,16 +70,45 @@ export function draftFromPolicy(policy: RiskPolicy): RiskDraft {
 function toPolicy(draft: RiskDraft): RiskPolicyInput {
   const stale = Number(draft.staleQuoteThresholdSeconds);
   const inactivity = Number(draft.liveInactivityTimeoutMinutes);
+  const maxOpenOrders = draft.maxOpenOrders.trim() ? Number(draft.maxOpenOrders) : null;
   if (!Number.isInteger(stale) || !Number.isInteger(inactivity)) throw new Error('Enter whole seconds and minutes.');
+  if (maxOpenOrders !== null && (!Number.isSafeInteger(maxOpenOrders) || maxOpenOrders < 1)) throw new Error('Maximum open orders must be a positive whole number.');
+  if (draft.marketOrdersEnabled && !draft.maxMarketOrderSlippagePercent.trim()) throw new Error('Set a maximum market-order slippage before enabling market orders.');
+  const maxAssetClassExposurePercent: RiskAssetClassLimit[] = [
+    ...(draft.maxEquityExposurePercent.trim() ? [{ assetClass: 'EQUITY' as const, maxExposurePercent: draft.maxEquityExposurePercent.trim() }] : []),
+    ...(draft.maxCryptoExposurePercent.trim() ? [{ assetClass: 'CRYPTO_SPOT' as const, maxExposurePercent: draft.maxCryptoExposurePercent.trim() }] : []),
+  ];
   return {
-    maxOrderNotional: draft.maxOrderNotional.trim() || null,
-    maxSingleInstrumentExposurePercent: draft.maxSingleInstrumentExposurePercent.trim() || null,
-    maxDailyTradedNotional: draft.maxDailyTradedNotional.trim() || null,
-    maxDailyRealizedLoss: draft.maxDailyRealizedLoss.trim() || null,
+    maxOrderNotional: optionalDecimal(draft.maxOrderNotional),
+    maxOrderQuantity: optionalDecimal(draft.maxOrderQuantity),
+    maxPositionSize: optionalDecimal(draft.maxPositionSize),
+    maxSingleInstrumentExposurePercent: optionalDecimal(draft.maxSingleInstrumentExposurePercent),
+    maxAssetClassExposurePercent: maxAssetClassExposurePercent as RiskPolicyInput['maxAssetClassExposurePercent'],
+    maxDailyTradedNotional: optionalDecimal(draft.maxDailyTradedNotional),
+    maxDailyRealizedLoss: optionalDecimal(draft.maxDailyRealizedLoss),
+    maxOpenOrders,
+    maxReservedCapital: optionalDecimal(draft.maxReservedCapital),
+    allowedInstrumentIds: listFromText(draft.allowedInstrumentIds) as RiskPolicyInput['allowedInstrumentIds'],
+    blockedInstrumentIds: listFromText(draft.blockedInstrumentIds) as RiskPolicyInput['blockedInstrumentIds'],
+    allowedVenues: listFromText(draft.allowedVenues) as RiskPolicyInput['allowedVenues'],
+    blockedVenues: listFromText(draft.blockedVenues) as RiskPolicyInput['blockedVenues'],
+    allowedAccountIds: listFromText(draft.allowedAccountIds) as RiskPolicyInput['allowedAccountIds'],
+    blockedAccountIds: listFromText(draft.blockedAccountIds) as RiskPolicyInput['blockedAccountIds'],
+    allowedEnvironments: draft.allowedEnvironments as RiskPolicyInput['allowedEnvironments'],
     staleQuoteThresholdSeconds: stale,
     marketOrdersEnabled: draft.marketOrdersEnabled,
+    maxMarketOrderSlippagePercent: optionalDecimal(draft.maxMarketOrderSlippagePercent),
+    maxPriceDeviationPercent: optionalDecimal(draft.maxPriceDeviationPercent),
     liveInactivityTimeoutMinutes: inactivity,
   };
+}
+
+function DecimalField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="field">{label}<input type="text" inputMode="decimal" value={value} onChange={event => onChange(event.target.value)} placeholder="Leave unset" maxLength={32} /></label>;
+}
+
+function ListField({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (value: string) => void }) {
+  return <label className="field">{label}<textarea rows={3} maxLength={33023} value={value} onChange={event => onChange(event.target.value)} placeholder="One identifier per line" /><small className="form-hint">{hint}</small></label>;
 }
 
 type Props = {
@@ -47,9 +119,10 @@ type Props = {
   onDraftChange: (draft: RiskDraft) => void;
   onSaved?: (state: RiskPolicyState) => void;
   continueLabel?: string;
+  showFullPolicy?: boolean;
 };
 
-export function RiskDefaults({ workspaceId, baseCurrency, state, draft, onDraftChange, onSaved, continueLabel = 'Save risk defaults' }: Props) {
+export function RiskDefaults({ workspaceId, baseCurrency, state, draft, onDraftChange, onSaved, continueLabel = 'Save risk defaults', showFullPolicy = false }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState('');
@@ -65,32 +138,47 @@ export function RiskDefaults({ workspaceId, baseCurrency, state, draft, onDraftC
       setError(failure instanceof Error && !(failure instanceof CommandError) ? failure.message : explainError(failure));
     } finally { setBusy(false); }
   };
+  const toggleEnvironment = (environment: RiskPolicyEnvironment, checked: boolean) => change(
+    'allowedEnvironments',
+    checked ? [...draft.allowedEnvironments, environment] : draft.allowedEnvironments.filter(value => value !== environment),
+  );
   return <div className="risk-defaults">
-    <p className="muted">Money uses exact decimal values in {baseCurrency}. Leave monetary limits blank until you choose them.</p>
+    <p className="muted">Money and portfolio exposure use exact decimals in {baseCurrency}. Leave limits unset until you choose them. Quantity uses canonical instrument base units.</p>
     <div className="risk-form">
-      <label className="field">Maximum order notional ({baseCurrency})
-        <input type="text" inputMode="decimal" value={draft.maxOrderNotional} onChange={event => change('maxOrderNotional', event.target.value)} placeholder="Leave blank" maxLength={32} aria-label={`Maximum order notional in ${baseCurrency}`} disabled={busy} />
-      </label>
-      <label className="field">Maximum single-instrument exposure (%)
-        <input type="text" inputMode="decimal" value={draft.maxSingleInstrumentExposurePercent} onChange={event => change('maxSingleInstrumentExposurePercent', event.target.value)} placeholder="Leave blank" maxLength={32} aria-label="Maximum single-instrument exposure percent" disabled={busy} />
-      </label>
-      <label className="field">Maximum daily traded notional ({baseCurrency})
-        <input type="text" inputMode="decimal" value={draft.maxDailyTradedNotional} onChange={event => change('maxDailyTradedNotional', event.target.value)} placeholder="Leave blank" maxLength={32} aria-label={`Maximum daily traded notional in ${baseCurrency}`} disabled={busy} />
-      </label>
-      <label className="field">Maximum daily realized loss ({baseCurrency})
-        <input type="text" inputMode="decimal" value={draft.maxDailyRealizedLoss} onChange={event => change('maxDailyRealizedLoss', event.target.value)} placeholder="Leave blank" maxLength={32} aria-label={`Maximum daily realized loss in ${baseCurrency}`} disabled={busy} />
-      </label>
-      <label className="field">Stale quote threshold (seconds)
-        <input type="number" inputMode="numeric" min={1} max={86400} step={1} value={draft.staleQuoteThresholdSeconds} onChange={event => change('staleQuoteThresholdSeconds', event.target.value)} required aria-label="Stale quote threshold in seconds" disabled={busy} />
-      </label>
+      <DecimalField label={`Maximum order notional (${baseCurrency})`} value={draft.maxOrderNotional} onChange={value => change('maxOrderNotional', value)} />
+      {showFullPolicy && <DecimalField label="Maximum order quantity (shares or base units)" value={draft.maxOrderQuantity} onChange={value => change('maxOrderQuantity', value)} />}
+      {showFullPolicy && <DecimalField label={`Maximum position size (${baseCurrency})`} value={draft.maxPositionSize} onChange={value => change('maxPositionSize', value)} />}
+      <DecimalField label="Maximum single-instrument exposure (%)" value={draft.maxSingleInstrumentExposurePercent} onChange={value => change('maxSingleInstrumentExposurePercent', value)} />
+      {showFullPolicy && <>
+        <DecimalField label="Maximum EQUITY exposure (%)" value={draft.maxEquityExposurePercent} onChange={value => change('maxEquityExposurePercent', value)} />
+        <DecimalField label="Maximum CRYPTO_SPOT exposure (%)" value={draft.maxCryptoExposurePercent} onChange={value => change('maxCryptoExposurePercent', value)} />
+      </>}
+      <DecimalField label={`Maximum daily traded notional (${baseCurrency})`} value={draft.maxDailyTradedNotional} onChange={value => change('maxDailyTradedNotional', value)} />
+      <DecimalField label={`Maximum daily realized loss (${baseCurrency})`} value={draft.maxDailyRealizedLoss} onChange={value => change('maxDailyRealizedLoss', value)} />
+      {showFullPolicy && <label className="field">Maximum open orders<input type="number" inputMode="numeric" min={1} step={1} value={draft.maxOpenOrders} onChange={event => change('maxOpenOrders', event.target.value)} placeholder="Leave unset" /></label>}
+      {showFullPolicy && <DecimalField label={`Maximum reserved capital (${baseCurrency})`} value={draft.maxReservedCapital} onChange={value => change('maxReservedCapital', value)} />}
+      <label className="field">Stale quote threshold (seconds)<input type="number" inputMode="numeric" min={1} max={86400} step={1} value={draft.staleQuoteThresholdSeconds} onChange={event => change('staleQuoteThresholdSeconds', event.target.value)} required /></label>
       <label className="check-field"><input type="checkbox" checked={draft.marketOrdersEnabled} onChange={event => change('marketOrdersEnabled', event.target.checked)} disabled={busy} /> Allow market orders <span className="muted">OFF by default</span></label>
-      <label className="field">Live inactivity timeout (minutes)
-        <input type="number" inputMode="numeric" min={1} max={1440} step={1} value={draft.liveInactivityTimeoutMinutes} onChange={event => change('liveInactivityTimeoutMinutes', event.target.value)} required aria-label="Live inactivity timeout in minutes" disabled={busy} />
-      </label>
+      {(showFullPolicy || draft.marketOrdersEnabled) && <DecimalField label="Maximum market-order slippage (%)" value={draft.maxMarketOrderSlippagePercent} onChange={value => change('maxMarketOrderSlippagePercent', value)} />}
+      {showFullPolicy && <DecimalField label="Maximum price deviation (%)" value={draft.maxPriceDeviationPercent} onChange={value => change('maxPriceDeviationPercent', value)} />}
+      <label className="field">Live inactivity timeout (minutes)<input type="number" inputMode="numeric" min={1} max={1440} step={1} value={draft.liveInactivityTimeoutMinutes} onChange={event => change('liveInactivityTimeoutMinutes', event.target.value)} required /></label>
+      {showFullPolicy && <>
+        <ListField label="Allowed canonical instruments" hint="Empty means no allow-list restriction. Blocked instruments always reject." value={draft.allowedInstrumentIds} onChange={value => change('allowedInstrumentIds', value)} />
+        <ListField label="Blocked canonical instruments" hint="Use canonical IDs such as equity:US:AAPL or crypto:BTC/USDT:spot." value={draft.blockedInstrumentIds} onChange={value => change('blockedInstrumentIds', value)} />
+        <ListField label="Allowed venues" hint="Empty means no allow-list restriction; blocked venues take precedence." value={draft.allowedVenues} onChange={value => change('allowedVenues', value)} />
+        <ListField label="Blocked venues" hint="Enter canonical venue IDs, one per line." value={draft.blockedVenues} onChange={value => change('blockedVenues', value)} />
+        <ListField label="Allowed account IDs" hint="Copy connection IDs from Accounts. Empty means no allow-list restriction." value={draft.allowedAccountIds} onChange={value => change('allowedAccountIds', value)} />
+        <ListField label="Blocked account IDs" hint="Matching account IDs are rejected even if listed as allowed." value={draft.blockedAccountIds} onChange={value => change('blockedAccountIds', value)} />
+        <fieldset className="risk-environments">
+          <legend>Allowed account environments</legend>
+          <p className="form-hint">No selection means no additional environment restriction.</p>
+          <div>{environments.map(item => <label className="check-field" key={item.value}><input type="checkbox" checked={draft.allowedEnvironments.includes(item.value)} onChange={event => toggleEnvironment(item.value, event.target.checked)} disabled={busy} /> {item.label}</label>)}</div>
+        </fieldset>
+      </>}
     </div>
     <div className="hard-rules" aria-labelledby="hard-rules-title"><h3 id="hard-rules-title">Hard safety rules · read only</h3><ul>{state.hardRules.map(rule => <li key={rule.id}><strong>{rule.id.replaceAll('_', ' ')}</strong><span>{rule.description}</span></li>)}</ul></div>
     {error && <p className="error-text" role="alert">{error}</p>}
     {notice && <p className="success-text" role="status">{notice}</p>}
-    <button className="primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? 'Saving risk defaults…' : continueLabel}</button>
+    <button className="primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? 'Saving risk policy…' : continueLabel}</button>
   </div>;
 }
