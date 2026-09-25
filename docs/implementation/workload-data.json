@@ -1,0 +1,2522 @@
+{
+ "generated": "2026-09-25 23:06 +0100",
+ "commit": "4438b83",
+ "branch": "dev",
+ "ahead": 2,
+ "req_total": 203,
+ "req_status": {
+  "IMPLEMENTED_UNVERIFIED": 60,
+  "NOT_STARTED": 94,
+  "IN_PROGRESS": 29,
+  "VERIFIED": 17,
+  "DEFERRED": 3
+ },
+ "surf_total": 83,
+ "surf_status": {
+  "VERIFIED": 1,
+  "IN_PROGRESS": 7,
+  "IMPLEMENTED_UNVERIFIED": 38,
+  "NOT_STARTED": 37
+ },
+ "issue_total": 86,
+ "issue_open": 6,
+ "open_issues": [
+  1,
+  56,
+  79,
+  83,
+  85,
+  86
+ ],
+ "slice_closed": 19,
+ "slice_inprog": 3,
+ "slices": [
+  {
+   "id": "S01",
+   "title": "打开并恢复本地桌面工作区",
+   "state": "CLOSED",
+   "issues": [
+    3,
+    4
+   ],
+   "issues_closed": 2,
+   "issues_open": 0,
+   "total": 7,
+   "not_started": 0,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 1,
+   "deferred": 0,
+   "open": 4,
+   "done": 1,
+   "phase": "P1"
+  },
+  {
+   "id": "S02",
+   "title": "安全连接并查看提供方账户",
+   "state": "CLOSED",
+   "issues": [
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "issues_closed": 5,
+   "issues_open": 0,
+   "total": 19,
+   "not_started": 0,
+   "in_progress": 6,
+   "hold": 2,
+   "verified": 11,
+   "deferred": 0,
+   "open": 6,
+   "done": 11,
+   "phase": "P1"
+  },
+  {
+   "id": "S03",
+   "title": "配置模型网关并完成五步入门",
+   "state": "CLOSED",
+   "issues": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "issues_closed": 6,
+   "issues_open": 0,
+   "total": 13,
+   "not_started": 1,
+   "in_progress": 6,
+   "hold": 4,
+   "verified": 2,
+   "deferred": 0,
+   "open": 7,
+   "done": 2,
+   "phase": "P1"
+  },
+  {
+   "id": "S04",
+   "title": "持久化并流式恢复 Codex Thread",
+   "state": "CLOSED",
+   "issues": [
+    16,
+    17,
+    18,
+    19
+   ],
+   "issues_closed": 4,
+   "issues_open": 0,
+   "total": 18,
+   "not_started": 4,
+   "in_progress": 2,
+   "hold": 12,
+   "verified": 0,
+   "deferred": 0,
+   "open": 6,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S05",
+   "title": "按模式与精确上下文限制 Agent 工具",
+   "state": "CLOSED",
+   "issues": [
+    20,
+    21,
+    22,
+    23
+   ],
+   "issues_closed": 4,
+   "issues_open": 0,
+   "total": 21,
+   "not_started": 6,
+   "in_progress": 8,
+   "hold": 7,
+   "verified": 0,
+   "deferred": 0,
+   "open": 14,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S06",
+   "title": "核实并选定所需外部数据与授权",
+   "state": "CLOSED",
+   "issues": [
+    24,
+    25
+   ],
+   "issues_closed": 2,
+   "issues_open": 0,
+   "total": 0,
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 0,
+   "done": 0,
+   "phase": "P2",
+   "note": "决策/调研类切片：交付物为 OD-001–006 决议与数据源目录，在 requirements.csv 中无直接映射的编号需求。"
+  },
+  {
+   "id": "S07",
+   "title": "浏览真实行情并管理 Watchlists",
+   "state": "CLOSED",
+   "issues": [
+    26,
+    27,
+    28
+   ],
+   "issues_closed": 3,
+   "issues_open": 0,
+   "total": 9,
+   "not_started": 3,
+   "in_progress": 0,
+   "hold": 6,
+   "verified": 0,
+   "deferred": 0,
+   "open": 3,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S08",
+   "title": "校验可信时间、市场时段与公司行为",
+   "state": "CLOSED",
+   "issues": [
+    29,
+    30,
+    31
+   ],
+   "issues_closed": 3,
+   "issues_open": 0,
+   "total": 9,
+   "not_started": 2,
+   "in_progress": 0,
+   "hold": 7,
+   "verified": 0,
+   "deferred": 0,
+   "open": 2,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S09",
+   "title": "汇总账户组合并保留 FX 估值证据",
+   "state": "CLOSED",
+   "issues": [
+    32
+   ],
+   "issues_closed": 1,
+   "issues_open": 0,
+   "total": 10,
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 10,
+   "verified": 0,
+   "deferred": 0,
+   "open": 0,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S10",
+   "title": "用可溯源研究工具分析股票与现货",
+   "state": "CLOSED",
+   "issues": [
+    33,
+    34,
+    35
+   ],
+   "issues_closed": 3,
+   "issues_open": 0,
+   "total": 4,
+   "not_started": 1,
+   "in_progress": 0,
+   "hold": 3,
+   "verified": 0,
+   "deferred": 0,
+   "open": 1,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S11",
+   "title": "审阅并运行自然语言筛选条件",
+   "state": "CLOSED",
+   "issues": [
+    36,
+    37,
+    38
+   ],
+   "issues_closed": 3,
+   "issues_open": 0,
+   "total": 3,
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 3,
+   "verified": 0,
+   "deferred": 0,
+   "open": 0,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S12",
+   "title": "保存、检索和导出研究产物溯源",
+   "state": "CLOSED",
+   "issues": [
+    39,
+    40
+   ],
+   "issues_closed": 2,
+   "issues_open": 0,
+   "total": 5,
+   "not_started": 3,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "open": 3,
+   "done": 0,
+   "phase": "P2"
+  },
+  {
+   "id": "S13",
+   "title": "编辑订单草稿并生成不可变 Proposal",
+   "state": "CLOSED",
+   "issues": [
+    41,
+    42,
+    43,
+    44
+   ],
+   "issues_closed": 4,
+   "issues_open": 0,
+   "total": 9,
+   "not_started": 7,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "open": 7,
+   "done": 0,
+   "phase": "P3"
+  },
+  {
+   "id": "S14",
+   "title": "保存策略版本并运行受限策略进程",
+   "state": "CLOSED",
+   "issues": [
+    45,
+    46
+   ],
+   "issues_closed": 2,
+   "issues_open": 0,
+   "total": 5,
+   "not_started": 4,
+   "in_progress": 1,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 5,
+   "done": 0,
+   "phase": "P3"
+  },
+  {
+   "id": "S15",
+   "title": "配置并比较可复现历史回测",
+   "state": "CLOSED",
+   "issues": [
+    47,
+    48,
+    49,
+    50
+   ],
+   "issues_closed": 4,
+   "issues_open": 0,
+   "total": 5,
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 5,
+   "verified": 0,
+   "deferred": 0,
+   "open": 0,
+   "done": 0,
+   "phase": "P3"
+  },
+  {
+   "id": "S16",
+   "title": "完成本地模拟交易与持仓更新",
+   "state": "CLOSED",
+   "issues": [
+    51,
+    52,
+    53,
+    54,
+    55
+   ],
+   "issues_closed": 5,
+   "issues_open": 0,
+   "total": 3,
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 1,
+   "deferred": 0,
+   "open": 0,
+   "done": 1,
+   "phase": "P4"
+  },
+  {
+   "id": "S17",
+   "title": "完成 Alpaca Paper 交易生命周期",
+   "state": "IN_PROGRESS",
+   "issues": [
+    56,
+    57,
+    58,
+    59
+   ],
+   "issues_closed": 3,
+   "issues_open": 1,
+   "total": 4,
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 4,
+   "verified": 0,
+   "deferred": 0,
+   "open": 0,
+   "done": 0,
+   "phase": "P4"
+  },
+  {
+   "id": "S18",
+   "title": "完成 Trading 212 Demo 交易生命周期",
+   "state": "CLOSED",
+   "issues": [
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66
+   ],
+   "issues_closed": 7,
+   "issues_open": 0,
+   "total": 8,
+   "not_started": 0,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 2,
+   "deferred": 0,
+   "open": 4,
+   "done": 2,
+   "phase": "P4"
+  },
+  {
+   "id": "S19",
+   "title": "完成 Binance Spot Testnet 交易生命周期",
+   "state": "CLOSED",
+   "issues": [
+    67,
+    68,
+    69,
+    70,
+    71,
+    72
+   ],
+   "issues_closed": 6,
+   "issues_open": 0,
+   "total": 6,
+   "not_started": 0,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "open": 4,
+   "done": 0,
+   "phase": "P4"
+  },
+  {
+   "id": "S20",
+   "title": "完成 Bitget Spot Demo 交易生命周期",
+   "state": "CLOSED",
+   "issues": [
+    73,
+    74,
+    75,
+    76,
+    77,
+    78
+   ],
+   "issues_closed": 6,
+   "issues_open": 0,
+   "total": 6,
+   "not_started": 0,
+   "in_progress": 3,
+   "hold": 3,
+   "verified": 0,
+   "deferred": 0,
+   "open": 3,
+   "done": 0,
+   "phase": "P4"
+  },
+  {
+   "id": "S21",
+   "title": "配置并执行确定性风险政策",
+   "state": "IN_PROGRESS",
+   "issues": [
+    79,
+    80,
+    81,
+    82
+   ],
+   "issues_closed": 3,
+   "issues_open": 1,
+   "total": 11,
+   "not_started": 1,
+   "in_progress": 5,
+   "hold": 5,
+   "verified": 0,
+   "deferred": 0,
+   "open": 6,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S22",
+   "title": "显式 Arm 并批准精确金融意图",
+   "state": "IN_PROGRESS",
+   "issues": [
+    83,
+    84,
+    85,
+    86
+   ],
+   "issues_closed": 1,
+   "issues_open": 3,
+   "total": 35,
+   "not_started": 31,
+   "in_progress": 3,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "open": 34,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S23",
+   "title": "原子消费审批并预留账户容量",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 15,
+   "not_started": 9,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "open": 13,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S24",
+   "title": "经认证的独立 Gateway 派发执行",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 18,
+   "not_started": 11,
+   "in_progress": 6,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "open": 17,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S25",
+   "title": "对账未知提交并核验人工处置证据",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 19,
+   "not_started": 19,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 19,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S26",
+   "title": "刷新并审批撤单与处理成交竞态",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 4,
+   "not_started": 4,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 4,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S27",
+   "title": "恢复崩溃、休眠、断流并中断未派发工作",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 19,
+   "not_started": 15,
+   "in_progress": 4,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 19,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S28",
+   "title": "验证 Trading 212 Live 可信执行",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 2,
+   "not_started": 0,
+   "in_progress": 1,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "open": 1,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S29",
+   "title": "验证 Binance Spot Live 可信执行",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 2,
+   "not_started": 0,
+   "in_progress": 1,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "open": 1,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S30",
+   "title": "验证 Bitget Spot Live 可信执行",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 2,
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "open": 0,
+   "done": 0,
+   "phase": "P5"
+  },
+  {
+   "id": "S31",
+   "title": "验证工作区备份、导入、迁移与保留",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 4,
+   "not_started": 4,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 4,
+   "done": 0,
+   "phase": "P6"
+  },
+  {
+   "id": "S32",
+   "title": "完成设置、健康诊断与隐私控制",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 8,
+   "not_started": 3,
+   "in_progress": 5,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 8,
+   "done": 0,
+   "phase": "P6"
+  },
+  {
+   "id": "S33",
+   "title": "完成全页面、键盘与窄屏回归",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 8,
+   "not_started": 6,
+   "in_progress": 1,
+   "hold": 0,
+   "verified": 1,
+   "deferred": 0,
+   "open": 7,
+   "done": 1,
+   "phase": "P6"
+  },
+  {
+   "id": "S34",
+   "title": "测量资源目标并构建签名桌面包",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 4,
+   "not_started": 4,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 4,
+   "done": 0,
+   "phase": "P6"
+  },
+  {
+   "id": "S35",
+   "title": "在同一 dev SHA 完成总验收并提交 PR",
+   "state": "NOT_STARTED",
+   "issues": [],
+   "issues_closed": 0,
+   "issues_open": 0,
+   "total": 3,
+   "not_started": 2,
+   "in_progress": 1,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "open": 3,
+   "done": 0,
+   "phase": "P6"
+  }
+ ],
+ "phases": [
+  {
+   "not_started": 1,
+   "in_progress": 15,
+   "hold": 4,
+   "verified": 14,
+   "deferred": 0,
+   "total": 34,
+   "open": 16,
+   "done": 14,
+   "code": "P1",
+   "name": "基础与连接",
+   "range": "S01–S03",
+   "slices": [
+    "S01",
+    "S02",
+    "S03"
+   ],
+   "slice_closed": 3,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 17,
+   "in_progress": 4,
+   "hold": 46,
+   "verified": 0,
+   "deferred": 0,
+   "total": 67,
+   "open": 21,
+   "done": 0,
+   "code": "P2",
+   "name": "Agent 与研究",
+   "range": "S04–S12",
+   "slices": [
+    "S04",
+    "S05",
+    "S06",
+    "S07",
+    "S08",
+    "S09",
+    "S10",
+    "S11",
+    "S12"
+   ],
+   "slice_closed": 9,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 11,
+   "in_progress": 0,
+   "hold": 5,
+   "verified": 0,
+   "deferred": 0,
+   "total": 16,
+   "open": 11,
+   "done": 0,
+   "code": "P3",
+   "name": "订单与策略",
+   "range": "S13–S15",
+   "slices": [
+    "S13",
+    "S14",
+    "S15"
+   ],
+   "slice_closed": 3,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 0,
+   "in_progress": 5,
+   "hold": 5,
+   "verified": 3,
+   "deferred": 0,
+   "total": 13,
+   "open": 5,
+   "done": 3,
+   "code": "P4",
+   "name": "交易执行",
+   "range": "S16–S20",
+   "slices": [
+    "S16",
+    "S17",
+    "S18",
+    "S19",
+    "S20"
+   ],
+   "slice_closed": 4,
+   "slice_inprog": 1
+  },
+  {
+   "not_started": 52,
+   "in_progress": 5,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 57,
+   "open": 57,
+   "done": 0,
+   "code": "P5",
+   "name": "风控与实盘",
+   "range": "S21–S30",
+   "slices": [
+    "S21",
+    "S22",
+    "S23",
+    "S24",
+    "S25",
+    "S26",
+    "S27",
+    "S28",
+    "S29",
+    "S30"
+   ],
+   "slice_closed": 0,
+   "slice_inprog": 2
+  },
+  {
+   "not_started": 13,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 13,
+   "open": 13,
+   "done": 0,
+   "code": "P6",
+   "name": "平台化交付",
+   "range": "S31–S35",
+   "slices": [
+    "S31",
+    "S32",
+    "S33",
+    "S34",
+    "S35"
+   ],
+   "slice_closed": 0,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 3,
+   "total": 3,
+   "open": 0,
+   "done": 3,
+   "code": "P0",
+   "name": "已延后 · 无切片归属",
+   "range": "—",
+   "slices": [],
+   "slice_closed": 0,
+   "slice_inprog": 0,
+   "note": "FR-041–043 按规范 DEFERRED，其 implementation_slices 字段为字面量 DEFERRED，未映射任何切片"
+  }
+ ],
+ "phases_first": [
+  {
+   "not_started": 1,
+   "in_progress": 15,
+   "hold": 4,
+   "verified": 14,
+   "deferred": 0,
+   "total": 34,
+   "open": 16,
+   "done": 14,
+   "code": "P1",
+   "name": "基础与连接",
+   "range": "S01–S03",
+   "slices": [
+    "S01",
+    "S02",
+    "S03"
+   ],
+   "slice_closed": 3,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 17,
+   "in_progress": 4,
+   "hold": 46,
+   "verified": 0,
+   "deferred": 0,
+   "total": 67,
+   "open": 21,
+   "done": 0,
+   "code": "P2",
+   "name": "Agent 与研究",
+   "range": "S04–S12",
+   "slices": [
+    "S04",
+    "S05",
+    "S06",
+    "S07",
+    "S08",
+    "S09",
+    "S10",
+    "S11",
+    "S12"
+   ],
+   "slice_closed": 9,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 11,
+   "in_progress": 0,
+   "hold": 5,
+   "verified": 0,
+   "deferred": 0,
+   "total": 16,
+   "open": 11,
+   "done": 0,
+   "code": "P3",
+   "name": "订单与策略",
+   "range": "S13–S15",
+   "slices": [
+    "S13",
+    "S14",
+    "S15"
+   ],
+   "slice_closed": 3,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 0,
+   "in_progress": 5,
+   "hold": 5,
+   "verified": 3,
+   "deferred": 0,
+   "total": 13,
+   "open": 5,
+   "done": 3,
+   "code": "P4",
+   "name": "交易执行",
+   "range": "S16–S20",
+   "slices": [
+    "S16",
+    "S17",
+    "S18",
+    "S19",
+    "S20"
+   ],
+   "slice_closed": 4,
+   "slice_inprog": 1
+  },
+  {
+   "not_started": 52,
+   "in_progress": 5,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 57,
+   "open": 57,
+   "done": 0,
+   "code": "P5",
+   "name": "风控与实盘",
+   "range": "S21–S30",
+   "slices": [
+    "S21",
+    "S22",
+    "S23",
+    "S24",
+    "S25",
+    "S26",
+    "S27",
+    "S28",
+    "S29",
+    "S30"
+   ],
+   "slice_closed": 0,
+   "slice_inprog": 2
+  },
+  {
+   "not_started": 13,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 13,
+   "open": 13,
+   "done": 0,
+   "code": "P6",
+   "name": "平台化交付",
+   "range": "S31–S35",
+   "slices": [
+    "S31",
+    "S32",
+    "S33",
+    "S34",
+    "S35"
+   ],
+   "slice_closed": 0,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 3,
+   "total": 3,
+   "open": 0,
+   "done": 3,
+   "code": "P0",
+   "name": "已延后 · 无切片归属",
+   "range": "—",
+   "slices": [],
+   "slice_closed": 0,
+   "slice_inprog": 0,
+   "note": "FR-041–043 按规范 DEFERRED，其 implementation_slices 字段为字面量 DEFERRED，未映射任何切片"
+  }
+ ],
+ "phases_last": [
+  {
+   "not_started": 0,
+   "in_progress": 3,
+   "hold": 2,
+   "verified": 13,
+   "deferred": 0,
+   "total": 18,
+   "open": 3,
+   "done": 13,
+   "code": "P1",
+   "name": "基础与连接",
+   "range": "S01–S03",
+   "slices": [
+    "S01",
+    "S02",
+    "S03"
+   ],
+   "slice_closed": 3,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 5,
+   "in_progress": 3,
+   "hold": 42,
+   "verified": 0,
+   "deferred": 0,
+   "total": 50,
+   "open": 8,
+   "done": 0,
+   "code": "P2",
+   "name": "Agent 与研究",
+   "range": "S04–S12",
+   "slices": [
+    "S04",
+    "S05",
+    "S06",
+    "S07",
+    "S08",
+    "S09",
+    "S10",
+    "S11",
+    "S12"
+   ],
+   "slice_closed": 9,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 6,
+   "in_progress": 1,
+   "hold": 5,
+   "verified": 0,
+   "deferred": 0,
+   "total": 12,
+   "open": 7,
+   "done": 0,
+   "code": "P3",
+   "name": "订单与策略",
+   "range": "S13–S15",
+   "slices": [
+    "S13",
+    "S14",
+    "S15"
+   ],
+   "slice_closed": 3,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 0,
+   "in_progress": 3,
+   "hold": 3,
+   "verified": 3,
+   "deferred": 0,
+   "total": 9,
+   "open": 3,
+   "done": 3,
+   "code": "P4",
+   "name": "交易执行",
+   "range": "S16–S20",
+   "slices": [
+    "S16",
+    "S17",
+    "S18",
+    "S19",
+    "S20"
+   ],
+   "slice_closed": 4,
+   "slice_inprog": 1
+  },
+  {
+   "not_started": 64,
+   "in_progress": 13,
+   "hold": 8,
+   "verified": 0,
+   "deferred": 0,
+   "total": 85,
+   "open": 77,
+   "done": 0,
+   "code": "P5",
+   "name": "风控与实盘",
+   "range": "S21–S30",
+   "slices": [
+    "S21",
+    "S22",
+    "S23",
+    "S24",
+    "S25",
+    "S26",
+    "S27",
+    "S28",
+    "S29",
+    "S30"
+   ],
+   "slice_closed": 0,
+   "slice_inprog": 2
+  },
+  {
+   "not_started": 19,
+   "in_progress": 6,
+   "hold": 0,
+   "verified": 1,
+   "deferred": 0,
+   "total": 26,
+   "open": 25,
+   "done": 1,
+   "code": "P6",
+   "name": "平台化交付",
+   "range": "S31–S35",
+   "slices": [
+    "S31",
+    "S32",
+    "S33",
+    "S34",
+    "S35"
+   ],
+   "slice_closed": 0,
+   "slice_inprog": 0
+  },
+  {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 3,
+   "total": 3,
+   "open": 0,
+   "done": 3,
+   "code": "P0",
+   "name": "已延后 · 无切片归属",
+   "range": "—",
+   "slices": [],
+   "slice_closed": 0,
+   "slice_inprog": 0,
+   "note": "FR-041–043 按规范 DEFERRED，其 implementation_slices 字段为字面量 DEFERRED，未映射任何切片"
+  }
+ ],
+ "mods": [
+  {
+   "id": "FR",
+   "name": "功能需求",
+   "not_started": 27,
+   "in_progress": 10,
+   "hold": 32,
+   "verified": 9,
+   "deferred": 3,
+   "total": 81,
+   "open": 37,
+   "done": 12
+  },
+  {
+   "id": "AC",
+   "name": "验收准则",
+   "not_started": 36,
+   "in_progress": 10,
+   "hold": 14,
+   "verified": 7,
+   "deferred": 0,
+   "total": 67,
+   "open": 46,
+   "done": 7
+  },
+  {
+   "id": "NFR",
+   "name": "非功能需求",
+   "not_started": 15,
+   "in_progress": 2,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 19,
+   "open": 17,
+   "done": 0
+  },
+  {
+   "id": "SEC",
+   "name": "安全",
+   "not_started": 4,
+   "in_progress": 4,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 9,
+   "open": 8,
+   "done": 0
+  },
+  {
+   "id": "DATA",
+   "name": "数据",
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 8,
+   "verified": 0,
+   "deferred": 0,
+   "total": 8,
+   "open": 0,
+   "done": 0
+  },
+  {
+   "id": "OPS",
+   "name": "运维",
+   "not_started": 8,
+   "in_progress": 0,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 9,
+   "open": 8,
+   "done": 0
+  },
+  {
+   "id": "UX",
+   "name": "交互体验",
+   "not_started": 4,
+   "in_progress": 3,
+   "hold": 2,
+   "verified": 1,
+   "deferred": 0,
+   "total": 10,
+   "open": 7,
+   "done": 1
+  }
+ ],
+ "owners": [
+  {
+   "id": "kaiqiangh",
+   "total": 70,
+   "open": 3,
+   "closed": 67
+  },
+  {
+   "id": "unassigned",
+   "total": 16,
+   "open": 3,
+   "closed": 13
+  }
+ ],
+ "areas": [
+  {
+   "id": "A",
+   "name": "工作区与就绪",
+   "items": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6"
+   ],
+   "not_started": 0,
+   "in_progress": 3,
+   "hold": 2,
+   "verified": 1,
+   "deferred": 0,
+   "total": 6,
+   "open": 3,
+   "done": 1
+  },
+  {
+   "id": "B",
+   "name": "研究会话",
+   "items": [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9"
+   ],
+   "not_started": 2,
+   "in_progress": 0,
+   "hold": 7,
+   "verified": 0,
+   "deferred": 0,
+   "total": 9,
+   "open": 2,
+   "done": 0
+  },
+  {
+   "id": "C",
+   "name": "市场与标的",
+   "items": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6"
+   ],
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 6,
+   "verified": 0,
+   "deferred": 0,
+   "total": 6,
+   "open": 0,
+   "done": 0
+  },
+  {
+   "id": "D",
+   "name": "自选列表",
+   "items": [
+    "D1",
+    "D2",
+    "D3",
+    "D4"
+   ],
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 4,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4,
+   "open": 0,
+   "done": 0
+  },
+  {
+   "id": "E",
+   "name": "账户",
+   "items": [
+    "E1",
+    "E2",
+    "E3",
+    "E4"
+   ],
+   "not_started": 1,
+   "in_progress": 2,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4,
+   "open": 3,
+   "done": 0
+  },
+  {
+   "id": "F",
+   "name": "下单审批",
+   "items": [
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11",
+    "F12"
+   ],
+   "not_started": 11,
+   "in_progress": 0,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 12,
+   "open": 11,
+   "done": 0
+  },
+  {
+   "id": "G",
+   "name": "模拟/纸面交易",
+   "items": [
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "G5"
+   ],
+   "not_started": 3,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 5,
+   "open": 3,
+   "done": 0
+  },
+  {
+   "id": "H",
+   "name": "策略与回测",
+   "items": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6"
+   ],
+   "not_started": 2,
+   "in_progress": 0,
+   "hold": 4,
+   "verified": 0,
+   "deferred": 0,
+   "total": 6,
+   "open": 2,
+   "done": 0
+  },
+  {
+   "id": "I",
+   "name": "研究产物",
+   "items": [
+    "I1",
+    "I2",
+    "I3",
+    "I4"
+   ],
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 4,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4,
+   "open": 0,
+   "done": 0
+  },
+  {
+   "id": "J",
+   "name": "设置与风险",
+   "items": [
+    "J1",
+    "J2",
+    "J3",
+    "J4",
+    "J5",
+    "J6",
+    "J7"
+   ],
+   "not_started": 5,
+   "in_progress": 1,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 7,
+   "open": 6,
+   "done": 0
+  },
+  {
+   "id": "K",
+   "name": "韧性与故障",
+   "items": [
+    "K1",
+    "K2",
+    "K3",
+    "K4",
+    "K5",
+    "K6",
+    "K7"
+   ],
+   "not_started": 4,
+   "in_progress": 1,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 7,
+   "open": 5,
+   "done": 0
+  },
+  {
+   "id": "QA",
+   "name": "QA 回归项",
+   "items": [
+    "QA-01",
+    "QA-02",
+    "QA-03",
+    "QA-04",
+    "QA-05",
+    "QA-06",
+    "QA-07",
+    "QA-08",
+    "QA-09",
+    "QA-10",
+    "QA-11",
+    "QA-12",
+    "QA-13"
+   ],
+   "not_started": 9,
+   "in_progress": 0,
+   "hold": 4,
+   "verified": 0,
+   "deferred": 0,
+   "total": 13,
+   "open": 9,
+   "done": 0
+  }
+ ],
+ "parity": {
+  "prd_expected": 203,
+  "csv_requirements": 203,
+  "screens_expected": 70,
+  "qa_expected": 13,
+  "csv_surfaces": 83,
+  "doc_surfaces": 83,
+  "missing_in_csv": [],
+  "extra_in_csv": [],
+  "surfaces_missing_in_csv": [],
+  "drifted": false,
+  "note": "规范文档已领先 docs/implementation/*.csv：新增条目尚未回填到计划清单。此时 scripts/check_requirements.py 会失败，看板数字按 CSV（计划口径）呈现。"
+ },
+ "orphans": [
+  {
+   "id": "FR-001",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Run a pinned Codex App Server locally"
+  },
+  {
+   "id": "FR-002",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Support persistent Thread / Turn / Item UX"
+  },
+  {
+   "id": "FR-003",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Stream agent and tool activity in real time"
+  },
+  {
+   "id": "FR-004",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Resume prior threads"
+  },
+  {
+   "id": "FR-005",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Render structured financial timeline cards"
+  },
+  {
+   "id": "FR-006",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S05",
+    "S10"
+   ],
+   "req": "Implement TradeX typed domain tools"
+  },
+  {
+   "id": "FR-009",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S07"
+   ],
+   "req": "Implement canonical instrument model"
+  },
+  {
+   "id": "FR-011",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S07"
+   ],
+   "req": "Implement market-data service"
+  },
+  {
+   "id": "FR-012",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S07"
+   ],
+   "req": "Implement market-data freshness metadata"
+  },
+  {
+   "id": "FR-013",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "Implement portfolio aggregation"
+  },
+  {
+   "id": "FR-014",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "Implement account-currency and FX normalization"
+  },
+  {
+   "id": "FR-019",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13"
+   ],
+   "req": "Implement OrderProposal model"
+  },
+  {
+   "id": "FR-031",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S15"
+   ],
+   "req": "Implement local backtesting"
+  },
+  {
+   "id": "FR-032",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Implement strategy sandbox"
+  },
+  {
+   "id": "FR-035",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S11"
+   ],
+   "req": "Implement natural-language screener"
+  },
+  {
+   "id": "FR-036",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S12"
+   ],
+   "req": "Implement artifacts"
+  },
+  {
+   "id": "FR-037",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Implement strategy versioning"
+  },
+  {
+   "id": "FR-038",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S08"
+   ],
+   "req": "Implement market calendar and corporate actions"
+  },
+  {
+   "id": "FR-045",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Implement interactive thread history and resume navigation"
+  },
+  {
+   "id": "FR-046",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S05"
+   ],
+   "req": "Implement context/account/model pickers"
+  },
+  {
+   "id": "FR-053",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S11"
+   ],
+   "req": "Implement complete natural-language screener builder flow"
+  },
+  {
+   "id": "FR-054",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S15"
+   ],
+   "req": "Implement backtest running/failed/compare states"
+  },
+  {
+   "id": "FR-055",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S12"
+   ],
+   "req": "Implement artifact provenance surface"
+  },
+  {
+   "id": "FR-056",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05"
+   ],
+   "req": "Implement Ask mode with no execution capability"
+  },
+  {
+   "id": "FR-060",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S18",
+    "S19",
+    "S20"
+   ],
+   "req": "Implement complete Demo/Testnet order lifecycle variants for Trading 212, Binance, and Bitget"
+  },
+  {
+   "id": "FR-062",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S08"
+   ],
+   "req": "Implement market-session / halt / corporate-action product surfaces"
+  },
+  {
+   "id": "FR-065",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "Implement portfolio FX provenance display"
+  },
+  {
+   "id": "FR-066",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S15"
+   ],
+   "req": "Implement full backtest metric set including Sortino, profit factor, and turnover"
+  },
+  {
+   "id": "FR-070",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S03"
+   ],
+   "req": "Implement subscription quota display and exhaustion handling (provider-reported windows where available; in-flight attempt behavior; explicit switch/retry)"
+  },
+  {
+   "id": "FR-071",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S03"
+   ],
+   "req": "Implement LLM error categories and recovery states (`MODEL_UNAVAILABLE` / `QUOTA_EXCEEDED` / `OAUTH_EXPIRED`) with remediation UI"
+  },
+  {
+   "id": "FR-072",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Record per-turn model/provider provenance and write model switches/degradations to the audit trail"
+  },
+  {
+   "id": "FR-073",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S03"
+   ],
+   "req": "Implement model routing/fallback policy: cross-provider automatic fallback OFF by default, explicit opt-in, full audit/disclosure, and no capability change"
+  },
+  {
+   "id": "FR-074",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S05"
+   ],
+   "req": "Separate Agent Mode from Execution Context and enforce the compatibility matrix"
+  },
+  {
+   "id": "FR-075",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Persist immutable per-turn mode/account/execution/model/provider/context snapshots"
+  },
+  {
+   "id": "FR-077",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S08"
+   ],
+   "req": "Implement TimeService clock-skew/freshness/TTL safeguards for live authority decisions"
+  },
+  {
+   "id": "FR-079",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "Implement FX/stablecoin valuation provenance and depeg/quality handling"
+  },
+  {
+   "id": "FR-080",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13"
+   ],
+   "req": "Implement editable OrderDraft → immutable OrderProposal regeneration semantics"
+  },
+  {
+   "id": "AC-001",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "User can create a TradeX thread and see streamed agent items before the complete turn finishes."
+  },
+  {
+   "id": "AC-002",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "User can close and reopen TradeX and resume a persisted thread."
+  },
+  {
+   "id": "AC-003",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Tool calls display name, state, duration, and structured summary."
+  },
+  {
+   "id": "AC-007",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S10"
+   ],
+   "req": "Agent can combine market data, portfolio state, and research in one thread."
+  },
+  {
+   "id": "AC-010",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S18",
+    "S19",
+    "S20"
+   ],
+   "req": "User can execute supported Demo/Testnet order workflows on Trading 212, Binance, and Bitget where available, with explicit environment labels through acknowledgement/fill state."
+  },
+  {
+   "id": "AC-027",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Strategy code cannot access broker credentials."
+  },
+  {
+   "id": "AC-028",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S05",
+    "S10"
+   ],
+   "req": "External research content cannot authorize a trade."
+  },
+  {
+   "id": "AC-040",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S11"
+   ],
+   "req": "The natural-language screener shows the parsed structured filter before execution and renders the reduced candidate set."
+  },
+  {
+   "id": "AC-041",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S05"
+   ],
+   "req": "Ask mode provides lightweight analysis/read-only context and does not expose paper or live execution capability."
+  },
+  {
+   "id": "AC-046",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S18",
+    "S19",
+    "S20"
+   ],
+   "req": "Trading 212 Demo, Binance Testnet, and Bitget Demo/Testnet-compatible workflows preserve their explicit non-live environment identity through proposal, acknowledgement, fill/update, and account-position refresh."
+  },
+  {
+   "id": "AC-048",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S15"
+   ],
+   "req": "Backtest result includes return, Sharpe, Sortino, max drawdown, win rate, profit factor, turnover, equity curve, trade list, and reproducibility manifest."
+  },
+  {
+   "id": "AC-049",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S08"
+   ],
+   "req": "Equity instrument detail exposes relevant market session/corporate-action state, and unsupported closed/halted execution is blocked deterministically."
+  },
+  {
+   "id": "AC-053",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "Cross-account portfolio values show the workspace base currency plus FX source/timestamp/freshness for normalized values."
+  },
+  {
+   "id": "AC-055",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S03"
+   ],
+   "req": "Onboarding cannot reach Ready without at least one usable LLM provider; a sidecar that is stopped, port-conflicted, or unauthorized blocks Ready with remediation guidance."
+  },
+  {
+   "id": "AC-057",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S03"
+   ],
+   "req": "Subscription quota exhaustion and OAuth expiry surface `QUOTA_EXCEEDED` / `OAUTH_EXPIRED` with retry/re-login/explicit provider-switch remediation. Cross-provider automatic fallback occurs only when the user explicitly enabled it, is visibly disclosed/audited, and never changes capability levels or bypasses approvals."
+  },
+  {
+   "id": "AC-058",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Every turn records the model/provider and all provider attempts that produced or failed that turn; model switches/degradations are written to the audit trail (§57)."
+  },
+  {
+   "id": "AC-059",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S05"
+   ],
+   "req": "Agent Mode and Execution Context are stored and rendered as separate dimensions; Ask/Research with a live account remains read-only, Backtest cannot invoke current-market broker execution, and Trade with a Live context still requires arming + approval."
+  },
+  {
+   "id": "AC-060",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Every started turn persists an immutable snapshot of Agent Mode, execution context, selected account, capability level, model/provider, and attached context references/hashes."
+  },
+  {
+   "id": "AC-063",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S08"
+   ],
+   "req": "Quote age, approval expiry, and reconciliation timers fail closed for live authority decisions when TimeService reports unacceptable clock uncertainty."
+  },
+  {
+   "id": "AC-066",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "Cross-account valuation involving stablecoins/FX shows source/path/timestamps/freshness and a quality/depeg state; unreliable conversion cannot silently drive live risk calculations."
+  },
+  {
+   "id": "NFR-017",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S04",
+    "S12"
+   ],
+   "req": "Turn/provider provenance is complete for every agent turn"
+  },
+  {
+   "id": "SEC-004",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Strategy sandbox cannot access broker credentials, keychain, privileged gateway, or unrestricted network."
+  },
+  {
+   "id": "SEC-007",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S03",
+    "S04",
+    "S14"
+   ],
+   "req": "All model inference traffic has exactly one exit: the local CLIProxyAPI endpoint (127.0.0.1:8317). TradeX, Codex, and the strategy sandbox must not connect to any external LLM endpoint directly."
+  },
+  {
+   "id": "DATA-001",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S07"
+   ],
+   "req": "Domain logic uses canonical instrument IDs; provider symbols remain adapter mappings."
+  },
+  {
+   "id": "DATA-003",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S07"
+   ],
+   "req": "Market snapshots retain source, provider timestamp, TradeX received timestamp, venue, entitlement, and freshness."
+  },
+  {
+   "id": "DATA-004",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "Cross-account valuation records workspace-base currency, FX source, timestamp, and freshness."
+  },
+  {
+   "id": "DATA-005",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S07"
+   ],
+   "req": "Market-data provider metadata includes entitlement, retention, and redistribution constraints."
+  },
+  {
+   "id": "DATA-006",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S15"
+   ],
+   "req": "Backtests persist reproducibility manifests including strategy/data hashes and adjustment/calendar assumptions."
+  },
+  {
+   "id": "DATA-007",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S04",
+    "S05"
+   ],
+   "req": "Every Turn persists an immutable Agent Mode, Execution Context, account, model/provider, and attached-context provenance snapshot."
+  },
+  {
+   "id": "DATA-008",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09"
+   ],
+   "req": "FX/stablecoin normalized valuation persists source/path/timestamps/freshness and quality/depeg state."
+  },
+  {
+   "id": "OPS-009",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S08"
+   ],
+   "req": "TimeService detects material wall-clock jumps/skew and blocks Live freshness/TTL authority decisions until trusted time is restored."
+  },
+  {
+   "id": "UX-008",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S05"
+   ],
+   "req": "Agent Mode and Execution Context are visibly distinct; illegal combinations are disabled or explained."
+  },
+  {
+   "id": "UX-009",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S03",
+    "S04"
+   ],
+   "req": "Cross-provider model fallback is visibly disclosed before/when it occurs and is not enabled by default."
+  }
+ ],
+ "orphans_real": [
+  {
+   "id": "FR-005",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Render structured financial timeline cards"
+  },
+  {
+   "id": "FR-019",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13"
+   ],
+   "req": "Implement OrderProposal model"
+  },
+  {
+   "id": "FR-032",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Implement strategy sandbox"
+  },
+  {
+   "id": "FR-037",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Implement strategy versioning"
+  },
+  {
+   "id": "FR-056",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05"
+   ],
+   "req": "Implement Ask mode with no execution capability"
+  },
+  {
+   "id": "FR-080",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13"
+   ],
+   "req": "Implement editable OrderDraft → immutable OrderProposal regeneration semantics"
+  },
+  {
+   "id": "AC-003",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S04"
+   ],
+   "req": "Tool calls display name, state, duration, and structured summary."
+  },
+  {
+   "id": "AC-007",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S10"
+   ],
+   "req": "Agent can combine market data, portfolio state, and research in one thread."
+  },
+  {
+   "id": "AC-027",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Strategy code cannot access broker credentials."
+  },
+  {
+   "id": "NFR-017",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S04",
+    "S12"
+   ],
+   "req": "Turn/provider provenance is complete for every agent turn"
+  },
+  {
+   "id": "SEC-004",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S14"
+   ],
+   "req": "Strategy sandbox cannot access broker credentials, keychain, privileged gateway, or unrestricted network."
+  }
+ ],
+ "orphans_held": 59,
+ "matrix": {
+  "S01": {
+   "not_started": 0,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 1,
+   "deferred": 0,
+   "total": 7
+  },
+  "S02": {
+   "not_started": 0,
+   "in_progress": 6,
+   "hold": 2,
+   "verified": 11,
+   "deferred": 0,
+   "total": 19
+  },
+  "S03": {
+   "not_started": 1,
+   "in_progress": 6,
+   "hold": 4,
+   "verified": 2,
+   "deferred": 0,
+   "total": 13
+  },
+  "S04": {
+   "not_started": 4,
+   "in_progress": 2,
+   "hold": 12,
+   "verified": 0,
+   "deferred": 0,
+   "total": 18
+  },
+  "S05": {
+   "not_started": 6,
+   "in_progress": 8,
+   "hold": 7,
+   "verified": 0,
+   "deferred": 0,
+   "total": 21
+  },
+  "S06": {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 0
+  },
+  "S07": {
+   "not_started": 3,
+   "in_progress": 0,
+   "hold": 6,
+   "verified": 0,
+   "deferred": 0,
+   "total": 9
+  },
+  "S08": {
+   "not_started": 2,
+   "in_progress": 0,
+   "hold": 7,
+   "verified": 0,
+   "deferred": 0,
+   "total": 9
+  },
+  "S09": {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 10,
+   "verified": 0,
+   "deferred": 0,
+   "total": 10
+  },
+  "S10": {
+   "not_started": 1,
+   "in_progress": 0,
+   "hold": 3,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4
+  },
+  "S11": {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 3,
+   "verified": 0,
+   "deferred": 0,
+   "total": 3
+  },
+  "S12": {
+   "not_started": 3,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 5
+  },
+  "S13": {
+   "not_started": 7,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 9
+  },
+  "S14": {
+   "not_started": 4,
+   "in_progress": 1,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 5
+  },
+  "S15": {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 5,
+   "verified": 0,
+   "deferred": 0,
+   "total": 5
+  },
+  "S16": {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 1,
+   "deferred": 0,
+   "total": 3
+  },
+  "S17": {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 4,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4
+  },
+  "S18": {
+   "not_started": 0,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 2,
+   "deferred": 0,
+   "total": 8
+  },
+  "S19": {
+   "not_started": 0,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 6
+  },
+  "S20": {
+   "not_started": 0,
+   "in_progress": 3,
+   "hold": 3,
+   "verified": 0,
+   "deferred": 0,
+   "total": 6
+  },
+  "S21": {
+   "not_started": 1,
+   "in_progress": 5,
+   "hold": 5,
+   "verified": 0,
+   "deferred": 0,
+   "total": 11
+  },
+  "S22": {
+   "not_started": 31,
+   "in_progress": 3,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 35
+  },
+  "S23": {
+   "not_started": 9,
+   "in_progress": 4,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 15
+  },
+  "S24": {
+   "not_started": 11,
+   "in_progress": 6,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 18
+  },
+  "S25": {
+   "not_started": 19,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 19
+  },
+  "S26": {
+   "not_started": 4,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4
+  },
+  "S27": {
+   "not_started": 15,
+   "in_progress": 4,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 19
+  },
+  "S28": {
+   "not_started": 0,
+   "in_progress": 1,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 2
+  },
+  "S29": {
+   "not_started": 0,
+   "in_progress": 1,
+   "hold": 1,
+   "verified": 0,
+   "deferred": 0,
+   "total": 2
+  },
+  "S30": {
+   "not_started": 0,
+   "in_progress": 0,
+   "hold": 2,
+   "verified": 0,
+   "deferred": 0,
+   "total": 2
+  },
+  "S31": {
+   "not_started": 4,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4
+  },
+  "S32": {
+   "not_started": 3,
+   "in_progress": 5,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 8
+  },
+  "S33": {
+   "not_started": 6,
+   "in_progress": 1,
+   "hold": 0,
+   "verified": 1,
+   "deferred": 0,
+   "total": 8
+  },
+  "S34": {
+   "not_started": 4,
+   "in_progress": 0,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 4
+  },
+  "S35": {
+   "not_started": 2,
+   "in_progress": 1,
+   "hold": 0,
+   "verified": 0,
+   "deferred": 0,
+   "total": 3
+  }
+ },
+ "phase_basis": "两套口径均为唯一归属：first = 最小切片号（引入阶段）；last = 最大切片号（收口阶段）",
+ "slice_basis": "切片为映射计数口径（同一需求映射多切片时分别计入）；S06 为决策类切片，无直接映射的编号需求"
+}
