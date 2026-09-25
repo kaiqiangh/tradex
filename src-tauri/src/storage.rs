@@ -72,6 +72,11 @@ pub(crate) struct OrderProposalReferences {
     pub market_reference_reason: String,
 }
 
+pub(crate) struct RiskPolicyProposalUpdate {
+    pub proposal: OrderProposal,
+    pub decision: RiskDecision,
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredOrderProposal {
@@ -1998,7 +2003,7 @@ impl Store {
             return Ok(Snapshot {
                 aggregate_type: kind.into(),
                 aggregate_id: id.into(),
-                projection: DomainProjection::Risk(risk),
+                projection: DomainProjection::Risk(Box::new(risk)),
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
@@ -2332,7 +2337,7 @@ impl Store {
             aggregate_type: "risk".into(),
             aggregate_id: risk.workspace_id.clone(),
             sequence: sequence as u64,
-            payload: DomainProjection::Risk(risk),
+            payload: DomainProjection::Risk(Box::new(risk)),
         };
         tx.execute(
             "INSERT INTO outbox VALUES('risk',?1,?2,?3,?4)",
@@ -2348,7 +2353,259 @@ impl Store {
         Ok(event)
     }
 
-    pub fn append_risk_decision(&mut self, mut decision: RiskDecision) -> Result<DomainEvent> {
+    pub fn next_risk_state_version(&self) -> Result<String> {
+        let workspace_id = self.workspace_id()?;
+        let previous: i64 = self
+            .connection
+            .query_row(
+                "SELECT COALESCE((SELECT sequence FROM risk_state WHERE singleton=1),0)",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        let sequence = previous
+            .checked_add(1)
+            .filter(|value| *value <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        Ok(format!("risk:{workspace_id}:{sequence}"))
+    }
+
+    pub fn save_risk_policy_change(
+        &mut self,
+        risk: RiskPolicyState,
+        expected_state_version: &str,
+        expected_proposal_state_version: &str,
+        account_snapshots: &[AccountConnection],
+        proposal_updates: Vec<RiskPolicyProposalUpdate>,
+    ) -> Result<Vec<DomainEvent>> {
+        let workspace_id = self.workspace_id()?;
+        if risk.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (previous, previous_projection): (i64, String) = tx
+            .query_row(
+                "SELECT sequence,projection FROM risk_state WHERE singleton=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(storage_error)?;
+        let previous_state =
+            RiskPolicyState::from_persisted_json(&previous_projection, &workspace_id)?;
+        if previous_state.state_version != expected_state_version
+            || risk.state_version != format!("risk:{workspace_id}:{}", previous + 1)
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let change = risk
+            .last_change
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if change.old_policy_version != previous_state.policy_version
+            || change.new_policy_version != risk.policy_version
+            || change.scope.workspace_id != workspace_id
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+
+        let mut stored_account_ids = {
+            let mut statement = tx
+                .prepare("SELECT connection_id FROM accounts ORDER BY connection_id")
+                .map_err(storage_error)?;
+            statement
+                .query_map([], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        let mut snapshot_account_ids: Vec<_> = account_snapshots
+            .iter()
+            .map(|account| account.connection_id.clone())
+            .collect();
+        stored_account_ids.sort();
+        snapshot_account_ids.sort();
+        if stored_account_ids != snapshot_account_ids
+            || snapshot_account_ids
+                .windows(2)
+                .any(|pair| pair[0] == pair[1])
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let mut affected_account_ids: Vec<_> = change
+            .affected_accounts
+            .iter()
+            .map(|account| account.account_id.clone())
+            .collect();
+        affected_account_ids.sort();
+        if affected_account_ids != snapshot_account_ids {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let mut account_events = Vec::new();
+        for snapshot in account_snapshots {
+            let (sequence, projection): (i64, String) = tx
+                .query_row(
+                    "SELECT sequence,projection FROM accounts WHERE connection_id=?1",
+                    [&snapshot.connection_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(storage_error)?;
+            let mut account: AccountConnection =
+                serde_json::from_str(&projection).map_err(storage_error)?;
+            if account.workspace_id != workspace_id
+                || account.environment != snapshot.environment
+                || account.state_version != snapshot.state_version
+                || account.state_version != format!("{}:{sequence}", account.connection_id)
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if change.weakened
+                && account.environment == "LIVE"
+                && account.health.arming != "DISARMED"
+            {
+                account.health.arming = "DISARMED".into();
+                let event = save_account_tx(&tx, account, sequence + 1, &risk.updated_at)?;
+                account_events.push(event);
+            }
+        }
+
+        let (proposal_sequence, event_sequence): (i64, i64) = tx
+            .query_row(
+                "SELECT COALESCE((SELECT MAX(sequence) FROM order_proposals WHERE workspace_id=?1),0), COALESCE((SELECT MAX(e.sequence) FROM order_proposal_events e JOIN order_proposals p ON p.proposal_id=e.proposal_id WHERE p.workspace_id=?1),0)",
+                [&workspace_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(storage_error)?;
+        if format!("order-proposals:{workspace_id}:{proposal_sequence}:{event_sequence}")
+            != expected_proposal_state_version
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let pending_count = {
+            let mut statement = tx
+                .prepare("SELECT proposal_id FROM order_proposals WHERE workspace_id=?1")
+                .map_err(storage_error)?;
+            let ids = statement
+                .query_map([&workspace_id], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?;
+            let mut pending = 0;
+            for proposal_id in ids {
+                if proposal_event_state(&tx, &proposal_id, &workspace_id)?.0
+                    == OrderProposalStatus::NeedsApproval
+                {
+                    pending += 1;
+                }
+            }
+            pending
+        };
+        if pending_count != proposal_updates.len()
+            || change.affected_proposals.len() != proposal_updates.len()
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+
+        let sequence = previous + 1;
+        risk.validate_persisted(&workspace_id)?;
+        tx.execute(
+            "INSERT INTO risk_state VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET sequence=excluded.sequence,projection=excluded.projection",
+            params![sequence, serde_json::to_string(&risk).map_err(storage_error)?],
+        )
+        .map_err(storage_error)?;
+        let risk_event = DomainEvent {
+            event_id: Uuid::new_v4().to_string(),
+            event_type: "risk.policy.changed".into(),
+            schema_version: 1,
+            occurred_at: risk.updated_at.clone(),
+            aggregate_type: "risk".into(),
+            aggregate_id: risk.workspace_id.clone(),
+            sequence: sequence as u64,
+            payload: DomainProjection::Risk(Box::new(risk.clone())),
+        };
+        tx.execute(
+            "INSERT INTO outbox VALUES('risk',?1,?2,?3,?4)",
+            params![
+                risk_event.aggregate_id,
+                sequence,
+                risk_event.event_id,
+                serde_json::to_string(&risk_event).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+        let mut events = vec![risk_event];
+        events.extend(account_events);
+
+        for update in proposal_updates {
+            let proposal = &update.proposal;
+            validate_order_proposal_id(&proposal.proposal_id)?;
+            let Some(affected) = change
+                .affected_proposals
+                .iter()
+                .find(|affected| affected.proposal_id == proposal.proposal_id)
+            else {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            };
+            let (row_workspace_id, draft_id, draft_version, proposal_hash, stored_sequence, projection): (
+                String,
+                String,
+                i64,
+                String,
+                i64,
+                String,
+            ) = tx
+                .query_row(
+                    "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE proposal_id=?1",
+                    [&proposal.proposal_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+                )
+                .map_err(storage_error)?;
+            let stored = decode_stored_order_proposal(
+                &projection,
+                &proposal.proposal_id,
+                &row_workspace_id,
+                &draft_id,
+                draft_version,
+                &proposal_hash,
+                stored_sequence,
+                &workspace_id,
+            )?;
+            let (status, _, last_sequence) =
+                proposal_event_state(&tx, &proposal.proposal_id, &workspace_id)?;
+            if proposal.workspace_id != workspace_id
+                || proposal.status != OrderProposalStatus::NeedsApproval
+                || status != OrderProposalStatus::NeedsApproval
+                || proposal.proposal_hash != stored.proposal_hash
+                || proposal.policy_version != stored.policy_version
+                || affected.policy_version != stored.policy_version
+                || proposal.state_version
+                    != format!("order-proposal:{}:{last_sequence}", proposal.proposal_id)
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let reason = &affected.invalidation_reason;
+            let next_sequence = last_sequence
+                .checked_add(1)
+                .filter(|value| *value <= 32)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+            tx.execute(
+                "INSERT INTO order_proposal_events(proposal_id,workspace_id,sequence,event,reason,occurred_at) VALUES(?1,?2,?3,'POLICY_CHANGED',?4,?5)",
+                params![proposal.proposal_id, workspace_id, next_sequence, reason, risk.updated_at],
+            )
+            .map_err(storage_error)?;
+            events.push(append_risk_decision_tx(
+                &tx,
+                &workspace_id,
+                update.decision,
+            )?);
+        }
+        tx.commit().map_err(storage_error)?;
+        Ok(events)
+    }
+
+    pub fn append_risk_decision(&mut self, decision: RiskDecision) -> Result<DomainEvent> {
         let workspace_id = self.workspace_id()?;
         if decision.workspace_id != workspace_id {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
@@ -2358,59 +2615,7 @@ impl Store {
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        let stored_proposal: Option<(String, String)> = tx
-            .query_row(
-                "SELECT workspace_id,proposal_hash FROM order_proposals WHERE proposal_id=?1",
-                [&decision.proposal_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()
-            .map_err(storage_error)?;
-        let Some((proposal_workspace_id, proposal_hash)) = stored_proposal else {
-            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
-        };
-        if proposal_workspace_id != workspace_id || proposal_hash != decision.proposal_hash {
-            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-        }
-        let previous: i64 = tx
-            .query_row(
-                "SELECT COALESCE(MAX(sequence),0) FROM risk_decisions WHERE workspace_id=?1 AND proposal_id=?2",
-                params![workspace_id, decision.proposal_id],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        if previous < 0 || previous >= MAX_SEQUENCE as i64 {
-            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
-        }
-        let sequence = previous + 1;
-        decision.state_version = format!("risk-decision:{}:{sequence}", decision.proposal_id);
-        decision.validate(&workspace_id, &decision.proposal_id, sequence as u64)?;
-        let projection = serde_json::to_string(&decision).map_err(storage_error)?;
-        tx.execute(
-            "INSERT INTO risk_decisions(decision_id,workspace_id,proposal_id,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
-            params![decision.decision_id, workspace_id, decision.proposal_id, sequence, projection],
-        )
-        .map_err(storage_error)?;
-        let event = DomainEvent {
-            event_id: Uuid::new_v4().to_string(),
-            event_type: "risk.decision.evaluated".into(),
-            schema_version: 1,
-            occurred_at: decision.evaluated_at.clone(),
-            aggregate_type: "risk-decision".into(),
-            aggregate_id: decision.proposal_id.clone(),
-            sequence: sequence as u64,
-            payload: DomainProjection::RiskDecision(Box::new(decision)),
-        };
-        tx.execute(
-            "INSERT INTO outbox VALUES('risk-decision',?1,?2,?3,?4)",
-            params![
-                event.aggregate_id,
-                sequence,
-                event.event_id,
-                serde_json::to_string(&event).map_err(storage_error)?
-            ],
-        )
-        .map_err(storage_error)?;
+        let event = append_risk_decision_tx(&tx, &workspace_id, decision)?;
         tx.commit().map_err(storage_error)?;
         Ok(event)
     }
@@ -8399,6 +8604,119 @@ fn validate_refreshed_replacement(
     Ok(())
 }
 
+fn append_risk_decision_tx(
+    tx: &Transaction<'_>,
+    workspace_id: &str,
+    mut decision: RiskDecision,
+) -> Result<DomainEvent> {
+    if decision.workspace_id != workspace_id {
+        return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+    }
+    validate_order_proposal_id(&decision.proposal_id)?;
+    let stored_proposal: Option<(String, String)> = tx
+        .query_row(
+            "SELECT workspace_id,proposal_hash FROM order_proposals WHERE proposal_id=?1",
+            [&decision.proposal_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((proposal_workspace_id, proposal_hash)) = stored_proposal else {
+        return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+    };
+    if proposal_workspace_id != workspace_id || proposal_hash != decision.proposal_hash {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let previous: i64 = tx
+        .query_row(
+            "SELECT COALESCE(MAX(sequence),0) FROM risk_decisions WHERE workspace_id=?1 AND proposal_id=?2",
+            params![workspace_id, decision.proposal_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let sequence = previous
+        .checked_add(1)
+        .filter(|value| *value <= MAX_SEQUENCE as i64)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    decision.state_version = format!("risk-decision:{}:{sequence}", decision.proposal_id);
+    decision.validate(workspace_id, &decision.proposal_id, sequence as u64)?;
+    let projection = serde_json::to_string(&decision).map_err(storage_error)?;
+    tx.execute(
+        "INSERT INTO risk_decisions(decision_id,workspace_id,proposal_id,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+        params![decision.decision_id, workspace_id, decision.proposal_id, sequence, projection],
+    )
+    .map_err(storage_error)?;
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "risk.decision.evaluated".into(),
+        schema_version: 1,
+        occurred_at: decision.evaluated_at.clone(),
+        aggregate_type: "risk-decision".into(),
+        aggregate_id: decision.proposal_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::RiskDecision(Box::new(decision)),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES('risk-decision',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn save_account_tx(
+    tx: &Transaction<'_>,
+    mut account: AccountConnection,
+    sequence: i64,
+    occurred_at: &str,
+) -> Result<DomainEvent> {
+    if !(1..=MAX_SEQUENCE as i64).contains(&sequence) {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    account.state_version = format!("{}:{sequence}", account.connection_id);
+    account.updated_at = occurred_at.into();
+    account.validate_persisted(&account.workspace_id)?;
+    let remote = if account.connection_state == ConnectionState::Disconnected {
+        None
+    } else {
+        account
+            .data
+            .as_ref()
+            .map(|data| data.remote_account_id.as_str())
+    };
+    tx.execute(
+        "INSERT INTO accounts VALUES (?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(connection_id) DO UPDATE SET remote_identity=excluded.remote_identity,sequence=excluded.sequence,projection=excluded.projection",
+        params![account.connection_id, account.provider_id, account.environment, remote, sequence, account.credential_ref(), serde_json::to_string(&account).map_err(storage_error)?],
+    )
+    .map_err(storage_error)?;
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "account.health.changed".into(),
+        schema_version: 1,
+        occurred_at: account.updated_at.clone(),
+        aggregate_type: "account".into(),
+        aggregate_id: account.connection_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::Account(Box::new(account)),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES ('account',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
 fn proposal_event_state(
     connection: &Connection,
     proposal_id: &str,
@@ -8449,6 +8767,11 @@ fn proposal_event_state(
                 status = OrderProposalStatus::Invalidated;
                 invalidation_reason = Some(reason);
             }
+            "POLICY_CHANGED" if sequence > 1 && status == OrderProposalStatus::NeedsApproval => {
+                status = OrderProposalStatus::Invalidated;
+                invalidation_reason =
+                    Some(reason.ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?);
+            }
             _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
         }
         last_sequence = sequence;
@@ -8491,6 +8814,7 @@ fn proposal_history(
             "GENERATED" => OrderProposalHistoryEvent::Generated,
             "DRAFT_CHANGED" => OrderProposalHistoryEvent::DraftChanged,
             "REFRESHED" => OrderProposalHistoryEvent::Refreshed,
+            "POLICY_CHANGED" => OrderProposalHistoryEvent::PolicyChanged,
             "CONSUMED" => OrderProposalHistoryEvent::Consumed,
             _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
         };

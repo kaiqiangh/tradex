@@ -171,7 +171,7 @@ pub enum ReplyData {
     Threads(ThreadList),
     Gateway(GatewayState),
     Model(ModelState),
-    Risk(RiskPolicyState),
+    Risk(Box<RiskPolicyState>),
     RiskDecision(Box<RiskDecision>),
     RiskDecisionHistory(RiskDecisionHistory),
     ProviderCatalog(ProviderCatalog),
@@ -2562,6 +2562,7 @@ pub enum OrderProposalHistoryEvent {
     Generated,
     DraftChanged,
     Refreshed,
+    PolicyChanged,
     Consumed,
 }
 
@@ -4014,7 +4015,7 @@ pub enum DomainProjection {
     Model(ModelState),
     Workspace(Workspace),
     Account(Box<AccountConnection>),
-    Risk(RiskPolicyState),
+    Risk(Box<RiskPolicyState>),
     RiskDecision(Box<RiskDecision>),
     Thread(Box<Thread>),
     Trading212DemoOrderAttempt(Box<Trading212DemoOrderAttempt>),

@@ -170,6 +170,11 @@ export type ModelHealth = "NOT_CONFIGURED" | "UNVERIFIED" | "VERIFYING" | "READY
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyChangeScopeKind".
+ */
+export type RiskPolicyChangeScopeKind = "WORKSPACE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskPolicyEnvironment".
  */
 export type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
@@ -184,6 +189,7 @@ export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
  */
 export type RiskCheckId =
   | "PROPOSAL_IDENTITY"
+  | "POLICY_VERSION"
   | "POLICY_CONFIGURED"
   | "ACCOUNT_BINDING"
   | "ACCOUNT_HEALTH"
@@ -221,6 +227,7 @@ export type RiskCheckOutcome = "PASS" | "REJECT" | "UNAVAILABLE";
  */
 export type RiskDecisionReasonCode =
   | "WITHIN_LIMIT"
+  | "POLICY_VERSION_STALE"
   | "LIMIT_NOT_CONFIGURED"
   | "LIMIT_EXCEEDED"
   | "POLICY_UNCONFIGURED"
@@ -394,7 +401,7 @@ export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderProposalHistoryEvent".
  */
-export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED" | "REFRESHED" | "CONSUMED";
+export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED" | "REFRESHED" | "POLICY_CHANGED" | "CONSUMED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketDataStatus".
@@ -2032,6 +2039,7 @@ export interface PermissionReview {
 export interface RiskPolicyState {
   configured: boolean;
   hardRules: HardSafetyRule[];
+  lastChange?: RiskPolicyChange | null;
   onboardingCompleted: boolean;
   onboardingStep: number;
   policy: RiskPolicy;
@@ -2047,6 +2055,54 @@ export interface RiskPolicyState {
 export interface HardSafetyRule {
   description: string;
   id: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyChange".
+ */
+export interface RiskPolicyChange {
+  /**
+   * @maxItems 256
+   */
+  affectedAccounts: RiskPolicyAffectedAccount[];
+  /**
+   * @maxItems 256
+   */
+  affectedProposals: RiskPolicyAffectedProposal[];
+  changedAt: string;
+  newPolicyVersion: number;
+  oldPolicyVersion: number;
+  scope: RiskPolicyChangeScope;
+  weakened: boolean;
+  /**
+   * @maxItems 32
+   */
+  weakeningReasons: string[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyAffectedAccount".
+ */
+export interface RiskPolicyAffectedAccount {
+  accountId: string;
+  environment: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyAffectedProposal".
+ */
+export interface RiskPolicyAffectedProposal {
+  invalidationReason: string;
+  policyVersion?: number | null;
+  proposalId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskPolicyChangeScope".
+ */
+export interface RiskPolicyChangeScope {
+  kind: RiskPolicyChangeScopeKind;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

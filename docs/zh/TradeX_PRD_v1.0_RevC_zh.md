@@ -1273,19 +1273,21 @@ Risk checks
 
 保存风险策略必须被视为安全相关事件。
 
-对受影响的实盘账户:
+TradeX 在每个 workspace 使用一个共享 `RiskPolicy`。作用范围由该 workspace 中所有已持久化、绑定到该策略的账户确定；当前选中的 UI 账户不会缩小作用范围。
+
+对 workspace 策略范围内的所有账户:
 
 ```text
 Save risk policy
-→ invalidate pending live approvals that could be affected
-→ re-evaluate pending proposals
-→ if policy is weakened: DISARM account
+→ invalidate pending proposals and approvals bound to the previous policy version
+→ re-evaluate pending proposals and record the stale policy-version result
+→ if any part of the change weakens policy: DISARM every affected Live account
 → persist audit event
 ```
 
-当先前已审批的交易因策略变更而失效时,UI 必须明确提示。
+受影响集合来自已持久化的 workspace 绑定，不取决于当前选中的 UI 账户。混合变更中只要有一个字段放宽，就按策略弱化处理；仅收紧的变更不算弱化。UI 必须明确显示新旧策略版本、所有受影响账户与待处理 proposal，以及每项失效原因。策略版本变化后，不得复用此前的 decision 或未来可能存在的 approval。
 
-同一账户的策略保存与审批消费通过按账户的单写者路径串行化,从而消除"保存 vs 消费"竞争:在审批签发与消费之间落地的保存,会被 `PRE_EXECUTION_CHECK` 处的策略版本检查捕获。
+策略保存必须在一个事务中提交 workspace 策略、所有受影响 Live 账户的撤防、待处理 proposal 失效事件和旧版本拒绝 decision。审批消费必须在 `PRE_EXECUTION_CHECK` 使用相同的当前策略版本判定；绑定旧版本的 approval 不具备资格。保存与消费及 reservation 的串行化由 S23 事务边界完成。
 
 ## 21.4 风险求值与证据
 

@@ -7325,6 +7325,7 @@
         "GENERATED",
         "DRAFT_CHANGED",
         "REFRESHED",
+        "POLICY_CHANGED",
         "CONSUMED"
       ]
     },
@@ -9249,6 +9250,7 @@
       "type": "string",
       "enum": [
         "PROPOSAL_IDENTITY",
+        "POLICY_VERSION",
         "POLICY_CONFIGURED",
         "ACCOUNT_BINDING",
         "ACCOUNT_HEALTH",
@@ -9513,6 +9515,7 @@
       "type": "string",
       "enum": [
         "WITHIN_LIMIT",
+        "POLICY_VERSION_STALE",
         "LIMIT_NOT_CONFIGURED",
         "LIMIT_EXCEEDED",
         "POLICY_UNCONFIGURED",
@@ -9719,6 +9722,138 @@
         "liveInactivityTimeoutMinutes"
       ]
     },
+    "RiskPolicyAffectedAccount": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "pattern": "^(LOCAL|PAPER|DEMO|TESTNET|LIVE)$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "accountId",
+        "environment"
+      ]
+    },
+    "RiskPolicyAffectedProposal": {
+      "type": "object",
+      "properties": {
+        "invalidationReason": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "policyVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "proposalId",
+        "invalidationReason"
+      ]
+    },
+    "RiskPolicyChange": {
+      "type": "object",
+      "properties": {
+        "affectedAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskPolicyAffectedAccount"
+          },
+          "maxItems": 256
+        },
+        "affectedProposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskPolicyAffectedProposal"
+          },
+          "maxItems": 256
+        },
+        "changedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "newPolicyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1
+        },
+        "oldPolicyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/RiskPolicyChangeScope"
+        },
+        "weakened": {
+          "type": "boolean"
+        },
+        "weakeningReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Z0-9_]{1,64}$"
+          },
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "oldPolicyVersion",
+        "newPolicyVersion",
+        "scope",
+        "weakened",
+        "weakeningReasons",
+        "affectedAccounts",
+        "affectedProposals",
+        "changedAt"
+      ]
+    },
+    "RiskPolicyChangeScope": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/RiskPolicyChangeScopeKind"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "workspaceId"
+      ]
+    },
+    "RiskPolicyChangeScopeKind": {
+      "type": "string",
+      "enum": [
+        "WORKSPACE"
+      ]
+    },
     "RiskPolicyEnvironment": {
       "type": "string",
       "enum": [
@@ -9911,6 +10046,16 @@
           "items": {
             "$ref": "#/$defs/HardSafetyRule"
           }
+        },
+        "lastChange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RiskPolicyChange"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "onboardingCompleted": {
           "type": "boolean"

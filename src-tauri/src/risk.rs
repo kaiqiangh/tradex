@@ -269,7 +269,66 @@ pub struct RiskPolicyState {
     pub onboarding_completed: bool,
     pub policy: RiskPolicy,
     pub hard_rules: Vec<HardSafetyRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_change: Option<RiskPolicyChange>,
     pub updated_at: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RiskPolicyChangeScopeKind {
+    Workspace,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskPolicyChangeScope {
+    pub kind: RiskPolicyChangeScopeKind,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskPolicyAffectedAccount {
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(regex(pattern = "^(LOCAL|PAPER|DEMO|TESTNET|LIVE)$"))]
+    pub environment: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskPolicyAffectedProposal {
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1))]
+    pub policy_version: Option<u64>,
+    #[schemars(length(min = 1, max = 128))]
+    pub invalidation_reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskPolicyChange {
+    #[schemars(range(min = 1))]
+    pub old_policy_version: u64,
+    #[schemars(range(min = 1))]
+    pub new_policy_version: u64,
+    pub scope: RiskPolicyChangeScope,
+    pub weakened: bool,
+    #[schemars(
+        length(max = 32),
+        inner(length(min = 1, max = 64), regex(pattern = "^[A-Z0-9_]{1,64}$"))
+    )]
+    pub weakening_reasons: Vec<String>,
+    #[schemars(length(max = 256))]
+    pub affected_accounts: Vec<RiskPolicyAffectedAccount>,
+    #[schemars(length(max = 256))]
+    pub affected_proposals: Vec<RiskPolicyAffectedProposal>,
+    #[schemars(length(min = 1, max = 64))]
+    pub changed_at: String,
 }
 
 impl RiskPolicyState {
@@ -283,6 +342,7 @@ impl RiskPolicyState {
             onboarding_completed: false,
             policy: RiskPolicy::default(),
             hard_rules: hard_safety_rules(),
+            last_change: None,
             updated_at: String::new(),
         }
     }
@@ -363,6 +423,10 @@ impl RiskPolicyState {
         Ok(())
     }
 
+    pub(crate) fn policy_version_matches(&self, policy_version: Option<u64>) -> bool {
+        policy_version == Some(self.policy_version)
+    }
+
     pub fn ready_for_completion(
         &self,
         model: &crate::model::ModelState,
@@ -390,6 +454,46 @@ impl RiskPolicyState {
             || (self.onboarding_completed && self.onboarding_step != 5)
             || self.hard_rules != hard_safety_rules()
         {
+            return Err(crate::protocol::TradeXError::new(
+                "WORKSPACE_INTEGRITY_FAILED",
+            ));
+        }
+        if self.last_change.as_ref().is_some_and(|change| {
+            change.old_policy_version == 0
+                || change.new_policy_version == 0
+                || change.old_policy_version.checked_add(1) != Some(change.new_policy_version)
+                || change.new_policy_version != self.policy_version
+                || change.scope.kind != RiskPolicyChangeScopeKind::Workspace
+                || change.scope.workspace_id != workspace_id
+                || change.changed_at.is_empty()
+                || change.changed_at.len() > 64
+                || change.changed_at.chars().any(char::is_control)
+                || change.weakening_reasons.len() > 32
+                || change.affected_accounts.len() > 256
+                || change.affected_proposals.len() > 256
+                || change.weakening_reasons.iter().any(|reason| {
+                    reason.is_empty()
+                        || reason.len() > 64
+                        || !reason.bytes().all(|byte| {
+                            byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_'
+                        })
+                })
+                || change.affected_accounts.iter().any(|account| {
+                    account.account_id.is_empty()
+                        || account.account_id.len() > 128
+                        || !matches!(
+                            account.environment.as_str(),
+                            "LOCAL" | "PAPER" | "DEMO" | "TESTNET" | "LIVE"
+                        )
+                })
+                || change.affected_proposals.iter().any(|proposal| {
+                    crate::storage::validate_order_proposal_id(&proposal.proposal_id).is_err()
+                        || proposal.policy_version == Some(0)
+                        || proposal.invalidation_reason.is_empty()
+                        || proposal.invalidation_reason.len() > 128
+                        || proposal.invalidation_reason.chars().any(char::is_control)
+                })
+        }) {
             return Err(crate::protocol::TradeXError::new(
                 "WORKSPACE_INTEGRITY_FAILED",
             ));
@@ -455,6 +559,180 @@ impl RiskPolicyState {
     }
 }
 
+pub(crate) fn policy_weakening_reasons(old: &RiskPolicy, new: &RiskPolicy) -> Vec<String> {
+    use std::cmp::Ordering;
+
+    let mut reasons = Vec::new();
+    macro_rules! raised_decimal {
+        ($old_value:expr, $new_value:expr, $code:literal) => {
+            if matches!(($old_value, $new_value), (Some(_), None))
+                || matches!(($old_value, $new_value), (Some(left), Some(right)) if crate::provider_io::decimal_cmp(right, left).is_ok_and(|order| order == Ordering::Greater))
+            {
+                reasons.push($code.into());
+            }
+        };
+    }
+    macro_rules! raised_count {
+        ($old_value:expr, $new_value:expr, $code:literal) => {
+            if matches!(($old_value, $new_value), (Some(_), None))
+                || matches!(($old_value, $new_value), (Some(left), Some(right)) if right > left)
+            {
+                reasons.push($code.into());
+            }
+        };
+    }
+
+    raised_decimal!(
+        old.max_order_notional.as_deref(),
+        new.max_order_notional.as_deref(),
+        "ORDER_NOTIONAL_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_order_quantity.as_deref(),
+        new.max_order_quantity.as_deref(),
+        "ORDER_QUANTITY_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_position_size.as_deref(),
+        new.max_position_size.as_deref(),
+        "POSITION_SIZE_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_single_instrument_exposure_percent.as_deref(),
+        new.max_single_instrument_exposure_percent.as_deref(),
+        "SINGLE_INSTRUMENT_EXPOSURE_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_daily_traded_notional.as_deref(),
+        new.max_daily_traded_notional.as_deref(),
+        "DAILY_TRADED_NOTIONAL_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_daily_realized_loss.as_deref(),
+        new.max_daily_realized_loss.as_deref(),
+        "DAILY_REALIZED_LOSS_LIMIT_RAISED"
+    );
+    raised_count!(
+        old.max_open_orders,
+        new.max_open_orders,
+        "OPEN_ORDER_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_reserved_capital.as_deref(),
+        new.max_reserved_capital.as_deref(),
+        "RESERVED_CAPITAL_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_market_order_slippage_percent.as_deref(),
+        new.max_market_order_slippage_percent.as_deref(),
+        "MARKET_SLIPPAGE_LIMIT_RAISED"
+    );
+    raised_decimal!(
+        old.max_price_deviation_percent.as_deref(),
+        new.max_price_deviation_percent.as_deref(),
+        "PRICE_DEVIATION_LIMIT_RAISED"
+    );
+
+    for old_limit in &old.max_asset_class_exposure_percent {
+        match new
+            .max_asset_class_exposure_percent
+            .iter()
+            .find(|limit| limit.asset_class == old_limit.asset_class)
+        {
+            None => reasons.push("ASSET_CLASS_EXPOSURE_LIMIT_REMOVED".into()),
+            Some(new_limit)
+                if crate::provider_io::decimal_cmp(
+                    &new_limit.max_exposure_percent,
+                    &old_limit.max_exposure_percent,
+                )
+                .is_ok_and(|order| order == Ordering::Greater) =>
+            {
+                reasons.push("ASSET_CLASS_EXPOSURE_LIMIT_RAISED".into())
+            }
+            Some(_) => {}
+        }
+    }
+    if new.market_orders_enabled && !old.market_orders_enabled {
+        reasons.push("MARKET_ORDERS_ENABLED".into());
+    }
+    if new.stale_quote_threshold_seconds > old.stale_quote_threshold_seconds {
+        reasons.push("STALE_QUOTE_THRESHOLD_RAISED".into());
+    }
+    if new.live_inactivity_timeout_minutes > old.live_inactivity_timeout_minutes {
+        reasons.push("LIVE_INACTIVITY_TIMEOUT_RAISED".into());
+    }
+
+    for (old_list, new_list, code) in [
+        (
+            &old.allowed_instrument_ids,
+            &new.allowed_instrument_ids,
+            "ALLOWED_INSTRUMENTS_EXPANDED",
+        ),
+        (
+            &old.allowed_venues,
+            &new.allowed_venues,
+            "ALLOWED_VENUES_EXPANDED",
+        ),
+        (
+            &old.allowed_account_ids,
+            &new.allowed_account_ids,
+            "ALLOWED_ACCOUNTS_EXPANDED",
+        ),
+        (
+            &old.blocked_instrument_ids,
+            &new.blocked_instrument_ids,
+            "BLOCKED_INSTRUMENTS_REMOVED",
+        ),
+        (
+            &old.blocked_venues,
+            &new.blocked_venues,
+            "BLOCKED_VENUES_REMOVED",
+        ),
+        (
+            &old.blocked_account_ids,
+            &new.blocked_account_ids,
+            "BLOCKED_ACCOUNTS_REMOVED",
+        ),
+    ] {
+        let old_set: HashSet<&str> = old_list.iter().map(String::as_str).collect();
+        let new_set: HashSet<&str> = new_list.iter().map(String::as_str).collect();
+        let weakened = if code.starts_with("ALLOWED_") {
+            !old_set.is_empty()
+                && (new_set.is_empty() || new_set.iter().any(|value| !old_set.contains(value)))
+        } else {
+            old_set.iter().any(|value| !new_set.contains(value))
+        };
+        if weakened {
+            reasons.push(code.into());
+        }
+    }
+    let environment_code = |value: &RiskPolicyEnvironment| match value {
+        RiskPolicyEnvironment::LocalPaper => "LOCAL_PAPER",
+        RiskPolicyEnvironment::Paper => "PAPER",
+        RiskPolicyEnvironment::Demo => "DEMO",
+        RiskPolicyEnvironment::Testnet => "TESTNET",
+        RiskPolicyEnvironment::Live => "LIVE",
+    };
+    let old_env: HashSet<&str> = old
+        .allowed_environments
+        .iter()
+        .map(environment_code)
+        .collect();
+    let new_env: HashSet<&str> = new
+        .allowed_environments
+        .iter()
+        .map(environment_code)
+        .collect();
+    if !old_env.is_empty()
+        && (new_env.is_empty() || new_env.iter().any(|value| !old_env.contains(value)))
+    {
+        reasons.push("ALLOWED_ENVIRONMENTS_EXPANDED".into());
+    }
+    reasons.sort();
+    reasons.dedup();
+    reasons
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RiskDecisionStatus {
@@ -475,6 +753,7 @@ pub enum RiskCheckOutcome {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RiskCheckId {
     ProposalIdentity,
+    PolicyVersion,
     PolicyConfigured,
     AccountBinding,
     AccountHealth,
@@ -507,6 +786,7 @@ pub enum RiskCheckId {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RiskDecisionReasonCode {
     WithinLimit,
+    PolicyVersionStale,
     LimitNotConfigured,
     LimitExceeded,
     PolicyUnconfigured,
@@ -796,6 +1076,32 @@ pub(crate) fn evaluate(
             "The immutable proposal is current in this workspace."
         } else {
             "The proposal is no longer eligible for risk evaluation."
+        },
+    );
+    let policy_version_current =
+        policy_state.is_some_and(|state| state.policy_version_matches(proposal.policy_version));
+    push!(
+        RiskCheckId::PolicyVersion,
+        if policy_state.is_none() {
+            RiskCheckOutcome::Unavailable
+        } else if policy_version_current {
+            RiskCheckOutcome::Pass
+        } else {
+            RiskCheckOutcome::Reject
+        },
+        if policy_state.is_none() {
+            RiskDecisionReasonCode::EvidenceMissing
+        } else if policy_version_current {
+            RiskDecisionReasonCode::WithinLimit
+        } else {
+            RiskDecisionReasonCode::PolicyVersionStale
+        },
+        if policy_state.is_none() {
+            "A persisted policy version is not available for this evaluation."
+        } else if policy_version_current {
+            "The proposal is bound to the current policy version."
+        } else {
+            "The proposal was generated under a stale policy version."
         },
     );
     push!(
@@ -1951,5 +2257,44 @@ mod tests {
             unsaved.validate_policy_for_save().unwrap_err().code,
             "RISK_POLICY_INVALID"
         );
+    }
+
+    #[test]
+    fn policy_weakening_classifier_detects_mixed_relaxation_and_pure_tightening() {
+        let old = RiskPolicy {
+            max_order_notional: Some("100".into()),
+            allowed_venues: vec!["NYSE".into()],
+            blocked_instrument_ids: vec!["equity:US:BAD".into()],
+            ..RiskPolicy::default()
+        };
+
+        let mut mixed = old.clone();
+        mixed.max_order_notional = Some("90".into());
+        mixed.market_orders_enabled = true;
+        mixed.allowed_venues.push("NASDAQ".into());
+        mixed.blocked_instrument_ids.clear();
+        let reasons = policy_weakening_reasons(&old, &mixed);
+        assert!(reasons.contains(&"MARKET_ORDERS_ENABLED".into()));
+        assert!(reasons.contains(&"ALLOWED_VENUES_EXPANDED".into()));
+        assert!(reasons.contains(&"BLOCKED_INSTRUMENTS_REMOVED".into()));
+
+        let mut tightened = old.clone();
+        tightened.max_order_notional = Some("90".into());
+        tightened
+            .blocked_instrument_ids
+            .push("equity:US:SAFE".into());
+        assert!(policy_weakening_reasons(&old, &tightened).is_empty());
+
+        let configured = RiskPolicy {
+            max_order_notional: Some("1000".into()),
+            ..RiskPolicy::default()
+        };
+        assert!(policy_weakening_reasons(&RiskPolicy::default(), &configured).is_empty());
+
+        let restricted = RiskPolicy {
+            allowed_venues: vec!["NYSE".into()],
+            ..RiskPolicy::default()
+        };
+        assert!(policy_weakening_reasons(&RiskPolicy::default(), &restricted).is_empty());
     }
 }

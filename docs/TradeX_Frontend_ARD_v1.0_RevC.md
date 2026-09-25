@@ -746,6 +746,10 @@ Buttons reflect backend eligibility for the exact operation. Re-evaluate on acco
 
 Order Drafts queries immutable RiskDecision history by workspace/proposal and offers an explicit evaluate/reevaluate action. The renderer sends only those identities; the Control Plane owns policy, account, evidence, checks, and persistence. Render `ALLOWED`, `REJECTED`, and `UNAVAILABLE` distinctly with the proposal hash, exact account/environment, policy version, input digests, and check reasons. A failed submit refreshes the query so the persisted blocking decision is visible. Neither an `ALLOWED` result nor its UI state grants approval, arming, reservation, or send authority. `RISK_EVIDENCE_UNAVAILABLE` is a canonical error separate from `RISK_REJECTED`. Ordinary Bitget `LIVE` remains read-only.
 
+### 14.11 Workspace risk-policy change summary (S21 #82)
+
+Settings → Risk & Limits renders `RiskPolicyState.lastChange` after a policy save and when the risk projection is restored. The `role="status"` polite live region states scope, old/new versions, whether any relaxation occurred, and the count of affected persisted accounts and pending proposals. Keyboard-operable details expose every account identity/environment and each invalidated proposal with its policy-version reason. The renderer never derives the affected set from the currently selected account; the backend remains authoritative for invalidation and disarm.
+
 ## 15. Provider and Model Configuration UI
 
 ### 15.1 Schema-driven forms

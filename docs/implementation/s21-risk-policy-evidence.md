@@ -9,7 +9,7 @@ Status: **VERIFIED for #80 only**. Code and UI review baseline: `dev@20113b0c203
 - Hard rules remain backend-owned and read-only. No Agent policy-write command was added. A save disables the complete form until its result arrives.
 - English and Chinese Backend ARD §41.6 and UI Spec J2 define matching wire fields, units, validation, defaults, migration, list semantics and interaction requirements.
 
-The complete deterministic evaluator and policy-change effects on approvals/arming are later S21 work. This evidence does not close the S21 map item or full Risk Engine requirement.
+The policy-change effects are implemented separately under S21 #82; see [s21-risk-policy-effects.md](s21-risk-policy-effects.md). This #80 evidence remains limited to configuration and persistence, and the S21 map item/full Risk Engine requirement remain open.
 
 ## Verification
 

@@ -178,6 +178,13 @@ export function RiskDefaults({ workspaceId, baseCurrency, state, draft, onDraftC
       </>}
     </fieldset>
     <div className="hard-rules" aria-labelledby="hard-rules-title"><h3 id="hard-rules-title">Hard safety rules · read only</h3><ul>{state.hardRules.map(rule => <li key={rule.id}><strong>{rule.id.replaceAll('_', ' ')}</strong><span>{rule.description}</span></li>)}</ul></div>
+    {state.lastChange && <section className="notice" role="status" aria-live="polite" aria-atomic="true">
+      <h3>Policy change · v{state.lastChange.oldPolicyVersion} → v{state.lastChange.newPolicyVersion}</h3>
+      <p>{state.lastChange.scope.kind} scope · {state.lastChange.affectedAccounts.length} affected accounts · {state.lastChange.affectedProposals.length} pending proposals invalidated.</p>
+      <p>{state.lastChange.weakened ? `Policy relaxation: ${state.lastChange.weakeningReasons.map(reason => reason.replaceAll('_', ' ').toLowerCase()).join(', ')}.` : 'No policy relaxation detected.'}</p>
+      <details><summary>Affected accounts</summary><ul>{state.lastChange.affectedAccounts.map(account => <li key={account.accountId}>{account.environment} · {account.accountId}</li>)}</ul></details>
+      <details><summary>Invalidated proposals</summary><ul>{state.lastChange.affectedProposals.map(proposal => <li key={proposal.proposalId}>{proposal.proposalId} · {proposal.invalidationReason}</li>)}</ul></details>
+    </section>}
     {error && <p className="error-text" role="alert">{error}</p>}
     {notice && <p className="success-text" role="status">{notice}</p>}
     <button className="primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? 'Saving risk policy…' : continueLabel}</button>

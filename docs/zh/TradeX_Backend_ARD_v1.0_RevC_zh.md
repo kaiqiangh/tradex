@@ -868,21 +868,23 @@ struct RiskDecision {
 
 ## 18. Risk Policy Versioning 与 Serialization
 
-Risk policy 对受影响 scope/account 进行 versioning。
+`risk` aggregate 为每个 workspace 持有一份共享策略。该 workspace 中已持久化的账户绑定决定受影响集合；UI 当前选中的账户不会参与策略作用范围计算。
 
 Save flow：
 
 ```text
-begin per-account single-writer transaction
+begin workspace SQLite immediate transaction; verify policy/account/proposal versions
 → persist new policy version
-→ invalidate affected pending approvals
-→ re-evaluate pending proposals
-→ if policy weakened: DISARM affected live account
-→ append audit events
+→ re-evaluate every pending proposal against the new policy
+→ append `POLICY_CHANGED` to each pending proposal bound to the old version
+→ persist `POLICY_VERSION_STALE` decisions and audit projections
+→ if any field relaxed: DISARM every affected Live account
 → commit
 ```
 
-同账户的 approval consumption 进入同一 serialization boundary，确保 policy-save 与 approval-consume race 无法绕过 revalidation。
+只要变更中有任一字段放宽，`weakened` 就为 true，即使同一变更也收紧了其他字段；仅收紧的变更为 false。提高或取消最高限额、扩大 allow-list、从 block-list 删除项目、启用市价单，以及放宽过期/不活跃阈值都属于弱化。提交前会重新核验 policy、账户集合和 proposal 状态版本；并发陈旧写入会失败且不产生部分效果。`risk.policy.changed`、可选的账户撤防事件、proposal 失效事件和 RiskDecision 在同一事务内提交。
+
+可复用的 `POLICY_VERSION` eligibility check 会以 `POLICY_VERSION_STALE` 拒绝旧版本 proposal；S22 审批资格使用相同判定。S23 负责把 approval consumption/reservation 与策略保存纳入原子串行化。当前持久化的 Live 账户受 invariant 约束为 DISARMED；后续若作用范围内出现 ARMED 账户，弱化策略的事务会将其设为 DISARMED。
 
 ---
 
@@ -2156,6 +2158,20 @@ interface RiskPolicyInput {
   liveInactivityTimeoutMinutes: number;
 }
 type RiskPolicy = RiskPolicyInput;
+interface RiskPolicyChange {
+  oldPolicyVersion: number;
+  newPolicyVersion: number;
+  scope: {kind: "WORKSPACE"; workspaceId: string};
+  weakened: boolean;
+  weakeningReasons: string[];
+  affectedAccounts: Array<{accountId: string; environment: string}>;
+  affectedProposals: Array<{
+    proposalId: string;
+    policyVersion?: number | null;
+    invalidationReason: string;
+  }>;
+  changedAt: string;
+}
 interface RiskPolicyState {
   workspaceId: string;
   stateVersion: string;
@@ -2165,6 +2181,7 @@ interface RiskPolicyState {
   onboardingCompleted: boolean;
   policy: RiskPolicy;
   hardRules: Array<{id: string; description: string}>;
+  lastChange?: RiskPolicyChange | null;
   updatedAt: string;
 }
 type RiskDecisionStatus = "ALLOWED" | "REJECTED" | "UNAVAILABLE";
@@ -2207,7 +2224,9 @@ interface RiskDecisionHistory {
 
 金额、数量、百分比均用字符串，绝不使用 JSON number 或浮点。金额和敞口上限最多 15 位整数、8 位小数；base quantity 最多 18 位整数、8 位小数；敞口最多 100%。滑点与价格偏离最多 18 位整数、8 位小数。十进制输入必须为正数；空值、零值、科学计数法、格式错误或超长均无效。`maxOpenOrders` 设置后必须为正整数。过期报价边界为 1–86,400 秒，Live inactivity 边界为 1–1,440 分钟。允许/禁止列表最多 256 个唯一且有界的标识符；instrument ID 必须使用 TradeX canonical identity。空的 allowed list 表示不增加 allow-list 限制；空的 blocked list 表示不禁止任何项目；同一标识符出现在两个列表时以禁止列表为准。空 environment list 不增加环境限制。每个当前支持的资产类别（`EQUITY`、`CRYPTO_SPOT`）最多配置一个敞口上限。无效保存或陈旧保存返回 `POLICY_ERROR / RISK_POLICY_INVALID` 或 `STATE_STALE / STATE_VERSION_CONFLICT`，且不修改 projection/outbox。
 
-新策略字段默认 `null` 或空列表。识别到仅含原七个 setup 字段的 S21 前风险 projection 时，加载时会为新增字段补入这些安全默认值；原有值、policy version 和市价单偏好都会保留。`hardRules` 仍由后端拥有且只读：Live 默认 DISARMED、仍需 approval、过期数据阻断 Live、Agent 不能修改策略。完整 §21 evaluator 与策略变更的 fan-out 由 S21 后续风险任务负责；入门流程仍展示七项 setup defaults。
+新策略字段默认 `null` 或空列表。识别到仅含原七个 setup 字段的 S21 前风险 projection 时，加载时会为新增字段补入这些安全默认值；原有值、policy version 和市价单偏好都会保留。`hardRules` 仍由后端拥有且只读：Live 默认 DISARMED、仍需 approval、过期数据阻断 Live、Agent 不能修改策略。旧 projection 不包含 `RiskPolicyState.lastChange`；存在时该字段包含 workspace scope、新旧策略版本、确定性的弱化分类/原因码、全部已持久化受影响账户身份、全部待处理 proposal 的失效原因及变更时间。账户/proposal 数组最多各 256 项；ID 和 workspace ID 长度为 1–128 字符，environment 属于定义的账户集合，原因码最多 32 项且每项为 1–64 个 ASCII 大写字母、数字或下划线，失效原因长度为 1–128 字符，策略版本为正数，变更时间长度为 1–64 字符。策略保存 fan-out 遵循 §18；`POLICY_VERSION` / `POLICY_VERSION_STALE` 是可复用的旧版本 eligibility check，S22 也必须使用。入门流程仍展示七项 setup defaults。
+
+策略保存时，每个绑定旧策略版本的待处理 proposal 都会用新策略重新求值。其 decision 包含 outcome 为 `REJECT` 的 `POLICY_VERSION` check 和 `POLICY_VERSION_STALE` reason；proposal history 在同一个 SQLite 事务中追加带脱敏版本变更原因的 `POLICY_CHANGED`。Renderer 读取持久化结果，不得提供 proposal 状态。
 
 所有变更都要求当前 workspace 和精确的 `stateVersion`；陈旧游标返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态。进度只能前进或后退一步；越级返回 `POLICY_ERROR / ONBOARDING_STEP_INVALID`。步骤 5 和完成都要求已配置风险默认值及 §41.5 的当前已验证默认模型路由。完成还要检查每个 Live 账户为 `DISARMED`；任何入门命令都不会 arm 账户或启用 Send/Live execution。模型会话重置会使已完成设置失效并回到 Model（步骤 3）。`risk.policy.changed` 与 risk projection/outbox 在同一事务提交，`risk` snapshot/subscribe/replay 遵循 §41.2 的工作区规则和连续序列。新工作区在 storage schema version 5 迁移时初始化风险表；已识别的旧工作区迁移前先备份。
 

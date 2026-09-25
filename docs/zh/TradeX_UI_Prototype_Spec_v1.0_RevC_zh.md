@@ -490,7 +490,15 @@ Thread B requires €7,000
 
 ### F12. Risk-policy Change Invalidation
 
-更新 policy → version increment → affected approval invalidated → old/new version + reason;若 weakening 同时 disarm account。
+保存 workspace-shared policy 会使所有绑定旧版本的待处理 proposal 失效。受影响账户集合来自已持久化的 workspace 绑定，不取决于当前选中的账户。
+
+- 递增 policy version，并记录作用范围、新旧版本和弱化分类；
+- 重新求值每个待处理 proposal，将其标记为失效，并保留 `POLICY_VERSION_STALE` decision 与原因；
+- 在键盘可访问的 `role="status"` / polite live region 中展示全部受影响账户、proposal 和失效原因；
+- 混合更新只要放宽任一字段就按弱化处理；仅收紧不算弱化；
+- 弱化时，在策略与失效事件同一事务中撤防全部受影响 Live 账户。
+
+策略版本变化后不得复用旧 decision 或 approval。
 
 ---
 

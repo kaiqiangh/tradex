@@ -126,6 +126,44 @@ fn command_main(cp: &mut ControlPlane, command: &str, payload: Value) -> Value {
     cp.dispatch_with_events(envelope(command, payload), "main", None)
 }
 
+fn local_paper_proposal(cp: &mut ControlPlane, workspace_id: &Value, account_id: &Value) -> Value {
+    let draft = command(
+        cp,
+        "trade.save_draft",
+        json!({
+            "workspaceId":workspace_id,
+            "fields":{
+                "accountId":account_id,
+                "venue":"TRADEX_SIM",
+                "environment":"LOCAL_PAPER",
+                "instrumentId":"equity:US:AAPL",
+                "side":"BUY",
+                "orderType":"LIMIT",
+                "quantity":{"type":"BASE","value":"1"},
+                "limitPrice":"100",
+                "timeInForce":"DAY"
+            }
+        }),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        cp,
+        "trade.generate_proposal",
+        json!({
+            "workspaceId":workspace_id,
+            "draftId":draft["data"]["draftId"],
+            "expectedDraftVersion":draft["data"]["draftVersion"]
+        }),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    command(
+        cp,
+        "trade.proposal.get",
+        json!({"workspaceId":workspace_id,"proposalId":proposal["data"]["proposalId"]}),
+    )["data"]
+        .clone()
+}
+
 #[test]
 fn risk_decision_blocks_provider_submits_without_evidence_or_io() {
     let folder = tempfile::tempdir().unwrap();
@@ -190,6 +228,365 @@ fn risk_decision_blocks_provider_submits_without_evidence_or_io() {
                     && check["outcome"] == "UNAVAILABLE")
         );
     }
+}
+
+#[test]
+fn risk_policy_weakening_invalidates_pending_proposals_and_rechecks_the_old_version() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let accounts = command(&mut cp, "account.list", json!({"workspaceId":workspace}));
+    let local_paper = accounts["data"]["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|account| account["environment"] == "LOCAL")
+        .unwrap()
+        .clone();
+
+    let current = command(&mut cp, "risk.get_policy", json!({"workspaceId":workspace}));
+    let mut initial_policy = current["data"]["policy"].clone();
+    initial_policy["maxOrderNotional"] = "1000".into();
+    let initial = command(
+        &mut cp,
+        "risk.save_policy",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":current["data"]["stateVersion"],
+            "policy":initial_policy
+        }),
+    );
+    assert_eq!(initial["ok"], true, "{initial}");
+
+    let draft = command(
+        &mut cp,
+        "trade.save_draft",
+        json!({
+            "workspaceId":workspace,
+            "fields":{
+                "accountId":local_paper["connectionId"],
+                "venue":"TRADEX_SIM",
+                "environment":"LOCAL_PAPER",
+                "instrumentId":"equity:US:AAPL",
+                "side":"BUY",
+                "orderType":"LIMIT",
+                "quantity":{"type":"BASE","value":"1"},
+                "limitPrice":"100",
+                "timeInForce":"DAY"
+            }
+        }),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &mut cp,
+        "trade.generate_proposal",
+        json!({
+            "workspaceId":workspace,
+            "draftId":draft["data"]["draftId"],
+            "expectedDraftVersion":draft["data"]["draftVersion"]
+        }),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+
+    let current = command(&mut cp, "risk.get_policy", json!({"workspaceId":workspace}));
+    let mut weakened_policy = current["data"]["policy"].clone();
+    weakened_policy["maxOrderNotional"] = "2000".into();
+    weakened_policy["maxOrderQuantity"] = "10".into();
+    let weakened = command(
+        &mut cp,
+        "risk.save_policy",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":current["data"]["stateVersion"],
+            "policy":weakened_policy
+        }),
+    );
+    assert_eq!(weakened["ok"], true, "{weakened}");
+    assert_eq!(
+        weakened["data"]["lastChange"]["oldPolicyVersion"],
+        initial["data"]["policyVersion"]
+    );
+    assert_eq!(
+        weakened["data"]["lastChange"]["newPolicyVersion"],
+        weakened["data"]["policyVersion"]
+    );
+    assert_eq!(weakened["data"]["lastChange"]["scope"]["kind"], "WORKSPACE");
+    assert_eq!(
+        weakened["data"]["lastChange"]["scope"]["workspaceId"],
+        workspace
+    );
+    assert_eq!(weakened["data"]["lastChange"]["weakened"], true);
+    assert!(
+        weakened["data"]["lastChange"]["weakeningReasons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|reason| reason == "ORDER_NOTIONAL_LIMIT_RAISED")
+    );
+    assert!(
+        weakened["data"]["lastChange"]["affectedAccounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|account| account["accountId"] == local_paper["connectionId"])
+    );
+    assert!(
+        weakened["data"]["lastChange"]["affectedProposals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["proposalId"] == proposal["data"]["proposalId"])
+    );
+
+    let proposal_detail = command(
+        &mut cp,
+        "trade.proposal.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    assert_eq!(
+        proposal_detail["data"]["status"], "INVALIDATED",
+        "{proposal_detail}"
+    );
+    assert!(
+        proposal_detail["data"]["invalidationReason"]
+            .as_str()
+            .unwrap()
+            .contains("policy version")
+    );
+    let decisions = command(
+        &mut cp,
+        "risk.decision.list",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    assert_eq!(decisions["ok"], true, "{decisions}");
+    let latest = decisions["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap();
+    assert_eq!(latest["policyVersion"], weakened["data"]["policyVersion"]);
+    assert_eq!(latest["status"], "REJECTED");
+    assert!(
+        latest["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|check| check["checkId"] == "POLICY_VERSION"
+                && check["reasonCode"] == "POLICY_VERSION_STALE")
+    );
+}
+
+#[test]
+fn risk_policy_change_fans_out_to_workspace_accounts_and_proposals_only() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let mut cp = ControlPlane::new(path.clone());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = Vault::default();
+    let http = Http::default();
+    let alpaca = connected_alpaca(&mut cp, &vault, &http, &workspace);
+    let accounts = command(&mut cp, "account.list", json!({"workspaceId":workspace}));
+    assert_eq!(accounts["data"]["accounts"].as_array().unwrap().len(), 2);
+    let local = accounts["data"]["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|account| account["environment"] == "LOCAL")
+        .unwrap()
+        .clone();
+
+    let current = command(&mut cp, "risk.get_policy", json!({"workspaceId":workspace}));
+    let mut initial_policy = current["data"]["policy"].clone();
+    initial_policy["maxOrderNotional"] = "1000".into();
+    let initial = command(
+        &mut cp,
+        "risk.save_policy",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":current["data"]["stateVersion"],
+            "policy":initial_policy
+        }),
+    );
+    assert_eq!(initial["ok"], true, "{initial}");
+    let first = local_paper_proposal(&mut cp, &workspace, &local["connectionId"]);
+    let second = local_paper_proposal(&mut cp, &workspace, &local["connectionId"]);
+
+    let other_folder = tempfile::tempdir().unwrap();
+    let mut other = ControlPlane::new(other_folder.path().to_path_buf());
+    let other_workspace =
+        command(&mut other, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let other_account = command(
+        &mut other,
+        "account.list",
+        json!({"workspaceId":other_workspace}),
+    )["data"]["accounts"][0]["connectionId"]
+        .clone();
+    let other_proposal = local_paper_proposal(&mut other, &other_workspace, &other_account);
+
+    let current = command(&mut cp, "risk.get_policy", json!({"workspaceId":workspace}));
+    let mut weakened_policy = current["data"]["policy"].clone();
+    weakened_policy["maxOrderNotional"] = "2000".into();
+    let saved = command(
+        &mut cp,
+        "risk.save_policy",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":current["data"]["stateVersion"],
+            "policy":weakened_policy
+        }),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    let affected_accounts: Vec<_> = saved["data"]["lastChange"]["affectedAccounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|account| account["accountId"].as_str().unwrap())
+        .collect();
+    assert!(affected_accounts.contains(&local["connectionId"].as_str().unwrap()));
+    assert!(affected_accounts.contains(&alpaca["connectionId"].as_str().unwrap()));
+    assert_eq!(
+        saved["data"]["lastChange"]["affectedProposals"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    for proposal in [&first, &second] {
+        let detail = command(
+            &mut cp,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(detail["data"]["status"], "INVALIDATED", "{detail}");
+        let history = command(
+            &mut cp,
+            "risk.decision.list",
+            json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+        );
+        assert!(
+            history["data"]["decisions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|decision| {
+                    decision["status"] == "REJECTED"
+                        && decision["checks"].as_array().unwrap().iter().any(|check| {
+                            check["checkId"] == "POLICY_VERSION"
+                                && check["reasonCode"] == "POLICY_VERSION_STALE"
+                        })
+                })
+        );
+    }
+
+    drop(cp);
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let durable = command(
+        &mut reopened,
+        "risk.get_policy",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        durable["data"]["lastChange"]["affectedProposals"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        command(
+            &mut reopened,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace,"proposalId":first["proposalId"]}),
+        )["data"]["status"],
+        "INVALIDATED"
+    );
+
+    let other_state = command(
+        &mut other,
+        "risk.get_policy",
+        json!({"workspaceId":other_workspace}),
+    );
+    assert_eq!(other_state["data"]["policyVersion"], 1);
+    assert!(other_state["data"]["lastChange"].is_null());
+    assert_eq!(
+        command(
+            &mut other,
+            "trade.proposal.get",
+            json!({"workspaceId":other_workspace,"proposalId":other_proposal["proposalId"]}),
+        )["data"]["status"],
+        "NEEDS_APPROVAL"
+    );
+}
+
+#[test]
+fn tightening_policy_change_invalidates_old_proposal_without_marking_weakening() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().to_path_buf());
+    let workspace = command(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let local = command(&mut cp, "account.list", json!({"workspaceId":workspace}))["data"]["accounts"][0]["connectionId"].clone();
+    let current = command(&mut cp, "risk.get_policy", json!({"workspaceId":workspace}));
+    let stale_state_version = current["data"]["stateVersion"].clone();
+    let mut policy = current["data"]["policy"].clone();
+    policy["maxOrderNotional"] = "100".into();
+    let configured = command(
+        &mut cp,
+        "risk.save_policy",
+        json!({"workspaceId":workspace,"expectedStateVersion":current["data"]["stateVersion"],"policy":policy}),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    assert_eq!(configured["data"]["lastChange"]["weakened"], false);
+    let proposal = local_paper_proposal(&mut cp, &workspace, &local);
+
+    let mut stale_policy = configured["data"]["policy"].clone();
+    stale_policy["maxOrderNotional"] = "25".into();
+    let stale_save = command(
+        &mut cp,
+        "risk.save_policy",
+        json!({"workspaceId":workspace,"expectedStateVersion":stale_state_version,"policy":stale_policy}),
+    );
+    assert_eq!(stale_save["error"]["code"], "STATE_VERSION_CONFLICT");
+    assert_eq!(
+        command(
+            &mut cp,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+        )["data"]["status"],
+        "NEEDS_APPROVAL"
+    );
+
+    let current = command(&mut cp, "risk.get_policy", json!({"workspaceId":workspace}));
+    let mut tighter_policy = current["data"]["policy"].clone();
+    tighter_policy["maxOrderNotional"] = "50".into();
+    let tightened = command(
+        &mut cp,
+        "risk.save_policy",
+        json!({"workspaceId":workspace,"expectedStateVersion":current["data"]["stateVersion"],"policy":tighter_policy}),
+    );
+    assert_eq!(tightened["ok"], true, "{tightened}");
+    assert_eq!(tightened["data"]["lastChange"]["weakened"], false);
+    assert!(
+        tightened["data"]["lastChange"]["weakeningReasons"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        tightened["data"]["lastChange"]["affectedProposals"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let detail = command(
+        &mut cp,
+        "trade.proposal.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(detail["data"]["status"], "INVALIDATED", "{detail}");
 }
 
 fn lifecycle(vault: &impl CredentialVault) {

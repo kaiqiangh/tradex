@@ -3494,7 +3494,7 @@ impl ControlPlane {
         if previous.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        let mut state = previous;
+        let mut state = previous.clone();
         state.policy = input.policy.into();
         state.validate_policy_for_save()?;
         state.mark_editing();
@@ -3502,7 +3502,80 @@ impl ControlPlane {
             .policy_version
             .checked_add(1)
             .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
-        self.persist_risk(state)
+        let weakening_reasons = risk::policy_weakening_reasons(&previous.policy, &state.policy);
+        let weakened = !weakening_reasons.is_empty();
+        let accounts = self.store.as_ref().unwrap().accounts()?;
+        let proposals = self.store.as_ref().unwrap().order_proposals()?;
+        let pending_proposals = proposals
+            .proposals
+            .iter()
+            .filter(|proposal| proposal.status == protocol::OrderProposalStatus::NeedsApproval)
+            .map(|proposal| {
+                self.store
+                    .as_ref()
+                    .unwrap()
+                    .order_proposal(&proposal.proposal_id)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let changed_at = storage::timestamp()?;
+        state.state_version = self.store.as_ref().unwrap().next_risk_state_version()?;
+        state.updated_at = changed_at.clone();
+        let invalidation_reason = format!(
+            "Risk policy version changed from {} to {}; this proposal decision is stale.",
+            previous.policy_version, state.policy_version
+        );
+        let mut affected_accounts: Vec<_> = accounts
+            .iter()
+            .map(|account| risk::RiskPolicyAffectedAccount {
+                account_id: account.connection_id.clone(),
+                environment: account.environment.clone(),
+            })
+            .collect();
+        affected_accounts.sort_by(|left, right| left.account_id.cmp(&right.account_id));
+        let affected_proposals: Vec<_> = pending_proposals
+            .iter()
+            .map(|proposal| risk::RiskPolicyAffectedProposal {
+                proposal_id: proposal.proposal_id.clone(),
+                policy_version: proposal.policy_version,
+                invalidation_reason: invalidation_reason.clone(),
+            })
+            .collect();
+        state.last_change = Some(risk::RiskPolicyChange {
+            old_policy_version: previous.policy_version,
+            new_policy_version: state.policy_version,
+            scope: risk::RiskPolicyChangeScope {
+                kind: risk::RiskPolicyChangeScopeKind::Workspace,
+                workspace_id: input.workspace_id.clone(),
+            },
+            weakened,
+            weakening_reasons,
+            affected_accounts,
+            affected_proposals,
+            changed_at,
+        });
+
+        let mut proposal_updates = Vec::with_capacity(pending_proposals.len());
+        for proposal in pending_proposals {
+            let decision = self.build_risk_decision(&proposal, Some(state.clone()))?;
+            proposal_updates.push(storage::RiskPolicyProposalUpdate { proposal, decision });
+        }
+        let events = self.store.as_mut().unwrap().save_risk_policy_change(
+            state,
+            &input.expected_state_version,
+            &proposals.state_version,
+            &accounts,
+            proposal_updates,
+        )?;
+        for event in &events {
+            self.publish(event);
+        }
+        let Some(event) = events.first() else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        let DomainProjection::Risk(state) = &event.payload else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        Ok((json!(state), Some(state.state_version.clone())))
     }
 
     fn set_onboarding_step(
@@ -4086,14 +4159,38 @@ impl ControlPlane {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
         let policy = store.risk_or_new()?;
+        let decision = self.build_risk_decision(&proposal, policy)?;
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .append_risk_decision(decision)?;
+        self.publish(&event);
+        let DomainProjection::RiskDecision(decision) = event.payload else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        Ok(*decision)
+    }
+
+    fn build_risk_decision(
+        &mut self,
+        proposal: &protocol::OrderProposal,
+        policy: Option<risk::RiskPolicyState>,
+    ) -> Result<risk::RiskDecision> {
+        let workspace_id = proposal.workspace_id.as_str();
         let unsupported_bitget_demo =
             proposal.fields.environment == protocol::ExecutionContext::BitgetDemo;
         let account = if unsupported_bitget_demo {
             None
         } else {
-            store.accounts()?.into_iter().find(|account| {
-                Some(account.connection_id.as_str()) == proposal.fields.account_id.as_deref()
-            })
+            self.store
+                .as_ref()
+                .unwrap()
+                .accounts()?
+                .into_iter()
+                .find(|account| {
+                    Some(account.connection_id.as_str()) == proposal.fields.account_id.as_deref()
+                })
         };
         let portfolio = if unsupported_bitget_demo {
             None
@@ -4164,7 +4261,7 @@ impl ControlPlane {
             )?,
         ];
         let decision = risk::evaluate(
-            &proposal,
+            proposal,
             policy.as_ref(),
             account.as_ref(),
             portfolio.as_ref(),
@@ -4173,16 +4270,7 @@ impl ControlPlane {
             inputs,
             storage::timestamp()?,
         );
-        let event = self
-            .store
-            .as_mut()
-            .unwrap()
-            .append_risk_decision(decision)?;
-        self.publish(&event);
-        let DomainProjection::RiskDecision(decision) = event.payload else {
-            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
-        };
-        Ok(*decision)
+        Ok(decision)
     }
 
     fn require_risk_allowed(&mut self, workspace_id: &str, proposal_id: &str) -> Result<()> {

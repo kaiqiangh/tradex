@@ -868,21 +868,23 @@ Non-local execution requires trusted real-time quote provenance, a trusted clock
 
 ## 18. Risk Policy Versioning and Serialization
 
-Risk policy is versioned per affected scope/account.
+The `risk` aggregate owns one workspace-shared policy. The persisted account bindings in that workspace define the affected set; UI selection is never an input to policy scope.
 
 Save flow:
 
 ```text
-begin per-account single-writer transaction
+begin a workspace SQLite immediate transaction and verify policy/account/proposal versions
 → persist new policy version
-→ invalidate affected pending approvals
-→ re-evaluate pending proposals
-→ if policy weakened: DISARM affected live account
-→ append audit events
+→ re-evaluate every pending proposal against the new policy
+→ append `POLICY_CHANGED` to each pending proposal bound to the old version
+→ persist `POLICY_VERSION_STALE` decisions and audit projections
+→ if any field relaxed: DISARM every affected Live account
 → commit
 ```
 
-Approval consumption for the same account participates in the same serialization boundary so policy-save vs approval-consume races cannot bypass revalidation.
+`weakened` is true when any changed field relaxes a constraint, including a mixed tightening/relaxation; a tightening-only change is false. Increased/unset maximum limits, expanded allow-lists, removed block-list entries, enabling market orders, and increased staleness/inactivity thresholds are relaxations. Policy, account-set, and proposal-state versions are rechecked before commit so concurrent stale writes fail without partial effects. The `risk.policy.changed` event, optional account disarm events, proposal invalidations, and RiskDecisions commit atomically.
+
+The reusable `POLICY_VERSION` eligibility check rejects an old-version proposal with `POLICY_VERSION_STALE`; S22 approval eligibility consumes the same predicate. S23 owns atomic approval consumption/reservation serialization with policy save. Current persisted Live accounts are DISARMED by invariant; any later ARMED account in scope is set to DISARMED in the weakening transaction.
 
 ---
 
@@ -2156,6 +2158,20 @@ interface RiskPolicyInput {
   liveInactivityTimeoutMinutes: number;
 }
 type RiskPolicy = RiskPolicyInput;
+interface RiskPolicyChange {
+  oldPolicyVersion: number;
+  newPolicyVersion: number;
+  scope: {kind: "WORKSPACE"; workspaceId: string};
+  weakened: boolean;
+  weakeningReasons: string[];
+  affectedAccounts: Array<{accountId: string; environment: string}>;
+  affectedProposals: Array<{
+    proposalId: string;
+    policyVersion?: number | null;
+    invalidationReason: string;
+  }>;
+  changedAt: string;
+}
 interface RiskPolicyState {
   workspaceId: string;
   stateVersion: string;
@@ -2165,6 +2181,7 @@ interface RiskPolicyState {
   onboardingCompleted: boolean;
   policy: RiskPolicy;
   hardRules: Array<{id: string; description: string}>;
+  lastChange?: RiskPolicyChange | null;
   updatedAt: string;
 }
 type RiskDecisionStatus = "ALLOWED" | "REJECTED" | "UNAVAILABLE";
@@ -2207,7 +2224,9 @@ Every `RiskPolicyInput` field is required on the wire. Money and portfolio-value
 
 Money, quantity, and percentage decimals are strings, never JSON numbers or floats. Money and exposure amounts accept at most 15 integer and 8 fractional digits; base quantity accepts 18 integer and 8 fractional digits; exposure is at most 100 percent. Slippage and price deviation accept at most 18 integer and 8 fractional digits. Decimal inputs must be positive and cannot be empty, zero, scientific notation, malformed, or overlong. `maxOpenOrders` must be a positive integer when set. Stale quote bounds are 1–86,400 seconds and Live inactivity bounds are 1–1,440 minutes. Allow/block lists contain up to 256 unique bounded identifiers; instrument IDs use canonical TradeX identity. Empty allow-lists mean no additional allow-list restriction; an empty block-list means nothing is blocked. When an identifier is in both lists, the block-list wins. An empty environment list adds no environment restriction. Per-asset-class exposure limits accept at most one entry for each currently supported class (`EQUITY`, `CRYPTO_SPOT`). Invalid or stale saves return `POLICY_ERROR / RISK_POLICY_INVALID` or `STATE_STALE / STATE_VERSION_CONFLICT` without changing the projection or outbox.
 
-New policy fields default to `null` or empty lists. A recognized pre-S21 risk projection that has the original seven setup fields receives those safe defaults when loaded; its existing values, policy version, and market-order preference are preserved. `hardRules` remains backend-owned and read-only: Live is DISARMED by default, approval remains required, stale data blocks Live, and an Agent cannot modify policy. The complete §21 evaluator and policy-change fan-out remain owned by the S21 risk tasks; onboarding continues to present the seven setup defaults.
+New policy fields default to `null` or empty lists. A recognized pre-S21 risk projection that has the original seven setup fields receives those safe defaults when loaded; its existing values, policy version, and market-order preference are preserved. `hardRules` remains backend-owned and read-only: Live is DISARMED by default, approval remains required, stale data blocks Live, and an Agent cannot modify policy. `RiskPolicyState.lastChange` is absent on legacy projections and otherwise contains the workspace scope, old/new policy versions, deterministic weakening classification/reason codes, every persisted affected account identity, every pending proposal invalidation reason, and change time. Its account/proposal arrays are bounded to 256 entries; IDs and workspace IDs are 1–128 characters, environments use the defined account set, reason codes are at most 32 entries of 1–64 ASCII uppercase letters, digits, or underscores, invalidation reasons are 1–128 characters, policy versions are positive, and change time is 1–64 characters. Policy-save fan-out follows §18; `POLICY_VERSION` / `POLICY_VERSION_STALE` is the reusable stale-version eligibility check, including for S22. Onboarding continues to present the seven setup defaults.
+
+On policy save, each pending proposal bound to an older policy version is re-evaluated against the new policy. Its decision contains `POLICY_VERSION` with outcome `REJECT` and reason `POLICY_VERSION_STALE`; its proposal history appends `POLICY_CHANGED` with the sanitized version-change reason in the same SQLite transaction. The renderer reads these persisted results and never supplies proposal status.
 
 All mutations require the active workspace and exact current `stateVersion`; stale cursors return `STATE_STALE / STATE_VERSION_CONFLICT` without mutation. Progress can move only one step forward or back; a jump returns `POLICY_ERROR / ONBOARDING_STEP_INVALID`. Step 5 and completion require `configured` risk defaults and a current verified default model route from §41.5. Completion additionally checks every Live account is `DISARMED`; no onboarding command arms an account or enables Send/Live execution. A model-session reset invalidates a completed setup and reopens at Model (step 3). `risk.policy.changed` is committed atomically with the risk projection and outbox, and its `risk` snapshot/subscribe/replay follows §41.2 with contiguous per-workspace sequence. New workspaces initialize the risk table during storage schema version 5 migration; recognized older workspaces are backed up before migration.
 

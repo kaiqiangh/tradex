@@ -1268,21 +1268,21 @@ The following are not user-bypassable policy preferences:
 
 ## 21.3 Risk-policy Change Behavior
 
-A risk-policy save must be treated as a security-relevant event.
+A risk-policy save is a security-relevant workspace event. Its scope is every persisted account bound to the workspace-shared `RiskPolicy`, regardless of selected UI account.
 
-For the affected live account:
+For all accounts in the workspace policy scope:
 
 ```text
 Save risk policy
-→ invalidate pending live approvals that could be affected
-→ re-evaluate pending proposals
-→ if policy is weakened: DISARM account
+→ invalidate pending proposals and approvals bound to the previous policy version
+→ re-evaluate pending proposals and record the stale policy-version result
+→ if any part of the change weakens policy: DISARM every affected Live account
 → persist audit event
 ```
 
-The UI must explicitly state when a previously approved transaction is no longer valid because policy changed.
+The affected set comes from persisted workspace bindings, never the currently selected UI account. A mixed update counts as weakening when any field relaxes; a tightening-only update does not. The UI must explicitly show the old/new policy versions, every affected account and pending proposal, and each invalidation reason. No prior decision or future approval may be reused after a policy-version change.
 
-Policy saves and approval consumption for the same account are serialized through a per-account single-writer path, eliminating save-vs-consume races: a save that lands between approval issuance and consumption is caught by the policy-version check at `PRE_EXECUTION_CHECK`.
+Policy save commits the workspace policy, all affected Live disarms, pending-proposal invalidations, and stale-version decisions atomically. Approval consumption must use the same current-policy-version predicate at `PRE_EXECUTION_CHECK`; an approval bound to an older version is ineligible. Save-vs-consume and reservation serialization are completed by the S23 transaction boundary.
 
 ## 21.4 Risk Evaluation and Evidence
 

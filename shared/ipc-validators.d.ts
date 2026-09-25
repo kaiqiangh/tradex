@@ -239,6 +239,11 @@ declare const validators: {
   RiskDecisionReasonCode: (value: unknown) => boolean;
   RiskDecisionStatus: (value: unknown) => boolean;
   RiskPolicy: (value: unknown) => boolean;
+  RiskPolicyAffectedAccount: (value: unknown) => boolean;
+  RiskPolicyAffectedProposal: (value: unknown) => boolean;
+  RiskPolicyChange: (value: unknown) => boolean;
+  RiskPolicyChangeScope: (value: unknown) => boolean;
+  RiskPolicyChangeScopeKind: (value: unknown) => boolean;
   RiskPolicyEnvironment: (value: unknown) => boolean;
   RiskPolicyInput: (value: unknown) => boolean;
   RiskPolicyState: (value: unknown) => boolean;

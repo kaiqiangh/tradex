@@ -652,12 +652,12 @@ Thread B requires €7,000
 
 ### F12. Risk-policy Change Invalidation
 
-Saving a relevant policy update:
+Saving a workspace-shared policy update invalidates every pending proposal bound to the old policy version. The affected account set comes from persisted workspace bindings and never from the selected account. No earlier decision or approval can be reused after the policy version changes.
 
-- increments policy version;
-- invalidates affected pending approval;
-- shows old/new version + reason;
-- weakening also disarms affected live account.
+- increments policy version and records the scope, old/new versions, and weakening classification; any relaxed field makes a mixed update a weakening, while tightening-only updates do not;
+- re-evaluates each pending proposal, marks it invalidated, and preserves the `POLICY_VERSION_STALE` decision and reason;
+- shows every affected account and proposal, plus the invalidation reason, in a keyboard-accessible `role="status"` / polite live region;
+- on weakening, disarms every affected Live account atomically with the policy and invalidation events.
 
 ---
 
