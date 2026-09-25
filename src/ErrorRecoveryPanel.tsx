@@ -11,6 +11,7 @@ const variants: Record<string, RecoveryVariant> = {
   INVALID_ORDER: { title: 'Order needs correction', message: 'Review the order fields and retry after the validation issue is resolved.', action: 'Review order' },
   INSUFFICIENT_FUNDS: { title: 'Funds are insufficient', message: 'Review the account capacity before preparing another proposal.', action: 'Review account' },
   RISK_REJECTED: { title: 'Risk policy rejected this action', message: 'Review the current risk policy and its blocking reason.', action: 'Review risk policy' },
+  RISK_EVIDENCE_UNAVAILABLE: { title: 'Risk evidence is unavailable', message: 'No order was submitted. Review the saved RiskDecision for missing or untrusted inputs.', action: 'Review risk decision' },
   SUBMISSION_REJECTED: { title: 'Submission was rejected', message: 'The provider rejected the submission; review the preserved response.', action: 'Review submission' },
   SUBMISSION_AMBIGUOUS: { title: 'Submission needs reconciliation', message: 'Query authoritative provider state before retrying.', action: 'Review reconciliation' },
   STREAM_DISCONNECTED: { title: 'Stream disconnected', message: 'Reload the authoritative snapshot before continuing.', action: 'Reload state' },

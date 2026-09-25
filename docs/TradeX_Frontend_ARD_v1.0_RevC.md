@@ -390,6 +390,7 @@ Use queries for backend-owned snapshots:
 - market/instrument snapshots;
 - provider/model health;
 - risk-policy summaries;
+- RiskDecision history keyed by workspace and proposal;
 - strategy/backtest metadata;
 - artifacts;
 - open orders and reconciliation views.
@@ -741,6 +742,10 @@ Buttons reflect backend eligibility for the exact operation. Re-evaluate on acco
 
 ---
 
+### 14.10 RiskDecision review and history (S21 #81)
+
+Order Drafts queries immutable RiskDecision history by workspace/proposal and offers an explicit evaluate/reevaluate action. The renderer sends only those identities; the Control Plane owns policy, account, evidence, checks, and persistence. Render `ALLOWED`, `REJECTED`, and `UNAVAILABLE` distinctly with the proposal hash, exact account/environment, policy version, input digests, and check reasons. A failed submit refreshes the query so the persisted blocking decision is visible. Neither an `ALLOWED` result nor its UI state grants approval, arming, reservation, or send authority. `RISK_EVIDENCE_UNAVAILABLE` is a canonical error separate from `RISK_REJECTED`. Ordinary Bitget `LIVE` remains read-only.
+
 ## 15. Provider and Model Configuration UI
 
 ### 15.1 Schema-driven forms
@@ -811,6 +816,7 @@ INSTRUMENT_HALTED
 INVALID_ORDER
 INSUFFICIENT_FUNDS
 RISK_REJECTED
+RISK_EVIDENCE_UNAVAILABLE
 SUBMISSION_REJECTED
 SUBMISSION_AMBIGUOUS
 STREAM_DISCONNECTED

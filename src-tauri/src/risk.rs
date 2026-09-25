@@ -1,6 +1,7 @@
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::collections::HashSet;
 
@@ -452,6 +453,1316 @@ impl RiskPolicyState {
         state.validate_persisted(workspace_id)?;
         Ok(state)
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RiskDecisionStatus {
+    Allowed,
+    Rejected,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RiskCheckOutcome {
+    Pass,
+    Reject,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RiskCheckId {
+    ProposalIdentity,
+    PolicyConfigured,
+    AccountBinding,
+    AccountHealth,
+    AllowedAccount,
+    AllowedEnvironment,
+    AllowedVenue,
+    AllowedInstrument,
+    BlockedAccount,
+    BlockedVenue,
+    BlockedInstrument,
+    OrderNotional,
+    OrderQuantity,
+    PositionSize,
+    SingleInstrumentExposure,
+    AssetClassExposure,
+    DailyTradedNotional,
+    DailyRealizedLoss,
+    OpenOrderCount,
+    ReservedCapital,
+    MarketOrder,
+    MarketOrderSlippage,
+    PriceDeviation,
+    QuoteFreshness,
+    MarketSession,
+    InstrumentRules,
+    LiveInactivity,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RiskDecisionReasonCode {
+    WithinLimit,
+    LimitNotConfigured,
+    LimitExceeded,
+    PolicyUnconfigured,
+    ProposalInvalidated,
+    EvidenceMissing,
+    EvidenceStale,
+    EvidenceUntrusted,
+    AccountUnavailable,
+    AccountMismatch,
+    AccountUnhealthy,
+    IdentifierNotAllowed,
+    IdentifierBlocked,
+    EnvironmentNotAllowed,
+    MarketOrderDisabled,
+    ExecutionQuoteUnavailable,
+    MarketClosed,
+    MarketHalted,
+    InstrumentRulesUnavailable,
+    CounterUnavailable,
+    ReservationUnavailable,
+    CalendarUnavailable,
+    ClockUncertain,
+    NotApplicable,
+    UnsupportedContext,
+    InvalidProposalValue,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RiskDecisionInputKind {
+    Policy,
+    Account,
+    Portfolio,
+    Market,
+    Time,
+    Calendar,
+    DailyCounters,
+    Reservations,
+    InstrumentRules,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskCheckResult {
+    pub check_id: RiskCheckId,
+    pub outcome: RiskCheckOutcome,
+    pub reason_code: RiskDecisionReasonCode,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskDecisionInputReference {
+    pub kind: RiskDecisionInputKind,
+    #[schemars(length(min = 1, max = 128))]
+    pub reference_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub digest: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub observed_at: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskDecision {
+    #[schemars(length(min = 1, max = 128))]
+    pub decision_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub proposal_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+    pub environment: crate::protocol::ExecutionContext,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1))]
+    pub policy_version: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub policy_state_version: Option<String>,
+    pub status: RiskDecisionStatus,
+    #[schemars(length(min = 1, max = 64))]
+    pub evaluated_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub inputs: Vec<RiskDecisionInputReference>,
+    pub checks: Vec<RiskCheckResult>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskDecisionHistory {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+    pub decisions: Vec<RiskDecision>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskDecisionEvaluate {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RiskDecisionQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: String,
+}
+
+impl RiskDecision {
+    pub(crate) fn validate(
+        &self,
+        workspace_id: &str,
+        proposal_id: &str,
+        sequence: u64,
+    ) -> crate::protocol::Result<()> {
+        let status = if self
+            .checks
+            .iter()
+            .any(|check| check.outcome == RiskCheckOutcome::Reject)
+        {
+            RiskDecisionStatus::Rejected
+        } else if self
+            .checks
+            .iter()
+            .any(|check| check.outcome == RiskCheckOutcome::Unavailable)
+        {
+            RiskDecisionStatus::Unavailable
+        } else {
+            RiskDecisionStatus::Allowed
+        };
+        if self.workspace_id != workspace_id
+            || self.proposal_id != proposal_id
+            || self.proposal_hash.len() != 71
+            || !self.proposal_hash.starts_with("sha256:")
+            || !self
+                .proposal_hash
+                .strip_prefix("sha256:")
+                .is_some_and(|hash| {
+                    hash.bytes()
+                        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                })
+            || !self.decision_id.starts_with("risk-decision:")
+            || self.evaluated_at.is_empty()
+            || self.policy_version == Some(0)
+            || self.inputs.len() > 32
+            || self.checks.is_empty()
+            || self.checks.len() > 64
+            || self
+                .checks
+                .iter()
+                .any(|check| check.reason.is_empty() || check.reason.len() > 512)
+            || self.checks.iter().enumerate().any(|(index, check)| {
+                self.checks[..index]
+                    .iter()
+                    .any(|previous| previous.check_id == check.check_id)
+            })
+            || self.inputs.iter().any(|input| {
+                input.reference_id.is_empty()
+                    || input.reference_id.len() > 128
+                    || input.digest.len() != 71
+                    || !input.digest.starts_with("sha256:")
+                    || !input.digest.strip_prefix("sha256:").is_some_and(|hash| {
+                        hash.bytes()
+                            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                    })
+            })
+            || self.state_version != format!("risk-decision:{proposal_id}:{sequence}")
+            || self.status != status
+        {
+            return Err(crate::protocol::TradeXError::new(
+                "WORKSPACE_INTEGRITY_FAILED",
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub(crate) fn input_reference<T: Serialize>(
+    kind: RiskDecisionInputKind,
+    reference_id: String,
+    observed_at: Option<String>,
+    value: &T,
+) -> crate::protocol::Result<RiskDecisionInputReference> {
+    let encoded = serde_json::to_vec(value)
+        .map_err(|_| crate::protocol::TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    Ok(RiskDecisionInputReference {
+        kind,
+        reference_id,
+        digest: format!("sha256:{}", hex::encode(Sha256::digest(encoded))),
+        observed_at,
+    })
+}
+
+pub(crate) fn evaluate(
+    proposal: &crate::protocol::OrderProposal,
+    policy_state: Option<&RiskPolicyState>,
+    account: Option<&crate::providers::AccountConnection>,
+    portfolio: Option<&crate::protocol::PortfolioSnapshot>,
+    market: Option<&crate::protocol::MarketDetail>,
+    time_status: &crate::protocol::TimeStatus,
+    inputs: Vec<RiskDecisionInputReference>,
+    evaluated_at: String,
+) -> RiskDecision {
+    use crate::protocol::{ExecutionContext, MarketSession, OrderSide, OrderType};
+    use std::cmp::Ordering;
+
+    let policy = policy_state.map(|state| &state.policy);
+    let mut checks = Vec::with_capacity(27);
+    macro_rules! push {
+        ($id:expr, $outcome:expr, $reason_code:expr, $reason:expr $(,)?) => {
+            checks.push(RiskCheckResult {
+                check_id: $id,
+                outcome: $outcome,
+                reason_code: $reason_code,
+                reason: $reason.into(),
+            })
+        };
+    }
+    macro_rules! limit {
+        ($id:expr, $value:expr, $maximum:expr, $label:expr $(,)?) => {{
+            let (outcome, reason_code, reason) = match $maximum {
+                None => (
+                    RiskCheckOutcome::Pass,
+                    RiskDecisionReasonCode::LimitNotConfigured,
+                    format!("{} limit is not configured.", $label),
+                ),
+                Some(_) if $value.is_none() => (
+                    RiskCheckOutcome::Unavailable,
+                    RiskDecisionReasonCode::EvidenceMissing,
+                    format!("Trusted {} evidence is unavailable.", $label),
+                ),
+                Some(maximum) => match crate::provider_io::decimal_cmp($value.unwrap(), maximum) {
+                    Ok(Ordering::Greater) => (
+                        RiskCheckOutcome::Reject,
+                        RiskDecisionReasonCode::LimitExceeded,
+                        format!("{} exceeds the configured limit.", $label),
+                    ),
+                    Ok(_) => (
+                        RiskCheckOutcome::Pass,
+                        RiskDecisionReasonCode::WithinLimit,
+                        format!("{} is within the configured limit.", $label),
+                    ),
+                    Err(_) => (
+                        RiskCheckOutcome::Unavailable,
+                        RiskDecisionReasonCode::InvalidProposalValue,
+                        format!("{} could not be compared exactly.", $label),
+                    ),
+                },
+            };
+            push!($id, outcome, reason_code, reason);
+        }};
+    }
+
+    let proposal_current = proposal.status == crate::protocol::OrderProposalStatus::NeedsApproval
+        && proposal.workspace_id == time_status.workspace_id;
+    push!(
+        RiskCheckId::ProposalIdentity,
+        if proposal_current {
+            RiskCheckOutcome::Pass
+        } else {
+            RiskCheckOutcome::Reject
+        },
+        if proposal_current {
+            RiskDecisionReasonCode::WithinLimit
+        } else {
+            RiskDecisionReasonCode::ProposalInvalidated
+        },
+        if proposal_current {
+            "The immutable proposal is current in this workspace."
+        } else {
+            "The proposal is no longer eligible for risk evaluation."
+        },
+    );
+    push!(
+        RiskCheckId::PolicyConfigured,
+        if policy_state.is_some_and(|state| state.configured) {
+            RiskCheckOutcome::Pass
+        } else {
+            RiskCheckOutcome::Unavailable
+        },
+        if policy_state.is_some_and(|state| state.configured) {
+            RiskDecisionReasonCode::WithinLimit
+        } else {
+            RiskDecisionReasonCode::PolicyUnconfigured
+        },
+        if policy_state.is_some_and(|state| state.configured) {
+            "A persisted risk policy is configured."
+        } else {
+            "A persisted risk policy is not configured."
+        },
+    );
+
+    let account_id = proposal.fields.account_id.as_deref();
+    let expected = match proposal.fields.environment {
+        ExecutionContext::LocalPaper => Some(("local-paper", "LOCAL")),
+        ExecutionContext::AlpacaPaper => Some(("alpaca", "PAPER")),
+        ExecutionContext::Trading212Demo => Some(("trading212", "DEMO")),
+        ExecutionContext::Trading212Live => Some(("trading212", "LIVE")),
+        ExecutionContext::BinanceTestnet => Some(("binance", "TESTNET")),
+        ExecutionContext::BinanceLive => Some(("binance", "LIVE")),
+        ExecutionContext::BitgetDemo => Some(("bitget", "DEMO")),
+        ExecutionContext::BitgetLive => Some(("bitget", "LIVE")),
+        ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => None,
+    };
+    let binding = match (account_id, account, expected) {
+        (Some(id), Some(account), Some((provider, environment)))
+            if id == account.connection_id
+                && account.workspace_id == proposal.workspace_id
+                && account.provider_id == provider
+                && account.environment == environment =>
+        {
+            RiskCheckOutcome::Pass
+        }
+        (Some(_), Some(_), Some(_)) => RiskCheckOutcome::Reject,
+        (_, _, None) => RiskCheckOutcome::Unavailable,
+        _ => RiskCheckOutcome::Unavailable,
+    };
+    push!(
+        RiskCheckId::AccountBinding,
+        binding,
+        match binding {
+            RiskCheckOutcome::Pass => RiskDecisionReasonCode::WithinLimit,
+            RiskCheckOutcome::Reject => RiskDecisionReasonCode::AccountMismatch,
+            RiskCheckOutcome::Unavailable => RiskDecisionReasonCode::AccountUnavailable,
+        },
+        match binding {
+            RiskCheckOutcome::Pass => "The proposal is bound to the exact account and environment.",
+            RiskCheckOutcome::Reject => "The saved account does not match the proposal context.",
+            RiskCheckOutcome::Unavailable => "A supported account identity is not available.",
+        },
+    );
+    let account_healthy = account.is_some_and(|account| {
+        account.connection_state == crate::providers::ConnectionState::Connected
+            && matches!(account.health.connection.as_str(), "ONLINE" | "CONNECTED")
+            && matches!(
+                account.health.authentication.as_str(),
+                "VALID" | "NOT_REQUIRED"
+            )
+            && matches!(
+                account.health.credential.as_str(),
+                "AVAILABLE" | "CONFIGURED" | "NOT_REQUIRED"
+            )
+    });
+    push!(
+        RiskCheckId::AccountHealth,
+        if account_healthy {
+            RiskCheckOutcome::Pass
+        } else {
+            RiskCheckOutcome::Unavailable
+        },
+        if account_healthy {
+            RiskDecisionReasonCode::WithinLimit
+        } else {
+            RiskDecisionReasonCode::AccountUnhealthy
+        },
+        if account_healthy {
+            "The saved account connection and authentication are healthy."
+        } else {
+            "The saved account is disconnected or its health is unverified."
+        },
+    );
+
+    let environment = match proposal.fields.environment {
+        ExecutionContext::LocalPaper => Some(crate::risk::RiskPolicyEnvironment::LocalPaper),
+        ExecutionContext::AlpacaPaper | ExecutionContext::Trading212Live => Some(
+            if proposal.fields.environment == ExecutionContext::AlpacaPaper {
+                crate::risk::RiskPolicyEnvironment::Paper
+            } else {
+                crate::risk::RiskPolicyEnvironment::Live
+            },
+        ),
+        ExecutionContext::Trading212Demo | ExecutionContext::BitgetDemo => {
+            Some(crate::risk::RiskPolicyEnvironment::Demo)
+        }
+        ExecutionContext::BinanceTestnet => Some(crate::risk::RiskPolicyEnvironment::Testnet),
+        ExecutionContext::BinanceLive | ExecutionContext::BitgetLive => {
+            Some(crate::risk::RiskPolicyEnvironment::Live)
+        }
+        ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => None,
+    };
+    let identity_check = |allowed: &[String], value: &str| {
+        if allowed.is_empty() || allowed.iter().any(|candidate| candidate == value) {
+            (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+        } else {
+            (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::IdentifierNotAllowed,
+            )
+        }
+    };
+    let (outcome, reason) = match (policy, account_id) {
+        (Some(policy), Some(account_id)) => identity_check(&policy.allowed_account_ids, account_id),
+        (_, None) if policy.is_some_and(|policy| !policy.allowed_account_ids.is_empty()) => (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::AccountUnavailable,
+        ),
+        _ => (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::LimitNotConfigured,
+        ),
+    };
+    push!(
+        RiskCheckId::AllowedAccount,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The account is outside the configured allow-list."
+        } else if outcome == RiskCheckOutcome::Unavailable {
+            "The configured account allow-list cannot be checked without an account ID."
+        } else {
+            "The account allow-list does not block this proposal."
+        },
+    );
+    let (outcome, reason) = match (policy, account_id) {
+        (Some(policy), Some(account_id))
+            if policy.blocked_account_ids.iter().any(|id| id == account_id) =>
+        {
+            (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::IdentifierBlocked,
+            )
+        }
+        _ => (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit),
+    };
+    push!(
+        RiskCheckId::BlockedAccount,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The account is in the configured block-list."
+        } else {
+            "The account is not in the configured block-list."
+        },
+    );
+    let (outcome, reason) = match (policy, environment) {
+        (Some(policy), Some(environment))
+            if policy.allowed_environments.is_empty()
+                || policy.allowed_environments.contains(&environment) =>
+        {
+            (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+        }
+        (Some(_), Some(_)) => (
+            RiskCheckOutcome::Reject,
+            RiskDecisionReasonCode::EnvironmentNotAllowed,
+        ),
+        _ => (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::UnsupportedContext,
+        ),
+    };
+    push!(
+        RiskCheckId::AllowedEnvironment,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The execution environment is outside the configured allow-list."
+        } else if outcome == RiskCheckOutcome::Unavailable {
+            "This proposal has no supported policy environment mapping."
+        } else {
+            "The execution environment is allowed by policy."
+        },
+    );
+    let (outcome, reason) = match policy {
+        Some(policy)
+            if policy.allowed_venues.is_empty()
+                || policy.allowed_venues.contains(&proposal.fields.venue) =>
+        {
+            (
+                RiskCheckOutcome::Pass,
+                if policy.allowed_venues.is_empty() {
+                    RiskDecisionReasonCode::LimitNotConfigured
+                } else {
+                    RiskDecisionReasonCode::WithinLimit
+                },
+            )
+        }
+        Some(_) => (
+            RiskCheckOutcome::Reject,
+            RiskDecisionReasonCode::IdentifierNotAllowed,
+        ),
+        None => (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::PolicyUnconfigured,
+        ),
+    };
+    push!(
+        RiskCheckId::AllowedVenue,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The venue is outside the configured allow-list."
+        } else {
+            "The venue is allowed by policy or no venue allow-list is configured."
+        },
+    );
+    let (outcome, reason) = match policy {
+        Some(policy)
+            if policy.allowed_instrument_ids.is_empty()
+                || policy
+                    .allowed_instrument_ids
+                    .contains(&proposal.fields.instrument_id) =>
+        {
+            (
+                RiskCheckOutcome::Pass,
+                if policy.allowed_instrument_ids.is_empty() {
+                    RiskDecisionReasonCode::LimitNotConfigured
+                } else {
+                    RiskDecisionReasonCode::WithinLimit
+                },
+            )
+        }
+        Some(_) => (
+            RiskCheckOutcome::Reject,
+            RiskDecisionReasonCode::IdentifierNotAllowed,
+        ),
+        None => (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::PolicyUnconfigured,
+        ),
+    };
+    push!(
+        RiskCheckId::AllowedInstrument,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The instrument is outside the configured allow-list."
+        } else {
+            "The instrument is allowed by policy or no instrument allow-list is configured."
+        },
+    );
+    let (outcome, reason) = match policy {
+        Some(policy)
+            if policy
+                .blocked_venues
+                .iter()
+                .any(|venue| venue == &proposal.fields.venue) =>
+        {
+            (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::IdentifierBlocked,
+            )
+        }
+        _ => (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit),
+    };
+    push!(
+        RiskCheckId::BlockedVenue,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The venue is in the configured block-list."
+        } else {
+            "The venue is not in the configured block-list."
+        },
+    );
+    let (outcome, reason) = match policy {
+        Some(policy)
+            if policy
+                .blocked_instrument_ids
+                .iter()
+                .any(|id| id == &proposal.fields.instrument_id) =>
+        {
+            (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::IdentifierBlocked,
+            )
+        }
+        _ => (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit),
+    };
+    push!(
+        RiskCheckId::BlockedInstrument,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The instrument is in the configured block-list."
+        } else {
+            "The instrument is not in the configured block-list."
+        },
+    );
+
+    let notional = proposal_notional_in_base(proposal, portfolio);
+    limit!(
+        RiskCheckId::OrderNotional,
+        notional.as_deref(),
+        policy.and_then(|policy| policy.max_order_notional.as_deref()),
+        "Order notional",
+    );
+    limit!(
+        RiskCheckId::OrderQuantity,
+        Some(&proposal.fields.quantity.value),
+        policy.and_then(|policy| policy.max_order_quantity.as_deref()),
+        "Order quantity",
+    );
+    let current_instrument_value = portfolio.and_then(|portfolio| {
+        portfolio_complete(portfolio)
+            .then(|| instrument_value(portfolio, &proposal.fields.instrument_id))
+            .flatten()
+    });
+    let position_size = match (current_instrument_value.as_deref(), notional.as_deref()) {
+        (Some(current), Some(order)) => {
+            let signed_order = if proposal.fields.side == OrderSide::Sell {
+                format!("-{order}")
+            } else {
+                order.to_owned()
+            };
+            crate::portfolio::decimal_add(current, &signed_order)
+                .ok()
+                .map(|value| value.strip_prefix('-').unwrap_or(&value).to_owned())
+        }
+        _ => None,
+    };
+    limit!(
+        RiskCheckId::PositionSize,
+        position_size.as_deref(),
+        policy.and_then(|policy| policy.max_position_size.as_deref()),
+        "Position size",
+    );
+    let total_equity = portfolio
+        .filter(|portfolio| portfolio_complete(portfolio))
+        .and_then(|portfolio| portfolio.totals.equity.workspace_value.as_deref());
+    let instrument_exposure = match (
+        current_instrument_value.as_deref(),
+        notional.as_deref(),
+        total_equity,
+    ) {
+        (Some(current), Some(order), Some(equity)) => {
+            exposure_percent(current, order, equity, proposal.fields.side)
+        }
+        _ => None,
+    };
+    limit!(
+        RiskCheckId::SingleInstrumentExposure,
+        instrument_exposure.as_deref(),
+        policy.and_then(|policy| policy.max_single_instrument_exposure_percent.as_deref()),
+        "Single-instrument exposure percent",
+    );
+    let configured_asset_class_limits = policy
+        .map(|policy| &policy.max_asset_class_exposure_percent[..])
+        .unwrap_or(&[]);
+    let class_limit_exceeded = match (
+        portfolio.filter(|portfolio| portfolio_complete(portfolio)),
+        market,
+        notional.as_deref(),
+        total_equity,
+    ) {
+        (Some(portfolio), Some(market), Some(order), Some(equity)) => configured_asset_class_limits
+            .iter()
+            .try_fold(false, |exceeded, class_limit| {
+                let current = class_exposure(portfolio, &class_limit.asset_class)?;
+                let applies = market.instrument.asset_class == class_limit.asset_class;
+                let exposure = exposure_percent(
+                    &current,
+                    if applies { order } else { "0" },
+                    equity,
+                    if applies {
+                        proposal.fields.side
+                    } else {
+                        OrderSide::Buy
+                    },
+                )?;
+                Some(
+                    exceeded
+                        || crate::provider_io::decimal_cmp(
+                            &exposure,
+                            &class_limit.max_exposure_percent,
+                        )
+                        .ok()?
+                            == Ordering::Greater,
+                )
+            }),
+        _ if configured_asset_class_limits.is_empty() => Some(false),
+        _ => None,
+    };
+    let (outcome, reason) = if configured_asset_class_limits.is_empty() {
+        (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::LimitNotConfigured,
+        )
+    } else if let Some(exceeded) = class_limit_exceeded {
+        if exceeded {
+            (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::LimitExceeded,
+            )
+        } else {
+            (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+        }
+    } else {
+        (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceMissing,
+        )
+    };
+    push!(
+        RiskCheckId::AssetClassExposure,
+        outcome,
+        reason,
+        if outcome == RiskCheckOutcome::Reject {
+            "The proposed asset-class exposure exceeds its configured limit."
+        } else if outcome == RiskCheckOutcome::Unavailable {
+            "Workspace exposure or a trusted asset-class mapping is unavailable."
+        } else {
+            "Asset-class exposure is within limits or no class limit is configured."
+        },
+    );
+
+    let daily_traded = portfolio.and_then(|portfolio| {
+        if !portfolio_complete(portfolio) {
+            return None;
+        }
+        let fills = portfolio.fills.as_ref()?;
+        let date = time_status.wall_clock.get(..10)?;
+        fills
+            .iter()
+            .filter(|fill| fill.observed_at.get(..10) == Some(date))
+            .try_fold("0".to_owned(), |total, fill| {
+                let amount = portfolio_value(&fill.value)?;
+                crate::portfolio::decimal_add(&total, amount).ok()
+            })
+    });
+    limit!(
+        RiskCheckId::DailyTradedNotional,
+        daily_traded.as_deref(),
+        policy.and_then(|policy| policy.max_daily_traded_notional.as_deref()),
+        "Daily traded notional",
+    );
+    let daily_loss_limit = policy.and_then(|policy| policy.max_daily_realized_loss.as_deref());
+    push!(
+        RiskCheckId::DailyRealizedLoss,
+        if daily_loss_limit.is_some() {
+            RiskCheckOutcome::Unavailable
+        } else {
+            RiskCheckOutcome::Pass
+        },
+        if daily_loss_limit.is_some() {
+            RiskDecisionReasonCode::CounterUnavailable
+        } else {
+            RiskDecisionReasonCode::LimitNotConfigured
+        },
+        if daily_loss_limit.is_some() {
+            "Complete daily realized-loss counters are unavailable."
+        } else {
+            "Daily realized-loss limit is not configured."
+        },
+    );
+    let (outcome, reason) = match policy.and_then(|policy| policy.max_open_orders) {
+        None => (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::LimitNotConfigured,
+        ),
+        Some(maximum) => portfolio
+            .filter(|portfolio| portfolio_complete(portfolio))
+            .map_or(
+                (
+                    RiskCheckOutcome::Unavailable,
+                    RiskDecisionReasonCode::CounterUnavailable,
+                ),
+                |portfolio| {
+                    let count = portfolio
+                        .open_orders
+                        .iter()
+                        .try_fold(0_u64, |count, order| match order.status.as_str() {
+                            "FILLED" | "CANCELLED" | "CANCELED" | "REJECTED" | "EXPIRED" => {
+                                Some(count)
+                            }
+                            "OPEN" | "PENDING" | "ACCEPTED" | "NEW" | "PARTIALLY_FILLED"
+                            | "PENDING_CANCEL" | "CANCEL_PENDING" | "PROPOSED" => Some(count + 1),
+                            _ => None,
+                        });
+                    match count {
+                        None => (
+                            RiskCheckOutcome::Unavailable,
+                            RiskDecisionReasonCode::CounterUnavailable,
+                        ),
+                        Some(count) if count > maximum as u64 => (
+                            RiskCheckOutcome::Reject,
+                            RiskDecisionReasonCode::LimitExceeded,
+                        ),
+                        Some(_) => (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit),
+                    }
+                },
+            ),
+    };
+    push!(
+        RiskCheckId::OpenOrderCount,
+        outcome,
+        reason,
+        if reason == RiskDecisionReasonCode::LimitNotConfigured {
+            "Open-order limit is not configured."
+        } else if reason == RiskDecisionReasonCode::LimitExceeded {
+            "Workspace open-order count exceeds the configured limit."
+        } else if outcome == RiskCheckOutcome::Unavailable {
+            "Complete workspace open-order observations are unavailable."
+        } else {
+            "Workspace open-order count is within the configured limit."
+        },
+    );
+    let reserved_limit = policy.and_then(|policy| policy.max_reserved_capital.as_deref());
+    push!(
+        RiskCheckId::ReservedCapital,
+        if reserved_limit.is_some() {
+            RiskCheckOutcome::Unavailable
+        } else {
+            RiskCheckOutcome::Pass
+        },
+        if reserved_limit.is_some() {
+            RiskDecisionReasonCode::ReservationUnavailable
+        } else {
+            RiskDecisionReasonCode::LimitNotConfigured
+        },
+        if reserved_limit.is_some() {
+            "No complete workspace reservation ledger is available."
+        } else {
+            "Reserved-capital limit is not configured."
+        },
+    );
+
+    let market_order = proposal.fields.order_type == OrderType::Market;
+    let local_simulation = proposal.fields.environment == ExecutionContext::LocalPaper;
+    let market_orders_enabled = policy.is_some_and(|policy| policy.market_orders_enabled);
+    push!(
+        RiskCheckId::MarketOrder,
+        if !market_order {
+            RiskCheckOutcome::Pass
+        } else if market_orders_enabled {
+            RiskCheckOutcome::Pass
+        } else {
+            RiskCheckOutcome::Reject
+        },
+        if !market_order {
+            RiskDecisionReasonCode::NotApplicable
+        } else if market_orders_enabled {
+            RiskDecisionReasonCode::WithinLimit
+        } else {
+            RiskDecisionReasonCode::MarketOrderDisabled
+        },
+        if !market_order {
+            "The proposal is a limit order; market-order policy is not applicable."
+        } else if market_orders_enabled {
+            "Market orders are enabled by policy."
+        } else {
+            "Market orders are disabled by policy."
+        },
+    );
+    let slippage_limit =
+        policy.and_then(|policy| policy.max_market_order_slippage_percent.as_deref());
+    let (outcome, reason) = if local_simulation || !market_order || slippage_limit.is_none() {
+        (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::NotApplicable,
+        )
+    } else if !market_orders_enabled {
+        (
+            RiskCheckOutcome::Reject,
+            RiskDecisionReasonCode::MarketOrderDisabled,
+        )
+    } else {
+        (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::ExecutionQuoteUnavailable,
+        )
+    };
+    push!(
+        RiskCheckId::MarketOrderSlippage,
+        outcome,
+        reason,
+        if reason == RiskDecisionReasonCode::ExecutionQuoteUnavailable {
+            "A size-aware executable quote is unavailable for slippage evaluation."
+        } else if reason == RiskDecisionReasonCode::MarketOrderDisabled {
+            "Market orders are disabled by policy."
+        } else if local_simulation && market_order {
+            "The local simulator validates its quote and slippage at submission."
+        } else {
+            "Market-order slippage is not applicable to this proposal."
+        },
+    );
+
+    let (quote_outcome, quote_reason) = if local_simulation {
+        (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::NotApplicable,
+        )
+    } else {
+        market_freshness(
+            market,
+            time_status,
+            policy.map_or(DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS, |policy| {
+                policy.stale_quote_threshold_seconds
+            }),
+        )
+    };
+    push!(
+        RiskCheckId::QuoteFreshness,
+        quote_outcome,
+        quote_reason,
+        match quote_reason {
+            RiskDecisionReasonCode::WithinLimit => {
+                "A real-time quote is fresh and the clock is trusted."
+            }
+            RiskDecisionReasonCode::NotApplicable => {
+                "The local simulator validates its quote at submission."
+            }
+            RiskDecisionReasonCode::EvidenceStale => {
+                "The market observation is older than the configured threshold."
+            }
+            RiskDecisionReasonCode::EvidenceUntrusted => {
+                "Market entitlement or time confidence is not trusted."
+            }
+            RiskDecisionReasonCode::ClockUncertain => {
+                "The application clock is not trusted for a freshness check."
+            }
+            _ => "A required current market quote is unavailable.",
+        },
+    );
+    let (outcome, reason) = if local_simulation {
+        (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::NotApplicable,
+        )
+    } else {
+        market
+            .filter(|market| {
+                market.market_state.source_status == crate::protocol::MarketDataStatus::Available
+                    && market.market_state.source_id.is_some()
+                    && market.market_state.calendar_version.is_some()
+                    && market.market_state.time_confidence
+                        == crate::protocol::TimeConfidence::Trusted
+            })
+            .map_or(
+                (
+                    RiskCheckOutcome::Unavailable,
+                    RiskDecisionReasonCode::CalendarUnavailable,
+                ),
+                |market| match market.market_state.session {
+                    MarketSession::Open => {
+                        (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+                    }
+                    MarketSession::Closed => (
+                        RiskCheckOutcome::Reject,
+                        RiskDecisionReasonCode::MarketClosed,
+                    ),
+                    MarketSession::Halted | MarketSession::Suspended => (
+                        RiskCheckOutcome::Reject,
+                        RiskDecisionReasonCode::MarketHalted,
+                    ),
+                    _ => (
+                        RiskCheckOutcome::Unavailable,
+                        RiskDecisionReasonCode::CalendarUnavailable,
+                    ),
+                },
+            )
+    };
+    push!(
+        RiskCheckId::MarketSession,
+        outcome,
+        reason,
+        match reason {
+            RiskDecisionReasonCode::MarketClosed => {
+                "The authoritative market calendar reports a closed session."
+            }
+            RiskDecisionReasonCode::MarketHalted => {
+                "The authoritative market state reports a halt or suspension."
+            }
+            RiskDecisionReasonCode::WithinLimit => "The market session is open.",
+            _ => "A current authoritative market calendar is unavailable.",
+        },
+    );
+    let deviation = match (
+        policy.and_then(|policy| policy.max_price_deviation_percent.as_deref()),
+        proposal.fields.limit_price.as_deref(),
+        market.and_then(|market| market.snapshot.as_ref()),
+    ) {
+        (None, _, _) => None,
+        (Some(_), Some(limit_price), Some(snapshot)) => snapshot
+            .last_price
+            .as_deref()
+            .and_then(|last| price_deviation(limit_price, last)),
+        _ => None,
+    };
+    let deviation_limit = policy.and_then(|policy| policy.max_price_deviation_percent.as_deref());
+    if deviation_limit.is_none() {
+        push!(
+            RiskCheckId::PriceDeviation,
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::LimitNotConfigured,
+            "Maximum price deviation is not configured.",
+        );
+    } else if proposal.fields.order_type == OrderType::Market {
+        push!(
+            RiskCheckId::PriceDeviation,
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::ExecutionQuoteUnavailable,
+            "A market order has no proposal limit price for price-deviation evaluation.",
+        );
+    } else {
+        limit!(
+            RiskCheckId::PriceDeviation,
+            deviation.as_deref(),
+            deviation_limit,
+            "Price deviation percent",
+        );
+    }
+    push!(
+        RiskCheckId::InstrumentRules,
+        if local_simulation {
+            RiskCheckOutcome::Pass
+        } else {
+            RiskCheckOutcome::Unavailable
+        },
+        if local_simulation {
+            RiskDecisionReasonCode::NotApplicable
+        } else {
+            RiskDecisionReasonCode::InstrumentRulesUnavailable
+        },
+        if local_simulation {
+            "The local simulator validates its built-in order rules at submission."
+        } else {
+            "No authoritative provider instrument-rule snapshot is available."
+        },
+    );
+    push!(
+        RiskCheckId::LiveInactivity,
+        RiskCheckOutcome::Pass,
+        RiskDecisionReasonCode::NotApplicable,
+        "Live inactivity timeout applies to a later Arm session, not this policy evaluation.",
+    );
+
+    let status = if checks
+        .iter()
+        .any(|check| check.outcome == RiskCheckOutcome::Reject)
+    {
+        RiskDecisionStatus::Rejected
+    } else if checks
+        .iter()
+        .any(|check| check.outcome == RiskCheckOutcome::Unavailable)
+    {
+        RiskDecisionStatus::Unavailable
+    } else {
+        RiskDecisionStatus::Allowed
+    };
+    let context = proposal.fields.environment.clone();
+    RiskDecision {
+        decision_id: format!("risk-decision:{}", uuid::Uuid::new_v4()),
+        workspace_id: proposal.workspace_id.clone(),
+        proposal_id: proposal.proposal_id.clone(),
+        proposal_hash: proposal.proposal_hash.clone(),
+        account_id: account_id.map(str::to_owned),
+        environment: context,
+        policy_version: policy_state.map(|state| state.policy_version),
+        policy_state_version: policy_state.map(|state| state.state_version.clone()),
+        status,
+        evaluated_at,
+        state_version: String::new(),
+        inputs,
+        checks,
+    }
+}
+
+fn proposal_notional_in_base(
+    proposal: &crate::protocol::OrderProposal,
+    portfolio: Option<&crate::protocol::PortfolioSnapshot>,
+) -> Option<String> {
+    let portfolio = portfolio?;
+    if !portfolio_complete(portfolio) {
+        return None;
+    }
+    (proposal.estimated_notional_currency.as_deref() == Some(portfolio.base_currency.as_str()))
+        .then(|| proposal.estimated_notional.clone())
+        .flatten()
+}
+
+fn portfolio_complete(portfolio: &crate::protocol::PortfolioSnapshot) -> bool {
+    use crate::{protocol::PortfolioStatus, providers::ConnectionState};
+
+    portfolio.status == PortfolioStatus::Available
+        && !portfolio.accounts.is_empty()
+        && portfolio.totals.equity.workspace_value.is_some()
+        && portfolio.accounts.iter().all(|account| {
+            account.connection_state == ConnectionState::Connected
+                && matches!(account.health.connection.as_str(), "ONLINE" | "CONNECTED")
+                && matches!(
+                    account.health.authentication.as_str(),
+                    "VALID" | "NOT_REQUIRED"
+                )
+                && matches!(
+                    account.health.credential.as_str(),
+                    "AVAILABLE" | "CONFIGURED" | "NOT_REQUIRED"
+                )
+                && account.equity.workspace_value.is_some()
+        })
+}
+
+fn portfolio_value(value: &crate::protocol::PortfolioValue) -> Option<&str> {
+    if value.workspace_currency == value.native_currency.as_deref().unwrap_or("") {
+        value.native_value.as_deref()
+    } else {
+        value.workspace_value.as_deref()
+    }
+}
+
+fn instrument_value(
+    portfolio: &crate::protocol::PortfolioSnapshot,
+    instrument_id: &str,
+) -> Option<String> {
+    portfolio
+        .holdings
+        .iter()
+        .filter(|holding| holding.instrument_id.as_deref() == Some(instrument_id))
+        .try_fold("0".to_owned(), |total, holding| {
+            crate::portfolio::decimal_add(&total, portfolio_value(&holding.value)?).ok()
+        })
+}
+
+fn class_exposure(
+    portfolio: &crate::protocol::PortfolioSnapshot,
+    class: &crate::protocol::AssetClass,
+) -> Option<String> {
+    let mut total = "0".to_owned();
+    for holding in &portfolio.holdings {
+        let holding_class = match holding.instrument_id.as_deref() {
+            Some(id) if id.starts_with("equity:") => Some(crate::protocol::AssetClass::Equity),
+            Some(id) if id.starts_with("crypto:") => Some(crate::protocol::AssetClass::CryptoSpot),
+            Some(_) => return None,
+            None if portfolio.accounts.iter().any(|account| {
+                account.connection_id == holding.connection_id
+                    && account.account_currency.as_deref() == Some(&holding.asset)
+            }) =>
+            {
+                None
+            }
+            None => return None,
+        };
+        if holding_class.as_ref() == Some(class) {
+            total = crate::portfolio::decimal_add(&total, portfolio_value(&holding.value)?).ok()?;
+        }
+    }
+    Some(total)
+}
+
+fn exposure_percent(
+    current: &str,
+    proposed: &str,
+    equity: &str,
+    side: crate::protocol::OrderSide,
+) -> Option<String> {
+    let proposed = if side == crate::protocol::OrderSide::Sell {
+        format!("-{proposed}")
+    } else {
+        proposed.to_owned()
+    };
+    let exposure = crate::portfolio::decimal_add(current, &proposed).ok()?;
+    let exposure = exposure.strip_prefix('-').unwrap_or(&exposure);
+    crate::portfolio::decimal_mul(
+        &crate::portfolio::decimal_div(exposure, equity).ok()?,
+        "100",
+    )
+    .ok()
+}
+
+fn price_deviation(limit_price: &str, last_price: &str) -> Option<String> {
+    use std::cmp::Ordering;
+    if crate::provider_io::decimal_cmp(last_price, "0").ok()? != Ordering::Greater {
+        return None;
+    }
+    let difference = crate::portfolio::decimal_add(limit_price, &format!("-{last_price}")).ok()?;
+    let difference = difference.strip_prefix('-').unwrap_or(&difference);
+    crate::portfolio::decimal_mul(
+        &crate::portfolio::decimal_div(difference, last_price).ok()?,
+        "100",
+    )
+    .ok()
+}
+
+fn market_freshness(
+    market: Option<&crate::protocol::MarketDetail>,
+    time_status: &crate::protocol::TimeStatus,
+    maximum_age_seconds: u64,
+) -> (RiskCheckOutcome, RiskDecisionReasonCode) {
+    use crate::protocol::{MarketDataStatus, MarketEntitlement, MarketFreshness, TimeConfidence};
+    use time::format_description::well_known::Rfc3339;
+
+    if time_status.confidence != TimeConfidence::Trusted {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::ClockUncertain,
+        );
+    }
+    let Some(market) = market else {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceMissing,
+        );
+    };
+    if market.status != MarketDataStatus::Available {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceUntrusted,
+        );
+    }
+    let Some(snapshot) = &market.snapshot else {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceMissing,
+        );
+    };
+    if snapshot.provenance.entitlement != MarketEntitlement::Realtime
+        || snapshot.provenance.freshness != MarketFreshness::Healthy
+        || snapshot.last_price.is_none()
+    {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceUntrusted,
+        );
+    }
+    let parse = |value: &str| time::OffsetDateTime::parse(value, &Rfc3339).ok();
+    let (Some(now), Some(received), Some(provider)) = (
+        parse(&time_status.wall_clock),
+        parse(&snapshot.provenance.received_timestamp),
+        parse(&snapshot.provenance.provider_timestamp),
+    ) else {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceMissing,
+        );
+    };
+    let now = now.unix_timestamp();
+    let ages = [
+        now - received.unix_timestamp(),
+        now - provider.unix_timestamp(),
+    ];
+    if ages.iter().any(|age| *age < 0) {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceUntrusted,
+        );
+    }
+    if ages.iter().any(|age| *age as u64 > maximum_age_seconds) {
+        return (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceStale,
+        );
+    }
+    (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
 }
 
 #[derive(Deserialize, JsonSchema)]

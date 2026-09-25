@@ -1287,6 +1287,12 @@ Save risk policy
 
 同一账户的策略保存与审批消费通过按账户的单写者路径串行化,从而消除"保存 vs 消费"竞争:在审批签发与消费之间落地的保存,会被 `PRE_EXECUTION_CHECK` 处的策略版本检查捕获。
 
+## 21.4 风险求值与证据
+
+可信 Control Plane 使用当前策略与证据求值不可变 OrderProposal。每条结果为 `ALLOWED`、`REJECTED` 或 `UNAVAILABLE`,并绑定 workspace、proposal ID/hash、准确账户/环境、策略版本、求值时间、输入摘要及逐项检查结果。每次求值都会追加不可变决策与事件;重新求值不修改 proposal,也不覆盖既有决策。
+
+策略拒绝优先。如果没有检查拒绝,但必需证据缺失、过期或不可信,结果为 `UNAVAILABLE`。缺失证据不得变成空组合、零活动或假定币种平价。Submit 命令必须在可信边界重新求值;结果为 `REJECTED` 或 `UNAVAILABLE` 时不得产生 provider/simulator 订单副作用。Renderer 与 Agent 不能提供求值输入或覆盖结果。`ALLOWED` 仅代表策略求值通过,不授予审批、账户 Arm、预留或发送订单的权限。普通 Bitget Live 账户映射到 `LIVE` 策略环境,在后续金融权限门禁实现前保持只读。
+
 ---
 
 # 22. 审批前与执行前校验

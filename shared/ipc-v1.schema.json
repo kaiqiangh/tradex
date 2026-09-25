@@ -286,6 +286,12 @@
     "result": {
       "$ref": "#/$defs/ResultEnvelope"
     },
+    "riskDecisionEvaluate": {
+      "$ref": "#/$defs/RiskDecisionEvaluate"
+    },
+    "riskDecisionQuery": {
+      "$ref": "#/$defs/RiskDecisionQuery"
+    },
     "riskQuery": {
       "$ref": "#/$defs/RiskQuery"
     },
@@ -433,6 +439,8 @@
     "setDefaultModel",
     "setFallbackPolicy",
     "riskQuery",
+    "riskDecisionEvaluate",
+    "riskDecisionQuery",
     "saveRiskPolicy",
     "setOnboardingStep",
     "completeOnboarding",
@@ -4950,6 +4958,7 @@
             "model-gateway",
             "model",
             "risk",
+            "risk-decision",
             "thread",
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
@@ -4973,6 +4982,7 @@
             "model.provider.changed",
             "model.provider_attempt.changed",
             "risk.policy.changed",
+            "risk.decision.evaluated",
             "thread.created",
             "thread.updated",
             "trading212.demo.order.attempt.changed",
@@ -5031,6 +5041,9 @@
         },
         {
           "$ref": "#/$defs/RiskPolicyState"
+        },
+        {
+          "$ref": "#/$defs/RiskDecision"
         },
         {
           "$ref": "#/$defs/Thread"
@@ -8541,6 +8554,12 @@
           "$ref": "#/$defs/RiskPolicyState"
         },
         {
+          "$ref": "#/$defs/RiskDecision"
+        },
+        {
+          "$ref": "#/$defs/RiskDecisionHistory"
+        },
+        {
           "$ref": "#/$defs/ProviderCatalog"
         },
         {
@@ -9224,6 +9243,309 @@
       "required": [
         "assetClass",
         "maxExposurePercent"
+      ]
+    },
+    "RiskCheckId": {
+      "type": "string",
+      "enum": [
+        "PROPOSAL_IDENTITY",
+        "POLICY_CONFIGURED",
+        "ACCOUNT_BINDING",
+        "ACCOUNT_HEALTH",
+        "ALLOWED_ACCOUNT",
+        "ALLOWED_ENVIRONMENT",
+        "ALLOWED_VENUE",
+        "ALLOWED_INSTRUMENT",
+        "BLOCKED_ACCOUNT",
+        "BLOCKED_VENUE",
+        "BLOCKED_INSTRUMENT",
+        "ORDER_NOTIONAL",
+        "ORDER_QUANTITY",
+        "POSITION_SIZE",
+        "SINGLE_INSTRUMENT_EXPOSURE",
+        "ASSET_CLASS_EXPOSURE",
+        "DAILY_TRADED_NOTIONAL",
+        "DAILY_REALIZED_LOSS",
+        "OPEN_ORDER_COUNT",
+        "RESERVED_CAPITAL",
+        "MARKET_ORDER",
+        "MARKET_ORDER_SLIPPAGE",
+        "PRICE_DEVIATION",
+        "QUOTE_FRESHNESS",
+        "MARKET_SESSION",
+        "INSTRUMENT_RULES",
+        "LIVE_INACTIVITY"
+      ]
+    },
+    "RiskCheckOutcome": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "REJECT",
+        "UNAVAILABLE"
+      ]
+    },
+    "RiskCheckResult": {
+      "type": "object",
+      "properties": {
+        "checkId": {
+          "$ref": "#/$defs/RiskCheckId"
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "reasonCode": {
+          "$ref": "#/$defs/RiskDecisionReasonCode"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "checkId",
+        "outcome",
+        "reasonCode",
+        "reason"
+      ]
+    },
+    "RiskDecision": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskCheckResult"
+          }
+        },
+        "decisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskDecisionInputReference"
+          }
+        },
+        "policyStateVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "policyVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/RiskDecisionStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "decisionId",
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "environment",
+        "status",
+        "evaluatedAt",
+        "stateVersion",
+        "inputs",
+        "checks"
+      ]
+    },
+    "RiskDecisionEvaluate": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "RiskDecisionHistory": {
+      "type": "object",
+      "properties": {
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskDecision"
+          }
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "decisions"
+      ]
+    },
+    "RiskDecisionInputKind": {
+      "type": "string",
+      "enum": [
+        "POLICY",
+        "ACCOUNT",
+        "PORTFOLIO",
+        "MARKET",
+        "TIME",
+        "CALENDAR",
+        "DAILY_COUNTERS",
+        "RESERVATIONS",
+        "INSTRUMENT_RULES"
+      ]
+    },
+    "RiskDecisionInputReference": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "kind": {
+          "$ref": "#/$defs/RiskDecisionInputKind"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "referenceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "referenceId",
+        "digest"
+      ]
+    },
+    "RiskDecisionQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "RiskDecisionReasonCode": {
+      "type": "string",
+      "enum": [
+        "WITHIN_LIMIT",
+        "LIMIT_NOT_CONFIGURED",
+        "LIMIT_EXCEEDED",
+        "POLICY_UNCONFIGURED",
+        "PROPOSAL_INVALIDATED",
+        "EVIDENCE_MISSING",
+        "EVIDENCE_STALE",
+        "EVIDENCE_UNTRUSTED",
+        "ACCOUNT_UNAVAILABLE",
+        "ACCOUNT_MISMATCH",
+        "ACCOUNT_UNHEALTHY",
+        "IDENTIFIER_NOT_ALLOWED",
+        "IDENTIFIER_BLOCKED",
+        "ENVIRONMENT_NOT_ALLOWED",
+        "MARKET_ORDER_DISABLED",
+        "EXECUTION_QUOTE_UNAVAILABLE",
+        "MARKET_CLOSED",
+        "MARKET_HALTED",
+        "INSTRUMENT_RULES_UNAVAILABLE",
+        "COUNTER_UNAVAILABLE",
+        "RESERVATION_UNAVAILABLE",
+        "CALENDAR_UNAVAILABLE",
+        "CLOCK_UNCERTAIN",
+        "NOT_APPLICABLE",
+        "UNSUPPORTED_CONTEXT",
+        "INVALID_PROPOSAL_VALUE"
+      ]
+    },
+    "RiskDecisionStatus": {
+      "type": "string",
+      "enum": [
+        "ALLOWED",
+        "REJECTED",
+        "UNAVAILABLE"
       ]
     },
     "RiskPolicy": {
@@ -10469,6 +10791,7 @@
             "model-gateway",
             "model",
             "risk",
+            "risk-decision",
             "thread",
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
@@ -11123,6 +11446,7 @@
             "model-gateway",
             "model",
             "risk",
+            "risk-decision",
             "thread",
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
@@ -12957,7 +13281,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 22,
+          "maximum": 23,
           "minimum": 1
         },
         "workspaceId": {

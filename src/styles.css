@@ -515,9 +515,21 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .proposal-history { display: grid; gap: 8px; padding-left: 20px; }
 .proposal-history li { display: grid; gap: 2px; }
 .proposal-history time, .proposal-history span { color: var(--muted); font-size: 11px; }
+.risk-decision-panel { min-width: 0; border: 1px solid var(--border); border-radius: 9px; padding: 14px; margin-bottom: 16px; }
+.risk-decision-panel .section-heading { align-items: center; }
+.risk-decision-disclosure { color: var(--muted); font-size: 11px; }
+.risk-decision-history { display: grid; gap: 12px; padding-left: 20px; }
+.risk-decision-history article { min-width: 0; overflow-wrap: anywhere; border-top: 1px solid var(--border); padding-top: 10px; }
+.risk-decision-summary { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; }
+.risk-decision-summary time, .risk-decision-history article > p { color: var(--muted); font-size: 11px; }
+.risk-decision-checks, .risk-decision-inputs { display: grid; gap: 6px; padding-left: 20px; }
+.risk-decision-checks li { display: grid; gap: 2px; overflow-wrap: anywhere; }
+.risk-decision-checks strong, .risk-decision-checks span, .risk-decision-inputs li { font-size: 11px; }
+.risk-decision-inputs li { overflow-wrap: anywhere; }
 .form-errors { margin: 8px 0; padding-left: 18px; color: #991b1b; font-size: 11px; }
 @media (max-width: 760px) { .order-drafts-layout, .order-draft-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) { .order-proposal-layout, .proposal-fields { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .risk-decision-panel .section-heading { align-items: stretch; flex-direction: column; } .risk-decision-panel .section-heading button { width: 100%; } }
 @media (max-width: 760px) { .order-book-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .order-book-facts { grid-template-columns: minmax(0, 1fr); } .order-book-actions, .order-book-actions button, .order-book-actions .field { width: 100%; } }
 @media (max-width: 600px) { .provider-config, .account-detail, .portfolio-section, .portfolio-summary { padding: 14px; } .account-actions { width: 100%; } }

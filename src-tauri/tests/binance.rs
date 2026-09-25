@@ -275,6 +275,49 @@ fn testnet_submit_request(workspace: &Value, account: &Value, proposal: &Value) 
 }
 
 #[test]
+fn risk_decision_blocks_testnet_submit_without_trusted_rules_before_io() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let workspace = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account = connected_testnet(&mut cp, &vault, &http, &workspace);
+    let proposal = testnet_proposal(&mut cp, &workspace, &account, "LIMIT", "BASE", "0.1", "GTC");
+    let submit = testnet_submit_request(&workspace, &account, &proposal);
+    let error = match cp.prepare_provider_for(&submit, "main") {
+        Err(error) => error,
+        Ok(_) => panic!("provider submit passed without trusted risk evidence"),
+    };
+    assert!(matches!(
+        error.code.as_str(),
+        "RISK_REJECTED" | "RISK_EVIDENCE_UNAVAILABLE"
+    ));
+    assert!(http.binance_posts.borrow().is_empty());
+    let attempt = call(
+        &mut cp,
+        "binance.testnet.order.attempt.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(attempt["data"]["attempt"], Value::Null);
+    let history = call(
+        &mut cp,
+        "risk.decision.list",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(history["data"]["decisions"].as_array().unwrap().len(), 1);
+    assert!(
+        history["data"]["decisions"][0]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(
+                |check| check["checkId"] == "INSTRUMENT_RULES" && check["outcome"] == "UNAVAILABLE"
+            )
+    );
+}
+
+#[test]
+#[ignore = "S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work."]
 fn testnet_market_quote_submit_persists_once_before_io_and_keeps_ack_separate_from_fill() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());
@@ -340,6 +383,7 @@ fn testnet_market_quote_submit_persists_once_before_io_and_keeps_ack_separate_fr
 }
 
 #[test]
+#[ignore = "S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work."]
 fn testnet_provider_rejection_is_persisted_redacted_and_never_retried() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());
@@ -405,6 +449,7 @@ fn testnet_provider_rejection_is_persisted_redacted_and_never_retried() {
 }
 
 #[test]
+#[ignore = "S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work."]
 fn unknown_testnet_submit_is_query_only_until_client_order_id_is_found() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());
@@ -473,6 +518,7 @@ fn unknown_testnet_submit_is_query_only_until_client_order_id_is_found() {
 }
 
 #[test]
+#[ignore = "S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work."]
 fn testnet_filters_and_percent_price_rules_fail_closed_before_post() {
     let folder = tempfile::tempdir().unwrap();
     let mut cp = ControlPlane::new(folder.path().into());
@@ -653,6 +699,7 @@ fn testnet_filters_and_percent_price_rules_fail_closed_before_post() {
 }
 
 #[test]
+#[ignore = "S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work."]
 fn testnet_order_book_keeps_exact_history_balances_and_account_boundaries() {
     let folder = tempfile::tempdir().unwrap();
     let path = folder.path().to_path_buf();

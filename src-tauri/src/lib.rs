@@ -819,6 +819,31 @@ impl ControlPlane {
                 let state = self.store.as_ref().unwrap().risk()?;
                 Ok((json!(state), Some(state.state_version)))
             }
+            "risk.evaluate_proposal" => {
+                let input: risk::RiskDecisionEvaluate = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let decision =
+                    self.evaluate_risk_decision(&input.workspace_id, &input.proposal_id)?;
+                Ok((json!(decision), Some(decision.state_version.clone())))
+            }
+            "risk.decision.list" => {
+                let input: risk::RiskDecisionQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let proposal = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .order_proposal(&input.proposal_id)?;
+                if proposal.workspace_id != input.workspace_id {
+                    return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+                }
+                let history = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .risk_decision_history(&input.workspace_id, &input.proposal_id)?;
+                Ok((json!(history), None))
+            }
             "risk.save_policy" => {
                 let input: risk::SaveRiskPolicy = payload(request.payload)?;
                 self.save_risk_policy(input)
@@ -1232,6 +1257,17 @@ impl ControlPlane {
                 {
                     return Err(TradeXError::new("PAPER_PROPOSAL_NOT_SELECTED"));
                 }
+                let already_submitted = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .local_paper_state()?
+                    .orders
+                    .iter()
+                    .any(|order| order.proposal_id == input.proposal_id);
+                if !already_submitted {
+                    self.require_risk_allowed(&input.workspace_id, &input.proposal_id)?;
+                }
                 let result = self
                     .store
                     .as_mut()
@@ -1365,20 +1401,12 @@ impl ControlPlane {
             "market.get" => {
                 let input: MarketGetQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
-                let sources = self.data_source_sources(&input.workspace_id);
-                let source = market::source_id_for_instrument(&input.instrument_id, &input.tier)
-                    .and_then(|source_id| {
-                        sources.iter().find(|entry| entry.source_id == source_id)
-                    });
-                let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
-                let time_status = self.time.status(&input.workspace_id)?;
                 let fixture = cfg!(feature = "integration-test")
                     && std::env::var_os("TRADEX_MARKET_FIXTURE").is_some();
-                let detail = market::detail_with_fixture(
-                    &input,
-                    source,
-                    calendar_source,
-                    &time_status,
+                let detail = self.market_detail_for(
+                    &input.workspace_id,
+                    &input.instrument_id,
+                    &input.tier,
                     fixture,
                 )?;
                 Ok((json!(detail), None))
@@ -1585,31 +1613,9 @@ impl ControlPlane {
             "portfolio.get" => {
                 let input: PortfolioQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
-                let workspace_snapshot = self.store.as_mut().unwrap().snapshot()?;
-                let base_currency = match workspace_snapshot.projection {
-                    DomainProjection::Workspace(workspace) => workspace.base_currency,
-                    _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
-                };
-                let accounts = self.store.as_ref().unwrap().accounts()?;
-                let sources = self.data_source_sources(&input.workspace_id);
-                let fx_source = sources.iter().find(|entry| entry.source_id == "OD-006");
-                let time_status = self.time.status(&input.workspace_id)?;
                 let fixture = cfg!(feature = "integration-test")
                     && std::env::var_os("TRADEX_PORTFOLIO_FIXTURE").is_some();
-                let paper_state = if fixture {
-                    None
-                } else {
-                    Some(self.store.as_ref().unwrap().local_paper_state()?)
-                };
-                let snapshot = portfolio::get_with_paper_state(
-                    &input.workspace_id,
-                    &base_currency,
-                    &accounts,
-                    fx_source,
-                    &time_status,
-                    paper_state.as_ref(),
-                    fixture,
-                )?;
+                let snapshot = self.current_portfolio_snapshot(&input.workspace_id, fixture)?;
                 Ok((json!(snapshot), None))
             }
             "watchlist.list" => {
@@ -4015,6 +4021,160 @@ impl ControlPlane {
             .collect()
     }
 
+    fn current_portfolio_snapshot(
+        &mut self,
+        workspace_id: &str,
+        fixture: bool,
+    ) -> Result<protocol::PortfolioSnapshot> {
+        let time_status = self.time.status(workspace_id)?;
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let base_currency = store.base_currency()?;
+        let accounts = store.accounts()?;
+        let sources = self.data_source_sources(workspace_id);
+        let fx_source = sources.iter().find(|entry| entry.source_id == "OD-006");
+        let paper_state = if fixture {
+            None
+        } else {
+            Some(store.local_paper_state()?)
+        };
+        portfolio::get_with_paper_state(
+            workspace_id,
+            &base_currency,
+            &accounts,
+            fx_source,
+            &time_status,
+            paper_state.as_ref(),
+            fixture,
+        )
+    }
+
+    fn market_detail_for(
+        &mut self,
+        workspace_id: &str,
+        instrument_id: &str,
+        tier: &MarketTier,
+        fixture: bool,
+    ) -> Result<protocol::MarketDetail> {
+        let sources = self.data_source_sources(workspace_id);
+        let input = MarketGetQuery {
+            workspace_id: workspace_id.into(),
+            instrument_id: instrument_id.into(),
+            tier: tier.clone(),
+        };
+        let source = market::source_id_for_instrument(instrument_id, tier)
+            .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
+        let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
+        let time_status = self.time.status(workspace_id)?;
+        market::detail_with_fixture(&input, source, calendar_source, &time_status, fixture)
+    }
+
+    fn evaluate_risk_decision(
+        &mut self,
+        workspace_id: &str,
+        proposal_id: &str,
+    ) -> Result<risk::RiskDecision> {
+        storage::validate_order_proposal_id(proposal_id)?;
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let proposal = store.order_proposal(proposal_id)?;
+        if proposal.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let policy = store.risk_or_new()?;
+        let accounts = store.accounts()?;
+        let account = proposal.fields.account_id.as_deref().and_then(|id| {
+            accounts
+                .into_iter()
+                .find(|account| account.connection_id == id)
+        });
+        let portfolio = self.current_portfolio_snapshot(workspace_id, false)?;
+        let market = self.market_detail_for(
+            workspace_id,
+            &proposal.fields.instrument_id,
+            &MarketTier::Census,
+            false,
+        )?;
+        let time_status = self.time.status(workspace_id)?;
+        let inputs = vec![
+            risk::input_reference(
+                risk::RiskDecisionInputKind::Policy,
+                policy.as_ref().map_or_else(
+                    || "risk-policy:missing".into(),
+                    |state| format!("risk-policy:{}", state.policy_version),
+                ),
+                policy.as_ref().map(|state| state.updated_at.clone()),
+                &policy,
+            )?,
+            risk::input_reference(
+                risk::RiskDecisionInputKind::Account,
+                proposal
+                    .fields
+                    .account_id
+                    .clone()
+                    .unwrap_or_else(|| "account:missing".into()),
+                account.as_ref().map(|account| account.updated_at.clone()),
+                &account,
+            )?,
+            risk::input_reference(
+                risk::RiskDecisionInputKind::Portfolio,
+                format!("portfolio:{}", portfolio.observed_at),
+                Some(portfolio.observed_at.clone()),
+                &portfolio,
+            )?,
+            risk::input_reference(
+                risk::RiskDecisionInputKind::Market,
+                market.instrument.instrument_id.clone(),
+                market
+                    .snapshot
+                    .as_ref()
+                    .map(|snapshot| snapshot.provenance.received_timestamp.clone()),
+                &market,
+            )?,
+            risk::input_reference(
+                risk::RiskDecisionInputKind::Time,
+                format!("time:{}", time_status.observed_at),
+                Some(time_status.observed_at.clone()),
+                &time_status,
+            )?,
+        ];
+        let decision = risk::evaluate(
+            &proposal,
+            policy.as_ref(),
+            account.as_ref(),
+            Some(&portfolio),
+            Some(&market),
+            &time_status,
+            inputs,
+            storage::timestamp()?,
+        );
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .append_risk_decision(decision)?;
+        self.publish(&event);
+        let DomainProjection::RiskDecision(decision) = event.payload else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        Ok(*decision)
+    }
+
+    fn require_risk_allowed(&mut self, workspace_id: &str, proposal_id: &str) -> Result<()> {
+        let decision = self.evaluate_risk_decision(workspace_id, proposal_id)?;
+        match decision.status {
+            risk::RiskDecisionStatus::Allowed => Ok(()),
+            risk::RiskDecisionStatus::Rejected => Err(TradeXError::new("RISK_REJECTED")),
+            risk::RiskDecisionStatus::Unavailable => {
+                Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))
+            }
+        }
+    }
+
     fn order_proposal_references(
         &mut self,
         workspace_id: &str,
@@ -4042,17 +4202,12 @@ impl ControlPlane {
                     "No persisted risk policy is available; proposal generation does not approve or execute orders.".into(),
                 ),
             };
-        let sources = self.data_source_sources(workspace_id);
-        let market_input = protocol::MarketGetQuery {
-            workspace_id: workspace_id.into(),
-            instrument_id: instrument_id.into(),
-            tier: protocol::MarketTier::Census,
-        };
-        let source = market::source_id_for_instrument(instrument_id, &market_input.tier)
-            .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
-        let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
-        let time_status = self.time.status(workspace_id)?;
-        let market = market::detail(&market_input, source, calendar_source, &time_status)?;
+        let market = self.market_detail_for(
+            workspace_id,
+            instrument_id,
+            &protocol::MarketTier::Census,
+            false,
+        )?;
         Ok(storage::OrderProposalReferences {
             policy_version,
             policy_state_version,
@@ -4392,6 +4547,7 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         provider_io::validate_trading212_demo_proposal(&proposal, &input.connection_id)?;
+        self.require_risk_allowed(&input.workspace_id, &input.proposal_id)?;
         let (attempt, created) = self
             .store
             .as_mut()
@@ -4477,6 +4633,7 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         provider_io::validate_alpaca_paper_proposal(&proposal, &account.connection_id)?;
+        self.require_risk_allowed(&input.workspace_id, &input.proposal_id)?;
         let (attempt, created) = self
             .store
             .as_mut()
@@ -4613,6 +4770,7 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         provider_io::validate_binance_testnet_proposal(&proposal, &account.connection_id)?;
+        self.require_risk_allowed(&input.workspace_id, &input.proposal_id)?;
         let (attempt, created) = self
             .store
             .as_mut()
@@ -4749,6 +4907,7 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         provider_io::validate_bitget_demo_proposal(&proposal, &account.connection_id)?;
+        self.require_risk_allowed(&input.workspace_id, &input.proposal_id)?;
         let (attempt, created) = self
             .store
             .as_mut()
@@ -7930,6 +8089,9 @@ mod thread_tests {
             .execute("DROP TABLE bitget_demo_order_attempts", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE risk_decisions", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -8447,6 +8609,50 @@ mod paper_tests {
         })
     }
 
+    fn save_test_risk_policy(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        max_order_quantity: Option<&str>,
+        market_orders_enabled: bool,
+    ) -> Value {
+        let current = control.dispatch(request(
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        ));
+        let saved = control.dispatch(request(
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,
+                "expectedStateVersion":current["data"]["stateVersion"],
+                "policy":{
+                    "maxOrderNotional":null,"maxOrderQuantity":max_order_quantity,
+                    "maxPositionSize":null,"maxSingleInstrumentExposurePercent":null,
+                    "maxAssetClassExposurePercent":[],"maxDailyTradedNotional":null,
+                    "maxDailyRealizedLoss":null,"maxOpenOrders":null,"maxReservedCapital":null,
+                    "allowedInstrumentIds":[],"blockedInstrumentIds":[],"allowedVenues":[],
+                    "blockedVenues":[],"allowedAccountIds":[],"blockedAccountIds":[],
+                    "allowedEnvironments":[],"staleQuoteThresholdSeconds":3,
+                    "marketOrdersEnabled":market_orders_enabled,
+                    "maxMarketOrderSlippagePercent":if market_orders_enabled { Some("5") } else { None },
+                    "maxPriceDeviationPercent":null,"liveInactivityTimeoutMinutes":20
+                }
+            }),
+        ));
+        assert_eq!(saved["ok"], true, "{saved}");
+        saved["data"].clone()
+    }
+
+    fn configure_risk_policy(control: &mut ControlPlane, workspace_id: &str) {
+        let current = control.dispatch(request(
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        ));
+        if current["data"]["configured"] == true {
+            return;
+        }
+        save_test_risk_policy(control, workspace_id, None, true);
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn local_paper_proposal(
         control: &mut ControlPlane,
@@ -8495,6 +8701,164 @@ mod paper_tests {
         ));
         assert_eq!(selected["ok"], true, "{selected}");
         proposal["data"].clone()
+    }
+
+    #[test]
+    fn risk_decisions_append_history_and_block_submit_without_policy() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace");
+        let mut control = ControlPlane::new(path.clone());
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+        let proposal = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:AAPL",
+            "BUY",
+            "LIMIT",
+            "2",
+            Some("100"),
+            "DAY",
+        );
+        let proposal_before = control.dispatch(request(
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        ));
+        let evaluate = || {
+            request(
+                "risk.evaluate_proposal",
+                json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+            )
+        };
+        let first = control.dispatch(evaluate());
+        assert_eq!(first["ok"], true, "{first}");
+        assert_eq!(first["data"]["status"], "UNAVAILABLE");
+        assert_eq!(
+            first["data"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "POLICY_CONFIGURED")
+                .unwrap()["reasonCode"],
+            "POLICY_UNCONFIGURED"
+        );
+        let second = control.dispatch(evaluate());
+        assert_eq!(second["ok"], true, "{second}");
+        assert_ne!(first["data"]["decisionId"], second["data"]["decisionId"]);
+
+        let submit = control.dispatch(request(
+            "paper.order.submit",
+            json!({
+                "workspaceId":workspace_id,
+                "proposalId":proposal["proposalId"],
+                "expectedProposalStateVersion":proposal["stateVersion"],
+                "idempotencyKey":"risk-unconfigured-no-submit"
+            }),
+        ));
+        assert_eq!(submit["ok"], false, "{submit}");
+        assert_eq!(submit["error"]["code"], "RISK_EVIDENCE_UNAVAILABLE");
+        let paper = control.dispatch(request("paper.get", json!({"workspaceId":workspace_id})));
+        assert!(paper["data"]["orders"].as_array().unwrap().is_empty());
+
+        let history = control.dispatch(request(
+            "risk.decision.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        ));
+        assert_eq!(history["data"]["decisions"].as_array().unwrap().len(), 3);
+        assert_eq!(
+            proposal_before["data"]["proposalHash"],
+            control.dispatch(request(
+                "trade.proposal.get",
+                json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+            ))["data"]["proposalHash"]
+        );
+        drop(control);
+
+        let mut reopened = ControlPlane::new(path);
+        assert_eq!(
+            reopened.dispatch(request("workspace.open", json!({})))["ok"],
+            true
+        );
+        let reopened_history = reopened.dispatch(request(
+            "risk.decision.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        ));
+        assert_eq!(reopened_history["ok"], true, "{reopened_history}");
+        assert_eq!(
+            reopened_history["data"]["decisions"],
+            history["data"]["decisions"]
+        );
+    }
+
+    #[test]
+    fn risk_order_quantity_uses_exact_decimal_boundary() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account_id = control
+            .store
+            .as_ref()
+            .unwrap()
+            .accounts()
+            .unwrap()
+            .into_iter()
+            .find(|account| account.is_local_paper())
+            .unwrap()
+            .connection_id;
+        save_test_risk_policy(&mut control, &workspace_id, Some("2"), false);
+        let proposal = local_paper_proposal(
+            &mut control,
+            &workspace_id,
+            &account_id,
+            "equity:US:AAPL",
+            "BUY",
+            "LIMIT",
+            "2",
+            Some("100"),
+            "DAY",
+        );
+        let evaluate = || {
+            request(
+                "risk.evaluate_proposal",
+                json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+            )
+        };
+        let boundary = control.dispatch(evaluate());
+        assert_eq!(boundary["data"]["status"], "ALLOWED", "{boundary}");
+        assert_eq!(
+            boundary["data"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "ORDER_QUANTITY")
+                .unwrap()["outcome"],
+            "PASS"
+        );
+
+        save_test_risk_policy(&mut control, &workspace_id, Some("1.99999999"), false);
+        let over_limit = control.dispatch(evaluate());
+        assert_eq!(over_limit["data"]["status"], "REJECTED", "{over_limit}");
+        assert_eq!(
+            over_limit["data"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "ORDER_QUANTITY")
+                .unwrap()["reasonCode"],
+            "LIMIT_EXCEEDED"
+        );
     }
 
     #[test]
@@ -8667,6 +9031,7 @@ mod paper_tests {
             let mut control = ControlPlane::new(path.clone());
             let opened = control.dispatch(request("workspace.open", json!({})));
             let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+            configure_risk_policy(&mut control, &workspace_id);
             let account_id = control
                 .store
                 .as_ref()
@@ -8824,6 +9189,7 @@ mod paper_tests {
         let mut control = ControlPlane::new(path.clone());
         let opened = control.dispatch(request("workspace.open", json!({})));
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        configure_risk_policy(&mut control, &workspace_id);
         let account_id = control
             .store
             .as_ref()
@@ -9037,6 +9403,7 @@ mod paper_tests {
         let mut control = ControlPlane::new(path.clone());
         let opened = control.dispatch(request("workspace.open", json!({})));
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        configure_risk_policy(&mut control, &workspace_id);
         let account_id = control
             .store
             .as_ref()
@@ -9111,6 +9478,7 @@ mod paper_tests {
         let mut control = ControlPlane::new(directory.path().join("workspace"));
         let opened = control.dispatch(request("workspace.open", json!({})));
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        configure_risk_policy(&mut control, &workspace_id);
         let account_id = control
             .store
             .as_ref()
@@ -9267,6 +9635,7 @@ mod paper_tests {
         let mut control = ControlPlane::new(path.clone());
         let opened = control.dispatch(request("workspace.open", json!({})));
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        configure_risk_policy(&mut control, &workspace_id);
         let account_id = control
             .store
             .as_ref()
@@ -10718,7 +11087,9 @@ mod risk_tests {
         );
         assert_eq!(
             saved_snapshot["data"]["lastSequence"].as_u64(),
-            risk_snapshot["data"]["lastSequence"].as_u64().map(|sequence| sequence + 1)
+            risk_snapshot["data"]["lastSequence"]
+                .as_u64()
+                .map(|sequence| sequence + 1)
         );
         drop(control);
 
@@ -10743,6 +11114,9 @@ mod risk_tests {
                 "policy":policy
             }),
         );
-        assert_eq!(stale_version_save["error"]["code"], "STATE_VERSION_CONFLICT");
+        assert_eq!(
+            stale_version_save["error"]["code"],
+            "STATE_VERSION_CONFLICT"
+        );
     }
 }

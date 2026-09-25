@@ -227,6 +227,17 @@ declare const validators: {
   ResearchToolResult: (value: unknown) => boolean;
   ResultEnvelope: (value: unknown) => boolean;
   RiskAssetClassLimit: (value: unknown) => boolean;
+  RiskCheckId: (value: unknown) => boolean;
+  RiskCheckOutcome: (value: unknown) => boolean;
+  RiskCheckResult: (value: unknown) => boolean;
+  RiskDecision: (value: unknown) => boolean;
+  RiskDecisionEvaluate: (value: unknown) => boolean;
+  RiskDecisionHistory: (value: unknown) => boolean;
+  RiskDecisionInputKind: (value: unknown) => boolean;
+  RiskDecisionInputReference: (value: unknown) => boolean;
+  RiskDecisionQuery: (value: unknown) => boolean;
+  RiskDecisionReasonCode: (value: unknown) => boolean;
+  RiskDecisionStatus: (value: unknown) => boolean;
   RiskPolicy: (value: unknown) => boolean;
   RiskPolicyEnvironment: (value: unknown) => boolean;
   RiskPolicyInput: (value: unknown) => boolean;

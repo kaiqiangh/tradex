@@ -455,7 +455,7 @@ expected spend、maximum authorized、bid/ask/spread、provenance、fee/slippage
 
 ### F7. Risk Rejected
 
-确定性 `RISK_REJECTED`,Agent 不可 override。
+分别显示确定性的 `RISK_REJECTED` 与 `RISK_EVIDENCE_UNAVAILABLE`;两者都会阻止 Submit,且 Agent 不能 override。
 
 ### F8. Broker Rejected
 
@@ -634,7 +634,7 @@ TimeService/clock uncertainty → stale/reconciliation remediation;Live authorit
 
 统一 ErrorRecoveryPanel 映射:
 
-`AUTH_ERROR`、`PERMISSION_ERROR`、`RATE_LIMITED`、`NETWORK_ERROR`、`UNSUPPORTED_CAPABILITY`、`MARKET_CLOSED`、`INSTRUMENT_HALTED`、`INVALID_ORDER`、`INSUFFICIENT_FUNDS`、`RISK_REJECTED`、`SUBMISSION_REJECTED`、`SUBMISSION_AMBIGUOUS`、`STREAM_DISCONNECTED`、`STATE_STALE`、`RECONCILIATION_REQUIRED`、`MODEL_UNAVAILABLE`、`QUOTA_EXCEEDED`、`OAUTH_EXPIRED`、`INTERNAL_ERROR`。
+`AUTH_ERROR`、`PERMISSION_ERROR`、`RATE_LIMITED`、`NETWORK_ERROR`、`UNSUPPORTED_CAPABILITY`、`MARKET_CLOSED`、`INSTRUMENT_HALTED`、`INVALID_ORDER`、`INSUFFICIENT_FUNDS`、`RISK_REJECTED`、`RISK_EVIDENCE_UNAVAILABLE`、`SUBMISSION_REJECTED`、`SUBMISSION_AMBIGUOUS`、`STREAM_DISCONNECTED`、`STATE_STALE`、`RECONCILIATION_REQUIRED`、`MODEL_UNAVAILABLE`、`QUOTA_EXCEEDED`、`OAUTH_EXPIRED`、`INTERNAL_ERROR`。
 
 ---
 
@@ -645,6 +645,7 @@ TimeService/clock uncertainty → stale/reconciliation remediation;Live authorit
 | DRAFT | editable OrderDraft |
 | PROPOSED | immutable OrderProposalCard |
 | RISK_REJECTED | RiskRejectedPanel |
+| RISK_EVIDENCE_UNAVAILABLE | RiskDecisionPanel; submit 不产生订单副作用 |
 | NEEDS_APPROVAL | LiveApprovalModal |
 | APPROVED | timeline/audit event |
 | RESERVED | ReservationEvent + capacity detail |
@@ -693,7 +694,7 @@ TimeService/clock uncertainty → stale/reconciliation remediation;Live authorit
 
 # 8. Component Inventory
 
-与英文版一一对应:AppShell、Sidebar、SettingsSubnav、CompactMoreNav、ThreadHistory、TopBar、AgentModeBadge/Picker、ExecutionContextBadge、AccountLiveStateBadge、DisableAllLiveControl、LLMGatewayStatusBadge、ModelProviderPill、Composer、ContextPicker、AccountPicker、ModelPicker、TurnProvenancePanel、ContextPanel、PlanCard、ToolCard/ToolErrorCard、MarketSnapshotProvenance、MarketStatusBanner、CorporateActionPanel、FXProvenancePanel、ProviderCredentialSchemaForm、PermissionReviewPanel、AccountHealthPanel、OrderDraftEditor、OrderProposalCard、RiskCheckPanel、ReservationPanel、LiveArmModal、LiveApprovalModal、MarketOrderApprovalModal、ApprovalInvalidatedModal、RiskRejectedModal、ReservationConflictModal、ManualResolutionModal、OrderTimeline、CancellationApprovalModal、SimulatedOrderFlow、ErrorRecoveryPanel、StrategyEditor/Inspector、BacktestProgress/Metrics、ArtifactDetail/ProvenanceModal、WorkspaceImportModal、RecoveryPanel、SuccessToast/Modal。
+与英文版一一对应:AppShell、Sidebar、SettingsSubnav、CompactMoreNav、ThreadHistory、TopBar、AgentModeBadge/Picker、ExecutionContextBadge、AccountLiveStateBadge、DisableAllLiveControl、LLMGatewayStatusBadge、ModelProviderPill、Composer、ContextPicker、AccountPicker、ModelPicker、TurnProvenancePanel、ContextPanel、PlanCard、ToolCard/ToolErrorCard、MarketSnapshotProvenance、MarketStatusBanner、CorporateActionPanel、FXProvenancePanel、ProviderCredentialSchemaForm、PermissionReviewPanel、AccountHealthPanel、OrderDraftEditor、OrderProposalCard、RiskCheckPanel、RiskDecisionPanel、ReservationPanel、LiveArmModal、LiveApprovalModal、MarketOrderApprovalModal、ApprovalInvalidatedModal、RiskRejectedModal、ReservationConflictModal、ManualResolutionModal、OrderTimeline、CancellationApprovalModal、SimulatedOrderFlow、ErrorRecoveryPanel、StrategyEditor/Inspector、BacktestProgress/Metrics、ArtifactDetail/ProvenanceModal、WorkspaceImportModal、RecoveryPanel、SuccessToast/Modal。
 
 ---
 
@@ -910,3 +911,7 @@ Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection sta
 展示 `CURRENT`、`STALE` 或 `DEGRADED`，以及最后一次成功观测时间。不完整、重复、畸形、超限、失败或限流响应都保留上一份可信快照，并显示脱敏状态/重试信息；不能把空结果伪装为成功。宽表格可内部滚动且可用键盘访问。在 390、768、1280 px 验证账户详情。不得创建/使用 Demo 账户、不得在 Live 请求上附加 Demo 的 `paptrading: 1` header、不得跨环境回退，也不得暴露任何 Live 写操作。若不存在普通 Live connection，fixture 验证与待完成的真实 provider 读取必须分开记录。
 
 TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。显示 `Private stream unavailable · REST reconciliation`，将流健康状态保持为 `NOT_CONFIGURED`，并且仅通过用户显式连接或 REST 刷新读取更新账户/订单观测。
+
+### 14.16 RiskDecision 求值与历史（S21 #81）
+
+Order Drafts 可显式对已保存 proposal 求值或重新求值，并展示 append-only decision history。显示 `ALLOWED`、`REJECTED` 或 `UNAVAILABLE`、绑定的 proposal hash、准确账户/环境、策略版本、逐项结果/原因及输入摘要。Renderer 只发送 workspace/proposal identity。`RISK_REJECTED` 与 `RISK_EVIDENCE_UNAVAILABLE` 分别显示；任一 submit 错误后刷新并显示已持久化 decision，说明未产生 order attempt/provider 或 simulator 订单副作用。`ALLOWED` 不等于审批、Arm、预留或发送权限。保持键盘可访问，并验证 390、768、1280 px 布局。普通 Bitget `LIVE` 明确只读；不创建/使用 Demo，也不显示 Live 写控件。

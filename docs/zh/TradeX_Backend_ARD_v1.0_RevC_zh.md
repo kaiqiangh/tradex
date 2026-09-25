@@ -842,15 +842,27 @@ Agent 无法修改 policy。
 
 ```rust
 struct RiskDecision {
+    decision_id: DecisionId,
+    workspace_id: WorkspaceId,
     proposal_id: ProposalId,
-    policy_version: PolicyVersion,
-    allowed: bool,
+    proposal_hash: Sha256,
+    account_id: Option<AccountId>,
+    environment: ExecutionContext,
+    policy_version: Option<PolicyVersion>,
+    policy_state_version: Option<StateVersion>,
+    status: RiskDecisionStatus, // ALLOWED | REJECTED | UNAVAILABLE
+    state_version: StateVersion,
+    inputs: Vec<RiskDecisionInputReference>,
     checks: Vec<RiskCheckResult>,
     evaluated_at: DateTime<Utc>,
 }
 ```
 
-所有 Live risk decision 都要持久化。
+每项输入引用包含 kind、有界 reference ID、SHA-256 摘要及可选观察时间。每项检查包含稳定 ID、`PASS` / `REJECT` / `UNAVAILABLE`、reason code 与脱敏解释。任一拒绝优先；没有拒绝但至少一项 unavailable 时，总体为 unavailable。null 策略限额明确记录 `LIMIT_NOT_CONFIGURED`;已配置限额所需证据缺失时不能转成零。
+
+每条 decision 与 proposal 分开持久化为 append-only `risk.decision.evaluated` 事件，以 workspace + proposal 和每 proposal 连续序号为键。重新求值只追加历史，不改变 proposal/hash。Renderer 仅传 workspace/proposal ID;Control Plane 自行读取 policy、准确账户、完整 workspace Portfolio、market/time 与已有活动证据并计算全部检查。提交路径使用同一 evaluator 重新求值，并在创建 attempt 或进行 provider/simulator I/O 前拒绝 `REJECTED` / `UNAVAILABLE`。错误保持区分：`RISK_REJECTED` 与 `RISK_EVIDENCE_UNAVAILABLE`。
+
+非本地执行要求可信实时行情来源、受信时钟、权威开盘状态和权威 provider 标的规则。在对应适配器提供这些输入之前，结果保持 `UNAVAILABLE`;本切片不新增行情、日历、FX、成交、预留或 provider-rule 采集。策略结果不代表金融审批、Arm、预留或 Gateway 授权。普通 Bitget `LIVE` 映射至 `RiskPolicyEnvironment::Live`;本决策路径不调用 provider，也不给 Bitget Demo/Live 写入权限。
 
 ---
 
@@ -2100,7 +2112,7 @@ LAUNCH 可先安装固定发布物，再启动并探测自己拥有的进程。S
 
 `model.provider.changed` 携带完整脱敏 `ModelState`；`model.provider_attempt.changed` 携带追加 attempt 后的同一状态。两者使用连续的 `model` 聚合序列，并在 replay 时严格校验聚合/载荷身份。这些变更绝不修改账户 capability、risk、arming 或 approval。只有验证通过的路由才能令 `modelAvailable` 或 onboarding Ready 为 true；默认选择和跨提供方 fallback consent 持久化在 model aggregate，入门和风险契约见 §41.6。
 
-### 41.6 风险策略与入门 payload（S03 onboarding）
+### 41.6 风险策略、RiskDecision 与入门 payload
 
 `risk` aggregate 使用 `workspaceId` 作为 aggregate ID，是入门进度和设置风险默认值的唯一权威。版本 1 增加以下精确命令：
 
@@ -2110,6 +2122,8 @@ LAUNCH 可先安装固定发布物，再启动并探测自己拥有的进程。S
 | risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicyInput}` | 新 `RiskPolicyState`、递增的 `policyVersion` 以及 `risk.policy.changed` |
 | onboarding.set_step | `{workspaceId: string, expectedStateVersion: string, step: 1 \| 2 \| 3 \| 4 \| 5}` | 带请求进度步骤的新 `RiskPolicyState` |
 | onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | `onboardingCompleted: true` 的新 `RiskPolicyState` |
+| risk.evaluate_proposal | `{workspaceId: string, proposalId: string}` | 新追加的 `RiskDecision` 与 `risk.decision.evaluated` |
+| risk.decision.list | `{workspaceId: string, proposalId: string}` | 按 proposal 连续序号排序的 `RiskDecisionHistory` |
 
 ~~~ts
 type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
@@ -2153,6 +2167,40 @@ interface RiskPolicyState {
   hardRules: Array<{id: string; description: string}>;
   updatedAt: string;
 }
+type RiskDecisionStatus = "ALLOWED" | "REJECTED" | "UNAVAILABLE";
+type RiskCheckOutcome = "PASS" | "REJECT" | "UNAVAILABLE";
+interface RiskCheckResult {
+  checkId: RiskCheckId;
+  outcome: RiskCheckOutcome;
+  reasonCode: RiskDecisionReasonCode;
+  reason: string;
+}
+interface RiskDecisionInputReference {
+  kind: RiskDecisionInputKind;
+  referenceId: string;
+  digest: string; // sha256:<lowercase hex>
+  observedAt?: string;
+}
+interface RiskDecision {
+  decisionId: string;
+  workspaceId: string;
+  proposalId: string;
+  proposalHash: string;
+  accountId?: string | null;
+  environment: ExecutionContext;
+  policyVersion?: number | null;
+  policyStateVersion?: string | null;
+  status: RiskDecisionStatus;
+  evaluatedAt: string;
+  stateVersion: string;
+  inputs: RiskDecisionInputReference[];
+  checks: RiskCheckResult[];
+}
+interface RiskDecisionHistory {
+  workspaceId: string;
+  proposalId: string;
+  decisions: RiskDecision[];
+}
 ~~~
 
 每个 `RiskPolicyInput` 字段在 wire 上都必须存在。金额和组合估值上限（`maxOrderNotional`、`maxPositionSize`、`maxDailyTradedNotional`、`maxDailyRealizedLoss`、`maxReservedCapital`）是 workspace base currency 的精确十进制字符串。`maxOrderQuantity` 是 canonical instrument base units（股份或基础资产单位）的精确十进制；后续 risk check 使用此上限前，quote-quantity proposal 必须有受信的 base 等值证据。敞口、滑点、价格偏离使用精确百分比字符串。`maxOpenOrders` 是正整数或 `null`。金融/敞口上限由用户选择前保持 `null`，不得臆造金额或敞口偏好。市价单默认 `false`；启用时必须提供明确的最大滑点。过期报价默认 3 秒，Live inactivity timeout 默认 20 分钟。
@@ -2163,7 +2211,7 @@ interface RiskPolicyState {
 
 所有变更都要求当前 workspace 和精确的 `stateVersion`；陈旧游标返回 `STATE_STALE / STATE_VERSION_CONFLICT` 且不修改状态。进度只能前进或后退一步；越级返回 `POLICY_ERROR / ONBOARDING_STEP_INVALID`。步骤 5 和完成都要求已配置风险默认值及 §41.5 的当前已验证默认模型路由。完成还要检查每个 Live 账户为 `DISARMED`；任何入门命令都不会 arm 账户或启用 Send/Live execution。模型会话重置会使已完成设置失效并回到 Model（步骤 3）。`risk.policy.changed` 与 risk projection/outbox 在同一事务提交，`risk` snapshot/subscribe/replay 遵循 §41.2 的工作区规则和连续序列。新工作区在 storage schema version 5 迁移时初始化风险表；已识别的旧工作区迁移前先备份。
 
-脱敏 remediation code 为 `RISK_POLICY_INVALID`、`RISK_POLICY_NOT_CONFIGURED`、`ONBOARDING_STEP_INVALID` 和 `ONBOARDING_BLOCKED`；不返回原始存储、账户或模型诊断。前端在拿到权威账户 projection 前必须把未知/加载中的账户状态视为不可用，并在 Ready 展示当前 provider/model/fallback、currency 与 Live arming 事实。这些命令仅供 renderer 入门设置；Agent/Thread 执行没有修改策略的能力。
+脱敏 remediation code 为 `RISK_POLICY_INVALID`、`RISK_POLICY_NOT_CONFIGURED`、`ONBOARDING_STEP_INVALID` 和 `ONBOARDING_BLOCKED`；不返回原始存储、账户或模型诊断。Decision command 只接收 workspace/proposal identity；逐项 reason code 覆盖策略、标识符、账户、市场、时钟、规则、计数与预留状态。Decision 存储 SHA-256 输入引用，不保存原始凭据或 provider response body。`risk-decision` aggregate 使用 proposal ID 作为 aggregate ID，并按 proposal 连续递增。`risk.decision.list` 为只读；`risk.evaluate_proposal` 追加记录但不改 proposal 或 risk-policy aggregate。提交被阻断时先记录对应 decision，再返回脱敏风险错误，且不持久化 order attempt。前端在拿到权威账户 projection 前必须把未知/加载中的账户状态视为不可用，并在 Ready 展示当前 provider/model/fallback、currency 与 Live arming 事实。这些命令仅供 renderer 使用；Agent/Thread 执行没有修改策略的能力，也不能以 Renderer 提供的证据调用 evaluator。
 
 ---
 

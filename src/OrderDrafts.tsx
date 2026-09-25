@@ -11,6 +11,7 @@ import type {
   OrderDraftSummary,
   OrderProposal,
   OrderProposalSummary,
+  RiskDecisionHistory,
   PaperOrderResult,
   Trading212DemoOrderAttempt,
   Trading212DemoOrder,
@@ -243,6 +244,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [fieldError, setFieldError] = useState<{ field: DraftField; message: string }>();
   const [notice, setNotice] = useState('');
   const [proposalBusy, setProposalBusy] = useState(false);
+  const [riskBusy, setRiskBusy] = useState(false);
   const [paperBusy, setPaperBusy] = useState(false);
   const [paperResult, setPaperResult] = useState<PaperOrderResult>();
   const [paperIdempotencyKey, setPaperIdempotencyKey] = useState<string>();
@@ -264,6 +266,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const confirmationTriggerRef = useRef<HTMLElement | null>(null);
   const detail = useQuery({ queryKey: ['order-draft', workspaceId, selectedId], queryFn: () => request('trade.draft.get', { workspaceId, draftId: selectedId! }), enabled: Boolean(selectedId) && !newMode });
   const proposalDetail = useQuery({ queryKey: ['order-proposal', workspaceId, selectedProposalId], queryFn: () => request('trade.proposal.get', { workspaceId, proposalId: selectedProposalId! }), enabled: Boolean(selectedProposalId) });
+  const riskDecisions = useQuery({
+    queryKey: ['risk-decisions', workspaceId, selectedProposalId],
+    queryFn: () => request('risk.decision.list', { workspaceId, proposalId: selectedProposalId! }),
+    enabled: Boolean(selectedProposalId),
+    refetchOnMount: 'always',
+  });
   const alpacaAttempt = useQuery({
     queryKey: ['alpaca-paper-attempt', workspaceId, selectedProposalId],
     queryFn: () => request('alpaca.paper.order.attempt.get', { workspaceId, proposalId: selectedProposalId! }),
@@ -292,6 +300,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const selectedProposals = useMemo(() => proposals.data?.proposals.filter(proposal => proposal.draftId === selectedId) ?? [], [proposals.data?.proposals, selectedId]);
   const detailLoading = Boolean(selectedId) && !newMode && detail.isPending;
   const orderBook = ordersQuery.data?.book;
+
+  useEffect(() => {
+    if (error instanceof CommandError && ['RISK_REJECTED', 'RISK_EVIDENCE_UNAVAILABLE'].includes(error.detail.code)) {
+      void riskDecisions.refetch();
+    }
+  }, [error, riskDecisions.refetch]);
 
   useEffect(() => {
     if (!newMode && !selectedId && library.data?.drafts.length) setSelectedId(library.data.drafts[0].draftId);
@@ -456,6 +470,17 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       setNotice(`Proposal refreshed (${result.refreshStatus}); ${result.previousProposal.proposalId} → ${result.proposal.proposalId}; ${result.invalidationReason}`);
     } catch (cause) { setError(cause); }
     finally { setProposalBusy(false); }
+  };
+
+  const evaluateRisk = async () => {
+    if (!selectedProposalId) return;
+    setRiskBusy(true); setError(undefined); setNotice('');
+    try {
+      const decision = await request('risk.evaluate_proposal', { workspaceId, proposalId: selectedProposalId });
+      await riskDecisions.refetch();
+      setNotice(`RiskDecision ${decision.status} saved at ${decision.evaluatedAt}.`);
+    } catch (cause) { setError(cause); }
+    finally { setRiskBusy(false); }
   };
 
   const submitProposal = async () => {
@@ -1062,7 +1087,18 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {proposals.isPending && <p role="status">Loading proposal history…</p>}
       {proposals.isError && <p className="error-text" role="alert">{explainError(proposals.error)}</p>}
       {!proposals.isPending && !proposals.isError && !selectedProposals.length && <p className="muted">Save a draft, then generate a proposal for its immutable snapshot.</p>}
-      {selectedProposals.length > 0 && <div className="order-proposal-layout"><div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div><div className="order-proposal-detail">{!selectedProposalId && <p className="muted">Choose a proposal to inspect its details.</p>}{selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}{selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}{proposalDetail.data && <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />}</div></div>}
+      {selectedProposals.length > 0 && <div className="order-proposal-layout">
+        <div className="order-proposal-list">{selectedProposals.map(proposal => <ProposalRow key={proposal.proposalId} proposal={proposal} selected={proposal.proposalId === selectedProposalId} onSelect={() => setSelectedProposalId(proposal.proposalId)} />)}</div>
+        <div className="order-proposal-detail">
+          {!selectedProposalId && <p className="muted">Choose a proposal to inspect its details.</p>}
+          {selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}
+          {selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}
+          {proposalDetail.data && <>
+            <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
+            <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />
+          </>}
+        </div>
+      </div>}
     </section>
     <section className="card order-book-panel" aria-labelledby="alpaca-order-book-title">
       <div className="section-heading">
@@ -1268,6 +1304,38 @@ function BinanceTestnetOrderCard({ order, onRefresh, onReviewCancel, busy }: {
     {order.pending && onReviewCancel && <button type="button" onClick={onReviewCancel} disabled={busy}>Review cancellation</button>}
     <button type="button" onClick={onRefresh} disabled={busy}>{busy ? 'Refreshing…' : 'Refresh exact order'}</button>
   </article>;
+}
+
+function RiskDecisionPanel({ history, loading, error, busy, onEvaluate }: {
+  history?: RiskDecisionHistory;
+  loading: boolean;
+  error: unknown;
+  busy: boolean;
+  onEvaluate: () => void;
+}) {
+  return <section className="risk-decision-panel" aria-labelledby="risk-decision-title">
+    <div className="section-heading">
+      <div><h3 id="risk-decision-title">RiskDecision history</h3><p className="muted">Every evaluation is saved against the immutable Proposal hash.</p></div>
+      <button type="button" onClick={onEvaluate} disabled={busy}>{busy ? 'Evaluating risk…' : history?.decisions.length ? 'Evaluate again' : 'Evaluate risk'}</button>
+    </div>
+    <p className="risk-decision-disclosure">A passing policy evaluation is not financial approval, account arming, or permission to place an order.</p>
+    {loading && <p role="status">Loading saved risk evaluations…</p>}
+    {Boolean(error) && <p className="error-text" role="alert">RiskDecision history is unavailable: {explainError(error)}</p>}
+    {!loading && !error && history?.decisions.length === 0 && <p className="muted">No risk evaluation has been saved for this Proposal.</p>}
+    {history && <ol className="risk-decision-history">{[...history.decisions].reverse().map(decision => <li key={decision.decisionId}>
+      <article aria-label={`${decision.status} RiskDecision`}>
+        <div className="risk-decision-summary"><strong>{decision.status}</strong><time dateTime={decision.evaluatedAt}>{new Date(decision.evaluatedAt).toLocaleString()}</time></div>
+        <p>Decision {decision.decisionId} · Policy v{decision.policyVersion ?? '—'} · {decision.environment} · account {decision.accountId ?? 'unbound'}</p>
+        <p>Proposal {decision.proposalId} · {decision.proposalHash}</p>
+        <ul className="risk-decision-checks">{decision.checks.map(check => <li key={check.checkId}>
+          <strong>{check.checkId} · {check.outcome}</strong><span>{check.reasonCode}: {check.reason}</span>
+        </li>)}</ul>
+        <details><summary>Input provenance ({decision.inputs.length})</summary><ul className="risk-decision-inputs">{decision.inputs.map(input => <li key={`${input.kind}-${input.referenceId}`}>
+          <strong>{input.kind}</strong> · {input.referenceId} · {input.digest}{input.observedAt ? ` · ${input.observedAt}` : ''}
+        </li>)}</ul></details>
+      </article>
+    </li>)}</ol>}
+  </section>;
 }
 
 function ProposalDetail({ proposal, onRefresh, refreshBusy, onSubmit, onCancel, onAlpacaSubmit, onAlpacaReconcile, onReloadAlpacaAttempt, alpacaAttempt, alpacaAttemptLoading, alpacaAttemptError, alpacaAccount, onTrading212Submit, onReloadTrading212Attempt, trading212Attempt, trading212AttemptLoading, trading212AttemptError, trading212Account, onBinanceTestnetSubmit, onBinanceTestnetReconcile, onReloadBinanceTestnetAttempt, binanceTestnetAttempt, binanceTestnetAttemptLoading, binanceTestnetAttemptError, binanceTestnetAccount, onBitgetDemoSubmit, onBitgetDemoReconcile, onReloadBitgetDemoAttempt, bitgetDemoAttempt, bitgetDemoAttemptLoading, bitgetDemoAttemptError, bitgetDemoAccount, submitBusy, cancelBusy, result }: {

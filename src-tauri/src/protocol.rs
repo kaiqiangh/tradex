@@ -6,7 +6,8 @@ use crate::model::{
 };
 use crate::providers::*;
 use crate::risk::{
-    CompleteOnboarding, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep,
+    CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery,
+    RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -129,7 +130,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -171,6 +172,8 @@ pub enum ReplyData {
     Gateway(GatewayState),
     Model(ModelState),
     Risk(RiskPolicyState),
+    RiskDecision(Box<RiskDecision>),
+    RiskDecisionHistory(RiskDecisionHistory),
     ProviderCatalog(ProviderCatalog),
     ProviderDefinition(ProviderDefinition),
     Accounts(Accounts),
@@ -261,6 +264,8 @@ pub struct IpcSchema {
     pub set_default_model: SetDefaultModel,
     pub set_fallback_policy: SetFallbackPolicy,
     pub risk_query: RiskQuery,
+    pub risk_decision_evaluate: RiskDecisionEvaluate,
+    pub risk_decision_query: RiskDecisionQuery,
     pub save_risk_policy: SaveRiskPolicy,
     pub set_onboarding_step: SetOnboardingStep,
     pub complete_onboarding: CompleteOnboarding,
@@ -402,7 +407,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 22))]
+    #[schemars(range(min = 1, max = 23))]
     pub storage_schema_version: u32,
 }
 
@@ -4010,6 +4015,7 @@ pub enum DomainProjection {
     Workspace(Workspace),
     Account(Box<AccountConnection>),
     Risk(RiskPolicyState),
+    RiskDecision(Box<RiskDecision>),
     Thread(Box<Thread>),
     Trading212DemoOrderAttempt(Box<Trading212DemoOrderAttempt>),
     AlpacaPaperOrderAttempt(Box<AlpacaPaperOrderAttempt>),
@@ -4028,6 +4034,7 @@ impl DomainProjection {
             Self::Workspace(w) => &w.workspace_id,
             Self::Account(a) => &a.connection_id,
             Self::Risk(r) => &r.workspace_id,
+            Self::RiskDecision(d) => &d.proposal_id,
             Self::Thread(t) => &t.thread_id,
             Self::Trading212DemoOrderAttempt(a) => &a.attempt_id,
             Self::AlpacaPaperOrderAttempt(a) => &a.attempt_id,
@@ -4045,6 +4052,7 @@ impl DomainProjection {
             Self::Workspace(_) => "workspace",
             Self::Account(_) => "account",
             Self::Risk(_) => "risk",
+            Self::RiskDecision(_) => "risk-decision",
             Self::Thread(_) => "thread",
             Self::Trading212DemoOrderAttempt(_) => "trading212-demo-order-attempt",
             Self::AlpacaPaperOrderAttempt(_) => "alpaca-paper-order-attempt",
@@ -4062,12 +4070,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -4079,7 +4087,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -4933,6 +4941,16 @@ impl TradeXError {
                 "Save the Risk Defaults step before continuing to Ready.",
                 "configure_risk",
                 "Configure risk defaults",
+            ),
+            "RISK_REJECTED" => (
+                "The current risk policy rejected this proposal. Review its saved RiskDecision before retrying.",
+                "review_risk",
+                "Review risk decision",
+            ),
+            "RISK_EVIDENCE_UNAVAILABLE" => (
+                "Required risk evidence is missing or untrusted. No order was submitted.",
+                "review_risk",
+                "Review risk evidence",
             ),
             "ONBOARDING_STEP_INVALID" => (
                 "Complete the setup steps in order before continuing.",

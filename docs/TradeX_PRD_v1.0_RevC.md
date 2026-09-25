@@ -1284,6 +1284,12 @@ The UI must explicitly state when a previously approved transaction is no longer
 
 Policy saves and approval consumption for the same account are serialized through a per-account single-writer path, eliminating save-vs-consume races: a save that lands between approval issuance and consumption is caught by the policy-version check at `PRE_EXECUTION_CHECK`.
 
+## 21.4 Risk Evaluation and Evidence
+
+The trusted Control Plane evaluates an immutable OrderProposal against the current policy and evidence. Each result is `ALLOWED`, `REJECTED`, or `UNAVAILABLE`, and binds the workspace, proposal ID/hash, exact account/environment, policy version, evaluation time, input digests, and per-check outcomes. Every evaluation appends an immutable decision and event; reevaluation never changes the proposal or replaces earlier decisions.
+
+A policy rejection takes precedence. If no check rejects but required evidence is missing, stale, or untrusted, the result is `UNAVAILABLE`. Missing evidence never becomes an empty portfolio, zero activity, or assumed currency parity. Submit commands must re-evaluate at the trusted boundary and produce no provider/simulator order side effect when the result is `REJECTED` or `UNAVAILABLE`; the renderer and agent cannot provide inputs or override the result. `ALLOWED` is only a policy result and does not grant approval, account arming, reservation, or order-send authority. Ordinary Bitget Live account identity maps to `LIVE` policy while remaining read-only until later financial authority gates exist.
+
 ---
 
 # 22. Pre-approval and Pre-execution Validation

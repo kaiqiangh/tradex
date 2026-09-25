@@ -390,6 +390,7 @@ TradeX 必须区分后端权威状态与临时 UI 状态。
 - market/instrument snapshot；
 - provider/model health；
 - risk-policy summary；
+- 按 workspace/proposal 查询的 RiskDecision history；
 - strategy/backtest metadata；
 - artifacts；
 - open orders 与 reconciliation view。
@@ -741,6 +742,10 @@ Global Disable All 调用一次后端动作，再渲染后端返回的每个账�
 
 ---
 
+### 14.10 RiskDecision 复核与历史（S21 #81）
+
+Order Drafts 按 workspace/proposal 查询不可变 RiskDecision history，并提供显式 evaluate/reevaluate 操作。Renderer 仅发送这两个 identity；Control Plane 负责策略、账户、证据、检查与持久化。界面分别显示 `ALLOWED`、`REJECTED` 和 `UNAVAILABLE`，并展示 proposal hash、准确账户/环境、策略版本、输入摘要与检查原因。Submit 失败后刷新查询，以展示已持久化的阻断决策。`ALLOWED` 结果及其 UI 状态均不授予审批、Arm、预留或发送权限。`RISK_EVIDENCE_UNAVAILABLE` 是独立于 `RISK_REJECTED` 的规范错误。普通 Bitget `LIVE` 保持只读。
+
 ## 15. Provider 与 Model 配置 UI
 
 ### 15.1 Schema-driven forms
@@ -811,6 +816,7 @@ INSTRUMENT_HALTED
 INVALID_ORDER
 INSUFFICIENT_FUNDS
 RISK_REJECTED
+RISK_EVIDENCE_UNAVAILABLE
 SUBMISSION_REJECTED
 SUBMISSION_AMBIGUOUS
 STREAM_DISCONNECTED

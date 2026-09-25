@@ -120,6 +120,7 @@ export type DomainProjection =
   | Workspace
   | AccountConnection
   | RiskPolicyState
+  | RiskDecision
   | Thread
   | Trading212DemoOrderAttempt
   | AlpacaPaperOrderAttempt
@@ -177,6 +178,93 @@ export type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET"
  * via the `definition` "AssetClass".
  */
 export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskCheckId".
+ */
+export type RiskCheckId =
+  | "PROPOSAL_IDENTITY"
+  | "POLICY_CONFIGURED"
+  | "ACCOUNT_BINDING"
+  | "ACCOUNT_HEALTH"
+  | "ALLOWED_ACCOUNT"
+  | "ALLOWED_ENVIRONMENT"
+  | "ALLOWED_VENUE"
+  | "ALLOWED_INSTRUMENT"
+  | "BLOCKED_ACCOUNT"
+  | "BLOCKED_VENUE"
+  | "BLOCKED_INSTRUMENT"
+  | "ORDER_NOTIONAL"
+  | "ORDER_QUANTITY"
+  | "POSITION_SIZE"
+  | "SINGLE_INSTRUMENT_EXPOSURE"
+  | "ASSET_CLASS_EXPOSURE"
+  | "DAILY_TRADED_NOTIONAL"
+  | "DAILY_REALIZED_LOSS"
+  | "OPEN_ORDER_COUNT"
+  | "RESERVED_CAPITAL"
+  | "MARKET_ORDER"
+  | "MARKET_ORDER_SLIPPAGE"
+  | "PRICE_DEVIATION"
+  | "QUOTE_FRESHNESS"
+  | "MARKET_SESSION"
+  | "INSTRUMENT_RULES"
+  | "LIVE_INACTIVITY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskCheckOutcome".
+ */
+export type RiskCheckOutcome = "PASS" | "REJECT" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionReasonCode".
+ */
+export type RiskDecisionReasonCode =
+  | "WITHIN_LIMIT"
+  | "LIMIT_NOT_CONFIGURED"
+  | "LIMIT_EXCEEDED"
+  | "POLICY_UNCONFIGURED"
+  | "PROPOSAL_INVALIDATED"
+  | "EVIDENCE_MISSING"
+  | "EVIDENCE_STALE"
+  | "EVIDENCE_UNTRUSTED"
+  | "ACCOUNT_UNAVAILABLE"
+  | "ACCOUNT_MISMATCH"
+  | "ACCOUNT_UNHEALTHY"
+  | "IDENTIFIER_NOT_ALLOWED"
+  | "IDENTIFIER_BLOCKED"
+  | "ENVIRONMENT_NOT_ALLOWED"
+  | "MARKET_ORDER_DISABLED"
+  | "EXECUTION_QUOTE_UNAVAILABLE"
+  | "MARKET_CLOSED"
+  | "MARKET_HALTED"
+  | "INSTRUMENT_RULES_UNAVAILABLE"
+  | "COUNTER_UNAVAILABLE"
+  | "RESERVATION_UNAVAILABLE"
+  | "CALENDAR_UNAVAILABLE"
+  | "CLOCK_UNCERTAIN"
+  | "NOT_APPLICABLE"
+  | "UNSUPPORTED_CONTEXT"
+  | "INVALID_PROPOSAL_VALUE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionInputKind".
+ */
+export type RiskDecisionInputKind =
+  | "POLICY"
+  | "ACCOUNT"
+  | "PORTFOLIO"
+  | "MARKET"
+  | "TIME"
+  | "CALENDAR"
+  | "DAILY_COUNTERS"
+  | "RESERVATIONS"
+  | "INSTRUMENT_RULES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionStatus".
+ */
+export type RiskDecisionStatus = "ALLOWED" | "REJECTED" | "UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadStatus".
@@ -366,6 +454,8 @@ export type ReplyData =
   | GatewayState
   | ModelState
   | RiskPolicyState
+  | RiskDecision
+  | RiskDecisionHistory
   | ProviderCatalog
   | ProviderDefinition
   | Accounts
@@ -650,6 +740,8 @@ export interface IpcSchema {
   researchRequest: ResearchToolRequest;
   researchResult: ResearchToolResult;
   result: ResultEnvelope;
+  riskDecisionEvaluate: RiskDecisionEvaluate;
+  riskDecisionQuery: RiskDecisionQuery;
   riskQuery: RiskQuery;
   saveRiskPolicy: SaveRiskPolicy;
   screenerAttach: ScreenerAttach;
@@ -1629,6 +1721,7 @@ export interface DomainEvent {
     | "model-gateway"
     | "model"
     | "risk"
+    | "risk-decision"
     | "thread"
     | "trading212-demo-order-attempt"
     | "trading212-demo-order-book"
@@ -1645,6 +1738,7 @@ export interface DomainEvent {
     | "model.provider.changed"
     | "model.provider_attempt.changed"
     | "risk.policy.changed"
+    | "risk.decision.evaluated"
     | "thread.created"
     | "thread.updated"
     | "trading212.demo.order.attempt.changed"
@@ -2024,6 +2118,45 @@ export interface RiskPolicy {
 export interface RiskAssetClassLimit {
   assetClass: AssetClass;
   maxExposurePercent: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecision".
+ */
+export interface RiskDecision {
+  accountId?: string | null;
+  checks: RiskCheckResult[];
+  decisionId: string;
+  environment: ExecutionContext;
+  evaluatedAt: string;
+  inputs: RiskDecisionInputReference[];
+  policyStateVersion?: string | null;
+  policyVersion?: number | null;
+  proposalHash: string;
+  proposalId: string;
+  stateVersion: string;
+  status: RiskDecisionStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskCheckResult".
+ */
+export interface RiskCheckResult {
+  checkId: RiskCheckId;
+  outcome: RiskCheckOutcome;
+  reason: string;
+  reasonCode: RiskDecisionReasonCode;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionInputReference".
+ */
+export interface RiskDecisionInputReference {
+  digest: string;
+  kind: RiskDecisionInputKind;
+  observedAt?: string;
+  referenceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2947,6 +3080,7 @@ export interface Snapshot {
     | "model-gateway"
     | "model"
     | "risk"
+    | "risk-decision"
     | "thread"
     | "trading212-demo-order-attempt"
     | "trading212-demo-order-book"
@@ -3011,6 +3145,7 @@ export interface SubscriptionAck {
     | "model-gateway"
     | "model"
     | "risk"
+    | "risk-decision"
     | "thread"
     | "trading212-demo-order-attempt"
     | "trading212-demo-order-book"
@@ -3040,6 +3175,15 @@ export interface ThreadSummary {
   threadId: string;
   title: string;
   updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionHistory".
+ */
+export interface RiskDecisionHistory {
+  decisions: RiskDecision[];
+  proposalId: string;
   workspaceId: string;
 }
 /**
@@ -4684,6 +4828,22 @@ export interface TradeXError {
   message: string;
   remediationActions: Remediation[];
   retryable: boolean;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionEvaluate".
+ */
+export interface RiskDecisionEvaluate {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionQuery".
+ */
+export interface RiskDecisionQuery {
+  proposalId: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

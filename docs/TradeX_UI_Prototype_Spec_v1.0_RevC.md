@@ -607,7 +607,7 @@ Expired approval is not reusable; reservation is released when it had not submit
 
 ### F7. Risk Rejected
 
-Deterministic `RISK_REJECTED`; agent cannot override.
+Show deterministic `RISK_REJECTED` separately from `RISK_EVIDENCE_UNAVAILABLE`; both block submit, and neither can be overridden by an agent.
 
 ### F8. Broker Rejected
 
@@ -849,6 +849,7 @@ One reusable ErrorRecoveryPanel maps:
 - `INVALID_ORDER`;
 - `INSUFFICIENT_FUNDS`;
 - `RISK_REJECTED`;
+- `RISK_EVIDENCE_UNAVAILABLE`;
 - `SUBMISSION_REJECTED`;
 - `SUBMISSION_AMBIGUOUS`;
 - `STREAM_DISCONNECTED`;
@@ -868,6 +869,7 @@ One reusable ErrorRecoveryPanel maps:
 | DRAFT | editable OrderDraft |
 | PROPOSED | immutable OrderProposalCard |
 | RISK_REJECTED | RiskRejectedPanel |
+| RISK_EVIDENCE_UNAVAILABLE | RiskDecisionPanel; submit has no order side effect |
 | NEEDS_APPROVAL | LiveApprovalModal |
 | APPROVED | timeline/audit event |
 | RESERVED | ReservationEvent + capacity detail |
@@ -952,6 +954,7 @@ One reusable ErrorRecoveryPanel maps:
 - OrderDraftEditor
 - OrderProposalCard
 - RiskCheckPanel
+- RiskDecisionPanel
 - ReservationPanel
 - LiveArmModal
 - LiveApprovalModal
@@ -1201,3 +1204,7 @@ The selected ordinary Bitget Classic Spot `LIVE` account detail shows current or
 Display `CURRENT`, `STALE`, or `DEGRADED` plus the last successful observation time. Incomplete, duplicate, malformed, over-limit, failed or rate-limited responses keep the previous trusted snapshot and display a sanitized status/retry state; do not show an empty result as success. Wide tables scroll internally and are keyboard reachable. Verify the account view at 390, 768 and 1280 px. Do not create/use a Demo account, attach the Demo `paptrading: 1` header to Live requests, fall back across environments, or expose any Live write control. If the ordinary Live connection is absent, fixture verification remains distinct from pending real provider reads.
 
 TradeX does not maintain a private stream for the Bitget Classic Spot v2 connection. Show `Private stream unavailable · REST reconciliation`, keep stream health `NOT_CONFIGURED`, and update account/order observations only through explicit connection or REST refresh reads.
+
+### 14.16 RiskDecision evaluation and history (S21 #81)
+
+Order Drafts can explicitly evaluate or reevaluate a saved proposal and displays its append-only decision history. Show `ALLOWED`, `REJECTED`, or `UNAVAILABLE`, the bound proposal hash, exact account/environment, policy version, check outcomes/reasons, and input digests. The renderer sends only workspace/proposal identity. `RISK_REJECTED` and `RISK_EVIDENCE_UNAVAILABLE` remain distinct; after either submit error, refresh and display the persisted decision and state that no order attempt/provider or simulator order side effect occurred. `ALLOWED` is not approval, arming, reservation, or permission to send. Preserve keyboard access and verify 390, 768, and 1280 px layouts. Ordinary Bitget `LIVE` is shown as read-only; do not create/use Demo or expose a Live write control.

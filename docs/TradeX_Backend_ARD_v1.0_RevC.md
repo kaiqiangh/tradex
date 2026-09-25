@@ -842,15 +842,27 @@ System-enforced and not user-bypassable:
 
 ```rust
 struct RiskDecision {
+    decision_id: DecisionId,
+    workspace_id: WorkspaceId,
     proposal_id: ProposalId,
-    policy_version: PolicyVersion,
-    allowed: bool,
+    proposal_hash: Sha256,
+    account_id: Option<AccountId>,
+    environment: ExecutionContext,
+    policy_version: Option<PolicyVersion>,
+    policy_state_version: Option<StateVersion>,
+    status: RiskDecisionStatus, // ALLOWED | REJECTED | UNAVAILABLE
+    state_version: StateVersion,
+    inputs: Vec<RiskDecisionInputReference>,
     checks: Vec<RiskCheckResult>,
     evaluated_at: DateTime<Utc>,
 }
 ```
 
-Persist every live risk decision.
+Each input reference carries its kind, bounded reference ID, SHA-256 digest, and optional observed time. Each check carries a stable ID, `PASS` / `REJECT` / `UNAVAILABLE`, reason code, and sanitized explanation. A rejection takes precedence; with no rejection, any unavailable check makes the decision unavailable. Null policy limits are explicitly `LIMIT_NOT_CONFIGURED`; missing evidence for a configured limit is never converted to zero.
+
+Persist each decision separately from its proposal as an append-only `risk.decision.evaluated` event, keyed by workspace + proposal and a per-proposal sequence. Re-evaluation adds history and cannot mutate the proposal/hash. The renderer supplies only workspace/proposal IDs; the Control Plane loads policy, exact account, complete workspace portfolio, market/time and existing activity evidence and computes every check. Submission paths re-evaluate through the same evaluator and reject `REJECTED` / `UNAVAILABLE` before an attempt or provider/simulator I/O. Errors are distinct: `RISK_REJECTED` and `RISK_EVIDENCE_UNAVAILABLE`.
+
+Non-local execution requires trusted real-time quote provenance, a trusted clock, an authoritative open market session, and authoritative provider instrument rules. Until the owning adapters produce those inputs, the result remains `UNAVAILABLE`; this slice adds no market, calendar, FX, fills, reservation, or provider-rule collection. A policy result is not financial approval, arming, reservation, or gateway authorization. Ordinary Bitget `LIVE` maps to `RiskPolicyEnvironment::Live`; this decision path makes no provider request and offers no Bitget Demo or Live write authority.
 
 ---
 
@@ -2100,7 +2112,7 @@ The `model` aggregate uses `workspaceId` as its aggregate ID and contains only n
 
 `model.provider.changed` carries the complete sanitized `ModelState`; `model.provider_attempt.changed` carries the same state after an appended attempt. Both use contiguous `model` aggregate sequences and strict aggregate/payload identity during replay. These mutations never change account capability, risk, arming or approval state. A verified route is required before `modelAvailable` or onboarding Ready can become true; default selection and cross-provider fallback consent are persisted in the model aggregate, while the onboarding and risk contract is defined in §41.6.
 
-### 41.6 Risk policy and onboarding payloads (S03 onboarding)
+### 41.6 Risk policy, RiskDecision, and onboarding payloads
 
 The `risk` aggregate uses `workspaceId` as its aggregate ID and is the only authority for onboarding progress and the setup risk defaults. Version 1 adds these exact commands:
 
@@ -2110,6 +2122,8 @@ The `risk` aggregate uses `workspaceId` as its aggregate ID and is the only auth
 | risk.save_policy | `{workspaceId: string, expectedStateVersion: string, policy: RiskPolicyInput}` | New `RiskPolicyState`, incremented `policyVersion`, and `risk.policy.changed` |
 | onboarding.set_step | `{workspaceId: string, expectedStateVersion: string, step: 1 \| 2 \| 3 \| 4 \| 5}` | New `RiskPolicyState` with the requested progress step |
 | onboarding.complete | `{workspaceId: string, expectedStateVersion: string}` | New `RiskPolicyState` with `onboardingCompleted: true` |
+| risk.evaluate_proposal | `{workspaceId: string, proposalId: string}` | Newly appended `RiskDecision` and `risk.decision.evaluated` |
+| risk.decision.list | `{workspaceId: string, proposalId: string}` | `RiskDecisionHistory`, ordered by per-proposal sequence |
 
 ~~~ts
 type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
@@ -2153,6 +2167,40 @@ interface RiskPolicyState {
   hardRules: Array<{id: string; description: string}>;
   updatedAt: string;
 }
+type RiskDecisionStatus = "ALLOWED" | "REJECTED" | "UNAVAILABLE";
+type RiskCheckOutcome = "PASS" | "REJECT" | "UNAVAILABLE";
+interface RiskCheckResult {
+  checkId: RiskCheckId;
+  outcome: RiskCheckOutcome;
+  reasonCode: RiskDecisionReasonCode;
+  reason: string;
+}
+interface RiskDecisionInputReference {
+  kind: RiskDecisionInputKind;
+  referenceId: string;
+  digest: string; // sha256:<lowercase hex>
+  observedAt?: string;
+}
+interface RiskDecision {
+  decisionId: string;
+  workspaceId: string;
+  proposalId: string;
+  proposalHash: string;
+  accountId?: string | null;
+  environment: ExecutionContext;
+  policyVersion?: number | null;
+  policyStateVersion?: string | null;
+  status: RiskDecisionStatus;
+  evaluatedAt: string;
+  stateVersion: string;
+  inputs: RiskDecisionInputReference[];
+  checks: RiskCheckResult[];
+}
+interface RiskDecisionHistory {
+  workspaceId: string;
+  proposalId: string;
+  decisions: RiskDecision[];
+}
 ~~~
 
 Every `RiskPolicyInput` field is required on the wire. Money and portfolio-value limits (`maxOrderNotional`, `maxPositionSize`, `maxDailyTradedNotional`, `maxDailyRealizedLoss`, and `maxReservedCapital`) are exact decimal strings in the workspace base currency. `maxOrderQuantity` is an exact decimal in canonical instrument base units (shares or base asset units); quote-quantity proposals need trusted base-equivalent evidence before a later risk check can use this limit. Exposure, slippage, and price-deviation values are exact decimal percentages. `maxOpenOrders` is a positive integer or `null`. Financial and exposure limits remain `null` until the user chooses them; no monetary or exposure appetite is invented. Market orders default to `false`; enabling them requires an explicit maximum slippage. Stale quote defaults to 3 seconds and Live inactivity timeout to 20 minutes.
@@ -2163,7 +2211,7 @@ New policy fields default to `null` or empty lists. A recognized pre-S21 risk pr
 
 All mutations require the active workspace and exact current `stateVersion`; stale cursors return `STATE_STALE / STATE_VERSION_CONFLICT` without mutation. Progress can move only one step forward or back; a jump returns `POLICY_ERROR / ONBOARDING_STEP_INVALID`. Step 5 and completion require `configured` risk defaults and a current verified default model route from §41.5. Completion additionally checks every Live account is `DISARMED`; no onboarding command arms an account or enables Send/Live execution. A model-session reset invalidates a completed setup and reopens at Model (step 3). `risk.policy.changed` is committed atomically with the risk projection and outbox, and its `risk` snapshot/subscribe/replay follows §41.2 with contiguous per-workspace sequence. New workspaces initialize the risk table during storage schema version 5 migration; recognized older workspaces are backed up before migration.
 
-The sanitized remediation codes are `RISK_POLICY_INVALID`, `RISK_POLICY_NOT_CONFIGURED`, `ONBOARDING_STEP_INVALID` and `ONBOARDING_BLOCKED`; no raw storage, account or model diagnostics are returned. Frontend controls must treat an unknown/loading account state as unavailable until an authoritative account projection is present, and must display the current provider/model/fallback, currency and Live arming facts in Ready. These commands are renderer setup operations; Agent/Thread execution has no policy mutation capability.
+The sanitized remediation codes are `RISK_POLICY_INVALID`, `RISK_POLICY_NOT_CONFIGURED`, `ONBOARDING_STEP_INVALID` and `ONBOARDING_BLOCKED`; no raw storage, account or model diagnostics are returned. Decision commands accept only workspace/proposal identity; per-check reason codes include policy, identifier, account, market, clock, rule, counter and reservation outcomes. A decision stores SHA-256 input references, not raw credentials or provider response bodies. The `risk-decision` aggregate uses proposal ID as aggregate ID and a contiguous per-proposal sequence. `risk.decision.list` is read-only; `risk.evaluate_proposal` appends without changing the proposal or risk-policy aggregate. A failed submit records the blocking decision before returning its sanitized risk error and does not persist an order attempt. Frontend controls must treat an unknown/loading account state as unavailable until an authoritative account projection is present, and must display the current provider/model/fallback, currency and Live arming facts in Ready. These commands are renderer operations; Agent/Thread execution has no policy mutation capability and cannot invoke the evaluator with renderer-supplied evidence.
 
 ---
 

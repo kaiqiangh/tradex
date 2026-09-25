@@ -49,10 +49,10 @@ use crate::protocol::{
     Trading212DemoOrderSubmit, Watchlist, WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
-use crate::risk::RiskPolicyState;
+use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 22;
+pub(crate) const SCHEMA_VERSION: u32 = 23;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -509,6 +509,18 @@ impl Store {
                 );
                 CREATE INDEX bitget_demo_attempts_connection_state ON bitget_demo_order_attempts(connection_id,state);
                 PRAGMA user_version=22;").map_err(storage_error)?;
+            }
+            if version < 23 {
+                tx.execute_batch("CREATE TABLE risk_decisions (
+                    decision_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    proposal_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,proposal_id,sequence)
+                );
+                CREATE INDEX risk_decisions_workspace_proposal ON risk_decisions(workspace_id,proposal_id,sequence DESC);
+                PRAGMA user_version=23;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1058,6 +1070,7 @@ impl Store {
                         "model.provider.changed" | "model.provider_attempt.changed"
                     ),
                     "risk" => event.event_type != "risk.policy.changed",
+                    "risk-decision" => event.event_type != "risk.decision.evaluated",
                     "thread" => !matches!(
                         event.event_type.as_str(),
                         "thread.created" | "thread.updated"
@@ -1989,6 +2002,22 @@ impl Store {
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
+        if kind == "risk-decision" {
+            let workspace_id = self.workspace_id()?;
+            let history = self.risk_decision_history(&workspace_id, id)?;
+            let sequence = history.decisions.len() as u64;
+            let decision = history
+                .decisions
+                .into_iter()
+                .last()
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::RiskDecision(Box::new(decision)),
+                last_sequence: sequence,
+            });
+        }
         if kind == "thread" {
             let thread = self.thread(id)?;
             let sequence: i64 = self
@@ -2317,6 +2346,119 @@ impl Store {
         .map_err(storage_error)?;
         tx.commit().map_err(storage_error)?;
         Ok(event)
+    }
+
+    pub fn append_risk_decision(&mut self, mut decision: RiskDecision) -> Result<DomainEvent> {
+        let workspace_id = self.workspace_id()?;
+        if decision.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(&decision.proposal_id)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let stored_proposal: Option<(String, String)> = tx
+            .query_row(
+                "SELECT workspace_id,proposal_hash FROM order_proposals WHERE proposal_id=?1",
+                [&decision.proposal_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((proposal_workspace_id, proposal_hash)) = stored_proposal else {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        };
+        if proposal_workspace_id != workspace_id || proposal_hash != decision.proposal_hash {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let previous: i64 = tx
+            .query_row(
+                "SELECT COALESCE(MAX(sequence),0) FROM risk_decisions WHERE workspace_id=?1 AND proposal_id=?2",
+                params![workspace_id, decision.proposal_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if previous < 0 || previous >= MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let sequence = previous + 1;
+        decision.state_version = format!("risk-decision:{}:{sequence}", decision.proposal_id);
+        decision.validate(&workspace_id, &decision.proposal_id, sequence as u64)?;
+        let projection = serde_json::to_string(&decision).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO risk_decisions(decision_id,workspace_id,proposal_id,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+            params![decision.decision_id, workspace_id, decision.proposal_id, sequence, projection],
+        )
+        .map_err(storage_error)?;
+        let event = DomainEvent {
+            event_id: Uuid::new_v4().to_string(),
+            event_type: "risk.decision.evaluated".into(),
+            schema_version: 1,
+            occurred_at: decision.evaluated_at.clone(),
+            aggregate_type: "risk-decision".into(),
+            aggregate_id: decision.proposal_id.clone(),
+            sequence: sequence as u64,
+            payload: DomainProjection::RiskDecision(Box::new(decision)),
+        };
+        tx.execute(
+            "INSERT INTO outbox VALUES('risk-decision',?1,?2,?3,?4)",
+            params![
+                event.aggregate_id,
+                sequence,
+                event.event_id,
+                serde_json::to_string(&event).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(event)
+    }
+
+    pub fn risk_decision_history(
+        &self,
+        workspace_id: &str,
+        proposal_id: &str,
+    ) -> Result<RiskDecisionHistory> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(proposal_id)?;
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT sequence,decision_id,projection FROM risk_decisions WHERE workspace_id=?1 AND proposal_id=?2 ORDER BY sequence",
+            )
+            .map_err(storage_error)?;
+        let rows = statement
+            .query_map(params![workspace_id, proposal_id], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut decisions = Vec::new();
+        for (index, row) in rows.enumerate() {
+            let (sequence, decision_id, encoded) = row.map_err(storage_error)?;
+            let expected_sequence = index as i64 + 1;
+            if sequence != expected_sequence {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let decision: RiskDecision = serde_json::from_str(&encoded)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if decision.decision_id != decision_id {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            decision.validate(workspace_id, proposal_id, sequence as u64)?;
+            decisions.push(decision);
+        }
+        Ok(RiskDecisionHistory {
+            workspace_id: workspace_id.into(),
+            proposal_id: proposal_id.into(),
+            decisions,
+        })
     }
 
     pub fn save_model(&mut self, mut model: ModelState, event_type: &str) -> Result<DomainEvent> {
