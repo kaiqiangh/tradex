@@ -144,7 +144,8 @@ export function RiskDefaults({ workspaceId, baseCurrency, state, draft, onDraftC
   );
   return <div className="risk-defaults">
     <p className="muted">Money and portfolio exposure use exact decimals in {baseCurrency}. Leave limits unset until you choose them. Quantity uses canonical instrument base units.</p>
-    <div className="risk-form">
+    <fieldset className="risk-form" disabled={busy}>
+      <legend className="sr-only">Risk policy configuration</legend>
       <DecimalField label={`Maximum order notional (${baseCurrency})`} value={draft.maxOrderNotional} onChange={value => change('maxOrderNotional', value)} />
       {showFullPolicy && <DecimalField label="Maximum order quantity (shares or base units)" value={draft.maxOrderQuantity} onChange={value => change('maxOrderQuantity', value)} />}
       {showFullPolicy && <DecimalField label={`Maximum position size (${baseCurrency})`} value={draft.maxPositionSize} onChange={value => change('maxPositionSize', value)} />}
@@ -158,7 +159,7 @@ export function RiskDefaults({ workspaceId, baseCurrency, state, draft, onDraftC
       {showFullPolicy && <label className="field">Maximum open orders<input type="number" inputMode="numeric" min={1} step={1} value={draft.maxOpenOrders} onChange={event => change('maxOpenOrders', event.target.value)} placeholder="Leave unset" /></label>}
       {showFullPolicy && <DecimalField label={`Maximum reserved capital (${baseCurrency})`} value={draft.maxReservedCapital} onChange={value => change('maxReservedCapital', value)} />}
       <label className="field">Stale quote threshold (seconds)<input type="number" inputMode="numeric" min={1} max={86400} step={1} value={draft.staleQuoteThresholdSeconds} onChange={event => change('staleQuoteThresholdSeconds', event.target.value)} required /></label>
-      <label className="check-field"><input type="checkbox" checked={draft.marketOrdersEnabled} onChange={event => change('marketOrdersEnabled', event.target.checked)} disabled={busy} /> Allow market orders <span className="muted">OFF by default</span></label>
+      <label className="check-field"><input type="checkbox" checked={draft.marketOrdersEnabled} onChange={event => change('marketOrdersEnabled', event.target.checked)} /> Allow market orders <span className="muted">OFF by default</span></label>
       {(showFullPolicy || draft.marketOrdersEnabled) && <DecimalField label="Maximum market-order slippage (%)" value={draft.maxMarketOrderSlippagePercent} onChange={value => change('maxMarketOrderSlippagePercent', value)} />}
       {showFullPolicy && <DecimalField label="Maximum price deviation (%)" value={draft.maxPriceDeviationPercent} onChange={value => change('maxPriceDeviationPercent', value)} />}
       <label className="field">Live inactivity timeout (minutes)<input type="number" inputMode="numeric" min={1} max={1440} step={1} value={draft.liveInactivityTimeoutMinutes} onChange={event => change('liveInactivityTimeoutMinutes', event.target.value)} required /></label>
@@ -172,10 +173,10 @@ export function RiskDefaults({ workspaceId, baseCurrency, state, draft, onDraftC
         <fieldset className="risk-environments">
           <legend>Allowed account environments</legend>
           <p className="form-hint">No selection means no additional environment restriction.</p>
-          <div>{environments.map(item => <label className="check-field" key={item.value}><input type="checkbox" checked={draft.allowedEnvironments.includes(item.value)} onChange={event => toggleEnvironment(item.value, event.target.checked)} disabled={busy} /> {item.label}</label>)}</div>
+          <div>{environments.map(item => <label className="check-field" key={item.value}><input type="checkbox" checked={draft.allowedEnvironments.includes(item.value)} onChange={event => toggleEnvironment(item.value, event.target.checked)} /> {item.label}</label>)}</div>
         </fieldset>
       </>}
-    </div>
+    </fieldset>
     <div className="hard-rules" aria-labelledby="hard-rules-title"><h3 id="hard-rules-title">Hard safety rules · read only</h3><ul>{state.hardRules.map(rule => <li key={rule.id}><strong>{rule.id.replaceAll('_', ' ')}</strong><span>{rule.description}</span></li>)}</ul></div>
     {error && <p className="error-text" role="alert">{error}</p>}
     {notice && <p className="success-text" role="status">{notice}</p>}
