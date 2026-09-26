@@ -59,7 +59,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     await sendIntegrationCommand('risk.save_policy', {
       workspaceId,
       expectedStateVersion: currentRisk.stateVersion,
-      policy: { ...currentRisk.policy, staleQuoteThresholdSeconds: 120, maxSingleInstrumentExposurePercent: null },
+      policy: { ...currentRisk.policy, marketOrdersEnabled: true, maxMarketOrderSlippagePercent: '5', staleQuoteThresholdSeconds: 120, maxSingleInstrumentExposurePercent: null },
     });
     const account = await sendIntegrationCommand('account.arming.fixture.seed', {
       workspaceId, providerId: 'binance', label: `Approval fixture ${Date.now()}`,
@@ -83,32 +83,32 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(account.connectionId);
     await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('crypto:BTC/USDT:spot');
     await ui.getByRole('combobox', { name: 'Side', exact: true }).selectOption('BUY');
-    await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
+    await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('MARKET');
     await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
     await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.01');
-    await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('50000');
     await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('510');
     await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
     await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
-    const proposalLibrary = await sendIntegrationCommand('trade.proposal.list', { workspaceId });
-    assert.equal(proposalLibrary.proposals.length, 1, 'The isolated workspace contains only this generated proposal');
-    const selectedProposal = proposalLibrary.proposals[0];
-    const proposalRow = ui.locator('.order-proposal-row').first();
-    await proposalRow.waitFor({ state: 'visible' });
-    await proposalRow.press('Enter');
+    const marketLibrary = await sendIntegrationCommand('trade.proposal.list', { workspaceId });
+    assert.equal(marketLibrary.proposals.length, 1, 'The isolated workspace contains only this generated proposal');
+    const marketProposal = marketLibrary.proposals[0];
+    await ui.locator('.order-proposal-row').first().press('Enter');
 
     const reviewButton = ui.getByRole('button', { name: 'Review Live approval', exact: true });
     await reviewButton.press('Enter');
     const dialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
     await dialog.waitFor({ state: 'visible' });
-    await ui.getByRole('status').filter({ hasText: 'Current checks pass. Approval still requires your explicit action.' }).waitFor({ state: 'visible' });
     const reviewText = await dialog.innerText();
-    for (const expected of ['BINANCE_LIVE', account.label, 'crypto:BTC/USDT:spot', 'BUY', '0.01 BASE', '500', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nUnavailable']) {
+    for (const expected of ['BINANCE_LIVE', account.label, 'crypto:BTC/USDT:spot', 'BUY', '0.01 BASE', 'MARKET · No limit · GTC', 'Expected spend\n500.01', 'Maximum authorized spend\n510', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nUnavailable']) {
       assert.ok(reviewText.includes(expected), `Approval review includes ${expected}: ${reviewText}`);
     }
+    await ui.getByRole('alert').filter({ hasText: 'Approval blocked: MarketOrderSlippage' }).waitFor({ state: 'visible' });
+    assert.equal(await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).isEnabled(), false);
+    const marketHistory = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: marketProposal.proposalId });
+    assert.equal(marketHistory.approvals.length, 0, 'Unavailable size-aware slippage keeps market approval absent');
     assert.match(reviewText, /Quote age\n\d+ ms/);
     await expectFocus(ui, 'Reject this review');
     await viewport.set({ width: 390, height: 844 });
@@ -121,10 +121,35 @@ export async function checkLiveApprovalUI(tab, browser) {
     await dialog.press('Escape');
     await dialog.waitFor({ state: 'hidden' });
     await expectFocus(ui, 'Review Live approval');
-    observed.push('Eligible review shows the immutable proposal, account, spend, quote source and risk evidence; Escape cancels safely and the dialog fits at 390px.');
+    observed.push('Market BUY review shows ask-derived expected spend, the 510 cap and quote provenance; unavailable size-aware slippage blocks approval, and Escape cancels safely in a 390px viewport.');
 
+    await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+    await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('BINANCE_LIVE');
+    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(account.connectionId);
+    await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('crypto:BTC/USDT:spot');
+    await ui.getByRole('combobox', { name: 'Side', exact: true }).selectOption('BUY');
+    await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
+    await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
+    await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.01');
+    await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('50000');
+    await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('510');
+    await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
+    await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    const proposalLibrary = await sendIntegrationCommand('trade.proposal.list', { workspaceId });
+    assert.equal(proposalLibrary.proposals.length, 2);
+    const proposalRow = ui.locator('.order-proposal-row').first();
+    const selectedProposalId = (await proposalRow.innerText()).match(/proposal:[0-9a-f-]{36}/)?.[0];
+    assert.ok(selectedProposalId, 'The visible limit proposal has a canonical identity');
+    const selectedProposal = proposalLibrary.proposals.find(item => item.proposalId === selectedProposalId);
+    assert.ok(selectedProposal, 'The visible limit proposal is present in backend history');
+    await proposalRow.press('Enter');
     await reviewButton.press('Enter');
     await dialog.waitFor({ state: 'visible' });
+    await ui.getByRole('status').filter({ hasText: 'Current checks pass. Approval still requires your explicit action.' }).waitFor({ state: 'visible' });
+
     await expectFocus(ui, 'Reject this review');
     await ui.getByRole('button', { name: 'Reject this review', exact: true }).press('Enter');
     await dialog.waitFor({ state: 'hidden' });
