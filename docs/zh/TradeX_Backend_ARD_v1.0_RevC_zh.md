@@ -953,7 +953,7 @@ ApprovedFinancialIntent 是带类型标签的联合：PLACE_ORDER 绑定 proposa
 - relevant policy change 时 invalidated；
 - market snapshot/clock condition 不再满足时不可执行。
 
-审批审阅不等于审批授权。`trade.request_approval` 返回由后端构建、绑定当前不可变 proposal 与 `ALLOWED` RiskDecision 的审阅内容，包括 provider/账户/LIVE 身份、proposal 字段、完整可用报价来源信息、基于受信审阅时间和 TradeX 接收时间计算的报价年龄，以及风险检查。买单显示预期支出；卖单显示预期收入；两者均显示最大授权金额。估算费用与滑点属于可选的受信估算；没有估算来源时必须明确显示为 unavailable。审阅返回的 RiskDecision ID 只用于比较并重新校验，不能作为 renderer 提交的授权依据。`trade.approve` 会重新读取并求值所有输入；只有用户审阅的 proposal 与证据仍未变化时才签发。原生 UI 只能由明确的 Approve 操作触发签发；Codex 通用 approval、Enter 和 Agent 请求均不构成批准操作。
+审批审阅不等于审批授权。`trade.request_approval` 返回由后端构建、绑定当前不可变 proposal 与 `ALLOWED` RiskDecision 的审阅内容，包括 provider/账户/LIVE 身份、proposal 字段、完整可用报价来源信息、基于受信审阅时间和 TradeX 接收时间计算的报价年龄，以及风险检查。买单显示预期支出；卖单显示预期收入；两者均显示最大授权金额。对于市价单，后端使用精确十进制算术比较预期金额与最大授权额；预期金额超过上限时，审阅不可批准，`trade.approve` 不会签发。估算费用与滑点属于可选的受信估算；没有估算来源时必须明确显示为 unavailable。审阅返回的 RiskDecision ID 只用于比较并重新校验，不能作为 renderer 提交的授权依据。`trade.approve` 会重新读取并求值所有输入；只有用户审阅的 proposal 与证据仍未变化时才签发。原生 UI 只能由明确的 Approve 操作触发签发；Codex 通用 approval、Enter 和 Agent 请求均不构成批准操作。
 
 已签发 approval 绑定 workspace、不可变 proposal ID/hash、Live 账户与环境、`PLACE_ORDER`、policy version、审阅证据摘要和这一次明确的批准操作。approval ID、nonce、签发时间和过期时间均由后端设置。初始有效期最长 30 秒，并使用可信 `TimeService`；时钟不可信时阻止签发，过期/失效检查 fail closed。审阅与 approval 历史只包含脱敏原因和证据引用，不包含凭据、签名串或原始 provider body。
 

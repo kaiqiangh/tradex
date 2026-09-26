@@ -5870,6 +5870,17 @@ impl ControlPlane {
                 .into(),
             );
         }
+        if proposal.fields.order_type == protocol::OrderType::Market
+            && let (Some(expected), Some(maximum)) = (
+                expected_spend.as_deref(),
+                maximum_authorized_spend.as_deref(),
+            )
+            && crate::provider_io::decimal_cmp(expected, maximum)? == std::cmp::Ordering::Greater
+        {
+            blockers.push(
+                "MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED: Expected market order value exceeds the maximum authorized value.".into(),
+            );
+        }
         blockers.sort();
         blockers.dedup();
         blockers.truncate(32);
@@ -10536,6 +10547,80 @@ mod live_approval_tests {
             "reviewDigest": review["reviewDigest"],
             "expectedStateVersion": proposal["stateVersion"],
         })
+    }
+
+    #[test]
+    fn market_live_approval_rejects_expected_value_above_authorized_maximum() {
+        let (_folder, mut control, workspace_id, account, _, _) = reviewed_live_fixture();
+        let draft = dispatch(
+            &mut control,
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "fields": {
+                    "accountId": account.connection_id,
+                    "venue": "BINANCE",
+                    "environment": "BINANCE_LIVE",
+                    "instrumentId": "crypto:BTC/USDT:spot",
+                    "side": "BUY",
+                    "orderType": "MARKET",
+                    "quantity": {"type":"BASE","value":"0.01"},
+                    "maximumSpend": "500",
+                    "timeInForce": "GTC",
+                },
+            }),
+        );
+        assert_eq!(draft["ok"], true, "{draft}");
+        let proposal = dispatch(
+            &mut control,
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft["data"]["draftId"],
+                "expectedDraftVersion": 1,
+            }),
+        );
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        let proposal = proposal["data"].clone();
+        control.time.set_test_time(
+            OffsetDateTime::parse(proposal["createdAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap()
+                .unix_timestamp_nanos()
+                / 1_000_000
+                + 10,
+            120,
+        );
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["expectedSpend"], "500.01", "{review}");
+        assert_eq!(review["data"]["maximumAuthorizedSpend"], "500", "{review}");
+        assert_eq!(review["data"]["eligible"], false, "{review}");
+        assert!(
+            review["data"]["blockers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|blocker| blocker
+                    .as_str()
+                    .unwrap()
+                    .starts_with("MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED:")),
+            "{review}"
+        );
+
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review["data"]),
+        );
+        assert_eq!(approval["ok"], false, "{approval}");
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
     }
 
     fn assert_no_approval_or_order_attempt(

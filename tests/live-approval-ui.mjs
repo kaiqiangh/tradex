@@ -86,7 +86,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('MARKET');
     await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
     await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.01');
-    await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('510');
+    await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('500');
     await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
     await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
@@ -102,9 +102,10 @@ export async function checkLiveApprovalUI(tab, browser) {
     const dialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
     await dialog.waitFor({ state: 'visible' });
     const reviewText = await dialog.innerText();
-    for (const expected of ['BINANCE_LIVE', account.label, 'crypto:BTC/USDT:spot', 'BUY', '0.01 BASE', 'MARKET · No limit · GTC', 'Expected spend\n500.01', 'Maximum authorized spend\n510', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nUnavailable']) {
+    for (const expected of ['BINANCE_LIVE', account.label, 'crypto:BTC/USDT:spot', 'BUY', '0.01 BASE', 'MARKET · No limit · GTC', 'Expected spend\n500.01', 'Maximum authorized spend\n500', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nUnavailable']) {
       assert.ok(reviewText.includes(expected), `Approval review includes ${expected}: ${reviewText}`);
     }
+    await ui.getByRole('alert').filter({ hasText: 'MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED' }).waitFor({ state: 'visible' });
     await ui.getByRole('alert').filter({ hasText: 'Approval blocked: MarketOrderSlippage' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).isEnabled(), false);
     const marketHistory = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: marketProposal.proposalId });
