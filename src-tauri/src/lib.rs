@@ -295,15 +295,18 @@ mod live_arming_tests {
         assert_eq!(thread["ok"], true, "{thread}");
         let thread_id = thread["data"]["threadId"].as_str().unwrap().to_owned();
         let (prepared, _) = control
-            .begin_turn(serde_json::from_value(json!({
-                "workspaceId":workspace,
-                "threadId":thread_id,
-                "expectedStateVersion":thread["data"]["stateVersion"],
-                "message":"Continue the read-only thread",
-                "agentMode":"ASK",
-                "executionContext":"NONE_READ_ONLY",
-                "attachedContexts":[]
-            })).unwrap())
+            .begin_turn(
+                serde_json::from_value(json!({
+                    "workspaceId":workspace,
+                    "threadId":thread_id,
+                    "expectedStateVersion":thread["data"]["stateVersion"],
+                    "message":"Continue the read-only thread",
+                    "agentMode":"ASK",
+                    "executionContext":"NONE_READ_ONLY",
+                    "attachedContexts":[]
+                }))
+                .unwrap(),
+            )
             .unwrap();
 
         control
@@ -318,9 +321,24 @@ mod live_arming_tests {
             )
             .unwrap();
 
-        assert_eq!(stored_account(&control, &account.connection_id).health.arming, "DISARMED");
-        let saved_thread = control.store.as_ref().unwrap().thread(&prepared.thread_id).unwrap();
-        assert!(saved_thread.turns[0].items.iter().any(|item| item.item_type == "codex_approval"));
+        assert_eq!(
+            stored_account(&control, &account.connection_id)
+                .health
+                .arming,
+            "DISARMED"
+        );
+        let saved_thread = control
+            .store
+            .as_ref()
+            .unwrap()
+            .thread(&prepared.thread_id)
+            .unwrap();
+        assert!(
+            saved_thread.turns[0]
+                .items
+                .iter()
+                .any(|item| item.item_type == "codex_approval")
+        );
     }
 
     #[test]

@@ -984,7 +984,7 @@ account C: DISARMED/ARMED
 
 - application restart；
 - OS sleep/session lock；
-- on macOS, `NSApplicationDidResignActiveNotification`; treat every app deactivation as `SESSION_INACTIVE`, including ordinary app switches, so a lock-screen transition to loginwindow fails closed;
+- 在 macOS 上，`NSApplicationDidResignActiveNotification` 将每次应用失活（包括普通应用切换）统一视为 `SESSION_INACTIVE`；因此锁屏切换到 loginwindow 时会 fail closed；
 - credential change；
 - account health degradation；
 - reconciliation failure；
@@ -1560,7 +1560,7 @@ Codex queue overload 只能影响 Agent turn，不能挤占 control-plane reconc
 Sleep/session lock 时：
 
 - disarm live accounts；
-- on macOS, also disarm when the TradeX app gives up active status to another app；
+- 在 macOS 上，TradeX 应用让出活动状态、切换至其他应用时，也执行撤防；
 - 安全时持久化 runtime checkpoint；
 - resume 后重新建立 TimeService confidence；
 - 重连 private streams；

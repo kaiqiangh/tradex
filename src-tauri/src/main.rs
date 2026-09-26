@@ -8,10 +8,10 @@ use objc2_app_kit::{
     NSWorkspaceSessionDidResignActiveNotification, NSWorkspaceWillSleepNotification,
 };
 #[cfg(target_os = "macos")]
-use objc2_foundation::{
-    NSNotificationCenter, NSNotificationName,
-};
+use objc2_foundation::{NSNotification, NSNotificationCenter, NSNotificationName};
 use serde_json::{Value, json};
+#[cfg(target_os = "macos")]
+use std::ptr::NonNull;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
