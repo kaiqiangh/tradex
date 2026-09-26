@@ -122,7 +122,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     await dialog.press('Escape');
     await dialog.waitFor({ state: 'hidden' });
     await expectFocus(ui, 'Review Live approval');
-    observed.push('Market BUY review shows ask-derived expected spend, the 510 cap and quote provenance; unavailable size-aware slippage blocks approval, and Escape cancels safely in a 390px viewport.');
+    observed.push('Market BUY review shows ask-derived expected spend, the 500 cap and quote provenance; unavailable size-aware slippage blocks approval, and Escape cancels safely in a 390px viewport.');
 
     await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('BINANCE_LIVE');
