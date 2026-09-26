@@ -12,6 +12,7 @@ import type {
   OrderProposal,
   OrderProposalSummary,
   ApprovalReview,
+  LiveArmingEligibility,
   RiskDecisionHistory,
   PaperOrderResult,
   Trading212DemoOrderAttempt,
@@ -91,7 +92,24 @@ type DraftForm = {
   clientLabel: string;
 };
 type DraftField = keyof DraftForm;
+type LiveArmReview = { proposal: OrderProposal; account: AccountConnection; eligibility?: LiveArmingEligibility };
 type PaperConfirmation = 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit' | 'binance-testnet-cancel' | 'bitget-demo-submit';
+
+function sameLiveProposal(current: OrderProposal, expected: OrderProposal) {
+  return current.proposalId === expected.proposalId
+    && current.proposalHash === expected.proposalHash
+    && current.fields.accountId === expected.fields.accountId
+    && current.fields.environment === expected.fields.environment;
+}
+
+function sameLiveAccount(current: AccountConnection, expected: AccountConnection) {
+  return current.connectionId === expected.connectionId
+    && current.workspaceId === expected.workspaceId
+    && current.providerId === expected.providerId
+    && current.environment === expected.environment
+    && current.label === expected.label
+    && current.data?.remoteAccountId === expected.data?.remoteAccountId;
+}
 
 const paperConfirmationCopy: Record<PaperConfirmation, { title: string; explanation: string; prompt: string; confirmLabel: string }> = {
   submit: {
@@ -258,6 +276,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [bitgetDemoReview, setBitgetDemoReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
   const [paperConfirmation, setPaperConfirmation] = useState<PaperConfirmation>();
   const [approvalReview, setApprovalReview] = useState<ApprovalReview>();
+  const [liveArmReview, setLiveArmReview] = useState<LiveArmReview>();
+  const [liveArmError, setLiveArmError] = useState('');
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
@@ -356,9 +376,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setBinanceTestnetReview(undefined);
     setBitgetDemoReview(undefined);
     setApprovalReview(undefined);
+    setLiveArmReview(undefined);
+    setLiveArmError('');
   }, [selectedProposalId]);
   useEffect(() => {
-    if (paperConfirmation || approvalReview) {
+    if (paperConfirmation || approvalReview || liveArmReview) {
       queueMicrotask(() => {
         const safeDefault = confirmationRef.current?.querySelector<HTMLElement>('[data-safe-default]');
         (safeDefault ?? confirmationRef.current?.querySelector<HTMLElement>('button:not(:disabled)'))?.focus();
@@ -368,9 +390,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     const trigger = confirmationTriggerRef.current;
     confirmationTriggerRef.current = null;
     queueMicrotask(() => { if (trigger?.isConnected) trigger.focus(); else document.getElementById('order-proposal-title')?.focus(); });
-  }, [paperConfirmation, approvalReview]);
+  }, [paperConfirmation, approvalReview, liveArmReview]);
   useEffect(() => {
-    if (!paperConfirmation && !approvalReview) return;
+    if (!paperConfirmation && !approvalReview && !liveArmReview) return;
     const shell = document.querySelector<HTMLElement>('.app-shell');
     if (shell) shell.inert = true;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -378,6 +400,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         event.preventDefault();
         if (!paperBusy && !approvalBusy && !ordersBusy && !trading212OrdersBusy && !binanceTestnetOrdersBusy) {
           setApprovalReview(undefined);
+          setLiveArmReview(undefined);
           setPaperConfirmation(undefined);
           setCancelReview(undefined);
           setTrading212CancelReview(undefined);
@@ -399,7 +422,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       window.removeEventListener('keydown', onKeyDown);
       if (shell) shell.inert = false;
     };
-  }, [paperConfirmation, approvalReview, paperBusy, approvalBusy, ordersBusy, trading212OrdersBusy, binanceTestnetOrdersBusy]);
+  }, [paperConfirmation, approvalReview, liveArmReview, paperBusy, approvalBusy, ordersBusy, trading212OrdersBusy, binanceTestnetOrdersBusy]);
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
@@ -505,13 +528,119 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     confirmationTriggerRef.current = trigger;
     setApprovalBusy(true); setError(undefined); setNotice('');
     try {
-      const review = await request('trade.request_approval', { workspaceId, proposalId: proposal.proposalId });
+      const currentProposal = await request('trade.proposal.get', { workspaceId, proposalId: proposal.proposalId });
+      if (!sameLiveProposal(currentProposal, proposal) || currentProposal.status !== 'NEEDS_APPROVAL') {
+        setNotice('This proposal changed. Reload it and start a new Live review.');
+        confirmationTriggerRef.current = null;
+        return;
+      }
+      const currentAccounts = await request('account.list', { workspaceId });
+      queryClient.setQueryData(['accounts', workspaceId, 'order-draft'], currentAccounts);
+      const account = currentAccounts.accounts.find(item => item.connectionId === currentProposal.fields.accountId);
+      if (!account || account.workspaceId !== workspaceId || account.environment !== 'LIVE') {
+        setNotice('The selected Live account is unavailable. Reload account state before reviewing this proposal.');
+        confirmationTriggerRef.current = null;
+        return;
+      }
+      if (account.health.arming === 'DISARMED') {
+        setApprovalReview(undefined);
+        setLiveArmError('');
+        setLiveArmReview({
+          proposal: currentProposal,
+          account,
+          eligibility: currentAccounts.liveArmingEligibility.find(item => item.connectionId === account.connectionId),
+        });
+        return;
+      }
+      const review = await request('trade.request_approval', { workspaceId, proposalId: currentProposal.proposalId });
+      if (!sameLiveProposal(review.proposal, currentProposal) || review.account?.connectionId !== account.connectionId
+        || review.account.health.arming !== 'ARMED') {
+        setNotice('The proposal or account changed. Reload and start a new Live review.');
+        confirmationTriggerRef.current = null;
+        return;
+      }
       await riskDecisions.refetch();
-      await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, proposal.proposalId] });
+      await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, currentProposal.proposalId] });
       setApprovalReview(review);
     } catch (cause) {
       confirmationTriggerRef.current = null;
       setError(cause);
+    } finally { setApprovalBusy(false); }
+  };
+
+  const armLiveAccountAndReview = async () => {
+    const context = liveArmReview;
+    if (!context || approvalBusy || !context.eligibility?.canArm || !context.account.data?.remoteAccountId) return;
+    setApprovalBusy(true); setLiveArmError('');
+    try {
+      const proposalBeforeArm = await request('trade.proposal.get', { workspaceId, proposalId: context.proposal.proposalId });
+      if (!sameLiveProposal(proposalBeforeArm, context.proposal) || proposalBeforeArm.status !== 'NEEDS_APPROVAL') {
+        await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+        await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId, context.proposal.proposalId] });
+        setLiveArmReview(undefined);
+        setNotice('The proposal changed while confirming. No account was armed; select the current proposal and start a new Live review.');
+        return;
+      }
+      const accountsBeforeArm = await request('account.list', { workspaceId });
+      queryClient.setQueryData(['accounts', workspaceId, 'order-draft'], accountsBeforeArm);
+      const accountBeforeArm = accountsBeforeArm.accounts.find(item => item.connectionId === context.account.connectionId);
+      if (!accountBeforeArm || !sameLiveAccount(accountBeforeArm, context.account)
+        || accountBeforeArm.stateVersion !== context.account.stateVersion || accountBeforeArm.health.arming !== 'DISARMED') {
+        setLiveArmReview(undefined);
+        setNotice('Account state changed while confirming. No Arm or approval was issued; start a new Live review.');
+        return;
+      }
+      const eligibility = accountsBeforeArm.liveArmingEligibility.find(item => item.connectionId === accountBeforeArm.connectionId);
+      if (!eligibility?.canArm) {
+        setLiveArmError(eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before retrying.');
+        return;
+      }
+      const armed = await request('account.arm', {
+        workspaceId,
+        connectionId: accountBeforeArm.connectionId,
+        expectedStateVersion: accountBeforeArm.stateVersion,
+        confirmed: true,
+      });
+      if (armed.health.arming !== 'ARMED' || !sameLiveAccount(armed, context.account)) {
+        await queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId, 'order-draft'] });
+        setLiveArmReview(undefined);
+        setNotice('The selected account changed while arming. No approval was issued; reload account state and start a new Live review.');
+        return;
+      }
+      const accountsAfterArm = await request('account.list', { workspaceId });
+      queryClient.setQueryData(['accounts', workspaceId, 'order-draft'], accountsAfterArm);
+      const accountAfterArm = accountsAfterArm.accounts.find(item => item.connectionId === context.account.connectionId);
+      if (!accountAfterArm || !sameLiveAccount(accountAfterArm, context.account)
+        || accountAfterArm.stateVersion !== armed.stateVersion || accountAfterArm.health.arming !== 'ARMED') {
+        setLiveArmReview(undefined);
+        setNotice('Account state changed after Arm. No approval was issued; reload account state and start a new Live review.');
+        return;
+      }
+      const proposalAfterArm = await request('trade.proposal.get', { workspaceId, proposalId: context.proposal.proposalId });
+      if (!sameLiveProposal(proposalAfterArm, context.proposal) || proposalAfterArm.status !== 'NEEDS_APPROVAL') {
+        await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+        await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId, context.proposal.proposalId] });
+        setLiveArmReview(undefined);
+        setNotice('The proposal changed after Arm. The account is armed but no approval was issued; select the current proposal and start a new Live review.');
+        return;
+      }
+      const review = await request('trade.request_approval', { workspaceId, proposalId: proposalAfterArm.proposalId });
+      if (review.workspaceId !== workspaceId || !sameLiveProposal(review.proposal, context.proposal)
+        || review.account?.connectionId !== accountAfterArm.connectionId || review.account.health.arming !== 'ARMED'
+        || review.account.stateVersion !== accountAfterArm.stateVersion) {
+        await queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId, 'order-draft'] });
+        await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+        setLiveArmReview(undefined);
+        setNotice('The proposal or account changed during review. No approval was issued; reload and start a new Live review.');
+        return;
+      }
+      await riskDecisions.refetch();
+      await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, context.proposal.proposalId] });
+      setLiveArmReview(undefined);
+      setApprovalReview(review);
+    } catch (cause) {
+      setLiveArmError(explainError(cause));
+      void queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId, 'order-draft'] });
     } finally { setApprovalBusy(false); }
   };
 
@@ -1329,11 +1458,30 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       </dl>}
       <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetCancelReview(undefined); setBinanceTestnetReview(undefined); setBitgetDemoReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy ? 'Working…' : paperConfirmationCopy[paperConfirmation].confirmLabel}</button></div>
     </div></div>, document.body)}
+    {liveArmReview && createPortal(<div className="picker-backdrop"><div className="picker-dialog live-arm-dialog" role="dialog" aria-modal="true" aria-labelledby="live-arm-title" aria-busy={approvalBusy} ref={confirmationRef}>
+      <div className="picker-dialog-heading"><div><h2 id="live-arm-title">Confirm Live arming</h2><p className="muted">Arming changes only this exact TradeX account. It does not approve or submit this proposal.</p></div></div>
+      <dl className="health-grid">
+        <div><dt>Provider</dt><dd>{liveArmReview.account.providerId}</dd></div>
+        <div><dt>Account label</dt><dd>{liveArmReview.account.label}</dd></div>
+        <div><dt>Environment</dt><dd>LIVE</dd></div>
+        <div><dt>TradeX connection ID</dt><dd className="identity">{liveArmReview.account.connectionId}</dd></div>
+        <div><dt>Provider account ID</dt><dd className="identity">{liveArmReview.account.data?.remoteAccountId ?? 'Unavailable'}</dd></div>
+        <div><dt>Proposal / hash</dt><dd>{liveArmReview.proposal.proposalId} · {liveArmReview.proposal.proposalHash}</dd></div>
+      </dl>
+      <p role={liveArmError || !liveArmReview.eligibility?.canArm ? 'alert' : 'status'}>{liveArmError || (!liveArmReview.account.data?.remoteAccountId
+        ? 'Provider account identity is unavailable. Reload account state before arming.'
+        : liveArmReview.eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before arming.')}</p>
+      <div className="picker-dialog-actions">
+        <button type="button" data-safe-default onClick={() => { setLiveArmReview(undefined); setLiveArmError(''); }} disabled={approvalBusy}>Keep reviewing</button>
+        <button type="button" className="primary" onClick={() => void armLiveAccountAndReview()} disabled={approvalBusy || Boolean(liveArmError) || !liveArmReview.eligibility?.canArm || !liveArmReview.account.data?.remoteAccountId}>{approvalBusy ? 'Arming…' : 'Arm this Live account'}</button>
+      </div>
+    </div></div>, document.body)}
     {approvalReview && createPortal(<div className="picker-backdrop"><div className="picker-dialog approval-review-dialog" role="dialog" aria-modal="true" aria-labelledby="live-approval-title" aria-busy={approvalBusy} ref={confirmationRef}>
       <div className="picker-dialog-heading"><div><h2 id="live-approval-title">Review Live approval</h2><p className="muted">Approval is bound to this proposal and expires within 30 seconds. It does not submit an order or reserve funds.</p></div></div>
       {Boolean(error) && <p className="error-text" role="alert">{explainError(error)}</p>}
       <dl className="proposal-fields approval-review-fields">
-        <div><dt>Environment / account</dt><dd>{approvalReview.proposal.fields.environment} · {approvalReview.account?.label ?? 'Unavailable'} · {approvalReview.account?.data?.remoteAccountId ?? approvalReview.account?.connectionId ?? 'Unavailable'}</dd></div>
+        <div><dt>Environment / account</dt><dd>{approvalReview.proposal.fields.environment} · {approvalReview.account?.providerId ?? 'Unavailable'} · {approvalReview.account?.label ?? 'Unavailable'} · {approvalReview.account?.data?.remoteAccountId ?? 'Unavailable'}</dd></div>
+        <div><dt>TradeX connection ID</dt><dd className="identity">{approvalReview.account?.connectionId ?? 'Unavailable'}</dd></div>
         <div><dt>Proposal / hash</dt><dd>{approvalReview.proposal.proposalId} · {approvalReview.proposal.proposalHash}</dd></div>
         <div><dt>Instrument / venue</dt><dd>{approvalReview.proposal.fields.instrumentId} · {approvalReview.proposal.fields.venue}</dd></div>
         <div><dt>Side / quantity</dt><dd>{approvalReview.proposal.fields.side} · {approvalReview.proposal.fields.quantity.value} {approvalReview.proposal.fields.quantity.type}</dd></div>

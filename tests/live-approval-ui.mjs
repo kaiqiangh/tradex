@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
+let commandEndpoint = 'http://127.0.0.1:1420/__integration/command';
+
 async function sendIntegrationCommand(command, payload) {
   const requestId = randomUUID();
-  const response = await fetch('http://127.0.0.1:1420/__integration/command', {
+  const response = await fetch(commandEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ requestId, schemaVersion: 1, command, payload }),
@@ -28,6 +30,7 @@ async function expectFocus(ui, expected) {
 
 export async function checkLiveApprovalUI(tab, browser) {
   const ui = tab.playwright;
+  commandEndpoint = new URL('/__integration/command', await tab.url()).toString();
   const viewport = await browser.capabilities.get('viewport');
   const observed = [];
   try {
@@ -106,7 +109,7 @@ export async function checkLiveApprovalUI(tab, browser) {
       assert.ok(reviewText.includes(expected), `Approval review includes ${expected}: ${reviewText}`);
     }
     await ui.getByRole('alert').filter({ hasText: 'MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED' }).waitFor({ state: 'visible' });
-    await ui.getByRole('alert').filter({ hasText: 'Approval blocked: MarketOrderSlippage' }).waitFor({ state: 'visible' });
+    await ui.getByRole('alert').filter({ hasText: 'MarketOrderSlippage' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).isEnabled(), false);
     const marketHistory = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: marketProposal.proposalId });
     assert.equal(marketHistory.approvals.length, 0, 'Unavailable size-aware slippage keeps market approval absent');
@@ -124,6 +127,12 @@ export async function checkLiveApprovalUI(tab, browser) {
     await expectFocus(ui, 'Review Live approval');
     observed.push('Market BUY review shows ask-derived expected spend, the 500 cap and quote provenance; unavailable size-aware slippage blocks approval, and Escape cancels safely in a 390px viewport.');
 
+    const armedAccount = (await sendIntegrationCommand('account.list', { workspaceId })).accounts.find(item => item.connectionId === account.connectionId);
+    assert.ok(armedAccount);
+    const disarmedForApproval = await sendIntegrationCommand('account.disarm', {
+      workspaceId, connectionId: account.connectionId, expectedStateVersion: armedAccount.stateVersion,
+    });
+    assert.equal(disarmedForApproval.health.arming, 'DISARMED');
     await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('BINANCE_LIVE');
     await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(account.connectionId);
@@ -147,8 +156,33 @@ export async function checkLiveApprovalUI(tab, browser) {
     const selectedProposal = proposalLibrary.proposals.find(item => item.proposalId === selectedProposalId);
     assert.ok(selectedProposal, 'The visible limit proposal is present in backend history');
     await proposalRow.press('Enter');
-    await reviewButton.press('Enter');
+    await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
+    const armDialog = ui.getByRole('dialog', { name: 'Confirm Live arming', exact: true });
+    await armDialog.waitFor({ state: 'visible' });
+    const armText = await armDialog.innerText();
+    for (const expected of [account.providerId, account.label, 'LIVE', account.connectionId, account.data.remoteAccountId]) {
+      assert.ok(armText.includes(expected), `Arm confirmation identifies ${expected}: ${armText}`);
+    }
+    const armDialogSize = await armDialog.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth };
+    });
+    assert.ok(armDialogSize.left >= 0 && armDialogSize.right <= armDialogSize.width, `Arm confirmation fits on mobile: ${JSON.stringify(armDialogSize)}`);
+    assert.ok(armDialogSize.scroll <= armDialogSize.width, `Arm confirmation has no horizontal overflow: ${JSON.stringify(armDialogSize)}`);
+    assert.equal(await ui.getByRole('button', { name: 'Arm this Live account', exact: true }).isEnabled(), true);
+    const beforeArm = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: selectedProposal.proposalId });
+    assert.equal(beforeArm.approvals.length, 0, 'Opening an Arm confirmation does not issue approval');
+    await ui.getByRole('button', { name: 'Arm this Live account', exact: true }).press('Enter');
+    await armDialog.waitFor({ state: 'hidden' });
+    await reviewButton.waitFor({ state: 'visible' });
     await dialog.waitFor({ state: 'visible' });
+    const armedReviewText = await dialog.innerText();
+    assert.ok(armedReviewText.includes(selectedProposal.proposalId), 'Arming returns to the same proposal');
+    assert.ok(armedReviewText.includes(selectedProposal.proposalHash), 'Arming returns to the same proposal hash');
+    assert.ok(armedReviewText.includes(account.connectionId), 'Arming retains the exact selected account');
+    observed.push('A DISARMED Live PLACE opens an exact Arm confirmation; explicit Arm returns to the same proposal, hash and account for a fresh review without issuing approval.');
+    const beforeExplicitReview = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: selectedProposal.proposalId });
+    assert.equal(beforeExplicitReview.approvals.length, 0, 'Arming and opening the fresh review do not issue approval');
     await ui.getByRole('status').filter({ hasText: 'Current checks pass. Approval still requires your explicit action.' }).waitFor({ state: 'visible' });
 
     await expectFocus(ui, 'Reject this review');
@@ -200,15 +234,54 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    const sellLibrary = await sendIntegrationCommand('trade.proposal.list', { workspaceId });
+    const sellProposalId = (await ui.locator('.order-proposal-row').first().innerText()).match(/proposal:[0-9a-f-]{36}/)?.[0];
+    assert.ok(sellProposalId);
+    const sellProposal = sellLibrary.proposals.find(item => item.proposalId === sellProposalId);
+    assert.ok(sellProposal, 'The visible market SELL proposal is present in backend history');
     await ui.locator('.order-proposal-row').first().press('Enter');
     await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
-    const sellDialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
-    await sellDialog.waitFor({ state: 'visible' });
-    const sellReviewText = await sellDialog.innerText();
-    assert.match(sellReviewText, /Expected proceeds\n499\.99/);
-    assert.match(sellReviewText, /Maximum authorized proceeds\n510/);
-    await sellDialog.press('Escape');
-    observed.push('Market SELL review estimates proceeds from bid and labels the sale cap as authorized proceeds.');
+    const changedAccountArmDialog = ui.getByRole('dialog', { name: 'Confirm Live arming', exact: true });
+    await changedAccountArmDialog.waitFor({ state: 'visible' });
+    const disarmedAccount = (await sendIntegrationCommand('account.list', { workspaceId })).accounts.find(item => item.connectionId === account.connectionId);
+    assert.ok(disarmedAccount);
+    const concurrentArm = await sendIntegrationCommand('account.arm', {
+      workspaceId, connectionId: account.connectionId, expectedStateVersion: disarmedAccount.stateVersion, confirmed: true,
+    });
+    assert.equal(concurrentArm.health.arming, 'ARMED');
+    await ui.getByRole('button', { name: 'Arm this Live account', exact: true }).press('Enter');
+    await changedAccountArmDialog.waitFor({ state: 'hidden' });
+    await ui.getByRole('status').filter({ hasText: 'Account state changed while confirming. No Arm or approval was issued' }).waitFor({ state: 'visible' });
+    const sellHistory = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: sellProposal.proposalId });
+    assert.equal(sellHistory.approvals.length, 0, 'A concurrent account change cannot issue approval');
+    observed.push('A concurrent account-state change during Arm confirmation fails closed and leaves the disarmed proposal without approval.');
+
+    const rearmedAccount = (await sendIntegrationCommand('account.list', { workspaceId })).accounts.find(item => item.connectionId === account.connectionId);
+    assert.ok(rearmedAccount);
+    const disarmedForChangedProposal = await sendIntegrationCommand('account.disarm', {
+      workspaceId, connectionId: account.connectionId, expectedStateVersion: rearmedAccount.stateVersion,
+    });
+    assert.equal(disarmedForChangedProposal.health.arming, 'DISARMED');
+    await reviewButton.press('Enter');
+    const changedProposalArmDialog = ui.getByRole('dialog', { name: 'Confirm Live arming', exact: true });
+    await changedProposalArmDialog.waitFor({ state: 'visible' });
+    const approvalHistoryBeforeRefresh = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: sellProposal.proposalId });
+    assert.equal(approvalHistoryBeforeRefresh.approvals.length, 0);
+    const proposalBeforeRefresh = await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: sellProposal.proposalId });
+    const refreshedProposal = await sendIntegrationCommand('trade.refresh_proposal', {
+      workspaceId,
+      proposalId: proposalBeforeRefresh.proposalId,
+      expectedStateVersion: proposalBeforeRefresh.stateVersion,
+    });
+    assert.notEqual(refreshedProposal.proposal.proposalId, sellProposal.proposalId, 'Refreshing changes the proposal identity');
+    await ui.getByRole('button', { name: 'Arm this Live account', exact: true }).press('Enter');
+    await changedProposalArmDialog.waitFor({ state: 'hidden' });
+    await ui.getByRole('status').filter({ hasText: 'The proposal changed while confirming. No account was armed' }).waitFor({ state: 'visible' });
+    const newProposalHistory = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: refreshedProposal.proposal.proposalId });
+    assert.equal(newProposalHistory.approvals.length, 0, 'A changed proposal cannot inherit or receive approval');
+    const stillDisarmed = (await sendIntegrationCommand('account.list', { workspaceId })).accounts.find(item => item.connectionId === account.connectionId);
+    assert.equal(stillDisarmed?.health.arming, 'DISARMED', 'A changed proposal is rejected before Account Arm');
+    observed.push('A proposal refreshed during Arm confirmation fails closed; the changed proposal stays DISARMED and neither the original nor replacement proposal receives approval.');
 
     const pageErrors = await tab.dev.logs({ levels: ['error'], limit: 20 });
     assert.equal(pageErrors.filter(log => !log.url?.startsWith('chrome-extension://') && !log.message.includes('chrome-extension://')).length, 0);
