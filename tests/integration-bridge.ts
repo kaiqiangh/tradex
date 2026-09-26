@@ -109,7 +109,9 @@ export function integrationBridge(): Plugin {
       });
       server.middlewares.use('/__integration', async (request, response) => {
         const origin = request.headers.origin;
-        if (origin && origin !== 'http://127.0.0.1:1420') { response.writeHead(403); response.end(); return; }
+        const address = server.httpServer?.address();
+        const port = typeof address === 'object' && address ? address.port : server.config.server.port ?? 1420;
+        if (origin && origin !== `http://127.0.0.1:${port}`) { response.writeHead(403); response.end(); return; }
         if (request.url === '/disconnect' && request.method === 'POST') {
           // Fault injection for the real UI subscription/retry path; no domain state changes.
           for (const client of clients) client.end();

@@ -1405,6 +1405,85 @@ fn approval_review_digest(
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
+fn cancellation_intent_from_account(
+    account: &AccountConnection,
+    broker_order_id: &str,
+    previous: Option<&protocol::CancellationIntent>,
+    observed_at: &str,
+) -> Result<protocol::CancellationIntent> {
+    let environment = match account.provider_id.as_str() {
+        "trading212" if account.environment == "LIVE" => protocol::ExecutionContext::Trading212Live,
+        "binance" if account.environment == "LIVE" => protocol::ExecutionContext::BinanceLive,
+        "bitget" if account.environment == "LIVE" => protocol::ExecutionContext::BitgetLive,
+        _ => return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED")),
+    };
+    let order = account
+        .data
+        .as_ref()
+        .and_then(|data| {
+            data.open_orders
+                .iter()
+                .find(|order| order.broker_order_id == broker_order_id)
+        })
+        .ok_or_else(|| TradeXError::new("ORDER_NOT_CANCELLABLE"))?;
+    let status = order.status.to_ascii_uppercase();
+    let cancellable = match account.provider_id.as_str() {
+        "trading212" => matches!(
+            status.as_str(),
+            "UNCONFIRMED" | "CONFIRMED" | "NEW" | "PARTIALLY_FILLED"
+        ),
+        "binance" => matches!(status.as_str(), "NEW" | "PENDING_NEW" | "PARTIALLY_FILLED"),
+        "bitget" => {
+            order.kind.as_deref() == Some("NORMAL")
+                && matches!(status.as_str(), "NEW" | "LIVE" | "PARTIALLY_FILLED")
+        }
+        _ => false,
+    };
+    if !cancellable {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    }
+    let quantity = order
+        .quantity
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("ORDER_NOT_CANCELLABLE"))?;
+    let filled = order
+        .filled_quantity
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("ORDER_NOT_CANCELLABLE"))?;
+    let instrument_id = order
+        .instrument_id
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("ORDER_NOT_CANCELLABLE"))?;
+    let quantity = provider_io::decimal(&Value::String(quantity.into()))?;
+    let filled = provider_io::decimal(&Value::String(filled.into()))?;
+    let remaining = provider_io::decimal_subtract(&quantity, &filled)?;
+    if remaining == "0" {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    }
+    let mut intent = protocol::CancellationIntent {
+        cancellation_intent_id: previous
+            .map(|intent| intent.cancellation_intent_id.clone())
+            .unwrap_or_else(|| format!("cancel:{}", uuid::Uuid::new_v4())),
+        intent_hash: String::new(),
+        workspace_id: account.workspace_id.clone(),
+        account_id: account.connection_id.clone(),
+        environment,
+        provider_order_id: order.broker_order_id.clone(),
+        instrument_id: instrument_id.into(),
+        symbol: order.symbol.clone(),
+        side: order.side.to_ascii_uppercase(),
+        provider_status: status,
+        quantity,
+        filled_quantity: filled,
+        remaining_quantity: remaining,
+        created_at: previous
+            .map(|intent| intent.created_at.clone())
+            .unwrap_or_else(|| observed_at.into()),
+    };
+    intent.intent_hash = storage::cancellation_intent_hash(&intent)?;
+    Ok(intent)
+}
+
 fn empty_alpaca_paper_order_book(account: &AccountConnection) -> Result<AlpacaPaperOrderBook> {
     let remote_account_id = account
         .data
@@ -1603,6 +1682,38 @@ impl ControlPlane {
             }))
             .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
         );
+        self.persist_account(account)
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
+    pub fn seed_live_cancellation_fixture(
+        &mut self,
+        workspace_id: &str,
+        provider_id: &str,
+        label: &str,
+    ) -> Result<AccountConnection> {
+        if !matches!(provider_id, "trading212" | "binance" | "bitget") {
+            return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
+        }
+        let mut account = self.seed_live_arming_fixture(workspace_id, provider_id, label)?;
+        account.data.as_mut().unwrap().remote_account_id = "9007199254740993".into();
+        if provider_id == "binance" {
+            account.permissions = PermissionReview {
+                scope: "VERIFIED".into(),
+                detected: vec![
+                    "account.read".into(),
+                    "positions.read".into(),
+                    "orders.read".into(),
+                    "read".into(),
+                    "spot-and-margin.trade".into(),
+                ],
+                forbidden: vec![],
+                unsupported: vec![],
+                acknowledged: false,
+                ip_allow_list_status: "RESTRICTED".into(),
+                ip_allow_list: None,
+            };
+        }
         self.persist_account(account)
     }
 
@@ -1954,11 +2065,12 @@ impl ControlPlane {
                 let approval = protocol::FinancialApproval {
                     approval_id: uuid::Uuid::new_v4().to_string(),
                     workspace_id: input.workspace_id.clone(),
-                    proposal_id: proposal.proposal_id.clone(),
-                    proposal_hash: proposal.proposal_hash.clone(),
+                    intent: protocol::FinancialApprovalIntent::PlaceOrder {
+                        proposal_id: proposal.proposal_id.clone(),
+                        proposal_hash: proposal.proposal_hash.clone(),
+                    },
                     account_id: account_id.into(),
                     environment: proposal.fields.environment.clone(),
-                    operation: protocol::FinancialOperation::PlaceOrder,
                     policy_version: bound_decision
                         .policy_version
                         .ok_or_else(|| TradeXError::new("RISK_POLICY_UNCONFIGURED"))?,
@@ -2070,6 +2182,133 @@ impl ControlPlane {
                     .as_ref()
                     .unwrap()
                     .financial_approval_history(&input.workspace_id, &input.proposal_id)?;
+                Ok((json!(history), None))
+            }
+            "trade.cancel_approve" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::CancellationApprovalAction = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let intent = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .cancellation_intent(&input.workspace_id, &input.cancellation_intent_id)?;
+                let account = self.store.as_ref().unwrap().account(&intent.account_id)?;
+                if intent.intent_hash != input.intent_hash
+                    || account.state_version != input.expected_state_version
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let review = self.build_cancellation_review(&intent, &account)?;
+                if !review.eligible
+                    || review.review_digest != input.review_digest
+                    || review.risk_decision.decision_id != input.reviewed_risk_decision_id
+                    || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                self.time.require_trusted()?;
+                let now = self.time.status(&input.workspace_id)?.wall_clock;
+                let expires_at = (OffsetDateTime::parse(&now, &Rfc3339)
+                    .map_err(|_| TradeXError::new("CLOCK_SKEW"))?
+                    + TimeDuration::seconds(30))
+                .format(&Rfc3339)
+                .map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+                let approval = protocol::FinancialApproval {
+                    approval_id: uuid::Uuid::new_v4().to_string(),
+                    workspace_id: input.workspace_id.clone(),
+                    intent: protocol::FinancialApprovalIntent::Cancel {
+                        cancellation_intent_id: intent.cancellation_intent_id.clone(),
+                        intent_hash: intent.intent_hash.clone(),
+                        broker_order_id: intent.provider_order_id.clone(),
+                        remaining_quantity: intent.remaining_quantity.clone(),
+                        snapshot_version: review.snapshot_version.clone(),
+                        snapshot_evidence_id: review.snapshot_evidence_id.clone(),
+                    },
+                    account_id: account.connection_id.clone(),
+                    environment: intent.environment,
+                    policy_version: review.risk_decision.policy_version,
+                    risk_decision_id: review.risk_decision.decision_id.clone(),
+                    review_digest: review.review_digest,
+                    issued_at: now.clone(),
+                    expires_at,
+                    updated_at: now.clone(),
+                    status: protocol::FinancialApprovalStatus::Issued,
+                    invalidation_reason: None,
+                    consumed_at: None,
+                    state_version: String::new(),
+                };
+                let (approval, events) = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .issue_cancel_financial_approval(
+                        approval,
+                        &input.expected_state_version,
+                        &uuid::Uuid::new_v4().to_string(),
+                        &now,
+                    )?;
+                for event in &events {
+                    self.publish(event);
+                }
+                Ok((json!(approval), Some(approval.state_version.clone())))
+            }
+            "trade.cancel_reject" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::CancellationApprovalAction = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let intent = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .cancellation_intent(&input.workspace_id, &input.cancellation_intent_id)?;
+                let account = self.store.as_ref().unwrap().account(&intent.account_id)?;
+                if intent.intent_hash != input.intent_hash
+                    || account.state_version != input.expected_state_version
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let review = self.build_cancellation_review(&intent, &account)?;
+                if review.review_digest != input.review_digest
+                    || review.risk_decision.decision_id != input.reviewed_risk_decision_id
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let rejection = protocol::CancellationApprovalRejection {
+                    audit_id: uuid::Uuid::new_v4().to_string(),
+                    workspace_id: input.workspace_id.clone(),
+                    cancellation_intent_id: intent.cancellation_intent_id.clone(),
+                    intent_hash: intent.intent_hash,
+                    risk_decision_id: review.risk_decision.decision_id,
+                    review_digest: review.review_digest,
+                    reason: protocol::CancellationApprovalRejectionReason::UserRejected,
+                    occurred_at: self.time.status(&input.workspace_id)?.wall_clock,
+                    state_version: String::new(),
+                };
+                let rejection = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .reject_cancel_approval_review(rejection, &input.expected_state_version)?;
+                Ok((json!(rejection), Some(rejection.state_version.clone())))
+            }
+            "trade.cancel_approval.list" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::CancellationApprovalHistoryQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let now = self.time.status(&input.workspace_id)?.wall_clock;
+                let history = self.store.as_mut().unwrap().cancellation_approval_history(
+                    &input.workspace_id,
+                    &input.account_id,
+                    &input.broker_order_id,
+                    &now,
+                )?;
                 Ok((json!(history), None))
             }
             "risk.decision.list" => {
@@ -5768,6 +6007,287 @@ impl ControlPlane {
         Ok((decision, account, market, time_status))
     }
 
+    fn build_cancellation_review(
+        &mut self,
+        intent: &protocol::CancellationIntent,
+        account: &AccountConnection,
+    ) -> Result<protocol::CancellationReview> {
+        let policy = self.store.as_ref().unwrap().risk_or_new()?;
+        let time_status = self.time.status(&intent.workspace_id)?;
+        let policy_configured = policy
+            .as_ref()
+            .is_some_and(|policy| policy.configured && policy.policy_version > 0);
+        let provider_matches = account.connection_id == intent.account_id
+            && account.workspace_id == intent.workspace_id
+            && account.environment == "LIVE"
+            && live_provider_id(&intent.environment) == Some(account.provider_id.as_str());
+        let account_healthy = account.connection_state == ConnectionState::Connected
+            && account.health.connection == "ONLINE"
+            && account.health.authentication == "VALID"
+            && matches!(
+                account.health.credential.as_str(),
+                "AVAILABLE" | "CONFIGURED"
+            );
+        let supported = provider_matches
+            && matches!(
+                account.provider_id.as_str(),
+                "trading212" | "binance" | "bitget"
+            )
+            && account.data.as_ref().is_some_and(|data| {
+                data.capabilities
+                    .iter()
+                    .any(|capability| capability == "orders.read")
+            });
+        let order_state = storage::validate_cancellation_snapshot(account, intent);
+        let now = OffsetDateTime::parse(&time_status.wall_clock, &Rfc3339).ok();
+        let observed = account
+            .last_successful_sync
+            .as_deref()
+            .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok());
+        let snapshot_fresh = self.time.require_trusted().is_ok()
+            && now.zip(observed).is_some_and(|(now, observed)| {
+                now >= observed && (now - observed).whole_milliseconds() <= 30_000
+            });
+        let mut checks = Vec::with_capacity(7);
+        let mut push = |check_id, outcome, reason_code, reason: &str| {
+            checks.push(risk::RiskCheckResult {
+                check_id,
+                outcome,
+                reason_code,
+                reason: reason.into(),
+            });
+        };
+        push(
+            risk::RiskCheckId::PolicyConfigured,
+            if policy_configured {
+                risk::RiskCheckOutcome::Pass
+            } else {
+                risk::RiskCheckOutcome::Unavailable
+            },
+            if policy_configured {
+                risk::RiskDecisionReasonCode::WithinLimit
+            } else {
+                risk::RiskDecisionReasonCode::PolicyUnconfigured
+            },
+            if policy_configured {
+                "A configured policy is available for this cancellation review."
+            } else {
+                "Configure the workspace risk policy before approving a Live cancellation."
+            },
+        );
+        push(
+            risk::RiskCheckId::AccountBinding,
+            if provider_matches {
+                risk::RiskCheckOutcome::Pass
+            } else {
+                risk::RiskCheckOutcome::Reject
+            },
+            if provider_matches {
+                risk::RiskDecisionReasonCode::WithinLimit
+            } else {
+                risk::RiskDecisionReasonCode::AccountMismatch
+            },
+            if provider_matches {
+                "The cancellation is bound to this exact Live account and provider order."
+            } else {
+                "The selected order no longer belongs to the exact Live account."
+            },
+        );
+        push(
+            risk::RiskCheckId::AccountHealth,
+            if account_healthy {
+                risk::RiskCheckOutcome::Pass
+            } else {
+                risk::RiskCheckOutcome::Unavailable
+            },
+            if account_healthy {
+                risk::RiskDecisionReasonCode::WithinLimit
+            } else {
+                risk::RiskDecisionReasonCode::AccountUnhealthy
+            },
+            if account_healthy {
+                "The exact Live account is connected and its credentials are healthy."
+            } else {
+                "Restore a healthy connection and authentication before approval."
+            },
+        );
+        push(
+            risk::RiskCheckId::AccountArming,
+            if account.health.arming == "ARMED" {
+                risk::RiskCheckOutcome::Pass
+            } else {
+                risk::RiskCheckOutcome::Unavailable
+            },
+            if account.health.arming == "ARMED" {
+                risk::RiskDecisionReasonCode::WithinLimit
+            } else {
+                risk::RiskDecisionReasonCode::AccountNotArmed
+            },
+            if account.health.arming == "ARMED" {
+                "The exact Live account is armed."
+            } else {
+                "Arm this exact Live account, then refresh and review this same cancellation intent."
+            },
+        );
+        push(
+            risk::RiskCheckId::CancellationCapability,
+            if supported {
+                risk::RiskCheckOutcome::Pass
+            } else {
+                risk::RiskCheckOutcome::Unavailable
+            },
+            if supported {
+                risk::RiskDecisionReasonCode::WithinLimit
+            } else {
+                risk::RiskDecisionReasonCode::CancellationUnsupported
+            },
+            if supported {
+                "TradeX has an ordinary Live order observation for this supported provider."
+            } else {
+                "This account or order type is outside the supported Live cancellation review."
+            },
+        );
+        push(
+            risk::RiskCheckId::CancellationOrder,
+            if order_state.is_ok() {
+                risk::RiskCheckOutcome::Pass
+            } else {
+                risk::RiskCheckOutcome::Reject
+            },
+            if order_state.is_ok() {
+                risk::RiskDecisionReasonCode::WithinLimit
+            } else {
+                risk::RiskDecisionReasonCode::OrderNotCancelable
+            },
+            if order_state.is_ok() {
+                "The refreshed provider snapshot still contains the exact open order and remaining quantity."
+            } else {
+                "The order is missing, terminal, changed, or lacks an exact remaining quantity; refresh and review again."
+            },
+        );
+        push(
+            risk::RiskCheckId::SnapshotFreshness,
+            if snapshot_fresh {
+                risk::RiskCheckOutcome::Pass
+            } else {
+                risk::RiskCheckOutcome::Unavailable
+            },
+            if snapshot_fresh {
+                risk::RiskDecisionReasonCode::WithinLimit
+            } else if self.time.require_trusted().is_err() {
+                risk::RiskDecisionReasonCode::ClockUncertain
+            } else {
+                risk::RiskDecisionReasonCode::EvidenceStale
+            },
+            if snapshot_fresh {
+                "The refreshed order evidence is current and the system clock is trusted."
+            } else {
+                "Refresh the provider order and verify system time before approval."
+            },
+        );
+        let status = if checks
+            .iter()
+            .any(|check| check.outcome == risk::RiskCheckOutcome::Reject)
+        {
+            risk::RiskDecisionStatus::Rejected
+        } else if checks
+            .iter()
+            .any(|check| check.outcome == risk::RiskCheckOutcome::Unavailable)
+        {
+            risk::RiskDecisionStatus::Unavailable
+        } else {
+            risk::RiskDecisionStatus::Allowed
+        };
+        let policy_version = policy
+            .as_ref()
+            .map(|policy| policy.policy_version)
+            .unwrap_or(1)
+            .max(1);
+        let policy_state_version = policy.as_ref().map(|policy| policy.state_version.as_str());
+        let evidence_id = storage::cancellation_snapshot_evidence_id(account, intent)?;
+        let decision_material = json!({
+            "intentId": intent.cancellation_intent_id,
+            "intentHash": intent.intent_hash,
+            "accountId": account.connection_id,
+            "snapshotVersion": account.state_version,
+            "snapshotEvidenceId": evidence_id,
+            "policyVersion": policy_version,
+            "policyStateVersion": policy_state_version,
+            "status": status,
+            "checks": checks,
+        });
+        let encoded = serde_json::to_vec(&decision_material)
+            .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+        let decision_id = format!("cancel-risk:{}", hex::encode(Sha256::digest(encoded)));
+        let decision = protocol::CancellationRiskDecision {
+            decision_id: decision_id.clone(),
+            cancellation_intent_id: intent.cancellation_intent_id.clone(),
+            intent_hash: intent.intent_hash.clone(),
+            account_id: account.connection_id.clone(),
+            environment: intent.environment.clone(),
+            policy_version,
+            status,
+            evaluated_at: time_status.wall_clock.clone(),
+            state_version: format!("cancel-risk-decision:{decision_id}"),
+            checks,
+        };
+        let review_material = json!({
+            "intent": intent,
+            "account": {
+                "connectionId": account.connection_id,
+                "providerId": account.provider_id,
+                "environment": account.environment,
+                "label": account.label,
+                "remoteAccountId": account.data.as_ref().map(|data| &data.remote_account_id),
+                "stateVersion": account.state_version,
+                "connectionState": account.connection_state,
+                "health": account.health,
+                "permissions": account.permissions,
+                "lastSuccessfulSync": account.last_successful_sync,
+            },
+            "snapshotVersion": account.state_version,
+            "snapshotEvidenceId": evidence_id,
+            "riskDecision": {
+                "decisionId": decision.decision_id,
+                "intentHash": decision.intent_hash,
+                "accountId": decision.account_id,
+                "environment": decision.environment,
+                "policyVersion": decision.policy_version,
+                "status": decision.status,
+                "stateVersion": decision.state_version,
+                "checks": decision.checks,
+            },
+            "policyVersion": policy_version,
+            "policyStateVersion": policy_state_version,
+        });
+        let encoded = serde_json::to_vec(&review_material)
+            .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+        let review_digest = format!("sha256:{}", hex::encode(Sha256::digest(encoded)));
+        let blockers = decision
+            .checks
+            .iter()
+            .filter(|check| check.outcome != risk::RiskCheckOutcome::Pass)
+            .map(|check| format!("{:?}: {}", check.check_id, check.reason))
+            .take(32)
+            .collect();
+        Ok(protocol::CancellationReview {
+            workspace_id: intent.workspace_id.clone(),
+            intent: Box::new(intent.clone()),
+            account: Box::new(account.clone()),
+            snapshot_version: account.state_version.clone(),
+            snapshot_evidence_id: evidence_id,
+            snapshot_observed_at: account
+                .last_successful_sync
+                .clone()
+                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?,
+            risk_decision: Box::new(decision.clone()),
+            review_digest,
+            eligible: decision.status == risk::RiskDecisionStatus::Allowed,
+            blockers,
+            reviewed_at: time_status.wall_clock,
+        })
+    }
+
     fn build_approval_review(
         &mut self,
         proposal: &protocol::OrderProposal,
@@ -6054,6 +6574,9 @@ impl ControlPlane {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
         match request.command.as_str() {
+            "trade.cancel_request" => {
+                return self.prepare_cancellation_intent_refresh(request, consumer);
+            }
             "trading212.demo.orders.refresh" => {
                 return self.prepare_trading212_demo_order_book_refresh(request, consumer);
             }
@@ -6153,6 +6676,66 @@ impl ControlPlane {
         Ok(Some(ProviderJob {
             account,
             kind,
+            session: self.session.clone(),
+            request_id: request.request_id,
+            trading212_demo_attempt: None,
+            trading212_demo_proposal: None,
+            trading212_demo_order_book: None,
+            trading212_demo_order_id: None,
+            alpaca_attempt: None,
+            alpaca_proposal: None,
+            alpaca_order_book: None,
+            alpaca_order_id: None,
+            alpaca_expected_order: None,
+            binance_testnet_attempt: None,
+            binance_testnet_proposal: None,
+            binance_testnet_order_book: None,
+            binance_testnet_book_action: None,
+            binance_testnet_book_symbol: None,
+            binance_testnet_book_order_id: None,
+            bitget_demo_attempt: None,
+            bitget_demo_proposal: None,
+        }))
+    }
+
+    fn prepare_cancellation_intent_refresh(
+        &mut self,
+        request: CommandEnvelope,
+        consumer: &str,
+    ) -> Result<Option<ProviderJob>> {
+        if !provider_order_consumer_allowed(consumer) {
+            return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+        }
+        let input: protocol::CancellationIntentRequest = payload(request.payload)?;
+        self.require_workspace(&input.workspace_id)?;
+        let account = self.current_account(
+            &input.workspace_id,
+            &input.account_id,
+            &input.expected_state_version,
+        )?;
+        if account.environment != "LIVE"
+            || !matches!(
+                account.provider_id.as_str(),
+                "trading212" | "binance" | "bitget"
+            )
+        {
+            return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
+        }
+        if matches!(
+            account.connection_state,
+            ConnectionState::Disconnected | ConnectionState::Connecting
+        ) {
+            return Err(TradeXError::new("PROVIDER_REVIEW_REQUIRED"));
+        }
+        if matches!(
+            account.health.credential.as_str(),
+            "MISSING" | "DELETE_PENDING"
+        ) {
+            return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+        }
+        Ok(Some(ProviderJob {
+            account,
+            kind: JobKind::CancellationIntentRefresh(Box::new(input)),
             session: self.session.clone(),
             request_id: request.request_id,
             trading212_demo_attempt: None,
@@ -7653,9 +8236,94 @@ impl ControlPlane {
         }
     }
 
+    fn complete_cancellation_intent_refresh(
+        &mut self,
+        job: &ProviderJob,
+        input: &protocol::CancellationIntentRequest,
+        account: &AccountConnection,
+    ) -> Value {
+        if job.session != self.session {
+            return failure_reply(
+                job.request_id.clone(),
+                TradeXError::new("STATE_VERSION_CONFLICT"),
+            );
+        }
+        let previous = if let Some(previous_id) = input.previous_intent_id.as_deref() {
+            match self
+                .store
+                .as_ref()
+                .unwrap()
+                .cancellation_intent(&input.workspace_id, previous_id)
+            {
+                Ok(intent) => Some(intent),
+                Err(error) => return failure_reply(job.request_id.clone(), error),
+            }
+        } else {
+            None
+        };
+        let observed_at = account
+            .last_successful_sync
+            .as_deref()
+            .unwrap_or(&account.updated_at);
+        let intent = match cancellation_intent_from_account(
+            account,
+            &input.broker_order_id,
+            previous.as_ref(),
+            observed_at,
+        ) {
+            Ok(intent) => intent,
+            Err(error) => {
+                if let Some(previous_id) = input.previous_intent_id.as_deref()
+                    && matches!(
+                        error.code.as_str(),
+                        "ORDER_NOT_CANCELLABLE" | "ORDER_CHANGED_REVIEW_AGAIN"
+                    )
+                {
+                    let events = self
+                        .store
+                        .as_mut()
+                        .unwrap()
+                        .invalidate_cancellation_intent(
+                            &input.workspace_id,
+                            previous_id,
+                            &error.code,
+                            observed_at,
+                        )
+                        .unwrap_or_default();
+                    for event in &events {
+                        self.publish(event);
+                    }
+                }
+                return failure_reply(job.request_id.clone(), error);
+            }
+        };
+        let (intent, events) = match self.store.as_mut().unwrap().save_cancellation_intent(
+            intent,
+            &account.state_version,
+            input.previous_intent_id.as_deref(),
+        ) {
+            Ok(result) => result,
+            Err(error) => return failure_reply(job.request_id.clone(), error),
+        };
+        for event in &events {
+            self.publish(event);
+        }
+        let review = match self.build_cancellation_review(&intent, account) {
+            Ok(review) => review,
+            Err(error) => return failure_reply(job.request_id.clone(), error),
+        };
+        json!({
+            "requestId": job.request_id,
+            "schemaVersion": 1,
+            "ok": true,
+            "stateVersion": review.snapshot_version,
+            "data": review
+        })
+    }
+
     pub fn complete_provider(&mut self, job: &ProviderJob, outcome: ProviderOutcome) -> Value {
         if matches!(
-            job.kind,
+            &job.kind,
             JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
         ) {
             if job.session != self.session {
@@ -7695,7 +8363,7 @@ impl ControlPlane {
             };
         }
         if matches!(
-            job.kind,
+            &job.kind,
             JobKind::BitgetDemoSubmit | JobKind::BitgetDemoReconcile
         ) {
             if job.session != self.session {
@@ -7883,7 +8551,7 @@ impl ControlPlane {
             };
         }
         if matches!(
-            job.kind,
+            &job.kind,
             JobKind::Trading212DemoOrderBookPending
                 | JobKind::Trading212DemoOrderBookHistory
                 | JobKind::Trading212DemoOrderBookDetail
@@ -7928,7 +8596,7 @@ impl ControlPlane {
             };
         }
         if matches!(
-            job.kind,
+            &job.kind,
             JobKind::AlpacaPaperOrderBookRefresh
                 | JobKind::AlpacaPaperOrderReview
                 | JobKind::AlpacaPaperOrderCancel
@@ -7972,7 +8640,7 @@ impl ControlPlane {
             };
         }
         if matches!(
-            job.kind,
+            &job.kind,
             JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
         ) {
             if job.session != self.session {
@@ -8104,6 +8772,9 @@ impl ControlPlane {
         })();
         match result {
             Ok(a) => {
+                if let JobKind::CancellationIntentRefresh(input) = &job.kind {
+                    return self.complete_cancellation_intent_refresh(job, input, &a);
+                }
                 json!({"requestId":job.request_id,"schemaVersion":1,"ok":true,"stateVersion":a.state_version,"data":a})
             }
             Err(error) => {
@@ -9884,6 +10555,12 @@ mod thread_tests {
             .execute("DROP TABLE approval_rejections", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE cancellation_rejections", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE cancellation_intents", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -11060,6 +11737,519 @@ mod live_approval_tests {
                 .unwrap(),
             None,
         );
+    }
+}
+
+#[cfg(test)]
+mod cancellation_approval_tests {
+    use super::*;
+
+    fn envelope(command: &str, payload: Value) -> Value {
+        json!({
+            "requestId": format!("cancel-{command}"),
+            "schemaVersion": 1,
+            "command": command,
+            "payload": payload,
+        })
+    }
+
+    fn dispatch(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
+        control.dispatch(envelope(command, payload))
+    }
+
+    fn dispatch_main(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
+        control.dispatch_with_events(envelope(command, payload), "main", None)
+    }
+
+    fn fixture() -> (tempfile::TempDir, ControlPlane, String, AccountConnection) {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let opened = dispatch(&mut control, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let risk = dispatch(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let mut policy = risk["data"]["policy"].clone();
+        policy["maxSingleInstrumentExposurePercent"] = json!("10.25");
+        let saved = dispatch(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,
+                "expectedStateVersion":risk["data"]["stateVersion"],
+                "policy":policy,
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        let clock = control.time.status(&workspace_id).unwrap();
+        control.time.set_test_time(
+            OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000 + 10_000,
+            clock.monotonic_ms + 10_000,
+        );
+        let time = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(time["data"]["confidence"], "TRUSTED", "{time}");
+
+        let mut account = control
+            .seed_live_arming_fixture(&workspace_id, "binance", "CANCEL fixture")
+            .unwrap();
+        let data = account.data.as_mut().unwrap();
+        data.remote_account_id = "9007199254740993".into();
+        data.open_orders.push(providers::OpenOrder {
+            broker_order_id: "BTCUSDT:9007199254740995".into(),
+            symbol: "BTCUSDT".into(),
+            instrument_id: Some("crypto:BTC/USDT:spot".into()),
+            side: "BUY".into(),
+            quantity: Some("0.25".into()),
+            notional: None,
+            filled_quantity: Some("0.1".into()),
+            filled_value: None,
+            currency: Some("USDT".into()),
+            status: "PARTIALLY_FILLED".into(),
+            limit_price: Some("100".into()),
+            kind: None,
+            trigger_price: None,
+        });
+        account.last_successful_sync = Some(storage::timestamp().unwrap());
+        let account = control.persist_account(account).unwrap();
+        (folder, control, workspace_id, account)
+    }
+
+    fn request_review(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account: &AccountConnection,
+        previous_intent_id: Option<&str>,
+        broker_order_id: &str,
+    ) -> Value {
+        let mut payload = json!({
+            "workspaceId":workspace_id,
+            "accountId":account.connection_id,
+            "brokerOrderId":broker_order_id,
+            "expectedStateVersion":account.state_version,
+        });
+        if let Some(previous_id) = previous_intent_id {
+            payload["previousIntentId"] = json!(previous_id);
+        }
+        let job = control
+            .prepare_provider_for(&envelope("trade.cancel_request", payload), "main")
+            .unwrap()
+            .unwrap();
+        let connection = job.connection();
+        let outcome = provider_io::ProviderOutcome {
+            observation: Some(provider_io::Observation {
+                data: connection.data.clone().unwrap(),
+                permissions: connection.permissions.clone(),
+            }),
+            error: None,
+            credential: "CONFIGURED".into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
+        };
+        let reply = control.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        reply["data"].clone()
+    }
+
+    fn approval_action(review: &Value) -> Value {
+        json!({
+            "workspaceId":review["workspaceId"],
+            "cancellationIntentId":review["intent"]["cancellationIntentId"],
+            "intentHash":review["intent"]["intentHash"],
+            "reviewedRiskDecisionId":review["riskDecision"]["decisionId"],
+            "reviewDigest":review["reviewDigest"],
+            "expectedStateVersion":review["snapshotVersion"],
+        })
+    }
+
+    fn refresh_payload(
+        workspace_id: &str,
+        account: &AccountConnection,
+        intent_id: &str,
+        broker_order_id: &str,
+    ) -> Value {
+        json!({
+            "workspaceId":workspace_id,
+            "accountId":account.connection_id,
+            "brokerOrderId":broker_order_id,
+            "previousIntentId":intent_id,
+            "expectedStateVersion":account.state_version,
+        })
+    }
+
+    #[test]
+    fn cancel_review_reuses_semantic_intent_after_arm_and_invalidates_on_snapshot_or_quantity_change()
+     {
+        let (_folder, mut control, workspace_id, account) = fixture();
+        let broker_order_id = "BTCUSDT:9007199254740995";
+        let first = request_review(&mut control, &workspace_id, &account, None, broker_order_id);
+        assert_eq!(first["eligible"], false, "{first}");
+        assert_eq!(first["intent"]["remainingQuantity"], "0.15");
+        assert_eq!(first["riskDecision"]["status"], "UNAVAILABLE");
+
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":first["account"]["stateVersion"],
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let after_arm_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let after_arm = request_review(
+            &mut control,
+            &workspace_id,
+            &after_arm_account,
+            Some(first["intent"]["cancellationIntentId"].as_str().unwrap()),
+            broker_order_id,
+        );
+        assert_eq!(after_arm["eligible"], true, "{after_arm}");
+        assert_eq!(after_arm["riskDecision"]["status"], "ALLOWED");
+        assert_eq!(
+            after_arm["intent"]["cancellationIntentId"],
+            first["intent"]["cancellationIntentId"]
+        );
+        assert_eq!(
+            after_arm["intent"]["intentHash"],
+            first["intent"]["intentHash"]
+        );
+        assert_ne!(after_arm["snapshotVersion"], first["snapshotVersion"]);
+
+        let wrong_lane = dispatch_main(&mut control, "trade.approve", approval_action(&after_arm));
+        assert_eq!(wrong_lane["ok"], false, "{wrong_lane}");
+        assert_eq!(wrong_lane["error"]["code"], "IPC_PAYLOAD_INVALID");
+
+        let before_stale = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        control.persist_account(before_stale.clone()).unwrap();
+        let stale = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&after_arm),
+        );
+        assert_eq!(stale["ok"], false, "{stale}");
+        assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT");
+
+        let current = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let refreshed = request_review(
+            &mut control,
+            &workspace_id,
+            &current,
+            Some(first["intent"]["cancellationIntentId"].as_str().unwrap()),
+            broker_order_id,
+        );
+        assert_eq!(
+            refreshed["intent"]["cancellationIntentId"],
+            first["intent"]["cancellationIntentId"]
+        );
+        assert_eq!(
+            refreshed["intent"]["intentHash"],
+            first["intent"]["intentHash"]
+        );
+        let approval = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&refreshed),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        assert_eq!(approval["data"]["operation"], "CANCEL");
+        assert_eq!(approval["data"]["remainingQuantity"], "0.15");
+        let _: protocol::FinancialApproval =
+            serde_json::from_value(approval["data"].clone()).expect("CANCEL approval round trip");
+        let issued_at =
+            OffsetDateTime::parse(approval["data"]["issuedAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap();
+        let expires_at =
+            OffsetDateTime::parse(approval["data"]["expiresAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap();
+        assert_eq!(expires_at - issued_at, TimeDuration::seconds(30));
+
+        let mut changed = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        changed.data.as_mut().unwrap().open_orders[0].quantity = Some("0.3".into());
+        let changed = control.persist_account(changed).unwrap();
+        let changed_history = dispatch_main(
+            &mut control,
+            "trade.cancel_approval.list",
+            json!({"workspaceId":workspace_id,"accountId":account.connection_id,"brokerOrderId":broker_order_id}),
+        );
+        assert_eq!(
+            changed_history["data"]["approvals"][0]["status"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            changed_history["data"]["approvals"][0]["invalidationReason"],
+            "ORDER_CHANGED_REVIEW_AGAIN"
+        );
+        let changed_snapshot = control
+            .prepare_provider_for(
+                &envelope(
+                    "trade.cancel_request",
+                    refresh_payload(
+                        &workspace_id,
+                        &changed,
+                        first["intent"]["cancellationIntentId"].as_str().unwrap(),
+                        broker_order_id,
+                    ),
+                ),
+                "main",
+            )
+            .unwrap()
+            .unwrap();
+        let connection = changed_snapshot.connection();
+        let result = control.complete_provider(
+            &changed_snapshot,
+            provider_io::ProviderOutcome {
+                observation: Some(provider_io::Observation {
+                    data: connection.data.clone().unwrap(),
+                    permissions: connection.permissions.clone(),
+                }),
+                error: None,
+                credential: "CONFIGURED".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
+            },
+        );
+        assert_eq!(result["ok"], false, "{result}");
+        assert_eq!(result["error"]["code"], "ORDER_CHANGED_REVIEW_AGAIN");
+        assert!(
+            result["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("Refresh the account and review the updated order")
+        );
+        let history = dispatch_main(
+            &mut control,
+            "trade.cancel_approval.list",
+            json!({"workspaceId":workspace_id,"accountId":account.connection_id,"brokerOrderId":broker_order_id}),
+        );
+        assert_eq!(history["ok"], true, "{history}");
+        assert_eq!(history["data"]["approvals"][0]["status"], "INVALIDATED");
+        assert_eq!(
+            history["data"]["approvals"][0]["invalidationReason"],
+            "ORDER_CHANGED_REVIEW_AGAIN"
+        );
+        assert_eq!(history["data"]["intents"][0]["status"], "INVALIDATED");
+    }
+
+    #[test]
+    fn account_disarm_and_health_degradation_invalidate_cancel_approvals() {
+        let (_folder, mut control, workspace_id, account) = fixture();
+        let broker_order_id = "BTCUSDT:9007199254740995";
+        let first = request_review(&mut control, &workspace_id, &account, None, broker_order_id);
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":first["account"]["stateVersion"],
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let armed_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let reviewed = request_review(
+            &mut control,
+            &workspace_id,
+            &armed_account,
+            Some(first["intent"]["cancellationIntentId"].as_str().unwrap()),
+            broker_order_id,
+        );
+        let issued = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&reviewed),
+        );
+        assert_eq!(issued["ok"], true, "{issued}");
+
+        let disarmed = dispatch_main(
+            &mut control,
+            "account.disarm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":reviewed["snapshotVersion"],
+            }),
+        );
+        assert_eq!(disarmed["ok"], true, "{disarmed}");
+        let history = dispatch_main(
+            &mut control,
+            "trade.cancel_approval.list",
+            json!({"workspaceId":workspace_id,"accountId":account.connection_id,"brokerOrderId":broker_order_id}),
+        );
+        assert_eq!(history["data"]["approvals"][0]["status"], "INVALIDATED");
+        assert_eq!(
+            history["data"]["approvals"][0]["invalidationReason"],
+            "ACCOUNT_DISARMED"
+        );
+
+        let disarmed_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let rearmed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":disarmed_account.state_version,
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(rearmed["ok"], true, "{rearmed}");
+        let rearmed_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let refreshed = request_review(
+            &mut control,
+            &workspace_id,
+            &rearmed_account,
+            Some(first["intent"]["cancellationIntentId"].as_str().unwrap()),
+            broker_order_id,
+        );
+        let reissued = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&refreshed),
+        );
+        assert_eq!(reissued["ok"], true, "{reissued}");
+
+        let mut degraded = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        degraded.health.reconciliation = "STALE".into();
+        let degraded = control.persist_account(degraded).unwrap();
+        assert_eq!(degraded.health.arming, "DISARMED");
+        assert_eq!(degraded.health.arming_reason, "ACCOUNT_HEALTH_DEGRADED");
+        let history = dispatch_main(
+            &mut control,
+            "trade.cancel_approval.list",
+            json!({"workspaceId":workspace_id,"accountId":account.connection_id,"brokerOrderId":broker_order_id}),
+        );
+        let approvals = history["data"]["approvals"].as_array().unwrap();
+        assert_eq!(approvals.len(), 2);
+        assert!(
+            approvals
+                .iter()
+                .all(|approval| approval["status"] == "INVALIDATED")
+        );
+        assert_eq!(approvals[0]["invalidationReason"], "ACCOUNT_DISARMED");
+    }
+
+    #[test]
+    fn missing_provider_order_invalidates_the_current_cancel_intent() {
+        let (_folder, mut control, workspace_id, account) = fixture();
+        let broker_order_id = "BTCUSDT:9007199254740995";
+        let first = request_review(&mut control, &workspace_id, &account, None, broker_order_id);
+        let mut changed = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        changed.data.as_mut().unwrap().open_orders[0].broker_order_id =
+            "BTCUSDT:9007199254740996".into();
+        let changed = control.persist_account(changed).unwrap();
+        let job = control
+            .prepare_provider_for(
+                &envelope(
+                    "trade.cancel_request",
+                    refresh_payload(
+                        &workspace_id,
+                        &changed,
+                        first["intent"]["cancellationIntentId"].as_str().unwrap(),
+                        broker_order_id,
+                    ),
+                ),
+                "main",
+            )
+            .unwrap()
+            .unwrap();
+        let connection = job.connection();
+        let result = control.complete_provider(
+            &job,
+            provider_io::ProviderOutcome {
+                observation: Some(provider_io::Observation {
+                    data: connection.data.clone().unwrap(),
+                    permissions: connection.permissions.clone(),
+                }),
+                error: None,
+                credential: "CONFIGURED".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
+            },
+        );
+        assert_eq!(result["ok"], false, "{result}");
+        assert_eq!(result["error"]["code"], "ORDER_NOT_CANCELLABLE");
+        assert!(
+            result["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("Refresh the account and review the current order again")
+        );
+        let history = dispatch_main(
+            &mut control,
+            "trade.cancel_approval.list",
+            json!({"workspaceId":workspace_id,"accountId":account.connection_id,"brokerOrderId":broker_order_id}),
+        );
+        assert_eq!(history["data"]["intents"][0]["status"], "INVALIDATED");
     }
 }
 

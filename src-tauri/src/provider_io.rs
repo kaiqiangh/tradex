@@ -656,7 +656,7 @@ impl ProviderHttp for BrokerHttp {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) enum JobKind {
     Connect,
     Probe,
@@ -677,6 +677,7 @@ pub(crate) enum JobKind {
     BinanceTestnetOrderCancel,
     BitgetDemoSubmit,
     BitgetDemoReconcile,
+    CancellationIntentRefresh(Box<crate::protocol::CancellationIntentRequest>),
 }
 
 pub struct ProviderJob {
@@ -763,19 +764,19 @@ impl ProviderJob {
             };
         }
         if matches!(
-            self.kind,
+            &self.kind,
             JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
         ) {
             return self.run_alpaca_paper_order(vault, http, current);
         }
         if matches!(
-            self.kind,
+            &self.kind,
             JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
         ) {
             return self.run_binance_testnet_order(vault, http, current);
         }
         if matches!(
-            self.kind,
+            &self.kind,
             JobKind::BitgetDemoSubmit | JobKind::BitgetDemoReconcile
         ) {
             return self.run_bitget_demo_order(vault, http, current);
@@ -790,7 +791,7 @@ impl ProviderJob {
             return self.run_trading212_demo_order(vault, http, current);
         }
         if matches!(
-            self.kind,
+            &self.kind,
             JobKind::Trading212DemoOrderBookPending
                 | JobKind::Trading212DemoOrderBookHistory
                 | JobKind::Trading212DemoOrderBookDetail
@@ -799,7 +800,7 @@ impl ProviderJob {
             return self.run_trading212_demo_order_operation(vault, http, current);
         }
         if matches!(
-            self.kind,
+            &self.kind,
             JobKind::AlpacaPaperOrderBookRefresh
                 | JobKind::AlpacaPaperOrderReview
                 | JobKind::AlpacaPaperOrderCancel
@@ -1184,7 +1185,7 @@ impl ProviderJob {
                     .map(|data| data.remote_account_id.as_str())
                     != Some(book.remote_account_id.as_str())
                 || !matches!(
-                    self.kind,
+                    &self.kind,
                     JobKind::Trading212DemoOrderBookPending
                         | JobKind::Trading212DemoOrderBookHistory
                         | JobKind::Trading212DemoOrderBookDetail
@@ -1229,13 +1230,13 @@ impl ProviderJob {
 
             let now = crate::storage::timestamp()?;
             let mut candidate = book.clone();
-            let endpoint = match self.kind {
+            let endpoint = match &self.kind {
                 JobKind::Trading212DemoOrderBookPending => Trading212Endpoint::PendingOrders,
                 JobKind::Trading212DemoOrderBookHistory => Trading212Endpoint::History,
                 JobKind::Trading212DemoOrderBookDetail => Trading212Endpoint::OrderDetail,
                 _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
             };
-            let path = match self.kind {
+            let path = match &self.kind {
                 JobKind::Trading212DemoOrderBookPending => "/api/v0/equity/orders".to_owned(),
                 JobKind::Trading212DemoOrderBookDetail => {
                     let order_id = self
@@ -1301,7 +1302,7 @@ impl ProviderJob {
             if contains_secret(&value, &values) {
                 return Err(invalid());
             }
-            match self.kind {
+            match &self.kind {
                 JobKind::Trading212DemoOrderBookPending => {
                     let rows = value.as_array().ok_or_else(invalid)?;
                     if rows.len() > 500 {
@@ -1595,7 +1596,7 @@ impl ProviderJob {
             if self.account.provider_id != "binance"
                 || self.account.environment != "TESTNET"
                 || !matches!(
-                    self.kind,
+                    &self.kind,
                     JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
                 )
             {
@@ -1834,7 +1835,7 @@ impl ProviderJob {
                 return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
             }
             if !matches!(
-                self.kind,
+                &self.kind,
                 JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
             ) {
                 return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
@@ -2049,7 +2050,7 @@ impl ProviderJob {
             }
             let auth = alpaca_headers(&values)?;
             verify_alpaca_paper_account(http, &auth, &book.remote_account_id, &values)?;
-            match self.kind {
+            match &self.kind {
                 JobKind::AlpacaPaperOrderBookRefresh => {
                     let (orders, fills) =
                         fetch_alpaca_paper_order_history(http, &auth, &current, &values)?;

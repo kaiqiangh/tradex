@@ -134,6 +134,8 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .account-delete-dialog::backdrop { background: #0f172a55; }
 .live-arm-dialog { position: fixed; top: 12vh; left: 50%; width: min(640px, calc(100% - 32px)); max-height: 76vh; overflow: auto; transform: translateX(-50%); }
 .live-arm-dialog::backdrop { background: #0f172a55; }
+.live-cancel-dialog { position: fixed; top: 8vh; left: 50%; width: min(760px, calc(100% - 32px)); max-height: 84vh; overflow: auto; transform: translateX(-50%); }
+.live-cancel-dialog::backdrop { background: #0f172a88; }
 .picker-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .picker-dialog-heading h3 { margin: 0; font-size: 13px; }
 .picker-dialog-heading p { margin: 4px 0 0; font-size: 11px; }
@@ -151,6 +153,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .context-empty ul { margin: 0; padding-left: 16px; }
 .context-empty li { margin: 4px 0; }
 .picker-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+@media (max-width: 520px) { .live-cancel-dialog { top: 4vh; max-height: 92vh; } .live-cancel-dialog .picker-dialog-actions { display: grid; grid-template-columns: 1fr; } }
 .capability-summary { display: inline-flex; flex-wrap: wrap; gap: 5px 8px; align-items: baseline; max-width: 100%; }
 .capability-summary strong { color: var(--ink); }
 .composer textarea { display: block; width: 100%; min-height: 100px; resize: none; background: white; border: 0; padding: 20px 0; color: var(--muted); font-size: 13px; }

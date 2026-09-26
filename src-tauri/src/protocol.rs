@@ -202,6 +202,9 @@ pub enum ReplyData {
     FinancialApproval(Box<FinancialApproval>),
     FinancialApprovalHistory(FinancialApprovalHistory),
     ApprovalRejection(Box<ApprovalRejection>),
+    CancellationReview(Box<CancellationReview>),
+    CancellationApprovalHistory(CancellationApprovalHistory),
+    CancellationApprovalRejection(CancellationApprovalRejection),
     Trading212DemoOrderAttempt(Box<Trading212DemoOrderAttempt>),
     Trading212DemoOrderAttemptQuery(Box<Trading212DemoOrderAttemptQueryResult>),
     Trading212DemoOrderBook(Box<Trading212DemoOrderBook>),
@@ -320,6 +323,13 @@ pub struct IpcSchema {
     pub financial_approval_history_query: FinancialApprovalHistoryQuery,
     pub financial_approval_history: FinancialApprovalHistory,
     pub approval_rejection: ApprovalRejection,
+    pub cancellation_intent_request: CancellationIntentRequest,
+    pub cancellation_intent: CancellationIntent,
+    pub cancellation_review: CancellationReview,
+    pub cancellation_approval_action: CancellationApprovalAction,
+    pub cancellation_approval_history_query: CancellationApprovalHistoryQuery,
+    pub cancellation_approval_history: CancellationApprovalHistory,
+    pub cancellation_approval_rejection: CancellationApprovalRejection,
     pub trading212_demo_order_attempt: Trading212DemoOrderAttempt,
     pub trading212_demo_order_submit: Trading212DemoOrderSubmit,
     pub trading212_demo_order_attempt_query: Trading212DemoOrderAttemptQuery,
@@ -419,7 +429,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 24))]
+    #[schemars(range(min = 1, max = 25))]
     pub storage_schema_version: u32,
 }
 
@@ -2809,6 +2819,99 @@ pub struct ApprovalReview {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationIntent {
+    #[schemars(length(min = 1, max = 128))]
+    pub cancellation_intent_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub intent_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    pub environment: ExecutionContext,
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub symbol: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub side: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quantity: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub filled_quantity: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub remaining_quantity: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub created_at: String,
+}
+
+#[derive(Clone, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationIntentRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub previous_intent_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationRiskDecision {
+    #[schemars(length(min = 1, max = 128))]
+    pub decision_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub cancellation_intent_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub intent_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    pub environment: ExecutionContext,
+    #[schemars(range(min = 1))]
+    pub policy_version: u64,
+    pub status: crate::risk::RiskDecisionStatus,
+    #[schemars(length(min = 1, max = 64))]
+    pub evaluated_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub checks: Vec<crate::risk::RiskCheckResult>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationReview {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub intent: Box<CancellationIntent>,
+    pub account: Box<AccountConnection>,
+    #[schemars(length(min = 1, max = 256))]
+    pub snapshot_version: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub snapshot_evidence_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub snapshot_observed_at: String,
+    pub risk_decision: Box<CancellationRiskDecision>,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub review_digest: String,
+    pub eligible: bool,
+    #[schemars(length(max = 32))]
+    pub blockers: Vec<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub reviewed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EstimatedFee {
     #[schemars(length(min = 1, max = 128))]
     pub amount: String,
@@ -2816,21 +2919,18 @@ pub struct EstimatedFee {
     pub currency: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FinancialApproval {
     #[schemars(length(min = 1, max = 128))]
     pub approval_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub workspace_id: String,
-    #[schemars(length(min = 1, max = 128))]
-    pub proposal_id: String,
-    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
-    pub proposal_hash: String,
+    #[serde(flatten)]
+    pub intent: FinancialApprovalIntent,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
     pub environment: ExecutionContext,
-    pub operation: FinancialOperation,
     #[schemars(range(min = 1))]
     pub policy_version: u64,
     #[schemars(length(min = 1, max = 128))]
@@ -2852,6 +2952,260 @@ pub struct FinancialApproval {
     pub consumed_at: Option<String>,
     #[schemars(length(min = 1, max = 256))]
     pub state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(
+    tag = "operation",
+    rename_all = "SCREAMING_SNAKE_CASE",
+    rename_all_fields = "camelCase"
+)]
+pub enum FinancialApprovalIntent {
+    PlaceOrder {
+        #[schemars(length(min = 1, max = 128))]
+        proposal_id: String,
+        #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+        proposal_hash: String,
+    },
+    Cancel {
+        #[schemars(length(min = 1, max = 128))]
+        cancellation_intent_id: String,
+        #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+        intent_hash: String,
+        #[schemars(length(min = 1, max = 128))]
+        broker_order_id: String,
+        #[schemars(with = "String", length(min = 1, max = 128))]
+        remaining_quantity: String,
+        #[schemars(length(min = 1, max = 256))]
+        snapshot_version: String,
+        #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+        snapshot_evidence_id: String,
+    },
+}
+
+impl FinancialApproval {
+    pub fn operation(&self) -> FinancialOperation {
+        match &self.intent {
+            FinancialApprovalIntent::PlaceOrder { .. } => FinancialOperation::PlaceOrder,
+            FinancialApprovalIntent::Cancel { .. } => FinancialOperation::Cancel,
+        }
+    }
+
+    pub fn intent_id(&self) -> &str {
+        match &self.intent {
+            FinancialApprovalIntent::PlaceOrder { proposal_id, .. } => proposal_id,
+            FinancialApprovalIntent::Cancel {
+                cancellation_intent_id,
+                ..
+            } => cancellation_intent_id,
+        }
+    }
+
+    pub fn intent_hash(&self) -> &str {
+        match &self.intent {
+            FinancialApprovalIntent::PlaceOrder { proposal_hash, .. } => proposal_hash,
+            FinancialApprovalIntent::Cancel { intent_hash, .. } => intent_hash,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for FinancialApproval {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Wire {
+            approval_id: String,
+            workspace_id: String,
+            operation: FinancialOperation,
+            #[serde(default)]
+            proposal_id: Option<String>,
+            #[serde(default)]
+            proposal_hash: Option<String>,
+            #[serde(default)]
+            cancellation_intent_id: Option<String>,
+            #[serde(default)]
+            intent_hash: Option<String>,
+            #[serde(default)]
+            broker_order_id: Option<String>,
+            #[serde(default)]
+            remaining_quantity: Option<String>,
+            #[serde(default)]
+            snapshot_version: Option<String>,
+            #[serde(default)]
+            snapshot_evidence_id: Option<String>,
+            account_id: String,
+            environment: ExecutionContext,
+            policy_version: u64,
+            risk_decision_id: String,
+            review_digest: String,
+            issued_at: String,
+            expires_at: String,
+            updated_at: String,
+            status: FinancialApprovalStatus,
+            #[serde(default)]
+            invalidation_reason: Option<String>,
+            #[serde(default)]
+            consumed_at: Option<String>,
+            state_version: String,
+        }
+
+        use serde::de::Error;
+        let wire = Wire::deserialize(deserializer)?;
+        let intent = match wire.operation {
+            FinancialOperation::PlaceOrder => {
+                if wire.cancellation_intent_id.is_some()
+                    || wire.intent_hash.is_some()
+                    || wire.broker_order_id.is_some()
+                    || wire.remaining_quantity.is_some()
+                    || wire.snapshot_version.is_some()
+                    || wire.snapshot_evidence_id.is_some()
+                {
+                    return Err(D::Error::custom("PLACE approval contains CANCEL fields"));
+                }
+                FinancialApprovalIntent::PlaceOrder {
+                    proposal_id: wire
+                        .proposal_id
+                        .ok_or_else(|| D::Error::missing_field("proposalId"))?,
+                    proposal_hash: wire
+                        .proposal_hash
+                        .ok_or_else(|| D::Error::missing_field("proposalHash"))?,
+                }
+            }
+            FinancialOperation::Cancel => {
+                if wire.proposal_id.is_some() || wire.proposal_hash.is_some() {
+                    return Err(D::Error::custom("CANCEL approval contains PLACE fields"));
+                }
+                FinancialApprovalIntent::Cancel {
+                    cancellation_intent_id: wire
+                        .cancellation_intent_id
+                        .ok_or_else(|| D::Error::missing_field("cancellationIntentId"))?,
+                    intent_hash: wire
+                        .intent_hash
+                        .ok_or_else(|| D::Error::missing_field("intentHash"))?,
+                    broker_order_id: wire
+                        .broker_order_id
+                        .ok_or_else(|| D::Error::missing_field("brokerOrderId"))?,
+                    remaining_quantity: wire
+                        .remaining_quantity
+                        .ok_or_else(|| D::Error::missing_field("remainingQuantity"))?,
+                    snapshot_version: wire
+                        .snapshot_version
+                        .ok_or_else(|| D::Error::missing_field("snapshotVersion"))?,
+                    snapshot_evidence_id: wire
+                        .snapshot_evidence_id
+                        .ok_or_else(|| D::Error::missing_field("snapshotEvidenceId"))?,
+                }
+            }
+        };
+        Ok(Self {
+            approval_id: wire.approval_id,
+            workspace_id: wire.workspace_id,
+            intent,
+            account_id: wire.account_id,
+            environment: wire.environment,
+            policy_version: wire.policy_version,
+            risk_decision_id: wire.risk_decision_id,
+            review_digest: wire.review_digest,
+            issued_at: wire.issued_at,
+            expires_at: wire.expires_at,
+            updated_at: wire.updated_at,
+            status: wire.status,
+            invalidation_reason: wire.invalidation_reason,
+            consumed_at: wire.consumed_at,
+            state_version: wire.state_version,
+        })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationApprovalAction {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub cancellation_intent_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub intent_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub reviewed_risk_decision_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub review_digest: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CancellationApprovalRejectionReason {
+    UserRejected,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationApprovalRejection {
+    #[schemars(length(min = 1, max = 128))]
+    pub audit_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub cancellation_intent_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub intent_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub risk_decision_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub review_digest: String,
+    pub reason: CancellationApprovalRejectionReason,
+    #[schemars(length(min = 1, max = 64))]
+    pub occurred_at: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationApprovalHistoryQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationApprovalHistory {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: String,
+    pub intents: Vec<CancellationIntentHistoryEntry>,
+    pub approvals: Vec<FinancialApproval>,
+    pub rejections: Vec<CancellationApprovalRejection>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancellationIntentHistoryEntry {
+    #[schemars(length(min = 1, max = 128))]
+    pub cancellation_intent_id: String,
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub intent_hash: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_order_id: String,
+    #[schemars(extend("enum" = ["CURRENT", "INVALIDATED"]))]
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub invalidation_reason: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub updated_at: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -4526,6 +4880,16 @@ impl TradeXError {
                 "retry_provider",
                 "Reconcile order",
             ),
+            "ORDER_NOT_CANCELLABLE" => (
+                "This Live order is missing, terminal, changed, or lacks an exact remaining quantity. Refresh the account and review the current order again.",
+                "refresh_account",
+                "Refresh and review order",
+            ),
+            "ORDER_CHANGED_REVIEW_AGAIN" => (
+                "The Live order changed during refresh. Refresh the account and review the updated order before approving.",
+                "refresh_account",
+                "Refresh and review order",
+            ),
             "PROVIDER_ORDER_REJECTED" => (
                 "Alpaca rejected the Paper order. Review the order terms and account restrictions before creating a new proposal.",
                 "reload_snapshot",
@@ -5286,6 +5650,8 @@ impl TradeXError {
                     | "ORDER_PROPOSAL_CONSUMED"
                     | "ORDER_PROPOSAL_NOT_ELIGIBLE"
                     | "ORDER_STATUS_UNKNOWN"
+                    | "ORDER_NOT_CANCELLABLE"
+                    | "ORDER_CHANGED_REVIEW_AGAIN"
                     | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"
@@ -5315,6 +5681,8 @@ impl TradeXError {
                     | "MODEL_UNAVAILABLE"
                     | "MODEL_OAUTH_EXPIRED"
                     | "MODEL_QUOTA_EXCEEDED"
+                    | "ORDER_NOT_CANCELLABLE"
+                    | "ORDER_CHANGED_REVIEW_AGAIN"
                     | "PAPER_QUOTE_UNAVAILABLE"
                     | "MODEL_LOGIN_FAILED"
                     | "MODEL_LOGIN_TIMEOUT"

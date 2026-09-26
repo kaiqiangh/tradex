@@ -32,28 +32,30 @@ use crate::protocol::{
     BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookStatus,
     BinanceTestnetOrderCancel, BinanceTestnetOrderCancelState, BinanceTestnetOrderOrigin,
     BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptState,
-    BitgetDemoOrderSubmit, DomainEvent, DomainProjection, EventSink, ExecutionContext,
-    FinancialApproval, FinancialApprovalHistory, FinancialApprovalStatus, LocalPaperEvent,
-    LocalPaperEventKind, LocalPaperFill, LocalPaperOrder, LocalPaperState, MAX_SEQUENCE,
-    OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
-    OrderDraftSummary, OrderProposal, OrderProposalGenerate, OrderProposalHistoryEntry,
-    OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
-    OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
-    OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult, PaperOrderSubmit,
-    PaperQuoteRefresh, PaperScenarioSet, ProposalReferenceStatus, Result, SavedScreener,
-    ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot, StrategyFailure,
-    StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState, StrategyRunSummary,
-    StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList, ThreadSummary, TimeInForce,
-    TradeXError, Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus,
-    Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
-    Trading212DemoOrderBookStatus, Trading212DemoOrderCancel, Trading212DemoOrderOrigin,
-    Trading212DemoOrderSubmit, Watchlist, WatchlistItem, Watchlists, Workspace,
+    BitgetDemoOrderSubmit, CancellationApprovalHistory, CancellationApprovalRejection,
+    CancellationIntent, CancellationIntentHistoryEntry, DomainEvent, DomainProjection, EventSink,
+    ExecutionContext, FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent,
+    FinancialApprovalStatus, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder,
+    LocalPaperState, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary,
+    OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
+    OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
+    OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
+    OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult,
+    PaperOrderSubmit, PaperQuoteRefresh, PaperScenarioSet, ProposalReferenceStatus, Result,
+    SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
+    StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
+    StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
+    ThreadSummary, TimeInForce, TradeXError, Trading212DemoCancelState,
+    Trading212DemoNormalizedOrderStatus, Trading212DemoOrderAttempt,
+    Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
+    Trading212DemoOrderCancel, Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist,
+    WatchlistItem, Watchlists, Workspace,
 };
 use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 24;
+pub(crate) const SCHEMA_VERSION: u32 = 25;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -551,6 +553,36 @@ impl Store {
                 );
                 CREATE INDEX approval_rejections_workspace_proposal ON approval_rejections(workspace_id,proposal_id,sequence DESC);
                 PRAGMA user_version=24;").map_err(storage_error)?;
+            }
+            if version < 25 {
+                tx.execute_batch("ALTER TABLE financial_approvals RENAME COLUMN proposal_id TO intent_id;
+                DROP INDEX financial_approvals_workspace_proposal;
+                DROP INDEX financial_approvals_one_issued_per_proposal;
+                CREATE INDEX financial_approvals_workspace_intent ON financial_approvals(workspace_id,intent_id,sequence DESC);
+                CREATE UNIQUE INDEX financial_approvals_one_issued_per_intent ON financial_approvals(workspace_id,intent_id) WHERE status='ISSUED';
+                CREATE TABLE cancellation_intents (
+                    intent_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    broker_order_id TEXT NOT NULL,
+                    intent_hash TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('CURRENT','INVALIDATED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    invalidation_reason TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX cancellation_intents_workspace_order ON cancellation_intents(workspace_id,account_id,broker_order_id);
+                CREATE TABLE cancellation_rejections (
+                    audit_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    intent_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,intent_id,sequence)
+                );
+                CREATE INDEX cancellation_rejections_workspace_intent ON cancellation_rejections(workspace_id,intent_id,sequence DESC);
+                PRAGMA user_version=25;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -2769,6 +2801,12 @@ impl Store {
         nonce: &str,
         now: &str,
     ) -> Result<(FinancialApproval, Vec<DomainEvent>)> {
+        let proposal_id = match &approval.intent {
+            FinancialApprovalIntent::PlaceOrder { proposal_id, .. } => proposal_id.clone(),
+            FinancialApprovalIntent::Cancel { .. } => {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        };
         let workspace_id = self.workspace_id()?;
         if approval.workspace_id != workspace_id
             || approval.environment == ExecutionContext::LocalPaper
@@ -2777,7 +2815,7 @@ impl Store {
         {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
-        validate_order_proposal_id(&approval.proposal_id)?;
+        validate_order_proposal_id(&proposal_id)?;
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -2791,18 +2829,18 @@ impl Store {
             let (row_workspace, hash, sequence, projection): (String, String, i64, String) = tx
                 .query_row(
                     "SELECT workspace_id,proposal_hash,sequence,projection FROM order_proposals WHERE proposal_id=?1",
-                    [&approval.proposal_id],
+                    [&proposal_id],
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
                 )
                 .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
                     TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
                 } else { storage_error(error) })?;
             let (status, _, last_sequence) =
-                proposal_event_state(&tx, &approval.proposal_id, &workspace_id)?;
+                proposal_event_state(&tx, &proposal_id, &workspace_id)?;
             if sequence < 1 || projection.is_empty() {
                 return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
             }
-            if format!("order-proposal:{}:{last_sequence}", approval.proposal_id)
+            if format!("order-proposal:{}:{last_sequence}", proposal_id)
                 != expected_proposal_state_version
             {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
@@ -2810,7 +2848,7 @@ impl Store {
             (row_workspace, hash, status, last_sequence)
         };
         if proposal_workspace != workspace_id
-            || proposal_hash != approval.proposal_hash
+            || proposal_hash != approval.intent_hash()
             || proposal_status != OrderProposalStatus::NeedsApproval
         {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
@@ -2859,7 +2897,7 @@ impl Store {
         let decision_projection: String = tx
             .query_row(
                 "SELECT projection FROM risk_decisions WHERE decision_id=?1 AND workspace_id=?2 AND proposal_id=?3",
-                params![approval.risk_decision_id, workspace_id, approval.proposal_id],
+                params![approval.risk_decision_id, workspace_id, proposal_id],
                 |row| row.get(0),
             )
             .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
@@ -2868,7 +2906,7 @@ impl Store {
         let decision: RiskDecision = serde_json::from_str(&decision_projection)
             .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
         if decision.status != crate::risk::RiskDecisionStatus::Allowed
-            || decision.proposal_hash != approval.proposal_hash
+            || decision.proposal_hash != approval.intent_hash()
             || decision.account_id.as_deref() != Some(&approval.account_id)
             || decision.policy_version != Some(approval.policy_version)
         {
@@ -2876,10 +2914,10 @@ impl Store {
         }
         let current = {
             let mut statement = tx
-                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND proposal_id=?2 AND status='ISSUED' ORDER BY sequence DESC LIMIT 1")
+                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND intent_id=?2 AND status='ISSUED' ORDER BY sequence DESC LIMIT 1")
                 .map_err(storage_error)?;
             statement
-                .query_row(params![workspace_id, approval.proposal_id], |row| {
+                .query_row(params![workspace_id, proposal_id], |row| {
                     row.get::<_, String>(0)
                 })
                 .optional()
@@ -2940,7 +2978,7 @@ impl Store {
             .map_err(storage_error)?;
         let active = {
             let mut statement = tx
-                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND proposal_id=?2 AND status='ISSUED' ORDER BY sequence")
+                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND intent_id=?2 AND status='ISSUED' ORDER BY sequence")
                 .map_err(storage_error)?;
             statement
                 .query_map(params![workspace_id, proposal_id], |row| {
@@ -3042,7 +3080,7 @@ impl Store {
         validate_order_proposal_id(proposal_id)?;
         let approvals = {
             let mut statement = self.connection.prepare(
-                "SELECT approval_id,sequence,nonce,projection FROM financial_approvals WHERE workspace_id=?1 AND proposal_id=?2 ORDER BY sequence DESC LIMIT 32",
+                "SELECT approval_id,sequence,nonce,projection FROM financial_approvals WHERE workspace_id=?1 AND intent_id=?2 ORDER BY sequence DESC LIMIT 32",
             ).map_err(storage_error)?;
             let rows = statement
                 .query_map(params![workspace_id, proposal_id], |row| {
@@ -3064,7 +3102,8 @@ impl Store {
                     || approval.approval_id != id
                     || approval.state_version != format!("financial-approval:{id}:{sequence}")
                     || approval.workspace_id != workspace_id
-                    || approval.proposal_id != proposal_id
+                    || approval.intent_id() != proposal_id
+                    || !matches!(approval.intent, FinancialApprovalIntent::PlaceOrder { .. })
                 {
                     return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
                 }
@@ -3105,6 +3144,561 @@ impl Store {
         Ok(FinancialApprovalHistory {
             workspace_id: workspace_id.into(),
             proposal_id: proposal_id.into(),
+            approvals,
+            rejections,
+        })
+    }
+
+    pub fn cancellation_intent(
+        &self,
+        workspace_id: &str,
+        intent_id: &str,
+    ) -> Result<CancellationIntent> {
+        if workspace_id != self.workspace_id()? || !valid_cancellation_intent_id(intent_id) {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let (status, projection, invalidation_reason): (String, String, Option<String>) = self.connection.query_row(
+            "SELECT status,projection,invalidation_reason FROM cancellation_intents WHERE workspace_id=?1 AND intent_id=?2",
+            params![workspace_id, intent_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+            TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
+        } else { storage_error(error) })?;
+        if status != "CURRENT" {
+            return Err(TradeXError::new(match invalidation_reason.as_deref() {
+                Some("ORDER_NOT_CANCELLABLE") => "ORDER_NOT_CANCELLABLE",
+                _ => "ORDER_CHANGED_REVIEW_AGAIN",
+            }));
+        }
+        let intent: CancellationIntent = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        validate_cancellation_intent(&intent, workspace_id)?;
+        Ok(intent)
+    }
+
+    pub fn save_cancellation_intent(
+        &mut self,
+        intent: CancellationIntent,
+        snapshot_version: &str,
+        previous_intent_id: Option<&str>,
+    ) -> Result<(CancellationIntent, Vec<DomainEvent>)> {
+        let workspace_id = self.workspace_id()?;
+        validate_cancellation_intent(&intent, &workspace_id)?;
+        if cancellation_intent_hash(&intent)? != intent.intent_hash {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&intent.account_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ACCOUNT_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.state_version != snapshot_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        validate_cancellation_snapshot(&account, &intent)?;
+
+        let mut events = Vec::new();
+        if let Some(previous_id) = previous_intent_id {
+            if previous_id != intent.cancellation_intent_id {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let (status, projection): (String, String) = tx.query_row(
+                "SELECT status,projection FROM cancellation_intents WHERE workspace_id=?1 AND intent_id=?2",
+                params![workspace_id, previous_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("STATE_VERSION_CONFLICT")
+            } else { storage_error(error) })?;
+            let previous: CancellationIntent = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if status != "CURRENT"
+                || previous.account_id != intent.account_id
+                || previous.provider_order_id != intent.provider_order_id
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if previous.intent_hash != intent.intent_hash {
+                invalidate_cancellation_intent_tx(
+                    &tx,
+                    previous_id,
+                    "ORDER_CHANGED_REVIEW_AGAIN",
+                    account
+                        .last_successful_sync
+                        .as_deref()
+                        .unwrap_or(&intent.created_at),
+                )?;
+                events.extend(invalidate_financial_approvals_tx(
+                    &tx,
+                    &workspace_id,
+                    Some(previous_id),
+                    None,
+                    "ORDER_CHANGED_REVIEW_AGAIN",
+                    &intent.created_at,
+                )?);
+                tx.commit().map_err(storage_error)?;
+                return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+            }
+            tx.commit().map_err(storage_error)?;
+            return Ok((previous, events));
+        }
+
+        let previous: Vec<String> = {
+            let mut statement = tx.prepare(
+                "SELECT intent_id FROM cancellation_intents WHERE workspace_id=?1 AND account_id=?2 AND broker_order_id=?3 AND status='CURRENT'",
+            ).map_err(storage_error)?;
+            statement
+                .query_map(
+                    params![workspace_id, intent.account_id, intent.provider_order_id],
+                    |row| row.get(0),
+                )
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for old_id in previous {
+            invalidate_cancellation_intent_tx(&tx, &old_id, "REVIEW_REPLACED", &intent.created_at)?;
+            events.extend(invalidate_financial_approvals_tx(
+                &tx,
+                &workspace_id,
+                Some(&old_id),
+                None,
+                "REVIEW_REPLACED",
+                &intent.created_at,
+            )?);
+        }
+        tx.execute(
+            "INSERT INTO cancellation_intents(intent_id,workspace_id,account_id,broker_order_id,intent_hash,status,sequence,projection,invalidation_reason,updated_at) VALUES(?1,?2,?3,?4,?5,'CURRENT',1,?6,NULL,?7)",
+            params![
+                intent.cancellation_intent_id,
+                workspace_id,
+                intent.account_id,
+                intent.provider_order_id,
+                intent.intent_hash,
+                serde_json::to_string(&intent).map_err(storage_error)?,
+                intent.created_at,
+            ],
+        ).map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok((intent, events))
+    }
+
+    pub fn issue_cancel_financial_approval(
+        &mut self,
+        approval: FinancialApproval,
+        expected_snapshot_version: &str,
+        nonce: &str,
+        now: &str,
+    ) -> Result<(FinancialApproval, Vec<DomainEvent>)> {
+        let (intent_id, intent_hash, broker_order_id, remaining, snapshot_version, evidence_id) =
+            match &approval.intent {
+                FinancialApprovalIntent::Cancel {
+                    cancellation_intent_id,
+                    intent_hash,
+                    broker_order_id,
+                    remaining_quantity,
+                    snapshot_version,
+                    snapshot_evidence_id,
+                } => (
+                    cancellation_intent_id.clone(),
+                    intent_hash.clone(),
+                    broker_order_id.clone(),
+                    remaining_quantity.clone(),
+                    snapshot_version.clone(),
+                    snapshot_evidence_id.clone(),
+                ),
+                FinancialApprovalIntent::PlaceOrder { .. } => {
+                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+                }
+            };
+        let workspace_id = self.workspace_id()?;
+        if approval.workspace_id != workspace_id
+            || approval.operation() != crate::protocol::FinancialOperation::Cancel
+            || nonce.is_empty()
+            || snapshot_version != expected_snapshot_version
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (intent_status, intent_projection): (String, String) = tx.query_row(
+            "SELECT status,projection FROM cancellation_intents WHERE workspace_id=?1 AND intent_id=?2",
+            params![workspace_id, intent_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+            TradeXError::new("STATE_VERSION_CONFLICT")
+        } else { storage_error(error) })?;
+        let intent: CancellationIntent = serde_json::from_str(&intent_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        validate_cancellation_intent(&intent, &workspace_id)?;
+        if intent_status != "CURRENT"
+            || intent.intent_hash != intent_hash
+            || intent.provider_order_id != broker_order_id
+            || intent.remaining_quantity != remaining
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&approval.account_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ACCOUNT_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if intent.account_id != approval.account_id
+            || account.state_version != snapshot_version
+            || account.environment != "LIVE"
+            || account.health.arming != "ARMED"
+            || account.connection_state != ConnectionState::Connected
+            || account.health.connection != "ONLINE"
+            || account.health.authentication != "VALID"
+            || !matches!(
+                account.health.credential.as_str(),
+                "AVAILABLE" | "CONFIGURED"
+            )
+            || account.data.is_none()
+            || cancellation_snapshot_evidence_id(&account, &intent)? != evidence_id
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        validate_cancellation_snapshot(&account, &intent)?;
+        let observed = account
+            .last_successful_sync
+            .as_deref()
+            .and_then(|observed| OffsetDateTime::parse(observed, &Rfc3339).ok())
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+        let now_time =
+            OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        if now_time < observed || (now_time - observed).whole_seconds() > 30 {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        let policy_projection: String = tx
+            .query_row(
+                "SELECT projection FROM risk_state WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("RISK_POLICY_UNCONFIGURED")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let policy: RiskPolicyState = serde_json::from_str(&policy_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if !policy.configured || policy.policy_version != approval.policy_version {
+            return Err(TradeXError::new("POLICY_VERSION_STALE"));
+        }
+
+        let current = tx.query_row(
+            "SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND intent_id=?2 AND status='ISSUED' ORDER BY sequence DESC LIMIT 1",
+            params![workspace_id, intent_id],
+            |row| row.get::<_, String>(0),
+        ).optional().map_err(storage_error)?;
+        let mut events = Vec::new();
+        if let Some(projection) = current {
+            let mut current: FinancialApproval = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if current.review_digest == approval.review_digest
+                && !approval_expired(&current.expires_at, now)
+            {
+                tx.commit().map_err(storage_error)?;
+                return Ok((current, events));
+            }
+            if approval_expired(&current.expires_at, now) {
+                current.status = FinancialApprovalStatus::Expired;
+                current.invalidation_reason = Some("APPROVAL_EXPIRED".into());
+            } else {
+                current.status = FinancialApprovalStatus::Invalidated;
+                current.invalidation_reason = Some("REVIEW_EVIDENCE_CHANGED".into());
+            }
+            events.push(write_financial_approval_tx(&tx, current, None, now)?);
+        }
+        let event = write_financial_approval_tx(&tx, approval, Some(nonce), now)?;
+        let DomainProjection::FinancialApproval(saved) = &event.payload else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        let saved = (**saved).clone();
+        events.push(event);
+        tx.commit().map_err(storage_error)?;
+        Ok((saved, events))
+    }
+
+    pub fn invalidate_cancellation_intent(
+        &mut self,
+        workspace_id: &str,
+        intent_id: &str,
+        reason: &str,
+        now: &str,
+    ) -> Result<Vec<DomainEvent>> {
+        if workspace_id != self.workspace_id()?
+            || !valid_cancellation_intent_id(intent_id)
+            || !matches!(
+                reason,
+                "ORDER_CHANGED_REVIEW_AGAIN"
+                    | "ORDER_NOT_CANCELLABLE"
+                    | "ACCOUNT_HEALTH_CHANGED"
+                    | "POLICY_VERSION_STALE"
+                    | "REVIEW_REPLACED"
+            )
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        invalidate_cancellation_intent_tx(&tx, intent_id, reason, now)?;
+        let events = invalidate_financial_approvals_tx(
+            &tx,
+            workspace_id,
+            Some(intent_id),
+            None,
+            reason,
+            now,
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok(events)
+    }
+
+    pub fn reject_cancel_approval_review(
+        &mut self,
+        mut rejection: CancellationApprovalRejection,
+        expected_snapshot_version: &str,
+    ) -> Result<CancellationApprovalRejection> {
+        let workspace_id = self.workspace_id()?;
+        if rejection.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (status, projection): (String, String) = tx.query_row(
+            "SELECT status,projection FROM cancellation_intents WHERE workspace_id=?1 AND intent_id=?2",
+            params![workspace_id, rejection.cancellation_intent_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+            TradeXError::new("STATE_VERSION_CONFLICT")
+        } else { storage_error(error) })?;
+        let intent: CancellationIntent = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if status != "CURRENT" || intent.intent_hash != rejection.intent_hash {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&intent.account_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if account.state_version != expected_snapshot_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        validate_cancellation_snapshot(&account, &intent)?;
+        let sequence: i64 = tx.query_row(
+            "SELECT COALESCE(MAX(sequence),0) FROM cancellation_rejections WHERE workspace_id=?1 AND intent_id=?2",
+            params![workspace_id, rejection.cancellation_intent_id],
+            |row| row.get(0),
+        ).map_err(storage_error)?;
+        let sequence = sequence
+            .checked_add(1)
+            .filter(|value| *value <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        rejection.state_version = format!("cancel-rejection:{}:{sequence}", rejection.audit_id);
+        tx.execute(
+            "INSERT INTO cancellation_rejections(audit_id,workspace_id,intent_id,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+            params![
+                rejection.audit_id,
+                workspace_id,
+                rejection.cancellation_intent_id,
+                sequence,
+                serde_json::to_string(&rejection).map_err(storage_error)?,
+            ],
+        ).map_err(storage_error)?;
+        invalidate_cancellation_intent_tx(
+            &tx,
+            &rejection.cancellation_intent_id,
+            "USER_REJECTED",
+            &rejection.occurred_at,
+        )?;
+        let _ = invalidate_financial_approvals_tx(
+            &tx,
+            &workspace_id,
+            Some(&rejection.cancellation_intent_id),
+            None,
+            "USER_REJECTED",
+            &rejection.occurred_at,
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok(rejection)
+    }
+
+    pub fn cancellation_approval_history(
+        &mut self,
+        workspace_id: &str,
+        account_id: &str,
+        broker_order_id: &str,
+        now: &str,
+    ) -> Result<CancellationApprovalHistory> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let intents: Vec<(String, String, String, Option<String>, String, i64)> = {
+            let mut statement = tx.prepare(
+                "SELECT intent_id,status,projection,invalidation_reason,updated_at,sequence FROM cancellation_intents WHERE workspace_id=?1 AND account_id=?2 AND broker_order_id=?3 ORDER BY rowid DESC LIMIT 32",
+            ).map_err(storage_error)?;
+            statement
+                .query_map(params![workspace_id, account_id, broker_order_id], |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        let mut approvals = Vec::new();
+        let mut rejections = Vec::new();
+        let mut intent_history = Vec::new();
+        for (intent_id, status, intent_projection, invalidation_reason, updated_at, sequence) in
+            intents
+        {
+            let intent: CancellationIntent = serde_json::from_str(&intent_projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            validate_cancellation_intent(&intent, workspace_id)?;
+            if intent.cancellation_intent_id != intent_id
+                || intent.account_id != account_id
+                || intent.provider_order_id != broker_order_id
+                || !matches!(status.as_str(), "CURRENT" | "INVALIDATED")
+                || sequence < 1
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            intent_history.push(CancellationIntentHistoryEntry {
+                cancellation_intent_id: intent_id.clone(),
+                intent_hash: intent.intent_hash.clone(),
+                provider_order_id: intent.provider_order_id.clone(),
+                status,
+                invalidation_reason,
+                updated_at,
+            });
+            let active: Vec<String> = {
+                let mut statement = tx.prepare(
+                    "SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND intent_id=?2 AND status='ISSUED'",
+                ).map_err(storage_error)?;
+                statement
+                    .query_map(params![workspace_id, intent_id], |row| row.get(0))
+                    .map_err(storage_error)?
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(storage_error)?
+            };
+            for projection in active {
+                let mut approval: FinancialApproval = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if approval_expired(&approval.expires_at, now) {
+                    approval.status = FinancialApprovalStatus::Expired;
+                    approval.invalidation_reason = Some("APPROVAL_EXPIRED".into());
+                    write_financial_approval_tx(&tx, approval, None, now)?;
+                }
+            }
+            let stored_approvals: Vec<String> = {
+                let mut statement = tx.prepare(
+                    "SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND intent_id=?2 ORDER BY sequence DESC LIMIT 32",
+                ).map_err(storage_error)?;
+                statement
+                    .query_map(params![workspace_id, intent_id], |row| row.get(0))
+                    .map_err(storage_error)?
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(storage_error)?
+            };
+            for projection in stored_approvals {
+                let approval: FinancialApproval = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if matches!(
+                    &approval.intent,
+                    FinancialApprovalIntent::Cancel {
+                        cancellation_intent_id,
+                        broker_order_id: saved_order,
+                        ..
+                    } if cancellation_intent_id == &intent_id && saved_order == broker_order_id
+                ) {
+                    approvals.push(approval);
+                }
+            }
+            let stored_rejections: Vec<(String, i64, String)> = {
+                let mut statement = tx.prepare(
+                    "SELECT audit_id,sequence,projection FROM cancellation_rejections WHERE workspace_id=?1 AND intent_id=?2 ORDER BY sequence DESC LIMIT 32",
+                ).map_err(storage_error)?;
+                statement
+                    .query_map(params![workspace_id, intent_id], |row| {
+                        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                    })
+                    .map_err(storage_error)?
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(storage_error)?
+            };
+            for (id, sequence, projection) in stored_rejections {
+                let rejection: CancellationApprovalRejection = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if rejection.audit_id != id
+                    || rejection.cancellation_intent_id != intent_id
+                    || rejection.workspace_id != workspace_id
+                    || rejection.state_version != format!("cancel-rejection:{id}:{sequence}")
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                rejections.push(rejection);
+            }
+        }
+        approvals.sort_by(|left, right| right.issued_at.cmp(&left.issued_at));
+        approvals.truncate(32);
+        rejections.sort_by(|left, right| right.occurred_at.cmp(&left.occurred_at));
+        rejections.truncate(32);
+        tx.commit().map_err(storage_error)?;
+        Ok(CancellationApprovalHistory {
+            workspace_id: workspace_id.into(),
+            account_id: account_id.into(),
+            broker_order_id: broker_order_id.into(),
+            intents: intent_history,
             approvals,
             rejections,
         })
@@ -3212,28 +3806,11 @@ impl Store {
         Ok(event)
     }
 
-    pub fn save_account(&mut self, mut account: AccountConnection) -> Result<DomainEvent> {
+    pub fn save_account(&mut self, account: AccountConnection) -> Result<DomainEvent> {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        let previous_projection: Option<String> = tx
-            .query_row(
-                "SELECT projection FROM accounts WHERE connection_id=?1",
-                [&account.connection_id],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(storage_error)?;
-        let arming_changed = previous_projection
-            .as_deref()
-            .map(|projection| {
-                serde_json::from_str::<AccountConnection>(projection)
-                    .map(|previous| previous.health.arming != account.health.arming)
-                    .map_err(storage_error)
-            })
-            .transpose()?
-            .unwrap_or(false);
         let previous: i64 = tx
             .query_row(
                 "SELECT COALESCE((SELECT sequence FROM accounts WHERE connection_id=?1),0)",
@@ -3244,41 +3821,7 @@ impl Store {
         if previous < 0 || previous >= MAX_SEQUENCE as i64 {
             return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
         }
-        let sequence = previous + 1;
-        account.state_version = format!("{}:{}", account.connection_id, sequence);
-        account.updated_at = timestamp()?;
-        let remote = if account.connection_state == ConnectionState::Disconnected {
-            None
-        } else {
-            account.data.as_ref().map(|d| d.remote_account_id.as_str())
-        };
-        tx.execute("INSERT INTO accounts VALUES (?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(connection_id) DO UPDATE SET remote_identity=excluded.remote_identity,sequence=excluded.sequence,projection=excluded.projection",
-            params![account.connection_id,account.provider_id,account.environment,remote,sequence,account.credential_ref(),serde_json::to_string(&account).map_err(storage_error)?]).map_err(storage_error)?;
-        let event = DomainEvent {
-            event_id: Uuid::new_v4().to_string(),
-            event_type: if arming_changed {
-                "account.arming.changed"
-            } else {
-                "account.health.changed"
-            }
-            .into(),
-            schema_version: 1,
-            occurred_at: account.updated_at.clone(),
-            aggregate_type: "account".into(),
-            aggregate_id: account.connection_id.clone(),
-            sequence: sequence as u64,
-            payload: DomainProjection::Account(Box::new(account)),
-        };
-        tx.execute(
-            "INSERT INTO outbox VALUES ('account',?1,?2,?3,?4)",
-            params![
-                event.aggregate_id,
-                sequence,
-                event.event_id,
-                serde_json::to_string(&event).map_err(storage_error)?
-            ],
-        )
-        .map_err(storage_error)?;
+        let event = save_account_tx(&tx, account, previous + 1, &timestamp()?)?;
         tx.commit().map_err(storage_error)?;
         Ok(event)
     }
@@ -7808,6 +8351,236 @@ fn valid_order_proposal_id(id: &str) -> bool {
     Uuid::parse_str(hex).is_ok()
 }
 
+fn valid_cancellation_intent_id(id: &str) -> bool {
+    id.strip_prefix("cancel:")
+        .is_some_and(|value| Uuid::parse_str(value).is_ok())
+}
+
+pub(crate) fn cancellation_intent_hash(intent: &CancellationIntent) -> Result<String> {
+    let material = serde_json::json!({
+        "workspaceId": intent.workspace_id,
+        "accountId": intent.account_id,
+        "environment": intent.environment,
+        "providerOrderId": intent.provider_order_id,
+        "instrumentId": intent.instrument_id,
+        "symbol": intent.symbol,
+        "side": intent.side,
+        "providerStatus": intent.provider_status,
+        "quantity": intent.quantity,
+        "filledQuantity": intent.filled_quantity,
+        "remainingQuantity": intent.remaining_quantity,
+    });
+    let encoded = serde_json::to_vec(&material).map_err(storage_error)?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(encoded))))
+}
+
+pub(crate) fn cancellation_snapshot_evidence_id(
+    account: &AccountConnection,
+    intent: &CancellationIntent,
+) -> Result<String> {
+    let material = serde_json::json!({
+        "connectionId": account.connection_id,
+        "stateVersion": account.state_version,
+        "lastSuccessfulSync": account.last_successful_sync,
+        "health": account.health,
+        "permissions": account.permissions,
+        "intentId": intent.cancellation_intent_id,
+        "intentHash": intent.intent_hash,
+    });
+    let encoded = serde_json::to_vec(&material).map_err(storage_error)?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(encoded))))
+}
+
+fn validate_cancellation_intent(intent: &CancellationIntent, workspace_id: &str) -> Result<()> {
+    let expected_environment = match intent.environment {
+        ExecutionContext::Trading212Live => Some("trading212"),
+        ExecutionContext::BinanceLive => Some("binance"),
+        ExecutionContext::BitgetLive => Some("bitget"),
+        _ => None,
+    };
+    let valid_hash = intent
+        .intent_hash
+        .strip_prefix("sha256:")
+        .is_some_and(|value| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        });
+    if !valid_cancellation_intent_id(&intent.cancellation_intent_id)
+        || intent.workspace_id != workspace_id
+        || intent.account_id.is_empty()
+        || intent.account_id.len() > 128
+        || expected_environment.is_none()
+        || intent.provider_order_id.is_empty()
+        || intent.provider_order_id.len() > 128
+        || intent.instrument_id.is_empty()
+        || intent.instrument_id.len() > 128
+        || intent.symbol.is_empty()
+        || intent.symbol.len() > 64
+        || !matches!(intent.side.as_str(), "BUY" | "SELL")
+        || intent.provider_status.is_empty()
+        || intent.provider_status.len() > 64
+        || intent.quantity.is_empty()
+        || intent.quantity.len() > 128
+        || intent.filled_quantity.is_empty()
+        || intent.filled_quantity.len() > 128
+        || intent.remaining_quantity.is_empty()
+        || intent.remaining_quantity.len() > 128
+        || intent.created_at.is_empty()
+        || !valid_hash
+    {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    OffsetDateTime::parse(&intent.created_at, &Rfc3339)
+        .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+    Ok(())
+}
+
+pub(crate) fn validate_cancellation_snapshot(
+    account: &AccountConnection,
+    intent: &CancellationIntent,
+) -> Result<()> {
+    let provider_matches = match intent.environment {
+        ExecutionContext::Trading212Live => account.provider_id == "trading212",
+        ExecutionContext::BinanceLive => account.provider_id == "binance",
+        ExecutionContext::BitgetLive => account.provider_id == "bitget",
+        _ => false,
+    };
+    if !provider_matches
+        || account.environment != "LIVE"
+        || account.connection_id != intent.account_id
+        || account.workspace_id != intent.workspace_id
+    {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let order = account
+        .data
+        .as_ref()
+        .and_then(|data| {
+            data.open_orders
+                .iter()
+                .find(|order| order.broker_order_id == intent.provider_order_id)
+        })
+        .ok_or_else(|| TradeXError::new("ORDER_NOT_CANCELLABLE"))?;
+    let status = order.status.to_ascii_uppercase();
+    let side = order.side.to_ascii_uppercase();
+    let status_allowed = match account.provider_id.as_str() {
+        "trading212" => matches!(
+            status.as_str(),
+            "UNCONFIRMED" | "CONFIRMED" | "NEW" | "PARTIALLY_FILLED"
+        ),
+        "binance" => matches!(status.as_str(), "NEW" | "PENDING_NEW" | "PARTIALLY_FILLED"),
+        "bitget" => {
+            order.kind.as_deref() == Some("NORMAL")
+                && matches!(status.as_str(), "NEW" | "LIVE" | "PARTIALLY_FILLED")
+        }
+        _ => false,
+    };
+    let (Some(quantity), Some(filled), Some(instrument_id)) = (
+        order.quantity.as_deref(),
+        order.filled_quantity.as_deref(),
+        order.instrument_id.as_deref(),
+    ) else {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    };
+    let quantity = crate::provider_io::decimal(&serde_json::Value::String(quantity.into()))?;
+    let filled = crate::provider_io::decimal(&serde_json::Value::String(filled.into()))?;
+    let remaining = crate::provider_io::decimal_subtract(&quantity, &filled)?;
+    if !status_allowed
+        || remaining == "0"
+        || intent.instrument_id != instrument_id
+        || intent.symbol != order.symbol
+        || intent.side != side
+        || intent.provider_status != status
+        || intent.quantity != quantity
+        || intent.filled_quantity != filled
+        || intent.remaining_quantity != remaining
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    Ok(())
+}
+
+fn invalidate_cancellation_intent_tx(
+    tx: &Transaction<'_>,
+    intent_id: &str,
+    reason: &str,
+    now: &str,
+) -> Result<()> {
+    let sequence: Option<i64> = tx
+        .query_row(
+            "SELECT sequence FROM cancellation_intents WHERE intent_id=?1 AND status='CURRENT'",
+            [intent_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    if let Some(sequence) = sequence {
+        let next = sequence
+            .checked_add(1)
+            .filter(|value| *value <= MAX_SEQUENCE as i64)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        tx.execute(
+            "UPDATE cancellation_intents SET status='INVALIDATED',sequence=?1,invalidation_reason=?2,updated_at=?3 WHERE intent_id=?4",
+            params![next, reason, now, intent_id],
+        )
+        .map_err(storage_error)?;
+    }
+    Ok(())
+}
+
+fn reconcile_cancellation_intents_for_account_tx(
+    tx: &Transaction<'_>,
+    account: &AccountConnection,
+    now: &str,
+) -> Result<()> {
+    let intents: Vec<(String, String)> = {
+        let mut statement = tx
+            .prepare(
+                "SELECT intent_id,projection FROM cancellation_intents WHERE workspace_id=?1 AND account_id=?2 AND status='CURRENT'",
+            )
+            .map_err(storage_error)?;
+        statement
+            .query_map(
+                params![account.workspace_id, account.connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?
+    };
+    for (intent_id, projection) in intents {
+        let intent: CancellationIntent =
+            serde_json::from_str(&projection).map_err(storage_error)?;
+        validate_cancellation_intent(&intent, &account.workspace_id)?;
+        if intent.cancellation_intent_id != intent_id || intent.account_id != account.connection_id
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let (reason, invalidate_intent) = match validate_cancellation_snapshot(account, &intent) {
+            Ok(()) => ("REVIEW_EVIDENCE_CHANGED", false),
+            Err(error) if error.code == "ORDER_CHANGED_REVIEW_AGAIN" => {
+                ("ORDER_CHANGED_REVIEW_AGAIN", true)
+            }
+            Err(error) if error.code == "ORDER_NOT_CANCELLABLE" => ("ORDER_NOT_CANCELLABLE", true),
+            Err(error) => return Err(error),
+        };
+        if invalidate_intent {
+            invalidate_cancellation_intent_tx(tx, &intent_id, reason, now)?;
+        }
+        invalidate_financial_approvals_tx(
+            tx,
+            &account.workspace_id,
+            Some(&intent_id),
+            None,
+            reason,
+            now,
+        )?;
+    }
+    Ok(())
+}
+
 fn trading212_demo_attempt_state_name(state: Trading212DemoOrderAttemptState) -> &'static str {
     match state {
         Trading212DemoOrderAttemptState::Submitting => "SUBMITTING",
@@ -9198,8 +9971,8 @@ fn write_financial_approval_tx(
         .map_err(storage_error)?;
     } else {
         tx.execute(
-            "INSERT INTO financial_approvals(approval_id,workspace_id,proposal_id,account_id,status,sequence,nonce,projection) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
-            params![approval.approval_id, approval.workspace_id, approval.proposal_id, approval.account_id, status, sequence, stored_nonce, projection],
+            "INSERT INTO financial_approvals(approval_id,workspace_id,intent_id,account_id,status,sequence,nonce,projection) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+            params![approval.approval_id, approval.workspace_id, approval.intent_id(), approval.account_id, status, sequence, stored_nonce, projection],
         )
         .map_err(storage_error)?;
     }
@@ -9286,7 +10059,7 @@ fn invalidate_financial_approvals_tx(
 ) -> Result<Vec<DomainEvent>> {
     let active = {
         let mut statement = tx
-            .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND status='ISSUED' AND (?2 IS NULL OR proposal_id=?2) AND (?3 IS NULL OR account_id=?3)")
+            .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND status='ISSUED' AND (?2 IS NULL OR intent_id=?2) AND (?3 IS NULL OR account_id=?3)")
             .map_err(storage_error)?;
         statement
             .query_map(params![workspace_id, proposal_id, account_id], |row| {
@@ -9441,6 +10214,21 @@ fn save_account_tx(
         params![account.connection_id, account.provider_id, account.environment, remote, sequence, account.credential_ref(), serde_json::to_string(&account).map_err(storage_error)?],
     )
     .map_err(storage_error)?;
+    if authority_changed {
+        invalidate_financial_approvals_tx(
+            tx,
+            &workspace_id,
+            None,
+            Some(&connection_id),
+            if arming_changed {
+                "ACCOUNT_DISARMED"
+            } else {
+                "ACCOUNT_HEALTH_CHANGED"
+            },
+            occurred_at,
+        )?;
+    }
+    reconcile_cancellation_intents_for_account_tx(tx, &account, occurred_at)?;
     let event = DomainEvent {
         event_id: Uuid::new_v4().to_string(),
         event_type: if arming_changed {
@@ -9466,20 +10254,6 @@ fn save_account_tx(
         ],
     )
     .map_err(storage_error)?;
-    if authority_changed {
-        invalidate_financial_approvals_tx(
-            tx,
-            &workspace_id,
-            None,
-            Some(&connection_id),
-            if arming_changed {
-                "ACCOUNT_DISARMED"
-            } else {
-                "ACCOUNT_HEALTH_CHANGED"
-            },
-            occurred_at,
-        )?;
-    }
     Ok(event)
 }
 

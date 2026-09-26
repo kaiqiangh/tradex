@@ -781,6 +781,9 @@ pub enum RiskCheckId {
     MarketSession,
     InstrumentRules,
     LiveInactivity,
+    CancellationOrder,
+    CancellationCapability,
+    SnapshotFreshness,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -814,6 +817,8 @@ pub enum RiskDecisionReasonCode {
     NotApplicable,
     UnsupportedContext,
     InvalidProposalValue,
+    OrderNotCancelable,
+    CancellationUnsupported,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountConnection, Accounts as AccountList, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
+import type { AccountConnection, Accounts as AccountList, CancellationReview, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
 import { CommandError, desktop, browserIntegration, explainError, request } from './client.ts';
 import { fromAccountSnapshot, fromRiskSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -9,6 +9,165 @@ import { Portfolio } from './Portfolio.tsx';
 function mutation(a: AccountConnection) { return { workspaceId: a.workspaceId, connectionId: a.connectionId, expectedStateVersion: a.stateVersion }; }
 function money(value: string | null | undefined, currency?: string | null) { return value == null ? 'Unavailable' : `${value}${currency ? ` ${currency}` : ' (currency unavailable)'}`; }
 function time(value: string | null | undefined) { return value ? new Date(value).toLocaleString() : 'Not yet'; }
+function restoreCancellationFocus(trigger: HTMLButtonElement | null) {
+  if (!trigger) return;
+  if (trigger.isConnected) trigger.focus();
+  else document.getElementById('connections-title')?.focus();
+}
+
+function LiveCancellationAuthorization({ account, brokerOrderId, disabled = false }: { account: AccountConnection; brokerOrderId: string; disabled?: boolean }) {
+  const queryClient = useQueryClient();
+  const [review, setReview] = useState<CancellationReview>();
+  const [busy, setBusy] = useState(false);
+  const [armConfirmed, setArmConfirmed] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const focusOnOpenRef = useRef(false);
+  const history = useQuery({
+    queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId, brokerOrderId],
+    queryFn: () => request('trade.cancel_approval.list', { workspaceId: account.workspaceId, accountId: account.connectionId, brokerOrderId }),
+    enabled: Boolean(review),
+    refetchOnMount: 'always',
+  });
+  const canStart = account.environment === 'LIVE'
+    && ['trading212', 'binance', 'bitget'].includes(account.providerId)
+    && account.connectionState === 'CONNECTED'
+    && !disabled;
+  useEffect(() => {
+    if (review && dialogRef.current) {
+      if (!dialogRef.current.open) {
+        if (typeof dialogRef.current.showModal === 'function') dialogRef.current.showModal();
+        else dialogRef.current.setAttribute('open', '');
+        focusOnOpenRef.current = true;
+      }
+      if (focusOnOpenRef.current && !busy) {
+        focusOnOpenRef.current = false;
+        queueMicrotask(() => dialogRef.current?.querySelector<HTMLElement>('[data-review-focus]')?.focus());
+      }
+    } else if (!review && dialogRef.current?.open) {
+      if (typeof dialogRef.current.close === 'function') dialogRef.current.close();
+      else dialogRef.current.removeAttribute('open');
+    }
+    if (!review && !busy && triggerRef.current) {
+      restoreCancellationFocus(triggerRef.current);
+      triggerRef.current = null;
+    }
+  }, [review, busy]);
+  useEffect(() => () => {
+    restoreCancellationFocus(triggerRef.current);
+    triggerRef.current = null;
+  }, []);
+  const refreshReview = async (previousIntentId?: string, expectedStateVersion = account.stateVersion) => {
+    const next = await request('trade.cancel_request', {
+      workspaceId: account.workspaceId,
+      accountId: account.connectionId,
+      brokerOrderId,
+      expectedStateVersion,
+      ...(previousIntentId ? { previousIntentId } : {}),
+    });
+    if (previousIntentId && next.intent.cancellationIntentId !== previousIntentId) {
+      throw new Error('ORDER_CHANGED_REVIEW_AGAIN');
+    }
+    setReview(next);
+    setArmConfirmed(false);
+    await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId, brokerOrderId] });
+  };
+  const startReview = async () => {
+    setBusy(true); setError(''); setNotice('');
+    try {
+      await refreshReview();
+    } catch (failure) { setError(explainError(failure)); }
+    finally {
+      await queryClient.invalidateQueries({ queryKey: ['accounts', account.workspaceId] });
+      setBusy(false);
+    }
+  };
+  const armAndContinue = async () => {
+    if (!review || !armConfirmed || !review.account) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const armed = await request('account.arm', {
+        workspaceId: review.workspaceId,
+        connectionId: review.account.connectionId,
+        expectedStateVersion: review.account.stateVersion,
+        confirmed: true,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['accounts', account.workspaceId] });
+      await refreshReview(review.intent.cancellationIntentId, armed.stateVersion);
+    } catch (failure) { setError(explainError(failure)); }
+    finally { setBusy(false); }
+  };
+  const decide = async (approve: boolean) => {
+    if (!review || (approve && !review.eligible)) return;
+    setBusy(true); setError(''); setNotice('');
+    const input = {
+      workspaceId: review.workspaceId,
+      cancellationIntentId: review.intent.cancellationIntentId,
+      intentHash: review.intent.intentHash,
+      reviewedRiskDecisionId: review.riskDecision.decisionId,
+      reviewDigest: review.reviewDigest,
+      expectedStateVersion: review.snapshotVersion,
+    };
+    try {
+      if (approve) {
+        const approval: FinancialApproval = await request('trade.cancel_approve', input);
+        setNotice(`CANCEL approval issued until ${new Date(approval.expiresAt).toLocaleTimeString()}. The broker order was not cancelled.`);
+      } else {
+        await request('trade.cancel_reject', input);
+        setNotice('Cancellation review rejected and recorded. The broker order was not changed.');
+      }
+      setReview(undefined);
+      await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId, brokerOrderId] });
+      await queryClient.invalidateQueries({ queryKey: ['accounts', account.workspaceId] });
+    } catch (failure) { setError(explainError(failure)); }
+    finally { setBusy(false); }
+  };
+  return <>
+    <button type="button" disabled={!canStart || busy} onClick={event => { triggerRef.current = event.currentTarget; void startReview(); }}>{busy && !review ? 'Refreshing order…' : 'Review cancellation'}</button>
+    {error && !review && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    <dialog ref={dialogRef} className="picker-dialog live-cancel-dialog" aria-modal="true" aria-labelledby="live-cancel-title" onCancel={event => { event.preventDefault(); if (!busy) setReview(undefined); }} onKeyDown={event => {
+      if (event.key === 'Escape' && !busy) { event.preventDefault(); setReview(undefined); }
+      const dialog = dialogRef.current;
+      if (event.key === 'Tab' && dialog && typeof dialog.showModal !== 'function') {
+        const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+        const first = focusable[0]; const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
+      }
+    }}>
+      {review && <>
+        <div className="picker-dialog-heading"><div><h2 id="live-cancel-title">Review Live cancellation</h2><p className="muted">This approval records your intent in TradeX. It does not send a cancellation request to the broker.</p></div></div>
+        <dl className="health-grid">
+          <div><dt>Provider / environment</dt><dd>{review.account.providerId} · LIVE</dd></div><div><dt>Account label</dt><dd>{review.account.label}</dd></div>
+          <div><dt>TradeX connection</dt><dd className="identity">{review.account.connectionId}</dd></div><div><dt>Provider account</dt><dd className="identity">{review.account.data?.remoteAccountId ?? 'Unavailable'}</dd></div>
+          <div><dt>CANCEL intent ID</dt><dd className="identity">{review.intent.cancellationIntentId}</dd></div><div><dt>Intent hash</dt><dd className="identity">{review.intent.intentHash}</dd></div>
+          <div><dt>Provider order ID</dt><dd className="identity">{review.intent.providerOrderId}</dd></div><div><dt>Instrument</dt><dd>{review.intent.symbol} · {review.intent.instrumentId}</dd></div>
+          <div><dt>Side / provider status</dt><dd>{review.intent.side} · {review.intent.providerStatus}</dd></div><div><dt>Quantity</dt><dd>{review.intent.quantity}</dd></div>
+          <div><dt>Filled</dt><dd>{review.intent.filledQuantity}</dd></div><div><dt>Exact remaining quantity</dt><dd>{review.intent.remainingQuantity}</dd></div>
+          <div><dt>Snapshot observed</dt><dd>{time(review.snapshotObservedAt)}</dd></div><div><dt>Snapshot version / evidence</dt><dd className="identity">{review.snapshotVersion} · {review.snapshotEvidenceId}</dd></div>
+          <div><dt>Risk decision / policy</dt><dd>{review.riskDecision.status} · v{review.riskDecision.policyVersion}</dd></div><div><dt>Account arming</dt><dd>{review.account.health.arming}</dd></div>
+        </dl>
+        {review.blockers.length > 0 && <div role="status"><strong>Approval blocked</strong><ul>{review.riskDecision.checks.filter(check => check.outcome !== 'PASS').map(check => <li key={check.checkId}>{check.checkId}: {check.reason}</li>)}</ul></div>}
+        {review.account.health.arming !== 'ARMED' && <section className="permission-review" aria-label="Arm the exact cancellation account">
+          <p><strong>Arm this exact account to continue this CANCEL intent:</strong> {review.account.label} · {review.account.providerId} · LIVE · {review.account.connectionId}</p>
+          <label className="check-field"><input type="checkbox" checked={armConfirmed} onChange={event => setArmConfirmed(event.target.checked)} disabled={busy} />I explicitly confirm arming this Live account, then refreshing and reviewing the same cancellation intent.</label>
+          <button type="button" className="primary" onClick={() => void armAndContinue()} disabled={busy || !armConfirmed}>{busy ? 'Arming and refreshing…' : 'Arm account and refresh this intent'}</button>
+        </section>}
+        {history.data && <details><summary>Recent cancellation authorization history ({history.data.approvals.length + history.data.rejections.length})</summary>
+          {history.data.intents.map(intent => <p key={intent.cancellationIntentId}>Intent {intent.cancellationIntentId} · {intent.status}{intent.invalidationReason ? ` · ${intent.invalidationReason}` : ''} · {time(intent.updatedAt)}</p>)}
+          {history.data.approvals.map(approval => <p key={approval.approvalId}>CANCEL · {approval.status} · issued {time(approval.issuedAt)} · expires {time(approval.expiresAt)}{approval.invalidationReason ? ` · ${approval.invalidationReason}` : ''}</p>)}
+          {history.data.rejections.map(rejection => <p key={rejection.auditId}>Rejected · {time(rejection.occurredAt)} · {rejection.reason}</p>)}
+          {!history.data.intents.length && <p>No previous cancellation authorization records for this provider order.</p>}
+        </details>}
+        {history.error && <p role="alert">Unable to load cancellation authorization history: {explainError(history.error)}</p>}
+        {error && <p role="alert">{error}</p>}
+        <div className="picker-dialog-actions"><button type="button" data-review-focus onClick={() => setReview(undefined)} disabled={busy}>Close without a decision</button><button type="button" onClick={() => void decide(false)} disabled={busy}>Reject cancellation</button><button type="button" className="primary" onClick={() => void decide(true)} disabled={busy || !review.eligible}>{busy ? 'Recording…' : 'Approve cancellation'}</button></div>
+      </>}
+    </dialog>
+  </>;
+}
 
 function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
   const book = account.data?.bitgetOrderBook;
@@ -27,11 +186,11 @@ function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
   const age = book ? now - Date.parse(book.observedAt) : Number.POSITIVE_INFINITY;
   const freshness = account.health.connection !== 'ONLINE' ? 'DEGRADED' : age >= 0 && age <= 5 * 60_000 ? 'CURRENT' : 'STALE';
   return <section aria-labelledby="bitget-live-orders-title">
-    <h3 id="bitget-live-orders-title">Bitget Spot Live orders and fills · READ ONLY · DISARMED</h3>
+    <h3 id="bitget-live-orders-title">Bitget Spot Live orders and fills · READ ONLY OBSERVATION · {account.health.arming}</h3>
     {book ? <>
       <p role="status"><strong>{freshness}</strong> · observed {time(book.observedAt)} · {account.health.connection} / {account.health.executionEligibility}</p>
       <div className="table-scroll" tabIndex={0} aria-label="Bitget Live orders">
-        <table><thead><tr><th>Provider order</th><th>Origin</th><th>Symbol / kind</th><th>Side</th><th>Quantity / notional</th><th>Cumulative filled base / quote</th><th>Remaining base</th><th>Provider / normalized state</th><th>Provider times</th></tr></thead>
+        <table><thead><tr><th>Provider order</th><th>Origin</th><th>Symbol / kind</th><th>Side</th><th>Quantity / notional</th><th>Cumulative filled base / quote</th><th>Remaining base</th><th>Provider / normalized state</th><th>Provider times</th><th>TradeX authorization</th></tr></thead>
           <tbody>{book.orders.map(order => <tr key={`${order.kind}:${order.providerOrderId}`}>
             <td className="identity">{order.providerOrderId}</td><td>{order.origin}</td><td>{order.symbol} · {order.kind}</td><td>{order.side}</td>
             <td>{order.quantity ?? money(order.notional, order.currency)}</td>
@@ -39,6 +198,9 @@ function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
             <td>{order.remainingQuantity ?? 'Unavailable'}</td>
             <td>{order.providerStatus} / {order.normalizedStatus}</td>
             <td>Created {time(order.createdAt)}<br />Updated {time(order.updatedAt)}</td>
+            <td>{account.data?.openOrders.some(item => item.brokerOrderId === `normal:${order.providerOrderId}` && item.instrumentId && item.quantity != null && item.filledQuantity != null) && order.kind === 'NORMAL' && ['OPEN', 'PARTIALLY_FILLED'].includes(order.normalizedStatus) && order.remainingQuantity && order.remainingQuantity !== '0'
+              ? <LiveCancellationAuthorization account={account} brokerOrderId={`normal:${order.providerOrderId}`} />
+              : 'Unavailable for cancellation review'}</td>
           </tr>)}</tbody>
         </table>
       </div>
@@ -142,6 +304,7 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
   const acknowledged = acknowledgedVersion === account.stateVersion;
   const p = account.permissions;
   const blocked = p.forbidden.length > 0 || p.unsupported.length > 0;
+  const supportsLiveCancelReview = account.environment === 'LIVE' && ['trading212', 'binance', 'bitget'].includes(account.providerId);
   const disconnected = account.connectionState === 'DISCONNECTED';
   const cleanupOnly = disconnected && account.health.credential === 'MISSING';
   const localPaper = account.providerId === 'local-paper' && account.environment === 'LOCAL';
@@ -214,7 +377,7 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
       <h3>Balances</h3><div className="table-scroll" tabIndex={0} aria-label="Account balances"><table><thead><tr><th>Asset</th><th>Available / Free</th><th>Equity / Asset total</th><th>{account.providerId === 'bitget' ? 'Reserved / Frozen' : 'Reserved / Locked'}</th>{account.providerId === 'bitget' && <><th>Locked</th><th>Restricted available</th></>}<th>In Pies</th><th>Effective available</th></tr></thead><tbody>{account.data.balances.map(row => <tr key={row.asset}><td>{row.asset}</td><td>{row.available}</td><td>{row.total ?? 'Unavailable'}</td><td>{row.reserved ?? 'Unavailable'}</td>{account.providerId === 'bitget' && <><td>{row.locked ?? 'Unavailable'}</td><td>{row.restrictedAvailable ?? 'Unavailable'}</td></>}<td>{row.inPies ?? 'Unavailable'}</td><td>Not computed</td></tr>)}</tbody></table></div>
       <h3>Positions</h3>{account.data.positions.length ? <div className="table-scroll" tabIndex={0} aria-label="Account positions"><table><thead><tr><th>Symbol</th><th>Quantity</th><th>Market value</th><th>Average entry</th></tr></thead><tbody>{account.data.positions.map(row => <tr key={row.symbol}><td>{row.symbol}</td><td>{row.quantity}</td><td>{money(row.marketValue, row.marketValueCurrency)}</td><td>{money(row.averageEntryPrice, row.instrumentCurrency)}</td></tr>)}</tbody></table></div> : <p>No positions returned by the provider.</p>}
       {account.providerId === 'bitget' && account.environment === 'LIVE' && <BitgetLiveOrderBook account={account} />}
-      {(account.providerId !== 'bitget' || account.environment !== 'LIVE') && <><h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th></tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td></tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}</>}
+      {(account.providerId !== 'bitget' || account.environment !== 'LIVE') && <><h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th>{supportsLiveCancelReview && <th>TradeX authorization</th>}</tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td>{supportsLiveCancelReview && <td>{row.instrumentId && row.quantity != null && row.filledQuantity != null ? <LiveCancellationAuthorization account={account} brokerOrderId={row.brokerOrderId} /> : 'Unavailable for cancellation review'}</td>}</tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}</>}
       <h3>Capabilities and limitations</h3><p>{account.data.capabilities.join(', ')}</p><ul>{account.data.limitations.map(text => <li key={text}>{text}</li>)}</ul>
     </>}
     <p className="muted">{localPaper ? 'Built-in TradeX simulation. No credential, provider connection or Live order exists for this account.' : 'Disconnect stops local access and removes the stored credential. It does not revoke the provider key or cancel external orders.'}</p>

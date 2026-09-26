@@ -5,6 +5,33 @@ use std::{
     time::Instant,
 };
 
+#[test]
+fn ordinary_live_cancellation_review_has_read_routes_but_no_provider_write_route() {
+    for (endpoint, read_path) in [
+        (ProviderEndpoint::Trading212Live, "/api/v0/equity/orders"),
+        (
+            ProviderEndpoint::BinanceLive,
+            "/api/v3/openOrders?timestamp=1788849600000&recvWindow=5000&signature=0000000000000000000000000000000000000000000000000000000000000000",
+        ),
+        (
+            ProviderEndpoint::BitgetLive,
+            "/api/v2/spot/trade/unfilled-orders?limit=100&tpslType=normal",
+        ),
+    ] {
+        assert!(endpoint.allows_method(ProviderHttpMethod::Get, read_path));
+        assert!(!endpoint.allows_method(ProviderHttpMethod::Post, read_path));
+        assert!(!endpoint.allows_method(ProviderHttpMethod::Delete, read_path));
+    }
+    assert!(!ProviderEndpoint::Trading212Live.allows_method(
+        ProviderHttpMethod::Delete,
+        "/api/v0/equity/orders/9007199254740995"
+    ));
+    assert!(
+        !ProviderEndpoint::BitgetLive
+            .allows_method(ProviderHttpMethod::Post, "/api/v2/spot/trade/cancel-order")
+    );
+}
+
 struct HttpsFixture {
     child: Child,
     directory: tempfile::TempDir,

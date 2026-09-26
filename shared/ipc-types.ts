@@ -169,7 +169,10 @@ export type RiskCheckId =
   | "QUOTE_FRESHNESS"
   | "MARKET_SESSION"
   | "INSTRUMENT_RULES"
-  | "LIVE_INACTIVITY";
+  | "LIVE_INACTIVITY"
+  | "CANCELLATION_ORDER"
+  | "CANCELLATION_CAPABILITY"
+  | "SNAPSHOT_FRESHNESS";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskCheckOutcome".
@@ -207,7 +210,9 @@ export type RiskDecisionReasonCode =
   | "CLOCK_UNCERTAIN"
   | "NOT_APPLICABLE"
   | "UNSUPPORTED_CONTEXT"
-  | "INVALID_PROPOSAL_VALUE";
+  | "INVALID_PROPOSAL_VALUE"
+  | "ORDER_NOT_CANCELABLE"
+  | "CANCELLATION_UNSUPPORTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionInputKind".
@@ -282,6 +287,54 @@ export type BinanceTestnetOrderBookAction = "PENDING" | "ACCOUNT" | "HISTORY" | 
  * via the `definition` "BitgetDemoOrderAttemptState".
  */
 export type BitgetDemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialApproval".
+ */
+export type FinancialApproval = {
+  accountId: string;
+  approvalId: string;
+  consumedAt?: string;
+  environment: ExecutionContext;
+  expiresAt: string;
+  invalidationReason?: string | null;
+  issuedAt: string;
+  policyVersion: number;
+  reviewDigest: string;
+  riskDecisionId: string;
+  stateVersion: string;
+  status: FinancialApprovalStatus;
+  updatedAt: string;
+  workspaceId: string;
+  [k: string]: unknown;
+} & FinancialApproval1;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialApprovalStatus".
+ */
+export type FinancialApprovalStatus = "ISSUED" | "INVALIDATED" | "EXPIRED" | "CONSUMED";
+export type FinancialApproval1 =
+  | {
+      operation: "PLACE_ORDER";
+      proposalHash: string;
+      proposalId: string;
+      [k: string]: unknown;
+    }
+  | {
+      brokerOrderId: string;
+      cancellationIntentId: string;
+      intentHash: string;
+      operation: "CANCEL";
+      remainingQuantity: string;
+      snapshotEvidenceId: string;
+      snapshotVersion: string;
+      [k: string]: unknown;
+    };
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationApprovalRejectionReason".
+ */
+export type CancellationApprovalRejectionReason = "USER_REJECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AgentMode".
@@ -362,16 +415,6 @@ export type RiskPolicyChangeScopeKind = "WORKSPACE";
  * via the `definition` "RiskPolicyEnvironment".
  */
 export type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "FinancialOperation".
- */
-export type FinancialOperation = "PLACE_ORDER" | "CANCEL";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "FinancialApprovalStatus".
- */
-export type FinancialApprovalStatus = "ISSUED" | "INVALIDATED" | "EXPIRED" | "CONSUMED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadStatus".
@@ -546,6 +589,9 @@ export type ReplyData =
   | FinancialApproval
   | FinancialApprovalHistory
   | ApprovalRejection
+  | CancellationReview
+  | CancellationApprovalHistory
+  | CancellationApprovalRejection
   | Trading212DemoOrderAttempt
   | Trading212DemoOrderAttemptQueryResult
   | Trading212DemoOrderBook
@@ -742,6 +788,13 @@ export interface IpcSchema {
   bitgetDemoOrderAttemptQueryResult: BitgetDemoOrderAttemptQueryResult;
   bitgetDemoOrderReconcile: BitgetDemoOrderReconcile;
   bitgetDemoOrderSubmit: BitgetDemoOrderSubmit;
+  cancellationApprovalAction: CancellationApprovalAction;
+  cancellationApprovalHistory: CancellationApprovalHistory;
+  cancellationApprovalHistoryQuery: CancellationApprovalHistoryQuery;
+  cancellationApprovalRejection: CancellationApprovalRejection;
+  cancellationIntent: CancellationIntent;
+  cancellationIntentRequest: CancellationIntentRequest;
+  cancellationReview: CancellationReview;
   capabilityQuery: CapabilityQuery;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
@@ -2301,6 +2354,133 @@ export interface BitgetDemoOrderSubmit {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationApprovalAction".
+ */
+export interface CancellationApprovalAction {
+  cancellationIntentId: string;
+  expectedStateVersion: string;
+  intentHash: string;
+  reviewDigest: string;
+  reviewedRiskDecisionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationApprovalHistory".
+ */
+export interface CancellationApprovalHistory {
+  accountId: string;
+  approvals: FinancialApproval[];
+  brokerOrderId: string;
+  intents: CancellationIntentHistoryEntry[];
+  rejections: CancellationApprovalRejection[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationIntentHistoryEntry".
+ */
+export interface CancellationIntentHistoryEntry {
+  cancellationIntentId: string;
+  intentHash: string;
+  invalidationReason?: string | null;
+  providerOrderId: string;
+  status: "CURRENT" | "INVALIDATED";
+  updatedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationApprovalRejection".
+ */
+export interface CancellationApprovalRejection {
+  auditId: string;
+  cancellationIntentId: string;
+  intentHash: string;
+  occurredAt: string;
+  reason: CancellationApprovalRejectionReason;
+  reviewDigest: string;
+  riskDecisionId: string;
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationApprovalHistoryQuery".
+ */
+export interface CancellationApprovalHistoryQuery {
+  accountId: string;
+  brokerOrderId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationIntent".
+ */
+export interface CancellationIntent {
+  accountId: string;
+  cancellationIntentId: string;
+  createdAt: string;
+  environment: ExecutionContext;
+  filledQuantity: string;
+  instrumentId: string;
+  intentHash: string;
+  providerOrderId: string;
+  providerStatus: string;
+  quantity: string;
+  remainingQuantity: string;
+  side: string;
+  symbol: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationIntentRequest".
+ */
+export interface CancellationIntentRequest {
+  accountId: string;
+  brokerOrderId: string;
+  expectedStateVersion: string;
+  previousIntentId?: string | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationReview".
+ */
+export interface CancellationReview {
+  account: AccountConnection;
+  /**
+   * @maxItems 32
+   */
+  blockers: string[];
+  eligible: boolean;
+  intent: CancellationIntent;
+  reviewDigest: string;
+  reviewedAt: string;
+  riskDecision: CancellationRiskDecision;
+  snapshotEvidenceId: string;
+  snapshotObservedAt: string;
+  snapshotVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CancellationRiskDecision".
+ */
+export interface CancellationRiskDecision {
+  accountId: string;
+  cancellationIntentId: string;
+  checks: RiskCheckResult[];
+  decisionId: string;
+  environment: ExecutionContext;
+  evaluatedAt: string;
+  intentHash: string;
+  policyVersion: number;
+  stateVersion: string;
+  status: RiskDecisionStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CapabilityQuery".
  */
 export interface CapabilityQuery {
@@ -2693,29 +2873,6 @@ export interface RiskPolicy {
 export interface RiskAssetClassLimit {
   assetClass: AssetClass;
   maxExposurePercent: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "FinancialApproval".
- */
-export interface FinancialApproval {
-  accountId: string;
-  approvalId: string;
-  consumedAt?: string;
-  environment: ExecutionContext;
-  expiresAt: string;
-  invalidationReason?: string | null;
-  issuedAt: string;
-  operation: FinancialOperation;
-  policyVersion: number;
-  proposalHash: string;
-  proposalId: string;
-  reviewDigest: string;
-  riskDecisionId: string;
-  stateVersion: string;
-  status: FinancialApprovalStatus;
-  updatedAt: string;
-  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

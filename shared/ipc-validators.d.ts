@@ -95,6 +95,16 @@ declare const validators: {
   BitgetSpotFill: (value: unknown) => boolean;
   BitgetSpotOrder: (value: unknown) => boolean;
   BitgetSpotOrderBook: (value: unknown) => boolean;
+  CancellationApprovalAction: (value: unknown) => boolean;
+  CancellationApprovalHistory: (value: unknown) => boolean;
+  CancellationApprovalHistoryQuery: (value: unknown) => boolean;
+  CancellationApprovalRejection: (value: unknown) => boolean;
+  CancellationApprovalRejectionReason: (value: unknown) => boolean;
+  CancellationIntent: (value: unknown) => boolean;
+  CancellationIntentHistoryEntry: (value: unknown) => boolean;
+  CancellationIntentRequest: (value: unknown) => boolean;
+  CancellationReview: (value: unknown) => boolean;
+  CancellationRiskDecision: (value: unknown) => boolean;
   CapabilityDecision: (value: unknown) => boolean;
   CapabilityLevel: (value: unknown) => boolean;
   CapabilityQuery: (value: unknown) => boolean;
@@ -128,7 +138,6 @@ declare const validators: {
   FinancialApprovalHistory: (value: unknown) => boolean;
   FinancialApprovalHistoryQuery: (value: unknown) => boolean;
   FinancialApprovalStatus: (value: unknown) => boolean;
-  FinancialOperation: (value: unknown) => boolean;
   FxFreshness: (value: unknown) => boolean;
   FxProvenance: (value: unknown) => boolean;
   FxQuality: (value: unknown) => boolean;

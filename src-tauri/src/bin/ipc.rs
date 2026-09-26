@@ -285,6 +285,18 @@ fn main() -> io::Result<()> {
                         *http.binance_open_orders.borrow_mut() = Some(orders);
                         json!({"requestId":request["requestId"],"schemaVersion":1,"ok":configured,"data":{"configured":configured}})
                     }
+                    Some("REMOVE_ORDER") => {
+                        let mut orders = http
+                            .binance_open_orders
+                            .borrow()
+                            .clone()
+                            .unwrap_or_else(fixtures::default_binance_open_orders);
+                        let previous_count = orders.len();
+                        orders.retain(|order| order["orderId"] != 9007199254740999u64);
+                        let configured = orders.len() < previous_count;
+                        *http.binance_open_orders.borrow_mut() = Some(orders);
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":configured,"data":{"configured":configured}})
+                    }
                     _ => json!({
                         "requestId":request["requestId"],"schemaVersion":1,"ok":false,
                         "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
@@ -467,6 +479,46 @@ fn main() -> io::Result<()> {
                             }),
                         }
                     }
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("account.cancellation.fixture.seed") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let provider_id = payload.get("providerId").and_then(Value::as_str);
+                let label = payload.get("label").and_then(Value::as_str);
+                let reply = match (workspace_id, provider_id, label) {
+                    (Some(workspace_id), Some(provider_id), Some(label)) => match control.lock() {
+                        Ok(mut control) => match control.seed_live_cancellation_fixture(
+                            workspace_id,
+                            provider_id,
+                            label,
+                        ) {
+                            Ok(account) => {
+                                vault.present.borrow_mut().insert(account.credential_ref());
+                                json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                    "data":account
+                                })
+                            }
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
                     _ => json!({
                         "requestId":request["requestId"],"schemaVersion":1,"ok":false,
                         "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")

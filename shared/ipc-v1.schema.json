@@ -187,6 +187,27 @@
     "bitgetDemoOrderSubmit": {
       "$ref": "#/$defs/BitgetDemoOrderSubmit"
     },
+    "cancellationApprovalAction": {
+      "$ref": "#/$defs/CancellationApprovalAction"
+    },
+    "cancellationApprovalHistory": {
+      "$ref": "#/$defs/CancellationApprovalHistory"
+    },
+    "cancellationApprovalHistoryQuery": {
+      "$ref": "#/$defs/CancellationApprovalHistoryQuery"
+    },
+    "cancellationApprovalRejection": {
+      "$ref": "#/$defs/CancellationApprovalRejection"
+    },
+    "cancellationIntent": {
+      "$ref": "#/$defs/CancellationIntent"
+    },
+    "cancellationIntentRequest": {
+      "$ref": "#/$defs/CancellationIntentRequest"
+    },
+    "cancellationReview": {
+      "$ref": "#/$defs/CancellationReview"
+    },
     "capabilityQuery": {
       "$ref": "#/$defs/CapabilityQuery"
     },
@@ -515,6 +536,13 @@
     "financialApprovalHistoryQuery",
     "financialApprovalHistory",
     "approvalRejection",
+    "cancellationIntentRequest",
+    "cancellationIntent",
+    "cancellationReview",
+    "cancellationApprovalAction",
+    "cancellationApprovalHistoryQuery",
+    "cancellationApprovalHistory",
+    "cancellationApprovalRejection",
     "trading212DemoOrderAttempt",
     "trading212DemoOrderSubmit",
     "trading212DemoOrderAttemptQuery",
@@ -4623,6 +4651,491 @@
         "observedAt"
       ]
     },
+    "CancellationApprovalAction": {
+      "type": "object",
+      "properties": {
+        "cancellationIntentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "intentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "reviewedRiskDecisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "cancellationIntentId",
+        "intentHash",
+        "reviewedRiskDecisionId",
+        "reviewDigest",
+        "expectedStateVersion"
+      ]
+    },
+    "CancellationApprovalHistory": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FinancialApproval"
+          }
+        },
+        "brokerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CancellationIntentHistoryEntry"
+          }
+        },
+        "rejections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CancellationApprovalRejection"
+          }
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "brokerOrderId",
+        "intents",
+        "approvals",
+        "rejections"
+      ]
+    },
+    "CancellationApprovalHistoryQuery": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "brokerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "brokerOrderId"
+      ]
+    },
+    "CancellationApprovalRejection": {
+      "type": "object",
+      "properties": {
+        "auditId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cancellationIntentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "occurredAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "$ref": "#/$defs/CancellationApprovalRejectionReason"
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "riskDecisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "auditId",
+        "workspaceId",
+        "cancellationIntentId",
+        "intentHash",
+        "riskDecisionId",
+        "reviewDigest",
+        "reason",
+        "occurredAt",
+        "stateVersion"
+      ]
+    },
+    "CancellationApprovalRejectionReason": {
+      "type": "string",
+      "enum": [
+        "USER_REJECTED"
+      ]
+    },
+    "CancellationIntent": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cancellationIntentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "filledQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "remainingQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "cancellationIntentId",
+        "intentHash",
+        "workspaceId",
+        "accountId",
+        "environment",
+        "providerOrderId",
+        "instrumentId",
+        "symbol",
+        "side",
+        "providerStatus",
+        "quantity",
+        "filledQuantity",
+        "remainingQuantity",
+        "createdAt"
+      ]
+    },
+    "CancellationIntentHistoryEntry": {
+      "type": "object",
+      "properties": {
+        "cancellationIntentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "invalidationReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "CURRENT",
+            "INVALIDATED"
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "cancellationIntentId",
+        "intentHash",
+        "providerOrderId",
+        "status",
+        "updatedAt"
+      ]
+    },
+    "CancellationIntentRequest": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "brokerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "previousIntentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "brokerOrderId",
+        "expectedStateVersion"
+      ]
+    },
+    "CancellationReview": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "$ref": "#/$defs/AccountConnection"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "intent": {
+          "$ref": "#/$defs/CancellationIntent"
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "reviewedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "riskDecision": {
+          "$ref": "#/$defs/CancellationRiskDecision"
+        },
+        "snapshotEvidenceId": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "snapshotObservedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "snapshotVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "intent",
+        "account",
+        "snapshotVersion",
+        "snapshotEvidenceId",
+        "snapshotObservedAt",
+        "riskDecision",
+        "reviewDigest",
+        "eligible",
+        "blockers",
+        "reviewedAt"
+      ]
+    },
+    "CancellationRiskDecision": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cancellationIntentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskCheckResult"
+          }
+        },
+        "decisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "intentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/RiskDecisionStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "decisionId",
+        "cancellationIntentId",
+        "intentHash",
+        "accountId",
+        "environment",
+        "policyVersion",
+        "status",
+        "evaluatedAt",
+        "stateVersion",
+        "checks"
+      ]
+    },
     "CapabilityDecision": {
       "type": "object",
       "properties": {
@@ -5536,22 +6049,10 @@
           "maxLength": 64,
           "minLength": 1
         },
-        "operation": {
-          "$ref": "#/$defs/FinancialOperation"
-        },
         "policyVersion": {
           "type": "integer",
           "format": "uint64",
           "minimum": 1
-        },
-        "proposalHash": {
-          "type": "string",
-          "pattern": "^sha256:[0-9a-f]{64}$"
-        },
-        "proposalId": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
         },
         "reviewDigest": {
           "type": "string",
@@ -5581,15 +6082,82 @@
           "minLength": 1
         }
       },
-      "additionalProperties": false,
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "const": "PLACE_ORDER"
+            },
+            "proposalHash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "proposalId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "operation",
+            "proposalId",
+            "proposalHash"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "brokerOrderId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "cancellationIntentId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "intentHash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "operation": {
+              "type": "string",
+              "const": "CANCEL"
+            },
+            "remainingQuantity": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "snapshotEvidenceId": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "snapshotVersion": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "operation",
+            "cancellationIntentId",
+            "intentHash",
+            "brokerOrderId",
+            "remainingQuantity",
+            "snapshotVersion",
+            "snapshotEvidenceId"
+          ]
+        }
+      ],
       "required": [
         "approvalId",
         "workspaceId",
-        "proposalId",
-        "proposalHash",
         "accountId",
         "environment",
-        "operation",
         "policyVersion",
         "riskDecisionId",
         "reviewDigest",
@@ -5598,7 +6166,8 @@
         "updatedAt",
         "status",
         "stateVersion"
-      ]
+      ],
+      "unevaluatedProperties": false
     },
     "FinancialApprovalHistory": {
       "type": "object",
@@ -5663,13 +6232,6 @@
         "INVALIDATED",
         "EXPIRED",
         "CONSUMED"
-      ]
-    },
-    "FinancialOperation": {
-      "type": "string",
-      "enum": [
-        "PLACE_ORDER",
-        "CANCEL"
       ]
     },
     "FxFreshness": {
@@ -9235,6 +9797,15 @@
           "$ref": "#/$defs/ApprovalRejection"
         },
         {
+          "$ref": "#/$defs/CancellationReview"
+        },
+        {
+          "$ref": "#/$defs/CancellationApprovalHistory"
+        },
+        {
+          "$ref": "#/$defs/CancellationApprovalRejection"
+        },
+        {
           "$ref": "#/$defs/Trading212DemoOrderAttempt"
         },
         {
@@ -9879,7 +10450,10 @@
         "QUOTE_FRESHNESS",
         "MARKET_SESSION",
         "INSTRUMENT_RULES",
-        "LIVE_INACTIVITY"
+        "LIVE_INACTIVITY",
+        "CANCELLATION_ORDER",
+        "CANCELLATION_CAPABILITY",
+        "SNAPSHOT_FRESHNESS"
       ]
     },
     "RiskCheckOutcome": {
@@ -10144,7 +10718,9 @@
         "CLOCK_UNCERTAIN",
         "NOT_APPLICABLE",
         "UNSUPPORTED_CONTEXT",
-        "INVALID_PROPOSAL_VALUE"
+        "INVALID_PROPOSAL_VALUE",
+        "ORDER_NOT_CANCELABLE",
+        "CANCELLATION_UNSUPPORTED"
       ]
     },
     "RiskDecisionStatus": {
@@ -14034,7 +14610,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 24,
+          "maximum": 25,
           "minimum": 1
         },
         "workspaceId": {
