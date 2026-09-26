@@ -779,11 +779,94 @@ pub fn detail_with_fixture(
         source_id: source_id.map(str::to_owned),
         status,
         availability_reason,
+        instrument_state: None,
         snapshot: None,
         market_state,
         corporate_actions,
         adjustment_status,
     })
+}
+
+#[cfg(any(test, feature = "integration-test"))]
+pub(crate) fn live_approval_fixture_detail(
+    input: &MarketGetQuery,
+    provider_id: &str,
+    venue: &str,
+    observed_at: &str,
+    quote_timestamp: &str,
+) -> Result<MarketDetail> {
+    use crate::protocol::{
+        InstrumentTradingObservation, InstrumentTradingStatus, MarketDataStatus, MarketEntitlement,
+        MarketFreshness, MarketSession, MarketSnapshot, MarketSnapshotProvenance, TimeConfidence,
+    };
+
+    let mut detail = detail_with_fixture(
+        input,
+        None,
+        None,
+        &TimeStatus {
+            workspace_id: input.workspace_id.clone(),
+            confidence: TimeConfidence::Trusted,
+            wall_clock: observed_at.into(),
+            monotonic_ms: 0,
+            provider_offset_ms: None,
+            observed_at: observed_at.into(),
+            reason: "Synthetic approval fixture".into(),
+            remediation: crate::protocol::Remediation {
+                id: "none".into(),
+                label: "No action required".into(),
+            },
+        },
+        true,
+    )?;
+    let mapping = detail
+        .instrument
+        .providers
+        .iter()
+        .find(|mapping| mapping.provider_id == provider_id)
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"))?;
+    const SOURCE: &str = "SYNTHETIC_INTEGRATION_FIXTURE";
+    detail.status = MarketDataStatus::Available;
+    detail.availability_reason = format!("Synthetic provider approval fixture · {SOURCE}.");
+    detail.source_id = Some(provider_id.into());
+    detail.instrument_state = Some(InstrumentTradingObservation {
+        provider_id: provider_id.into(),
+        provider_symbol: mapping.provider_symbol.clone(),
+        venue: venue.into(),
+        status: InstrumentTradingStatus::Tradable,
+        observed_at: observed_at.into(),
+        source: SOURCE.into(),
+    });
+    detail.snapshot = Some(MarketSnapshot {
+        instrument_id: detail.instrument.instrument_id.clone(),
+        provenance: MarketSnapshotProvenance {
+            market_snapshot_id: "synthetic-live-approval-v1".into(),
+            source: SOURCE.into(),
+            venue: Some(venue.into()),
+            provider_timestamp: quote_timestamp.into(),
+            received_timestamp: quote_timestamp.into(),
+            entitlement: MarketEntitlement::Realtime,
+            freshness: MarketFreshness::Healthy,
+        },
+        last_price: Some("50000".into()),
+        bid: Some("49999".into()),
+        ask: Some("50001".into()),
+    });
+    detail.market_state = crate::protocol::MarketState {
+        session: MarketSession::Open,
+        venue: venue.into(),
+        source_id: Some(provider_id.into()),
+        source_status: MarketDataStatus::Available,
+        next_open: None,
+        next_close: None,
+        calendar_version: Some("synthetic-live-approval-v1".into()),
+        provider_time: Some(quote_timestamp.into()),
+        observed_at: observed_at.into(),
+        time_confidence: TimeConfidence::Trusted,
+        reason: format!("Synthetic provider market fixture · {SOURCE}."),
+    };
+    detail.adjustment_status = AdjustmentStatus::Unadjusted;
+    Ok(detail)
 }
 
 fn validate_query(workspace_id: &str, query: &str) -> Result<()> {

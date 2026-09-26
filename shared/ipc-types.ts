@@ -27,6 +27,208 @@ export type AlpacaPaperOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKN
 export type AlpacaPaperOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRADED" | "STALE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalRejectionReason".
+ */
+export type ApprovalRejectionReason = "USER_REJECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ConnectionState".
+ */
+export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AdjustmentStatus".
+ */
+export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CorporateActionType".
+ */
+export type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AssetClass".
+ */
+export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "InstrumentTradingStatus".
+ */
+export type InstrumentTradingStatus = "TRADABLE" | "HALTED" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketSession".
+ */
+export type MarketSession =
+  "OPEN" | "CLOSED" | "EXTENDED_HOURS" | "HALTED" | "MAINTENANCE" | "SUSPENDED" | "DEGRADED" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketDataStatus".
+ */
+export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TimeConfidence".
+ */
+export type TimeConfidence = "TRUSTED" | "CLOCK_UNCERTAIN" | "STALE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketEntitlement".
+ */
+export type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketFreshness".
+ */
+export type MarketFreshness = "HEALTHY" | "STALE" | "CLOCK_UNCERTAIN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketTier".
+ */
+export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionContext".
+ */
+export type ExecutionContext =
+  | "NONE_READ_ONLY"
+  | "HISTORICAL_SIMULATION"
+  | "LOCAL_PAPER"
+  | "ALPACA_PAPER"
+  | "TRADING212_DEMO"
+  | "TRADING212_LIVE"
+  | "BINANCE_TESTNET"
+  | "BINANCE_LIVE"
+  | "BITGET_DEMO"
+  | "BITGET_LIVE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderType".
+ */
+export type OrderType = "MARKET" | "LIMIT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderQuantityType".
+ */
+export type OrderQuantityType = "BASE" | "QUOTE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderSide".
+ */
+export type OrderSide = "BUY" | "SELL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "TimeInForce".
+ */
+export type TimeInForce = "DAY" | "GTC" | "IOC" | "FOK";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalHistoryEvent".
+ */
+export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED" | "REFRESHED" | "POLICY_CHANGED" | "CONSUMED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ProposalReferenceStatus".
+ */
+export type ProposalReferenceStatus = "AVAILABLE" | "UNCONFIGURED" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalStatus".
+ */
+export type OrderProposalStatus = "NEEDS_APPROVAL" | "CONSUMED" | "INVALIDATED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskCheckId".
+ */
+export type RiskCheckId =
+  | "PROPOSAL_IDENTITY"
+  | "POLICY_VERSION"
+  | "POLICY_CONFIGURED"
+  | "ACCOUNT_BINDING"
+  | "ACCOUNT_HEALTH"
+  | "ACCOUNT_ARMING"
+  | "ALLOWED_ACCOUNT"
+  | "ALLOWED_ENVIRONMENT"
+  | "ALLOWED_VENUE"
+  | "ALLOWED_INSTRUMENT"
+  | "BLOCKED_ACCOUNT"
+  | "BLOCKED_VENUE"
+  | "BLOCKED_INSTRUMENT"
+  | "ORDER_NOTIONAL"
+  | "ORDER_QUANTITY"
+  | "POSITION_SIZE"
+  | "SINGLE_INSTRUMENT_EXPOSURE"
+  | "ASSET_CLASS_EXPOSURE"
+  | "DAILY_TRADED_NOTIONAL"
+  | "DAILY_REALIZED_LOSS"
+  | "OPEN_ORDER_COUNT"
+  | "RESERVED_CAPITAL"
+  | "MARKET_ORDER"
+  | "MARKET_ORDER_SLIPPAGE"
+  | "PRICE_DEVIATION"
+  | "QUOTE_FRESHNESS"
+  | "MARKET_SESSION"
+  | "INSTRUMENT_RULES"
+  | "LIVE_INACTIVITY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskCheckOutcome".
+ */
+export type RiskCheckOutcome = "PASS" | "REJECT" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionReasonCode".
+ */
+export type RiskDecisionReasonCode =
+  | "WITHIN_LIMIT"
+  | "POLICY_VERSION_STALE"
+  | "LIMIT_NOT_CONFIGURED"
+  | "LIMIT_EXCEEDED"
+  | "POLICY_UNCONFIGURED"
+  | "PROPOSAL_INVALIDATED"
+  | "EVIDENCE_MISSING"
+  | "EVIDENCE_STALE"
+  | "EVIDENCE_UNTRUSTED"
+  | "ACCOUNT_UNAVAILABLE"
+  | "ACCOUNT_MISMATCH"
+  | "ACCOUNT_UNHEALTHY"
+  | "ACCOUNT_NOT_ARMED"
+  | "IDENTIFIER_NOT_ALLOWED"
+  | "IDENTIFIER_BLOCKED"
+  | "ENVIRONMENT_NOT_ALLOWED"
+  | "MARKET_ORDER_DISABLED"
+  | "EXECUTION_QUOTE_UNAVAILABLE"
+  | "MARKET_CLOSED"
+  | "MARKET_HALTED"
+  | "INSTRUMENT_RULES_UNAVAILABLE"
+  | "COUNTER_UNAVAILABLE"
+  | "RESERVATION_UNAVAILABLE"
+  | "CALENDAR_UNAVAILABLE"
+  | "CLOCK_UNCERTAIN"
+  | "NOT_APPLICABLE"
+  | "UNSUPPORTED_CONTEXT"
+  | "INVALID_PROPOSAL_VALUE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionInputKind".
+ */
+export type RiskDecisionInputKind =
+  | "POLICY"
+  | "ACCOUNT"
+  | "PORTFOLIO"
+  | "MARKET"
+  | "TIME"
+  | "CALENDAR"
+  | "DAILY_COUNTERS"
+  | "RESERVATIONS"
+  | "INSTRUMENT_RULES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionStatus".
+ */
+export type RiskDecisionStatus = "ALLOWED" | "REJECTED" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ArtifactKind".
  */
 export type ArtifactKind = "RESEARCH" | "DECISION";
@@ -87,21 +289,6 @@ export type BitgetDemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNO
 export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ExecutionContext".
- */
-export type ExecutionContext =
-  | "NONE_READ_ONLY"
-  | "HISTORICAL_SIMULATION"
-  | "LOCAL_PAPER"
-  | "ALPACA_PAPER"
-  | "TRADING212_DEMO"
-  | "TRADING212_LIVE"
-  | "BINANCE_TESTNET"
-  | "BINANCE_LIVE"
-  | "BITGET_DEMO"
-  | "BITGET_LIVE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CapabilityLevel".
  */
 export type CapabilityLevel = "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
@@ -121,6 +308,8 @@ export type DomainProjection =
   | AccountConnection
   | RiskPolicyState
   | RiskDecision
+  | FinancialApproval
+  | ApprovalRejection
   | Thread
   | Trading212DemoOrderAttempt
   | AlpacaPaperOrderAttempt
@@ -165,11 +354,6 @@ export type ThinkingType = "disabled" | "enabled";
 export type ModelHealth = "NOT_CONFIGURED" | "UNVERIFIED" | "VERIFYING" | "READY" | "FAILED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ConnectionState".
- */
-export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskPolicyChangeScopeKind".
  */
 export type RiskPolicyChangeScopeKind = "WORKSPACE";
@@ -180,98 +364,14 @@ export type RiskPolicyChangeScopeKind = "WORKSPACE";
 export type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AssetClass".
+ * via the `definition` "FinancialOperation".
  */
-export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
+export type FinancialOperation = "PLACE_ORDER" | "CANCEL";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskCheckId".
+ * via the `definition` "FinancialApprovalStatus".
  */
-export type RiskCheckId =
-  | "PROPOSAL_IDENTITY"
-  | "POLICY_VERSION"
-  | "POLICY_CONFIGURED"
-  | "ACCOUNT_BINDING"
-  | "ACCOUNT_HEALTH"
-  | "ALLOWED_ACCOUNT"
-  | "ALLOWED_ENVIRONMENT"
-  | "ALLOWED_VENUE"
-  | "ALLOWED_INSTRUMENT"
-  | "BLOCKED_ACCOUNT"
-  | "BLOCKED_VENUE"
-  | "BLOCKED_INSTRUMENT"
-  | "ORDER_NOTIONAL"
-  | "ORDER_QUANTITY"
-  | "POSITION_SIZE"
-  | "SINGLE_INSTRUMENT_EXPOSURE"
-  | "ASSET_CLASS_EXPOSURE"
-  | "DAILY_TRADED_NOTIONAL"
-  | "DAILY_REALIZED_LOSS"
-  | "OPEN_ORDER_COUNT"
-  | "RESERVED_CAPITAL"
-  | "MARKET_ORDER"
-  | "MARKET_ORDER_SLIPPAGE"
-  | "PRICE_DEVIATION"
-  | "QUOTE_FRESHNESS"
-  | "MARKET_SESSION"
-  | "INSTRUMENT_RULES"
-  | "LIVE_INACTIVITY";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskCheckOutcome".
- */
-export type RiskCheckOutcome = "PASS" | "REJECT" | "UNAVAILABLE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskDecisionReasonCode".
- */
-export type RiskDecisionReasonCode =
-  | "WITHIN_LIMIT"
-  | "POLICY_VERSION_STALE"
-  | "LIMIT_NOT_CONFIGURED"
-  | "LIMIT_EXCEEDED"
-  | "POLICY_UNCONFIGURED"
-  | "PROPOSAL_INVALIDATED"
-  | "EVIDENCE_MISSING"
-  | "EVIDENCE_STALE"
-  | "EVIDENCE_UNTRUSTED"
-  | "ACCOUNT_UNAVAILABLE"
-  | "ACCOUNT_MISMATCH"
-  | "ACCOUNT_UNHEALTHY"
-  | "IDENTIFIER_NOT_ALLOWED"
-  | "IDENTIFIER_BLOCKED"
-  | "ENVIRONMENT_NOT_ALLOWED"
-  | "MARKET_ORDER_DISABLED"
-  | "EXECUTION_QUOTE_UNAVAILABLE"
-  | "MARKET_CLOSED"
-  | "MARKET_HALTED"
-  | "INSTRUMENT_RULES_UNAVAILABLE"
-  | "COUNTER_UNAVAILABLE"
-  | "RESERVATION_UNAVAILABLE"
-  | "CALENDAR_UNAVAILABLE"
-  | "CLOCK_UNCERTAIN"
-  | "NOT_APPLICABLE"
-  | "UNSUPPORTED_CONTEXT"
-  | "INVALID_PROPOSAL_VALUE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskDecisionInputKind".
- */
-export type RiskDecisionInputKind =
-  | "POLICY"
-  | "ACCOUNT"
-  | "PORTFOLIO"
-  | "MARKET"
-  | "TIME"
-  | "CALENDAR"
-  | "DAILY_COUNTERS"
-  | "RESERVATIONS"
-  | "INSTRUMENT_RULES";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskDecisionStatus".
- */
-export type RiskDecisionStatus = "ALLOWED" | "REJECTED" | "UNAVAILABLE";
+export type FinancialApprovalStatus = "ISSUED" | "INVALIDATED" | "EXPIRED" | "CONSUMED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadStatus".
@@ -368,55 +468,10 @@ export type LocalPaperEventKind =
   "ACCEPTED" | "PARTIALLY_FILLED" | "FILLED" | "REJECTED" | "CANCELLED" | "SCENARIO_CHANGED" | "QUOTE_REFRESHED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderSide".
- */
-export type OrderSide = "BUY" | "SELL";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderType".
- */
-export type OrderType = "MARKET" | "LIMIT";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderQuantityType".
- */
-export type OrderQuantityType = "BASE" | "QUOTE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LocalPaperOrderState".
  */
 export type LocalPaperOrderState =
   "PROPOSED" | "ACCEPTED" | "PARTIALLY_FILLED" | "FILLED" | "REJECTED" | "CANCEL_PENDING" | "CANCELLED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "TimeInForce".
- */
-export type TimeInForce = "DAY" | "GTC" | "IOC" | "FOK";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketTier".
- */
-export type MarketTier = "CENSUS" | "WARM" | "HOT" | "COLD";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderProposalHistoryEvent".
- */
-export type OrderProposalHistoryEvent = "GENERATED" | "DRAFT_CHANGED" | "REFRESHED" | "POLICY_CHANGED" | "CONSUMED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketDataStatus".
- */
-export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "ProposalReferenceStatus".
- */
-export type ProposalReferenceStatus = "AVAILABLE" | "UNCONFIGURED" | "UNAVAILABLE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderProposalStatus".
- */
-export type OrderProposalStatus = "NEEDS_APPROVAL" | "CONSUMED" | "INVALIDATED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderProposalRefreshStatus".
@@ -487,6 +542,10 @@ export type ReplyData =
   | OrderProposal
   | OrderProposalLibrary
   | OrderProposalRefreshResult
+  | ApprovalReview
+  | FinancialApproval
+  | FinancialApprovalHistory
+  | ApprovalRejection
   | Trading212DemoOrderAttempt
   | Trading212DemoOrderAttemptQueryResult
   | Trading212DemoOrderBook
@@ -513,11 +572,6 @@ export type ReplyData =
   | BacktestComparison;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "TimeConfidence".
- */
-export type TimeConfidence = "TRUSTED" | "CLOCK_UNCERTAIN" | "STALE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ToolId".
  */
 export type ToolId =
@@ -531,32 +585,6 @@ export type ToolId =
  * via the `definition` "DataSourceProbeKind".
  */
 export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AdjustmentStatus".
- */
-export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "CorporateActionType".
- */
-export type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketSession".
- */
-export type MarketSession =
-  "OPEN" | "CLOSED" | "EXTENDED_HOURS" | "HALTED" | "MAINTENANCE" | "SUSPENDED" | "DEGRADED" | "UNKNOWN";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketEntitlement".
- */
-export type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketFreshness".
- */
-export type MarketFreshness = "HEALTHY" | "STALE" | "CLOCK_UNCERTAIN";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FxFreshness".
@@ -670,6 +698,10 @@ export interface IpcSchema {
   alpacaPaperOrderReconcile: AlpacaPaperOrderReconcile;
   alpacaPaperOrderReview: AlpacaPaperOrderReview;
   alpacaPaperOrderSubmit: AlpacaPaperOrderSubmit;
+  approvalAction: ApprovalAction;
+  approvalRejection: ApprovalRejection;
+  approvalReview: ApprovalReview;
+  approvalReviewRequest: ApprovalReviewRequest;
   artifactExport: ArtifactExport;
   artifactQuery: ArtifactQuery;
   artifactSave: ArtifactSave;
@@ -721,6 +753,9 @@ export interface IpcSchema {
   empty: EmptyPayload;
   equityPoint: EquityPoint;
   event: DomainEvent;
+  financialApproval: FinancialApproval;
+  financialApprovalHistory: FinancialApprovalHistory;
+  financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
   gatewayMutation: GatewayMutation;
   localPaperState: LocalPaperState;
   marketCatalogQuery: MarketCatalogQuery;
@@ -998,6 +1033,631 @@ export interface AlpacaPaperOrderSubmit {
   expectedProposalStateVersion: string;
   idempotencyKey: string;
   proposalHash: string;
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalAction".
+ */
+export interface ApprovalAction {
+  expectedStateVersion: string;
+  proposalHash: string;
+  proposalId: string;
+  reviewDigest: string;
+  reviewedRiskDecisionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalRejection".
+ */
+export interface ApprovalRejection {
+  auditId: string;
+  occurredAt: string;
+  proposalHash: string;
+  proposalId: string;
+  reason: ApprovalRejectionReason;
+  reviewDigest: string;
+  riskDecisionId: string;
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalReview".
+ */
+export interface ApprovalReview {
+  account?: AccountConnection | null;
+  /**
+   * @maxItems 32
+   */
+  blockers: string[];
+  eligible: boolean;
+  estimatedFees?: EstimatedFee | null;
+  estimatedSlippagePercent?: string;
+  expectedSpend?: string;
+  market: MarketDetail;
+  maximumAuthorizedSpend?: string;
+  proposal: OrderProposal;
+  quoteAgeMs?: number | null;
+  reviewDigest: string;
+  reviewedAt: string;
+  riskDecision: RiskDecision;
+  spread?: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AccountConnection".
+ */
+export interface AccountConnection {
+  connectionId: string;
+  connectionState: ConnectionState;
+  createdAt: string;
+  data?: AccountData | null;
+  environment: string;
+  health: AccountHealth;
+  label: string;
+  lastPrivateStreamEventAt?: string | null;
+  lastSuccessfulSync?: string | null;
+  permissions: PermissionReview;
+  providerId: string;
+  stateVersion: string;
+  updatedAt: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AccountData".
+ */
+export interface AccountData {
+  accountType: string;
+  balances: Balance[];
+  bitgetOrderBook?: BitgetSpotOrderBook | null;
+  buyingPower?: string | null;
+  capabilities: string[];
+  currency?: string | null;
+  limitations: string[];
+  openOrders: OpenOrder[];
+  positions: Position[];
+  remoteAccountId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Balance".
+ */
+export interface Balance {
+  asset: string;
+  available: string;
+  inPies?: string | null;
+  locked?: string | null;
+  reserved?: string | null;
+  restrictedAvailable?: string | null;
+  total?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetSpotOrderBook".
+ */
+export interface BitgetSpotOrderBook {
+  /**
+   * @maxItems 2000
+   */
+  fills: BitgetSpotFill[];
+  observedAt: string;
+  /**
+   * @maxItems 16000
+   */
+  orders: BitgetSpotOrder[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetSpotFill".
+ */
+export interface BitgetSpotFill {
+  currency?: string | null;
+  observedAt: string;
+  price?: string | null;
+  providerOrderId: string;
+  providerTradeId: string;
+  quantity: string;
+  side: "BUY" | "SELL";
+  symbol: string;
+  value?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BitgetSpotOrder".
+ */
+export interface BitgetSpotOrder {
+  createdAt?: string | null;
+  currency?: string | null;
+  filledQuantity?: string | null;
+  filledValue?: string | null;
+  kind: "NORMAL" | "TPSL" | "PLAN";
+  normalizedStatus:
+    "OPEN" | "PARTIALLY_FILLED" | "FILLED" | "TRIGGERED" | "TRIGGER_FAILED" | "CANCELED" | "REJECTED" | "UNKNOWN";
+  notional?: string | null;
+  origin: "TRADEX" | "external";
+  providerOrderId: string;
+  providerStatus: string;
+  quantity?: string | null;
+  remainingQuantity?: string | null;
+  side: "BUY" | "SELL";
+  symbol: string;
+  updatedAt?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OpenOrder".
+ */
+export interface OpenOrder {
+  brokerOrderId: string;
+  currency?: string | null;
+  filledQuantity?: string | null;
+  filledValue?: string | null;
+  instrumentId?: string | null;
+  kind?: "NORMAL" | "TPSL" | "PLAN" | null;
+  limitPrice?: string | null;
+  notional?: string | null;
+  quantity?: string | null;
+  side: string;
+  status: string;
+  symbol: string;
+  triggerPrice?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Position".
+ */
+export interface Position {
+  averageEntryPrice?: string | null;
+  instrumentCurrency?: string | null;
+  instrumentId?: string | null;
+  marketValue?: string | null;
+  marketValueCurrency?: string | null;
+  quantity: string;
+  symbol: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AccountHealth".
+ */
+export interface AccountHealth {
+  arming: string;
+  armingReason?: string;
+  authentication: string;
+  connection: string;
+  credential: string;
+  executionEligibility: string;
+  privateStream: string;
+  reason: string;
+  reconciliation: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "PermissionReview".
+ */
+export interface PermissionReview {
+  acknowledged: boolean;
+  detected: string[];
+  forbidden: string[];
+  ipAllowList?: string[] | null;
+  ipAllowListStatus: string;
+  scope: "VERIFIED" | "UNVERIFIED";
+  unsupported: string[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "EstimatedFee".
+ */
+export interface EstimatedFee {
+  amount: string;
+  currency: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketDetail".
+ */
+export interface MarketDetail {
+  adjustmentStatus: AdjustmentStatus;
+  availabilityReason: string;
+  /**
+   * @maxItems 16
+   */
+  corporateActions:
+    | []
+    | [CorporateAction]
+    | [CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ];
+  instrument: Instrument;
+  instrumentState?: InstrumentTradingObservation | null;
+  marketState: MarketState;
+  snapshot?: MarketSnapshot | null;
+  sourceId?: string;
+  status: MarketDataStatus;
+  tier: MarketTier;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CorporateAction".
+ */
+export interface CorporateAction {
+  actionId: string;
+  actionType: CorporateActionType;
+  adjustmentStatus: AdjustmentStatus;
+  announcedAt?: string;
+  description: string;
+  effectiveAt: string;
+  instrumentId: string;
+  sourceId?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Instrument".
+ */
+export interface Instrument {
+  assetClass: AssetClass;
+  base?: string;
+  currency: string;
+  displayName: string;
+  exchange?: string;
+  instrumentId: string;
+  /**
+   * @maxItems 8
+   */
+  providers:
+    | []
+    | [InstrumentProviderMapping]
+    | [InstrumentProviderMapping, InstrumentProviderMapping]
+    | [InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping]
+    | [InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ]
+    | [
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping,
+        InstrumentProviderMapping
+      ];
+  quote?: string;
+  symbol: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "InstrumentProviderMapping".
+ */
+export interface InstrumentProviderMapping {
+  providerId: string;
+  providerSymbol: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "InstrumentTradingObservation".
+ */
+export interface InstrumentTradingObservation {
+  observedAt: string;
+  providerId: string;
+  providerSymbol: string;
+  source: string;
+  status: InstrumentTradingStatus;
+  venue: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketState".
+ */
+export interface MarketState {
+  calendarVersion?: string;
+  nextClose?: string;
+  nextOpen?: string;
+  observedAt: string;
+  providerTime?: string;
+  reason: string;
+  session: MarketSession;
+  sourceId?: string;
+  sourceStatus: MarketDataStatus;
+  timeConfidence: TimeConfidence;
+  venue: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketSnapshot".
+ */
+export interface MarketSnapshot {
+  ask?: string;
+  bid?: string;
+  instrumentId: string;
+  lastPrice?: string;
+  provenance: MarketSnapshotProvenance;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketSnapshotProvenance".
+ */
+export interface MarketSnapshotProvenance {
+  entitlement: MarketEntitlement;
+  freshness: MarketFreshness;
+  marketSnapshotId: string;
+  providerTimestamp: string;
+  receivedTimestamp: string;
+  source: string;
+  venue?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposal".
+ */
+export interface OrderProposal {
+  createdAt: string;
+  draftId: string;
+  draftVersion: number;
+  estimatedNotional?: string;
+  estimatedNotionalCurrency?: string | null;
+  estimatedNotionalReason?: string | null;
+  fields: OrderDraftFields;
+  /**
+   * @maxItems 32
+   */
+  history: OrderProposalHistoryEntry[];
+  invalidationReason?: string | null;
+  marketReferenceReason: string;
+  marketSnapshotId?: string | null;
+  marketStatus: MarketDataStatus;
+  policyReferenceReason: string;
+  policyStateVersion?: string | null;
+  policyStatus: ProposalReferenceStatus;
+  policyVersion?: number | null;
+  proposalHash: string;
+  proposalId: string;
+  stateVersion: string;
+  status: OrderProposalStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderDraftFields".
+ */
+export interface OrderDraftFields {
+  accountId?: string | null;
+  clientLabel?: string | null;
+  environment: ExecutionContext;
+  instrumentId: string;
+  limitPrice?: string;
+  maximumSpend?: string;
+  orderType: OrderType;
+  quantity: OrderQuantity;
+  side: OrderSide;
+  timeInForce: TimeInForce;
+  venue: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderQuantity".
+ */
+export interface OrderQuantity {
+  type: OrderQuantityType;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalHistoryEntry".
+ */
+export interface OrderProposalHistoryEntry {
+  event: OrderProposalHistoryEvent;
+  occurredAt: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecision".
+ */
+export interface RiskDecision {
+  accountId?: string | null;
+  checks: RiskCheckResult[];
+  decisionId: string;
+  environment: ExecutionContext;
+  evaluatedAt: string;
+  inputs: RiskDecisionInputReference[];
+  policyStateVersion?: string | null;
+  policyVersion?: number | null;
+  proposalHash: string;
+  proposalId: string;
+  stateVersion: string;
+  status: RiskDecisionStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskCheckResult".
+ */
+export interface RiskCheckResult {
+  checkId: RiskCheckId;
+  outcome: RiskCheckOutcome;
+  reason: string;
+  reasonCode: RiskDecisionReasonCode;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "RiskDecisionInputReference".
+ */
+export interface RiskDecisionInputReference {
+  digest: string;
+  kind: RiskDecisionInputKind;
+  observedAt?: string;
+  referenceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalReviewRequest".
+ */
+export interface ApprovalReviewRequest {
   proposalId: string;
   workspaceId: string;
 }
@@ -1740,6 +2400,8 @@ export interface DomainEvent {
     | "model"
     | "risk"
     | "risk-decision"
+    | "financial-approval"
+    | "approval-audit"
     | "thread"
     | "trading212-demo-order-attempt"
     | "trading212-demo-order-book"
@@ -1758,6 +2420,11 @@ export interface DomainEvent {
     | "model.provider_attempt.changed"
     | "risk.policy.changed"
     | "risk.decision.evaluated"
+    | "trade.approval.issued"
+    | "trade.approval.invalidated"
+    | "trade.approval.expired"
+    | "trade.approval.consumed"
+    | "trade.approval.rejected"
     | "thread.created"
     | "thread.updated"
     | "trading212.demo.order.attempt.changed"
@@ -1883,167 +2550,6 @@ export interface Workspace {
   path: string;
   storageSchemaVersion: number;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AccountConnection".
- */
-export interface AccountConnection {
-  connectionId: string;
-  connectionState: ConnectionState;
-  createdAt: string;
-  data?: AccountData | null;
-  environment: string;
-  health: AccountHealth;
-  label: string;
-  lastPrivateStreamEventAt?: string | null;
-  lastSuccessfulSync?: string | null;
-  permissions: PermissionReview;
-  providerId: string;
-  stateVersion: string;
-  updatedAt: string;
-  workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AccountData".
- */
-export interface AccountData {
-  accountType: string;
-  balances: Balance[];
-  bitgetOrderBook?: BitgetSpotOrderBook | null;
-  buyingPower?: string | null;
-  capabilities: string[];
-  currency?: string | null;
-  limitations: string[];
-  openOrders: OpenOrder[];
-  positions: Position[];
-  remoteAccountId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "Balance".
- */
-export interface Balance {
-  asset: string;
-  available: string;
-  inPies?: string | null;
-  locked?: string | null;
-  reserved?: string | null;
-  restrictedAvailable?: string | null;
-  total?: string | null;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "BitgetSpotOrderBook".
- */
-export interface BitgetSpotOrderBook {
-  /**
-   * @maxItems 2000
-   */
-  fills: BitgetSpotFill[];
-  observedAt: string;
-  /**
-   * @maxItems 16000
-   */
-  orders: BitgetSpotOrder[];
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "BitgetSpotFill".
- */
-export interface BitgetSpotFill {
-  currency?: string | null;
-  observedAt: string;
-  price?: string | null;
-  providerOrderId: string;
-  providerTradeId: string;
-  quantity: string;
-  side: "BUY" | "SELL";
-  symbol: string;
-  value?: string | null;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "BitgetSpotOrder".
- */
-export interface BitgetSpotOrder {
-  createdAt?: string | null;
-  currency?: string | null;
-  filledQuantity?: string | null;
-  filledValue?: string | null;
-  kind: "NORMAL" | "TPSL" | "PLAN";
-  normalizedStatus:
-    "OPEN" | "PARTIALLY_FILLED" | "FILLED" | "TRIGGERED" | "TRIGGER_FAILED" | "CANCELED" | "REJECTED" | "UNKNOWN";
-  notional?: string | null;
-  origin: "TRADEX" | "external";
-  providerOrderId: string;
-  providerStatus: string;
-  quantity?: string | null;
-  remainingQuantity?: string | null;
-  side: "BUY" | "SELL";
-  symbol: string;
-  updatedAt?: string | null;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OpenOrder".
- */
-export interface OpenOrder {
-  brokerOrderId: string;
-  currency?: string | null;
-  filledQuantity?: string | null;
-  filledValue?: string | null;
-  instrumentId?: string | null;
-  kind?: "NORMAL" | "TPSL" | "PLAN" | null;
-  limitPrice?: string | null;
-  notional?: string | null;
-  quantity?: string | null;
-  side: string;
-  status: string;
-  symbol: string;
-  triggerPrice?: string | null;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "Position".
- */
-export interface Position {
-  averageEntryPrice?: string | null;
-  instrumentCurrency?: string | null;
-  instrumentId?: string | null;
-  marketValue?: string | null;
-  marketValueCurrency?: string | null;
-  quantity: string;
-  symbol: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AccountHealth".
- */
-export interface AccountHealth {
-  arming: string;
-  armingReason?: string;
-  authentication: string;
-  connection: string;
-  credential: string;
-  executionEligibility: string;
-  privateStream: string;
-  reason: string;
-  reconciliation: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "PermissionReview".
- */
-export interface PermissionReview {
-  acknowledged: boolean;
-  detected: string[];
-  forbidden: string[];
-  ipAllowList?: string[] | null;
-  ipAllowListStatus: string;
-  scope: "VERIFIED" | "UNVERIFIED";
-  unsupported: string[];
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2190,42 +2696,26 @@ export interface RiskAssetClassLimit {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskDecision".
+ * via the `definition` "FinancialApproval".
  */
-export interface RiskDecision {
-  accountId?: string | null;
-  checks: RiskCheckResult[];
-  decisionId: string;
+export interface FinancialApproval {
+  accountId: string;
+  approvalId: string;
+  consumedAt?: string;
   environment: ExecutionContext;
-  evaluatedAt: string;
-  inputs: RiskDecisionInputReference[];
-  policyStateVersion?: string | null;
-  policyVersion?: number | null;
+  expiresAt: string;
+  invalidationReason?: string | null;
+  issuedAt: string;
+  operation: FinancialOperation;
+  policyVersion: number;
   proposalHash: string;
   proposalId: string;
+  reviewDigest: string;
+  riskDecisionId: string;
   stateVersion: string;
-  status: RiskDecisionStatus;
+  status: FinancialApprovalStatus;
+  updatedAt: string;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskCheckResult".
- */
-export interface RiskCheckResult {
-  checkId: RiskCheckId;
-  outcome: RiskCheckOutcome;
-  reason: string;
-  reasonCode: RiskDecisionReasonCode;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "RiskDecisionInputReference".
- */
-export interface RiskDecisionInputReference {
-  digest: string;
-  kind: RiskDecisionInputKind;
-  observedAt?: string;
-  referenceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2652,6 +3142,30 @@ export interface Trading212DemoRateLimits {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialApprovalHistory".
+ */
+export interface FinancialApprovalHistory {
+  /**
+   * @maxItems 32
+   */
+  approvals: FinancialApproval[];
+  proposalId: string;
+  /**
+   * @maxItems 32
+   */
+  rejections: ApprovalRejection[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialApprovalHistoryQuery".
+ */
+export interface FinancialApprovalHistoryQuery {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayMutation".
  */
 export interface GatewayMutation {
@@ -2861,31 +3375,6 @@ export interface OrderDraft {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderDraftFields".
- */
-export interface OrderDraftFields {
-  accountId?: string | null;
-  clientLabel?: string | null;
-  environment: ExecutionContext;
-  instrumentId: string;
-  limitPrice?: string;
-  maximumSpend?: string;
-  orderType: OrderType;
-  quantity: OrderQuantity;
-  side: OrderSide;
-  timeInForce: TimeInForce;
-  venue: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderQuantity".
- */
-export interface OrderQuantity {
-  type: OrderQuantityType;
-  value: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OrderDraftLibrary".
  */
 export interface OrderDraftLibrary {
@@ -2926,45 +3415,6 @@ export interface OrderDraftSave {
   expectedStateVersion?: string | null;
   fields: OrderDraftFields;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderProposal".
- */
-export interface OrderProposal {
-  createdAt: string;
-  draftId: string;
-  draftVersion: number;
-  estimatedNotional?: string;
-  estimatedNotionalCurrency?: string | null;
-  estimatedNotionalReason?: string | null;
-  fields: OrderDraftFields;
-  /**
-   * @maxItems 32
-   */
-  history: OrderProposalHistoryEntry[];
-  invalidationReason?: string | null;
-  marketReferenceReason: string;
-  marketSnapshotId?: string | null;
-  marketStatus: MarketDataStatus;
-  policyReferenceReason: string;
-  policyStateVersion?: string | null;
-  policyStatus: ProposalReferenceStatus;
-  policyVersion?: number | null;
-  proposalHash: string;
-  proposalId: string;
-  stateVersion: string;
-  status: OrderProposalStatus;
-  workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "OrderProposalHistoryEntry".
- */
-export interface OrderProposalHistoryEntry {
-  event: OrderProposalHistoryEvent;
-  occurredAt: string;
-  reason?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -3150,6 +3600,8 @@ export interface Snapshot {
     | "model"
     | "risk"
     | "risk-decision"
+    | "financial-approval"
+    | "approval-audit"
     | "thread"
     | "trading212-demo-order-attempt"
     | "trading212-demo-order-book"
@@ -3215,6 +3667,8 @@ export interface SubscriptionAck {
     | "model"
     | "risk"
     | "risk-decision"
+    | "financial-approval"
+    | "approval-audit"
     | "thread"
     | "trading212-demo-order-attempt"
     | "trading212-demo-order-book"
@@ -3482,287 +3936,6 @@ export interface MarketCatalog {
   status: MarketDataStatus;
   tier: MarketTier;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "Instrument".
- */
-export interface Instrument {
-  assetClass: AssetClass;
-  base?: string;
-  currency: string;
-  displayName: string;
-  exchange?: string;
-  instrumentId: string;
-  /**
-   * @maxItems 8
-   */
-  providers:
-    | []
-    | [InstrumentProviderMapping]
-    | [InstrumentProviderMapping, InstrumentProviderMapping]
-    | [InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping]
-    | [InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping, InstrumentProviderMapping]
-    | [
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping
-      ]
-    | [
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping
-      ]
-    | [
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping
-      ]
-    | [
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping,
-        InstrumentProviderMapping
-      ];
-  quote?: string;
-  symbol: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "InstrumentProviderMapping".
- */
-export interface InstrumentProviderMapping {
-  providerId: string;
-  providerSymbol: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketDetail".
- */
-export interface MarketDetail {
-  adjustmentStatus: AdjustmentStatus;
-  availabilityReason: string;
-  /**
-   * @maxItems 16
-   */
-  corporateActions:
-    | []
-    | [CorporateAction]
-    | [CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ];
-  instrument: Instrument;
-  marketState: MarketState;
-  snapshot?: MarketSnapshot | null;
-  sourceId?: string;
-  status: MarketDataStatus;
-  tier: MarketTier;
-  workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "CorporateAction".
- */
-export interface CorporateAction {
-  actionId: string;
-  actionType: CorporateActionType;
-  adjustmentStatus: AdjustmentStatus;
-  announcedAt?: string;
-  description: string;
-  effectiveAt: string;
-  instrumentId: string;
-  sourceId?: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketState".
- */
-export interface MarketState {
-  calendarVersion?: string;
-  nextClose?: string;
-  nextOpen?: string;
-  observedAt: string;
-  providerTime?: string;
-  reason: string;
-  session: MarketSession;
-  sourceId?: string;
-  sourceStatus: MarketDataStatus;
-  timeConfidence: TimeConfidence;
-  venue: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketSnapshot".
- */
-export interface MarketSnapshot {
-  ask?: string;
-  bid?: string;
-  instrumentId: string;
-  lastPrice?: string;
-  provenance: MarketSnapshotProvenance;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketSnapshotProvenance".
- */
-export interface MarketSnapshotProvenance {
-  entitlement: MarketEntitlement;
-  freshness: MarketFreshness;
-  marketSnapshotId: string;
-  providerTimestamp: string;
-  receivedTimestamp: string;
-  source: string;
-  venue?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

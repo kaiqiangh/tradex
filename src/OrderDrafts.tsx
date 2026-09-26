@@ -11,6 +11,7 @@ import type {
   OrderDraftSummary,
   OrderProposal,
   OrderProposalSummary,
+  ApprovalReview,
   RiskDecisionHistory,
   PaperOrderResult,
   Trading212DemoOrderAttempt,
@@ -256,6 +257,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [binanceTestnetReview, setBinanceTestnetReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
   const [bitgetDemoReview, setBitgetDemoReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
   const [paperConfirmation, setPaperConfirmation] = useState<PaperConfirmation>();
+  const [approvalReview, setApprovalReview] = useState<ApprovalReview>();
+  const [approvalBusy, setApprovalBusy] = useState(false);
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
   const [binanceTestnetOrdersBusy, setBinanceTestnetOrdersBusy] = useState(false);
@@ -270,6 +273,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     queryKey: ['risk-decisions', workspaceId, selectedProposalId],
     queryFn: () => request('risk.decision.list', { workspaceId, proposalId: selectedProposalId! }),
     enabled: Boolean(selectedProposalId),
+    refetchOnMount: 'always',
+  });
+  const approvalHistory = useQuery({
+    queryKey: ['financial-approvals', workspaceId, selectedProposalId],
+    queryFn: () => request('trade.approval.list', { workspaceId, proposalId: selectedProposalId! }),
+    enabled: Boolean(selectedProposalId)
+      && ['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data?.fields.environment ?? ''),
     refetchOnMount: 'always',
   });
   const alpacaAttempt = useQuery({
@@ -345,24 +355,29 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setBitgetDemoIdempotencyKey(undefined);
     setBinanceTestnetReview(undefined);
     setBitgetDemoReview(undefined);
+    setApprovalReview(undefined);
   }, [selectedProposalId]);
   useEffect(() => {
-    if (paperConfirmation) {
-      queueMicrotask(() => confirmationRef.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus());
+    if (paperConfirmation || approvalReview) {
+      queueMicrotask(() => {
+        const safeDefault = confirmationRef.current?.querySelector<HTMLElement>('[data-safe-default]');
+        (safeDefault ?? confirmationRef.current?.querySelector<HTMLElement>('button:not(:disabled)'))?.focus();
+      });
       return;
     }
     const trigger = confirmationTriggerRef.current;
     confirmationTriggerRef.current = null;
     queueMicrotask(() => { if (trigger?.isConnected) trigger.focus(); else document.getElementById('order-proposal-title')?.focus(); });
-  }, [paperConfirmation]);
+  }, [paperConfirmation, approvalReview]);
   useEffect(() => {
-    if (!paperConfirmation) return;
+    if (!paperConfirmation && !approvalReview) return;
     const shell = document.querySelector<HTMLElement>('.app-shell');
     if (shell) shell.inert = true;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        if (!paperBusy && !ordersBusy && !trading212OrdersBusy && !binanceTestnetOrdersBusy) {
+        if (!paperBusy && !approvalBusy && !ordersBusy && !trading212OrdersBusy && !binanceTestnetOrdersBusy) {
+          setApprovalReview(undefined);
           setPaperConfirmation(undefined);
           setCancelReview(undefined);
           setTrading212CancelReview(undefined);
@@ -384,7 +399,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       window.removeEventListener('keydown', onKeyDown);
       if (shell) shell.inert = false;
     };
-  }, [paperConfirmation, paperBusy, ordersBusy, trading212OrdersBusy, binanceTestnetOrdersBusy]);
+  }, [paperConfirmation, approvalReview, paperBusy, approvalBusy, ordersBusy, trading212OrdersBusy, binanceTestnetOrdersBusy]);
 
   const instruments = catalog.data?.instruments ?? [];
   const localErrors = [
@@ -481,6 +496,50 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       setNotice(`RiskDecision ${decision.status} saved at ${decision.evaluatedAt}.`);
     } catch (cause) { setError(cause); }
     finally { setRiskBusy(false); }
+  };
+
+  const requestLiveApproval = async (trigger: HTMLElement) => {
+    const proposal = proposalDetail.data;
+    if (!proposal || proposal.status !== 'NEEDS_APPROVAL'
+      || !['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposal.fields.environment)) return;
+    confirmationTriggerRef.current = trigger;
+    setApprovalBusy(true); setError(undefined); setNotice('');
+    try {
+      const review = await request('trade.request_approval', { workspaceId, proposalId: proposal.proposalId });
+      await riskDecisions.refetch();
+      await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, proposal.proposalId] });
+      setApprovalReview(review);
+    } catch (cause) {
+      confirmationTriggerRef.current = null;
+      setError(cause);
+    } finally { setApprovalBusy(false); }
+  };
+
+  const confirmLiveApproval = async (approve: boolean) => {
+    const review = approvalReview;
+    if (!review || (approve && !review.eligible)) return;
+    setApprovalBusy(true); setError(undefined); setNotice('');
+    try {
+      const input = {
+        workspaceId,
+        proposalId: review.proposal.proposalId,
+        proposalHash: review.proposal.proposalHash,
+        reviewedRiskDecisionId: review.riskDecision.decisionId,
+        reviewDigest: review.reviewDigest,
+        expectedStateVersion: review.proposal.stateVersion,
+      };
+      if (approve) {
+        const saved = await request('trade.approve', input);
+        setNotice(`Live approval issued until ${new Date(saved.expiresAt).toLocaleTimeString()}. No order was placed.`);
+      } else {
+        const saved = await request('trade.reject', input);
+        setNotice(`Live review rejected and recorded at ${new Date(saved.occurredAt).toLocaleString()}. No order was placed.`);
+      }
+      setApprovalReview(undefined);
+      await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, review.proposal.proposalId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+    } catch (cause) { setError(cause); }
+    finally { setApprovalBusy(false); }
   };
 
   const submitProposal = async () => {
@@ -1071,7 +1130,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
             <label className="field">Quantity type<select value={form.quantityType} onChange={event => update('quantityType', event.target.value as OrderQuantityType)}><option value="BASE">Base</option><option value="QUOTE">Quote</option></select></label>
             <label className="field">Quantity<input inputMode="decimal" value={form.quantity} aria-describedby={fieldError?.field === 'quantity' ? 'order-field-error' : undefined} onChange={event => update('quantity', event.target.value)} aria-invalid={!isPositiveDecimal(form.quantity)} /></label>
             <label className="field">Limit price<input inputMode="decimal" value={form.limitPrice} disabled={form.orderType === 'MARKET'} aria-describedby={fieldError?.field === 'limitPrice' ? 'order-field-error' : undefined} onChange={event => update('limitPrice', event.target.value)} aria-invalid={form.orderType === 'LIMIT' && !isPositiveDecimal(form.limitPrice)} /></label>
-            <label className="field">Maximum spend <span className="muted">(optional)</span><input inputMode="decimal" value={form.maximumSpend} onChange={event => update('maximumSpend', event.target.value)} /></label>
+            <label className="field">{form.side === 'SELL' ? 'Maximum sale value' : 'Maximum spend'} <span className="muted">(optional)</span><input inputMode="decimal" value={form.maximumSpend} onChange={event => update('maximumSpend', event.target.value)} /></label>
             <label className="field">Time in force<select value={form.timeInForce} onChange={event => update('timeInForce', event.target.value as TimeInForce)}>{(['DAY', 'GTC', 'IOC', 'FOK'] as TimeInForce[]).map(value => <option key={value} value={value}>{value}</option>)}</select></label>
             <label className="field">Client label <span className="muted">(optional)</span><input maxLength={80} value={form.clientLabel} onChange={event => update('clientLabel', event.target.value)} /></label>
           </div>
@@ -1096,6 +1155,27 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
           {proposalDetail.data && <>
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
             <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />
+            {['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data.fields.environment) && <section className="live-approval-panel" aria-label="Live approval history">
+              <div className="section-heading"><div><h3>Live approval</h3><p className="muted">An approval authorizes this exact proposal briefly. It does not submit an order.</p></div><button type="button" onClick={() => void approvalHistory.refetch()} disabled={approvalHistory.isFetching}>Reload history</button></div>
+              {approvalHistory.isPending && <p role="status">Loading saved approvals…</p>}
+              {approvalHistory.isError && <p className="error-text" role="alert">Approval history is unavailable: {explainError(approvalHistory.error)}</p>}
+              {approvalHistory.data && <>
+                {!approvalHistory.data.approvals.length && !approvalHistory.data.rejections.length && <p className="muted">No approval or rejection has been recorded for this proposal.</p>}
+                {approvalHistory.data.approvals.map(approval => <article className="live-approval-record" key={approval.approvalId}>
+                  <strong>{approval.status} · {approval.operation}</strong>
+                  <span>Approval {approval.approvalId} · {approval.environment} · account {approval.accountId}</span>
+                  <span>Issued {new Date(approval.issuedAt).toLocaleString()} · expires {new Date(approval.expiresAt).toLocaleString()}</span>
+                  {approval.invalidationReason && <span>Reason: {approval.invalidationReason}</span>}
+                </article>)}
+                {approvalHistory.data.rejections.map(rejection => <article className="live-approval-record" key={rejection.auditId}>
+                  <strong>REJECTED · {rejection.reason}</strong><span>RiskDecision {rejection.riskDecisionId} · {rejection.proposalHash}</span>
+                  <time dateTime={rejection.occurredAt}>{new Date(rejection.occurredAt).toLocaleString()}</time>
+                </article>)}
+              </>}
+              <button type="button" className="primary" onClick={event => void requestLiveApproval(event.currentTarget)} disabled={approvalBusy || proposalDetail.data.status !== 'NEEDS_APPROVAL' || approvalHistory.data?.approvals.some(approval => approval.status === 'ISSUED' && Date.parse(approval.expiresAt) > Date.now())}>
+                {approvalBusy ? 'Preparing review…' : 'Review Live approval'}
+              </button>
+            </section>}
           </>}
         </div>
       </div>}
@@ -1248,6 +1328,44 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <div><dt>Proposal / hash</dt><dd>{proposalDetail.data.proposalId} · {proposalDetail.data.proposalHash}</dd></div>
       </dl>}
       <div className="picker-dialog-actions"><button type="button" onClick={() => { setPaperConfirmation(undefined); setCancelReview(undefined); setTrading212CancelReview(undefined); setBinanceTestnetCancelReview(undefined); setBinanceTestnetReview(undefined); setBitgetDemoReview(undefined); }} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>Keep reviewing</button><button type="button" className="primary" onClick={() => void confirmPaperAction()} disabled={paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy}>{paperBusy || ordersBusy || trading212OrdersBusy || binanceTestnetOrdersBusy ? 'Working…' : paperConfirmationCopy[paperConfirmation].confirmLabel}</button></div>
+    </div></div>, document.body)}
+    {approvalReview && createPortal(<div className="picker-backdrop"><div className="picker-dialog approval-review-dialog" role="dialog" aria-modal="true" aria-labelledby="live-approval-title" aria-busy={approvalBusy} ref={confirmationRef}>
+      <div className="picker-dialog-heading"><div><h2 id="live-approval-title">Review Live approval</h2><p className="muted">Approval is bound to this proposal and expires within 30 seconds. It does not submit an order or reserve funds.</p></div></div>
+      {Boolean(error) && <p className="error-text" role="alert">{explainError(error)}</p>}
+      <dl className="proposal-fields approval-review-fields">
+        <div><dt>Environment / account</dt><dd>{approvalReview.proposal.fields.environment} · {approvalReview.account?.label ?? 'Unavailable'} · {approvalReview.account?.data?.remoteAccountId ?? approvalReview.account?.connectionId ?? 'Unavailable'}</dd></div>
+        <div><dt>Proposal / hash</dt><dd>{approvalReview.proposal.proposalId} · {approvalReview.proposal.proposalHash}</dd></div>
+        <div><dt>Instrument / venue</dt><dd>{approvalReview.proposal.fields.instrumentId} · {approvalReview.proposal.fields.venue}</dd></div>
+        <div><dt>Side / quantity</dt><dd>{approvalReview.proposal.fields.side} · {approvalReview.proposal.fields.quantity.value} {approvalReview.proposal.fields.quantity.type}</dd></div>
+        <div><dt>Order / limit / time in force</dt><dd>{approvalReview.proposal.fields.orderType} · {approvalReview.proposal.fields.limitPrice ?? 'No limit'} · {approvalReview.proposal.fields.timeInForce}</dd></div>
+        <div><dt>Policy / RiskDecision</dt><dd>v{approvalReview.riskDecision.policyVersion ?? 'Unavailable'} · {approvalReview.riskDecision.status} · {approvalReview.riskDecision.decisionId}</dd></div>
+        <div><dt>{approvalReview.proposal.fields.side === 'SELL' ? 'Expected proceeds' : 'Expected spend'}</dt><dd>{approvalReview.expectedSpend ?? 'Unavailable'} {approvalReview.proposal.estimatedNotionalCurrency ?? ''}</dd></div>
+        <div><dt>{approvalReview.proposal.fields.side === 'SELL' ? 'Maximum authorized proceeds' : 'Maximum authorized spend'}</dt><dd>{approvalReview.maximumAuthorizedSpend ?? 'Unavailable'} {approvalReview.proposal.estimatedNotionalCurrency ?? ''}</dd></div>
+        <div><dt>Client label</dt><dd>{approvalReview.proposal.fields.clientLabel ?? '—'}</dd></div>
+        <div><dt>Review expires</dt><dd>30 seconds after approval; reviewed {new Date(approvalReview.reviewedAt).toLocaleString()}</dd></div>
+      </dl>
+      <section aria-labelledby="approval-quote-title"><h3 id="approval-quote-title">Quote provenance</h3>
+        {approvalReview.market.snapshot ? <dl className="proposal-fields approval-review-fields">
+          <div><dt>Snapshot / source</dt><dd>{approvalReview.market.snapshot.provenance.marketSnapshotId} · {approvalReview.market.snapshot.provenance.source}</dd></div>
+          <div><dt>Provider timestamp</dt><dd>{approvalReview.market.snapshot.provenance.providerTimestamp}</dd></div>
+          <div><dt>Received / venue</dt><dd>{approvalReview.market.snapshot.provenance.receivedTimestamp} · {approvalReview.market.snapshot.provenance.venue ?? 'Unavailable'}</dd></div>
+          <div><dt>Entitlement / freshness</dt><dd>{approvalReview.market.snapshot.provenance.entitlement} · {approvalReview.market.snapshot.provenance.freshness}</dd></div>
+          <div><dt>Bid / ask / spread</dt><dd>{approvalReview.market.snapshot.bid ?? 'Unavailable'} / {approvalReview.market.snapshot.ask ?? 'Unavailable'} / {approvalReview.spread ?? 'Unavailable'}</dd></div>
+          <div><dt>Quote age</dt><dd>{approvalReview.quoteAgeMs == null ? 'Unavailable' : `${approvalReview.quoteAgeMs} ms`}</dd></div>
+          <div><dt>Estimated fees</dt><dd>{approvalReview.estimatedFees ? `${approvalReview.estimatedFees.amount} ${approvalReview.estimatedFees.currency}` : 'Unavailable'}</dd></div>
+          <div><dt>Estimated slippage</dt><dd>{approvalReview.estimatedSlippagePercent == null ? 'Unavailable' : `${approvalReview.estimatedSlippagePercent}%`}</dd></div>
+          <div><dt>Instrument status</dt><dd>{approvalReview.market.instrumentState?.status ?? 'Unavailable'} · {approvalReview.market.instrumentState?.source ?? 'No provider observation'}</dd></div>
+        </dl> : <p className="error-text">No current quote is available. Approval is blocked.</p>}
+      </section>
+      <section aria-labelledby="approval-risk-title"><h3 id="approval-risk-title">Risk checks</h3>
+        <p className={approvalReview.eligible ? 'muted' : 'error-text'} role={approvalReview.eligible ? 'status' : 'alert'}>{approvalReview.eligible ? 'Current checks pass. Approval still requires your explicit action.' : `Approval blocked: ${approvalReview.blockers.join(' · ') || 'current evidence is not eligible'}`}</p>
+        <ul className="approval-review-checks">{approvalReview.riskDecision.checks.map((check, index) => <li key={`${check.checkId}-${index}`}><strong>{check.checkId} · {check.outcome}</strong><span>{check.reasonCode}: {check.reason}</span></li>)}</ul>
+      </section>
+      <div className="picker-dialog-actions approval-review-actions">
+        <button type="button" data-safe-default onClick={() => void confirmLiveApproval(false)} disabled={approvalBusy}>Reject this review</button>
+        <button type="button" className="primary" onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }} onClick={() => void confirmLiveApproval(true)} disabled={approvalBusy || !approvalReview.eligible}>{approvalBusy ? 'Revalidating…' : 'Approve for up to 30 seconds'}</button>
+        <button type="button" onClick={() => setApprovalReview(undefined)} disabled={approvalBusy}>Keep reviewing</button>
+      </div>
     </div></div>, document.body)}
   </>;
 }

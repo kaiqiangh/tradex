@@ -65,7 +65,7 @@ fn creation_settings_survive_reopen_and_invalid_requests_do_not_change_state() {
             "IPC_SCHEMA_UNSUPPORTED",
         ),
         (
-            json!({"requestId":"bad", "schemaVersion":1,"command":"trade.approve","payload":{}}),
+            json!({"requestId":"bad", "schemaVersion":1,"command":"unknown.command","payload":{}}),
             "IPC_COMMAND_UNKNOWN",
         ),
         (
@@ -307,7 +307,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
     );
     drop(control);
     let future = rusqlite::Connection::open(path).unwrap();
-    future.pragma_update(None, "user_version", 24).unwrap();
+    future.pragma_update(None, "user_version", 25).unwrap();
     let mut control = ControlPlane::new(directory.path().to_path_buf());
     assert_eq!(
         command(&mut control, "workspace.open", json!({}))["error"]["code"],
@@ -317,6 +317,6 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
         future
             .pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
             .unwrap(),
-        24
+        25
     );
 }

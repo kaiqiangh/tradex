@@ -55,6 +55,18 @@
     "alpacaPaperOrderSubmit": {
       "$ref": "#/$defs/AlpacaPaperOrderSubmit"
     },
+    "approvalAction": {
+      "$ref": "#/$defs/ApprovalAction"
+    },
+    "approvalRejection": {
+      "$ref": "#/$defs/ApprovalRejection"
+    },
+    "approvalReview": {
+      "$ref": "#/$defs/ApprovalReview"
+    },
+    "approvalReviewRequest": {
+      "$ref": "#/$defs/ApprovalReviewRequest"
+    },
     "artifactExport": {
       "$ref": "#/$defs/ArtifactExport"
     },
@@ -207,6 +219,15 @@
     },
     "event": {
       "$ref": "#/$defs/DomainEvent"
+    },
+    "financialApproval": {
+      "$ref": "#/$defs/FinancialApproval"
+    },
+    "financialApprovalHistory": {
+      "$ref": "#/$defs/FinancialApprovalHistory"
+    },
+    "financialApprovalHistoryQuery": {
+      "$ref": "#/$defs/FinancialApprovalHistoryQuery"
     },
     "gatewayMutation": {
       "$ref": "#/$defs/GatewayMutation"
@@ -487,6 +508,13 @@
     "orderProposalLibrary",
     "orderProposalRefreshRequest",
     "orderProposalRefresh",
+    "approvalReviewRequest",
+    "approvalReview",
+    "approvalAction",
+    "financialApproval",
+    "financialApprovalHistoryQuery",
+    "financialApprovalHistory",
+    "approvalRejection",
     "trading212DemoOrderAttempt",
     "trading212DemoOrderSubmit",
     "trading212DemoOrderAttemptQuery",
@@ -1588,6 +1616,230 @@
         "proposalHash",
         "idempotencyKey",
         "confirmedPaperOrder"
+      ]
+    },
+    "ApprovalAction": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "reviewedRiskDecisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "reviewedRiskDecisionId",
+        "reviewDigest",
+        "expectedStateVersion"
+      ]
+    },
+    "ApprovalRejection": {
+      "type": "object",
+      "properties": {
+        "auditId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reason": {
+          "$ref": "#/$defs/ApprovalRejectionReason"
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "riskDecisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "auditId",
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "riskDecisionId",
+        "reviewDigest",
+        "reason",
+        "occurredAt",
+        "stateVersion"
+      ]
+    },
+    "ApprovalRejectionReason": {
+      "type": "string",
+      "enum": [
+        "USER_REJECTED"
+      ]
+    },
+    "ApprovalReview": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccountConnection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "estimatedFees": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EstimatedFee"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "estimatedSlippagePercent": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedSpend": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "market": {
+          "$ref": "#/$defs/MarketDetail"
+        },
+        "maximumAuthorizedSpend": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposal": {
+          "$ref": "#/$defs/OrderProposal"
+        },
+        "quoteAgeMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "maximum": 86400000,
+          "minimum": 0
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "reviewedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "riskDecision": {
+          "$ref": "#/$defs/RiskDecision"
+        },
+        "spread": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposal",
+        "market",
+        "riskDecision",
+        "reviewDigest",
+        "eligible",
+        "blockers",
+        "reviewedAt"
+      ]
+    },
+    "ApprovalReviewRequest": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
       ]
     },
     "Artifact": {
@@ -5004,6 +5256,8 @@
             "model",
             "risk",
             "risk-decision",
+            "financial-approval",
+            "approval-audit",
             "thread",
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
@@ -5029,6 +5283,11 @@
             "model.provider_attempt.changed",
             "risk.policy.changed",
             "risk.decision.evaluated",
+            "trade.approval.issued",
+            "trade.approval.invalidated",
+            "trade.approval.expired",
+            "trade.approval.consumed",
+            "trade.approval.rejected",
             "thread.created",
             "thread.updated",
             "trading212.demo.order.attempt.changed",
@@ -5092,6 +5351,12 @@
           "$ref": "#/$defs/RiskDecision"
         },
         {
+          "$ref": "#/$defs/FinancialApproval"
+        },
+        {
+          "$ref": "#/$defs/ApprovalRejection"
+        },
+        {
           "$ref": "#/$defs/Thread"
         },
         {
@@ -5145,6 +5410,26 @@
         "observedAt",
         "equity",
         "drawdown"
+      ]
+    },
+    "EstimatedFee": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "amount",
+        "currency"
       ]
     },
     "ExecutionContext": {
@@ -5210,6 +5495,181 @@
       "additionalProperties": false,
       "required": [
         "universe"
+      ]
+    },
+    "FinancialApproval": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "approvalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "consumedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "expiresAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "invalidationReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "issuedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "operation": {
+          "$ref": "#/$defs/FinancialOperation"
+        },
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "riskDecisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/FinancialApprovalStatus"
+        },
+        "updatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "approvalId",
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "environment",
+        "operation",
+        "policyVersion",
+        "riskDecisionId",
+        "reviewDigest",
+        "issuedAt",
+        "expiresAt",
+        "updatedAt",
+        "status",
+        "stateVersion"
+      ]
+    },
+    "FinancialApprovalHistory": {
+      "type": "object",
+      "properties": {
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FinancialApproval"
+          },
+          "maxItems": 32
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "rejections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ApprovalRejection"
+          },
+          "maxItems": 32
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "approvals",
+        "rejections"
+      ]
+    },
+    "FinancialApprovalHistoryQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "FinancialApprovalStatus": {
+      "type": "string",
+      "enum": [
+        "ISSUED",
+        "INVALIDATED",
+        "EXPIRED",
+        "CONSUMED"
+      ]
+    },
+    "FinancialOperation": {
+      "type": "string",
+      "enum": [
+        "PLACE_ORDER",
+        "CANCEL"
       ]
     },
     "FxFreshness": {
@@ -5506,6 +5966,56 @@
       "required": [
         "providerId",
         "providerSymbol"
+      ]
+    },
+    "InstrumentTradingObservation": {
+      "type": "object",
+      "properties": {
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/InstrumentTradingStatus"
+        },
+        "venue": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerId",
+        "providerSymbol",
+        "venue",
+        "status",
+        "observedAt",
+        "source"
+      ]
+    },
+    "InstrumentTradingStatus": {
+      "type": "string",
+      "enum": [
+        "TRADABLE",
+        "HALTED",
+        "UNKNOWN"
       ]
     },
     "ItemStatus": {
@@ -6285,6 +6795,16 @@
         },
         "instrument": {
           "$ref": "#/$defs/Instrument"
+        },
+        "instrumentState": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InstrumentTradingObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "marketState": {
           "$ref": "#/$defs/MarketState"
@@ -8703,6 +9223,18 @@
           "$ref": "#/$defs/OrderProposalRefreshResult"
         },
         {
+          "$ref": "#/$defs/ApprovalReview"
+        },
+        {
+          "$ref": "#/$defs/FinancialApproval"
+        },
+        {
+          "$ref": "#/$defs/FinancialApprovalHistory"
+        },
+        {
+          "$ref": "#/$defs/ApprovalRejection"
+        },
+        {
           "$ref": "#/$defs/Trading212DemoOrderAttempt"
         },
         {
@@ -9324,6 +9856,7 @@
         "POLICY_CONFIGURED",
         "ACCOUNT_BINDING",
         "ACCOUNT_HEALTH",
+        "ACCOUNT_ARMING",
         "ALLOWED_ACCOUNT",
         "ALLOWED_ENVIRONMENT",
         "ALLOWED_VENUE",
@@ -9596,6 +10129,7 @@
         "ACCOUNT_UNAVAILABLE",
         "ACCOUNT_MISMATCH",
         "ACCOUNT_UNHEALTHY",
+        "ACCOUNT_NOT_ARMED",
         "IDENTIFIER_NOT_ALLOWED",
         "IDENTIFIER_BLOCKED",
         "ENVIRONMENT_NOT_ALLOWED",
@@ -11007,6 +11541,8 @@
             "model",
             "risk",
             "risk-decision",
+            "financial-approval",
+            "approval-audit",
             "thread",
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
@@ -11662,6 +12198,8 @@
             "model",
             "risk",
             "risk-decision",
+            "financial-approval",
+            "approval-audit",
             "thread",
             "trading212-demo-order-attempt",
             "trading212-demo-order-book",
@@ -13496,7 +14034,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 23,
+          "maximum": 24,
           "minimum": 1
         },
         "workspaceId": {

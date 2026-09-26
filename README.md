@@ -2,7 +2,7 @@
 
 Local desktop trading workspace, implemented serially against the [RevC product documents](docs/README.md). The complete [requirement inventory and delivery map](docs/implementation/README.md) covers 35 work items. Development stays on `dev`; the final `dev` → `main` PR is reserved for human review.
 
-The current implementation includes the S01 workspace shell and the Alpaca Paper, Trading 212 Demo/Live, Binance Spot Testnet/Live and Bitget Classic Spot Demo/Live connection slices of S02: native credential entry, macOS Keychain storage, read-only provider connection testing, explicit permission review, persisted account details and resumable domain events. S02 integration acceptance is complete; model execution, full onboarding, research and trading remain pending. Empty pages and disabled controls do not count as implemented workflows.
+Implementation scope, delivery status and acceptance evidence are tracked in the [requirement inventory and delivery map](docs/implementation/README.md), which covers 35 work items. Status labels alone do not prove behavior; see the linked evidence. Empty pages and disabled controls do not count as implemented workflows.
 
 ## Run on macOS
 
@@ -17,11 +17,13 @@ Select an absolute workspace directory, or use the default `~/.tradex/workspaces
 
 In Accounts, choose `New account — enter credentials securely` to create a connection, or select an existing local connection to inspect/reuse it without reopening the secure credential window. New connections let you select a provider and label; the secure window accepts the Paper API key ID and secret, Command-Return tests the connection and Escape cancels. Review the observed account data and explicitly acknowledge the UNVERIFIED permission scope before confirming. A connection does not enable trading. Refresh reads account data; Disconnect removes local credential access without cancelling broker orders.
 
-Trading 212 uses its API key and secret for the selected Demo or Live environment. Account values use primary currency; position prices retain their instrument currency. The exact Invest/ISA subtype and complete key scope are unavailable from the API. Allow five seconds between account refreshes; provider quota errors require a later manual retry. Live connections remain DISARMED with execution blocked.
+Trading 212 uses its API key and secret for the selected Demo or Live environment. Account values use primary currency; position prices retain their instrument currency. The exact Invest/ISA subtype and complete key scope are unavailable from the API. Allow five seconds between account refreshes; provider quota errors require a later manual retry. New Live connections start DISARMED and require explicit arming after eligibility checks.
 
 Binance Spot uses environment-specific HMAC credentials. Testnet key scope stays UNVERIFIED; Live separately inspects key permissions and IP restrictions. Forbidden transfer/withdrawal and unsupported margin/derivative permissions block confirmation. Balances remain native-asset free/locked/total amounts; USDT is not treated as USD. Signing time and provider quota errors preserve previous observations and require a later retry.
 
 Bitget Classic Spot uses three native secure fields: API key, secret and passphrase. Demo keys are separate and every Demo private read carries its environment header; unsupported account endpoints remain unavailable with no Live fallback. Permission/IP changes require review again. Balances distinguish frozen, locked and restricted availability; current orders include ordinary, TPSL and plan observations without enabling execution.
+
+Live accounts start DISARMED; reopening the workspace or a safety event durably disarms them. Eligible accounts can be explicitly armed. A Live approval is a separate, short-lived authorization and does not submit an order; Live order submission remains unavailable.
 
 Build a local app with embedded frontend assets:
 

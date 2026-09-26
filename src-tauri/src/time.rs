@@ -24,6 +24,8 @@ pub struct TimeService {
     reason: &'static str,
     needs_revalidation: bool,
     started: Instant,
+    #[cfg(test)]
+    test_reading: Option<Reading>,
 }
 
 impl Default for TimeService {
@@ -37,6 +39,8 @@ impl Default for TimeService {
             reason: "Open a workspace and synchronize time before Live authority decisions.",
             needs_revalidation: true,
             started: Instant::now(),
+            #[cfg(test)]
+            test_reading: None,
         }
     }
 }
@@ -81,6 +85,15 @@ impl TimeService {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_test_time(&mut self, wall_ms: i128, monotonic_ms: u64) {
+        self.test_reading = Some(Reading {
+            wall_ms,
+            monotonic_ms,
+            provider_offset_ms: None,
+        });
+    }
+
     fn ensure_workspace(&self, workspace_id: &str) -> Result<()> {
         if self.workspace_id.as_deref() == Some(workspace_id) {
             Ok(())
@@ -90,6 +103,10 @@ impl TimeService {
     }
 
     fn reading(&self) -> Reading {
+        #[cfg(test)]
+        if let Some(reading) = self.test_reading {
+            return reading;
+        }
         Reading {
             wall_ms: OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000,
             monotonic_ms: self.started.elapsed().as_millis().min(MAX_MONOTONIC_MS) as u64,

@@ -757,6 +757,7 @@ pub enum RiskCheckId {
     PolicyConfigured,
     AccountBinding,
     AccountHealth,
+    AccountArming,
     AllowedAccount,
     AllowedEnvironment,
     AllowedVenue,
@@ -797,6 +798,7 @@ pub enum RiskDecisionReasonCode {
     AccountUnavailable,
     AccountMismatch,
     AccountUnhealthy,
+    AccountNotArmed,
     IdentifierNotAllowed,
     IdentifierBlocked,
     EnvironmentNotAllowed,
@@ -988,7 +990,10 @@ pub(crate) fn input_reference<T: Serialize>(
     observed_at: Option<String>,
     value: &T,
 ) -> crate::protocol::Result<RiskDecisionInputReference> {
-    let encoded = serde_json::to_vec(value)
+    let mut material = serde_json::to_value(value)
+        .map_err(|_| crate::protocol::TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    normalize_input_material(kind, &mut material);
+    let encoded = serde_json::to_vec(&material)
         .map_err(|_| crate::protocol::TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
     Ok(RiskDecisionInputReference {
         kind,
@@ -996,6 +1001,91 @@ pub(crate) fn input_reference<T: Serialize>(
         digest: format!("sha256:{}", hex::encode(Sha256::digest(encoded))),
         observed_at,
     })
+}
+
+fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
+    let Some(object) = material.as_object_mut() else {
+        return;
+    };
+    match kind {
+        RiskDecisionInputKind::Policy => {
+            object.remove("updatedAt");
+        }
+        RiskDecisionInputKind::Portfolio => {
+            object.remove("observedAt");
+            for key in ["holdings", "openOrders"] {
+                if let Some(rows) = object.get_mut(key).and_then(Value::as_array_mut) {
+                    for row in rows {
+                        if let Some(row) = row.as_object_mut() {
+                            row.remove("observedAt");
+                        }
+                    }
+                }
+            }
+            remove_received_timestamps(material);
+        }
+        RiskDecisionInputKind::Market => {
+            if let Some(state) = object
+                .get_mut("instrumentState")
+                .and_then(Value::as_object_mut)
+            {
+                state.remove("observedAt");
+            }
+            if let Some(state) = object.get_mut("marketState").and_then(Value::as_object_mut) {
+                state.remove("observedAt");
+                canonicalize_timestamp_field(state.get_mut("providerTime"));
+            }
+            if let Some(provenance) = object
+                .get_mut("snapshot")
+                .and_then(Value::as_object_mut)
+                .and_then(|snapshot| snapshot.get_mut("provenance"))
+                .and_then(Value::as_object_mut)
+            {
+                canonicalize_timestamp_field(provenance.get_mut("providerTimestamp"));
+                canonicalize_timestamp_field(provenance.get_mut("receivedTimestamp"));
+            }
+        }
+        RiskDecisionInputKind::Time => {
+            object.remove("wallClock");
+            object.remove("monotonicMs");
+            object.remove("observedAt");
+        }
+        RiskDecisionInputKind::Account
+        | RiskDecisionInputKind::Calendar
+        | RiskDecisionInputKind::DailyCounters
+        | RiskDecisionInputKind::Reservations
+        | RiskDecisionInputKind::InstrumentRules => {}
+    }
+}
+
+fn remove_received_timestamps(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            object.remove("receivedTimestamp");
+            for value in object.values_mut() {
+                remove_received_timestamps(value);
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                remove_received_timestamps(value);
+            }
+        }
+        _ => {}
+    }
+}
+
+pub(crate) fn canonicalize_timestamp_field(value: Option<&mut Value>) {
+    use time::format_description::well_known::Rfc3339;
+
+    let Some(Value::String(value)) = value else {
+        return;
+    };
+    if let Ok(parsed) = time::OffsetDateTime::parse(value, &Rfc3339)
+        && let Ok(canonical) = parsed.to_offset(time::UtcOffset::UTC).format(&Rfc3339)
+    {
+        *value = canonical;
+    }
 }
 
 pub(crate) fn evaluate(
@@ -1012,6 +1102,9 @@ pub(crate) fn evaluate(
     use std::cmp::Ordering;
 
     let policy = policy_state.map(|state| &state.policy);
+    let stale_quote_threshold = policy.map_or(DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS, |policy| {
+        policy.stale_quote_threshold_seconds
+    });
     let mut checks = Vec::with_capacity(27);
     macro_rules! push {
         ($id:expr, $outcome:expr, $reason_code:expr, $reason:expr $(,)?) => {
@@ -1190,6 +1283,34 @@ pub(crate) fn evaluate(
             "The saved account connection and authentication are healthy."
         } else {
             "The saved account is disconnected or its health is unverified."
+        },
+    );
+    let live_context = matches!(
+        proposal.fields.environment,
+        ExecutionContext::Trading212Live
+            | ExecutionContext::BinanceLive
+            | ExecutionContext::BitgetLive
+    );
+    let account_armed =
+        !live_context || account.is_some_and(|account| account.health.arming == "ARMED");
+    push!(
+        RiskCheckId::AccountArming,
+        if !live_context || account_armed {
+            RiskCheckOutcome::Pass
+        } else {
+            RiskCheckOutcome::Unavailable
+        },
+        if !live_context || account_armed {
+            RiskDecisionReasonCode::WithinLimit
+        } else {
+            RiskDecisionReasonCode::AccountNotArmed
+        },
+        if !live_context {
+            "Live account arming is not applicable to this proposal."
+        } else if account_armed {
+            "The exact Live account is armed."
+        } else {
+            "The exact Live account must be armed before approval review."
         },
     );
 
@@ -1724,13 +1845,7 @@ pub(crate) fn evaluate(
             RiskDecisionReasonCode::NotApplicable,
         )
     } else {
-        market_freshness(
-            market,
-            time_status,
-            policy.map_or(DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS, |policy| {
-                policy.stale_quote_threshold_seconds
-            }),
-        )
+        market_freshness(market, time_status, stale_quote_threshold)
     };
     push!(
         RiskCheckId::QuoteFreshness,
@@ -1843,22 +1958,52 @@ pub(crate) fn evaluate(
             "Price deviation percent",
         );
     }
+    let instrument_state = market.and_then(|market| market.instrument_state.as_ref());
+    let provider_mapping = market.and_then(|market| {
+        market.instrument.providers.iter().find(|mapping| {
+            account.is_some_and(|account| mapping.provider_id == account.provider_id)
+        })
+    });
+    let instrument_state_status = match (instrument_state, provider_mapping, market, account) {
+        (_, _, _, _) if local_simulation => (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::NotApplicable,
+        ),
+        (Some(state), Some(mapping), Some(market), Some(account))
+            if state.status == crate::protocol::InstrumentTradingStatus::Tradable
+                && state.provider_id == account.provider_id
+                && state.provider_symbol == mapping.provider_symbol
+                && state.venue == proposal.fields.venue
+                && market.instrument.instrument_id == proposal.fields.instrument_id
+                && trusted_instrument_observation(state, time_status, stale_quote_threshold) =>
+        {
+            (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+        }
+        (Some(state), _, _, _)
+            if state.status == crate::protocol::InstrumentTradingStatus::Halted =>
+        {
+            (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::MarketHalted,
+            )
+        }
+        _ => (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::InstrumentRulesUnavailable,
+        ),
+    };
     push!(
         RiskCheckId::InstrumentRules,
-        if local_simulation {
-            RiskCheckOutcome::Pass
-        } else {
-            RiskCheckOutcome::Unavailable
-        },
-        if local_simulation {
-            RiskDecisionReasonCode::NotApplicable
-        } else {
-            RiskDecisionReasonCode::InstrumentRulesUnavailable
-        },
-        if local_simulation {
+        instrument_state_status.0,
+        instrument_state_status.1,
+        if instrument_state_status.0 == RiskCheckOutcome::Pass && local_simulation {
             "The local simulator validates its built-in order rules at submission."
+        } else if instrument_state_status.0 == RiskCheckOutcome::Pass {
+            "A current provider instrument-tradability observation matches this account and venue."
+        } else if instrument_state_status.1 == RiskDecisionReasonCode::MarketHalted {
+            "The provider reports that this instrument is halted."
         } else {
-            "No authoritative provider instrument-rule snapshot is available."
+            "A current provider instrument-tradability observation is unavailable or mismatched."
         },
     );
     push!(
@@ -2054,24 +2199,42 @@ fn market_freshness(
             RiskDecisionReasonCode::EvidenceMissing,
         );
     };
-    let now = now.unix_timestamp();
-    let ages = [
-        now - received.unix_timestamp(),
-        now - provider.unix_timestamp(),
-    ];
-    if ages.iter().any(|age| *age < 0) {
+    let maximum_age = time::Duration::seconds(maximum_age_seconds as i64);
+    let ages = [now - received, now - provider];
+    if ages.iter().any(|age| *age < time::Duration::ZERO) {
         return (
             RiskCheckOutcome::Unavailable,
             RiskDecisionReasonCode::EvidenceUntrusted,
         );
     }
-    if ages.iter().any(|age| *age as u64 > maximum_age_seconds) {
+    if ages.iter().any(|age| *age > maximum_age) {
         return (
             RiskCheckOutcome::Unavailable,
             RiskDecisionReasonCode::EvidenceStale,
         );
     }
     (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+}
+
+fn trusted_instrument_observation(
+    state: &crate::protocol::InstrumentTradingObservation,
+    time_status: &crate::protocol::TimeStatus,
+    maximum_age_seconds: u64,
+) -> bool {
+    use crate::protocol::TimeConfidence;
+    use time::format_description::well_known::Rfc3339;
+
+    if time_status.confidence != TimeConfidence::Trusted {
+        return false;
+    }
+    let (Ok(now), Ok(observed)) = (
+        time::OffsetDateTime::parse(&time_status.wall_clock, &Rfc3339),
+        time::OffsetDateTime::parse(&state.observed_at, &Rfc3339),
+    ) else {
+        return false;
+    };
+    let age = now - observed;
+    (time::Duration::ZERO..=time::Duration::seconds(maximum_age_seconds as i64)).contains(&age)
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -2187,6 +2350,216 @@ fn duplicate_values<T: PartialEq>(values: &[T]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn approval_market(now: time::OffsetDateTime) -> crate::protocol::MarketDetail {
+        use time::format_description::well_known::Rfc3339;
+
+        let timestamp = now.format(&Rfc3339).unwrap();
+        let input = crate::protocol::MarketGetQuery {
+            workspace_id: "workspace".into(),
+            instrument_id: "crypto:BTC/USDT:spot".into(),
+            tier: crate::protocol::MarketTier::Census,
+        };
+        crate::market::live_approval_fixture_detail(
+            &input, "binance", "BINANCE", &timestamp, &timestamp,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn input_digests_ignore_read_times_but_bind_material_and_quote_provenance() {
+        let market = serde_json::json!({
+            "instrumentState": {"observedAt": "2026-09-26T12:00:00.100Z"},
+            "marketState": {
+                "observedAt": "2026-09-26T12:00:00.100Z",
+                "providerTime": "2026-09-26T12:00:00.000+00:00"
+            },
+            "snapshot": {
+                "provenance": {
+                    "providerTimestamp": "2026-09-26T12:00:00.000Z",
+                    "receivedTimestamp": "2026-09-26T12:00:00.050Z"
+                },
+                "lastPrice": "50000"
+            }
+        });
+        let mut same_quote = market.clone();
+        same_quote["instrumentState"]["observedAt"] = "2026-09-26T12:00:01Z".into();
+        same_quote["marketState"]["observedAt"] = "2026-09-26T12:00:01Z".into();
+        same_quote["marketState"]["providerTime"] = "2026-09-26T13:00:00+01:00".into();
+        same_quote["snapshot"]["provenance"]["providerTimestamp"] =
+            "2026-09-26T13:00:00+01:00".into();
+
+        let digest = |value: &Value| {
+            input_reference(
+                RiskDecisionInputKind::Market,
+                "crypto:BTC/USDT:spot".into(),
+                None,
+                value,
+            )
+            .unwrap()
+            .digest
+        };
+        assert_eq!(digest(&market), digest(&same_quote));
+        same_quote["snapshot"]["provenance"]["providerTimestamp"] =
+            "2026-09-26T12:00:00.000000001Z".into();
+        assert_ne!(digest(&market), digest(&same_quote));
+        same_quote["snapshot"]["provenance"]["providerTimestamp"] =
+            market["snapshot"]["provenance"]["providerTimestamp"].clone();
+        same_quote["snapshot"]["provenance"]["receivedTimestamp"] =
+            "2026-09-26T12:00:00.051Z".into();
+        assert_ne!(digest(&market), digest(&same_quote));
+
+        let time_a = serde_json::json!({
+            "confidence":"TRUSTED", "wallClock":"2026-09-26T12:00:00Z",
+            "monotonicMs":100, "observedAt":"2026-09-26T12:00:00Z",
+            "providerOffsetMs":null
+        });
+        let time_b = serde_json::json!({
+            "confidence":"TRUSTED", "wallClock":"2026-09-26T12:00:01Z",
+            "monotonicMs":1100, "observedAt":"2026-09-26T12:00:01Z",
+            "providerOffsetMs":null
+        });
+        let time_digest = |value: &Value| {
+            input_reference(RiskDecisionInputKind::Time, "time".into(), None, value)
+                .unwrap()
+                .digest
+        };
+        assert_eq!(time_digest(&time_a), time_digest(&time_b));
+
+        let portfolio_a = serde_json::json!({
+            "observedAt":"2026-09-26T12:00:00Z",
+            "holdings":[{"observedAt":"2026-09-26T12:00:00Z"}],
+            "openOrders":[],
+            "fxRoutes":[{"receivedTimestamp":"2026-09-26T12:00:00Z"}]
+        });
+        let mut portfolio_b = serde_json::json!({
+            "observedAt":"2026-09-26T12:00:01Z",
+            "holdings":[{"observedAt":"2026-09-26T12:00:01Z"}],
+            "openOrders":[],
+            "fxRoutes":[{"receivedTimestamp":"2026-09-26T12:00:01Z"}]
+        });
+        let portfolio_digest = |value: &Value| {
+            input_reference(
+                RiskDecisionInputKind::Portfolio,
+                "portfolio".into(),
+                None,
+                value,
+            )
+            .unwrap()
+            .digest
+        };
+        assert_eq!(
+            portfolio_digest(&portfolio_a),
+            portfolio_digest(&portfolio_b)
+        );
+        portfolio_b["openOrders"] = serde_json::json!([{"orderId":"existing"}]);
+        assert_ne!(
+            portfolio_digest(&portfolio_a),
+            portfolio_digest(&portfolio_b)
+        );
+    }
+
+    #[test]
+    fn market_freshness_uses_full_timestamp_precision_and_rejects_future_subseconds() {
+        use crate::protocol::{TimeConfidence, TimeStatus};
+        use time::format_description::well_known::Rfc3339;
+
+        let now = time::OffsetDateTime::parse("2026-09-26T12:00:00.500Z", &Rfc3339).unwrap();
+        let now_text = now.format(&Rfc3339).unwrap();
+        let status = TimeStatus {
+            workspace_id: "workspace".into(),
+            confidence: TimeConfidence::Trusted,
+            wall_clock: now_text.clone(),
+            monotonic_ms: 1,
+            provider_offset_ms: None,
+            observed_at: now_text,
+            reason: "trusted test clock".into(),
+            remediation: crate::protocol::Remediation {
+                id: "none".into(),
+                label: "No action required".into(),
+            },
+        };
+
+        let mut market = approval_market(now);
+        let instrument_state = market.instrument_state.as_mut().unwrap();
+        instrument_state.observed_at = (now - time::Duration::seconds(1)).format(&Rfc3339).unwrap();
+        assert!(trusted_instrument_observation(instrument_state, &status, 1));
+        instrument_state.observed_at =
+            (now - time::Duration::seconds(1) - time::Duration::nanoseconds(1))
+                .format(&Rfc3339)
+                .unwrap();
+        assert!(!trusted_instrument_observation(
+            instrument_state,
+            &status,
+            1
+        ));
+        instrument_state.observed_at = (now + time::Duration::nanoseconds(1))
+            .format(&Rfc3339)
+            .unwrap();
+        assert!(!trusted_instrument_observation(
+            instrument_state,
+            &status,
+            1
+        ));
+
+        market
+            .snapshot
+            .as_mut()
+            .unwrap()
+            .provenance
+            .received_timestamp = (now - time::Duration::seconds(1)).format(&Rfc3339).unwrap();
+        market
+            .snapshot
+            .as_mut()
+            .unwrap()
+            .provenance
+            .provider_timestamp = (now - time::Duration::seconds(1)).format(&Rfc3339).unwrap();
+        assert_eq!(
+            market_freshness(Some(&market), &status, 1),
+            (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+        );
+
+        market
+            .snapshot
+            .as_mut()
+            .unwrap()
+            .provenance
+            .received_timestamp =
+            (now - time::Duration::seconds(1) - time::Duration::nanoseconds(1))
+                .format(&Rfc3339)
+                .unwrap();
+        assert_eq!(
+            market_freshness(Some(&market), &status, 1),
+            (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::EvidenceStale
+            )
+        );
+
+        market
+            .snapshot
+            .as_mut()
+            .unwrap()
+            .provenance
+            .received_timestamp = (now - time::Duration::milliseconds(500))
+            .format(&Rfc3339)
+            .unwrap();
+        market
+            .snapshot
+            .as_mut()
+            .unwrap()
+            .provenance
+            .provider_timestamp = (now + time::Duration::nanoseconds(1))
+            .format(&Rfc3339)
+            .unwrap();
+        assert_eq!(
+            market_freshness(Some(&market), &status, 1),
+            (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::EvidenceUntrusted
+            )
+        );
+    }
 
     #[test]
     fn defaults_leave_money_unset_and_keep_safe_non_money_values() {

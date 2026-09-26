@@ -17,6 +17,7 @@ export function integrationBridge(): Plugin {
       const childEnv: NodeJS.ProcessEnv = { ...process.env, TRADEX_BACKTEST_FIXTURE: '1', TRADEX_MARKET_FIXTURE: '1', TRADEX_RESEARCH_FIXTURE: '1', TRADEX_SCREENER_FIXTURE: '1', TRADEX_STRATEGY_FIXTURE: '1' };
       // Local Paper is the default browser portfolio; broker fixtures stay an explicit regression mode.
       if (process.env.TRADEX_PORTFOLIO_FIXTURE === '1') childEnv.TRADEX_PORTFOLIO_FIXTURE = '1';
+      if (process.env.TRADEX_LIVE_APPROVAL_FIXTURE === '1') childEnv.TRADEX_LIVE_APPROVAL_FIXTURE = '1';
       const child = spawn(resolve('target/debug/tradex-ipc'), [join(directory, 'workspace')], {
         stdio: ['pipe', 'pipe', 'inherit'],
         env: childEnv,

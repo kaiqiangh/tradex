@@ -860,6 +860,8 @@ struct RiskDecision {
 
 Each input reference carries its kind, bounded reference ID, SHA-256 digest, and optional observed time. Each check carries a stable ID, `PASS` / `REJECT` / `UNAVAILABLE`, reason code, and sanitized explanation. A rejection takes precedence; with no rejection, any unavailable check makes the decision unavailable. Null policy limits are explicitly `LIMIT_NOT_CONFIGURED`; missing evidence for a configured limit is never converted to zero.
 
+Input digests cover canonical material evidence rather than read-time metadata. They exclude policy update time, portfolio collection/row observation times and FX receipt time, market instrument/session observation times, and moving wall-clock/monotonic samples. Account and policy state, portfolio values/holdings/open orders/fills, quote identity/prices/source/venue/entitlement/freshness, and time confidence/provider offset remain bound. Quote `providerTimestamp`, `receivedTimestamp`, and market-state `providerTime` are parsed, converted to UTC, and formatted as canonical RFC3339 before hashing. Revalidation compares these digests and the current checks; quote and instrument-state freshness are separately recomputed against trusted time with full subsecond precision, and future-dated evidence is unavailable.
+
 Persist each decision separately from its proposal as an append-only `risk.decision.evaluated` event, keyed by workspace + proposal and a per-proposal sequence. Re-evaluation adds history and cannot mutate the proposal/hash. The renderer supplies only workspace/proposal IDs; the Control Plane loads policy, exact account, complete workspace portfolio, market/time and existing activity evidence and computes every check. Submission paths re-evaluate through the same evaluator and reject `REJECTED` / `UNAVAILABLE` before an attempt or provider/simulator I/O. Errors are distinct: `RISK_REJECTED` and `RISK_EVIDENCE_UNAVAILABLE`.
 
 Non-local execution requires trusted real-time quote provenance, a trusted clock, an authoritative open market session, and authoritative provider instrument rules. Until the owning adapters produce those inputs, the result remains `UNAVAILABLE`; this slice adds no market, calendar, FX, fills, reservation, or provider-rule collection. A policy result is not financial approval, arming, reservation, or gateway authorization. Ordinary Bitget `LIVE` maps to `RiskPolicyEnvironment::Live`; this decision path makes no provider request and offers no Bitget Demo or Live write authority.
@@ -951,9 +953,15 @@ ApprovedFinancialIntent is a tagged union: PLACE_ORDER binds proposal_id/proposa
 - invalidated on relevant policy change;
 - invalid when market snapshot/clock conditions no longer satisfy execution checks.
 
+An approval review is not an approval. `trade.request_approval` returns a backend-built review bound to the current immutable proposal and an `ALLOWED` RiskDecision. It includes the provider/account/LIVE identity, proposal fields, full available quote provenance, quote age calculated from the trusted review time and TradeX received timestamp, and risk checks. BUY orders show expected spend; SELL orders show expected proceeds; both show the maximum authorized amount. Estimated fees and slippage are optional trusted estimates and remain explicitly unavailable when no estimator supplies them. The review's RiskDecision ID is only a compare-and-revalidate token, never authority supplied by the renderer. `trade.approve` re-reads and re-evaluates all inputs and issues only if the user-reviewed proposal and evidence remain unchanged. The native UI may issue it only from an explicit Approve action; generic Codex approval, Enter, and Agent requests are not approval actions.
+
+The issued approval binds the workspace, immutable proposal ID/hash, Live account and environment, `PLACE_ORDER`, policy version, the reviewed evidence digest, and the single explicit approval action. The backend sets its ID, nonce, issue time, and expiry. Its initial lifetime is at most 30 seconds and uses trusted `TimeService`; an untrusted clock blocks issuance and expires/invalidate checks fail closed. The review and approval history contains sanitized reasons and evidence references only, never credentials, signatures, or raw provider bodies.
+
+An explicit Reject records a durable `USER_REJECTED` audit action and does not create a `FinancialApproval`. Edits/refreshes, account disarm or health changes, policy or material RiskDecision/quote changes, untrusted time, and expiry durably invalidate an issued approval. A later `trade.approval.list` read also performs the current backend validity check, so non-streamed quote or clock changes are recorded before the approval is shown as current or used.
+
 ### 20.3 Approval consumption
 
-Consumption is transactional with pre-execution validation and reservation creation. A consumed approval cannot be reused.
+Approval issuance in S22 does not consume the approval or create a reservation. S23 owns transactional consumption with pre-execution validation and reservation creation. A consumed approval cannot be reused.
 
 ---
 
@@ -1848,9 +1856,10 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Save editable draft | trade.save_draft | draft_id when updating, draft fields, expected_state_version when updating; no authority granted |
 | Generate proposal | trade.generate_proposal | draft_id, expected_draft_version; backend generates immutable identity/hash |
 | Refresh stale proposal | trade.refresh_proposal | proposal_id, expected_state_version; return a new proposal and invalidate old consent |
-| Request approval | trade.request_approval | proposal_id, expected_state_version; returns eligibility and immutable approval summary |
-| Explicitly approve | trade.approve | proposal_id, proposal_hash, approval_id, expected_state_version; consume only after backend revalidation |
-| Reject approval | trade.reject | approval_id, expected_state_version; no broker action |
+| Request approval review | trade.request_approval | workspace_id, proposal_id; returns backend-owned proposal/account/quote summary and current RiskDecision ID for comparison; does not issue authority |
+| Explicitly approve | trade.approve | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; backend revalidates the exact review and creates a short-lived approval; no consumption or reservation |
+| Reject approval review | trade.reject | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; records `USER_REJECTED`; no approval or broker action |
+| Read approval history | trade.approval.list | workspace_id, proposal_id; returns issued, rejected, invalidated, expired, and later consumed states with sanitized audit reasons |
 | Prepare cancellation | trade.cancel_request | account_id, broker_order_id, expected_state_version; fetch provider state and return immutable cancellation intent |
 | Approve cancellation | trade.cancel_approve | cancellation_intent_id, approval_id, expected_state_version; operation is always CANCEL |
 | Inspect resolution evidence | trade.resolution_evidence | execution_attempt_id, account_id; return backend-owned evidence and allowed decisions |

@@ -860,6 +860,8 @@ struct RiskDecision {
 
 每项输入引用包含 kind、有界 reference ID、SHA-256 摘要及可选观察时间。每项检查包含稳定 ID、`PASS` / `REJECT` / `UNAVAILABLE`、reason code 与脱敏解释。任一拒绝优先；没有拒绝但至少一项 unavailable 时，总体为 unavailable。null 策略限额明确记录 `LIMIT_NOT_CONFIGURED`;已配置限额所需证据缺失时不能转成零。
 
+输入摘要覆盖规范化后的实质证据，不包含仅读取时元数据。摘要排除策略更新时间、组合采集/行观察时间与 FX 接收时间、行情标的/时段观察时间，以及不断变化的 wall-clock/monotonic 样本；账户与策略状态、组合估值/持仓/未结订单/成交、报价身份/价格/来源/venue/entitlement/freshness，以及时钟可信度/provider offset 仍会绑定。报价 `providerTimestamp`、`receivedTimestamp` 和市场状态 `providerTime` 在哈希前会解析、转换为 UTC，并格式化为规范 RFC3339。重新验证会比较这些摘要和当前检查；报价与仪器状态 freshness 仍会基于可信时钟重新计算并保留亚秒精度，未来时间戳的证据视为 unavailable。
+
 每条 decision 与 proposal 分开持久化为 append-only `risk.decision.evaluated` 事件，以 workspace + proposal 和每 proposal 连续序号为键。重新求值只追加历史，不改变 proposal/hash。Renderer 仅传 workspace/proposal ID;Control Plane 自行读取 policy、准确账户、完整 workspace Portfolio、market/time 与已有活动证据并计算全部检查。提交路径使用同一 evaluator 重新求值，并在创建 attempt 或进行 provider/simulator I/O 前拒绝 `REJECTED` / `UNAVAILABLE`。错误保持区分：`RISK_REJECTED` 与 `RISK_EVIDENCE_UNAVAILABLE`。
 
 非本地执行要求可信实时行情来源、受信时钟、权威开盘状态和权威 provider 标的规则。在对应适配器提供这些输入之前，结果保持 `UNAVAILABLE`;本切片不新增行情、日历、FX、成交、预留或 provider-rule 采集。策略结果不代表金融审批、Arm、预留或 Gateway 授权。普通 Bitget `LIVE` 映射至 `RiskPolicyEnvironment::Live`;本决策路径不调用 provider，也不给 Bitget Demo/Live 写入权限。
@@ -951,9 +953,15 @@ ApprovedFinancialIntent 是带类型标签的联合：PLACE_ORDER 绑定 proposa
 - relevant policy change 时 invalidated；
 - market snapshot/clock condition 不再满足时不可执行。
 
+审批审阅不等于审批授权。`trade.request_approval` 返回由后端构建、绑定当前不可变 proposal 与 `ALLOWED` RiskDecision 的审阅内容，包括 provider/账户/LIVE 身份、proposal 字段、完整可用报价来源信息、基于受信审阅时间和 TradeX 接收时间计算的报价年龄，以及风险检查。买单显示预期支出；卖单显示预期收入；两者均显示最大授权金额。估算费用与滑点属于可选的受信估算；没有估算来源时必须明确显示为 unavailable。审阅返回的 RiskDecision ID 只用于比较并重新校验，不能作为 renderer 提交的授权依据。`trade.approve` 会重新读取并求值所有输入；只有用户审阅的 proposal 与证据仍未变化时才签发。原生 UI 只能由明确的 Approve 操作触发签发；Codex 通用 approval、Enter 和 Agent 请求均不构成批准操作。
+
+已签发 approval 绑定 workspace、不可变 proposal ID/hash、Live 账户与环境、`PLACE_ORDER`、policy version、审阅证据摘要和这一次明确的批准操作。approval ID、nonce、签发时间和过期时间均由后端设置。初始有效期最长 30 秒，并使用可信 `TimeService`；时钟不可信时阻止签发，过期/失效检查 fail closed。审阅与 approval 历史只包含脱敏原因和证据引用，不包含凭据、签名串或原始 provider body。
+
+明确 Reject 会持久记录 `USER_REJECTED` 审计操作，且不会创建 `FinancialApproval`。编辑/刷新、账户撤防或健康变化、policy 或有实质影响的 RiskDecision/报价变化、时间失信和过期都会持久失效已签发的 approval。之后读取 `trade.approval.list` 时也会重新检查当前后端有效性，因此非流式报价或时钟变化会在 UI 将 approval 显示为当前状态或使用前被记录。
+
 ### 20.3 Approval consumption
 
-Consumption 与 pre-execution validation、reservation creation 处于同一事务流程。已 consumed approval 不能复用。
+S22 的 approval 签发不会消费 approval，也不会创建 reservation。S23 负责将消费与 pre-execution validation、reservation creation 放在同一事务中。已 consumed approval 不能复用。
 
 ---
 
@@ -1848,9 +1856,10 @@ interface TradeXError {
 | 保存可编辑草稿 | trade.save_draft | 更新时含 draft_id、草稿字段和 expected_state_version；不授予权限 |
 | 生成 proposal | trade.generate_proposal | draft_id、expected_draft_version；后端生成不可变身份/hash |
 | 刷新陈旧 proposal | trade.refresh_proposal | proposal_id、expected_state_version；返回新 proposal 并使旧同意失效 |
-| 请求审批 | trade.request_approval | proposal_id、expected_state_version；返回可执行性与不可变审批摘要 |
-| 显式批准 | trade.approve | proposal_id、proposal_hash、approval_id、expected_state_version；后端重新校验后才能消费 |
-| 拒绝审批 | trade.reject | approval_id、expected_state_version；不执行券商操作 |
+| 请求审批审阅 | trade.request_approval | workspace_id、proposal_id；返回后端持有的 proposal/账户/报价摘要和当前 RiskDecision ID 供比较；不签发授权 |
+| 显式批准 | trade.approve | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；后端重新校验完整审阅并创建短时 approval；不消费、不创建 reservation |
+| 拒绝审批审阅 | trade.reject | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；记录 `USER_REJECTED`；不创建 approval 或执行券商操作 |
+| 读取审批历史 | trade.approval.list | workspace_id、proposal_id；返回已签发、已拒绝、已失效、已过期及后续已消费状态和脱敏审计原因 |
 | 准备撤单 | trade.cancel_request | account_id、broker_order_id、expected_state_version；查询提供方状态并返回不可变撤单意图 |
 | 批准撤单 | trade.cancel_approve | cancellation_intent_id、approval_id、expected_state_version；operation 始终为 CANCEL |
 | 查看处置证据 | trade.resolution_evidence | execution_attempt_id、account_id；返回后端持有的证据与允许的决策 |

@@ -30,6 +30,7 @@ mod storage;
 pub mod strategy;
 pub mod time;
 
+use ::time::{Duration as TimeDuration, OffsetDateTime, format_description::well_known::Rfc3339};
 use capability::{CapabilityQuery, ResearchToolId};
 use protocol::{
     Aggregate, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult,
@@ -65,6 +66,7 @@ use providers::*;
 use risk::RiskPolicyState;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -1280,6 +1282,129 @@ fn provider_order_consumer_allowed(consumer: &str) -> bool {
     consumer == "main" || (cfg!(feature = "integration-test") && consumer == "stdio")
 }
 
+fn live_provider_id(environment: &protocol::ExecutionContext) -> Option<&'static str> {
+    match environment {
+        protocol::ExecutionContext::Trading212Live => Some("trading212"),
+        protocol::ExecutionContext::BinanceLive => Some("binance"),
+        protocol::ExecutionContext::BitgetLive => Some("bitget"),
+        _ => None,
+    }
+}
+
+fn proposal_value(
+    proposal: &protocol::OrderProposal,
+    market: Option<&protocol::MarketDetail>,
+) -> Option<String> {
+    use protocol::{OrderQuantityType, OrderSide, OrderType};
+    if proposal.fields.quantity.r#type == OrderQuantityType::Quote {
+        return Some(proposal.fields.quantity.value.clone());
+    }
+    let price = match (proposal.fields.order_type, proposal.fields.side) {
+        (OrderType::Limit, _) => proposal.fields.limit_price.as_deref(),
+        (OrderType::Market, OrderSide::Buy) => market
+            .and_then(|market| market.snapshot.as_ref())
+            .and_then(|snapshot| snapshot.ask.as_deref()),
+        (OrderType::Market, OrderSide::Sell) => market
+            .and_then(|market| market.snapshot.as_ref())
+            .and_then(|snapshot| snapshot.bid.as_deref()),
+    }?;
+    crate::portfolio::decimal_mul(price, &proposal.fields.quantity.value).ok()
+}
+
+fn quote_age_ms(
+    time_status: &protocol::TimeStatus,
+    market: Option<&protocol::MarketDetail>,
+) -> Option<u64> {
+    let received = market?
+        .snapshot
+        .as_ref()?
+        .provenance
+        .received_timestamp
+        .as_str();
+    let now = OffsetDateTime::parse(&time_status.wall_clock, &Rfc3339).ok()?;
+    let received = OffsetDateTime::parse(received, &Rfc3339).ok()?;
+    u64::try_from((now - received).whole_milliseconds()).ok()
+}
+
+fn approval_review_digest(
+    proposal: &protocol::OrderProposal,
+    account: Option<&AccountConnection>,
+    market: Option<&protocol::MarketDetail>,
+    policy: Option<&risk::RiskPolicyState>,
+    bound_decision: &risk::RiskDecision,
+    current_decision: &risk::RiskDecision,
+    time_status: &protocol::TimeStatus,
+) -> Result<String> {
+    let mut market =
+        serde_json::to_value(market).map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+    // Observation times advance during reads; the quote's provider and receipt timestamps are
+    // material review data and remain bound after canonicalization.
+    if let Some(state) = market
+        .get_mut("instrumentState")
+        .and_then(Value::as_object_mut)
+    {
+        state.remove("observedAt");
+    }
+    if let Some(state) = market.get_mut("marketState").and_then(Value::as_object_mut) {
+        state.remove("observedAt");
+        risk::canonicalize_timestamp_field(state.get_mut("providerTime"));
+    }
+    if let Some(provenance) = market
+        .get_mut("snapshot")
+        .and_then(Value::as_object_mut)
+        .and_then(|snapshot| snapshot.get_mut("provenance"))
+        .and_then(Value::as_object_mut)
+    {
+        risk::canonicalize_timestamp_field(provenance.get_mut("providerTimestamp"));
+        risk::canonicalize_timestamp_field(provenance.get_mut("receivedTimestamp"));
+    }
+    let material = json!({
+        "proposal": {
+            "workspaceId": proposal.workspace_id,
+            "proposalId": proposal.proposal_id,
+            "proposalHash": proposal.proposal_hash,
+            "stateVersion": proposal.state_version,
+            "fields": proposal.fields,
+            "policyVersion": proposal.policy_version,
+            "policyStateVersion": proposal.policy_state_version,
+            "policyStatus": proposal.policy_status,
+            "marketSnapshotId": proposal.market_snapshot_id,
+            "status": proposal.status,
+        },
+        "account": account,
+        "policy": policy,
+        "market": market,
+        "boundRiskDecision": {
+            "decisionId": bound_decision.decision_id,
+            "proposalHash": bound_decision.proposal_hash,
+            "accountId": bound_decision.account_id,
+            "environment": bound_decision.environment,
+            "policyVersion": bound_decision.policy_version,
+            "status": bound_decision.status,
+            "checks": bound_decision.checks,
+            "inputs": bound_decision.inputs.iter().map(|input| json!({
+                "kind": input.kind,
+                "digest": input.digest,
+            })).collect::<Vec<_>>(),
+        },
+        "currentRiskChecks": {
+            "status": current_decision.status,
+            "checks": current_decision.checks,
+            "inputs": current_decision.inputs.iter().map(|input| json!({
+                "kind": input.kind,
+                "digest": input.digest,
+            })).collect::<Vec<_>>(),
+        },
+        "time": {
+            "confidence": time_status.confidence,
+            "providerOffsetMs": time_status.provider_offset_ms,
+        },
+    });
+    let bytes =
+        serde_json::to_vec(&material).map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
 fn empty_alpaca_paper_order_book(account: &AccountConnection) -> Result<AlpacaPaperOrderBook> {
     let remote_account_id = account
         .data
@@ -1388,6 +1513,8 @@ pub struct ControlPlane {
     time: time::TimeService,
     live_arming_since: HashMap<String, Instant>,
     pending_live_disarm: Option<(String, bool)>,
+    #[cfg(test)]
+    live_approval_fixture_enabled: bool,
 }
 
 impl ControlPlane {
@@ -1402,11 +1529,18 @@ impl ControlPlane {
             time: time::TimeService::new(),
             live_arming_since: HashMap::new(),
             pending_live_disarm: None,
+            #[cfg(test)]
+            live_approval_fixture_enabled: false,
         }
     }
 
     pub fn dispatch(&mut self, request: Value) -> Value {
         self.dispatch_with_events(request, "headless", None)
+    }
+
+    #[cfg(test)]
+    fn enable_live_approval_fixture(&mut self) {
+        self.live_approval_fixture_enabled = true;
     }
 
     pub fn resume(&mut self) -> Result<()> {
@@ -1749,6 +1883,194 @@ impl ControlPlane {
                 let decision =
                     self.evaluate_risk_decision(&input.workspace_id, &input.proposal_id)?;
                 Ok((json!(decision), Some(decision.state_version.clone())))
+            }
+            "trade.request_approval" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::ApprovalReviewRequest = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                storage::validate_order_proposal_id(&input.proposal_id)?;
+                let proposal = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .order_proposal(&input.proposal_id)?;
+                if proposal.workspace_id != input.workspace_id {
+                    return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+                }
+                let mut review = self.build_approval_review(&proposal, None)?;
+                let event = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .append_risk_decision((*review.risk_decision).clone())?;
+                let DomainProjection::RiskDecision(decision) = &event.payload else {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                };
+                review.risk_decision = decision.clone();
+                self.publish(&event);
+                Ok((
+                    json!(review),
+                    Some(review.risk_decision.state_version.clone()),
+                ))
+            }
+            "trade.approve" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::ApprovalAction = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let (proposal, bound_decision) = self.current_approval_binding(
+                    &input.workspace_id,
+                    &input.proposal_id,
+                    &input.reviewed_risk_decision_id,
+                )?;
+                if proposal.proposal_hash != input.proposal_hash
+                    || proposal.state_version != input.expected_state_version
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let review = self.build_approval_review(&proposal, Some(bound_decision.clone()))?;
+                if !review.eligible
+                    || review.review_digest != input.review_digest
+                    || review.risk_decision.decision_id != input.reviewed_risk_decision_id
+                    || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                self.time.require_trusted()?;
+                let account_id = proposal
+                    .fields
+                    .account_id
+                    .as_deref()
+                    .ok_or_else(|| TradeXError::new("ACCOUNT_NOT_FOUND"))?;
+                let now = self.time.status(&input.workspace_id)?.wall_clock;
+                let expires_at = (OffsetDateTime::parse(&now, &Rfc3339)
+                    .map_err(|_| TradeXError::new("CLOCK_SKEW"))?
+                    + TimeDuration::seconds(30))
+                .format(&Rfc3339)
+                .map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+                let approval = protocol::FinancialApproval {
+                    approval_id: uuid::Uuid::new_v4().to_string(),
+                    workspace_id: input.workspace_id.clone(),
+                    proposal_id: proposal.proposal_id.clone(),
+                    proposal_hash: proposal.proposal_hash.clone(),
+                    account_id: account_id.into(),
+                    environment: proposal.fields.environment.clone(),
+                    operation: protocol::FinancialOperation::PlaceOrder,
+                    policy_version: bound_decision
+                        .policy_version
+                        .ok_or_else(|| TradeXError::new("RISK_POLICY_UNCONFIGURED"))?,
+                    risk_decision_id: bound_decision.decision_id,
+                    review_digest: review.review_digest,
+                    issued_at: now.clone(),
+                    expires_at,
+                    updated_at: now.clone(),
+                    status: protocol::FinancialApprovalStatus::Issued,
+                    invalidation_reason: None,
+                    consumed_at: None,
+                    state_version: String::new(),
+                };
+                let (approval, events) = self.store.as_mut().unwrap().issue_financial_approval(
+                    approval,
+                    &input.expected_state_version,
+                    &uuid::Uuid::new_v4().to_string(),
+                    &now,
+                )?;
+                for event in &events {
+                    self.publish(event);
+                }
+                Ok((json!(approval), Some(approval.state_version.clone())))
+            }
+            "trade.reject" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::ApprovalAction = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let (proposal, bound_decision) = self.current_approval_binding(
+                    &input.workspace_id,
+                    &input.proposal_id,
+                    &input.reviewed_risk_decision_id,
+                )?;
+                if proposal.proposal_hash != input.proposal_hash
+                    || proposal.state_version != input.expected_state_version
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let review = self.build_approval_review(&proposal, Some(bound_decision.clone()))?;
+                if review.review_digest != input.review_digest {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let mut rejection = protocol::ApprovalRejection {
+                    audit_id: uuid::Uuid::new_v4().to_string(),
+                    workspace_id: input.workspace_id.clone(),
+                    proposal_id: proposal.proposal_id.clone(),
+                    proposal_hash: proposal.proposal_hash.clone(),
+                    risk_decision_id: bound_decision.decision_id,
+                    review_digest: review.review_digest,
+                    reason: protocol::ApprovalRejectionReason::UserRejected,
+                    occurred_at: self.time.status(&input.workspace_id)?.wall_clock,
+                    state_version: String::new(),
+                };
+                let event = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .reject_approval_review(rejection.clone(), &input.expected_state_version)?;
+                let DomainProjection::ApprovalRejection(saved) = &event.payload else {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                };
+                rejection = (**saved).clone();
+                self.publish(&event);
+                Ok((json!(rejection), Some(rejection.state_version.clone())))
+            }
+            "trade.approval.list" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::FinancialApprovalHistoryQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let proposal = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .order_proposal(&input.proposal_id)?;
+                if proposal.workspace_id != input.workspace_id {
+                    return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+                }
+                let latest = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .risk_decision_history(&input.workspace_id, &input.proposal_id)?
+                    .decisions
+                    .into_iter()
+                    .last();
+                let review = self.build_approval_review(&proposal, latest)?;
+                let now = self.time.status(&input.workspace_id)?.wall_clock;
+                let events = self.store.as_mut().unwrap().reconcile_financial_approvals(
+                    &input.workspace_id,
+                    &input.proposal_id,
+                    Some(&review.review_digest),
+                    review.eligible,
+                    review
+                        .blockers
+                        .first()
+                        .map(String::as_str)
+                        .unwrap_or("REVIEW_INELIGIBLE"),
+                    &now,
+                )?;
+                for event in &events {
+                    self.publish(event);
+                }
+                let history = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .financial_approval_history(&input.workspace_id, &input.proposal_id)?;
+                Ok((json!(history), None))
             }
             "risk.decision.list" => {
                 let input: risk::RiskDecisionQuery = payload(request.payload)?;
@@ -5264,6 +5586,50 @@ impl ControlPlane {
         market::detail_with_fixture(&input, source, calendar_source, &time_status, fixture)
     }
 
+    fn approval_market_detail_for(
+        &mut self,
+        proposal: &protocol::OrderProposal,
+        account: Option<&AccountConnection>,
+    ) -> Result<protocol::MarketDetail> {
+        #[cfg(any(test, feature = "integration-test"))]
+        {
+            let input = MarketGetQuery {
+                workspace_id: proposal.workspace_id.clone(),
+                instrument_id: proposal.fields.instrument_id.clone(),
+                tier: MarketTier::Census,
+            };
+            if live_provider_id(&proposal.fields.environment).is_some()
+                && (std::env::var("TRADEX_LIVE_APPROVAL_FIXTURE").as_deref() == Ok("1") || {
+                    #[cfg(test)]
+                    {
+                        self.live_approval_fixture_enabled
+                    }
+                    #[cfg(not(test))]
+                    {
+                        false
+                    }
+                })
+            {
+                let account = account.ok_or_else(|| TradeXError::new("ACCOUNT_NOT_FOUND"))?;
+                return market::live_approval_fixture_detail(
+                    &input,
+                    &account.provider_id,
+                    &proposal.fields.venue,
+                    &self.time.status(&proposal.workspace_id)?.wall_clock,
+                    &proposal.created_at,
+                );
+            }
+        }
+        #[cfg(not(any(test, feature = "integration-test")))]
+        let _ = account;
+        self.market_detail_for(
+            &proposal.workspace_id,
+            &proposal.fields.instrument_id,
+            &MarketTier::Census,
+            false,
+        )
+    }
+
     fn evaluate_risk_decision(
         &mut self,
         workspace_id: &str,
@@ -5297,6 +5663,20 @@ impl ControlPlane {
         proposal: &protocol::OrderProposal,
         policy: Option<risk::RiskPolicyState>,
     ) -> Result<risk::RiskDecision> {
+        self.build_risk_evaluation(proposal, policy)
+            .map(|(decision, _, _, _)| decision)
+    }
+
+    fn build_risk_evaluation(
+        &mut self,
+        proposal: &protocol::OrderProposal,
+        policy: Option<risk::RiskPolicyState>,
+    ) -> Result<(
+        risk::RiskDecision,
+        Option<AccountConnection>,
+        Option<protocol::MarketDetail>,
+        protocol::TimeStatus,
+    )> {
         let workspace_id = proposal.workspace_id.as_str();
         let unsupported_bitget_demo =
             proposal.fields.environment == protocol::ExecutionContext::BitgetDemo;
@@ -5320,12 +5700,7 @@ impl ControlPlane {
         let market = if unsupported_bitget_demo {
             None
         } else {
-            Some(self.market_detail_for(
-                workspace_id,
-                &proposal.fields.instrument_id,
-                &MarketTier::Census,
-                false,
-            )?)
+            Some(self.approval_market_detail_for(proposal, account.as_ref())?)
         };
         let time_status = self.time.status(workspace_id)?;
         let portfolio_input_id = portfolio.as_ref().map_or_else(
@@ -5390,7 +5765,178 @@ impl ControlPlane {
             inputs,
             storage::timestamp()?,
         );
-        Ok(decision)
+        Ok((decision, account, market, time_status))
+    }
+
+    fn build_approval_review(
+        &mut self,
+        proposal: &protocol::OrderProposal,
+        bound_decision: Option<risk::RiskDecision>,
+    ) -> Result<protocol::ApprovalReview> {
+        if !matches!(
+            proposal.fields.environment,
+            protocol::ExecutionContext::Trading212Live
+                | protocol::ExecutionContext::BinanceLive
+                | protocol::ExecutionContext::BitgetLive
+        ) || proposal.status != protocol::OrderProposalStatus::NeedsApproval
+        {
+            return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
+        }
+        let policy = self.store.as_ref().unwrap().risk_or_new()?;
+        let (current_decision, account, market, time_status) =
+            self.build_risk_evaluation(proposal, policy.clone())?;
+        let bound = bound_decision.unwrap_or_else(|| current_decision.clone());
+        let decision_matches = bound.status == current_decision.status
+            && bound.checks == current_decision.checks
+            && bound.proposal_hash == current_decision.proposal_hash
+            && bound.account_id == current_decision.account_id
+            && bound.policy_version == current_decision.policy_version
+            && bound.inputs.len() == current_decision.inputs.len()
+            && bound
+                .inputs
+                .iter()
+                .zip(&current_decision.inputs)
+                .all(|(bound, current)| {
+                    bound.kind == current.kind && bound.digest == current.digest
+                });
+        let mut blockers: Vec<String> = current_decision
+            .checks
+            .iter()
+            .filter(|check| check.outcome != risk::RiskCheckOutcome::Pass)
+            .map(|check| format!("{:?}: {}", check.check_id, check.reason))
+            .collect();
+        if !decision_matches {
+            blockers.push(
+                "RISK_DECISION_CHANGED: Current risk checks differ from the reviewed decision."
+                    .into(),
+            );
+        }
+        if self.time.require_trusted().is_err() {
+            blockers.push("CLOCK_UNTRUSTED: Synchronize system time before Live approval.".into());
+        }
+        let account_matches = account.as_ref().is_some_and(|account| {
+            Some(account.connection_id.as_str()) == proposal.fields.account_id.as_deref()
+                && account.environment == "LIVE"
+                && account.connection_state == ConnectionState::Connected
+                && account.health.arming == "ARMED"
+                && Some(account.provider_id.as_str())
+                    == live_provider_id(&proposal.fields.environment)
+        });
+        if !account_matches {
+            blockers.push(
+                "ACCOUNT_NOT_ELIGIBLE: The selected Live account is not connected and armed."
+                    .into(),
+            );
+        }
+        let market_current = market.as_ref().is_some_and(|market| {
+            market.status == protocol::MarketDataStatus::Available
+                && market.snapshot.as_ref().is_some_and(|snapshot| {
+                    snapshot.provenance.freshness == protocol::MarketFreshness::Healthy
+                        && snapshot.instrument_id == proposal.fields.instrument_id
+                })
+                && market.instrument_state.as_ref().is_some_and(|state| {
+                    state.status == protocol::InstrumentTradingStatus::Tradable
+                        && state.venue == proposal.fields.venue
+                })
+        });
+        if !market_current {
+            blockers.push("LIVE_MARKET_EVIDENCE_UNAVAILABLE: Current provider quote and tradability are required.".into());
+        }
+        let expected_spend = proposal_value(proposal, market.as_ref());
+        let maximum_authorized_spend = if proposal.fields.order_type == protocol::OrderType::Market
+        {
+            proposal.fields.maximum_spend.clone()
+        } else {
+            proposal_value(proposal, market.as_ref())
+        };
+        let quote_age_ms = quote_age_ms(&time_status, market.as_ref());
+        if expected_spend.is_none() || maximum_authorized_spend.is_none() {
+            blockers.push(
+                "EXACT_SPEND_UNAVAILABLE: Exact expected and maximum spend must be known.".into(),
+            );
+        }
+        if quote_age_ms.is_none() {
+            blockers.push("QUOTE_AGE_UNAVAILABLE: A trustworthy quote age is required.".into());
+        }
+        if proposal.fields.order_type == protocol::OrderType::Market
+            && proposal.fields.maximum_spend.is_none()
+        {
+            blockers.push(
+                if proposal.fields.side == protocol::OrderSide::Sell {
+                    "MARKET_MAXIMUM_SELL_VALUE_REQUIRED: Set a maximum sale value for this market order."
+                } else {
+                    "MARKET_MAXIMUM_SPEND_REQUIRED: Set a maximum spend for this market order."
+                }
+                .into(),
+            );
+        }
+        blockers.sort();
+        blockers.dedup();
+        blockers.truncate(32);
+        let spread = market.as_ref().and_then(|market| {
+            let snapshot = market.snapshot.as_ref()?;
+            crate::portfolio::decimal_add(
+                snapshot.ask.as_deref()?,
+                &format!("-{}", snapshot.bid.as_deref()?),
+            )
+            .ok()
+        });
+        let decision_for_review = bound.clone();
+        let review_digest = approval_review_digest(
+            proposal,
+            account.as_ref(),
+            market.as_ref(),
+            policy.as_ref(),
+            &bound,
+            &current_decision,
+            &time_status,
+        )?;
+        Ok(protocol::ApprovalReview {
+            workspace_id: proposal.workspace_id.clone(),
+            proposal: Box::new(proposal.clone()),
+            account: account.map(Box::new),
+            market: Box::new(market.ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?),
+            risk_decision: Box::new(decision_for_review),
+            review_digest,
+            eligible: blockers.is_empty()
+                && current_decision.status == risk::RiskDecisionStatus::Allowed,
+            blockers,
+            quote_age_ms,
+            expected_spend,
+            maximum_authorized_spend,
+            spread,
+            // No trusted Live fee or size-aware slippage estimator is available yet.
+            estimated_fees: None,
+            estimated_slippage_percent: None,
+            reviewed_at: time_status.wall_clock,
+        })
+    }
+
+    fn current_approval_binding(
+        &self,
+        workspace_id: &str,
+        proposal_id: &str,
+        risk_decision_id: &str,
+    ) -> Result<(protocol::OrderProposal, risk::RiskDecision)> {
+        storage::validate_order_proposal_id(proposal_id)?;
+        let store = self.store.as_ref().unwrap();
+        let proposal = store.order_proposal(proposal_id)?;
+        if proposal.workspace_id != workspace_id
+            || proposal.status != protocol::OrderProposalStatus::NeedsApproval
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let history = store.risk_decision_history(workspace_id, proposal_id)?;
+        let decision = history
+            .decisions
+            .into_iter()
+            .last()
+            .filter(|decision| decision.decision_id == risk_decision_id)
+            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
+        if decision.proposal_hash != proposal.proposal_hash {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        Ok((proposal, decision))
     }
 
     fn require_risk_allowed(&mut self, workspace_id: &str, proposal_id: &str) -> Result<()> {
@@ -9321,6 +9867,12 @@ mod thread_tests {
             .execute("DROP TABLE risk_decisions", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE financial_approvals", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE approval_rejections", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -9822,6 +10374,607 @@ mod thread_tests {
         ));
         assert_eq!(cross_workspace["ok"], false);
         assert_eq!(cross_workspace["error"]["code"], "ORDER_DRAFT_NOT_FOUND");
+    }
+}
+
+#[cfg(test)]
+mod live_approval_tests {
+    use super::*;
+
+    fn request(command: &str, payload: Value) -> Value {
+        json!({
+            "requestId": format!("live-approval-{command}"),
+            "schemaVersion": 1,
+            "command": command,
+            "payload": payload,
+        })
+    }
+
+    fn dispatch(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
+        control.dispatch(request(command, payload))
+    }
+
+    fn dispatch_main(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
+        control.dispatch_with_events(request(command, payload), "main", None)
+    }
+
+    fn live_proposal(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account: &AccountConnection,
+    ) -> Value {
+        let current = dispatch(
+            control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let mut policy = current["data"]["policy"].clone();
+        policy["staleQuoteThresholdSeconds"] = 120.into();
+        let saved = dispatch(
+            control,
+            "risk.save_policy",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": current["data"]["stateVersion"],
+                "policy": policy,
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+
+        control.time.set_test_time(
+            OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000,
+            100,
+        );
+
+        let revalidated = dispatch(
+            control,
+            "time.revalidate",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(
+            revalidated["data"]["confidence"], "TRUSTED",
+            "{revalidated}"
+        );
+        let armed = dispatch(
+            control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace_id,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+
+        let draft = dispatch(
+            control,
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "fields": {
+                    "accountId": account.connection_id,
+                    "venue": "BINANCE",
+                    "environment": "BINANCE_LIVE",
+                    "instrumentId": "crypto:BTC/USDT:spot",
+                    "side": "BUY",
+                    "orderType": "LIMIT",
+                    "quantity": {"type":"BASE","value":"0.01"},
+                    "limitPrice": "50000",
+                    "timeInForce": "GTC",
+                },
+            }),
+        );
+        assert_eq!(draft["ok"], true, "{draft}");
+        let proposal = dispatch(
+            control,
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft["data"]["draftId"],
+                "expectedDraftVersion": 1,
+            }),
+        );
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        let created_at =
+            OffsetDateTime::parse(proposal["data"]["createdAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap();
+        control
+            .time
+            .set_test_time(created_at.unix_timestamp_nanos() / 1_000_000 + 10, 110);
+        assert_eq!(
+            control.time.status(workspace_id).unwrap().confidence,
+            protocol::TimeConfidence::Trusted
+        );
+        proposal["data"].clone()
+    }
+
+    fn reviewed_live_fixture() -> (
+        tempfile::TempDir,
+        ControlPlane,
+        String,
+        AccountConnection,
+        Value,
+        Value,
+    ) {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        control.enable_live_approval_fixture();
+        let opened = dispatch(&mut control, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account = control
+            .seed_live_arming_fixture(&workspace_id, "binance", "approval fixture")
+            .unwrap();
+        let proposal = live_proposal(&mut control, &workspace_id, &account);
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["eligible"], true, "{review}");
+        (
+            folder,
+            control,
+            workspace_id,
+            account,
+            proposal,
+            review["data"].clone(),
+        )
+    }
+
+    fn approval_action(workspace_id: &str, proposal: &Value, review: &Value) -> Value {
+        json!({
+            "workspaceId": workspace_id,
+            "proposalId": proposal["proposalId"],
+            "proposalHash": proposal["proposalHash"],
+            "reviewedRiskDecisionId": review["riskDecision"]["decisionId"],
+            "reviewDigest": review["reviewDigest"],
+            "expectedStateVersion": proposal["stateVersion"],
+        })
+    }
+
+    fn assert_no_approval_or_order_attempt(
+        control: &ControlPlane,
+        workspace_id: &str,
+        proposal: &Value,
+    ) {
+        let history = control
+            .store
+            .as_ref()
+            .unwrap()
+            .financial_approval_history(workspace_id, proposal["proposalId"].as_str().unwrap())
+            .unwrap();
+        assert!(history.approvals.is_empty(), "{history:?}");
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .binance_testnet_order_attempt(
+                    workspace_id,
+                    proposal["proposalId"].as_str().unwrap(),
+                )
+                .unwrap(),
+            None,
+        );
+    }
+
+    #[test]
+    fn live_approval_rejects_changed_portfolio_account_and_policy_inputs() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_fixture();
+        let mut changed = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        changed.data.as_mut().unwrap().open_orders.push(OpenOrder {
+            broker_order_id: "synthetic-existing-order".into(),
+            symbol: "BTCUSDT".into(),
+            instrument_id: Some("crypto:BTC/USDT:spot".into()),
+            side: "BUY".into(),
+            quantity: Some("0.001".into()),
+            notional: Some("50".into()),
+            filled_quantity: Some("0".into()),
+            filled_value: Some("0".into()),
+            currency: Some("USDT".into()),
+            status: "OPEN".into(),
+            limit_price: Some("50000".into()),
+            kind: Some("NORMAL".into()),
+            trigger_price: None,
+        });
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_account(changed)
+            .unwrap();
+        let reevaluated = dispatch(
+            &mut control,
+            "risk.evaluate_proposal",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["proposalId"]}),
+        );
+        assert_eq!(reevaluated["data"]["status"], "ALLOWED", "{reevaluated}");
+        assert_eq!(
+            reevaluated["data"]["checks"], review["riskDecision"]["checks"],
+            "{reevaluated}"
+        );
+        let action = approval_action(&workspace_id, &proposal, &review);
+        let approval = dispatch_main(&mut control, "trade.approve", action.clone());
+        assert_eq!(approval["ok"], false, "{approval}");
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_fixture();
+        let current = dispatch(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId": workspace_id}),
+        );
+        let mut policy = current["data"]["policy"].clone();
+        policy["staleQuoteThresholdSeconds"] = 119.into();
+        let changed = dispatch(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": current["data"]["stateVersion"],
+                "policy": policy,
+            }),
+        );
+        assert_eq!(changed["ok"], true, "{changed}");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], false, "{approval}");
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+    }
+
+    #[test]
+    fn live_approval_rejects_disarmed_untrusted_time_and_stale_market() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_fixture();
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let disarmed = dispatch(
+            &mut control,
+            "account.disarm",
+            json!({
+                "workspaceId": workspace_id,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+            }),
+        );
+        assert_eq!(disarmed["ok"], true, "{disarmed}");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], false, "{approval}");
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_fixture();
+        control.time.reset(&workspace_id);
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], false, "{approval}");
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_fixture();
+        let reviewed_at =
+            OffsetDateTime::parse(review["reviewedAt"].as_str().unwrap(), &Rfc3339).unwrap();
+        control.time.set_test_time(
+            reviewed_at.unix_timestamp_nanos() / 1_000_000 + 120_001,
+            120_101,
+        );
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], false, "{approval}");
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+    }
+
+    #[test]
+    fn live_review_reject_and_approve_are_bound_short_lived_and_non_executing() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        control.enable_live_approval_fixture();
+        let opened = dispatch(&mut control, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let account = control
+            .seed_live_arming_fixture(&workspace_id, "binance", "approval fixture")
+            .unwrap();
+        let proposal = live_proposal(&mut control, &workspace_id, &account);
+
+        let headless = dispatch(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(headless["ok"], false, "{headless}");
+        assert_eq!(headless["error"]["code"], "IPC_ACCESS_DENIED");
+
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["eligible"], true, "{review}");
+        assert_eq!(review["data"]["expectedSpend"], "500", "{review}");
+        assert_eq!(review["data"]["spread"], "2", "{review}");
+        assert!(review["data"]["quoteAgeMs"].as_u64().is_some(), "{review}");
+        assert!(review["data"].get("estimatedFees").is_none(), "{review}");
+        assert!(
+            review["data"].get("estimatedSlippagePercent").is_none(),
+            "{review}"
+        );
+        let mut sell_market_value = proposal.clone();
+        sell_market_value["fields"]["side"] = "SELL".into();
+        sell_market_value["fields"]["orderType"] = "MARKET".into();
+        let sell_market: protocol::OrderProposal =
+            serde_json::from_value(sell_market_value).unwrap();
+        let quote: protocol::MarketDetail =
+            serde_json::from_value(review["data"]["market"].clone()).unwrap();
+        assert_eq!(
+            proposal_value(&sell_market, Some(&quote)).as_deref(),
+            Some("499.99")
+        );
+        assert_eq!(
+            review["data"]["market"]["snapshot"]["provenance"]["source"],
+            "SYNTHETIC_INTEGRATION_FIXTURE"
+        );
+        let action = json!({
+            "workspaceId": workspace_id,
+            "proposalId": proposal["proposalId"],
+            "proposalHash": proposal["proposalHash"],
+            "reviewedRiskDecisionId": review["data"]["riskDecision"]["decisionId"],
+            "reviewDigest": review["data"]["reviewDigest"],
+            "expectedStateVersion": proposal["stateVersion"],
+        });
+        let reviewed_at =
+            OffsetDateTime::parse(review["data"]["reviewedAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap();
+        control
+            .time
+            .set_test_time(reviewed_at.unix_timestamp_nanos() / 1_000_000 + 5, 115);
+        let rejected = dispatch_main(&mut control, "trade.reject", action.clone());
+        assert_eq!(rejected["ok"], true, "{rejected}");
+        assert_eq!(rejected["data"]["reason"], "USER_REJECTED");
+        let history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(history["ok"], true, "{history}");
+        assert_eq!(history["data"]["rejections"].as_array().unwrap().len(), 1);
+
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        let rejected = dispatch_main(
+            &mut control,
+            "trade.reject",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+                "proposalHash": proposal["proposalHash"],
+                "reviewedRiskDecisionId": review["data"]["riskDecision"]["decisionId"],
+                "reviewDigest": review["data"]["reviewDigest"],
+                "expectedStateVersion": proposal["stateVersion"],
+            }),
+        );
+        assert_eq!(rejected["ok"], true, "{rejected}");
+        let snapshot = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("approval-audit", proposal["proposalId"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(snapshot.last_sequence, 2);
+        assert_eq!(
+            snapshot.projection.id(),
+            proposal["proposalId"].as_str().unwrap()
+        );
+        let deliveries = std::sync::Arc::new(std::sync::Mutex::new(0));
+        let delivered = deliveries.clone();
+        let sink: EventSink = std::sync::Arc::new(move |_| {
+            *delivered.lock().unwrap() += 1;
+            true
+        });
+        let replay = control
+            .store
+            .as_mut()
+            .unwrap()
+            .replay(
+                "approval-audit",
+                proposal["proposalId"].as_str().unwrap(),
+                0,
+                &sink,
+            )
+            .unwrap();
+        assert_eq!(replay.replayed_count, 2);
+        assert_eq!(*deliveries.lock().unwrap(), 2);
+
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["eligible"], true, "{review}");
+        let approve = dispatch_main(
+            &mut control,
+            "trade.approve",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+                "proposalHash": proposal["proposalHash"],
+                "reviewedRiskDecisionId": review["data"]["riskDecision"]["decisionId"],
+                "reviewDigest": review["data"]["reviewDigest"],
+                "expectedStateVersion": proposal["stateVersion"],
+            }),
+        );
+        assert_eq!(approve["ok"], true, "{approve}");
+        assert_eq!(approve["data"]["status"], "ISSUED");
+        let issued_at =
+            OffsetDateTime::parse(approve["data"]["issuedAt"].as_str().unwrap(), &Rfc3339).unwrap();
+        let expires_at =
+            OffsetDateTime::parse(approve["data"]["expiresAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap();
+        assert_eq!(expires_at - issued_at, TimeDuration::seconds(30));
+        assert!(approve["data"].get("nonce").is_none());
+        assert!(
+            control
+                .prepare_provider(&request(
+                    "trade.approve",
+                    json!({
+                        "workspaceId": workspace_id,
+                        "proposalId": proposal["proposalId"],
+                        "proposalHash": proposal["proposalHash"],
+                        "reviewedRiskDecisionId": review["data"]["riskDecision"]["decisionId"],
+                        "reviewDigest": review["data"]["reviewDigest"],
+                        "expectedStateVersion": proposal["stateVersion"],
+                    }),
+                ))
+                .unwrap()
+                .is_none()
+        );
+
+        let stale = dispatch_main(
+            &mut control,
+            "trade.approve",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+                "proposalHash": proposal["proposalHash"],
+                "reviewedRiskDecisionId": review["data"]["riskDecision"]["decisionId"],
+                "reviewDigest": format!("sha256:{}", "0".repeat(64)),
+                "expectedStateVersion": proposal["stateVersion"],
+            }),
+        );
+        assert_eq!(stale["ok"], false, "{stale}");
+
+        let decision = dispatch(
+            &mut control,
+            "risk.evaluate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(decision["ok"], true, "{decision}");
+        let history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(history["ok"], true, "{history}");
+        assert_eq!(history["data"]["approvals"][0]["status"], "INVALIDATED");
+        assert_eq!(proposal["status"], "NEEDS_APPROVAL");
+
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(review["data"]["eligible"], true, "{review}");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+                "proposalHash": proposal["proposalHash"],
+                "reviewedRiskDecisionId": review["data"]["riskDecision"]["decisionId"],
+                "reviewDigest": review["data"]["reviewDigest"],
+                "expectedStateVersion": proposal["stateVersion"],
+            }),
+        );
+        assert_eq!(approval["data"]["status"], "ISSUED", "{approval}");
+        let before_expiry = control.time.status(&workspace_id).unwrap();
+        control.time.set_test_time(
+            OffsetDateTime::parse(&before_expiry.wall_clock, &Rfc3339)
+                .unwrap()
+                .unix_timestamp_nanos()
+                / 1_000_000
+                + 31_000,
+            before_expiry.monotonic_ms + 31_000,
+        );
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert_eq!(
+            approval_history["data"]["approvals"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["status"],
+            "EXPIRED"
+        );
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .binance_testnet_order_attempt(
+                    &workspace_id,
+                    proposal["proposalId"].as_str().unwrap(),
+                )
+                .unwrap(),
+            None,
+        );
     }
 }
 

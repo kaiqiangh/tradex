@@ -29,6 +29,11 @@ declare const validators: {
   AlpacaPaperOrderReconcile: (value: unknown) => boolean;
   AlpacaPaperOrderReview: (value: unknown) => boolean;
   AlpacaPaperOrderSubmit: (value: unknown) => boolean;
+  ApprovalAction: (value: unknown) => boolean;
+  ApprovalRejection: (value: unknown) => boolean;
+  ApprovalRejectionReason: (value: unknown) => boolean;
+  ApprovalReview: (value: unknown) => boolean;
+  ApprovalReviewRequest: (value: unknown) => boolean;
   Artifact: (value: unknown) => boolean;
   ArtifactContent: (value: unknown) => boolean;
   ArtifactExport: (value: unknown) => boolean;
@@ -115,9 +120,15 @@ declare const validators: {
   DomainProjection: (value: unknown) => boolean;
   EmptyPayload: (value: unknown) => boolean;
   EquityPoint: (value: unknown) => boolean;
+  EstimatedFee: (value: unknown) => boolean;
   ExecutionContext: (value: unknown) => boolean;
   FailureEnvelope: (value: unknown) => boolean;
   FilterSpec: (value: unknown) => boolean;
+  FinancialApproval: (value: unknown) => boolean;
+  FinancialApprovalHistory: (value: unknown) => boolean;
+  FinancialApprovalHistoryQuery: (value: unknown) => boolean;
+  FinancialApprovalStatus: (value: unknown) => boolean;
+  FinancialOperation: (value: unknown) => boolean;
   FxFreshness: (value: unknown) => boolean;
   FxProvenance: (value: unknown) => boolean;
   FxQuality: (value: unknown) => boolean;
@@ -128,6 +139,8 @@ declare const validators: {
   HardSafetyRule: (value: unknown) => boolean;
   Instrument: (value: unknown) => boolean;
   InstrumentProviderMapping: (value: unknown) => boolean;
+  InstrumentTradingObservation: (value: unknown) => boolean;
+  InstrumentTradingStatus: (value: unknown) => boolean;
   ItemStatus: (value: unknown) => boolean;
   LiveArmingEligibility: (value: unknown) => boolean;
   LocalPaperBalance: (value: unknown) => boolean;

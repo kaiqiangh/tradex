@@ -25,16 +25,17 @@ use crate::model::ModelState;
 use crate::protocol::{
     AlpacaPaperCancelState, AlpacaPaperOrder, AlpacaPaperOrderAttempt,
     AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook, AlpacaPaperOrderBookStatus,
-    AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit, Artifact,
-    ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
+    AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit, ApprovalRejection,
+    Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
     ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
     BacktestRunState, BacktestRunSummary, BinanceTestnetOrderAttempt,
     BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookStatus,
     BinanceTestnetOrderCancel, BinanceTestnetOrderCancelState, BinanceTestnetOrderOrigin,
     BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptState,
     BitgetDemoOrderSubmit, DomainEvent, DomainProjection, EventSink, ExecutionContext,
-    LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder, LocalPaperState,
-    MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
+    FinancialApproval, FinancialApprovalHistory, FinancialApprovalStatus, LocalPaperEvent,
+    LocalPaperEventKind, LocalPaperFill, LocalPaperOrder, LocalPaperState, MAX_SEQUENCE,
+    OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
     OrderDraftSummary, OrderProposal, OrderProposalGenerate, OrderProposalHistoryEntry,
     OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
     OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
@@ -52,7 +53,7 @@ use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 23;
+pub(crate) const SCHEMA_VERSION: u32 = 24;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -526,6 +527,30 @@ impl Store {
                 );
                 CREATE INDEX risk_decisions_workspace_proposal ON risk_decisions(workspace_id,proposal_id,sequence DESC);
                 PRAGMA user_version=23;").map_err(storage_error)?;
+            }
+            if version < 24 {
+                tx.execute_batch("CREATE TABLE financial_approvals (
+                    approval_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    proposal_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ISSUED','INVALIDATED','EXPIRED','CONSUMED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    nonce TEXT NOT NULL,
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX financial_approvals_workspace_proposal ON financial_approvals(workspace_id,proposal_id,sequence DESC);
+                CREATE UNIQUE INDEX financial_approvals_one_issued_per_proposal ON financial_approvals(workspace_id,proposal_id) WHERE status='ISSUED';
+                CREATE TABLE approval_rejections (
+                    audit_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    proposal_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,proposal_id,sequence)
+                );
+                CREATE INDEX approval_rejections_workspace_proposal ON approval_rejections(workspace_id,proposal_id,sequence DESC);
+                PRAGMA user_version=24;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1079,6 +1104,14 @@ impl Store {
                     ),
                     "risk" => event.event_type != "risk.policy.changed",
                     "risk-decision" => event.event_type != "risk.decision.evaluated",
+                    "financial-approval" => !matches!(
+                        event.event_type.as_str(),
+                        "trade.approval.issued"
+                            | "trade.approval.invalidated"
+                            | "trade.approval.expired"
+                            | "trade.approval.consumed"
+                    ),
+                    "approval-audit" => event.event_type != "trade.approval.rejected",
                     "thread" => !matches!(
                         event.event_type.as_str(),
                         "thread.created" | "thread.updated"
@@ -2026,6 +2059,57 @@ impl Store {
                 last_sequence: sequence,
             });
         }
+        if kind == "financial-approval" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, projection): (i64, String) = self.connection.query_row(
+                "SELECT sequence,projection FROM financial_approvals WHERE workspace_id=?1 AND approval_id=?2",
+                params![workspace_id, id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+            } else { storage_error(error) })?;
+            let approval: FinancialApproval = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || approval.approval_id != id
+                || approval.workspace_id != workspace_id
+                || approval.state_version != format!("financial-approval:{id}:{sequence}")
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::FinancialApproval(Box::new(approval)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "approval-audit" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, projection): (i64, String) = self.connection.query_row(
+                "SELECT sequence,projection FROM approval_rejections WHERE workspace_id=?1 AND proposal_id=?2 ORDER BY sequence DESC LIMIT 1",
+                params![workspace_id, id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            ).map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+            } else { storage_error(error) })?;
+            let rejection: ApprovalRejection = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || rejection.proposal_id != id
+                || rejection.workspace_id != workspace_id
+                || rejection.state_version
+                    != format!("approval-rejection:{}:{sequence}", rejection.audit_id)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::ApprovalRejection(Box::new(rejection)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
         if kind == "thread" {
             let thread = self.thread(id)?;
             let sequence: i64 = self
@@ -2541,6 +2625,14 @@ impl Store {
         .map_err(storage_error)?;
         let mut events = vec![risk_event];
         events.extend(account_events);
+        events.extend(invalidate_financial_approvals_tx(
+            &tx,
+            &workspace_id,
+            None,
+            None,
+            "RISK_POLICY_CHANGED",
+            &risk.updated_at,
+        )?);
 
         for update in proposal_updates {
             let proposal = &update.proposal;
@@ -2667,6 +2759,354 @@ impl Store {
             workspace_id: workspace_id.into(),
             proposal_id: proposal_id.into(),
             decisions,
+        })
+    }
+
+    pub fn issue_financial_approval(
+        &mut self,
+        mut approval: FinancialApproval,
+        expected_proposal_state_version: &str,
+        nonce: &str,
+        now: &str,
+    ) -> Result<(FinancialApproval, Vec<DomainEvent>)> {
+        let workspace_id = self.workspace_id()?;
+        if approval.workspace_id != workspace_id
+            || approval.environment == ExecutionContext::LocalPaper
+            || approval.account_id.is_empty()
+            || nonce.is_empty()
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        validate_order_proposal_id(&approval.proposal_id)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (proposal_workspace, proposal_hash, proposal_status, proposal_sequence): (
+            String,
+            String,
+            OrderProposalStatus,
+            i64,
+        ) = {
+            let (row_workspace, hash, sequence, projection): (String, String, i64, String) = tx
+                .query_row(
+                    "SELECT workspace_id,proposal_hash,sequence,projection FROM order_proposals WHERE proposal_id=?1",
+                    [&approval.proposal_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
+                } else { storage_error(error) })?;
+            let (status, _, last_sequence) =
+                proposal_event_state(&tx, &approval.proposal_id, &workspace_id)?;
+            if sequence < 1 || projection.is_empty() {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if format!("order-proposal:{}:{last_sequence}", approval.proposal_id)
+                != expected_proposal_state_version
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            (row_workspace, hash, status, last_sequence)
+        };
+        if proposal_workspace != workspace_id
+            || proposal_hash != approval.proposal_hash
+            || proposal_status != OrderProposalStatus::NeedsApproval
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&approval.account_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ACCOUNT_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        if account.environment != "LIVE"
+            || account.health.arming != "ARMED"
+            || account.connection_state != ConnectionState::Connected
+            || account.provider_id != execution_provider(&approval.environment).unwrap_or_default()
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        let policy_projection: String = tx
+            .query_row(
+                "SELECT projection FROM risk_state WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("RISK_POLICY_UNCONFIGURED")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let policy: RiskPolicyState = serde_json::from_str(&policy_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if !policy.configured || policy.policy_version != approval.policy_version {
+            return Err(TradeXError::new("POLICY_VERSION_STALE"));
+        }
+        let decision_projection: String = tx
+            .query_row(
+                "SELECT projection FROM risk_decisions WHERE decision_id=?1 AND workspace_id=?2 AND proposal_id=?3",
+                params![approval.risk_decision_id, workspace_id, approval.proposal_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("STATE_VERSION_CONFLICT")
+            } else { storage_error(error) })?;
+        let decision: RiskDecision = serde_json::from_str(&decision_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if decision.status != crate::risk::RiskDecisionStatus::Allowed
+            || decision.proposal_hash != approval.proposal_hash
+            || decision.account_id.as_deref() != Some(&approval.account_id)
+            || decision.policy_version != Some(approval.policy_version)
+        {
+            return Err(TradeXError::new("RISK_REJECTED"));
+        }
+        let current = {
+            let mut statement = tx
+                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND proposal_id=?2 AND status='ISSUED' ORDER BY sequence DESC LIMIT 1")
+                .map_err(storage_error)?;
+            statement
+                .query_row(params![workspace_id, approval.proposal_id], |row| {
+                    row.get::<_, String>(0)
+                })
+                .optional()
+                .map_err(storage_error)?
+        };
+        let mut events = Vec::new();
+        if let Some(projection) = current {
+            let current: FinancialApproval = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if current.review_digest == approval.review_digest
+                && !approval_expired(&current.expires_at, now)
+            {
+                tx.commit().map_err(storage_error)?;
+                return Ok((current, events));
+            }
+            let mut invalidated = current;
+            if approval_expired(&invalidated.expires_at, now) {
+                invalidated.status = FinancialApprovalStatus::Expired;
+                invalidated.invalidation_reason = Some("APPROVAL_EXPIRED".into());
+            } else {
+                invalidated.status = FinancialApprovalStatus::Invalidated;
+                invalidated.invalidation_reason = Some("REVIEW_EVIDENCE_CHANGED".into());
+            }
+            events.push(write_financial_approval_tx(&tx, invalidated, None, now)?);
+        }
+        approval.state_version.clear();
+        events.push(write_financial_approval_tx(
+            &tx,
+            approval.clone(),
+            Some(nonce),
+            &approval.issued_at,
+        )?);
+        let saved = match events.last().map(|event| &event.payload) {
+            Some(DomainProjection::FinancialApproval(saved)) => (**saved).clone(),
+            _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+        };
+        tx.commit().map_err(storage_error)?;
+        let _ = proposal_sequence;
+        Ok((saved, events))
+    }
+
+    pub fn reconcile_financial_approvals(
+        &mut self,
+        workspace_id: &str,
+        proposal_id: &str,
+        current_review_digest: Option<&str>,
+        eligible: bool,
+        invalidation_reason: &str,
+        now: &str,
+    ) -> Result<Vec<DomainEvent>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(proposal_id)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let active = {
+            let mut statement = tx
+                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND proposal_id=?2 AND status='ISSUED' ORDER BY sequence")
+                .map_err(storage_error)?;
+            statement
+                .query_map(params![workspace_id, proposal_id], |row| {
+                    row.get::<_, String>(0)
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        let mut events = Vec::new();
+        for encoded in active {
+            let mut approval: FinancialApproval = serde_json::from_str(&encoded)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let reason = if approval_expired(&approval.expires_at, now) {
+                approval.status = FinancialApprovalStatus::Expired;
+                Some("APPROVAL_EXPIRED")
+            } else if !eligible {
+                approval.status = FinancialApprovalStatus::Invalidated;
+                Some(invalidation_reason)
+            } else if current_review_digest != Some(approval.review_digest.as_str()) {
+                approval.status = FinancialApprovalStatus::Invalidated;
+                Some("REVIEW_EVIDENCE_CHANGED")
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                approval.invalidation_reason = Some(reason.into());
+                events.push(write_financial_approval_tx(&tx, approval, None, now)?);
+            }
+        }
+        tx.commit().map_err(storage_error)?;
+        Ok(events)
+    }
+
+    pub fn reject_approval_review(
+        &mut self,
+        mut rejection: ApprovalRejection,
+        expected_proposal_state_version: &str,
+    ) -> Result<DomainEvent> {
+        let workspace_id = self.workspace_id()?;
+        if rejection.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(&rejection.proposal_id)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (row_workspace, proposal_hash): (String, String) = tx
+            .query_row(
+                "SELECT workspace_id,proposal_hash FROM order_proposals WHERE proposal_id=?1",
+                [&rejection.proposal_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let (proposal_status, _, sequence) =
+            proposal_event_state(&tx, &rejection.proposal_id, &workspace_id)?;
+        if row_workspace != workspace_id
+            || proposal_hash != rejection.proposal_hash
+            || proposal_status != OrderProposalStatus::NeedsApproval
+            || format!("order-proposal:{}:{sequence}", rejection.proposal_id)
+                != expected_proposal_state_version
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let decision_projection: String = tx
+            .query_row(
+                "SELECT projection FROM risk_decisions WHERE decision_id=?1 AND workspace_id=?2 AND proposal_id=?3",
+                params![rejection.risk_decision_id, workspace_id, rejection.proposal_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("STATE_VERSION_CONFLICT")
+            } else { storage_error(error) })?;
+        let decision: RiskDecision = serde_json::from_str(&decision_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if decision.proposal_hash != rejection.proposal_hash {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let event = write_approval_rejection_tx(&tx, &mut rejection)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(event)
+    }
+
+    pub fn financial_approval_history(
+        &self,
+        workspace_id: &str,
+        proposal_id: &str,
+    ) -> Result<FinancialApprovalHistory> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        validate_order_proposal_id(proposal_id)?;
+        let approvals = {
+            let mut statement = self.connection.prepare(
+                "SELECT approval_id,sequence,nonce,projection FROM financial_approvals WHERE workspace_id=?1 AND proposal_id=?2 ORDER BY sequence DESC LIMIT 32",
+            ).map_err(storage_error)?;
+            let rows = statement
+                .query_map(params![workspace_id, proposal_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                })
+                .map_err(storage_error)?;
+            let mut approvals = Vec::new();
+            for row in rows {
+                let (id, sequence, nonce, projection) = row.map_err(storage_error)?;
+                let approval: FinancialApproval = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if sequence < 1
+                    || nonce.is_empty()
+                    || approval.approval_id != id
+                    || approval.state_version != format!("financial-approval:{id}:{sequence}")
+                    || approval.workspace_id != workspace_id
+                    || approval.proposal_id != proposal_id
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                approvals.push(approval);
+            }
+            approvals
+        };
+        let rejections = {
+            let mut statement = self.connection.prepare(
+                "SELECT audit_id,sequence,projection FROM approval_rejections WHERE workspace_id=?1 AND proposal_id=?2 ORDER BY sequence DESC LIMIT 32",
+            ).map_err(storage_error)?;
+            let rows = statement
+                .query_map(params![workspace_id, proposal_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })
+                .map_err(storage_error)?;
+            let mut rejections = Vec::new();
+            for row in rows {
+                let (id, sequence, projection) = row.map_err(storage_error)?;
+                let rejection: ApprovalRejection = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if sequence < 1
+                    || rejection.audit_id != id
+                    || rejection.state_version != format!("approval-rejection:{id}:{sequence}")
+                    || rejection.workspace_id != workspace_id
+                    || rejection.proposal_id != proposal_id
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                rejections.push(rejection);
+            }
+            rejections
+        };
+        Ok(FinancialApprovalHistory {
+            workspace_id: workspace_id.into(),
+            proposal_id: proposal_id.into(),
+            approvals,
+            rejections,
         })
     }
 
@@ -6276,6 +6716,14 @@ impl Store {
             ],
         )
         .map_err(storage_error)?;
+        invalidate_financial_approvals_tx(
+            &tx,
+            &workspace_id,
+            Some(&stored.proposal_id),
+            None,
+            "PROPOSAL_REFRESHED",
+            &created_at,
+        )?;
         let refreshed = StoredOrderProposal {
             proposal_id: proposal_id.clone(),
             workspace_id: workspace_id.clone(),
@@ -8698,6 +9146,172 @@ fn validate_refreshed_replacement(
     Ok(())
 }
 
+fn approval_expired(expires_at: &str, now: &str) -> bool {
+    let (Ok(expires), Ok(now)) = (
+        OffsetDateTime::parse(expires_at, &Rfc3339),
+        OffsetDateTime::parse(now, &Rfc3339),
+    ) else {
+        return true;
+    };
+    expires <= now
+}
+
+fn write_financial_approval_tx(
+    tx: &Transaction<'_>,
+    mut approval: FinancialApproval,
+    nonce: Option<&str>,
+    occurred_at: &str,
+) -> Result<DomainEvent> {
+    let previous: Option<(i64, String)> = tx
+        .query_row(
+            "SELECT sequence,nonce FROM financial_approvals WHERE approval_id=?1",
+            [&approval.approval_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let sequence = previous.as_ref().map_or(Ok(1), |(sequence, _)| {
+        sequence
+            .checked_add(1)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))
+    })?;
+    if !(1..=MAX_SEQUENCE as i64).contains(&sequence) {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    let stored_nonce = nonce
+        .map(str::to_owned)
+        .or_else(|| previous.as_ref().map(|(_, nonce)| nonce.clone()))
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    approval.state_version = format!("financial-approval:{}:{sequence}", approval.approval_id);
+    approval.updated_at = occurred_at.into();
+    let status = serde_json::to_value(approval.status)
+        .map_err(storage_error)?
+        .as_str()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?
+        .to_owned();
+    let projection = serde_json::to_string(&approval).map_err(storage_error)?;
+    if previous.is_some() {
+        tx.execute(
+            "UPDATE financial_approvals SET status=?1,sequence=?2,projection=?3 WHERE approval_id=?4",
+            params![status, sequence, projection, approval.approval_id],
+        )
+        .map_err(storage_error)?;
+    } else {
+        tx.execute(
+            "INSERT INTO financial_approvals(approval_id,workspace_id,proposal_id,account_id,status,sequence,nonce,projection) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+            params![approval.approval_id, approval.workspace_id, approval.proposal_id, approval.account_id, status, sequence, stored_nonce, projection],
+        )
+        .map_err(storage_error)?;
+    }
+    let event_type = match approval.status {
+        FinancialApprovalStatus::Issued => "trade.approval.issued",
+        FinancialApprovalStatus::Invalidated => "trade.approval.invalidated",
+        FinancialApprovalStatus::Expired => "trade.approval.expired",
+        FinancialApprovalStatus::Consumed => "trade.approval.consumed",
+    };
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: event_type.into(),
+        schema_version: 1,
+        occurred_at: occurred_at.into(),
+        aggregate_type: "financial-approval".into(),
+        aggregate_id: approval.approval_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::FinancialApproval(Box::new(approval)),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES('financial-approval',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn write_approval_rejection_tx(
+    tx: &Transaction<'_>,
+    rejection: &mut ApprovalRejection,
+) -> Result<DomainEvent> {
+    let previous: i64 = tx
+        .query_row(
+            "SELECT COALESCE(MAX(sequence),0) FROM approval_rejections WHERE workspace_id=?1 AND proposal_id=?2",
+            params![rejection.workspace_id, rejection.proposal_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let sequence = previous
+        .checked_add(1)
+        .filter(|sequence| *sequence <= MAX_SEQUENCE as i64)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    rejection.state_version = format!("approval-rejection:{}:{sequence}", rejection.audit_id);
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trade.approval.rejected".into(),
+        schema_version: 1,
+        occurred_at: rejection.occurred_at.clone(),
+        aggregate_type: "approval-audit".into(),
+        aggregate_id: rejection.proposal_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::ApprovalRejection(Box::new(rejection.clone())),
+    };
+    tx.execute(
+        "INSERT INTO approval_rejections(audit_id,workspace_id,proposal_id,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+        params![rejection.audit_id, rejection.workspace_id, rejection.proposal_id, sequence, serde_json::to_string(&rejection).map_err(storage_error)?],
+    )
+    .map_err(storage_error)?;
+    tx.execute(
+        "INSERT INTO outbox VALUES('approval-audit',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn invalidate_financial_approvals_tx(
+    tx: &Transaction<'_>,
+    workspace_id: &str,
+    proposal_id: Option<&str>,
+    account_id: Option<&str>,
+    reason: &str,
+    occurred_at: &str,
+) -> Result<Vec<DomainEvent>> {
+    let active = {
+        let mut statement = tx
+            .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND status='ISSUED' AND (?2 IS NULL OR proposal_id=?2) AND (?3 IS NULL OR account_id=?3)")
+            .map_err(storage_error)?;
+        statement
+            .query_map(params![workspace_id, proposal_id, account_id], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?
+    };
+    let mut events = Vec::with_capacity(active.len());
+    for projection in active {
+        let mut approval: FinancialApproval = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        approval.status = FinancialApprovalStatus::Invalidated;
+        approval.invalidation_reason = Some(reason.into());
+        events.push(write_financial_approval_tx(
+            tx,
+            approval,
+            None,
+            occurred_at,
+        )?);
+    }
+    Ok(events)
+}
+
 fn append_risk_decision_tx(
     tx: &Transaction<'_>,
     workspace_id: &str,
@@ -8721,6 +9335,14 @@ fn append_risk_decision_tx(
     if proposal_workspace_id != workspace_id || proposal_hash != decision.proposal_hash {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
+    invalidate_financial_approvals_tx(
+        tx,
+        workspace_id,
+        Some(&decision.proposal_id),
+        None,
+        "RISK_DECISION_CHANGED",
+        &decision.evaluated_at,
+    )?;
     let previous: i64 = tx
         .query_row(
             "SELECT COALESCE(MAX(sequence),0) FROM risk_decisions WHERE workspace_id=?1 AND proposal_id=?2",
@@ -8780,15 +9402,29 @@ fn save_account_tx(
         )
         .optional()
         .map_err(storage_error)?;
-    let arming_changed = previous_projection
+    let previous_account = previous_projection
         .as_deref()
-        .map(|projection| {
-            serde_json::from_str::<AccountConnection>(projection)
-                .map(|previous| previous.health.arming != account.health.arming)
-                .map_err(storage_error)
-        })
-        .transpose()?
-        .unwrap_or(false);
+        .map(serde_json::from_str::<AccountConnection>)
+        .transpose()
+        .map_err(storage_error)?;
+    let arming_changed = previous_account
+        .as_ref()
+        .is_some_and(|previous| previous.health.arming != account.health.arming);
+    let authority_changed = previous_account.as_ref().is_some_and(|previous| {
+        previous.connection_state != account.connection_state
+            || previous.health != account.health
+            || previous.permissions != account.permissions
+            || previous
+                .data
+                .as_ref()
+                .map(|data| data.remote_account_id.as_str())
+                != account
+                    .data
+                    .as_ref()
+                    .map(|data| data.remote_account_id.as_str())
+    });
+    let workspace_id = account.workspace_id.clone();
+    let connection_id = account.connection_id.clone();
     account.state_version = format!("{}:{sequence}", account.connection_id);
     account.updated_at = occurred_at.into();
     account.validate_persisted(&account.workspace_id)?;
@@ -8830,6 +9466,20 @@ fn save_account_tx(
         ],
     )
     .map_err(storage_error)?;
+    if authority_changed {
+        invalidate_financial_approvals_tx(
+            tx,
+            &workspace_id,
+            None,
+            Some(&connection_id),
+            if arming_changed {
+                "ACCOUNT_DISARMED"
+            } else {
+                "ACCOUNT_HEALTH_CHANGED"
+            },
+            occurred_at,
+        )?;
+    }
     Ok(event)
 }
 
@@ -9025,6 +9675,14 @@ fn invalidate_order_proposals_tx(
             params![proposal_id, workspace_id, next_sequence, "DRAFT_CHANGED", reason, occurred_at],
         )
         .map_err(storage_error)?;
+        invalidate_financial_approvals_tx(
+            tx,
+            workspace_id,
+            Some(&proposal_id),
+            None,
+            "PROPOSAL_CHANGED",
+            occurred_at,
+        )?;
     }
     Ok(())
 }
