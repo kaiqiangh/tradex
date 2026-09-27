@@ -1800,6 +1800,16 @@
           },
           "maxItems": 32
         },
+        "capacityProjection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapacityProjection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "eligible": {
           "type": "boolean"
         },
@@ -5256,11 +5266,100 @@
         "executionContext"
       ]
     },
+    "CapacityAvailableSource": {
+      "type": "string",
+      "enum": [
+        "PROVIDER_BALANCE_AVAILABLE",
+        "POSITION_LESS_OPEN_SELL_ORDERS",
+        "UNAVAILABLE"
+      ]
+    },
+    "CapacityCommittedSource": {
+      "type": "string",
+      "enum": [
+        "PROVIDER_BALANCE_COMMITTED",
+        "OPEN_SELL_ORDERS",
+        "UNAVAILABLE"
+      ]
+    },
+    "CapacityFreshness": {
+      "type": "string",
+      "enum": [
+        "CURRENT",
+        "STALE",
+        "UNAVAILABLE"
+      ]
+    },
     "CapacityLimitSource": {
       "type": "string",
       "enum": [
         "BROKER_AVAILABLE",
         "WORKSPACE_RESERVED_CAPITAL"
+      ]
+    },
+    "CapacityProjection": {
+      "type": "object",
+      "properties": {
+        "accountStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "available": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "availableSource": {
+          "$ref": "#/$defs/CapacityAvailableSource"
+        },
+        "committed": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "committedSource": {
+          "$ref": "#/$defs/CapacityCommittedSource"
+        },
+        "effectiveAvailable": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "freshness": {
+          "$ref": "#/$defs/CapacityFreshness"
+        },
+        "observedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "requestedAmount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reserved": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "accountStateVersion",
+        "unit",
+        "availableSource",
+        "committedSource",
+        "freshness"
       ]
     },
     "CapacityRejectionContext": {
@@ -5271,6 +5370,16 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "capacityProjection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapacityProjection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "effectiveAvailable": {
           "type": "string",
           "maxLength": 128,
@@ -5280,6 +5389,16 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "remediation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapacityRemediation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "requestedAmount": {
           "type": "string",
@@ -5303,6 +5422,13 @@
         "capacityLimit",
         "existingReservations",
         "effectiveAvailable"
+      ]
+    },
+    "CapacityRemediation": {
+      "type": "string",
+      "enum": [
+        "REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS",
+        "REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT"
       ]
     },
     "ChatgptLogin": {
@@ -6380,6 +6506,16 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "capacityProjection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapacityProjection"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "createdAt": {
           "type": "string",

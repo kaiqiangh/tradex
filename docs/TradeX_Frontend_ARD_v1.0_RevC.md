@@ -717,11 +717,11 @@ Mandatory content:
 
 `Enter` must never activate approval by default.
 
-Approving issues only the short-lived single-use approval. A separate explicit `Prepare PLACE and reserve capacity` action invokes `trade.execution.prepare`. Show the backend's `RESERVED` attempt, exact reservation amount/unit, broker available balance, existing reservations, and remaining effective capacity, with clear text that no provider request was sent. Read preparation and sanitized capacity-rejection history by approval ID when opening proposal history so a lost response or restart restores the saved result. A `RISK_REJECTED · RESERVED_CAPACITY` failure shows the backend reason, capacity source/limit, requested amount, existing reservations, and effective capacity; do not refetch an `ALLOWED` RiskDecision as though it caused the rejection. A confirmed capacity refusal leaves approval and proposal available; the next explicit retry uses a fresh idempotency key.
+Approving issues only the short-lived single-use approval. A separate explicit `Prepare PLACE and reserve capacity` action invokes `trade.execution.prepare`. Show the backend's `RESERVED` attempt, exact reservation amount/unit, provider available and committed capacity, TradeX reserved capacity, effective available capacity, evidence source/freshness/account-state version, and clear text that no provider request was sent. Provider commitments already excluded from a provider-reported available balance are explanatory only and must not be deducted again. Read preparation and sanitized capacity-rejection history by approval ID when opening proposal history so a lost response or restart restores the saved result. A `RISK_REJECTED · RESERVED_CAPACITY` failure shows the backend reason, capacity source/limit, requested amount, existing reservations, effective capacity before the request, and backend remediation. Stale or unavailable evidence is labeled as such and must not display its old amounts as current. Do not refetch an `ALLOWED` RiskDecision as though it caused the rejection. A confirmed capacity refusal leaves approval and proposal available; the next explicit retry uses a fresh idempotency key.
 
 ### 14.6 Reservation conflict
 
-If a proposal fails due to reduced effective capacity, render the backend reason and reservation context. Do not recompute the financial answer in the browser.
+If a proposal fails due to reduced effective capacity, render the backend reason, reservation context, observation time, and remediation. Do not recompute the financial answer in the browser. Re-read the backend projection after account or reservation updates; invalidate a review bound to an older account-state version.
 
 ### 14.7 Ambiguous submission
 

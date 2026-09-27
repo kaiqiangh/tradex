@@ -649,12 +649,14 @@ Interactive fixture:
 
 ```text
 Thread A reserves €4,000
-Available = €10,000
-Reserved = €4,000
+Provider available = €10,000
+Provider committed = €0 (already excluded from available)
+TradeX reserved = €4,000
 Effective Available = €6,000
 Thread B requires €7,000
 → RISK_REJECTED · RESERVED_CAPACITY
-Backend context: requested €7,000; broker available €10,000; existing reservations €4,000; effective capacity before this request €6,000.
+Backend context: requested €7,000; broker available €10,000; existing reservations €4,000; effective capacity before this request €6,000; reduce the request or wait for earlier reservations to reconcile or complete.
+Evidence: source, freshness, observation time, and account state version are visible. Stale/unavailable evidence has no amount fields.
 ```
 
 ### F12. Risk-policy Change Invalidation

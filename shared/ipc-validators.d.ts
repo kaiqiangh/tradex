@@ -108,8 +108,13 @@ declare const validators: {
   CapabilityDecision: (value: unknown) => boolean;
   CapabilityLevel: (value: unknown) => boolean;
   CapabilityQuery: (value: unknown) => boolean;
+  CapacityAvailableSource: (value: unknown) => boolean;
+  CapacityCommittedSource: (value: unknown) => boolean;
+  CapacityFreshness: (value: unknown) => boolean;
   CapacityLimitSource: (value: unknown) => boolean;
+  CapacityProjection: (value: unknown) => boolean;
   CapacityRejectionContext: (value: unknown) => boolean;
+  CapacityRemediation: (value: unknown) => boolean;
   ChatgptLogin: (value: unknown) => boolean;
   ChatgptLoginAction: (value: unknown) => boolean;
   CommandEnvelope: (value: unknown) => boolean;

@@ -1291,37 +1291,114 @@ fn live_provider_id(environment: &protocol::ExecutionContext) -> Option<&'static
     }
 }
 
+struct LivePlaceCapacity {
+    capacity_key: String,
+    amount: String,
+    projection: protocol::CapacityProjection,
+}
+
+fn capacity_evidence_freshness(
+    account: &AccountConnection,
+    now: &str,
+) -> protocol::CapacityFreshness {
+    let data = account.data.as_ref();
+    let Some(data) = data else {
+        return protocol::CapacityFreshness::Unavailable;
+    };
+    let observed = account
+        .last_successful_sync
+        .as_deref()
+        .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok());
+    let now_time = OffsetDateTime::parse(now, &Rfc3339).ok();
+    let (Some(observed), Some(now_time)) = (observed, now_time) else {
+        return protocol::CapacityFreshness::Unavailable;
+    };
+    if now_time < observed {
+        return protocol::CapacityFreshness::Unavailable;
+    }
+    if now_time - observed > ::time::Duration::seconds(30)
+        || account.health.reconciliation != "CURRENT"
+    {
+        return protocol::CapacityFreshness::Stale;
+    }
+    if !["account.read", "positions.read", "orders.read"]
+        .iter()
+        .all(|required| {
+            data.capabilities
+                .iter()
+                .any(|capability| capability == required)
+        })
+    {
+        return protocol::CapacityFreshness::Unavailable;
+    }
+    protocol::CapacityFreshness::Current
+}
+
+fn unavailable_capacity_projection(
+    proposal: &protocol::OrderProposal,
+    account: &AccountConnection,
+    market: &protocol::MarketDetail,
+    maximum_authorized_spend: Option<&str>,
+    freshness: protocol::CapacityFreshness,
+) -> protocol::CapacityProjection {
+    let trading212_sell =
+        account.provider_id == "trading212" && proposal.fields.side == protocol::OrderSide::Sell;
+    let unit = if proposal.fields.side == protocol::OrderSide::Buy {
+        market.instrument.currency.clone()
+    } else if trading212_sell {
+        market.instrument.symbol.clone()
+    } else {
+        market
+            .instrument
+            .base
+            .clone()
+            .unwrap_or_else(|| market.instrument.symbol.clone())
+    };
+    let (available_source, committed_source) = if trading212_sell {
+        (
+            protocol::CapacityAvailableSource::PositionLessOpenSellOrders,
+            protocol::CapacityCommittedSource::OpenSellOrders,
+        )
+    } else {
+        (
+            protocol::CapacityAvailableSource::ProviderBalanceAvailable,
+            protocol::CapacityCommittedSource::ProviderBalanceCommitted,
+        )
+    };
+    protocol::CapacityProjection {
+        account_state_version: account.state_version.clone(),
+        available: None,
+        committed: None,
+        reserved: None,
+        effective_available: None,
+        unit,
+        available_source,
+        committed_source,
+        freshness,
+        observed_at: account.last_successful_sync.clone(),
+        requested_amount: if proposal.fields.side == protocol::OrderSide::Buy {
+            maximum_authorized_spend.map(str::to_owned)
+        } else {
+            Some(proposal.fields.quantity.value.clone())
+        },
+    }
+}
+
 fn live_place_capacity(
     proposal: &protocol::OrderProposal,
     account: &AccountConnection,
-    review: &protocol::ApprovalReview,
+    market: &protocol::MarketDetail,
+    maximum_authorized_spend: Option<&str>,
     now: &str,
-) -> Result<(String, String, String, String)> {
+) -> Result<LivePlaceCapacity> {
+    if capacity_evidence_freshness(account, now) != protocol::CapacityFreshness::Current {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
     let data = account
         .data
         .as_ref()
         .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-    let observed = account
-        .last_successful_sync
-        .as_deref()
-        .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok())
-        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-    let now_time =
-        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
-    if now_time < observed
-        || now_time - observed > ::time::Duration::seconds(30)
-        || account.health.reconciliation != "CURRENT"
-        || !["account.read", "positions.read", "orders.read"]
-            .iter()
-            .all(|required| {
-                data.capabilities
-                    .iter()
-                    .any(|capability| capability == required)
-            })
-    {
-        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
-    }
-    let instrument = &review.market.instrument;
+    let instrument = &market.instrument;
     let quote_currency = instrument.currency.as_str();
     if quote_currency.len() < 2
         || quote_currency.len() > 16
@@ -1331,115 +1408,199 @@ fn live_place_capacity(
     {
         return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
     }
-    let capacity = match proposal.fields.side {
-        protocol::OrderSide::Buy => {
-            let amount = review
-                .maximum_authorized_spend
-                .as_deref()
-                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-            if crate::provider_io::decimal_cmp(amount, "0")? != std::cmp::Ordering::Greater {
-                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
-            }
-            let balances = data
-                .balances
-                .iter()
-                .filter(|balance| balance.asset.eq_ignore_ascii_case(quote_currency))
-                .collect::<Vec<_>>();
-            if balances.len() != 1 {
-                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
-            }
-            // Provider adapters expose free/available-to-trade cash after broker order locks.
-            // Subtracting those same orders again would double-count committed capacity.
-            let available = crate::provider_io::decimal(&serde_json::Value::String(
-                balances[0].available.clone(),
-            ))?;
-            (
-                format!("cash:{quote_currency}"),
-                amount.to_owned(),
-                quote_currency.to_owned(),
-                available,
-            )
-        }
-        protocol::OrderSide::Sell => {
-            if proposal.fields.quantity.r#type != protocol::OrderQuantityType::Base {
-                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
-            }
-            let amount = crate::provider_io::decimal(&serde_json::Value::String(
-                proposal.fields.quantity.value.clone(),
-            ))?;
-            if crate::provider_io::decimal_cmp(&amount, "0")? != std::cmp::Ordering::Greater {
-                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
-            }
-            if account.provider_id == "trading212" {
-                let positions = data
-                    .positions
-                    .iter()
-                    .filter(|position| {
-                        position.instrument_id.as_deref() == Some(instrument.instrument_id.as_str())
-                            || position.symbol == instrument.symbol
-                    })
-                    .collect::<Vec<_>>();
-                if positions.len() != 1 {
-                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
-                }
-                let mut available = crate::provider_io::decimal(&serde_json::Value::String(
-                    positions[0].quantity.clone(),
-                ))?;
-                for order in data.open_orders.iter().filter(|order| {
-                    order.side.eq_ignore_ascii_case("SELL")
-                        && order.symbol == instrument.symbol
-                        && matches!(
-                            order.status.as_str(),
-                            "LOCAL"
-                                | "UNCONFIRMED"
-                                | "CONFIRMED"
-                                | "NEW"
-                                | "CANCELLING"
-                                | "PARTIALLY_FILLED"
-                                | "REPLACING"
-                        )
-                }) {
-                    let quantity = order
-                        .quantity
-                        .as_deref()
-                        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-                    let filled = order
-                        .filled_quantity
-                        .as_deref()
-                        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-                    let remaining = crate::provider_io::decimal_subtract(quantity, filled)?;
-                    available = crate::provider_io::decimal_subtract(&available, &remaining)?;
-                }
-                if crate::provider_io::decimal_cmp(&available, "0")? == std::cmp::Ordering::Less {
-                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
-                }
-                (
-                    format!("asset:{}", instrument.symbol),
-                    amount,
-                    instrument.symbol.clone(),
-                    available,
-                )
-            } else {
-                let base = instrument
-                    .base
-                    .as_deref()
+    let (capacity_key, amount, unit, available, committed, available_source, committed_source) =
+        match proposal.fields.side {
+            protocol::OrderSide::Buy => {
+                let amount = maximum_authorized_spend
                     .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                if crate::provider_io::decimal_cmp(amount, "0")? != std::cmp::Ordering::Greater {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
                 let balances = data
                     .balances
                     .iter()
-                    .filter(|balance| balance.asset.eq_ignore_ascii_case(base))
+                    .filter(|balance| balance.asset.eq_ignore_ascii_case(quote_currency))
                     .collect::<Vec<_>>();
                 if balances.len() != 1 {
                     return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
                 }
+                // Provider adapters expose free/available-to-trade cash after broker order locks.
+                // Subtracting those same orders again would double-count committed capacity.
                 let available = crate::provider_io::decimal(&serde_json::Value::String(
                     balances[0].available.clone(),
                 ))?;
-                (format!("asset:{base}"), amount, base.to_owned(), available)
+                let committed = if account.provider_id == "trading212" {
+                    balances[0]
+                        .reserved
+                        .as_deref()
+                        .map(|value| {
+                            crate::provider_io::decimal(&serde_json::Value::String(value.into()))
+                        })
+                        .transpose()?
+                } else {
+                    balances[0]
+                        .total
+                        .as_deref()
+                        .map(|total| {
+                            let total = crate::provider_io::decimal(&serde_json::Value::String(
+                                total.into(),
+                            ))?;
+                            if crate::provider_io::decimal_cmp(&total, &available)?
+                                == std::cmp::Ordering::Less
+                            {
+                                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                            }
+                            crate::provider_io::decimal_subtract(&total, &available)
+                        })
+                        .transpose()?
+                };
+                let committed_source = if committed.is_some() {
+                    protocol::CapacityCommittedSource::ProviderBalanceCommitted
+                } else {
+                    protocol::CapacityCommittedSource::Unavailable
+                };
+                (
+                    format!("cash:{quote_currency}"),
+                    amount.to_owned(),
+                    quote_currency.to_owned(),
+                    available,
+                    committed,
+                    protocol::CapacityAvailableSource::ProviderBalanceAvailable,
+                    committed_source,
+                )
             }
-        }
+            protocol::OrderSide::Sell => {
+                if proposal.fields.quantity.r#type != protocol::OrderQuantityType::Base {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                let amount = crate::provider_io::decimal(&serde_json::Value::String(
+                    proposal.fields.quantity.value.clone(),
+                ))?;
+                if crate::provider_io::decimal_cmp(&amount, "0")? != std::cmp::Ordering::Greater {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                if account.provider_id == "trading212" {
+                    let positions = data
+                        .positions
+                        .iter()
+                        .filter(|position| {
+                            position.instrument_id.as_deref()
+                                == Some(instrument.instrument_id.as_str())
+                                || position.symbol == instrument.symbol
+                        })
+                        .collect::<Vec<_>>();
+                    if positions.len() != 1 {
+                        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                    }
+                    let mut available = crate::provider_io::decimal(&serde_json::Value::String(
+                        positions[0].quantity.clone(),
+                    ))?;
+                    let mut committed = "0".to_owned();
+                    for order in data.open_orders.iter().filter(|order| {
+                        order.side.eq_ignore_ascii_case("SELL")
+                            && order.symbol == instrument.symbol
+                            && matches!(
+                                order.status.as_str(),
+                                "LOCAL"
+                                    | "UNCONFIRMED"
+                                    | "CONFIRMED"
+                                    | "NEW"
+                                    | "CANCELLING"
+                                    | "PARTIALLY_FILLED"
+                                    | "REPLACING"
+                            )
+                    }) {
+                        let quantity = order
+                            .quantity
+                            .as_deref()
+                            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                        let filled = order
+                            .filled_quantity
+                            .as_deref()
+                            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                        let remaining = crate::provider_io::decimal_subtract(quantity, filled)?;
+                        committed = crate::portfolio::decimal_add(&committed, &remaining)?;
+                        available = crate::provider_io::decimal_subtract(&available, &remaining)?;
+                    }
+                    if crate::provider_io::decimal_cmp(&available, "0")? == std::cmp::Ordering::Less
+                    {
+                        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                    }
+                    (
+                        format!("asset:{}", instrument.symbol),
+                        amount,
+                        instrument.symbol.clone(),
+                        available,
+                        Some(committed),
+                        protocol::CapacityAvailableSource::PositionLessOpenSellOrders,
+                        protocol::CapacityCommittedSource::OpenSellOrders,
+                    )
+                } else {
+                    let base = instrument
+                        .base
+                        .as_deref()
+                        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                    let balances = data
+                        .balances
+                        .iter()
+                        .filter(|balance| balance.asset.eq_ignore_ascii_case(base))
+                        .collect::<Vec<_>>();
+                    if balances.len() != 1 {
+                        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                    }
+                    let available = crate::provider_io::decimal(&serde_json::Value::String(
+                        balances[0].available.clone(),
+                    ))?;
+                    let committed = balances[0]
+                        .total
+                        .as_deref()
+                        .map(|total| {
+                            let total = crate::provider_io::decimal(&serde_json::Value::String(
+                                total.into(),
+                            ))?;
+                            if crate::provider_io::decimal_cmp(&total, &available)?
+                                == std::cmp::Ordering::Less
+                            {
+                                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                            }
+                            crate::provider_io::decimal_subtract(&total, &available)
+                        })
+                        .transpose()?;
+                    let committed_source = if committed.is_some() {
+                        protocol::CapacityCommittedSource::ProviderBalanceCommitted
+                    } else {
+                        protocol::CapacityCommittedSource::Unavailable
+                    };
+                    (
+                        format!("asset:{base}"),
+                        amount,
+                        base.to_owned(),
+                        available,
+                        committed,
+                        protocol::CapacityAvailableSource::ProviderBalanceAvailable,
+                        committed_source,
+                    )
+                }
+            }
+        };
+    let projection = protocol::CapacityProjection {
+        account_state_version: account.state_version.clone(),
+        available: Some(available.clone()),
+        committed,
+        reserved: Some("0".into()),
+        effective_available: Some(available),
+        unit,
+        available_source,
+        committed_source,
+        freshness: protocol::CapacityFreshness::Current,
+        observed_at: account.last_successful_sync.clone(),
+        requested_amount: Some(amount.clone()),
     };
-    Ok(capacity)
+    Ok(LivePlaceCapacity {
+        capacity_key,
+        amount,
+        projection,
+    })
 }
 
 fn proposal_value(
@@ -1843,6 +2004,29 @@ impl ControlPlane {
             .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
         );
         account.last_successful_sync = Some(storage::timestamp()?);
+        self.persist_account(account)
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
+    pub fn mark_live_capacity_fixture_stale(
+        &mut self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<AccountConnection> {
+        self.require_workspace(workspace_id)?;
+        let mut account = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("WORKSPACE_NOT_OPEN"))?
+            .account(connection_id)?;
+        if account.workspace_id != workspace_id || account.environment != "LIVE" {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        account.last_successful_sync = Some(
+            (OffsetDateTime::now_utc() - TimeDuration::seconds(31))
+                .format(&Rfc3339)
+                .map_err(|_| TradeXError::new("CLOCK_SKEW"))?,
+        );
         self.persist_account(account)
     }
 
@@ -6604,6 +6788,61 @@ impl ControlPlane {
         } else {
             proposal_value(proposal, market.as_ref())
         };
+        let capacity_projection = match (account.as_ref(), market.as_ref()) {
+            (Some(account), Some(market)) => {
+                let freshness = capacity_evidence_freshness(account, &time_status.wall_clock);
+                if freshness == protocol::CapacityFreshness::Current {
+                    match live_place_capacity(
+                        proposal,
+                        account,
+                        market,
+                        maximum_authorized_spend.as_deref(),
+                        &time_status.wall_clock,
+                    ) {
+                        Ok(mut capacity) => {
+                            let reservations = self
+                                .store
+                                .as_ref()
+                                .unwrap()
+                                .active_execution_reservations(&proposal.workspace_id)?;
+                            let mut reserved = "0".to_owned();
+                            for active in reservations.iter().filter(|active| {
+                                active.account_id == account.connection_id
+                                    && active.capacity_key == capacity.capacity_key
+                            }) {
+                                reserved =
+                                    crate::portfolio::decimal_add(&reserved, &active.amount)?;
+                            }
+                            let available = capacity
+                                .projection
+                                .available
+                                .as_deref()
+                                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                            capacity.projection.reserved = Some(reserved.clone());
+                            capacity.projection.effective_available =
+                                Some(crate::provider_io::decimal_subtract(available, &reserved)?);
+                            Some(capacity.projection)
+                        }
+                        Err(_) => Some(unavailable_capacity_projection(
+                            proposal,
+                            account,
+                            market,
+                            maximum_authorized_spend.as_deref(),
+                            protocol::CapacityFreshness::Unavailable,
+                        )),
+                    }
+                } else {
+                    Some(unavailable_capacity_projection(
+                        proposal,
+                        account,
+                        market,
+                        maximum_authorized_spend.as_deref(),
+                        freshness,
+                    ))
+                }
+            }
+            _ => None,
+        };
         let quote_age_ms = quote_age_ms(&time_status, market.as_ref());
         if expected_spend.is_none() || maximum_authorized_spend.is_none() {
             blockers.push(
@@ -6674,6 +6913,7 @@ impl ControlPlane {
             // No trusted Live fee or size-aware slippage estimator is available yet.
             estimated_fees: None,
             estimated_slippage_percent: None,
+            capacity_projection,
             reviewed_at: time_status.wall_clock,
         })
     }
@@ -6789,8 +7029,21 @@ impl ControlPlane {
             .account
             .as_deref()
             .ok_or_else(|| TradeXError::new("ACCOUNT_NOT_FOUND"))?;
-        let (capacity_key, amount, unit, broker_available) =
-            live_place_capacity(&proposal, account, &review, &now)?;
+        let capacity = live_place_capacity(
+            &proposal,
+            account,
+            &review.market,
+            review.maximum_authorized_spend.as_deref(),
+            &now,
+        )?;
+        let capacity_key = capacity.capacity_key;
+        let amount = capacity.amount;
+        let broker_available = capacity
+            .projection
+            .available
+            .clone()
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+        let unit = capacity.projection.unit.clone();
         let notional = review
             .maximum_authorized_spend
             .as_deref()
@@ -6856,6 +7109,7 @@ impl ControlPlane {
             broker_available,
             existing_reservations: "0".into(),
             effective_available: "0".into(),
+            capacity_projection: Some(capacity.projection),
             account_state_version: account.state_version.clone(),
             status: protocol::ExecutionReservationStatus::Active,
             created_at: now.clone(),
@@ -11905,6 +12159,19 @@ mod live_approval_tests {
     fn live_place_preparation_consumes_approval_once_and_replays_idempotently() {
         let (_folder, mut control, workspace_id, _account, proposal, review) =
             reviewed_live_capacity_fixture();
+        assert_eq!(review["capacityProjection"]["available"], "1000");
+        assert_eq!(review["capacityProjection"]["committed"], "0");
+        assert_eq!(review["capacityProjection"]["reserved"], "0");
+        assert_eq!(review["capacityProjection"]["effectiveAvailable"], "1000");
+        assert_eq!(review["capacityProjection"]["freshness"], "CURRENT");
+        assert_eq!(
+            review["capacityProjection"]["availableSource"],
+            "PROVIDER_BALANCE_AVAILABLE"
+        );
+        assert_eq!(
+            review["capacityProjection"]["accountStateVersion"],
+            review["account"]["stateVersion"]
+        );
         let approval = dispatch_main(
             &mut control,
             "trade.approve",
@@ -11957,6 +12224,14 @@ mod live_approval_tests {
         assert_eq!(prepared["data"]["reservation"]["unit"], "USD", "{prepared}");
         assert_eq!(
             prepared["data"]["reservation"]["effectiveAvailable"], "500",
+            "{prepared}"
+        );
+        assert_eq!(
+            prepared["data"]["reservation"]["capacityProjection"]["reserved"], "500",
+            "{prepared}"
+        );
+        assert_eq!(
+            prepared["data"]["reservation"]["capacityProjection"]["effectiveAvailable"], "500",
             "{prepared}"
         );
         let recovered = dispatch_main(
@@ -12110,6 +12385,8 @@ mod live_approval_tests {
     fn live_place_preparation_capacity_failure_leaves_approval_and_ledger_unchanged() {
         let (_folder, mut control, workspace_id, _account, proposal, review) =
             reviewed_live_capacity_fixture_with_available("400");
+        assert_eq!(review["capacityProjection"]["available"], "400");
+        assert_eq!(review["capacityProjection"]["effectiveAvailable"], "400");
         let approval = dispatch_main(
             &mut control,
             "trade.approve",
@@ -12164,6 +12441,18 @@ mod live_approval_tests {
         assert_eq!(
             restored_rejection["data"]["rejections"][0]["capacityContext"]["source"],
             "BROKER_AVAILABLE"
+        );
+        assert_eq!(
+            restored_rejection["data"]["rejections"][0]["capacityContext"]["remediation"],
+            "REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS"
+        );
+        assert_eq!(
+            restored_rejection["data"]["rejections"][0]["capacityContext"]["capacityProjection"]["available"],
+            "400"
+        );
+        assert_eq!(
+            restored_rejection["data"]["rejections"][0]["capacityContext"]["capacityProjection"]["freshness"],
+            "CURRENT"
         );
         assert_ne!(
             restored_rejection["data"]["rejections"][0]["idempotencyDigest"],
@@ -12430,6 +12719,14 @@ mod live_approval_tests {
             rejected["error"]["capacityContext"]["effectiveAvailable"], "500",
             "{rejected}"
         );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["capacityProjection"]["reserved"], "500",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["capacityProjection"]["effectiveAvailable"], "500",
+            "{rejected}"
+        );
         let reservations = control
             .store
             .as_ref()
@@ -12438,6 +12735,170 @@ mod live_approval_tests {
             .unwrap();
         assert_eq!(reservations.len(), 1);
         assert_eq!(reservations[0].amount, "500");
+    }
+
+    #[test]
+    fn live_place_preparation_accepts_exact_available_capacity() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture_with_available("500");
+        assert_eq!(review["capacityProjection"]["effectiveAvailable"], "500");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-live-place-at-capacity",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        assert_eq!(
+            prepared["data"]["reservation"]["capacityProjection"]["reserved"], "500",
+            "{prepared}"
+        );
+        assert_eq!(
+            prepared["data"]["reservation"]["capacityProjection"]["effectiveAvailable"], "0",
+            "{prepared}"
+        );
+    }
+
+    #[test]
+    fn live_capacity_projection_does_not_subtract_provider_commitments_twice() {
+        let (_folder, mut control, workspace_id, _account, proposal, _) =
+            reviewed_live_capacity_fixture();
+        let account_id = proposal["fields"]["accountId"].as_str().unwrap();
+        let mut account = control.store.as_ref().unwrap().account(account_id).unwrap();
+        account.data.as_mut().unwrap().balances[0].available = "500".into();
+        account.data.as_mut().unwrap().balances[0].total = Some("1000".into());
+        account.data.as_mut().unwrap().balances[0].reserved = Some("500".into());
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_account(account)
+            .unwrap();
+
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["proposalId"]}),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["eligible"], true, "{review}");
+        assert_eq!(review["data"]["capacityProjection"]["available"], "500");
+        assert_eq!(review["data"]["capacityProjection"]["committed"], "500");
+        assert_eq!(
+            review["data"]["capacityProjection"]["effectiveAvailable"],
+            "500"
+        );
+
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review["data"]),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-live-place-provider-commitment",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        assert_eq!(
+            prepared["data"]["reservation"]["capacityProjection"]["committed"],
+            "500"
+        );
+        assert_eq!(
+            prepared["data"]["reservation"]["capacityProjection"]["reserved"],
+            "500"
+        );
+        assert_eq!(
+            prepared["data"]["reservation"]["capacityProjection"]["effectiveAvailable"],
+            "0"
+        );
+    }
+
+    #[test]
+    fn live_capacity_review_refreshes_after_account_state_changes_and_marks_stale_evidence() {
+        let (_folder, mut control, workspace_id, account, proposal, first_review) =
+            reviewed_live_capacity_fixture();
+        let original_version = first_review["capacityProjection"]["accountStateVersion"]
+            .as_str()
+            .unwrap();
+        let mut changed_account = account;
+        changed_account.data.as_mut().unwrap().balances[0].available = "1250".into();
+        changed_account.data.as_mut().unwrap().balances[0].total = Some("1250".into());
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_account(changed_account)
+            .unwrap();
+        let refreshed = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        assert_eq!(refreshed["data"]["capacityProjection"]["available"], "1250");
+        assert_ne!(
+            refreshed["data"]["capacityProjection"]["accountStateVersion"],
+            original_version
+        );
+        assert_eq!(
+            refreshed["data"]["capacityProjection"]["accountStateVersion"],
+            refreshed["data"]["account"]["stateVersion"]
+        );
+
+        let observed = OffsetDateTime::parse(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .account(
+                    refreshed["data"]["account"]["connectionId"]
+                        .as_str()
+                        .unwrap(),
+                )
+                .unwrap()
+                .last_successful_sync
+                .as_deref()
+                .unwrap(),
+            &Rfc3339,
+        )
+        .unwrap();
+        control
+            .time
+            .set_test_time(observed.unix_timestamp_nanos() / 1_000_000 + 31_000, 120);
+        let stale = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(stale["ok"], true, "{stale}");
+        assert_eq!(stale["data"]["capacityProjection"]["freshness"], "STALE");
+        assert_eq!(
+            stale["data"]["capacityProjection"]["available"],
+            Value::Null
+        );
+        assert_eq!(
+            stale["data"]["capacityProjection"]["effectiveAvailable"],
+            Value::Null
+        );
     }
 
     #[test]

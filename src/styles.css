@@ -534,6 +534,9 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .live-approval-panel { display: grid; gap: 10px; min-width: 0; border: 1px solid var(--border); border-radius: 9px; padding: 14px; margin: 16px 0; }
 .live-approval-record { display: grid; gap: 4px; min-width: 0; border-top: 1px solid var(--border); padding-top: 9px; overflow-wrap: anywhere; font-size: 12px; }
 .live-approval-record span, .live-approval-record time { color: var(--muted); font-size: 11px; }
+.live-capacity-summary { display: grid; gap: 6px; min-width: 0; border: 1px solid var(--border); border-radius: 7px; padding: 10px; overflow-wrap: anywhere; }
+.live-capacity-summary h4 { margin: 0; font-size: 12px; }
+.live-capacity-summary p { margin: 0; font-size: 11px; }
 .approval-review-dialog { width: min(860px, 100%); max-height: 84vh; overflow: auto; }
 .approval-review-dialog h3 { margin: 18px 0 8px; }
 .approval-review-fields { margin-top: 12px; }

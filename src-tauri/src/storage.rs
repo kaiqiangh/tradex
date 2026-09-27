@@ -3343,6 +3343,20 @@ impl Store {
         {
             return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
         }
+        let capacity_projection = reservation
+            .capacity_projection
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+        if capacity_projection.account_state_version != account.state_version
+            || capacity_projection.freshness != crate::protocol::CapacityFreshness::Current
+            || capacity_projection.observed_at != account.last_successful_sync
+            || capacity_projection.available.as_deref()
+                != Some(reservation.broker_available.as_str())
+            || capacity_projection.unit != reservation.unit
+            || capacity_projection.requested_amount.as_deref() != Some(reservation.amount.as_str())
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
         let policy_projection: String = tx
             .query_row(
                 "SELECT projection FROM risk_state WHERE singleton=1",
@@ -3424,6 +3438,10 @@ impl Store {
             &reservation.broker_available,
             &existing_capacity,
         )?;
+        if let Some(capacity_projection) = reservation.capacity_projection.as_mut() {
+            capacity_projection.reserved = Some(existing_capacity.clone());
+            capacity_projection.effective_available = Some(effective_available.clone());
+        }
         if crate::provider_io::decimal_cmp(&effective_available, "0")? == std::cmp::Ordering::Less
             || crate::provider_io::decimal_cmp(&reservation.amount, &effective_available)?
                 == std::cmp::Ordering::Greater
@@ -3435,6 +3453,10 @@ impl Store {
                 capacity_limit: reservation.broker_available.clone(),
                 existing_reservations: existing_capacity.clone(),
                 effective_available: effective_available.clone(),
+                capacity_projection: reservation.capacity_projection.clone(),
+                remediation: Some(
+                    crate::protocol::CapacityRemediation::ReduceRequestOrWaitForReservations,
+                ),
             };
             let error = TradeXError::reserved_capacity(capacity_context.clone());
             write_execution_preparation_rejection_tx(
@@ -3453,7 +3475,7 @@ impl Store {
             tx.commit().map_err(storage_error)?;
             return Err(error);
         }
-        reservation.existing_reservations = existing_capacity;
+        reservation.existing_reservations = existing_capacity.clone();
         reservation.effective_available =
             crate::provider_io::decimal_subtract(&effective_available, &reservation.amount)?;
 
@@ -3499,6 +3521,10 @@ impl Store {
                     capacity_limit: maximum.to_owned(),
                     existing_reservations: reserved_capital,
                     effective_available,
+                    capacity_projection: reservation.capacity_projection.clone(),
+                    remediation: Some(
+                        crate::protocol::CapacityRemediation::ReduceRequestOrReviewWorkspaceLimit,
+                    ),
                 };
                 let error = TradeXError::reserved_capacity(capacity_context.clone());
                 write_execution_preparation_rejection_tx(
@@ -3534,6 +3560,16 @@ impl Store {
             || reservation.workspace_currency != workspace_base_currency
         {
             return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+
+        let reserved_after_request =
+            crate::portfolio::decimal_add(&existing_capacity, &reservation.amount)?;
+        if let Some(capacity_projection) = reservation.capacity_projection.as_mut() {
+            capacity_projection.reserved = Some(reserved_after_request);
+            capacity_projection.effective_available = Some(crate::provider_io::decimal_subtract(
+                &effective_available,
+                &reservation.amount,
+            )?);
         }
 
         approval.status = FinancialApprovalStatus::Consumed;

@@ -105,7 +105,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     const dialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
     await dialog.waitFor({ state: 'visible' });
     const reviewText = await dialog.innerText();
-    for (const expected of ['TRADING212_LIVE', account.label, 'equity:US:AAPL', 'BUY', '0.01 BASE', 'MARKET · No limit · GTC', 'Expected spend\n500.01', 'Maximum authorized spend\n500', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nUnavailable']) {
+    for (const expected of ['TRADING212_LIVE', account.label, 'equity:US:AAPL', 'BUY', '0.01 BASE', 'MARKET · No limit · GTC', 'Expected spend\n500.01', 'Maximum authorized spend\n500', 'Backend capacity preview', 'Provider available\n1000 USD', 'Provider committed\n0 USD', 'TradeX reserved\n0 USD', 'Effective available\n1000 USD', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nUnavailable']) {
       assert.ok(reviewText.includes(expected), `Approval review includes ${expected}: ${reviewText}`);
     }
     await ui.getByRole('alert').filter({ hasText: 'MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED' }).waitFor({ state: 'visible' });
@@ -115,6 +115,13 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.equal(marketHistory.approvals.length, 0, 'Unavailable size-aware slippage keeps market approval absent');
     assert.match(reviewText, /Quote age\n\d+ ms/);
     await expectFocus(ui, 'Reject this review');
+    await viewport.set({ width: 768, height: 900 });
+    const tabletDialogSize = await dialog.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth };
+    });
+    assert.ok(tabletDialogSize.left >= 0 && tabletDialogSize.right <= tabletDialogSize.width, `Approval review fits at 768px: ${JSON.stringify(tabletDialogSize)}`);
+    assert.ok(tabletDialogSize.scroll <= tabletDialogSize.width, `Approval review has no horizontal overflow at 768px: ${JSON.stringify(tabletDialogSize)}`);
     await viewport.set({ width: 390, height: 844 });
     const dialogSize = await dialog.evaluate(element => {
       const rect = element.getBoundingClientRect();
@@ -124,8 +131,9 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.ok(dialogSize.scroll <= dialogSize.width, `Approval review has no horizontal overflow: ${JSON.stringify(dialogSize)}`);
     await dialog.press('Escape');
     await dialog.waitFor({ state: 'hidden' });
+    await viewport.set({ width: 1280, height: 900 });
     await expectFocus(ui, 'Review Live approval');
-    observed.push('Market BUY review shows ask-derived expected spend, the 500 cap and quote provenance; unavailable size-aware slippage blocks approval, and Escape cancels safely in a 390px viewport.');
+    observed.push('Market BUY review shows backend available/committed/reserved/effective capacity with quote provenance; unavailable size-aware slippage blocks approval, and the review fits at 1280/768/390px.');
 
     const armedAccount = (await sendIntegrationCommand('account.list', { workspaceId })).accounts.find(item => item.connectionId === account.connectionId);
     assert.ok(armedAccount);
@@ -349,8 +357,118 @@ export async function checkLiveApprovalUI(tab, browser) {
     const recoveredCard = ui.getByLabel('TradeX execution preparation', { exact: true });
     await recoveredCard.waitFor({ state: 'visible' });
     assert.ok((await recoveredCard.innerText()).includes(durablePreparation.preparation.attempt.attemptId), 'Reopening Order Drafts restores the persisted preparation');
-    observed.push('A second explicit action consumes the issued approval, shows a durable RESERVED attempt and exact capacity, and confirms no provider request was sent.');
+    assert.ok((await recoveredCard.innerText()).includes('Capacity after TradeX reservation'), 'The recovered reservation restores its backend capacity projection');
+    observed.push('A second explicit action consumes the issued approval, shows a durable RESERVED attempt and exact capacity projection, and confirms no provider request was sent.');
     observed.push('Reopening Order Drafts restores the preparation through its approval ID without renderer-held idempotency state.');
+
+    await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+    await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('TRADING212_LIVE');
+    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(account.connectionId);
+    await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('equity:US:AAPL');
+    await ui.getByRole('combobox', { name: 'Side', exact: true }).selectOption('BUY');
+    await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
+    await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
+    await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.014');
+    await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('50000');
+    await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
+    await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    let conflictProposal;
+    for (const summary of (await sendIntegrationCommand('trade.proposal.list', { workspaceId })).proposals) {
+      const detail = await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: summary.proposalId });
+      if (detail.fields.quantity.value === '0.014' && detail.fields.side === 'BUY') { conflictProposal = detail; break; }
+    }
+    assert.ok(conflictProposal, 'The F11 conflict proposal is persisted');
+    await ui.locator('.order-proposal-row').filter({ hasText: conflictProposal.proposalId }).press('Enter');
+    await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
+    const conflictDialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
+    await conflictDialog.waitFor({ state: 'visible' });
+    const conflictText = await conflictDialog.innerText();
+    for (const expected of ['Provider available\n1000 USD', 'Provider committed\n0 USD', 'TradeX reserved\n400 USD', 'Effective available\n600 USD', 'Requested capacity\n700 USD', 'CURRENT']) {
+      assert.ok(conflictText.includes(expected), `F11 preview includes ${expected}: ${conflictText}`);
+    }
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: width === 390 ? 844 : 900 });
+      const size = await conflictDialog.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth };
+      });
+      assert.ok(size.left >= 0 && size.right <= size.width, `F11 review fits at ${width}px: ${JSON.stringify(size)}`);
+      assert.ok(size.scroll <= size.width, `F11 review has no horizontal overflow at ${width}px: ${JSON.stringify(size)}`);
+    }
+    await expectFocus(ui, 'Reject this review');
+    await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).press('Space');
+    await conflictDialog.waitFor({ state: 'hidden' });
+    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).press('Enter');
+    await ui.getByRole('alert').filter({ hasText: 'RISK_REJECTED · RESERVED_CAPACITY' }).waitFor({ state: 'visible' });
+    await ui.getByText(/Next step: Reduce the request or wait for earlier reservations/).waitFor({ state: 'visible' });
+    const refusalSummary = ui.getByLabel('Capacity evidence at refusal', { exact: true });
+    await refusalSummary.waitFor({ state: 'visible' });
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: width === 390 ? 844 : 900 });
+      const size = await refusalSummary.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth };
+      });
+      assert.ok(size.left >= 0 && size.right <= size.width, `F11 refusal evidence fits at ${width}px: ${JSON.stringify(size)}`);
+      assert.ok(size.scroll <= size.width, `F11 refusal evidence has no horizontal overflow at ${width}px: ${JSON.stringify(size)}`);
+    }
+    await viewport.set({ width: 1280, height: 900 });
+    const conflictHistory = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: conflictProposal.proposalId });
+    assert.equal(conflictHistory.approvals[0]?.status, 'ISSUED', 'Capacity refusal preserves the approval for a deliberate retry');
+    assert.equal((await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: conflictProposal.proposalId })).status, 'NEEDS_APPROVAL');
+    const conflictPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: conflictHistory.approvals[0].approvalId,
+    });
+    assert.equal(conflictPreparation.preparation, null, 'Over-limit preparation creates no execution attempt');
+    assert.equal(conflictPreparation.rejections[0].capacityContext.effectiveAvailable, '600');
+    assert.equal(conflictPreparation.rejections[0].capacityContext.remediation, 'REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS');
+    assert.equal(await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).isEnabled(), true);
+    observed.push('F11 shows $1,000 provider capacity, $400 reserved by TradeX, and $600 effective before a $700 request; refusal evidence fits at 1280/768/390px, preserves the approval, records remediation, and creates no attempt.');
+
+    const staleAccount = await sendIntegrationCommand('account.capacity.fixture.stale', {
+      workspaceId, connectionId: account.connectionId,
+    });
+    assert.equal(staleAccount.health.reconciliation, 'CURRENT');
+    assert.equal(staleAccount.health.arming, 'ARMED', 'Stale capacity evidence does not silently alter account arming');
+    const drafts = await sendIntegrationCommand('trade.draft.list', { workspaceId });
+    const marketDraftIndex = drafts.drafts.findIndex(draft => draft.draftId === marketProposal.draftId);
+    assert.ok(marketDraftIndex >= 0, 'The stale-preview proposal still has a saved draft');
+    await ui.locator('.order-draft-row').nth(marketDraftIndex).press('Enter');
+    const marketProposalRow = ui.locator('.order-proposal-row').filter({ hasText: marketProposal.proposalId });
+    await marketProposalRow.waitFor({ state: 'visible' });
+    await marketProposalRow.click();
+    const staleReviewButton = ui.getByRole('button', { name: 'Review Live approval', exact: true });
+    await staleReviewButton.waitFor({ state: 'visible' });
+    await staleReviewButton.press('Enter');
+    const staleDialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
+    await staleDialog.waitFor({ state: 'visible' });
+    const staleSummary = ui.getByLabel('Backend capacity preview', { exact: true });
+    await staleSummary.waitFor({ state: 'visible' });
+    const staleText = await staleSummary.innerText();
+    for (const expected of [
+      'Provider available\nUnavailable', 'Provider committed\nUnavailable',
+      'TradeX reserved\nUnavailable', 'Effective available\nUnavailable',
+      'Account evidence\nSTALE ·',
+      'Account evidence is stale; refresh the account before relying on these values.',
+    ]) assert.ok(staleText.includes(expected), `Stale capacity is explicit and hides amounts: ${staleText}`);
+    assert.equal(await staleSummary.getByRole('alert').getAttribute('aria-live'), 'polite');
+    assert.equal(await staleDialog.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).isEnabled(), false);
+    await expectFocus(ui, 'Reject this review');
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: width === 390 ? 844 : 900 });
+      const size = await staleDialog.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth };
+      });
+      assert.ok(size.left >= 0 && size.right <= size.width, `F11 stale review fits at ${width}px: ${JSON.stringify(size)}`);
+      assert.ok(size.scroll <= size.width, `F11 stale review has no horizontal overflow at ${width}px: ${JSON.stringify(size)}`);
+    }
+    await staleDialog.press('Escape');
+    await staleDialog.waitFor({ state: 'hidden' });
+    observed.push('F11 stale capacity review hides every amount, announces the stale state to assistive technology, blocks approval, and fits at 1280/768/390px.');
 
     const pageErrors = await tab.dev.logs({ levels: ['error'], limit: 20 });
     assert.equal(pageErrors.filter(log => !log.url?.startsWith('chrome-extension://') && !log.message.includes('chrome-extension://')).length, 0);

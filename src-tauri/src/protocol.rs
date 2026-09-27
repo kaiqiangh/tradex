@@ -2822,6 +2822,8 @@ pub struct ApprovalReview {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub estimated_slippage_percent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capacity_projection: Option<CapacityProjection>,
     #[schemars(length(min = 1, max = 64))]
     pub reviewed_at: String,
 }
@@ -3159,6 +3161,8 @@ pub struct ExecutionReservation {
     pub existing_reservations: String,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub effective_available: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capacity_projection: Option<CapacityProjection>,
     #[schemars(length(min = 1, max = 256))]
     pub account_state_version: String,
     pub status: ExecutionReservationStatus,
@@ -3183,6 +3187,67 @@ pub enum CapacityLimitSource {
     WorkspaceReservedCapital,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CapacityFreshness {
+    Current,
+    Stale,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CapacityAvailableSource {
+    ProviderBalanceAvailable,
+    PositionLessOpenSellOrders,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CapacityCommittedSource {
+    ProviderBalanceCommitted,
+    OpenSellOrders,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CapacityRemediation {
+    ReduceRequestOrWaitForReservations,
+    ReduceRequestOrReviewWorkspaceLimit,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CapacityProjection {
+    #[schemars(length(min = 1, max = 256))]
+    pub account_state_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub available: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub committed: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub reserved: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub effective_available: Option<String>,
+    #[schemars(length(min = 1, max = 32))]
+    pub unit: String,
+    pub available_source: CapacityAvailableSource,
+    pub committed_source: CapacityCommittedSource,
+    pub freshness: CapacityFreshness,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub requested_amount: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CapacityRejectionContext {
@@ -3197,6 +3262,10 @@ pub struct CapacityRejectionContext {
     pub existing_reservations: String,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub effective_available: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capacity_projection: Option<CapacityProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remediation: Option<CapacityRemediation>,
 }
 
 impl FinancialApproval {

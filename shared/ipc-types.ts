@@ -37,6 +37,21 @@ export type ApprovalRejectionReason = "USER_REJECTED";
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapacityAvailableSource".
+ */
+export type CapacityAvailableSource = "PROVIDER_BALANCE_AVAILABLE" | "POSITION_LESS_OPEN_SELL_ORDERS" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapacityCommittedSource".
+ */
+export type CapacityCommittedSource = "PROVIDER_BALANCE_COMMITTED" | "OPEN_SELL_ORDERS" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapacityFreshness".
+ */
+export type CapacityFreshness = "CURRENT" | "STALE" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AdjustmentStatus".
  */
 export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
@@ -345,6 +360,12 @@ export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
  * via the `definition` "CapabilityLevel".
  */
 export type CapabilityLevel = "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapacityRemediation".
+ */
+export type CapacityRemediation =
+  "REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS" | "REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CapacityLimitSource".
@@ -1159,6 +1180,7 @@ export interface ApprovalReview {
    * @maxItems 32
    */
   blockers: string[];
+  capacityProjection?: CapacityProjection | null;
   eligible: boolean;
   estimatedFees?: EstimatedFee | null;
   estimatedSlippagePercent?: string;
@@ -1333,6 +1355,23 @@ export interface PermissionReview {
   ipAllowListStatus: string;
   scope: "VERIFIED" | "UNVERIFIED";
   unsupported: string[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapacityProjection".
+ */
+export interface CapacityProjection {
+  accountStateVersion: string;
+  available?: string;
+  availableSource: CapacityAvailableSource;
+  committed?: string;
+  committedSource: CapacityCommittedSource;
+  effectiveAvailable?: string;
+  freshness: CapacityFreshness;
+  observedAt?: string | null;
+  requestedAmount?: string;
+  reserved?: string;
+  unit: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2543,8 +2582,10 @@ export interface ThreadContextRef {
  */
 export interface CapacityRejectionContext {
   capacityLimit: string;
+  capacityProjection?: CapacityProjection | null;
   effectiveAvailable: string;
   existingReservations: string;
+  remediation?: CapacityRemediation | null;
   requestedAmount: string;
   source: CapacityLimitSource;
   unit: string;
@@ -2964,6 +3005,7 @@ export interface ExecutionReservation {
   attemptId: string;
   brokerAvailable: string;
   capacityKey: string;
+  capacityProjection?: CapacityProjection | null;
   createdAt: string;
   effectiveAvailable: string;
   existingReservations: string;

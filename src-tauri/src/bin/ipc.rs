@@ -566,6 +566,40 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("account.capacity.fixture.stale") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let connection_id = payload.get("connectionId").and_then(Value::as_str);
+                let reply = match (workspace_id, connection_id) {
+                    (Some(workspace_id), Some(connection_id)) => match control.lock() {
+                        Ok(mut control) => match control
+                            .mark_live_capacity_fixture_stale(workspace_id, connection_id)
+                        {
+                            Ok(account) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":account
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("account.delete.fixture.seed") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);

@@ -93,7 +93,7 @@ FAILED/PARTIAL 原型项修复后仍可能需要运行时验证。SOURCE_ONLY �
 | FR-056 | 实现无执行能力的 Ask 模式 | P0 | SOURCE_ONLY | 仅源码界面存在性记录；完整交互仍待验证。原记录：Ask 是独立 Agent Mode，并明确 read-only/no execution。 |
 | FR-057 | 实现完整的实时审批市场快照溯源 | P0 | SOURCE_ONLY | 仅源码界面存在性记录；完整交互仍待验证。原记录：Live approval 展示完整 market snapshot provenance/freshness。 |
 | FR-058 | 实现风控策略变更导致审批失效的生命周期 | P0 | FAILED | 关联场景的实际观察与验收条件见 [QA-05](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-05)；修复后重新验证，不以界面存在代替通过。 |
-| FR-059 | 实现预留冲突 UI/推理展示 | P0 | SOURCE_ONLY | 仅源码界面存在性记录；完整交互仍待验证。原记录：Reservation conflict 展示 reserved/effective capacity 和 deterministic rejection。 |
+| FR-059 | 实现预留冲突 UI/推理展示 | P0 | SOURCE_ONLY | 仅记录原型源码界面存在；完整原型交互验证仍待完成。S23 TradeX 应用实现及运行时证据单独记录在 `docs/implementation/requirements.csv` 和 `surfaces.csv`。 |
 | FR-060 | 实现 Trading 212、Binance 与 Bitget 完整的 Demo/Testnet 订单生命周期变体 | P0 | SOURCE_ONLY | 仅源码界面存在性记录；完整交互仍待验证。原记录：T212 Demo、Binance Testnet、Bitget Demo 复用统一 non-live lifecycle。 |
 | FR-061 | 实现完整的归一化订单状态 UI 映射(含 `RESERVED`) | P0 | FAILED | 关联场景的实际观察与验收条件见 [QA-02](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-02)；修复后重新验证，不以界面存在代替通过。 |
 | FR-062 | 实现市场时段 / 停牌 / 公司行为产品界面 | P1 | FAILED | 关联场景的实际观察与验收条件见 [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-04)；修复后重新验证，不以界面存在代替通过。 |

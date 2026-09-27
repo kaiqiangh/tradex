@@ -486,12 +486,14 @@ refresh state → approval → `CANCEL_PENDING` → `CANCELLED` 或 fill race。
 
 ```text
 Thread A reserves €4,000
-Available = €10,000
-Reserved = €4,000
+Provider available = €10,000
+Provider committed = €0（已从 available 中扣除）
+TradeX reserved = €4,000
 Effective Available = €6,000
 Thread B requires €7,000
 → RISK_REJECTED · RESERVED_CAPACITY
-后端上下文：需求 €7,000；券商可用 €10,000；已有预留 €4,000；本次需求前的有效容量 €6,000。
+后端上下文：需求 €7,000；券商可用 €10,000；已有预留 €4,000；本次需求前的有效容量 €6,000；请降低需求，或等待早先预留完成对账或结束。
+证据需显示来源、新鲜度、观测时间和 account state version。证据陈旧或不可用时不展示金额字段。
 ```
 
 ### F12. Risk-policy Change Invalidation

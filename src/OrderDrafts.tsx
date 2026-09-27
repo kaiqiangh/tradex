@@ -12,6 +12,8 @@ import type {
   OrderProposal,
   OrderProposalSummary,
   ApprovalReview,
+  CapacityProjection,
+  CapacityRemediation,
   ExecutionPreparation,
   FinancialApproval,
   LiveArmingEligibility,
@@ -55,6 +57,45 @@ function retryLabel(value?: string | null) {
   if (value == null) return 'ready';
   const time = Date.parse(value);
   return Number.isFinite(time) ? time <= Date.now() ? 'ready' : 'after ' + new Date(time).toLocaleTimeString() : 'unavailable';
+}
+
+function capacityRemediationText(value?: CapacityRemediation | null) {
+  if (value === 'REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT') return 'Reduce the request or review the workspace reserved-capital limit.';
+  if (value === 'REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS') return 'Reduce the request or wait for earlier reservations to reconcile or complete.';
+  return 'Refresh account evidence and review the request again.';
+}
+
+function LiveCapacitySummary({ capacity, label }: { capacity?: CapacityProjection | null; label: string }) {
+  if (!capacity) return <p className="muted" role="status">Backend capacity evidence is unavailable.</p>;
+  const freshnessText = capacity.freshness === 'CURRENT'
+    ? 'Evidence was current when this backend snapshot was created.'
+    : capacity.freshness === 'STALE'
+      ? 'Account evidence is stale; refresh the account before relying on these values.'
+      : 'Capacity evidence is unavailable; refresh the account before continuing.';
+  const availableSource = capacity.availableSource === 'POSITION_LESS_OPEN_SELL_ORDERS'
+    ? 'position less open sell orders'
+    : capacity.availableSource === 'PROVIDER_BALANCE_AVAILABLE'
+      ? 'provider available balance'
+      : 'unavailable';
+  const committedSource = capacity.committedSource === 'OPEN_SELL_ORDERS'
+    ? 'open sell orders'
+    : capacity.committedSource === 'PROVIDER_BALANCE_COMMITTED'
+      ? 'provider balance commitment'
+      : 'unavailable';
+  return <section className="live-capacity-summary" aria-label={label}>
+    <h4>{label}</h4>
+    <dl className="proposal-fields approval-review-fields">
+      <div><dt>Provider available</dt><dd>{capacity.available ?? 'Unavailable'} {capacity.available == null ? '' : capacity.unit}</dd></div>
+      <div><dt>Provider committed</dt><dd>{capacity.committed ?? 'Unavailable'} {capacity.committed == null ? '' : capacity.unit} · {committedSource}{capacity.committed == null ? '' : ' (already excluded from available)'}</dd></div>
+      <div><dt>TradeX reserved</dt><dd>{capacity.reserved ?? 'Unavailable'} {capacity.reserved == null ? '' : capacity.unit}</dd></div>
+      <div><dt>Effective available</dt><dd>{capacity.effectiveAvailable ?? 'Unavailable'} {capacity.effectiveAvailable == null ? '' : capacity.unit}</dd></div>
+      {capacity.requestedAmount != null && <div><dt>Requested capacity</dt><dd>{capacity.requestedAmount} {capacity.unit}</dd></div>}
+      <div><dt>Availability source</dt><dd>{availableSource}</dd></div>
+      <div><dt>Account evidence</dt><dd>{capacity.freshness} · {capacity.observedAt ? new Date(capacity.observedAt).toLocaleString() : 'observation time unavailable'}</dd></div>
+      <div><dt>Account state version</dt><dd className="identity">{capacity.accountStateVersion}</dd></div>
+    </dl>
+    <p className={capacity.freshness === 'CURRENT' ? 'muted' : 'error-text'} role={capacity.freshness === 'CURRENT' ? 'status' : 'alert'} aria-live="polite">{freshnessText} Available is already net of provider commitments. Effective available and every amount above come from the Control Plane; {availableSource} is the capacity source.</p>
+  </section>;
 }
 
 function isOpenAlpacaOrder(order: AlpacaPaperOrder) {
@@ -1374,8 +1415,10 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
               {preparationApproval && savedExecutionPreparation.isError && <p className="error-text" role="alert">Saved execution preparation is unavailable: {explainError(savedExecutionPreparation.error)} <button type="button" onClick={() => void savedExecutionPreparation.refetch()}>Reload preparation</button></p>}
               {consumedApproval && savedExecutionPreparation.data && !savedExecutionPreparation.data.preparation && !visibleExecutionPreparation && <p className="error-text" role="alert">The approval is consumed but its saved execution preparation is missing. Reload the workspace before continuing.</p>}
               {savedExecutionPreparation.data?.rejections.map(rejection => <article className="live-approval-record" key={rejection.auditId}>
-                <strong>REJECTED · {rejection.reason}</strong>
-                <span>Requested {rejection.capacityContext.requestedAmount} {rejection.capacityContext.unit}; {rejection.capacityContext.source === 'BROKER_AVAILABLE' ? 'broker available' : 'workspace reserved-capital'} limit {rejection.capacityContext.capacityLimit}; existing reservations {rejection.capacityContext.existingReservations}; available before request {rejection.capacityContext.effectiveAvailable}.</span>
+                <strong>RISK_REJECTED · {rejection.reason}</strong>
+                <span>Requested {rejection.capacityContext.requestedAmount} {rejection.capacityContext.unit}; {rejection.capacityContext.source === 'BROKER_AVAILABLE' ? 'broker available' : 'workspace reserved-capital'} limit {rejection.capacityContext.capacityLimit}; existing reservations {rejection.capacityContext.existingReservations}; effective capacity before this request {rejection.capacityContext.effectiveAvailable}.</span>
+                <span>Next step: {capacityRemediationText(rejection.capacityContext.remediation)}</span>
+                <LiveCapacitySummary capacity={rejection.capacityContext.capacityProjection} label="Capacity evidence at refusal" />
                 <time dateTime={rejection.occurredAt}>{new Date(rejection.occurredAt).toLocaleString()}</time>
               </article>)}
               {visibleExecutionPreparation && visibleExecutionPreparation.attempt.intentId === selectedProposalId && <article className="live-approval-record" aria-label="TradeX execution preparation">
@@ -1384,6 +1427,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                 {visibleExecutionPreparation.reservation && <>
                   <span>Reserved {visibleExecutionPreparation.reservation.amount} {visibleExecutionPreparation.reservation.unit} for {visibleExecutionPreparation.reservation.instrumentId}</span>
                   <span>Available {visibleExecutionPreparation.reservation.brokerAvailable} · existing reservations {visibleExecutionPreparation.reservation.existingReservations} · remaining after reservation {visibleExecutionPreparation.reservation.effectiveAvailable}</span>
+                  <LiveCapacitySummary capacity={visibleExecutionPreparation.reservation.capacityProjection} label="Capacity after TradeX reservation" />
                 </>}
                 <span>No order request was sent to the provider.</span>
               </article>}
@@ -1581,6 +1625,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <div><dt>Client label</dt><dd>{approvalReview.proposal.fields.clientLabel ?? '—'}</dd></div>
         <div><dt>Review expires</dt><dd>30 seconds after approval; reviewed {new Date(approvalReview.reviewedAt).toLocaleString()}</dd></div>
       </dl>
+      <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
       <section aria-labelledby="approval-quote-title"><h3 id="approval-quote-title">Quote provenance</h3>
         {approvalReview.market.snapshot ? <dl className="proposal-fields approval-review-fields">
           <div><dt>Snapshot / source</dt><dd>{approvalReview.market.snapshot.provenance.marketSnapshotId} · {approvalReview.market.snapshot.provenance.source}</dd></div>

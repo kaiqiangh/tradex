@@ -427,7 +427,12 @@ export function explainError(error: unknown): string {
       const source = context.source === 'BROKER_AVAILABLE'
         ? 'broker available'
         : 'workspace reserved-capital limit';
-      return `RISK_REJECTED · RESERVED_CAPACITY — requested ${context.requestedAmount} ${context.unit}; ${source} ${context.capacityLimit} ${context.unit}; existing reservations ${context.existingReservations} ${context.unit}; effective capacity before this request ${context.effectiveAvailable} ${context.unit}.`;
+      const remediation = context.remediation === 'REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT'
+        ? 'Reduce the request or review the workspace reserved-capital limit.'
+        : context.remediation === 'REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS'
+          ? 'Reduce the request or wait for earlier reservations to reconcile or complete.'
+          : 'Refresh account evidence and review the request again.';
+      return `RISK_REJECTED · RESERVED_CAPACITY — requested ${context.requestedAmount} ${context.unit}; ${source} ${context.capacityLimit} ${context.unit}; existing reservations ${context.existingReservations} ${context.unit}; effective capacity before this request ${context.effectiveAvailable} ${context.unit}. Next step: ${remediation}`;
     }
     return error.message;
   }

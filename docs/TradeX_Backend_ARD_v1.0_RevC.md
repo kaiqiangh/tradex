@@ -1016,16 +1016,21 @@ Reservations prevent concurrent threads from double-consuming capacity.
 
 ### 22.1 Effective capacity
 
-Risk calculations use:
+Adapters normalize provider capacity before Risk calculations:
 
 ```text
-broker available state
-- open-order committed capacity
+gross provider balance
+- provider open-order commitment (only when the adapter reports gross balance)
+= normalized provider available
+
+normalized provider available
 - active reservations
 - submitted-but-unconfirmed exposure
 ± pending cancellation rules
 = effective available capacity
 ```
+
+When an adapter already reports free/available-to-trade capacity, that value is already net of provider commitments. The backend still exposes the committed amount and its source for explanation, but never subtracts it a second time. Capacity evidence is bound to the account state version and observation timestamp; stale or unavailable evidence has no amount fields.
 
 ### 22.2 Atomicity model
 
@@ -1909,6 +1914,25 @@ interface ExecutionPreparationQueryResult {
   rejections: ExecutionPreparationRejection[];
 }
 type CapacityLimitSource = 'BROKER_AVAILABLE' | 'WORKSPACE_RESERVED_CAPITAL';
+type CapacityFreshness = 'CURRENT' | 'STALE' | 'UNAVAILABLE';
+type CapacityAvailableSource = 'PROVIDER_BALANCE_AVAILABLE' | 'POSITION_LESS_OPEN_SELL_ORDERS' | 'UNAVAILABLE';
+type CapacityCommittedSource = 'PROVIDER_BALANCE_COMMITTED' | 'OPEN_SELL_ORDERS' | 'UNAVAILABLE';
+type CapacityRemediation = 'REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS' | 'REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT';
+interface CapacityProjection {
+  accountStateVersion: string;
+  available?: string;
+  committed?: string;
+  reserved?: string;
+  effectiveAvailable?: string;
+  unit: string;
+  availableSource: CapacityAvailableSource;
+  committedSource: CapacityCommittedSource;
+  freshness: CapacityFreshness;
+  observedAt?: string | null;
+  requestedAmount?: string;
+}
+// `trade.request_approval` returns this optional projection in ApprovalReview.
+// PLACE reservations and capacity rejections preserve the backend snapshot too.
 interface CapacityRejectionContext {
   source: CapacityLimitSource;
   requestedAmount: string;
@@ -1916,6 +1940,8 @@ interface CapacityRejectionContext {
   capacityLimit: string;
   existingReservations: string;
   effectiveAvailable: string; // before the requested reservation
+  capacityProjection?: CapacityProjection;
+  remediation?: CapacityRemediation;
 }
 ```
 

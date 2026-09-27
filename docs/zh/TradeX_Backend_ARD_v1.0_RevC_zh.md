@@ -1016,16 +1016,21 @@ Reservation 防止多个 Thread 重复消费同一 capacity。
 
 ### 22.1 Effective capacity
 
-Risk 使用：
+Risk 计算前由 adapter 规范化 provider capacity：
 
 ```text
-broker available state
-- open-order committed capacity
+provider gross balance
+- provider open-order commitment（仅当 adapter 返回 gross balance 时扣除）
+= normalized provider available
+
+normalized provider available
 - active reservations
 - submitted-but-unconfirmed exposure
 ± pending cancellation rules
 = effective available capacity
 ```
+
+当 adapter 已返回扣除券商订单锁定额后的 free/available-to-trade 时，该值已经不含 provider commitment。后端仍会提供承诺金额及其来源供解释，但绝不会再次扣减。容量证据绑定精确 account state version 和观测时间；证据陈旧或不可用时不返回金额字段。
 
 ### 22.2 Atomicity model
 
@@ -1909,6 +1914,25 @@ interface ExecutionPreparationQueryResult {
   rejections: ExecutionPreparationRejection[];
 }
 type CapacityLimitSource = 'BROKER_AVAILABLE' | 'WORKSPACE_RESERVED_CAPITAL';
+type CapacityFreshness = 'CURRENT' | 'STALE' | 'UNAVAILABLE';
+type CapacityAvailableSource = 'PROVIDER_BALANCE_AVAILABLE' | 'POSITION_LESS_OPEN_SELL_ORDERS' | 'UNAVAILABLE';
+type CapacityCommittedSource = 'PROVIDER_BALANCE_COMMITTED' | 'OPEN_SELL_ORDERS' | 'UNAVAILABLE';
+type CapacityRemediation = 'REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS' | 'REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT';
+interface CapacityProjection {
+  accountStateVersion: string;
+  available?: string;
+  committed?: string;
+  reserved?: string;
+  effectiveAvailable?: string;
+  unit: string;
+  availableSource: CapacityAvailableSource;
+  committedSource: CapacityCommittedSource;
+  freshness: CapacityFreshness;
+  observedAt?: string | null;
+  requestedAmount?: string;
+}
+// `trade.request_approval` 在 ApprovalReview 中返回此可选投影。
+// PLACE reservation 与容量拒绝也会保存后端快照。
 interface CapacityRejectionContext {
   source: CapacityLimitSource;
   requestedAmount: string;
@@ -1916,6 +1940,8 @@ interface CapacityRejectionContext {
   capacityLimit: string;
   existingReservations: string;
   effectiveAvailable: string; // 本次预留前的可用容量
+  capacityProjection?: CapacityProjection;
+  remediation?: CapacityRemediation;
 }
 ```
 
