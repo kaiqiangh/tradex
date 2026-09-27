@@ -32,6 +32,8 @@ S19 #71 在 Backend ARD §41.28、Frontend ARD §13.15.1 和 UI Spec §14.14 增
 
 S25.1 #97 已实现并在本地验证 Trading 212 Live `PLACE` 进入 `UNKNOWN_RECONCILING` 后的只读对账证据。五分钟窗口超时后容量继续冻结；不确定证据不会证明订单不存在，也不会触发重发。窗口超时后只开放后端授权的 Keep Reconciling 操作；该操作记录决策，但不会重启 provider 查询。[本地验收证据](../implementation/s25-trading212-live-reconciliation-evidence_zh.md)。父级 S25 issue #96 仍为打开状态，其他提供方和确认已提交/未提交的处置仍待完成；未发出真实 provider 请求，点击式原型未修改。
 
+S25.2 #98 为 Binance Spot Live 增加相同的只读证据路径。它会核验已保存的 SPOT 账户身份，只在普通 Live 端点按已保存的准确 `providerClientOrderId` 查询；未匹配或不完整结果保持不确定，容量继续冻结。[本地实现证据](../implementation/s25-binance-live-reconciliation-evidence_zh.md)。未发出真实 provider 请求或写入，点击式原型未修改；父 issue #96 仍开放，跟踪 S25 剩余范围。
+
 ## 术语和同步规则
 
 - Agent Mode 保留 Ask / Research / Backtest / Trade；Execution Context 区分只读/历史模拟与具体 Local Paper / Paper / Demo / Testnet / Live 环境。

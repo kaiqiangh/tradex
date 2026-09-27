@@ -72015,6 +72015,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 				"maxLength": 128,
 				"minLength": 1
 			},
+			"providerClientOrderId": {
+				"type": ["string", "null"],
+				"maxLength": 36,
+				"minLength": 1
+			},
 			"providerStatus": {
 				"type": ["string", "null"],
 				"maxLength": 64,
@@ -72762,34 +72767,34 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							var valid0 = _errs41 === errors;
 																						} else var valid0 = true;
 																						if (valid0) {
-																							if (data.providerStatus !== void 0) {
-																								let data17 = data.providerStatus;
+																							if (data.providerClientOrderId !== void 0) {
+																								let data17 = data.providerClientOrderId;
 																								const _errs43 = errors;
 																								if (typeof data17 !== "string" && data17 !== null) {
 																									validate176.errors = [{
-																										instancePath: instancePath + "/providerStatus",
-																										schemaPath: "#/properties/providerStatus/type",
+																										instancePath: instancePath + "/providerClientOrderId",
+																										schemaPath: "#/properties/providerClientOrderId/type",
 																										keyword: "type",
-																										params: { type: schema257.properties.providerStatus.type },
+																										params: { type: schema257.properties.providerClientOrderId.type },
 																										message: "must be string,null"
 																									}];
 																									return false;
 																								}
 																								if (errors === _errs43) {
 																									if (typeof data17 === "string") {
-																										if (func1(data17) > 64) {
+																										if (func1(data17) > 36) {
 																											validate176.errors = [{
-																												instancePath: instancePath + "/providerStatus",
-																												schemaPath: "#/properties/providerStatus/maxLength",
+																												instancePath: instancePath + "/providerClientOrderId",
+																												schemaPath: "#/properties/providerClientOrderId/maxLength",
 																												keyword: "maxLength",
-																												params: { limit: 64 },
-																												message: "must NOT have more than 64 characters"
+																												params: { limit: 36 },
+																												message: "must NOT have more than 36 characters"
 																											}];
 																											return false;
 																										} else if (func1(data17) < 1) {
 																											validate176.errors = [{
-																												instancePath: instancePath + "/providerStatus",
-																												schemaPath: "#/properties/providerStatus/minLength",
+																												instancePath: instancePath + "/providerClientOrderId",
+																												schemaPath: "#/properties/providerClientOrderId/minLength",
 																												keyword: "minLength",
 																												params: { limit: 1 },
 																												message: "must NOT have fewer than 1 characters"
@@ -72801,34 +72806,34 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								var valid0 = _errs43 === errors;
 																							} else var valid0 = true;
 																							if (valid0) {
-																								if (data.reservationId !== void 0) {
-																									let data18 = data.reservationId;
+																								if (data.providerStatus !== void 0) {
+																									let data18 = data.providerStatus;
 																									const _errs45 = errors;
 																									if (typeof data18 !== "string" && data18 !== null) {
 																										validate176.errors = [{
-																											instancePath: instancePath + "/reservationId",
-																											schemaPath: "#/properties/reservationId/type",
+																											instancePath: instancePath + "/providerStatus",
+																											schemaPath: "#/properties/providerStatus/type",
 																											keyword: "type",
-																											params: { type: schema257.properties.reservationId.type },
+																											params: { type: schema257.properties.providerStatus.type },
 																											message: "must be string,null"
 																										}];
 																										return false;
 																									}
 																									if (errors === _errs45) {
 																										if (typeof data18 === "string") {
-																											if (func1(data18) > 128) {
+																											if (func1(data18) > 64) {
 																												validate176.errors = [{
-																													instancePath: instancePath + "/reservationId",
-																													schemaPath: "#/properties/reservationId/maxLength",
+																													instancePath: instancePath + "/providerStatus",
+																													schemaPath: "#/properties/providerStatus/maxLength",
 																													keyword: "maxLength",
-																													params: { limit: 128 },
-																													message: "must NOT have more than 128 characters"
+																													params: { limit: 64 },
+																													message: "must NOT have more than 64 characters"
 																												}];
 																												return false;
 																											} else if (func1(data18) < 1) {
 																												validate176.errors = [{
-																													instancePath: instancePath + "/reservationId",
-																													schemaPath: "#/properties/reservationId/minLength",
+																													instancePath: instancePath + "/providerStatus",
+																													schemaPath: "#/properties/providerStatus/minLength",
 																													keyword: "minLength",
 																													params: { limit: 1 },
 																													message: "must NOT have fewer than 1 characters"
@@ -72840,63 +72845,64 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									var valid0 = _errs45 === errors;
 																								} else var valid0 = true;
 																								if (valid0) {
-																									if (data.reviewDigest !== void 0) {
-																										let data19 = data.reviewDigest;
+																									if (data.reservationId !== void 0) {
+																										let data19 = data.reservationId;
 																										const _errs47 = errors;
+																										if (typeof data19 !== "string" && data19 !== null) {
+																											validate176.errors = [{
+																												instancePath: instancePath + "/reservationId",
+																												schemaPath: "#/properties/reservationId/type",
+																												keyword: "type",
+																												params: { type: schema257.properties.reservationId.type },
+																												message: "must be string,null"
+																											}];
+																											return false;
+																										}
 																										if (errors === _errs47) {
 																											if (typeof data19 === "string") {
-																												if (!pattern4.test(data19)) {
+																												if (func1(data19) > 128) {
 																													validate176.errors = [{
-																														instancePath: instancePath + "/reviewDigest",
-																														schemaPath: "#/properties/reviewDigest/pattern",
-																														keyword: "pattern",
-																														params: { pattern: "^sha256:[0-9a-f]{64}$" },
-																														message: "must match pattern \"^sha256:[0-9a-f]{64}$\""
+																														instancePath: instancePath + "/reservationId",
+																														schemaPath: "#/properties/reservationId/maxLength",
+																														keyword: "maxLength",
+																														params: { limit: 128 },
+																														message: "must NOT have more than 128 characters"
+																													}];
+																													return false;
+																												} else if (func1(data19) < 1) {
+																													validate176.errors = [{
+																														instancePath: instancePath + "/reservationId",
+																														schemaPath: "#/properties/reservationId/minLength",
+																														keyword: "minLength",
+																														params: { limit: 1 },
+																														message: "must NOT have fewer than 1 characters"
 																													}];
 																													return false;
 																												}
-																											} else {
-																												validate176.errors = [{
-																													instancePath: instancePath + "/reviewDigest",
-																													schemaPath: "#/properties/reviewDigest/type",
-																													keyword: "type",
-																													params: { type: "string" },
-																													message: "must be string"
-																												}];
-																												return false;
 																											}
 																										}
 																										var valid0 = _errs47 === errors;
 																									} else var valid0 = true;
 																									if (valid0) {
-																										if (data.riskDecisionId !== void 0) {
-																											let data20 = data.riskDecisionId;
+																										if (data.reviewDigest !== void 0) {
+																											let data20 = data.reviewDigest;
 																											const _errs49 = errors;
 																											if (errors === _errs49) {
 																												if (typeof data20 === "string") {
-																													if (func1(data20) > 128) {
+																													if (!pattern4.test(data20)) {
 																														validate176.errors = [{
-																															instancePath: instancePath + "/riskDecisionId",
-																															schemaPath: "#/properties/riskDecisionId/maxLength",
-																															keyword: "maxLength",
-																															params: { limit: 128 },
-																															message: "must NOT have more than 128 characters"
-																														}];
-																														return false;
-																													} else if (func1(data20) < 1) {
-																														validate176.errors = [{
-																															instancePath: instancePath + "/riskDecisionId",
-																															schemaPath: "#/properties/riskDecisionId/minLength",
-																															keyword: "minLength",
-																															params: { limit: 1 },
-																															message: "must NOT have fewer than 1 characters"
+																															instancePath: instancePath + "/reviewDigest",
+																															schemaPath: "#/properties/reviewDigest/pattern",
+																															keyword: "pattern",
+																															params: { pattern: "^sha256:[0-9a-f]{64}$" },
+																															message: "must match pattern \"^sha256:[0-9a-f]{64}$\""
 																														}];
 																														return false;
 																													}
 																												} else {
 																													validate176.errors = [{
-																														instancePath: instancePath + "/riskDecisionId",
-																														schemaPath: "#/properties/riskDecisionId/type",
+																														instancePath: instancePath + "/reviewDigest",
+																														schemaPath: "#/properties/reviewDigest/type",
 																														keyword: "type",
 																														params: { type: "string" },
 																														message: "must be string"
@@ -72907,88 +72913,88 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											var valid0 = _errs49 === errors;
 																										} else var valid0 = true;
 																										if (valid0) {
-																											if (data.state !== void 0) {
-																												let data21 = data.state;
+																											if (data.riskDecisionId !== void 0) {
+																												let data21 = data.riskDecisionId;
 																												const _errs51 = errors;
-																												if (typeof data21 !== "string") {
-																													validate176.errors = [{
-																														instancePath: instancePath + "/state",
-																														schemaPath: "#/$defs/ExecutionAttemptState/type",
-																														keyword: "type",
-																														params: { type: "string" },
-																														message: "must be string"
-																													}];
-																													return false;
-																												}
-																												if (!(data21 === "RESERVED" || data21 === "INVALIDATED" || data21 === "SUBMITTING" || data21 === "ACCEPTED" || data21 === "REJECTED" || data21 === "UNKNOWN_RECONCILING" || data21 === "CANCEL_PENDING")) {
-																													validate176.errors = [{
-																														instancePath: instancePath + "/state",
-																														schemaPath: "#/$defs/ExecutionAttemptState/enum",
-																														keyword: "enum",
-																														params: { allowedValues: schema261.enum },
-																														message: "must be equal to one of the allowed values"
-																													}];
-																													return false;
+																												if (errors === _errs51) {
+																													if (typeof data21 === "string") {
+																														if (func1(data21) > 128) {
+																															validate176.errors = [{
+																																instancePath: instancePath + "/riskDecisionId",
+																																schemaPath: "#/properties/riskDecisionId/maxLength",
+																																keyword: "maxLength",
+																																params: { limit: 128 },
+																																message: "must NOT have more than 128 characters"
+																															}];
+																															return false;
+																														} else if (func1(data21) < 1) {
+																															validate176.errors = [{
+																																instancePath: instancePath + "/riskDecisionId",
+																																schemaPath: "#/properties/riskDecisionId/minLength",
+																																keyword: "minLength",
+																																params: { limit: 1 },
+																																message: "must NOT have fewer than 1 characters"
+																															}];
+																															return false;
+																														}
+																													} else {
+																														validate176.errors = [{
+																															instancePath: instancePath + "/riskDecisionId",
+																															schemaPath: "#/properties/riskDecisionId/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
+																													}
 																												}
 																												var valid0 = _errs51 === errors;
 																											} else var valid0 = true;
 																											if (valid0) {
-																												if (data.stateVersion !== void 0) {
-																													let data22 = data.stateVersion;
-																													const _errs54 = errors;
-																													if (errors === _errs54) {
-																														if (typeof data22 === "string") {
-																															if (func1(data22) > 256) {
-																																validate176.errors = [{
-																																	instancePath: instancePath + "/stateVersion",
-																																	schemaPath: "#/properties/stateVersion/maxLength",
-																																	keyword: "maxLength",
-																																	params: { limit: 256 },
-																																	message: "must NOT have more than 256 characters"
-																																}];
-																																return false;
-																															} else if (func1(data22) < 1) {
-																																validate176.errors = [{
-																																	instancePath: instancePath + "/stateVersion",
-																																	schemaPath: "#/properties/stateVersion/minLength",
-																																	keyword: "minLength",
-																																	params: { limit: 1 },
-																																	message: "must NOT have fewer than 1 characters"
-																																}];
-																																return false;
-																															}
-																														} else {
-																															validate176.errors = [{
-																																instancePath: instancePath + "/stateVersion",
-																																schemaPath: "#/properties/stateVersion/type",
-																																keyword: "type",
-																																params: { type: "string" },
-																																message: "must be string"
-																															}];
-																															return false;
-																														}
+																												if (data.state !== void 0) {
+																													let data22 = data.state;
+																													const _errs53 = errors;
+																													if (typeof data22 !== "string") {
+																														validate176.errors = [{
+																															instancePath: instancePath + "/state",
+																															schemaPath: "#/$defs/ExecutionAttemptState/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
 																													}
-																													var valid0 = _errs54 === errors;
+																													if (!(data22 === "RESERVED" || data22 === "INVALIDATED" || data22 === "SUBMITTING" || data22 === "ACCEPTED" || data22 === "REJECTED" || data22 === "UNKNOWN_RECONCILING" || data22 === "CANCEL_PENDING")) {
+																														validate176.errors = [{
+																															instancePath: instancePath + "/state",
+																															schemaPath: "#/$defs/ExecutionAttemptState/enum",
+																															keyword: "enum",
+																															params: { allowedValues: schema261.enum },
+																															message: "must be equal to one of the allowed values"
+																														}];
+																														return false;
+																													}
+																													var valid0 = _errs53 === errors;
 																												} else var valid0 = true;
 																												if (valid0) {
-																													if (data.workspaceId !== void 0) {
-																														let data23 = data.workspaceId;
+																													if (data.stateVersion !== void 0) {
+																														let data23 = data.stateVersion;
 																														const _errs56 = errors;
 																														if (errors === _errs56) {
 																															if (typeof data23 === "string") {
-																																if (func1(data23) > 128) {
+																																if (func1(data23) > 256) {
 																																	validate176.errors = [{
-																																		instancePath: instancePath + "/workspaceId",
-																																		schemaPath: "#/properties/workspaceId/maxLength",
+																																		instancePath: instancePath + "/stateVersion",
+																																		schemaPath: "#/properties/stateVersion/maxLength",
 																																		keyword: "maxLength",
-																																		params: { limit: 128 },
-																																		message: "must NOT have more than 128 characters"
+																																		params: { limit: 256 },
+																																		message: "must NOT have more than 256 characters"
 																																	}];
 																																	return false;
 																																} else if (func1(data23) < 1) {
 																																	validate176.errors = [{
-																																		instancePath: instancePath + "/workspaceId",
-																																		schemaPath: "#/properties/workspaceId/minLength",
+																																		instancePath: instancePath + "/stateVersion",
+																																		schemaPath: "#/properties/stateVersion/minLength",
 																																		keyword: "minLength",
 																																		params: { limit: 1 },
 																																		message: "must NOT have fewer than 1 characters"
@@ -72997,8 +73003,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																}
 																															} else {
 																																validate176.errors = [{
-																																	instancePath: instancePath + "/workspaceId",
-																																	schemaPath: "#/properties/workspaceId/type",
+																																	instancePath: instancePath + "/stateVersion",
+																																	schemaPath: "#/properties/stateVersion/type",
 																																	keyword: "type",
 																																	params: { type: "string" },
 																																	message: "must be string"
@@ -73008,6 +73014,45 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														}
 																														var valid0 = _errs56 === errors;
 																													} else var valid0 = true;
+																													if (valid0) {
+																														if (data.workspaceId !== void 0) {
+																															let data24 = data.workspaceId;
+																															const _errs58 = errors;
+																															if (errors === _errs58) {
+																																if (typeof data24 === "string") {
+																																	if (func1(data24) > 128) {
+																																		validate176.errors = [{
+																																			instancePath: instancePath + "/workspaceId",
+																																			schemaPath: "#/properties/workspaceId/maxLength",
+																																			keyword: "maxLength",
+																																			params: { limit: 128 },
+																																			message: "must NOT have more than 128 characters"
+																																		}];
+																																		return false;
+																																	} else if (func1(data24) < 1) {
+																																		validate176.errors = [{
+																																			instancePath: instancePath + "/workspaceId",
+																																			schemaPath: "#/properties/workspaceId/minLength",
+																																			keyword: "minLength",
+																																			params: { limit: 1 },
+																																			message: "must NOT have fewer than 1 characters"
+																																		}];
+																																		return false;
+																																	}
+																																} else {
+																																	validate176.errors = [{
+																																		instancePath: instancePath + "/workspaceId",
+																																		schemaPath: "#/properties/workspaceId/type",
+																																		keyword: "type",
+																																		params: { type: "string" },
+																																		message: "must be string"
+																																	}];
+																																	return false;
+																																}
+																															}
+																															var valid0 = _errs58 === errors;
+																														} else var valid0 = true;
+																													}
 																												}
 																											}
 																										}
@@ -73103,7 +73148,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			},
 			"providerId": {
 				"type": "string",
-				"const": "trading212"
+				"enum": ["trading212", "binance"]
 			},
 			"stateVersion": {
 				"type": "string",
@@ -73177,7 +73222,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"paginationComplete": { "type": "boolean" },
 			"providerId": {
 				"type": "string",
-				"const": "trading212"
+				"enum": ["trading212", "binance"]
 			},
 			"queriedAt": {
 				"type": "string",
@@ -73981,13 +74026,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		}];
 																		return false;
 																	}
-																	if ("trading212" !== data11) {
+																	if (!(data11 === "trading212" || data11 === "binance")) {
 																		validate179.errors = [{
 																			instancePath: instancePath + "/providerId",
-																			schemaPath: "#/properties/providerId/const",
-																			keyword: "const",
-																			params: { allowedValue: "trading212" },
-																			message: "must be equal to constant"
+																			schemaPath: "#/properties/providerId/enum",
+																			keyword: "enum",
+																			params: { allowedValues: schema263.properties.providerId.enum },
+																			message: "must be equal to one of the allowed values"
 																		}];
 																		return false;
 																	}
@@ -74735,13 +74780,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																}
-																if ("trading212" !== data11) {
+																if (!(data11 === "trading212" || data11 === "binance")) {
 																	validate178.errors = [{
 																		instancePath: instancePath + "/providerId",
-																		schemaPath: "#/properties/providerId/const",
-																		keyword: "const",
-																		params: { allowedValue: "trading212" },
-																		message: "must be equal to constant"
+																		schemaPath: "#/properties/providerId/enum",
+																		keyword: "enum",
+																		params: { allowedValues: schema262.properties.providerId.enum },
+																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
 																}
@@ -84182,34 +84227,34 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																							var valid0 = _errs41 === errors;
 																						} else var valid0 = true;
 																						if (valid0) {
-																							if (data.providerStatus !== void 0) {
-																								let data17 = data.providerStatus;
+																							if (data.providerClientOrderId !== void 0) {
+																								let data17 = data.providerClientOrderId;
 																								const _errs43 = errors;
 																								if (typeof data17 !== "string" && data17 !== null) {
 																									validate708.errors = [{
-																										instancePath: instancePath + "/providerStatus",
-																										schemaPath: "#/properties/providerStatus/type",
+																										instancePath: instancePath + "/providerClientOrderId",
+																										schemaPath: "#/properties/providerClientOrderId/type",
 																										keyword: "type",
-																										params: { type: schema257.properties.providerStatus.type },
+																										params: { type: schema257.properties.providerClientOrderId.type },
 																										message: "must be string,null"
 																									}];
 																									return false;
 																								}
 																								if (errors === _errs43) {
 																									if (typeof data17 === "string") {
-																										if (func1(data17) > 64) {
+																										if (func1(data17) > 36) {
 																											validate708.errors = [{
-																												instancePath: instancePath + "/providerStatus",
-																												schemaPath: "#/properties/providerStatus/maxLength",
+																												instancePath: instancePath + "/providerClientOrderId",
+																												schemaPath: "#/properties/providerClientOrderId/maxLength",
 																												keyword: "maxLength",
-																												params: { limit: 64 },
-																												message: "must NOT have more than 64 characters"
+																												params: { limit: 36 },
+																												message: "must NOT have more than 36 characters"
 																											}];
 																											return false;
 																										} else if (func1(data17) < 1) {
 																											validate708.errors = [{
-																												instancePath: instancePath + "/providerStatus",
-																												schemaPath: "#/properties/providerStatus/minLength",
+																												instancePath: instancePath + "/providerClientOrderId",
+																												schemaPath: "#/properties/providerClientOrderId/minLength",
 																												keyword: "minLength",
 																												params: { limit: 1 },
 																												message: "must NOT have fewer than 1 characters"
@@ -84221,34 +84266,34 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																								var valid0 = _errs43 === errors;
 																							} else var valid0 = true;
 																							if (valid0) {
-																								if (data.reservationId !== void 0) {
-																									let data18 = data.reservationId;
+																								if (data.providerStatus !== void 0) {
+																									let data18 = data.providerStatus;
 																									const _errs45 = errors;
 																									if (typeof data18 !== "string" && data18 !== null) {
 																										validate708.errors = [{
-																											instancePath: instancePath + "/reservationId",
-																											schemaPath: "#/properties/reservationId/type",
+																											instancePath: instancePath + "/providerStatus",
+																											schemaPath: "#/properties/providerStatus/type",
 																											keyword: "type",
-																											params: { type: schema257.properties.reservationId.type },
+																											params: { type: schema257.properties.providerStatus.type },
 																											message: "must be string,null"
 																										}];
 																										return false;
 																									}
 																									if (errors === _errs45) {
 																										if (typeof data18 === "string") {
-																											if (func1(data18) > 128) {
+																											if (func1(data18) > 64) {
 																												validate708.errors = [{
-																													instancePath: instancePath + "/reservationId",
-																													schemaPath: "#/properties/reservationId/maxLength",
+																													instancePath: instancePath + "/providerStatus",
+																													schemaPath: "#/properties/providerStatus/maxLength",
 																													keyword: "maxLength",
-																													params: { limit: 128 },
-																													message: "must NOT have more than 128 characters"
+																													params: { limit: 64 },
+																													message: "must NOT have more than 64 characters"
 																												}];
 																												return false;
 																											} else if (func1(data18) < 1) {
 																												validate708.errors = [{
-																													instancePath: instancePath + "/reservationId",
-																													schemaPath: "#/properties/reservationId/minLength",
+																													instancePath: instancePath + "/providerStatus",
+																													schemaPath: "#/properties/providerStatus/minLength",
 																													keyword: "minLength",
 																													params: { limit: 1 },
 																													message: "must NOT have fewer than 1 characters"
@@ -84260,63 +84305,64 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																									var valid0 = _errs45 === errors;
 																								} else var valid0 = true;
 																								if (valid0) {
-																									if (data.reviewDigest !== void 0) {
-																										let data19 = data.reviewDigest;
+																									if (data.reservationId !== void 0) {
+																										let data19 = data.reservationId;
 																										const _errs47 = errors;
+																										if (typeof data19 !== "string" && data19 !== null) {
+																											validate708.errors = [{
+																												instancePath: instancePath + "/reservationId",
+																												schemaPath: "#/properties/reservationId/type",
+																												keyword: "type",
+																												params: { type: schema257.properties.reservationId.type },
+																												message: "must be string,null"
+																											}];
+																											return false;
+																										}
 																										if (errors === _errs47) {
 																											if (typeof data19 === "string") {
-																												if (!pattern4.test(data19)) {
+																												if (func1(data19) > 128) {
 																													validate708.errors = [{
-																														instancePath: instancePath + "/reviewDigest",
-																														schemaPath: "#/properties/reviewDigest/pattern",
-																														keyword: "pattern",
-																														params: { pattern: "^sha256:[0-9a-f]{64}$" },
-																														message: "must match pattern \"^sha256:[0-9a-f]{64}$\""
+																														instancePath: instancePath + "/reservationId",
+																														schemaPath: "#/properties/reservationId/maxLength",
+																														keyword: "maxLength",
+																														params: { limit: 128 },
+																														message: "must NOT have more than 128 characters"
+																													}];
+																													return false;
+																												} else if (func1(data19) < 1) {
+																													validate708.errors = [{
+																														instancePath: instancePath + "/reservationId",
+																														schemaPath: "#/properties/reservationId/minLength",
+																														keyword: "minLength",
+																														params: { limit: 1 },
+																														message: "must NOT have fewer than 1 characters"
 																													}];
 																													return false;
 																												}
-																											} else {
-																												validate708.errors = [{
-																													instancePath: instancePath + "/reviewDigest",
-																													schemaPath: "#/properties/reviewDigest/type",
-																													keyword: "type",
-																													params: { type: "string" },
-																													message: "must be string"
-																												}];
-																												return false;
 																											}
 																										}
 																										var valid0 = _errs47 === errors;
 																									} else var valid0 = true;
 																									if (valid0) {
-																										if (data.riskDecisionId !== void 0) {
-																											let data20 = data.riskDecisionId;
+																										if (data.reviewDigest !== void 0) {
+																											let data20 = data.reviewDigest;
 																											const _errs49 = errors;
 																											if (errors === _errs49) {
 																												if (typeof data20 === "string") {
-																													if (func1(data20) > 128) {
+																													if (!pattern4.test(data20)) {
 																														validate708.errors = [{
-																															instancePath: instancePath + "/riskDecisionId",
-																															schemaPath: "#/properties/riskDecisionId/maxLength",
-																															keyword: "maxLength",
-																															params: { limit: 128 },
-																															message: "must NOT have more than 128 characters"
-																														}];
-																														return false;
-																													} else if (func1(data20) < 1) {
-																														validate708.errors = [{
-																															instancePath: instancePath + "/riskDecisionId",
-																															schemaPath: "#/properties/riskDecisionId/minLength",
-																															keyword: "minLength",
-																															params: { limit: 1 },
-																															message: "must NOT have fewer than 1 characters"
+																															instancePath: instancePath + "/reviewDigest",
+																															schemaPath: "#/properties/reviewDigest/pattern",
+																															keyword: "pattern",
+																															params: { pattern: "^sha256:[0-9a-f]{64}$" },
+																															message: "must match pattern \"^sha256:[0-9a-f]{64}$\""
 																														}];
 																														return false;
 																													}
 																												} else {
 																													validate708.errors = [{
-																														instancePath: instancePath + "/riskDecisionId",
-																														schemaPath: "#/properties/riskDecisionId/type",
+																														instancePath: instancePath + "/reviewDigest",
+																														schemaPath: "#/properties/reviewDigest/type",
 																														keyword: "type",
 																														params: { type: "string" },
 																														message: "must be string"
@@ -84327,88 +84373,88 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																											var valid0 = _errs49 === errors;
 																										} else var valid0 = true;
 																										if (valid0) {
-																											if (data.state !== void 0) {
-																												let data21 = data.state;
+																											if (data.riskDecisionId !== void 0) {
+																												let data21 = data.riskDecisionId;
 																												const _errs51 = errors;
-																												if (typeof data21 !== "string") {
-																													validate708.errors = [{
-																														instancePath: instancePath + "/state",
-																														schemaPath: "#/$defs/ExecutionAttemptState/type",
-																														keyword: "type",
-																														params: { type: "string" },
-																														message: "must be string"
-																													}];
-																													return false;
-																												}
-																												if (!(data21 === "RESERVED" || data21 === "INVALIDATED" || data21 === "SUBMITTING" || data21 === "ACCEPTED" || data21 === "REJECTED" || data21 === "UNKNOWN_RECONCILING" || data21 === "CANCEL_PENDING")) {
-																													validate708.errors = [{
-																														instancePath: instancePath + "/state",
-																														schemaPath: "#/$defs/ExecutionAttemptState/enum",
-																														keyword: "enum",
-																														params: { allowedValues: schema261.enum },
-																														message: "must be equal to one of the allowed values"
-																													}];
-																													return false;
+																												if (errors === _errs51) {
+																													if (typeof data21 === "string") {
+																														if (func1(data21) > 128) {
+																															validate708.errors = [{
+																																instancePath: instancePath + "/riskDecisionId",
+																																schemaPath: "#/properties/riskDecisionId/maxLength",
+																																keyword: "maxLength",
+																																params: { limit: 128 },
+																																message: "must NOT have more than 128 characters"
+																															}];
+																															return false;
+																														} else if (func1(data21) < 1) {
+																															validate708.errors = [{
+																																instancePath: instancePath + "/riskDecisionId",
+																																schemaPath: "#/properties/riskDecisionId/minLength",
+																																keyword: "minLength",
+																																params: { limit: 1 },
+																																message: "must NOT have fewer than 1 characters"
+																															}];
+																															return false;
+																														}
+																													} else {
+																														validate708.errors = [{
+																															instancePath: instancePath + "/riskDecisionId",
+																															schemaPath: "#/properties/riskDecisionId/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
+																													}
 																												}
 																												var valid0 = _errs51 === errors;
 																											} else var valid0 = true;
 																											if (valid0) {
-																												if (data.stateVersion !== void 0) {
-																													let data22 = data.stateVersion;
-																													const _errs54 = errors;
-																													if (errors === _errs54) {
-																														if (typeof data22 === "string") {
-																															if (func1(data22) > 256) {
-																																validate708.errors = [{
-																																	instancePath: instancePath + "/stateVersion",
-																																	schemaPath: "#/properties/stateVersion/maxLength",
-																																	keyword: "maxLength",
-																																	params: { limit: 256 },
-																																	message: "must NOT have more than 256 characters"
-																																}];
-																																return false;
-																															} else if (func1(data22) < 1) {
-																																validate708.errors = [{
-																																	instancePath: instancePath + "/stateVersion",
-																																	schemaPath: "#/properties/stateVersion/minLength",
-																																	keyword: "minLength",
-																																	params: { limit: 1 },
-																																	message: "must NOT have fewer than 1 characters"
-																																}];
-																																return false;
-																															}
-																														} else {
-																															validate708.errors = [{
-																																instancePath: instancePath + "/stateVersion",
-																																schemaPath: "#/properties/stateVersion/type",
-																																keyword: "type",
-																																params: { type: "string" },
-																																message: "must be string"
-																															}];
-																															return false;
-																														}
+																												if (data.state !== void 0) {
+																													let data22 = data.state;
+																													const _errs53 = errors;
+																													if (typeof data22 !== "string") {
+																														validate708.errors = [{
+																															instancePath: instancePath + "/state",
+																															schemaPath: "#/$defs/ExecutionAttemptState/type",
+																															keyword: "type",
+																															params: { type: "string" },
+																															message: "must be string"
+																														}];
+																														return false;
 																													}
-																													var valid0 = _errs54 === errors;
+																													if (!(data22 === "RESERVED" || data22 === "INVALIDATED" || data22 === "SUBMITTING" || data22 === "ACCEPTED" || data22 === "REJECTED" || data22 === "UNKNOWN_RECONCILING" || data22 === "CANCEL_PENDING")) {
+																														validate708.errors = [{
+																															instancePath: instancePath + "/state",
+																															schemaPath: "#/$defs/ExecutionAttemptState/enum",
+																															keyword: "enum",
+																															params: { allowedValues: schema261.enum },
+																															message: "must be equal to one of the allowed values"
+																														}];
+																														return false;
+																													}
+																													var valid0 = _errs53 === errors;
 																												} else var valid0 = true;
 																												if (valid0) {
-																													if (data.workspaceId !== void 0) {
-																														let data23 = data.workspaceId;
+																													if (data.stateVersion !== void 0) {
+																														let data23 = data.stateVersion;
 																														const _errs56 = errors;
 																														if (errors === _errs56) {
 																															if (typeof data23 === "string") {
-																																if (func1(data23) > 128) {
+																																if (func1(data23) > 256) {
 																																	validate708.errors = [{
-																																		instancePath: instancePath + "/workspaceId",
-																																		schemaPath: "#/properties/workspaceId/maxLength",
+																																		instancePath: instancePath + "/stateVersion",
+																																		schemaPath: "#/properties/stateVersion/maxLength",
 																																		keyword: "maxLength",
-																																		params: { limit: 128 },
-																																		message: "must NOT have more than 128 characters"
+																																		params: { limit: 256 },
+																																		message: "must NOT have more than 256 characters"
 																																	}];
 																																	return false;
 																																} else if (func1(data23) < 1) {
 																																	validate708.errors = [{
-																																		instancePath: instancePath + "/workspaceId",
-																																		schemaPath: "#/properties/workspaceId/minLength",
+																																		instancePath: instancePath + "/stateVersion",
+																																		schemaPath: "#/properties/stateVersion/minLength",
 																																		keyword: "minLength",
 																																		params: { limit: 1 },
 																																		message: "must NOT have fewer than 1 characters"
@@ -84417,8 +84463,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																}
 																															} else {
 																																validate708.errors = [{
-																																	instancePath: instancePath + "/workspaceId",
-																																	schemaPath: "#/properties/workspaceId/type",
+																																	instancePath: instancePath + "/stateVersion",
+																																	schemaPath: "#/properties/stateVersion/type",
 																																	keyword: "type",
 																																	params: { type: "string" },
 																																	message: "must be string"
@@ -84428,6 +84474,45 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														}
 																														var valid0 = _errs56 === errors;
 																													} else var valid0 = true;
+																													if (valid0) {
+																														if (data.workspaceId !== void 0) {
+																															let data24 = data.workspaceId;
+																															const _errs58 = errors;
+																															if (errors === _errs58) {
+																																if (typeof data24 === "string") {
+																																	if (func1(data24) > 128) {
+																																		validate708.errors = [{
+																																			instancePath: instancePath + "/workspaceId",
+																																			schemaPath: "#/properties/workspaceId/maxLength",
+																																			keyword: "maxLength",
+																																			params: { limit: 128 },
+																																			message: "must NOT have more than 128 characters"
+																																		}];
+																																		return false;
+																																	} else if (func1(data24) < 1) {
+																																		validate708.errors = [{
+																																			instancePath: instancePath + "/workspaceId",
+																																			schemaPath: "#/properties/workspaceId/minLength",
+																																			keyword: "minLength",
+																																			params: { limit: 1 },
+																																			message: "must NOT have fewer than 1 characters"
+																																		}];
+																																		return false;
+																																	}
+																																} else {
+																																	validate708.errors = [{
+																																		instancePath: instancePath + "/workspaceId",
+																																		schemaPath: "#/properties/workspaceId/type",
+																																		keyword: "type",
+																																		params: { type: "string" },
+																																		message: "must be string"
+																																	}];
+																																	return false;
+																																}
+																															}
+																															var valid0 = _errs58 === errors;
+																														} else var valid0 = true;
+																													}
 																												}
 																											}
 																										}
@@ -144358,13 +144443,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		}];
 																		return false;
 																	}
-																	if ("trading212" !== data11) {
+																	if (!(data11 === "trading212" || data11 === "binance")) {
 																		validate969.errors = [{
 																			instancePath: instancePath + "/providerId",
-																			schemaPath: "#/properties/providerId/const",
-																			keyword: "const",
-																			params: { allowedValue: "trading212" },
-																			message: "must be equal to constant"
+																			schemaPath: "#/properties/providerId/enum",
+																			keyword: "enum",
+																			params: { allowedValues: schema263.properties.providerId.enum },
+																			message: "must be equal to one of the allowed values"
 																		}];
 																		return false;
 																	}
@@ -144888,13 +144973,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																}
-																if ("trading212" !== data11) {
+																if (!(data11 === "trading212" || data11 === "binance")) {
 																	validate971.errors = [{
 																		instancePath: instancePath + "/providerId",
-																		schemaPath: "#/properties/providerId/const",
-																		keyword: "const",
-																		params: { allowedValue: "trading212" },
-																		message: "must be equal to constant"
+																		schemaPath: "#/properties/providerId/enum",
+																		keyword: "enum",
+																		params: { allowedValues: schema262.properties.providerId.enum },
+																		message: "must be equal to one of the allowed values"
 																	}];
 																	return false;
 																}

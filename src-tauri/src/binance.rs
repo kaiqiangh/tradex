@@ -3,7 +3,8 @@ use crate::protocol::{
     BinanceTestnetBalance, BinanceTestnetFill, BinanceTestnetHistoryState, BinanceTestnetOrder,
     BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook,
     BinanceTestnetOrderBookAction, BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancelState,
-    BinanceTestnetOrderOrigin, OrderProposal, OrderSide,
+    BinanceTestnetOrderOrigin, OrderProposal, OrderQuantityType, OrderSide, OrderType,
+    ProviderOrderCandidate,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -304,6 +305,16 @@ fn valid_client_order_id(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
 }
 
+pub(super) fn live_client_order_id(attempt_id: &str) -> Result<String> {
+    let attempt_id = uuid::Uuid::parse_str(attempt_id).map_err(|_| invalid())?;
+    let client_order_id = format!("tx-{}", attempt_id.simple());
+    if valid_client_order_id(&client_order_id) {
+        Ok(client_order_id)
+    } else {
+        Err(invalid())
+    }
+}
+
 fn valid_order_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 20
@@ -336,7 +347,33 @@ fn signed_request(
     sampled: Instant,
     current: &impl Fn() -> bool,
 ) -> Result<ProviderHttpResponse> {
-    check_testnet_ip_cooldown()?;
+    signed_request_for(
+        ProviderEndpoint::BinanceTestnet,
+        http,
+        method,
+        route,
+        params,
+        secrets,
+        server_time,
+        sampled,
+        current,
+    )
+}
+
+fn signed_request_for(
+    endpoint: ProviderEndpoint,
+    http: &impl ProviderHttp,
+    method: ProviderHttpMethod,
+    route: &str,
+    params: &[(&str, &str)],
+    secrets: &[String],
+    server_time: u64,
+    sampled: Instant,
+    current: &impl Fn() -> bool,
+) -> Result<ProviderHttpResponse> {
+    if endpoint == ProviderEndpoint::BinanceTestnet {
+        check_testnet_ip_cooldown()?;
+    }
     if sampled.elapsed() > Duration::from_secs(60) || !current() {
         return Err(time_error());
     }
@@ -360,31 +397,40 @@ fn signed_request(
     key.set_sensitive(true);
     let mut headers = HeaderMap::new();
     headers.insert("X-MBX-APIKEY", key);
-    let (response, rate_limit) = http.request_with_rate_limit(
-        ProviderEndpoint::BinanceTestnet,
-        method,
-        &path,
-        headers,
-        None,
-    )?;
-    observe_ip_rate_limit(response.status, rate_limit.as_ref());
+    let (response, rate_limit) =
+        http.request_with_rate_limit(endpoint, method, &path, headers, None)?;
+    if endpoint == ProviderEndpoint::BinanceTestnet {
+        observe_ip_rate_limit(response.status, rate_limit.as_ref());
+    }
     Ok(response)
 }
 
 fn server_time(http: &impl ProviderHttp, current: &impl Fn() -> bool) -> Result<(u64, Instant)> {
-    check_testnet_ip_cooldown()?;
+    server_time_for(ProviderEndpoint::BinanceTestnet, http, current)
+}
+
+fn server_time_for(
+    endpoint: ProviderEndpoint,
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<(u64, Instant)> {
+    if endpoint == ProviderEndpoint::BinanceTestnet {
+        check_testnet_ip_cooldown()?;
+    }
     if !current() {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
     let started = Instant::now();
     let (response, rate_limit) = http.request_with_rate_limit(
-        ProviderEndpoint::BinanceTestnet,
+        endpoint,
         ProviderHttpMethod::Get,
         "/api/v3/time",
         HeaderMap::new(),
         None,
     )?;
-    observe_ip_rate_limit(response.status, rate_limit.as_ref());
+    if endpoint == ProviderEndpoint::BinanceTestnet {
+        observe_ip_rate_limit(response.status, rate_limit.as_ref());
+    }
     if let Some(code) = rate_limit_code(response.status) {
         return Err(TradeXError::new(code));
     }
@@ -1680,13 +1726,17 @@ fn response_value(response: ProviderHttpResponse, secrets: &[String]) -> Result<
     Ok(value)
 }
 
-fn provider_symbol(proposal: &OrderProposal, connection_id: &str) -> Result<String> {
+pub(super) fn provider_symbol(
+    proposal: &OrderProposal,
+    connection_id: &str,
+    environment: ExecutionContext,
+) -> Result<String> {
     let fields = &proposal.fields;
     if !matches!(
         proposal.status,
         crate::protocol::OrderProposalStatus::NeedsApproval
             | crate::protocol::OrderProposalStatus::Consumed
-    ) || fields.environment != ExecutionContext::BinanceTestnet
+    ) || fields.environment != environment
         || fields.account_id.as_deref() != Some(connection_id)
         || fields.venue != "BINANCE"
         || fields
@@ -1730,7 +1780,15 @@ pub(crate) fn validate_binance_testnet_proposal(
     proposal: &OrderProposal,
     connection_id: &str,
 ) -> Result<()> {
-    let symbol = provider_symbol(proposal, connection_id)?;
+    validate_binance_proposal(proposal, connection_id, ExecutionContext::BinanceTestnet).map(|_| ())
+}
+
+fn validate_binance_proposal(
+    proposal: &OrderProposal,
+    connection_id: &str,
+    environment: ExecutionContext,
+) -> Result<String> {
+    let symbol = provider_symbol(proposal, connection_id, environment)?;
     let fields = &proposal.fields;
     let quantity = decimal(&Value::String(fields.quantity.value.clone()))?;
     if quantity.starts_with('-') || quantity == "0" {
@@ -1768,7 +1826,198 @@ pub(crate) fn validate_binance_testnet_proposal(
     if fields.quantity.r#type == OrderQuantityType::Quote && symbol.is_empty() {
         return Err(invalid());
     }
-    Ok(())
+    Ok(symbol)
+}
+
+pub(crate) fn query_live_reconciliation_candidate(
+    proposal: &OrderProposal,
+    attempt_id: &str,
+    provider_client_order_id: &str,
+    connection_id: &str,
+    remote_account_id: &str,
+    window_started_at: &str,
+    window_ends_at: &str,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<Option<ProviderOrderCandidate>> {
+    if secrets.len() != 2
+        || proposal.status != crate::protocol::OrderProposalStatus::Consumed
+        || proposal.fields.environment != ExecutionContext::BinanceLive
+        || !valid_client_order_id(provider_client_order_id)
+        || remote_account_id.is_empty()
+    {
+        return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+    }
+    if live_client_order_id(attempt_id)? != provider_client_order_id {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let symbol = validate_binance_proposal(proposal, connection_id, ExecutionContext::BinanceLive)?;
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let (server, sampled) = server_time_for(ProviderEndpoint::BinanceLive, http, current)?;
+    let account = signed_request_for(
+        ProviderEndpoint::BinanceLive,
+        http,
+        ProviderHttpMethod::Get,
+        "/api/v3/account",
+        &[],
+        secrets,
+        server,
+        sampled,
+        current,
+    )?;
+    if let Some(code) = rate_limit_code(account.status) {
+        return Err(TradeXError::new(code));
+    }
+    if matches!(account.status, 401 | 403) {
+        return Err(TradeXError::new("PROVIDER_AUTH_FAILED"));
+    }
+    if account.status != 200 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    let account = response_value(account, secrets)?;
+    if numeric_id(&account, "uid")? != remote_account_id
+        || account["accountType"].as_str() != Some("SPOT")
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let params = [
+        ("symbol", symbol.as_str()),
+        ("origClientOrderId", provider_client_order_id),
+    ];
+    let order = signed_request_for(
+        ProviderEndpoint::BinanceLive,
+        http,
+        ProviderHttpMethod::Get,
+        "/api/v3/order",
+        &params,
+        secrets,
+        server,
+        sampled,
+        current,
+    )?;
+    if let Some(code) = rate_limit_code(order.status) {
+        return Err(TradeXError::new(code));
+    }
+    if matches!(order.status, 401 | 403) {
+        return Err(TradeXError::new("PROVIDER_AUTH_FAILED"));
+    }
+    if order.status == 400 {
+        let error: Value = serde_json::from_slice(&order.body).map_err(|_| invalid())?;
+        if error["code"].as_i64() == Some(-2013) {
+            return Ok(None);
+        }
+        return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+    }
+    if order.status != 200 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    let order = response_value(order, secrets)?;
+    let client_order_id = text(&order, "clientOrderId", 36)?;
+    let provider_symbol = text(&order, "symbol", 32)?;
+    let side = text(&order, "side", 8)?;
+    let order_type = text(&order, "type", 32)?;
+    let status = text(&order, "status", 32)?;
+    let quantity = decimal(&Value::String(text(&order, "origQty", 64)?))?;
+    let order_id = numeric_id(&order, "orderId")?;
+    let submitted_ms = order["time"]
+        .as_u64()
+        .filter(|value| valid_time(*value))
+        .ok_or_else(invalid)?;
+    let submitted_at =
+        time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(submitted_ms) * 1_000_000)
+            .map_err(|_| invalid())?
+            .format(&time::format_description::well_known::Rfc3339)
+            .map_err(|_| invalid())?;
+    let window_started = time::OffsetDateTime::parse(
+        window_started_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| invalid())?;
+    let window_ends = time::OffsetDateTime::parse(
+        window_ends_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| invalid())?;
+    let submitted = time::OffsetDateTime::parse(
+        &submitted_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| invalid())?;
+    let expected_side = match proposal.fields.side {
+        OrderSide::Buy => "BUY",
+        OrderSide::Sell => "SELL",
+    };
+    let expected_type = match proposal.fields.order_type {
+        OrderType::Market => "MARKET",
+        OrderType::Limit => "LIMIT",
+    };
+    let requested_quantity = decimal(&Value::String(proposal.fields.quantity.value.clone()))?;
+    let quantity_matches = match proposal.fields.quantity.r#type {
+        OrderQuantityType::Base => {
+            decimal_cmp(&quantity, &requested_quantity)? == std::cmp::Ordering::Equal
+        }
+        OrderQuantityType::Quote => {
+            let quote_quantity = decimal(&Value::String(text(&order, "origQuoteOrderQty", 64)?))?;
+            decimal_cmp(&quote_quantity, &requested_quantity)? == std::cmp::Ordering::Equal
+        }
+    };
+    let limit_fields_match = proposal.fields.order_type != OrderType::Limit
+        || (decimal_cmp(
+            &decimal(&Value::String(text(&order, "price", 64)?))?,
+            &decimal(&Value::String(
+                proposal
+                    .fields
+                    .limit_price
+                    .as_deref()
+                    .ok_or_else(invalid)?
+                    .into(),
+            ))?,
+        )? == std::cmp::Ordering::Equal
+            && text(&order, "timeInForce", 3)?
+                == match proposal.fields.time_in_force {
+                    TimeInForce::Gtc => "GTC",
+                    TimeInForce::Ioc => "IOC",
+                    TimeInForce::Fok => "FOK",
+                    TimeInForce::Day => return Err(invalid()),
+                });
+    if client_order_id != provider_client_order_id
+        || provider_symbol != symbol
+        || side != expected_side
+        || order_type != expected_type
+        || !matches!(
+            status.as_str(),
+            "NEW"
+                | "PARTIALLY_FILLED"
+                | "FILLED"
+                | "CANCELED"
+                | "PENDING_CANCEL"
+                | "REJECTED"
+                | "EXPIRED"
+                | "EXPIRED_IN_MATCH"
+        )
+        || submitted < window_started
+        || submitted > window_ends
+        || !quantity_matches
+        || !limit_fields_match
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    Ok(Some(ProviderOrderCandidate {
+        provider_order_id: order_id,
+        provider_symbol,
+        side: proposal.fields.side,
+        provider_status: status,
+        order_type,
+        quantity: Some(quantity),
+        submitted_at: Some(submitted_at),
+        provider_client_id: Some(client_order_id),
+    }))
 }
 
 fn parse_symbol(value: &Value, expected: &str, base: &str, quote: &str) -> Result<Value> {
@@ -2318,7 +2567,11 @@ pub(super) fn run_testnet_order(
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         validate_binance_testnet_proposal(proposal, &attempt.connection_id)?;
-        let symbol = provider_symbol(proposal, &attempt.connection_id)?;
+        let symbol = provider_symbol(
+            proposal,
+            &attempt.connection_id,
+            ExecutionContext::BinanceTestnet,
+        )?;
         if !current() {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }

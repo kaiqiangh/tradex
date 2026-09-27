@@ -3019,6 +3019,7 @@ export interface ExecutionAttempt {
   operation: FinancialOperation;
   policyVersion: number;
   proposalId?: string | null;
+  providerClientOrderId?: string | null;
   providerStatus?: string | null;
   reservationId?: string | null;
   reviewDigest: string;
@@ -3047,7 +3048,7 @@ export interface ResolutionEvidenceLedger {
    */
   manualResolutions?: ManualResolutionRecord[];
   nextPagePath?: string | null;
-  providerId: "trading212";
+  providerId: "trading212" | "binance";
   stateVersion: string;
   workspaceId: string;
 }
@@ -3069,7 +3070,7 @@ export interface ResolutionEvidence {
   nextPagePath?: string | null;
   outcome: ResolutionEvidenceOutcome;
   paginationComplete: boolean;
-  providerId: "trading212";
+  providerId: "trading212" | "binance";
   queriedAt: string;
   queryScope: string;
 }

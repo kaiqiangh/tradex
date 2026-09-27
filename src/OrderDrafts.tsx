@@ -368,26 +368,26 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     refetchInterval: query => ['RESERVED', 'SUBMITTING'].includes(query.state.data?.preparation?.attempt.state ?? '') ? 1_000 : false,
   });
   const visibleExecutionPreparation = savedExecutionPreparation.data?.preparation;
-  const unknownTrading212Attempt = visibleExecutionPreparation?.attempt;
+  const unknownLiveAttempt = visibleExecutionPreparation?.attempt;
   const resolutionEvidence = useQuery({
-    queryKey: ['resolution-evidence', workspaceId, unknownTrading212Attempt?.attemptId, unknownTrading212Attempt?.stateVersion],
+    queryKey: ['resolution-evidence', workspaceId, unknownLiveAttempt?.attemptId, unknownLiveAttempt?.stateVersion],
     queryFn: async () => {
       const identity = {
         workspaceId,
-        executionAttemptId: unknownTrading212Attempt!.attemptId,
-        accountId: unknownTrading212Attempt!.accountId,
+        executionAttemptId: unknownLiveAttempt!.attemptId,
+        accountId: unknownLiveAttempt!.accountId,
       };
       const saved = await request('trade.resolution_evidence', identity);
       if (!saved.timeTrusted || saved.automaticWindowExpired) return saved;
       return request('trade.resolution_evidence.refresh', {
         ...identity,
-        expectedAttemptStateVersion: unknownTrading212Attempt!.stateVersion,
+        expectedAttemptStateVersion: unknownLiveAttempt!.stateVersion,
       });
     },
-    enabled: Boolean(unknownTrading212Attempt
-      && unknownTrading212Attempt.intentId === selectedProposalId
-      && unknownTrading212Attempt.environment === 'TRADING212_LIVE'
-      && unknownTrading212Attempt.state === 'UNKNOWN_RECONCILING'),
+    enabled: Boolean(unknownLiveAttempt
+      && unknownLiveAttempt.intentId === selectedProposalId
+      && ['TRADING212_LIVE', 'BINANCE_LIVE'].includes(unknownLiveAttempt.environment)
+      && unknownLiveAttempt.state === 'UNKNOWN_RECONCILING'),
     refetchOnMount: 'always',
     refetchInterval: query => query.state.data?.automaticWindowExpired
       ? false
@@ -802,8 +802,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     } finally { setExecutionPrepareBusy(false); }
   };
 
-  const keepTrading212Reconciliation = async (
-    attempt: NonNullable<typeof unknownTrading212Attempt>,
+  const keepLiveReconciliation = async (
+    attempt: NonNullable<typeof unknownLiveAttempt>,
     evidence: ResolutionEvidenceQueryResult,
   ) => {
     if (manualResolutionBusy) return;
@@ -1487,15 +1487,15 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                 {visibleExecutionPreparation.attempt.errorCode && <span>Outcome code {visibleExecutionPreparation.attempt.errorCode}</span>}
                 {visibleExecutionPreparation.attempt.dispatchDisposition && <span>Dispatch disposition {visibleExecutionPreparation.attempt.dispatchDisposition}</span>}
               </article>}
-              {unknownTrading212Attempt && unknownTrading212Attempt.intentId === selectedProposalId
-                && unknownTrading212Attempt.environment === 'TRADING212_LIVE'
-                && unknownTrading212Attempt.state === 'UNKNOWN_RECONCILING'
-                && <section className="notice" aria-label="Trading 212 Live reconciliation evidence">
-                  <h4>Trading 212 Live reconciliation evidence</h4>
+              {unknownLiveAttempt && unknownLiveAttempt.intentId === selectedProposalId
+                && ['TRADING212_LIVE', 'BINANCE_LIVE'].includes(unknownLiveAttempt.environment)
+                && unknownLiveAttempt.state === 'UNKNOWN_RECONCILING'
+                && <section className="notice" aria-label="Live reconciliation evidence">
+                  <h4>{unknownLiveAttempt.environment === 'BINANCE_LIVE' ? 'Binance' : 'Trading 212'} Live reconciliation evidence</h4>
                   {resolutionEvidence.isPending && <p role="status">Loading saved evidence and checking the broker read-only…</p>}
                   {resolutionEvidence.isError && <p className="error-text" role="alert">Reconciliation evidence is unavailable: {explainError(resolutionEvidence.error)} <button type="button" onClick={() => void resolutionEvidence.refetch()}>Retry read-only check</button></p>}
                   {resolutionEvidence.data && (() => {
-                    const attempt = unknownTrading212Attempt!;
+                    const attempt = unknownLiveAttempt!;
                     const result: ResolutionEvidenceQueryResult = resolutionEvidence.data;
                     const latest = result.ledger?.evidence.at(-1);
                     const manualResolution = result.ledger?.manualResolutions?.at(-1);
@@ -1506,11 +1506,15 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                         <div><dt>Last query</dt><dd>{latest ? new Date(latest.queriedAt).toLocaleString() : 'No provider query recorded yet'}</dd></div>
                         <div><dt>Coverage / source</dt><dd>{latest ? `${latest.coverageFrom ? new Date(latest.coverageFrom).toLocaleString() : 'Unknown start'} – ${latest.coverageTo ? new Date(latest.coverageTo).toLocaleString() : 'Unknown end'} · ${latest.providerId} · ${latest.queryScope}` : 'No persisted provider observation'}</dd></div>
                         <div><dt>Observed result</dt><dd>{latest?.outcome === 'CANDIDATES_FOUND' ? 'Similar orders observed; candidates only' : latest?.errorCode ? `Inconclusive · ${latest.errorCode}` : latest?.outcome === 'INCONCLUSIVE' ? 'No similar order observed; absence is not proven' : 'No evidence yet'}</dd></div>
-                        <div><dt>History coverage</dt><dd>{latest ? latest.paginationComplete ? 'Returned page complete' : `Incomplete · ${result.ledger?.historyPagesRead ?? 0} page(s) read` : 'Not queried'}</dd></div>
+                        <div><dt>{latest?.providerId === 'binance' ? 'Order lookup' : 'History coverage'}</dt><dd>{latest ? latest.providerId === 'binance'
+                          ? latest.paginationComplete ? 'Exact-order lookup complete' : 'Exact-order lookup incomplete'
+                          : latest.paginationComplete ? 'Returned page complete' : `Incomplete · ${result.ledger?.historyPagesRead ?? 0} page(s) read`
+                          : 'Not queried'}</dd></div>
                       </dl>
                       {latest?.candidateOrders.map(candidate => <article className="live-approval-record" key={candidate.providerOrderId}>
                         <strong>Candidate only · provider order {candidate.providerOrderId}</strong>
                         <span>{candidate.providerSymbol} · {candidate.side} · {candidate.quantity ?? 'quantity unavailable'} · {candidate.providerStatus} · {candidate.orderType}</span>
+                        {candidate.providerClientId && <span>Provider client order ID {candidate.providerClientId}</span>}
                         <time dateTime={candidate.submittedAt ?? undefined}>{candidate.submittedAt ? new Date(candidate.submittedAt).toLocaleString() : 'Provider time unavailable'}</time>
                       </article>)}
                       <p className={result.automaticWindowExpired ? 'error-text' : 'muted'} role="status" aria-live="polite">
@@ -1524,7 +1528,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                       {result.timeTrusted && result.automaticWindowExpired
                         && result.allowedDecisions.some(decision => decision === 'KEEP_RECONCILING')
                         && !manualResolution
-                        && <button type="button" onClick={() => void keepTrading212Reconciliation(attempt, result)} disabled={manualResolutionBusy}>
+                        && <button type="button" onClick={() => void keepLiveReconciliation(attempt, result)} disabled={manualResolutionBusy}>
                           {manualResolutionBusy ? 'Recording decision…' : 'Keep reconciling'}
                         </button>}
                     </>;

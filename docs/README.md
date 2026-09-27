@@ -30,6 +30,8 @@ S19 #71 adds exact-order Binance Spot Testnet cancellation in Backend ARD §41.2
 
 S25.1 #97 implements and locally verifies query-only reconciliation evidence for a Trading 212 Live `PLACE` attempt that remains `UNKNOWN_RECONCILING`. The five-minute timeout keeps capacity frozen, and inconclusive evidence never proves absence or triggers a resend. Only the backend-authorized Keep Reconciling action is available after timeout; it records the decision without restarting provider reads. [Local evidence](./implementation/s25-trading212-live-reconciliation-evidence.md). The parent S25 issue #96 remains open for other providers and confirmed-submitted/not-submitted resolution; no real provider requests were made and the clickable prototype is unchanged.
 
+S25.2 #98 adds the same query-only evidence path for Binance Spot Live. It verifies the saved SPOT account identity, queries only the exact saved `providerClientOrderId` on the ordinary Live endpoint, and keeps unmatched or incomplete results inconclusive with capacity frozen. [Local evidence](./implementation/s25-binance-live-reconciliation-evidence.md). No real provider requests or writes were made; the clickable prototype is unchanged and parent issue #96 remains open for the remaining S25 scope.
+
 ## Chinese synchronized set
 
 [Chinese index](./zh/README.md) links all six English/Chinese document pairs: PRD, UI Spec, frontend/backend ARDs, Coverage Matrix, and QA Report. [Chinese prototype guide](./prototype/README_zh.md) accompanies the same fixture.

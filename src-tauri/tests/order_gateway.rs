@@ -351,6 +351,7 @@ mod local_provider_tests {
             intent_hash: intent_hash.clone(),
             proposal_id: proposal.map(|proposal| proposal.proposal_id.clone()),
             broker_order_id: provider_order_id.clone(),
+            provider_client_order_id: None,
             provider_status: None,
             error_code: None,
             dispatch_disposition: None,

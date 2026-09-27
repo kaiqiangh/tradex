@@ -1293,7 +1293,25 @@ fn live_provider_id(environment: &protocol::ExecutionContext) -> Option<&'static
     }
 }
 
-fn t212_live_reconciliation_window(
+fn live_reconciliation_provider(environment: &protocol::ExecutionContext) -> Option<&'static str> {
+    match environment {
+        protocol::ExecutionContext::Trading212Live => Some("trading212"),
+        protocol::ExecutionContext::BinanceLive => Some("binance"),
+        _ => None,
+    }
+}
+
+fn expected_live_provider_client_order_id(
+    attempt: &protocol::ExecutionAttempt,
+) -> Result<Option<String>> {
+    match live_reconciliation_provider(&attempt.environment) {
+        Some("binance") => provider_io::binance_live_client_order_id(&attempt.attempt_id).map(Some),
+        Some("trading212") => Ok(None),
+        _ => Err(TradeXError::new("STATE_VERSION_CONFLICT")),
+    }
+}
+
+fn live_place_reconciliation_window(
     attempt: &protocol::ExecutionAttempt,
 ) -> Result<(String, String)> {
     // Legacy UNKNOWN attempts predate this field; their preparation time gives a conservative, earlier cutoff.
@@ -2310,6 +2328,137 @@ impl ControlPlane {
     }
 
     #[cfg(any(test, feature = "integration-test"))]
+    pub fn seed_binance_live_unknown_attempt_fixture(
+        &mut self,
+        workspace_id: &str,
+        proposal_id: &str,
+        approval_id: &str,
+        capacity: protocol::CapacityProjection,
+    ) -> Result<protocol::ExecutionAttempt> {
+        self.require_workspace(workspace_id)?;
+        let proposal = self.store.as_ref().unwrap().order_proposal(proposal_id)?;
+        let approval = self
+            .store
+            .as_ref()
+            .unwrap()
+            .financial_approval_history(workspace_id, proposal_id)?
+            .approvals
+            .into_iter()
+            .find(|approval| approval.approval_id == approval_id)
+            .ok_or_else(|| TradeXError::new("TRADE_APPROVAL_NOT_FOUND"))?;
+        if proposal.fields.environment != protocol::ExecutionContext::BinanceLive
+            || proposal.fields.account_id.as_deref() != Some(approval.account_id.as_str())
+            || approval.environment != protocol::ExecutionContext::BinanceLive
+            || approval.status != protocol::FinancialApprovalStatus::Issued
+            || capacity.freshness != protocol::CapacityFreshness::Current
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let account = self.store.as_ref().unwrap().account(&approval.account_id)?;
+        let attempt_id = uuid::Uuid::new_v4().to_string();
+        let reservation_id = uuid::Uuid::new_v4().to_string();
+        let now = self.time.status(workspace_id)?.wall_clock;
+        let amount = capacity
+            .requested_amount
+            .clone()
+            .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+        let available = capacity
+            .available
+            .clone()
+            .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+        let effective_available = capacity
+            .effective_available
+            .clone()
+            .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+        let notional = proposal
+            .estimated_notional
+            .clone()
+            .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+        let notional_currency = proposal
+            .estimated_notional_currency
+            .clone()
+            .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+        let attempt = protocol::ExecutionAttempt {
+            attempt_id: attempt_id.clone(),
+            workspace_id: workspace_id.into(),
+            approval_id: approval_id.into(),
+            operation: protocol::FinancialOperation::PlaceOrder,
+            intent_id: proposal.proposal_id.clone(),
+            intent_hash: proposal.proposal_hash.clone(),
+            proposal_id: Some(proposal.proposal_id.clone()),
+            broker_order_id: None,
+            provider_client_order_id: Some(provider_io::binance_live_client_order_id(&attempt_id)?),
+            provider_status: None,
+            error_code: None,
+            dispatch_disposition: None,
+            account_id: account.connection_id.clone(),
+            environment: protocol::ExecutionContext::BinanceLive,
+            policy_version: approval.policy_version,
+            risk_decision_id: approval.risk_decision_id.clone(),
+            review_digest: approval.review_digest.clone(),
+            account_state_version: account.state_version.clone(),
+            intent_state_version: proposal.state_version.clone(),
+            reservation_id: Some(reservation_id.clone()),
+            state: protocol::ExecutionAttemptState::Reserved,
+            invalidation_reason: None,
+            created_at: now.clone(),
+            dispatch_started_at: None,
+            state_version: String::new(),
+        };
+        let reservation = protocol::ExecutionReservation {
+            reservation_id,
+            workspace_id: workspace_id.into(),
+            account_id: account.connection_id.clone(),
+            attempt_id: attempt_id.clone(),
+            proposal_id: proposal.proposal_id.clone(),
+            proposal_hash: proposal.proposal_hash.clone(),
+            instrument_id: proposal.fields.instrument_id.clone(),
+            side: proposal.fields.side,
+            capacity_key: "cash:USDT".into(),
+            amount,
+            unit: capacity.unit.clone(),
+            notional: notional.clone(),
+            notional_currency,
+            workspace_notional: Some(notional),
+            workspace_currency: "USD".into(),
+            broker_available: available,
+            existing_reservations: "0".into(),
+            effective_available,
+            capacity_projection: Some(capacity),
+            account_state_version: account.state_version.clone(),
+            status: protocol::ExecutionReservationStatus::Active,
+            created_at: now.clone(),
+            state_version: String::new(),
+        };
+        let (_, events) = self.store.as_mut().unwrap().prepare_live_place(
+            approval_id,
+            &approval.state_version,
+            &format!("binance-live-fixture-{attempt_id}"),
+            &account.state_version,
+            &proposal.state_version,
+            &approval.review_digest,
+            attempt,
+            reservation,
+            &now,
+        )?;
+        for event in &events {
+            self.publish(event);
+        }
+        let grant = self.issue_live_dispatch_grant(&attempt_id, "integration-fixture")?;
+        self.begin_live_execution_submission(&grant.grant_id, "integration-fixture")?;
+        self.complete_live_execution_submission(
+            &attempt_id,
+            &provider_io::LiveDispatchOutcome {
+                state: protocol::ExecutionAttemptState::UnknownReconciling,
+                broker_order_id: None,
+                provider_status: None,
+                error_code: Some("ORDER_STATUS_UNKNOWN".into()),
+            },
+        )
+        .map(|preparation| *preparation.attempt)
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
     pub fn mark_live_capacity_fixture_stale(
         &mut self,
         workspace_id: &str,
@@ -2413,13 +2562,13 @@ impl ControlPlane {
             .store
             .as_ref()
             .unwrap()
-            .unknown_t212_live_place_attempts(&workspace_id)?;
+            .unknown_live_place_attempts(&workspace_id)?;
         if !unresolved_attempts.is_empty() {
             let now = OffsetDateTime::parse(&time.wall_clock, &Rfc3339)
                 .map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
             let mut expired_accounts = HashSet::new();
             for attempt in unresolved_attempts {
-                let (_, ends_at) = t212_live_reconciliation_window(&attempt)?;
+                let (_, ends_at) = live_place_reconciliation_window(&attempt)?;
                 let ends = OffsetDateTime::parse(&ends_at, &Rfc3339)
                     .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
                 if now >= ends {
@@ -2427,7 +2576,7 @@ impl ControlPlane {
                 }
             }
             for account_id in expired_accounts {
-                self.mark_t212_live_reconciliation_timeout(&workspace_id, &account_id)?;
+                self.mark_live_reconciliation_timeout(&workspace_id, &account_id)?;
             }
         }
         let events = self
@@ -7608,6 +7757,12 @@ impl ControlPlane {
         };
         let reservation_id = uuid::Uuid::new_v4().to_string();
         let attempt_id = uuid::Uuid::new_v4().to_string();
+        let provider_client_order_id = match proposal.fields.environment {
+            protocol::ExecutionContext::BinanceLive => {
+                Some(provider_io::binance_live_client_order_id(&attempt_id)?)
+            }
+            _ => None,
+        };
         let attempt = protocol::ExecutionAttempt {
             attempt_id: attempt_id.clone(),
             workspace_id: input.workspace_id.clone(),
@@ -7617,6 +7772,7 @@ impl ControlPlane {
             intent_hash: proposal.proposal_hash.clone(),
             proposal_id: Some(proposal.proposal_id.clone()),
             broker_order_id: None,
+            provider_client_order_id,
             provider_status: None,
             error_code: None,
             dispatch_disposition: None,
@@ -7779,6 +7935,7 @@ impl ControlPlane {
             intent_hash: intent_hash.clone(),
             proposal_id: None,
             broker_order_id: Some(broker_order_id.clone()),
+            provider_client_order_id: None,
             provider_status: None,
             error_code: None,
             dispatch_disposition: None,
@@ -7939,7 +8096,7 @@ impl ControlPlane {
         }
         match request.command.as_str() {
             "trade.resolution_evidence.refresh" => {
-                return self.prepare_trading212_live_reconciliation(request, consumer);
+                return self.prepare_live_order_reconciliation(request, consumer);
             }
             "trade.cancel_request" => {
                 return self.prepare_cancellation_intent_refresh(request, consumer);
@@ -8065,7 +8222,7 @@ impl ControlPlane {
         }))
     }
 
-    fn prepare_trading212_live_reconciliation(
+    fn prepare_live_order_reconciliation(
         &mut self,
         request: CommandEnvelope,
         consumer: &str,
@@ -8081,13 +8238,18 @@ impl ControlPlane {
             .unwrap()
             .execution_preparation_for_attempt(&input.workspace_id, &input.execution_attempt_id)?;
         let attempt = *preparation.attempt;
+        let provider_id = live_reconciliation_provider(&attempt.environment)
+            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
+        if attempt.provider_client_order_id != expected_live_provider_client_order_id(&attempt)? {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
         let reservation = preparation
             .reservation
             .as_deref()
             .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
         if attempt.state != protocol::ExecutionAttemptState::UnknownReconciling
             || attempt.operation != protocol::FinancialOperation::PlaceOrder
-            || attempt.environment != protocol::ExecutionContext::Trading212Live
+            || live_reconciliation_provider(&attempt.environment) != Some(provider_id)
             || attempt.account_id != input.account_id
             || attempt.state_version != input.expected_attempt_state_version
             || reservation.status != protocol::ExecutionReservationStatus::Active
@@ -8105,13 +8267,13 @@ impl ControlPlane {
             || proposal.proposal_id != proposal_id
             || proposal.proposal_hash != attempt.intent_hash
             || proposal.fields.account_id.as_deref() != Some(input.account_id.as_str())
-            || proposal.fields.environment != protocol::ExecutionContext::Trading212Live
+            || proposal.fields.environment != attempt.environment
         {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let account = self.store.as_ref().unwrap().account(&input.account_id)?;
         if account.workspace_id != input.workspace_id
-            || account.provider_id != "trading212"
+            || account.provider_id != provider_id
             || account.environment != "LIVE"
             || account.connection_state != ConnectionState::Connected
             || account.data.is_none()
@@ -8123,7 +8285,7 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let (window_started_at, automatic_window_ends_at) =
-            t212_live_reconciliation_window(&attempt)?;
+            live_place_reconciliation_window(&attempt)?;
         let time = self.time.status(&input.workspace_id)?;
         self.time.require_trusted()?;
         let now = OffsetDateTime::parse(&time.wall_clock, &Rfc3339)
@@ -8131,7 +8293,7 @@ impl ControlPlane {
         let ends = OffsetDateTime::parse(&automatic_window_ends_at, &Rfc3339)
             .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
         if now >= ends {
-            self.mark_t212_live_reconciliation_timeout(&input.workspace_id, &input.account_id)?;
+            self.mark_live_reconciliation_timeout(&input.workspace_id, &input.account_id)?;
             return Err(TradeXError::new("EXECUTION_RECONCILIATION_EXPIRED"));
         }
         let ledger = self
@@ -8149,7 +8311,7 @@ impl ControlPlane {
         }
         Ok(Some(ProviderJob {
             account,
-            kind: JobKind::Trading212LiveReconcile {
+            kind: JobKind::LiveOrderReconcile {
                 input: Box::new(input),
                 attempt: Box::new(attempt),
                 proposal: Box::new(proposal),
@@ -8191,9 +8353,14 @@ impl ControlPlane {
             .unwrap()
             .execution_preparation_for_attempt(&input.workspace_id, &input.execution_attempt_id)?;
         let attempt = *preparation.attempt;
+        let provider_id = live_reconciliation_provider(&attempt.environment)
+            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
+        if attempt.provider_client_order_id != expected_live_provider_client_order_id(&attempt)? {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
         if attempt.state != protocol::ExecutionAttemptState::UnknownReconciling
             || attempt.operation != protocol::FinancialOperation::PlaceOrder
-            || attempt.environment != protocol::ExecutionContext::Trading212Live
+            || live_reconciliation_provider(&attempt.environment) != Some(provider_id)
             || attempt.account_id != input.account_id
             || preparation
                 .reservation
@@ -8213,19 +8380,19 @@ impl ControlPlane {
             || proposal.proposal_id != proposal_id
             || proposal.proposal_hash != attempt.intent_hash
             || proposal.fields.account_id.as_deref() != Some(input.account_id.as_str())
-            || proposal.fields.environment != protocol::ExecutionContext::Trading212Live
+            || proposal.fields.environment != attempt.environment
         {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let account = self.store.as_ref().unwrap().account(&input.account_id)?;
         if account.workspace_id != input.workspace_id
-            || account.provider_id != "trading212"
+            || account.provider_id != provider_id
             || account.environment != "LIVE"
         {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let (automatic_window_started_at, automatic_window_ends_at) =
-            t212_live_reconciliation_window(&attempt)?;
+            live_place_reconciliation_window(&attempt)?;
         let time = self.time.status(&input.workspace_id)?;
         let now = OffsetDateTime::parse(&time.wall_clock, &Rfc3339)
             .map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
@@ -8235,7 +8402,7 @@ impl ControlPlane {
             && self.time.require_trusted().is_ok();
         let automatic_window_expired = time_trusted && now >= ends;
         if automatic_window_expired {
-            self.mark_t212_live_reconciliation_timeout(&input.workspace_id, &input.account_id)?;
+            self.mark_live_reconciliation_timeout(&input.workspace_id, &input.account_id)?;
         }
         let ledger = self
             .store
@@ -8247,6 +8414,7 @@ impl ControlPlane {
                 || ledger.automatic_window_ends_at != automatic_window_ends_at
                 || ledger.attempt_state_version != attempt.state_version
                 || ledger.account_id != attempt.account_id
+                || ledger.provider_id != provider_id
         }) {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
@@ -8264,14 +8432,14 @@ impl ControlPlane {
         })
     }
 
-    fn mark_t212_live_reconciliation_timeout(
+    fn mark_live_reconciliation_timeout(
         &mut self,
         workspace_id: &str,
         account_id: &str,
     ) -> Result<()> {
         let mut account = self.store.as_ref().unwrap().account(account_id)?;
         if account.workspace_id != workspace_id
-            || account.provider_id != "trading212"
+            || !matches!(account.provider_id.as_str(), "trading212" | "binance")
             || account.environment != "LIVE"
         {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
@@ -9911,7 +10079,7 @@ impl ControlPlane {
     }
 
     pub fn complete_provider(&mut self, job: &ProviderJob, outcome: ProviderOutcome) -> Value {
-        if let JobKind::Trading212LiveReconcile {
+        if let JobKind::LiveOrderReconcile {
             input,
             queried_at,
             automatic_window_started_at,
@@ -12943,15 +13111,32 @@ mod live_approval_tests {
         Value,
         Value,
     ) {
+        reviewed_live_fixture_with_numeric_binance_id(false)
+    }
+
+    fn reviewed_live_fixture_with_numeric_binance_id(
+        numeric_binance_account_id: bool,
+    ) -> (
+        tempfile::TempDir,
+        ControlPlane,
+        String,
+        AccountConnection,
+        Value,
+        Value,
+    ) {
         let folder = tempfile::tempdir().unwrap();
         let mut control = ControlPlane::new(folder.path().to_path_buf());
         control.enable_live_approval_fixture();
         let opened = dispatch(&mut control, "workspace.open", json!({}));
         assert_eq!(opened["ok"], true, "{opened}");
         let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
-        let account = control
+        let mut account = control
             .seed_live_arming_fixture(&workspace_id, "binance", "approval fixture")
             .unwrap();
+        if numeric_binance_account_id {
+            account.data.as_mut().unwrap().remote_account_id = "9007199254740993".into();
+            account = control.persist_account(account).unwrap();
+        }
         let proposal = live_proposal(&mut control, &workspace_id, &account);
         let review = dispatch_main(
             &mut control,
@@ -13139,6 +13324,480 @@ mod live_approval_tests {
         (attempt_id, account, window_started_at)
     }
 
+    fn make_unknown_binance_live_attempt(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        proposal: &Value,
+        review: &Value,
+    ) -> (String, AccountConnection) {
+        assert_eq!(proposal["fields"]["environment"], "BINANCE_LIVE");
+        let approval = dispatch_main(
+            control,
+            "trade.approve",
+            approval_action(workspace_id, proposal, review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let attempt_id = uuid::Uuid::new_v4().to_string();
+        let reservation_id = uuid::Uuid::new_v4().to_string();
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(proposal["fields"]["accountId"].as_str().unwrap())
+            .unwrap();
+        let capacity: protocol::CapacityProjection =
+            serde_json::from_value(review["capacityProjection"].clone()).unwrap();
+        let now = control.time.status(workspace_id).unwrap().wall_clock;
+        let attempt = protocol::ExecutionAttempt {
+            attempt_id: attempt_id.clone(),
+            workspace_id: workspace_id.into(),
+            approval_id: approval["data"]["approvalId"].as_str().unwrap().into(),
+            operation: protocol::FinancialOperation::PlaceOrder,
+            intent_id: proposal["proposalId"].as_str().unwrap().into(),
+            intent_hash: proposal["proposalHash"].as_str().unwrap().into(),
+            proposal_id: Some(proposal["proposalId"].as_str().unwrap().into()),
+            broker_order_id: None,
+            provider_client_order_id: Some(
+                provider_io::binance_live_client_order_id(&attempt_id).unwrap(),
+            ),
+            provider_status: None,
+            error_code: None,
+            dispatch_disposition: None,
+            account_id: account.connection_id.clone(),
+            environment: protocol::ExecutionContext::BinanceLive,
+            policy_version: approval["data"]["policyVersion"].as_u64().unwrap(),
+            risk_decision_id: review["riskDecision"]["decisionId"]
+                .as_str()
+                .unwrap()
+                .into(),
+            review_digest: review["reviewDigest"].as_str().unwrap().into(),
+            account_state_version: account.state_version.clone(),
+            intent_state_version: proposal["stateVersion"].as_str().unwrap().into(),
+            reservation_id: Some(reservation_id.clone()),
+            state: protocol::ExecutionAttemptState::Reserved,
+            invalidation_reason: None,
+            created_at: now.clone(),
+            dispatch_started_at: None,
+            state_version: String::new(),
+        };
+        let reservation = protocol::ExecutionReservation {
+            reservation_id,
+            workspace_id: workspace_id.into(),
+            account_id: account.connection_id.clone(),
+            attempt_id: attempt_id.clone(),
+            proposal_id: proposal["proposalId"].as_str().unwrap().into(),
+            proposal_hash: proposal["proposalHash"].as_str().unwrap().into(),
+            instrument_id: proposal["fields"]["instrumentId"].as_str().unwrap().into(),
+            side: protocol::OrderSide::Buy,
+            capacity_key: "cash:USDT".into(),
+            amount: capacity.requested_amount.clone().unwrap(),
+            unit: capacity.unit.clone(),
+            notional: review["expectedSpend"].as_str().unwrap_or("500").into(),
+            notional_currency: "USDT".into(),
+            workspace_notional: Some("500".into()),
+            workspace_currency: "USD".into(),
+            broker_available: capacity.available.clone().unwrap(),
+            existing_reservations: "0".into(),
+            effective_available: capacity.effective_available.clone().unwrap(),
+            capacity_projection: Some(capacity),
+            account_state_version: account.state_version.clone(),
+            status: protocol::ExecutionReservationStatus::Active,
+            created_at: now.clone(),
+            state_version: String::new(),
+        };
+        let (_preparation, events) = control
+            .store
+            .as_mut()
+            .unwrap()
+            .prepare_live_place(
+                approval["data"]["approvalId"].as_str().unwrap(),
+                approval["data"]["stateVersion"].as_str().unwrap(),
+                "binance-live-unknown-resolution",
+                &account.state_version,
+                proposal["stateVersion"].as_str().unwrap(),
+                review["reviewDigest"].as_str().unwrap(),
+                attempt,
+                reservation,
+                &now,
+            )
+            .unwrap();
+        for event in &events {
+            control.publish(event);
+        }
+        let grant = control
+            .issue_live_dispatch_grant(&attempt_id, "resolution-gateway")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "resolution-gateway")
+            .unwrap();
+        assert_eq!(
+            control
+                .complete_live_execution_submission(
+                    &attempt_id,
+                    &provider_io::LiveDispatchOutcome {
+                        state: protocol::ExecutionAttemptState::UnknownReconciling,
+                        broker_order_id: None,
+                        provider_status: None,
+                        error_code: Some("ORDER_STATUS_UNKNOWN".into()),
+                    },
+                )
+                .unwrap()
+                .attempt
+                .state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(proposal["fields"]["accountId"].as_str().unwrap())
+            .unwrap();
+        (attempt_id, account)
+    }
+
+    struct BinanceLiveResolutionHttp {
+        remote_account_id: String,
+        order_status: u16,
+        order: Value,
+        calls: std::cell::RefCell<
+            Vec<(
+                provider_io::ProviderEndpoint,
+                provider_io::ProviderHttpMethod,
+                String,
+            )>,
+        >,
+    }
+
+    impl BinanceLiveResolutionHttp {
+        fn response(
+            &self,
+            endpoint: provider_io::ProviderEndpoint,
+            method: provider_io::ProviderHttpMethod,
+            path: &str,
+        ) -> Result<provider_io::ProviderHttpResponse> {
+            self.calls
+                .borrow_mut()
+                .push((endpoint, method, path.into()));
+            if endpoint != provider_io::ProviderEndpoint::BinanceLive
+                || method != provider_io::ProviderHttpMethod::Get
+            {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            let (status, body) = match path.split('?').next().unwrap_or(path) {
+                "/api/v3/time" => (
+                    200,
+                    json!({
+                        "serverTime": OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000
+                    }),
+                ),
+                "/api/v3/account" => (
+                    200,
+                    json!({"uid":self.remote_account_id.parse::<u64>().unwrap(),"accountType":"SPOT"}),
+                ),
+                "/api/v3/order" if self.order_status == 400 => {
+                    (400, json!({"code":-2013,"msg":"Order does not exist."}))
+                }
+                "/api/v3/order" => (self.order_status, self.order.clone()),
+                _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+            Ok(provider_io::ProviderHttpResponse {
+                status,
+                body: serde_json::to_vec(&body).unwrap(),
+            })
+        }
+    }
+
+    impl provider_io::ProviderHttp for BinanceLiveResolutionHttp {
+        fn get(
+            &self,
+            endpoint: provider_io::ProviderEndpoint,
+            path: &str,
+            _headers: reqwest::header::HeaderMap,
+        ) -> Result<Vec<u8>> {
+            self.response(endpoint, provider_io::ProviderHttpMethod::Get, path)
+                .map(|response| response.body)
+        }
+
+        fn request(
+            &self,
+            endpoint: provider_io::ProviderEndpoint,
+            method: provider_io::ProviderHttpMethod,
+            path: &str,
+            _headers: reqwest::header::HeaderMap,
+            _body: Option<&Value>,
+        ) -> Result<provider_io::ProviderHttpResponse> {
+            self.response(endpoint, method, path)
+        }
+    }
+
+    #[test]
+    fn binance_live_unknown_reconciliation_queries_exact_attempt_identity_read_only() {
+        let (_folder, mut control, workspace_id, _, proposal, review) =
+            reviewed_live_fixture_with_numeric_binance_id(true);
+        let (attempt_id, account) =
+            make_unknown_binance_live_attempt(&mut control, &workspace_id, &proposal, &review);
+        let http = BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 200,
+            order: json!({
+                "orderId":987654321,
+                "symbol":"BTCUSDT",
+                "clientOrderId":provider_io::binance_live_client_order_id(&attempt_id).unwrap(),
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"GTC",
+                "origQty":"0.01",
+                "origQuoteOrderQty":"0.00000000",
+                "price":"50000.00000000",
+                "status":"NEW",
+                "time":OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000,
+            }),
+            calls: Default::default(),
+        };
+        let query = json!({
+            "workspaceId":workspace_id,
+            "executionAttemptId":attempt_id,
+            "accountId":account.connection_id,
+        });
+        let saved = dispatch_main(&mut control, "trade.resolution_evidence", query.clone());
+        assert_eq!(saved["ok"], true, "{saved}");
+        let attempt = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(
+                query["workspaceId"].as_str().unwrap(),
+                query["executionAttemptId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .attempt;
+        let refresh = request(
+            "trade.resolution_evidence.refresh",
+            json!({
+                "workspaceId":query["workspaceId"],
+                "executionAttemptId":query["executionAttemptId"],
+                "accountId":query["accountId"],
+                "expectedAttemptStateVersion":attempt.state_version,
+            }),
+        );
+        let job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &http,
+            || control.provider_job_current(&job),
+        );
+        let reply = control.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        let evidence = &reply["data"]["ledger"]["evidence"][0];
+        assert_eq!(reply["data"]["ledger"]["providerId"], "binance");
+        assert_eq!(evidence["outcome"], "CANDIDATES_FOUND");
+        let provider_client_order_id =
+            provider_io::binance_live_client_order_id(&attempt_id).unwrap();
+        assert_eq!(
+            evidence["candidateOrders"][0]["providerOrderId"],
+            "987654321"
+        );
+        assert_eq!(
+            evidence["candidateOrders"][0]["providerClientId"],
+            provider_client_order_id
+        );
+        assert!(evidence["queryScope"].as_str().unwrap().contains(&format!(
+            "symbol=BTCUSDT&origClientOrderId={provider_client_order_id}"
+        )));
+        assert_eq!(evidence["candidateOrders"][0]["providerStatus"], "NEW");
+
+        let preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(
+                query["workspaceId"].as_str().unwrap(),
+                query["executionAttemptId"].as_str().unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            preparation.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+        assert_eq!(preparation.attempt.broker_order_id, None);
+        assert_eq!(
+            preparation.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        let calls = http.calls.borrow();
+        assert_eq!(calls.len(), 3, "{calls:?}");
+        assert!(calls.iter().all(|(endpoint, method, _)| {
+            *endpoint == provider_io::ProviderEndpoint::BinanceLive
+                && *method == provider_io::ProviderHttpMethod::Get
+        }));
+        assert!(calls.iter().any(|(_, _, path)| {
+            path.starts_with("/api/v3/order?")
+                && path.contains(&format!(
+                    "symbol=BTCUSDT&origClientOrderId={provider_client_order_id}"
+                ))
+        }));
+        assert!(calls.iter().all(|(_, _, path)| !path.contains("testnet")));
+        drop(calls);
+
+        let missing = BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 400,
+            order: Value::Null,
+            calls: Default::default(),
+        };
+        let job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &missing,
+            || control.provider_job_current(&job),
+        );
+        let reply = control.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        let evidence = &reply["data"]["ledger"]["evidence"][1];
+        assert_eq!(evidence["outcome"], "INCONCLUSIVE");
+        assert_eq!(evidence["candidateOrders"], json!([]));
+        assert_eq!(evidence["errorCode"], Value::Null);
+        let calls = missing.calls.borrow();
+        assert_eq!(calls.len(), 3, "{calls:?}");
+        assert!(calls.iter().all(|(endpoint, method, _)| {
+            *endpoint == provider_io::ProviderEndpoint::BinanceLive
+                && *method == provider_io::ProviderHttpMethod::Get
+        }));
+
+        let unauthorized = BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 401,
+            order: Value::Null,
+            calls: Default::default(),
+        };
+        let job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &unauthorized,
+            || control.provider_job_current(&job),
+        );
+        let reply = control.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        let evidence = &reply["data"]["ledger"]["evidence"][2];
+        assert_eq!(evidence["outcome"], "INCONCLUSIVE");
+        assert_eq!(evidence["candidateOrders"], json!([]));
+        assert_eq!(evidence["errorCode"], "PROVIDER_AUTH_FAILED");
+
+        let mut mismatched_order = http.order.clone();
+        mismatched_order["price"] = json!("49999.00000000");
+        let mismatched = BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 200,
+            order: mismatched_order,
+            calls: Default::default(),
+        };
+        let job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &mismatched,
+            || control.provider_job_current(&job),
+        );
+        let reply = control.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        let evidence = &reply["data"]["ledger"]["evidence"][3];
+        assert_eq!(evidence["outcome"], "INCONCLUSIVE");
+        assert_eq!(evidence["candidateOrders"], json!([]));
+        assert_eq!(evidence["errorCode"], "PROVIDER_IDENTITY_CHANGED");
+
+        let preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(
+                &workspace_id,
+                query["executionAttemptId"].as_str().unwrap(),
+            )
+            .unwrap();
+        let started_at = preparation.attempt.dispatch_started_at.as_deref().unwrap();
+        let target = OffsetDateTime::parse(started_at, &Rfc3339).unwrap()
+            + TimeDuration::minutes(5)
+            + TimeDuration::seconds(1);
+        let before = control.time.status(&workspace_id).unwrap();
+        let before_ms = OffsetDateTime::parse(&before.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let target_ms = target.unix_timestamp_nanos() / 1_000_000;
+        let elapsed = u64::try_from(target_ms - before_ms).unwrap();
+        control
+            .time
+            .set_test_time(target_ms, before.monotonic_ms + elapsed);
+        control.expire_live_arming().unwrap();
+        let timed_out_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        assert_eq!(timed_out_account.health.reconciliation, "STALE");
+        assert_eq!(timed_out_account.health.arming, "DISARMED");
+        let timed_out_preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(
+                &workspace_id,
+                query["executionAttemptId"].as_str().unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            timed_out_preparation.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+        assert_eq!(
+            timed_out_preparation.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        let timed_out_evidence =
+            dispatch_main(&mut control, "trade.resolution_evidence", query.clone());
+        assert_eq!(timed_out_evidence["ok"], true, "{timed_out_evidence}");
+        assert_eq!(timed_out_evidence["data"]["automaticWindowExpired"], true);
+        assert_eq!(
+            timed_out_evidence["data"]["ledger"]["providerId"],
+            "binance"
+        );
+        let keep = dispatch_main(
+            &mut control,
+            "trade.manual_resolution",
+            json!({
+                "workspaceId":workspace_id,
+                "executionAttemptId":query["executionAttemptId"],
+                "accountId":account.connection_id,
+                "decision":"KEEP_RECONCILING",
+                "evidenceIds":[],
+                "expectedAttemptStateVersion":timed_out_preparation.attempt.state_version,
+                "expectedEvidenceStateVersion":timed_out_evidence["data"]["ledger"]["stateVersion"],
+            }),
+        );
+        assert_eq!(keep["ok"], true, "{keep}");
+        assert_eq!(keep["data"]["ledger"]["providerId"], "binance");
+        assert_eq!(
+            keep["data"]["ledger"]["manualResolutions"][0]["decision"],
+            "KEEP_RECONCILING"
+        );
+    }
+
     #[test]
     fn trading212_live_unknown_reconciliation_is_read_only_pageable_and_durable() {
         let (folder, mut control, workspace_id, _, proposal, review) =
@@ -13271,6 +13930,10 @@ mod live_approval_tests {
         assert_eq!(
             preparation.reservation.unwrap().status,
             protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(
+            preparation.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
         );
 
         drop(control);

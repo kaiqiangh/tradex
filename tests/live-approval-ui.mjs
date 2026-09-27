@@ -586,7 +586,13 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByText(/UNKNOWN_RECONCILING · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
     const unknownCard = ui.getByLabel('TradeX execution preparation', { exact: true });
     await unknownCard.getByRole('status').filter({ hasText: 'The provider outcome is uncertain. Capacity remains held; do not resend this request.' }).waitFor({ state: 'visible' });
-    const evidencePanel = ui.getByLabel('Trading 212 Live reconciliation evidence', { exact: true });
+    const unknownPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: mountedApproval.approvalId,
+    });
+    assert.equal(unknownPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
+    assert.equal(unknownPreparation.preparation.reservation.status, 'ACTIVE', 'Unknown provider outcome keeps capacity frozen.');
+    await ui.locator('.order-proposal-row').filter({ hasText: unknownPreparation.preparation.attempt.intentId }).click();
+    const evidencePanel = ui.getByLabel('Live reconciliation evidence', { exact: true });
     await evidencePanel.getByText('No similar order observed; absence is not proven', { exact: true }).waitFor({ state: 'visible' });
     const mountedPolicy = await sendIntegrationCommand('risk.get_policy', { workspaceId });
     await sendIntegrationCommand('risk.save_policy', {
@@ -594,18 +600,13 @@ export async function checkLiveApprovalUI(tab, browser) {
       expectedStateVersion: mountedPolicy.stateVersion,
       policy: { ...mountedPolicy.policy, staleQuoteThresholdSeconds: Math.max(1, mountedPolicy.policy.staleQuoteThresholdSeconds - 1) },
     });
-    const unknownPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
-      workspaceId, approvalId: mountedApproval.approvalId,
-    });
-    assert.equal(unknownPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
-    assert.equal(unknownPreparation.preparation.reservation.status, 'ACTIVE', 'Unknown provider outcome keeps capacity frozen after a policy update.');
     const persistedEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
       workspaceId,
       executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
-      accountId: account.connectionId,
+      accountId: mountedAccount.connectionId,
     });
     assert.equal(persistedEvidence.ledger.evidence.at(-1).outcome, 'INCONCLUSIVE');
-    assert.deepEqual(persistedEvidence.ledger.evidence.at(-1).candidateOrders, []);
+    assert.equal(persistedEvidence.ledger.evidence.at(-1).candidateOrders.length, 0);
     assert.match(persistedEvidence.ledger.evidence.at(-1).queryScope, /AAPL/);
     for (const width of [1280, 768, 390]) {
       await viewport.set({ width, height: width === 390 ? 844 : 900 });
@@ -627,6 +628,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
     await navigation.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await ui.locator('.order-proposal-row').filter({ hasText: unknownPreparation.preparation.attempt.intentId }).click();
     await evidencePanel.getByText('No similar order observed; absence is not proven', { exact: true }).waitFor({ state: 'visible' });
     const reopenedPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
       workspaceId, approvalId: mountedApproval.approvalId,

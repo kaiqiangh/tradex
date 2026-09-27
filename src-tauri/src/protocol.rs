@@ -3125,7 +3125,7 @@ pub struct ResolutionEvidence {
     pub execution_attempt_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
-    #[schemars(extend("const" = "trading212"))]
+    #[schemars(extend("enum" = ["trading212", "binance"]))]
     pub provider_id: String,
     #[schemars(length(min = 1, max = 64))]
     pub queried_at: String,
@@ -3172,7 +3172,7 @@ pub struct ResolutionEvidenceLedger {
     pub execution_attempt_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
-    #[schemars(extend("const" = "trading212"))]
+    #[schemars(extend("enum" = ["trading212", "binance"]))]
     pub provider_id: String,
     #[schemars(length(min = 1, max = 64))]
     pub automatic_window_started_at: String,
@@ -3321,6 +3321,9 @@ pub struct ExecutionAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub broker_order_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 36))]
+    pub provider_client_order_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 64))]
     pub provider_status: Option<String>,

@@ -650,9 +650,11 @@ Show the TradeX observation time and `CURRENT`, `STALE` (older than five minutes
 
 TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. The account detail states `Private stream unavailable · REST reconciliation`; `privateStream` remains `NOT_CONFIGURED`, and observations update only through explicit connection or REST refresh reads.
 
-### 13.17 Trading 212 Live unknown PLACE reconciliation (S25.1 #97)
+### 13.17 Live unknown PLACE reconciliation (S25.1 #97, S25.2 #98)
 
 Order Drafts loads saved reconciliation evidence for the exact `UNKNOWN_RECONCILING` Trading 212 Live PLACE attempt and refreshes it through `trade.resolution_evidence.refresh` only while backend time is trusted and the five-minute window is open. The bounded provider reads are spaced by at least 11 seconds and advance one history cursor page per request. Restore the ledger after navigation or workspace reopen; an untrusted clock pauses provider refresh but does not hide saved observations.
+
+For Binance Spot Live, use the same evidence IPC and panel, displaying the Binance provider, saved account/attempt, query scope, provider order/client IDs, status, and trusted window. Query only the ordinary Live account identity and the exact order identified by the attempt's saved `providerClientOrderId` (`tx-{execution_attempt_id without hyphens}`) as `origClientOrderId`. A provider row is a candidate only after exact client ID, symbol, side, type, base or quote quantity, and window-time checks; LIMIT rows must also match limit price and time-in-force. Binance `-2013` and malformed, incomplete, mismatched, unauthenticated, rate-limited, or failed reads remain `INCONCLUSIVE`; no result resolves the attempt or releases its reservation.
 
 After trusted expiry, show the backend-authorized Keep reconciling action. Submit it through `trade.manual_resolution` with current attempt/evidence versions and saved evidence IDs; show the persisted decision after refresh or reopen. This action keeps the attempt and reservation frozen and does not restart provider reads. Do not show confirmed-submitted, confirmed-not-submitted, release, or resend actions for this provider slice.
 

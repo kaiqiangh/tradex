@@ -646,6 +646,129 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.reconciliation.fixture.account.seed") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let label = payload.get("label").and_then(Value::as_str);
+                let reply = match (workspace_id, label) {
+                    (Some(workspace_id), Some(label)) => match control.lock() {
+                        Ok(mut control) => match control.seed_live_cancellation_fixture(
+                            workspace_id,
+                            "binance",
+                            label,
+                        ) {
+                            Ok(account) => {
+                                vault.present.borrow_mut().insert(account.credential_ref());
+                                http.binance_uid.set(9_007_199_254_740_993);
+                                json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                    "data":account
+                                })
+                            }
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.reconciliation.fixture.attempt.seed") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let proposal_id = payload.get("proposalId").and_then(Value::as_str);
+                let approval_id = payload.get("approvalId").and_then(Value::as_str);
+                let capacity = payload
+                    .get("capacityProjection")
+                    .cloned()
+                    .and_then(|value| serde_json::from_value(value).ok());
+                let reply = match (workspace_id, proposal_id, approval_id, capacity) {
+                    (Some(workspace_id), Some(proposal_id), Some(approval_id), Some(capacity)) => {
+                        match control.lock() {
+                            Ok(mut control) => match control
+                                .seed_binance_live_unknown_attempt_fixture(
+                                    workspace_id,
+                                    proposal_id,
+                                    approval_id,
+                                    capacity,
+                                ) {
+                                Ok(attempt) => {
+                                    let submitted_at = attempt
+                                        .dispatch_started_at
+                                        .as_deref()
+                                        .and_then(|value| {
+                                            time::OffsetDateTime::parse(
+                                                value,
+                                                &time::format_description::well_known::Rfc3339,
+                                            )
+                                            .ok()
+                                        })
+                                        .map(|value| value.unix_timestamp_nanos() / 1_000_000)
+                                        .unwrap_or_default();
+                                    *http.binance_order_by_client_id.borrow_mut() = Some(json!({
+                                        "orderId":987654321,
+                                        "symbol":"BTCUSDT",
+                                        "clientOrderId":attempt.provider_client_order_id.clone(),
+                                        "side":"BUY",
+                                        "type":"LIMIT",
+                                        "timeInForce":"GTC",
+                                        "origQty":"0.01",
+                                        "origQuoteOrderQty":"0.00000000",
+                                        "price":"50000.00000000",
+                                        "status":"NEW",
+                                        "time":submitted_at
+                                    }));
+                                    json!({
+                                        "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                        "data":{"attempt":attempt}
+                                    })
+                                }
+                                Err(error) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                    "error":error
+                                }),
+                            },
+                            Err(_) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                            }),
+                        }
+                    }
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.reconciliation.fixture.inspect") {
+                let reply = json!({
+                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                    "data":{"providerOrderWrites":http.binance_posts.borrow().len()}
+                });
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("account.capacity.fixture.stale") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);

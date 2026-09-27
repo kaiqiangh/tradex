@@ -6305,6 +6305,14 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "providerClientOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 36,
+          "minLength": 1
+        },
         "providerStatus": {
           "type": [
             "string",
@@ -11423,7 +11431,10 @@
         },
         "providerId": {
           "type": "string",
-          "const": "trading212"
+          "enum": [
+            "trading212",
+            "binance"
+          ]
         },
         "queriedAt": {
           "type": "string",
@@ -11507,7 +11518,10 @@
         },
         "providerId": {
           "type": "string",
-          "const": "trading212"
+          "enum": [
+            "trading212",
+            "binance"
+          ]
         },
         "stateVersion": {
           "type": "string",

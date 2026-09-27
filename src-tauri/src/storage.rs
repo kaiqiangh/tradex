@@ -3310,16 +3310,13 @@ impl Store {
         })
     }
 
-    pub fn unknown_t212_live_place_attempts(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Vec<ExecutionAttempt>> {
+    pub fn unknown_live_place_attempts(&self, workspace_id: &str) -> Result<Vec<ExecutionAttempt>> {
         if workspace_id != self.workspace_id()? {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
         let rows = {
             let mut statement = self.connection.prepare(
-                "SELECT a.attempt_id,a.operation FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.state='UNKNOWN_RECONCILING' AND a.operation='PLACE_ORDER' AND c.provider_id='trading212' AND c.environment='LIVE' ORDER BY a.account_id,a.attempt_id LIMIT 10001",
+                "SELECT a.attempt_id,a.operation FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.state='UNKNOWN_RECONCILING' AND a.operation='PLACE_ORDER' AND c.provider_id IN ('trading212','binance') AND c.environment='LIVE' ORDER BY a.account_id,a.attempt_id LIMIT 10001",
             ).map_err(storage_error)?;
             statement
                 .query_map([workspace_id], |row| {
@@ -3344,7 +3341,16 @@ impl Store {
                 if operation != stored_operation
                     || attempt.state != ExecutionAttemptState::UnknownReconciling
                     || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
-                    || attempt.environment != ExecutionContext::Trading212Live
+                    || live_reconciliation_provider(&attempt.environment).is_none()
+                    || attempt.provider_client_order_id
+                        != expected_live_provider_client_order_id(&attempt)?
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                let account = self.account(&attempt.account_id)?;
+                if account.provider_id
+                    != live_reconciliation_provider(&attempt.environment).unwrap()
+                    || account.environment != "LIVE"
                 {
                     return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
                 }
@@ -3452,10 +3458,28 @@ impl Store {
             .map_err(storage_error)?;
         let attempt = load_execution_attempt(&tx, workspace_id, attempt_id)?
             .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+        let provider_id = live_reconciliation_provider(&attempt.environment)
+            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
+        if attempt.provider_client_order_id != expected_live_provider_client_order_id(&attempt)? {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let account: AccountConnection = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&attempt.account_id],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(storage_error)
+            .and_then(|projection| {
+                serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+            })?;
         if attempt.state != ExecutionAttemptState::UnknownReconciling
             || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
-            || attempt.environment != ExecutionContext::Trading212Live
+            || live_reconciliation_provider(&attempt.environment) != Some(provider_id)
             || attempt.account_id != account_id
+            || account.provider_id != provider_id
+            || account.environment != "LIVE"
             || attempt.state_version != expected_attempt_state_version
             || attempt
                 .dispatch_started_at
@@ -3464,7 +3488,7 @@ impl Store {
                 != automatic_window_started_at
             || evidence.execution_attempt_id != attempt_id
             || evidence.account_id != account_id
-            || evidence.provider_id != "trading212"
+            || evidence.provider_id != provider_id
             || evidence.evidence_id.is_empty()
             || evidence.candidate_orders.len() > 50
             || evidence.query_scope.is_empty()
@@ -3495,7 +3519,7 @@ impl Store {
                 || ledger.workspace_id != workspace_id
                 || ledger.execution_attempt_id != attempt_id
                 || ledger.account_id != account_id
-                || ledger.provider_id != "trading212"
+                || ledger.provider_id != provider_id
                 || ledger.automatic_window_started_at != automatic_window_started_at
                 || ledger.automatic_window_ends_at != automatic_window_ends_at
                 || ledger.attempt_state_version != expected_attempt_state_version
@@ -3509,7 +3533,7 @@ impl Store {
                 workspace_id: workspace_id.into(),
                 execution_attempt_id: attempt_id.into(),
                 account_id: account_id.into(),
-                provider_id: "trading212".into(),
+                provider_id: provider_id.into(),
                 automatic_window_started_at: automatic_window_started_at.into(),
                 automatic_window_ends_at: automatic_window_ends_at.into(),
                 history_pages_read: 0,
@@ -3520,7 +3544,7 @@ impl Store {
                 state_version: String::new(),
             }
         };
-        if evidence.error_code.is_none() {
+        if evidence.provider_id == "trading212" && evidence.error_code.is_none() {
             ledger.history_pages_read = ledger
                 .history_pages_read
                 .checked_add(1)
@@ -3579,10 +3603,28 @@ impl Store {
             .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
         let reservation = load_execution_reservation_for_attempt(&tx, workspace_id, attempt_id)?
             .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        let provider_id = live_reconciliation_provider(&attempt.environment)
+            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
+        if attempt.provider_client_order_id != expected_live_provider_client_order_id(&attempt)? {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let account: AccountConnection = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&attempt.account_id],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(storage_error)
+            .and_then(|projection| {
+                serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+            })?;
         if attempt.state != ExecutionAttemptState::UnknownReconciling
             || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
-            || attempt.environment != ExecutionContext::Trading212Live
+            || live_reconciliation_provider(&attempt.environment) != Some(provider_id)
             || attempt.account_id != account_id
+            || account.provider_id != provider_id
+            || account.environment != "LIVE"
             || attempt.state_version != expected_attempt_state_version
             || attempt
                 .dispatch_started_at
@@ -3611,7 +3653,7 @@ impl Store {
                 || ledger.workspace_id != workspace_id
                 || ledger.execution_attempt_id != attempt_id
                 || ledger.account_id != account_id
-                || ledger.provider_id != "trading212"
+                || ledger.provider_id != provider_id
                 || ledger.automatic_window_started_at != automatic_window_started_at
                 || ledger.automatic_window_ends_at != automatic_window_ends_at
                 || ledger.attempt_state_version != expected_attempt_state_version
@@ -3630,7 +3672,7 @@ impl Store {
                 workspace_id: workspace_id.into(),
                 execution_attempt_id: attempt_id.into(),
                 account_id: account_id.into(),
-                provider_id: "trading212".into(),
+                provider_id: provider_id.into(),
                 automatic_window_started_at: automatic_window_started_at.into(),
                 automatic_window_ends_at: automatic_window_ends_at.into(),
                 history_pages_read: 0,
@@ -10229,6 +10271,24 @@ fn execution_provider(environment: &ExecutionContext) -> Option<&'static str> {
         ExecutionContext::BitgetDemo | ExecutionContext::BitgetLive => Some("bitget"),
         ExecutionContext::LocalPaper => Some("local-paper"),
         ExecutionContext::NoneReadOnly | ExecutionContext::HistoricalSimulation => None,
+    }
+}
+
+fn live_reconciliation_provider(environment: &ExecutionContext) -> Option<&'static str> {
+    match environment {
+        ExecutionContext::Trading212Live => Some("trading212"),
+        ExecutionContext::BinanceLive => Some("binance"),
+        _ => None,
+    }
+}
+
+fn expected_live_provider_client_order_id(attempt: &ExecutionAttempt) -> Result<Option<String>> {
+    match live_reconciliation_provider(&attempt.environment) {
+        Some("binance") => {
+            crate::provider_io::binance_live_client_order_id(&attempt.attempt_id).map(Some)
+        }
+        Some("trading212") => Ok(None),
+        _ => Err(TradeXError::new("STATE_VERSION_CONFLICT")),
     }
 }
 
