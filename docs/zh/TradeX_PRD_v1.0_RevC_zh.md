@@ -2258,7 +2258,7 @@ UNKNOWN_RECONCILING
 
 | 触发条件与已知执行状态 | 权威状态转换 | 预留处置 |
 |---|---|---|
-| 审批过期/失效，且确认任何传输均未开始；包括在派发前被原子停止的 `RESERVED` 工作 | Approval Authority 使同意失效；未提交 proposal 可带原因进入 `EXPIRED` | 原子释放已有预留；没有预留时不得伪造释放事件 |
+| 审批过期或授权依据变化（共享风险策略变更、账户撤防或 Disable All），且任何传输均未开始；包括派发前被原子停止的 `RESERVED` 工作 | 使未派发的 attempt 失效并保留 approval/proposal 审计历史；已消费的 approval 保持已消费，不能重放为派发授权 | 原子释放任何 active PLACE reservation 并只产生一次释放事件；CANCEL attempt 不新增 reservation，没有 reservation 时不得伪造释放事件 |
 | 已进入 `SUBMITTING` 后本地审批过期，或传输结果不确定 | 仅使审批记录过期；保留已观察订单状态或 `UNKNOWN_RECONCILING` | 保持容量冻结，直至权威对账 |
 | 券商确认订单终态为过期、撤销、拒绝或成交 | Adapter/reconciliation 应用券商状态与累计成交 | 计入成交/费用后，仅释放未使用部分，且只释放一次 |
 | 自动对账超时，或用户关闭 Manual Resolution | 保持 `UNKNOWN_RECONCILING`；账户仍 unhealthy/DISARMED | 不释放 |

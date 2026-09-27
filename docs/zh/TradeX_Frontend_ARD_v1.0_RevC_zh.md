@@ -717,7 +717,7 @@ Global Disable All 调用一次后端动作，再渲染后端返回的每个账�
 
 `Enter` 永远不能作为默认 approval 动作。
 
-Approve 只签发短时、单次 approval。之后必须由独立且明确的 `Prepare PLACE and reserve capacity` 操作调用 `trade.execution.prepare`。展示后端返回的 `RESERVED` attempt、精确 reservation 金额/单位、provider available 与 committed capacity、TradeX reserved capacity、effective available capacity、证据来源/新鲜度/account state version，并明确说明没有向 provider 发送 request。若 provider 已返回扣除其订单承诺后的 available，则仅解释 provider committed 金额，不得再次扣减。打开 proposal 历史时按 approval ID 读取 preparation 与脱敏容量拒绝历史，使响应丢失或重启后能恢复已保存结果。遇到 `RISK_REJECTED · RESERVED_CAPACITY` 时显示后端原因、容量来源/上限、本次需求、已有预留、请求前有效容量和后端 remediation。陈旧或不可用证据必须明确标注，不得把旧金额当作当前金额。不能把 `ALLOWED` RiskDecision 当作拒绝原因重新读取或展示。容量拒绝不会消费 approval 或 proposal；后续显式重试使用新的幂等键。
+Approve 只签发短时、单次 approval。之后必须由独立且明确的 `Prepare PLACE and reserve capacity` 操作调用 `trade.execution.prepare`。展示后端返回的 `RESERVED` attempt、精确 reservation 金额/单位、provider available 与 committed capacity、TradeX reserved capacity、effective available capacity、证据来源/新鲜度/account state version，并明确说明没有向 provider 发送 request。若 provider 已返回扣除其订单承诺后的 available，则仅解释 provider committed 金额，不得再次扣减。打开 proposal 历史时按 approval ID 读取 preparation 与脱敏容量拒绝历史，使响应丢失或重启后能恢复已保存结果。attempt 处于 `RESERVED` 时应刷新其耐久投影；共享策略变更、撤防/Disable All 或可信 TTL 到期后，应显示 `INVALIDATED`、后端原因和精确的 `RELEASED` 金额，并说明没有向 provider 发送 request。不得把已释放容量显示为仍被占用，也不得将停止的 attempt 作为可派发操作。遇到 `RISK_REJECTED · RESERVED_CAPACITY` 时显示后端原因、容量来源/上限、本次需求、已有预留、请求前有效容量和后端 remediation。陈旧或不可用证据必须明确标注，不得把旧金额当作当前金额。不能把 `ALLOWED` RiskDecision 当作拒绝原因重新读取或展示。容量拒绝不会消费 approval 或 proposal；后续显式重试使用新的幂等键。
 
 ### 14.6 Reservation conflict
 

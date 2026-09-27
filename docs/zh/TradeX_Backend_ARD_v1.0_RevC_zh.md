@@ -1034,13 +1034,13 @@ normalized provider available
 
 ### 22.2 Atomicity model
 
-使用 per-account serialization：SQLite immediate transaction + application-level per-account async mutex/single-writer queue。
+使用 per-account serialization：SQLite immediate transaction + 应用内串行 Control Plane 命令队列。准备、共享策略保存、账户撤防/Disable All 及可信时钟过期扫描共用此写入边界；先提交的操作决定准备被拒绝，还是仍处于 `RESERVED` 的 attempt 被停止。
 
 Database transaction 是 correctness boundary；in-memory lock 只是降低争用，不是唯一安全机制。
 
 ### 22.3 Reservation lifecycle
 
-S23 的 `trade.execution.prepare` 是审批后的独立显式用户操作。对于 Live PLACE，一个 SQLite immediate transaction 重新校验精确 proposal 与账户，消费 approval 和 proposal，创建精确容量 reservation 与 `RESERVED` attempt，并提交审计/outbox。对于 Live CANCEL，同一命令重新校验获批的不可变意图、提供方订单身份、账户快照/证据、策略与剩余数量，然后只消费撤单 approval，并保存不带新增 reservation 的 `RESERVED` attempt。在权威提供方证据确认撤单或成交竞态之前，原订单承诺继续占用容量。两种操作都会在 Order Gateway 或 provider I/O 之前停止；派发属于后续 S24 边界。响应丢失或重启后，`trade.execution.preparation.get` 按 workspace 和 approval 身份读取同一耐久 attempt，以及适用时的 PLACE reservation。
+S23 的 `trade.execution.prepare` 是审批后的独立显式用户操作。对于 Live PLACE，一个 SQLite immediate transaction 重新校验精确 proposal 与账户，消费 approval 和 proposal，创建精确容量 reservation 与 `RESERVED` attempt，并提交审计/outbox。对于 Live CANCEL，同一命令重新校验获批的不可变意图、提供方订单身份、账户快照/证据、策略与剩余数量，然后只消费撤单 approval，并保存不带新增 reservation 的 `RESERVED` attempt。在权威提供方证据确认撤单或成交竞态之前，原订单承诺继续占用容量。两种操作都会在 Order Gateway 或 provider I/O 之前停止；派发属于后续 S24 边界。共享策略变更、账户撤防/Disable All 或可信 approval TTL 到期，会在同一事务中使仍处于 `RESERVED` 的匹配 attempt 失效；active PLACE reservation 转为 `RELEASED`。已消费 approval 保留已消费审计状态，同幂等键重放返回已停止的 attempt。响应丢失或重启后，`trade.execution.preparation.get` 按 workspace 和 approval 身份读取耐久 attempt 及其 active/released PLACE reservation。
 
 ```text
 PLACE：APPROVED → RESERVED（精确 reservation）→ SUBMITTING
@@ -1048,6 +1048,8 @@ PLACE：APPROVED → RESERVED（精确 reservation）→ SUBMITTING
        → 仅依据权威处置证据调整/释放
 CANCEL：APPROVED → RESERVED（不新增 reservation）→ S24 派发
         → CANCEL_PENDING → 提供方确认的终态或成交竞态
+
+S24 派发前：RESERVED → INVALIDATED；active PLACE reservation → RELEASED
 ```
 
 ### 22.4 Unknown state
@@ -1895,8 +1897,8 @@ interface ExecutionPrepareRequest {
   confirmed: boolean;
 }
 interface ExecutionPreparation {
-  attempt: ExecutionAttempt; // state RESERVED
-  reservation?: ExecutionReservation; // PLACE 时存在
+  attempt: ExecutionAttempt; // RESERVED 或派发前 INVALIDATED
+  reservation?: ExecutionReservation; // PLACE：ACTIVE 或 RELEASED
 }
 interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
 interface ExecutionPreparationRejection {
@@ -2787,6 +2789,7 @@ trade.approval.issued
 trade.approval.invalidated
 trade.approval.consumed
 trade.reservation.created
+trade.reservation.released
 trade.execution.attempt.changed
 trade.order.state_changed
 trade.fill.observed

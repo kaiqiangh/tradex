@@ -1034,13 +1034,13 @@ When an adapter already reports free/available-to-trade capacity, that value is 
 
 ### 22.2 Atomicity model
 
-Use per-account serialization, implemented through a SQLite immediate transaction plus application-level per-account async mutex/single-writer queue.
+Use per-account serialization, implemented through a SQLite immediate transaction plus the application's serialized Control Plane command queue. Preparation, shared-policy save, account disarm/Disable All, and trusted-time expiry use this same write boundary; whichever operation commits first determines whether preparation is rejected or the still-`RESERVED` attempt is stopped.
 
 The database transaction is the correctness boundary; the in-memory lock is a contention optimization, not the only safety mechanism.
 
 ### 22.3 Reservation lifecycle
 
-The S23 `trade.execution.prepare` command is a separate explicit user action after approval. For Live PLACE, one SQLite immediate transaction revalidates the exact proposal and account, consumes the approval and proposal, creates the exact capacity reservation and `RESERVED` attempt, and commits their audit/outbox records. For Live CANCEL, the same command revalidates the approved immutable intent, provider order identity, account snapshot/evidence, policy, and remaining quantity, then consumes only the cancellation approval and saves a `RESERVED` attempt with no new reservation. Existing order commitment remains until authoritative provider evidence resolves cancellation or a fill race. Both operations stop before Order Gateway or provider I/O; dispatch is a later S24 boundary. After a lost response or restart, `trade.execution.preparation.get` reads the same durable attempt and any PLACE reservation by workspace and approval identity.
+The S23 `trade.execution.prepare` command is a separate explicit user action after approval. For Live PLACE, one SQLite immediate transaction revalidates the exact proposal and account, consumes the approval and proposal, creates the exact capacity reservation and `RESERVED` attempt, and commits their audit/outbox records. For Live CANCEL, the same command revalidates the approved immutable intent, provider order identity, account snapshot/evidence, policy, and remaining quantity, then consumes only the cancellation approval and saves a `RESERVED` attempt with no new reservation. Existing order commitment remains until authoritative provider evidence resolves cancellation or a fill race. Both operations stop before Order Gateway or provider I/O; dispatch is a later S24 boundary. A shared policy change, account disarm/Disable All, or trusted approval TTL expiry atomically invalidates any matching attempt still in `RESERVED`; an active PLACE reservation transitions to `RELEASED` in the same transaction. A consumed approval remains consumed for audit, and same-key replay returns the stopped attempt. After a lost response or restart, `trade.execution.preparation.get` reads the durable attempt and its active or released PLACE reservation by workspace and approval identity.
 
 ```text
 PLACE: APPROVED → RESERVED (exact reservation) → SUBMITTING
@@ -1048,6 +1048,8 @@ PLACE: APPROVED → RESERVED (exact reservation) → SUBMITTING
        → adjust/release only from authoritative resolution
 CANCEL: APPROVED → RESERVED (no new reservation) → S24 dispatch
         → CANCEL_PENDING → provider-confirmed terminal state or fill race
+
+Before S24 dispatch: RESERVED → INVALIDATED; active PLACE reservation → RELEASED
 ```
 
 ### 22.4 Unknown state
@@ -1895,8 +1897,8 @@ interface ExecutionPrepareRequest {
   confirmed: boolean;
 }
 interface ExecutionPreparation {
-  attempt: ExecutionAttempt; // state RESERVED
-  reservation?: ExecutionReservation; // present for PLACE
+  attempt: ExecutionAttempt; // RESERVED or pre-dispatch INVALIDATED
+  reservation?: ExecutionReservation; // PLACE: ACTIVE or RELEASED
 }
 interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
 interface ExecutionPreparationRejection {
@@ -2787,6 +2789,7 @@ trade.approval.issued
 trade.approval.invalidated
 trade.approval.consumed
 trade.reservation.created
+trade.reservation.released
 trade.execution.attempt.changed
 trade.order.state_changed
 trade.fill.observed

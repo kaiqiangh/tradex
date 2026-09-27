@@ -67446,6 +67446,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					"trade.approval.consumed",
 					"trade.approval.rejected",
 					"trade.reservation.created",
+					"trade.reservation.released",
 					"trade.execution.attempt.changed",
 					"trade.execution.preparation.rejected",
 					"trade.proposal.consumed",
@@ -80070,7 +80071,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}];
 											return false;
 										}
-										if (!(data3 === "workspace.opened" || data3 === "account.health.changed" || data3 === "account.arming.changed" || data3 === "model.gateway.changed" || data3 === "model.provider.changed" || data3 === "model.provider_attempt.changed" || data3 === "risk.policy.changed" || data3 === "risk.decision.evaluated" || data3 === "trade.approval.issued" || data3 === "trade.approval.invalidated" || data3 === "trade.approval.expired" || data3 === "trade.approval.consumed" || data3 === "trade.approval.rejected" || data3 === "trade.reservation.created" || data3 === "trade.execution.attempt.changed" || data3 === "trade.execution.preparation.rejected" || data3 === "trade.proposal.consumed" || data3 === "thread.created" || data3 === "thread.updated" || data3 === "trading212.demo.order.attempt.changed" || data3 === "trading212.demo.order.book.changed" || data3 === "alpaca.paper.order.attempt.changed" || data3 === "alpaca.paper.order.book.changed" || data3 === "binance.testnet.order.attempt.changed" || data3 === "binance.testnet.order.book.changed" || data3 === "bitget.demo.order.attempt.changed")) {
+										if (!(data3 === "workspace.opened" || data3 === "account.health.changed" || data3 === "account.arming.changed" || data3 === "model.gateway.changed" || data3 === "model.provider.changed" || data3 === "model.provider_attempt.changed" || data3 === "risk.policy.changed" || data3 === "risk.decision.evaluated" || data3 === "trade.approval.issued" || data3 === "trade.approval.invalidated" || data3 === "trade.approval.expired" || data3 === "trade.approval.consumed" || data3 === "trade.approval.rejected" || data3 === "trade.reservation.created" || data3 === "trade.reservation.released" || data3 === "trade.execution.attempt.changed" || data3 === "trade.execution.preparation.rejected" || data3 === "trade.proposal.consumed" || data3 === "thread.created" || data3 === "thread.updated" || data3 === "trading212.demo.order.attempt.changed" || data3 === "trading212.demo.order.book.changed" || data3 === "alpaca.paper.order.attempt.changed" || data3 === "alpaca.paper.order.book.changed" || data3 === "binance.testnet.order.attempt.changed" || data3 === "binance.testnet.order.book.changed" || data3 === "bitget.demo.order.attempt.changed")) {
 											validate665.errors = [{
 												instancePath: instancePath + "/eventType",
 												schemaPath: "#/properties/eventType/enum",

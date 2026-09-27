@@ -14,7 +14,6 @@ import type {
   ApprovalReview,
   CapacityProjection,
   CapacityRemediation,
-  ExecutionPreparation,
   FinancialApproval,
   LiveArmingEligibility,
   RiskDecisionHistory,
@@ -320,7 +319,6 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [paperConfirmation, setPaperConfirmation] = useState<PaperConfirmation>();
   const [approvalReview, setApprovalReview] = useState<ApprovalReview>();
   const [approvalToPrepare, setApprovalToPrepare] = useState<FinancialApproval>();
-  const [executionPreparation, setExecutionPreparation] = useState<ExecutionPreparation>();
   const [executionPrepareIdentity, setExecutionPrepareIdentity] = useState<{ approvalId: string; idempotencyKey: string }>();
   const [liveArmReview, setLiveArmReview] = useState<LiveArmReview>();
   const [liveArmError, setLiveArmError] = useState('');
@@ -348,9 +346,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     enabled: Boolean(selectedProposalId)
       && ['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data?.fields.environment ?? ''),
     refetchOnMount: 'always',
+    refetchInterval: query => query.state.data?.approvals.some(approval => approval.status === 'ISSUED') ? 1_000 : false,
   });
   const consumedApproval = approvalHistory.data?.approvals.find(approval => approval.status === 'CONSUMED');
-  const preparationApproval = consumedApproval ?? [...(approvalHistory.data?.approvals ?? [])].reverse()
+  const preparationApproval = consumedApproval
+    ?? [...(approvalHistory.data?.approvals ?? [])].reverse()
+      .find(approval => approval.operation === 'PLACE_ORDER' && approval.status === 'EXPIRED')
+    ?? [...(approvalHistory.data?.approvals ?? [])].reverse()
     .find(approval => approval.operation === 'PLACE_ORDER' && approval.status === 'ISSUED');
   const savedExecutionPreparation = useQuery({
     queryKey: ['execution-preparation', workspaceId, preparationApproval?.approvalId],
@@ -360,10 +362,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     }),
     enabled: Boolean(preparationApproval),
     refetchOnMount: 'always',
+    refetchInterval: query => query.state.data?.preparation?.attempt.state === 'RESERVED' ? 1_000 : false,
   });
-  const visibleExecutionPreparation = executionPreparation?.attempt.intentId === selectedProposalId
-    ? executionPreparation
-    : savedExecutionPreparation.data?.preparation;
+  const visibleExecutionPreparation = savedExecutionPreparation.data?.preparation;
   const alpacaAttempt = useQuery({
     queryKey: ['alpaca-paper-attempt', workspaceId, selectedProposalId],
     queryFn: () => request('alpaca.paper.order.attempt.get', { workspaceId, proposalId: selectedProposalId! }),
@@ -440,7 +441,6 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setBitgetDemoReview(undefined);
     setApprovalReview(undefined);
     setApprovalToPrepare(undefined);
-    setExecutionPreparation(undefined);
     setExecutionPrepareIdentity(undefined);
     setLiveArmReview(undefined);
     setLiveArmError('');
@@ -726,7 +726,6 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       if (approve) {
         const saved = await request('trade.approve', input);
         setApprovalToPrepare(saved);
-        setExecutionPreparation(undefined);
         setExecutionPrepareIdentity(undefined);
         setNotice(`Live approval issued until ${new Date(saved.expiresAt).toLocaleTimeString()}. No order was placed.`);
       } else {
@@ -757,12 +756,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         idempotencyKey: identity.idempotencyKey,
         confirmed: true,
       });
-      setExecutionPreparation(prepared);
       setApprovalToPrepare(undefined);
       const reservation = prepared.reservation;
       setNotice(reservation
         ? `TradeX reserved ${reservation.amount} ${reservation.unit}; no provider request was sent.`
         : `TradeX prepared the approved PLACE; no provider request was sent.`);
+      await savedExecutionPreparation.refetch();
       await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, approval.proposalId] });
       await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
       await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId, approval.proposalId] });
@@ -1422,14 +1421,16 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                 <time dateTime={rejection.occurredAt}>{new Date(rejection.occurredAt).toLocaleString()}</time>
               </article>)}
               {visibleExecutionPreparation && visibleExecutionPreparation.attempt.intentId === selectedProposalId && <article className="live-approval-record" aria-label="TradeX execution preparation">
-                <strong>{visibleExecutionPreparation.attempt.state} · TradeX capacity reservation</strong>
+                <strong>{visibleExecutionPreparation.attempt.state} · TradeX execution attempt</strong>
                 <span>Attempt {visibleExecutionPreparation.attempt.attemptId} · approval {visibleExecutionPreparation.attempt.approvalId}</span>
-                {visibleExecutionPreparation.reservation && <>
+                {visibleExecutionPreparation.attempt.invalidationReason && <span>Stopped before dispatch · {visibleExecutionPreparation.attempt.invalidationReason}</span>}
+                {visibleExecutionPreparation.reservation?.status === 'ACTIVE' && <>
                   <span>Reserved {visibleExecutionPreparation.reservation.amount} {visibleExecutionPreparation.reservation.unit} for {visibleExecutionPreparation.reservation.instrumentId}</span>
                   <span>Available {visibleExecutionPreparation.reservation.brokerAvailable} · existing reservations {visibleExecutionPreparation.reservation.existingReservations} · remaining after reservation {visibleExecutionPreparation.reservation.effectiveAvailable}</span>
                   <LiveCapacitySummary capacity={visibleExecutionPreparation.reservation.capacityProjection} label="Capacity after TradeX reservation" />
                 </>}
-                <span>No order request was sent to the provider.</span>
+                {visibleExecutionPreparation.reservation?.status === 'RELEASED' && <span>Reservation released: {visibleExecutionPreparation.reservation.amount} {visibleExecutionPreparation.reservation.unit}. This capacity is no longer held by TradeX.</span>}
+                <span>{visibleExecutionPreparation.attempt.state === 'INVALIDATED' ? 'No provider request was sent; this attempt cannot be dispatched.' : 'No order request was sent to the provider.'}</span>
               </article>}
               {prepareApproval && !visibleExecutionPreparation && <button type="button" className="primary" onClick={() => void prepareLiveExecution(prepareApproval)} disabled={executionPrepareBusy}>
                 {executionPrepareBusy ? 'Revalidating and reserving…' : 'Prepare PLACE and reserve capacity'}

@@ -436,6 +436,7 @@ Bitget Live · DISARMED
 APPROVED
 → 用户单独显式操作：Prepare PLACE
 → RESERVED（TradeX 预留；未发送 provider request）
+→ 若派发前策略、账户授权或可信 approval TTL 变化，则 INVALIDATED + RELEASED
 → SUBMITTING
 → ACCEPTED (not a fill)
 → PARTIALLY_FILLED or FILLED
@@ -456,7 +457,7 @@ expected spend、maximum authorized、bid/ask/spread、provenance、fee/slippage
 
 ### F6. Approval Expired
 
-不可复用;未提交时释放 reservation。
+approval 不可复用。若 attempt 仍为 `RESERVED`，可信过期扫描会使其失效，并原子释放 active PLACE reservation。策略变更、账户撤防和 Disable All 执行相同的派发前停止规则。显示持久化的失效原因与已释放金额，并保留“未向 provider 发送 request”说明；相同幂等键重放会恢复已停止结果，不会创建新 attempt。
 
 ### F7. Risk Rejected
 
@@ -829,7 +830,7 @@ Generate Proposal 将展示值冻结到新的 proposal ID/hash 及策略/快照�
 
 账户专属故障影响该账户，共享策略变更影响全部绑定账户。UI 当前选择不能限制系统级恢复范围。Disable All 阻止新传输并使未派发同意失效，不撤销已提交的券商订单。对可能已离开 TradeX 的尝试保留容量并对账。恢复或模型切换均不能自动 arming。
 
-审批后，用户需单独准备精确的 Live PLACE。重新打开 proposal 历史时，按 approval ID 读取耐久的 `RESERVED` 结果和脱敏容量拒绝。容量拒绝保留 approval 与 proposal；重试必须由用户显式触发并使用新的幂等键。
+审批后，用户需单独准备精确的 Live PLACE。重新打开 proposal 历史时，按 approval ID 读取耐久 preparation 和脱敏容量拒绝。attempt 处于 `RESERVED` 时刷新其持久化状态；策略变更、账户撤防/Disable All 或可信 approval TTL 到期可在派发前停止它，并原子使 attempt 失效、释放 active PLACE reservation。展示 `INVALIDATED` 原因和 `RELEASED` 金额；同幂等键重放仍为停止状态。容量拒绝保留 approval 与 proposal；重试必须由用户显式触发并使用新的幂等键。
 
 ## 14.4 过期与撤单继续流程（F6/F10）
 

@@ -1936,12 +1936,8 @@ impl ControlPlane {
 
     pub fn resume(&mut self) -> Result<()> {
         self.disarm_live_for_safety("SESSION_RESUMED")?;
-        if let Some(workspace_id) = self
-            .store
-            .as_ref()
-            .and_then(|store| store.workspace_id().ok())
-        {
-            self.time.resume(&workspace_id);
+        if let Some(store) = self.store.as_ref() {
+            self.time.resume(&store.workspace_id()?);
         }
         Ok(())
     }
@@ -2067,24 +2063,24 @@ impl ControlPlane {
     }
 
     fn persist_live_disarm(&mut self, reason: &str, reset_time: bool) -> Result<()> {
-        let Some(store) = self.store.as_mut() else {
+        if self.store.is_none() {
             self.live_arming_since.clear();
             self.pending_live_disarm = None;
             return Ok(());
-        };
+        }
         self.pending_live_disarm = Some((reason.to_owned(), reset_time));
-        let events = store.disarm_live_accounts(reason)?;
+        let workspace_id = if reset_time {
+            Some(self.store.as_ref().unwrap().workspace_id()?)
+        } else {
+            None
+        };
+        let events = self.store.as_mut().unwrap().disarm_live_accounts(reason)?;
         self.live_arming_since.clear();
         self.pending_live_disarm = None;
         for event in events {
             self.publish(&event);
         }
-        if reset_time
-            && let Some(workspace_id) = self
-                .store
-                .as_ref()
-                .and_then(|store| store.workspace_id().ok())
-        {
+        if let Some(workspace_id) = workspace_id {
             self.time.reset(&workspace_id);
         }
         Ok(())
@@ -2094,12 +2090,28 @@ impl ControlPlane {
         if let Some((reason, reset_time)) = self.pending_live_disarm.clone() {
             return self.persist_live_disarm(&reason, reset_time);
         }
+        let Some(store) = self.store.as_ref() else {
+            return Ok(());
+        };
+        let workspace_id = store.workspace_id()?;
+        let time = self.time.status(&workspace_id)?;
+        if time.confidence != protocol::TimeConfidence::Trusted {
+            return if self.live_arming_since.is_empty() {
+                Ok(())
+            } else {
+                self.disarm_live_for_safety("TIME_UNTRUSTED")
+            };
+        }
+        let events = self
+            .store
+            .as_mut()
+            .unwrap()
+            .expire_unsubmitted_approvals(&workspace_id, &time.wall_clock)?;
+        for event in &events {
+            self.publish(event);
+        }
         if self.live_arming_since.is_empty() {
             return Ok(());
-        }
-        let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
-        if self.time.status(&workspace_id)?.confidence != protocol::TimeConfidence::Trusted {
-            return self.disarm_live_for_safety("TIME_UNTRUSTED");
         }
         let Some(timeout) = self
             .store
@@ -6054,17 +6066,25 @@ impl ControlPlane {
                 account.health.arming_reason = reason.into();
             }
         }
-        let event = self.store.as_mut().unwrap().save_account(account)?;
-        self.publish(&event);
-        match event.payload {
-            DomainProjection::Account(account) => {
-                if account.health.arming != "ARMED" {
-                    self.live_arming_since.remove(&account.connection_id);
-                }
-                Ok(*account)
-            }
-            _ => unreachable!(),
+        let events = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_account_with_events(account)?;
+        let saved = events
+            .iter()
+            .find_map(|event| match &event.payload {
+                DomainProjection::Account(account) => Some((**account).clone()),
+                _ => None,
+            })
+            .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        for event in &events {
+            self.publish(event);
         }
+        if saved.health.arming != "ARMED" {
+            self.live_arming_since.remove(&saved.connection_id);
+        }
+        Ok(saved)
     }
 
     /// Prepare a read-only source probe under the domain lock; the network call runs after the lock is released.
@@ -12065,6 +12085,516 @@ mod live_approval_tests {
         })
     }
 
+    fn issue_and_prepare_live_place(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        proposal: &Value,
+        review: &Value,
+        idempotency_key: &str,
+    ) -> (Value, Value, Value) {
+        let approval = dispatch_main(
+            control,
+            "trade.approve",
+            approval_action(workspace_id, proposal, review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepare = json!({
+            "workspaceId": workspace_id,
+            "approvalId": approval["data"]["approvalId"],
+            "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+            "idempotencyKey": idempotency_key,
+            "confirmed": true,
+        });
+        let prepared = dispatch_main(control, "trade.execution.prepare", prepare.clone());
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        (approval, prepare, prepared)
+    }
+
+    fn tighten_live_risk_policy(control: &mut ControlPlane, workspace_id: &str) -> Value {
+        let current = dispatch_main(
+            control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let mut policy = current["data"]["policy"].clone();
+        let threshold = policy["staleQuoteThresholdSeconds"].as_u64().unwrap_or(120);
+        policy["staleQuoteThresholdSeconds"] = threshold.saturating_sub(1).max(1).into();
+        let saved = dispatch_main(
+            control,
+            "risk.save_policy",
+            json!({
+                "workspaceId": workspace_id,
+                "expectedStateVersion": current["data"]["stateVersion"],
+                "policy": policy,
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        saved["data"].clone()
+    }
+
+    #[test]
+    fn policy_change_before_preparation_invalidates_issued_approval() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        tighten_live_risk_policy(&mut control, &workspace_id);
+
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "policy-changed-before-prepare",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(prepared["ok"], false, "{prepared}");
+        assert_eq!(prepared["error"]["code"], "STATE_VERSION_CONFLICT");
+
+        let history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(history["data"]["approvals"][0]["status"], "INVALIDATED");
+        assert_eq!(
+            history["data"]["approvals"][0]["invalidationReason"],
+            "RISK_POLICY_CHANGED"
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_preparation_for_approval(
+                    &workspace_id,
+                    approval["data"]["approvalId"].as_str().unwrap(),
+                )
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    fn advance_test_time_past_approval(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        expires_at: &str,
+    ) {
+        let current = control.time.status(workspace_id).unwrap();
+        let expiry = OffsetDateTime::parse(expires_at, &Rfc3339).unwrap();
+        let target_ms = expiry.unix_timestamp_nanos() / 1_000_000 + 1;
+        let current_ms = OffsetDateTime::parse(&current.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let elapsed = u64::try_from(target_ms - current_ms).unwrap();
+        control
+            .time
+            .set_test_time(target_ms, current.monotonic_ms + elapsed);
+        assert_eq!(
+            control.time.status(workspace_id).unwrap().confidence,
+            protocol::TimeConfidence::Trusted
+        );
+    }
+
+    #[test]
+    fn policy_change_invalidates_and_releases_reserved_place_idempotently() {
+        let (folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (approval, prepare_request, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "policy-change-release",
+        );
+        let approval_id = approval["data"]["approvalId"].as_str().unwrap();
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let reservation = prepared["data"]["reservation"].clone();
+        let reservation_id = reservation["reservationId"].as_str().unwrap();
+
+        tighten_live_risk_policy(&mut control, &workspace_id);
+        let stopped = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval_id}),
+        );
+        assert_eq!(stopped["ok"], true, "{stopped}");
+        assert_eq!(
+            stopped["data"]["preparation"]["attempt"]["state"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["attempt"]["invalidationReason"],
+            "RISK_POLICY_CHANGED"
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["reservation"]["status"],
+            "RELEASED"
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["reservation"]["amount"],
+            "500"
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+
+        let replayed = dispatch_main(&mut control, "trade.execution.prepare", prepare_request);
+        assert_eq!(replayed["ok"], true, "{replayed}");
+        assert_eq!(replayed["data"]["attempt"]["attemptId"], attempt_id);
+        assert_eq!(replayed["data"]["attempt"]["state"], "INVALIDATED");
+        assert_eq!(replayed["data"]["reservation"]["status"], "RELEASED");
+        tighten_live_risk_policy(&mut control, &workspace_id);
+        let after_repeat = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, approval_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            after_repeat.attempt.state_version,
+            stopped["data"]["preparation"]["attempt"]["stateVersion"]
+        );
+        assert_eq!(
+            after_repeat.reservation.as_ref().unwrap().state_version,
+            stopped["data"]["preparation"]["reservation"]["stateVersion"]
+        );
+
+        let reservation_events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let delivered = reservation_events.clone();
+        let sink: EventSink = std::sync::Arc::new(move |event| {
+            delivered.lock().unwrap().push(event.event_type.clone());
+            true
+        });
+        let replay = control
+            .store
+            .as_mut()
+            .unwrap()
+            .replay("execution-reservation", reservation_id, 0, &sink)
+            .unwrap();
+        assert_eq!(replay.replayed_count, 2);
+        assert_eq!(
+            *reservation_events.lock().unwrap(),
+            vec!["trade.reservation.created", "trade.reservation.released"]
+        );
+
+        drop(control);
+        let mut reopened = ControlPlane::new(folder.path().to_path_buf());
+        let opened = dispatch(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let recovered = dispatch_main(
+            &mut reopened,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval_id}),
+        );
+        assert_eq!(recovered["ok"], true, "{recovered}");
+        assert_eq!(
+            recovered["data"]["preparation"]["attempt"]["state"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["reservation"]["status"],
+            "RELEASED"
+        );
+    }
+
+    #[test]
+    fn account_disarm_and_disable_all_release_only_reserved_place_attempts() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (approval, _, _) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "account-disarm-release",
+        );
+        let disarmed = dispatch_main(
+            &mut control,
+            "account.disarm",
+            json!({
+                "workspaceId": workspace_id,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+            }),
+        );
+        assert_eq!(disarmed["ok"], true, "{disarmed}");
+        let stopped = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval["data"]["approvalId"]}),
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["attempt"]["state"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["attempt"]["invalidationReason"],
+            "USER_DISABLED"
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["reservation"]["status"],
+            "RELEASED"
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (approval, _, _) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "disable-all-release",
+        );
+        let disabled = dispatch_main(
+            &mut control,
+            "account.disable_all_live",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(disabled["ok"], true, "{disabled}");
+        let stopped = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval["data"]["approvalId"]}),
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["attempt"]["state"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["attempt"]["invalidationReason"],
+            "USER_DISABLED_ALL"
+        );
+        assert_eq!(
+            stopped["data"]["preparation"]["reservation"]["status"],
+            "RELEASED"
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+        let repeat = dispatch_main(
+            &mut control,
+            "account.disable_all_live",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(repeat["ok"], true, "{repeat}");
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_preparation_for_approval(
+                    &workspace_id,
+                    approval["data"]["approvalId"].as_str().unwrap(),
+                )
+                .unwrap()
+                .unwrap()
+                .attempt
+                .state_version,
+            stopped["data"]["preparation"]["attempt"]["stateVersion"]
+        );
+    }
+
+    #[test]
+    fn live_ttl_scan_propagates_workspace_lookup_errors() {
+        let (_folder, mut control, _workspace_id, _account, _proposal, _review) =
+            reviewed_live_capacity_fixture();
+        let database_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("workspace.sqlite3");
+        let database = rusqlite::Connection::open(database_path).unwrap();
+        database
+            .execute_batch("ALTER TABLE workspace RENAME TO workspace_lookup_error_fixture;")
+            .unwrap();
+
+        assert!(control.expire_live_arming().is_err());
+    }
+
+    #[test]
+    fn resume_lookup_failure_keeps_safety_disarm_pending_for_retry() {
+        let (_folder, mut control, _workspace_id, account, _proposal, _review) =
+            reviewed_live_capacity_fixture();
+        let database_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("workspace.sqlite3");
+        let database = rusqlite::Connection::open(database_path).unwrap();
+        database
+            .execute_batch("ALTER TABLE workspace RENAME TO workspace_lookup_error_fixture;")
+            .unwrap();
+
+        assert!(control.resume().is_err());
+        assert_eq!(
+            control
+                .pending_live_disarm
+                .as_ref()
+                .map(|(reason, reset_time)| (reason.as_str(), *reset_time)),
+            Some(("SESSION_RESUMED", true))
+        );
+
+        database
+            .execute_batch("ALTER TABLE workspace_lookup_error_fixture RENAME TO workspace;")
+            .unwrap();
+        control.expire_live_arming().unwrap();
+        let disarmed = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        assert_eq!(disarmed.health.arming, "DISARMED");
+        assert_eq!(disarmed.health.arming_reason, "SESSION_RESUMED");
+    }
+
+    #[test]
+    fn approval_ttl_expires_reserved_attempt_and_rejects_late_preparation() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (approval, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "approval-ttl-release",
+        );
+        advance_test_time_past_approval(
+            &mut control,
+            &workspace_id,
+            approval["data"]["expiresAt"].as_str().unwrap(),
+        );
+        control.expire_live_arming().unwrap();
+        let stopped = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            stopped.attempt.attempt_id,
+            prepared["data"]["attempt"]["attemptId"]
+        );
+        assert_eq!(
+            stopped.attempt.state,
+            protocol::ExecutionAttemptState::Invalidated
+        );
+        assert_eq!(
+            stopped.attempt.invalidation_reason.as_deref(),
+            Some("APPROVAL_EXPIRED")
+        );
+        assert_eq!(
+            stopped.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Released
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert_eq!(
+            approval_history["data"]["approvals"][0]["status"],
+            "CONSUMED"
+        );
+
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let issued = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(issued["ok"], true, "{issued}");
+        let prepare_request = json!({
+            "workspaceId": workspace_id,
+            "approvalId": issued["data"]["approvalId"],
+            "expectedApprovalStateVersion": issued["data"]["stateVersion"],
+            "idempotencyKey": "prepare-after-expiry",
+            "confirmed": true,
+        });
+        advance_test_time_past_approval(
+            &mut control,
+            &workspace_id,
+            issued["data"]["expiresAt"].as_str().unwrap(),
+        );
+        let late = dispatch_main(&mut control, "trade.execution.prepare", prepare_request);
+        assert_eq!(late["ok"], false, "{late}");
+        assert_eq!(late["error"]["code"], "STATE_VERSION_CONFLICT", "{late}");
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(
+            approval_history["data"]["approvals"][0]["status"],
+            "EXPIRED"
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
     fn reviewed_live_capacity_fixture() -> (
         tempfile::TempDir,
         ControlPlane,
@@ -12949,6 +13479,23 @@ mod live_approval_tests {
             .unwrap()
             .save_account(second_account)
             .unwrap();
+        let second_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace_id,
+                "connectionId": second_account.connection_id,
+                "expectedStateVersion": second_account.state_version,
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
         let second_account = control
             .store
             .as_ref()

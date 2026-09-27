@@ -1233,6 +1233,10 @@ impl Store {
                     "execution-preparation" => {
                         event.event_type != "trade.execution.preparation.rejected"
                     }
+                    "execution-reservation" => !matches!(
+                        event.event_type.as_str(),
+                        "trade.reservation.created" | "trade.reservation.released"
+                    ),
                     "execution-attempt" => event.event_type != "trade.execution.attempt.changed",
                     "order-proposal-consumption" => event.event_type != "trade.proposal.consumed",
                     "approval-audit" => event.event_type != "trade.approval.rejected",
@@ -2799,8 +2803,12 @@ impl Store {
             {
                 account.health.arming = "DISARMED".into();
                 account.health.arming_reason = "RISK_POLICY_WEAKENED".into();
-                let event = save_account_tx(&tx, account, sequence + 1, &risk.updated_at)?;
-                account_events.push(event);
+                account_events.extend(save_account_tx(
+                    &tx,
+                    account,
+                    sequence + 1,
+                    &risk.updated_at,
+                )?);
             }
         }
 
@@ -2874,6 +2882,13 @@ impl Store {
             &tx,
             &workspace_id,
             None,
+            None,
+            "RISK_POLICY_CHANGED",
+            &risk.updated_at,
+        )?);
+        events.extend(invalidate_reserved_execution_attempts_tx(
+            &tx,
+            &workspace_id,
             None,
             "RISK_POLICY_CHANGED",
             &risk.updated_at,
@@ -3089,6 +3104,133 @@ impl Store {
                 approval_id,
             )?,
         })
+    }
+
+    pub fn expire_unsubmitted_approvals(
+        &mut self,
+        workspace_id: &str,
+        now: &str,
+    ) -> Result<Vec<DomainEvent>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        let has_unsubmitted_work: bool = self
+            .connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM financial_approvals WHERE workspace_id=?1 AND status='ISSUED') OR EXISTS(SELECT 1 FROM execution_attempts WHERE workspace_id=?1 AND state='RESERVED')",
+                [workspace_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !has_unsubmitted_work {
+            return Ok(Vec::new());
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let issued = {
+            let mut statement = tx
+                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND status='ISSUED' ORDER BY approval_id")
+                .map_err(storage_error)?;
+            statement
+                .query_map([workspace_id], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        let mut events = Vec::new();
+        for projection in issued {
+            let mut approval: FinancialApproval = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if approval.workspace_id != workspace_id
+                || approval.status != FinancialApprovalStatus::Issued
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if approval_expired(&approval.expires_at, now) {
+                approval.status = FinancialApprovalStatus::Expired;
+                approval.invalidation_reason = Some("APPROVAL_EXPIRED".into());
+                events.push(write_financial_approval_tx(&tx, approval, None, now)?);
+            }
+        }
+
+        // RESERVED is the durable pre-dispatch state; later dispatch states must never be released here.
+        let attempts = {
+            let mut statement = tx
+                .prepare("SELECT a.attempt_id,a.account_id,a.sequence,a.idempotency_key,a.projection,f.sequence,f.projection FROM execution_attempts a JOIN financial_approvals f ON f.approval_id=a.approval_id WHERE a.workspace_id=?1 AND a.state='RESERVED' ORDER BY a.account_id,a.attempt_id")
+                .map_err(storage_error)?;
+            statement
+                .query_map([workspace_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, i64>(5)?,
+                        row.get::<_, String>(6)?,
+                    ))
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for (
+            attempt_id,
+            account_id,
+            sequence,
+            idempotency_key,
+            attempt_projection,
+            approval_sequence,
+            approval_projection,
+        ) in attempts
+        {
+            let attempt: ExecutionAttempt = serde_json::from_str(&attempt_projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let approval: FinancialApproval = serde_json::from_str(&approval_projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || approval_sequence < 1
+                || attempt.attempt_id != attempt_id
+                || attempt.account_id != account_id
+                || attempt.workspace_id != workspace_id
+                || attempt.state != ExecutionAttemptState::Reserved
+                || attempt.state_version != format!("execution-attempt:{attempt_id}:{sequence}")
+                || approval.workspace_id != workspace_id
+                || approval.approval_id != attempt.approval_id
+                || approval.state_version
+                    != format!(
+                        "financial-approval:{}:{approval_sequence}",
+                        approval.approval_id
+                    )
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let reason = match approval.status {
+                FinancialApprovalStatus::Consumed
+                    if !approval_expired(&approval.expires_at, now) =>
+                {
+                    continue;
+                }
+                FinancialApprovalStatus::Consumed => "APPROVAL_EXPIRED",
+                FinancialApprovalStatus::Expired => "APPROVAL_EXPIRED",
+                FinancialApprovalStatus::Invalidated => "APPROVAL_INVALIDATED",
+                FinancialApprovalStatus::Issued => {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            };
+            events.extend(invalidate_reserved_execution_attempt_tx(
+                &tx,
+                attempt,
+                &idempotency_key,
+                reason,
+                now,
+            )?);
+        }
+        tx.commit().map_err(storage_error)?;
+        Ok(events)
     }
 
     pub fn execution_preparation_rejection_for_idempotency_key(
@@ -3600,8 +3742,8 @@ impl Store {
         )
         .map_err(storage_error)?;
         let approval_event = write_financial_approval_tx(&tx, approval, None, now)?;
-        let reservation_event = write_execution_reservation_tx(&tx, reservation)?;
-        let attempt_event = write_execution_attempt_tx(&tx, attempt, idempotency_key)?;
+        let reservation_event = write_execution_reservation_tx(&tx, reservation, now)?;
+        let attempt_event = write_execution_attempt_tx(&tx, attempt, idempotency_key, now)?;
         let saved_attempt = match &attempt_event.payload {
             DomainProjection::ExecutionAttempt(saved) => (**saved).clone(),
             _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
@@ -3890,7 +4032,7 @@ impl Store {
         approval.invalidation_reason = None;
         attempt.created_at = now.into();
         let approval_event = write_financial_approval_tx(&tx, approval, None, now)?;
-        let attempt_event = write_execution_attempt_tx(&tx, attempt, idempotency_key)?;
+        let attempt_event = write_execution_attempt_tx(&tx, attempt, idempotency_key, now)?;
         let saved_attempt = match &attempt_event.payload {
             DomainProjection::ExecutionAttempt(saved) => (**saved).clone(),
             _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
@@ -4918,6 +5060,16 @@ impl Store {
     }
 
     pub fn save_account(&mut self, account: AccountConnection) -> Result<DomainEvent> {
+        self.save_account_with_events(account)?
+            .into_iter()
+            .find(|event| matches!(event.payload, DomainProjection::Account(_)))
+            .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+    }
+
+    pub fn save_account_with_events(
+        &mut self,
+        account: AccountConnection,
+    ) -> Result<Vec<DomainEvent>> {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -4932,9 +5084,9 @@ impl Store {
         if previous < 0 || previous >= MAX_SEQUENCE as i64 {
             return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
         }
-        let event = save_account_tx(&tx, account, previous + 1, &timestamp()?)?;
+        let events = save_account_tx(&tx, account, previous + 1, &timestamp()?)?;
         tx.commit().map_err(storage_error)?;
-        Ok(event)
+        Ok(events)
     }
 
     pub fn disarm_live_accounts(&mut self, reason: &str) -> Result<Vec<DomainEvent>> {
@@ -4990,8 +5142,15 @@ impl Store {
             if account.health.arming == "ARMED" {
                 account.health.arming = "DISARMED".into();
                 account.health.arming_reason = reason.into();
-                events.push(save_account_tx(&tx, account, sequence + 1, &occurred_at)?);
+                events.extend(save_account_tx(&tx, account, sequence + 1, &occurred_at)?);
             }
+            events.extend(invalidate_reserved_execution_attempts_tx(
+                &tx,
+                &workspace_id,
+                Some(&connection_id),
+                reason,
+                &occurred_at,
+            )?);
         }
         tx.commit().map_err(storage_error)?;
         Ok(events)
@@ -11148,24 +11307,48 @@ fn load_execution_reservation_for_attempt(
 fn write_execution_reservation_tx(
     tx: &Transaction<'_>,
     mut reservation: ExecutionReservation,
+    occurred_at: &str,
 ) -> Result<DomainEvent> {
-    if reservation.status != ExecutionReservationStatus::Active
-        || reservation.amount.is_empty()
+    if reservation.amount.is_empty()
         || reservation.capacity_key.is_empty()
         || reservation.unit.is_empty()
         || crate::provider_io::decimal_cmp(&reservation.amount, "0")? != std::cmp::Ordering::Greater
     {
         return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
     }
-    let sequence: Option<i64> = tx
+    let previous: Option<(i64, String, String)> = tx
         .query_row(
-            "SELECT sequence FROM execution_reservations WHERE reservation_id=?1",
+            "SELECT sequence,status,projection FROM execution_reservations WHERE reservation_id=?1",
             [&reservation.reservation_id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .optional()
         .map_err(storage_error)?;
-    let sequence = sequence
+    match (&previous, reservation.status) {
+        (None, ExecutionReservationStatus::Active) => {}
+        (Some((_, previous_status, projection)), ExecutionReservationStatus::Released)
+            if previous_status == "ACTIVE" =>
+        {
+            let active: ExecutionReservation = serde_json::from_str(projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if active.status != ExecutionReservationStatus::Active
+                || active.reservation_id != reservation.reservation_id
+                || active.workspace_id != reservation.workspace_id
+                || active.account_id != reservation.account_id
+                || active.attempt_id != reservation.attempt_id
+                || active.proposal_id != reservation.proposal_id
+                || active.amount != reservation.amount
+                || active.unit != reservation.unit
+                || active.capacity_key != reservation.capacity_key
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+        _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+    }
+    let sequence = previous
+        .as_ref()
+        .map(|(sequence, _, _)| *sequence)
         .unwrap_or(0)
         .checked_add(1)
         .filter(|sequence| *sequence <= MAX_SEQUENCE as i64)
@@ -11175,32 +11358,46 @@ fn write_execution_reservation_tx(
         reservation.reservation_id
     );
     let projection = serde_json::to_string(&reservation).map_err(storage_error)?;
+    let status = serde_json::to_value(reservation.status)
+        .map_err(storage_error)?
+        .as_str()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?
+        .to_owned();
     if sequence == 1 {
         tx.execute(
-            "INSERT INTO execution_reservations(reservation_id,workspace_id,account_id,attempt_id,capacity_key,status,sequence,projection) VALUES(?1,?2,?3,?4,?5,'ACTIVE',?6,?7)",
+            "INSERT INTO execution_reservations(reservation_id,workspace_id,account_id,attempt_id,capacity_key,status,sequence,projection) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
             params![
                 reservation.reservation_id,
                 reservation.workspace_id,
                 reservation.account_id,
                 reservation.attempt_id,
                 reservation.capacity_key,
+                status,
                 sequence,
                 projection,
             ],
         )
         .map_err(storage_error)?;
     } else {
-        tx.execute(
-            "UPDATE execution_reservations SET status='ACTIVE',sequence=?1,projection=?2 WHERE reservation_id=?3",
-            params![sequence, projection, reservation.reservation_id],
+        let changed = tx
+            .execute(
+            "UPDATE execution_reservations SET status=?1,sequence=?2,projection=?3 WHERE reservation_id=?4 AND status='ACTIVE'",
+            params![status, sequence, projection, reservation.reservation_id],
         )
-        .map_err(storage_error)?;
+            .map_err(storage_error)?;
+        if changed != 1 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
     }
     let event = DomainEvent {
         event_id: Uuid::new_v4().to_string(),
-        event_type: "trade.reservation.created".into(),
+        event_type: match reservation.status {
+            ExecutionReservationStatus::Active => "trade.reservation.created",
+            ExecutionReservationStatus::Released => "trade.reservation.released",
+        }
+        .into(),
         schema_version: 1,
-        occurred_at: reservation.created_at.clone(),
+        occurred_at: occurred_at.into(),
         aggregate_type: "execution-reservation".into(),
         aggregate_id: reservation.reservation_id.clone(),
         sequence: sequence as u64,
@@ -11223,6 +11420,7 @@ fn write_execution_attempt_tx(
     tx: &Transaction<'_>,
     mut attempt: ExecutionAttempt,
     idempotency_key: &str,
+    occurred_at: &str,
 ) -> Result<DomainEvent> {
     let previous: Option<(i64, String)> = tx
         .query_row(
@@ -11283,7 +11481,7 @@ fn write_execution_attempt_tx(
         event_id: Uuid::new_v4().to_string(),
         event_type: "trade.execution.attempt.changed".into(),
         schema_version: 1,
-        occurred_at: attempt.created_at.clone(),
+        occurred_at: occurred_at.into(),
         aggregate_type: "execution-attempt".into(),
         aggregate_id: attempt.attempt_id.clone(),
         sequence: sequence as u64,
@@ -11300,6 +11498,106 @@ fn write_execution_attempt_tx(
     )
     .map_err(storage_error)?;
     Ok(event)
+}
+
+fn invalidate_reserved_execution_attempt_tx(
+    tx: &Transaction<'_>,
+    mut attempt: ExecutionAttempt,
+    idempotency_key: &str,
+    reason: &str,
+    occurred_at: &str,
+) -> Result<Vec<DomainEvent>> {
+    if attempt.state != ExecutionAttemptState::Reserved
+        || !valid_order_text(reason, 256)
+        || idempotency_key.is_empty()
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let operation = attempt.operation;
+    let attempt_id = attempt.attempt_id.clone();
+    let workspace_id = attempt.workspace_id.clone();
+    let account_id = attempt.account_id.clone();
+    let reservation_id = attempt.reservation_id.clone();
+    attempt.state = ExecutionAttemptState::Invalidated;
+    attempt.invalidation_reason = Some(reason.into());
+    let mut events = vec![write_execution_attempt_tx(
+        tx,
+        attempt,
+        idempotency_key,
+        occurred_at,
+    )?];
+
+    match (operation, reservation_id) {
+        (crate::protocol::FinancialOperation::PlaceOrder, Some(reservation_id)) => {
+            let mut reservation =
+                load_execution_reservation_for_attempt(tx, &workspace_id, &attempt_id)?
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if reservation.reservation_id != reservation_id
+                || reservation.account_id != account_id
+                || reservation.status != ExecutionReservationStatus::Active
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            reservation.status = ExecutionReservationStatus::Released;
+            events.push(write_execution_reservation_tx(
+                tx,
+                reservation,
+                occurred_at,
+            )?);
+        }
+        (crate::protocol::FinancialOperation::Cancel, None) => {}
+        _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+    }
+    Ok(events)
+}
+
+fn invalidate_reserved_execution_attempts_tx(
+    tx: &Transaction<'_>,
+    workspace_id: &str,
+    account_id: Option<&str>,
+    reason: &str,
+    occurred_at: &str,
+) -> Result<Vec<DomainEvent>> {
+    let attempts = {
+        let mut statement = tx
+            .prepare("SELECT attempt_id,account_id,sequence,idempotency_key,projection FROM execution_attempts WHERE workspace_id=?1 AND state='RESERVED' AND (?2 IS NULL OR account_id=?2) ORDER BY account_id,attempt_id")
+            .map_err(storage_error)?;
+        statement
+            .query_map(params![workspace_id, account_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?
+    };
+    let mut events = Vec::new();
+    for (attempt_id, stored_account_id, sequence, idempotency_key, projection) in attempts {
+        let attempt: ExecutionAttempt = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if sequence < 1
+            || attempt.attempt_id != attempt_id
+            || attempt.workspace_id != workspace_id
+            || attempt.account_id != stored_account_id
+            || attempt.state != ExecutionAttemptState::Reserved
+            || attempt.state_version != format!("execution-attempt:{attempt_id}:{sequence}")
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        events.extend(invalidate_reserved_execution_attempt_tx(
+            tx,
+            attempt,
+            &idempotency_key,
+            reason,
+            occurred_at,
+        )?);
+    }
+    Ok(events)
 }
 
 fn execution_preparation_idempotency_digest(workspace_id: &str, idempotency_key: &str) -> String {
@@ -11652,7 +11950,7 @@ fn save_account_tx(
     mut account: AccountConnection,
     sequence: i64,
     occurred_at: &str,
-) -> Result<DomainEvent> {
+) -> Result<Vec<DomainEvent>> {
     if !(1..=MAX_SEQUENCE as i64).contains(&sequence) {
         return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
     }
@@ -11672,6 +11970,8 @@ fn save_account_tx(
     let arming_changed = previous_account
         .as_ref()
         .is_some_and(|previous| previous.health.arming != account.health.arming);
+    let live_account = account.environment == "LIVE";
+    let arming_reason = account.health.arming_reason.clone();
     let authority_changed = previous_account.as_ref().is_some_and(|previous| {
         previous.connection_state != account.connection_state
             || previous.health != account.health
@@ -11703,19 +12003,35 @@ fn save_account_tx(
         params![account.connection_id, account.provider_id, account.environment, remote, sequence, account.credential_ref(), serde_json::to_string(&account).map_err(storage_error)?],
     )
     .map_err(storage_error)?;
+    let mut events = Vec::new();
     if authority_changed {
-        invalidate_financial_approvals_tx(
+        let approval_invalidation_reason = if arming_changed {
+            "ACCOUNT_DISARMED"
+        } else {
+            "ACCOUNT_HEALTH_CHANGED"
+        };
+        let attempt_invalidation_reason = if arming_changed && !arming_reason.is_empty() {
+            arming_reason.as_str()
+        } else {
+            approval_invalidation_reason
+        };
+        events.extend(invalidate_financial_approvals_tx(
             tx,
             &workspace_id,
             None,
             Some(&connection_id),
-            if arming_changed {
-                "ACCOUNT_DISARMED"
-            } else {
-                "ACCOUNT_HEALTH_CHANGED"
-            },
+            approval_invalidation_reason,
             occurred_at,
-        )?;
+        )?);
+        if live_account {
+            events.extend(invalidate_reserved_execution_attempts_tx(
+                tx,
+                &workspace_id,
+                Some(&connection_id),
+                attempt_invalidation_reason,
+                occurred_at,
+            )?);
+        }
     }
     reconcile_cancellation_intents_for_account_tx(tx, &account, occurred_at)?;
     let event = DomainEvent {
@@ -11743,7 +12059,8 @@ fn save_account_tx(
         ],
     )
     .map_err(storage_error)?;
-    Ok(event)
+    events.push(event);
+    Ok(events)
 }
 
 fn proposal_event_state(

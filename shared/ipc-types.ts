@@ -2696,6 +2696,7 @@ export interface DomainEvent {
     | "trade.approval.consumed"
     | "trade.approval.rejected"
     | "trade.reservation.created"
+    | "trade.reservation.released"
     | "trade.execution.attempt.changed"
     | "trade.execution.preparation.rejected"
     | "trade.proposal.consumed"

@@ -12,6 +12,8 @@ S20 #76 私有流决策已在 `dev@3cdfbfc` 收口：Bitget 官方 Classic v2 �
 
 S21 #80 完整风险策略配置与持久化已在 `dev@20113b0` 完成实现、最终全量检查和串行 Standards/Spec 审查，并已关闭；证据见 [S21 #80 验收](s21-risk-policy-evidence.md)。父 Spec #79 仍 OPEN。该切片只完成 policy 设置、版本化保存、拒绝路径、迁移和重开恢复；PRD §21 完整 evaluator、审批/arm 变更效果仍待 S21 后续项。FR-020 保持 `IN_PROGRESS`，J2 保持 `IMPLEMENTED_UNVERIFIED`。#81 已完成实现和本地验证，审查结论及 issue 状态见 GitHub #81；规范见 [RiskDecision 求值与审计规范](s21-risk-decision.md)，证据见 [S21 #81 实现与验证](s21-risk-decision-evidence.md)。新决策独立追加、不改写 Proposal，缺证据 fail-closed；Bitget 仅使用普通 `BITGET_LIVE` 语境，不创建/使用 Demo 账户。之后再处理 #82 policy-change effects。
 
+S23 #92 派发前失效与 reservation 安全释放已按 `dev` 完成；边界和逐项证据见 [S23 #92 验收](s23-pre-dispatch-release-evidence.md)。父规范 #88 保持 OPEN，因为其并发屏障/事务中断验收与 S27、S33 范围尚未完成。
+
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
@@ -99,7 +101,7 @@ S21 #80 完整风险策略配置与持久化已在 `dev@20113b0` 完成实现、
 | S20 | 使用 Bitget Spot 普通账户接口 | S02、S13、S16 | 保留 API key/secret/passphrase、官方能力与 REST-only 边界；不创建/使用 Demo 账户，不声称 Demo 行为已验证，完整 Live 执行 gate 留给 S30。 |
 | S21 | 配置并执行确定性风险政策 | S08、S09、S13 | 全部 PRD §21 风险字段和硬规则；无用户政策 Live disabled、市价单默认 off；policy version/多账户范围与失效原因；Agent 无修改权限。 |
 | S22 | 显式 Arm 并批准精确金融意图 | S21 | 账户独立 arming/20 分钟超时；独立 PLACE/CANCEL approval 类型、单次/nonce/TTL/hash/版本；全量行情与最大授权支出展示，审批前与消费时校验；泛化 Codex approval 永不转成金融权限。 |
-| S23 | 原子消费审批并预留账户容量 | S22 | SQLite immediate + per-account serialization、单次消费/幂等约束、现金/敞口/open orders/并发 Thread 容量；政策保存/消费竞态；实际冲突、回滚和释放金额证据。 |
+| S23 | 原子消费审批并预留账户容量 | S22 | #89–#92 已完成 PLACE/CANCEL preparation、容量冲突及派发前失效/释放切片；#88 父规范保持 OPEN，barrier-controlled 并发与事务中断回滚、S27/S33 验收仍待完成。 |
 | S24 | 经认证的独立 Gateway 派发执行 | S23 | 固定子进程、继承双向通道/协议/会话认证、狭窄 ID 请求、权威重载、一次性 grant、持久化 SUBMITTING 后 I/O；disarm 与 dispatch 串行、失败不重放变更；进程隔离与边界故障测试。 |
 | S25 | 对账未知提交并核验人工处置证据 | S24、S17–S20 | canonical 全状态、broker truth 优先、unknown freeze/query-first/5 分钟后仍冻；backend evidence scope/window/pagination/identity/允许决策；状态版本防并发成交覆盖，处置后健康复核且仍 disarmed。 |
 | S26 | 刷新并审批撤单与处理成交竞态 | S22、S24、S25 | 精确不可变 CANCEL intent、Arm 后回到撤单且刷新、不同撤单资格、approval/reject/expire、CANCEL_PENDING→provider truth；ACK 不释放，部分成交/费用/剩余容量恰好一次处理；修改仅确认撤单后新 proposal。 |

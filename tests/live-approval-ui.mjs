@@ -28,6 +28,16 @@ async function expectFocus(ui, expected) {
   assert.fail(`Expected focus on ${expected}`);
 }
 
+async function selectDraft(ui, workspaceId, draftId, expectedQuantity) {
+  const drafts = await sendIntegrationCommand('trade.draft.list', { workspaceId });
+  const index = drafts.drafts.findIndex(draft => draft.draftId === draftId);
+  assert.ok(index >= 0, `Draft ${draftId} is present in workspace history`);
+  await ui.locator('.order-draft-row').nth(index).click();
+  const quantity = () => ui.evaluate(() => [...document.querySelectorAll('input[inputmode="decimal"]')][0]?.value);
+  for (let attempt = 0; attempt < 40 && await quantity() !== expectedQuantity; attempt += 1) await ui.waitForTimeout(50);
+  assert.equal(await quantity(), expectedQuantity, 'Selecting the draft loads its saved quantity');
+}
+
 export async function checkLiveApprovalUI(tab, browser) {
   const ui = tab.playwright;
   commandEndpoint = new URL('/__integration/command', await tab.url()).toString();
@@ -76,6 +86,14 @@ export async function checkLiveApprovalUI(tab, browser) {
       confirmed: true,
     });
     assert.equal(armed.health.arming, 'ARMED');
+    const mountedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
+      workspaceId, providerId: 'trading212', label: 'Mounted refresh fixture',
+    });
+    const armedMountedAccount = await sendIntegrationCommand('account.arm', {
+      workspaceId, connectionId: mountedAccount.connectionId,
+      expectedStateVersion: mountedAccount.stateVersion, confirmed: true,
+    });
+    assert.equal(armedMountedAccount.health.arming, 'ARMED');
     const navigation = ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).first();
     await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
@@ -324,7 +342,10 @@ export async function checkLiveApprovalUI(tab, browser) {
       if (detail.fields.quantity.value === '0.008') { preparedProposal = detail; break; }
     }
     assert.ok(preparedProposal, 'The explicit-reservation proposal was persisted');
-    await ui.locator('.order-proposal-row').filter({ hasText: preparedProposal.proposalId }).press('Enter');
+    await selectDraft(ui, workspaceId, preparedProposal.draftId, '0.008');
+    const preparedProposalRow = ui.locator('.order-proposal-row').filter({ hasText: preparedProposal.proposalId });
+    await preparedProposalRow.waitFor({ state: 'visible' });
+    await preparedProposalRow.click();
     await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
     const prepareReview = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
     await prepareReview.waitFor({ state: 'visible' });
@@ -335,7 +356,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     const preparationButton = ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true });
     await preparationButton.press('Enter');
     await ui.getByRole('status').filter({ hasText: 'TradeX reserved 400 USD; no provider request was sent.' }).waitFor({ state: 'visible' });
-    await ui.getByText(/RESERVED · TradeX capacity reservation/, { exact: false }).waitFor({ state: 'visible' });
+    await ui.getByText(/RESERVED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
     await ui.getByText(/No order request was sent to the provider\./, { exact: false }).waitFor({ state: 'visible' });
     const liveReviewButton = ui.getByRole('button', { name: 'Review Live approval', exact: true });
     for (let attempt = 0; attempt < 40 && await liveReviewButton.isEnabled(); attempt += 1) await ui.waitForTimeout(50);
@@ -353,7 +374,8 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
     await navigation.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
-    await ui.locator('.order-proposal-row').filter({ hasText: preparedProposal.proposalId }).press('Enter');
+    await selectDraft(ui, workspaceId, preparedProposal.draftId, '0.008');
+    await ui.locator('.order-proposal-row').filter({ hasText: preparedProposal.proposalId }).click();
     const recoveredCard = ui.getByLabel('TradeX execution preparation', { exact: true });
     await recoveredCard.waitFor({ state: 'visible' });
     assert.ok((await recoveredCard.innerText()).includes(durablePreparation.preparation.attempt.attemptId), 'Reopening Order Drafts restores the persisted preparation');
@@ -469,6 +491,75 @@ export async function checkLiveApprovalUI(tab, browser) {
     await staleDialog.press('Escape');
     await staleDialog.waitFor({ state: 'hidden' });
     observed.push('F11 stale capacity review hides every amount, announces the stale state to assistive technology, blocks approval, and fits at 1280/768/390px.');
+
+    await selectDraft(ui, workspaceId, preparedProposal.draftId, '0.008');
+    await ui.locator('.order-proposal-row').filter({ hasText: preparedProposal.proposalId }).click();
+    const preparationCard = ui.getByLabel('TradeX execution preparation', { exact: true });
+    await ui.getByText(/RESERVED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    const policy = await sendIntegrationCommand('risk.get_policy', { workspaceId });
+    const stoppedPolicy = { ...policy.policy, staleQuoteThresholdSeconds: Math.max(1, policy.policy.staleQuoteThresholdSeconds - 1) };
+    await sendIntegrationCommand('risk.save_policy', {
+      workspaceId, expectedStateVersion: policy.stateVersion, policy: stoppedPolicy,
+    });
+    await ui.getByText(/INVALIDATED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    const stoppedText = await preparationCard.innerText();
+    assert.ok(stoppedText.includes('RISK_POLICY_CHANGED'), `Policy change reason is visible: ${stoppedText}`);
+    assert.ok(stoppedText.includes('Reservation released: 400 USD'), `Released capacity is visible: ${stoppedText}`);
+    assert.ok(stoppedText.includes('No provider request was sent'), `The no-provider disclosure remains visible: ${stoppedText}`);
+    assert.ok(!stoppedText.includes('Capacity after TradeX reservation'), `Released capacity is not presented as held: ${stoppedText}`);
+    observed.push('A shared risk-policy update refreshes the durable RESERVED card to INVALIDATED, shows RISK_POLICY_CHANGED and RELEASED capacity, and keeps the no-provider-request disclosure.');
+
+    await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+    await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('TRADING212_LIVE');
+    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(mountedAccount.connectionId);
+    await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('equity:US:AAPL');
+    await ui.getByRole('combobox', { name: 'Side', exact: true }).selectOption('BUY');
+    await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
+    await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
+    await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.001');
+    await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('50000');
+    await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('60');
+    await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
+    await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    let mountedProposal;
+    for (const summary of (await sendIntegrationCommand('trade.proposal.list', { workspaceId })).proposals) {
+      const detail = await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: summary.proposalId });
+      if (detail.fields.quantity.value === '0.001') { mountedProposal = detail; break; }
+    }
+    assert.ok(mountedProposal, 'The mounted-refresh proposal was persisted');
+    await selectDraft(ui, workspaceId, mountedProposal.draftId, '0.001');
+    await ui.locator('.order-proposal-row').filter({ hasText: mountedProposal.proposalId }).click();
+    const mountedReview = await sendIntegrationCommand('trade.request_approval', {
+      workspaceId, proposalId: mountedProposal.proposalId,
+    });
+    assert.equal(mountedReview.eligible, true, 'The mounted-refresh proposal passes its explicit review');
+    const mountedApproval = await sendIntegrationCommand('trade.approve', {
+      workspaceId,
+      proposalId: mountedProposal.proposalId,
+      proposalHash: mountedReview.proposal.proposalHash,
+      reviewedRiskDecisionId: mountedReview.riskDecision.decisionId,
+      reviewDigest: mountedReview.reviewDigest,
+      expectedStateVersion: mountedReview.proposal.stateVersion,
+    });
+    assert.equal(mountedApproval.status, 'ISSUED');
+    await ui.getByRole('button', { name: 'Reload history', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).press('Enter');
+    await ui.getByText(/RESERVED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    const mountedPolicy = await sendIntegrationCommand('risk.get_policy', { workspaceId });
+    await sendIntegrationCommand('risk.save_policy', {
+      workspaceId,
+      expectedStateVersion: mountedPolicy.stateVersion,
+      policy: { ...mountedPolicy.policy, staleQuoteThresholdSeconds: Math.max(1, mountedPolicy.policy.staleQuoteThresholdSeconds - 1) },
+    });
+    await ui.getByText(/INVALIDATED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    const mountedStoppedText = await ui.getByLabel('TradeX execution preparation', { exact: true }).innerText();
+    assert.ok(mountedStoppedText.includes('RISK_POLICY_CHANGED'), `Mounted preparation refreshes its invalidation reason: ${mountedStoppedText}`);
+    assert.ok(mountedStoppedText.includes('Reservation released: 50 USD'), `Mounted preparation refreshes its released amount: ${mountedStoppedText}`);
+    observed.push('A policy change after preparation updates the mounted card from RESERVED/ACTIVE to INVALIDATED/RELEASED without navigation.');
 
     const pageErrors = await tab.dev.logs({ levels: ['error'], limit: 20 });
     assert.equal(pageErrors.filter(log => !log.url?.startsWith('chrome-extension://') && !log.message.includes('chrome-extension://')).length, 0);

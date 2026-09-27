@@ -582,6 +582,7 @@ Visible sequence:
 APPROVED
 → explicit user action: Prepare PLACE
 → RESERVED (TradeX reservation; no provider request)
+→ INVALIDATED + RELEASED if policy, account authority, or trusted approval TTL changes before dispatch
 → SUBMITTING
 → ACCEPTED (not a fill)
 → PARTIALLY_FILLED or FILLED
@@ -609,7 +610,7 @@ Old approval cannot execute; refreshed proposal requires new approval.
 
 ### F6. Approval Expired
 
-Expired approval is not reusable; reservation is released when it had not submitted.
+Expired approval is not reusable. If its attempt is still `RESERVED`, trusted expiry invalidates the attempt and atomically releases an active PLACE reservation. Policy change, account disarm, and Disable All apply the same stop-before-dispatch rule. Show the persisted invalidation reason and released amount, and keep the no-provider-request disclosure; after invalidation, same-key replay restores the stopped result without creating a new attempt.
 
 ### F7. Risk Rejected
 
@@ -1115,7 +1116,7 @@ Generate Proposal freezes the displayed values into a new proposal ID/hash and p
 
 Account-specific faults affect that account; shared policy changes affect all bound accounts. The selected UI account never limits system-wide recovery. Disable All blocks new transmissions and invalidates undispatched consent; it does not cancel an already submitted broker order. Retain/reconcile capacity for attempts that may have left TradeX. Recovery and model switching never auto-arm accounts.
 
-After approval, the user separately prepares the exact Live PLACE. Reopening proposal history reads the durable `RESERVED` result and sanitized capacity refusals by approval ID. A capacity refusal leaves approval and proposal available; retry is explicit and uses a fresh idempotency key.
+After approval, the user separately prepares the exact Live PLACE. Reopening proposal history reads the durable preparation and sanitized capacity refusals by approval ID. While the attempt is `RESERVED`, refresh its persisted state; policy change, account disarm/Disable All, or trusted approval TTL expiry may stop it before dispatch, invalidate the attempt, and release its active PLACE reservation atomically. Render the `INVALIDATED` reason and `RELEASED` amount; same-key replay remains stopped. A capacity refusal leaves approval and proposal available; retry is explicit and uses a fresh idempotency key.
 
 ## 14.4 Expiry and cancellation continuation (F6/F10)
 

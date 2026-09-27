@@ -2262,7 +2262,7 @@ Approval expiry and broker order expiry are distinct events. An expired approval
 
 | Trigger and known execution state | Authoritative transition | Reservation disposition |
 |---|---|---|
-| Approval expires/is invalidated before any transmission can have begun, including `RESERVED` work atomically stopped before dispatch | Approval Authority invalidates consent; the unsubmitted proposal may end as `EXPIRED` with a reason | Release any existing reservation atomically; no reservation means no fabricated release |
+| Approval expires or its authority changes (shared risk-policy change, account disarm, or Disable All) before any transmission can have begun, including `RESERVED` work atomically stopped before dispatch | Invalidate the undispatched attempt and preserve approval/proposal audit history; a consumed approval remains consumed and cannot be replayed as dispatch authority | Atomically release any active PLACE reservation and emit one release event; a CANCEL attempt has no new reservation, and no reservation means no fabricated release |
 | Local approval expires after `SUBMITTING`, or transmission outcome is uncertain | Expire the approval record only; keep the observed order state or `UNKNOWN_RECONCILING` | Keep capacity frozen until authoritative reconciliation |
 | Broker confirms terminal order expiry, cancellation, rejection, or fill | Adapter/reconciliation applies the broker state and cumulative fills | Account for fills/fees and release only the unused remainder, exactly once |
 | Automatic reconciliation times out or the user closes Manual Resolution | Keep `UNKNOWN_RECONCILING`; account remains unhealthy/DISARMED | No release |
