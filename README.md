@@ -23,7 +23,7 @@ Binance Spot uses environment-specific HMAC credentials. Testnet key scope stays
 
 Bitget Classic Spot uses three native secure fields: API key, secret and passphrase. Demo keys are separate and every Demo private read carries its environment header; unsupported account endpoints remain unavailable with no Live fallback. Permission/IP changes require review again. Balances distinguish frozen, locked and restricted availability; current orders include ordinary, TPSL and plan observations without enabling execution.
 
-Live accounts start DISARMED; reopening the workspace or a safety event durably disarms them. Eligible accounts can be explicitly armed. A Live approval is a separate, short-lived authorization and does not submit an order; Live order submission remains unavailable.
+Live accounts start DISARMED; reopening the workspace or a safety event durably disarms them. Eligible accounts can be explicitly armed. A Live approval is a separate, short-lived authorization and does not itself submit an order. For supported Trading 212 Live accounts, the explicit Prepare action starts the privileged Order Gateway send lifecycle; provider acceptance is not a fill. Other provider Live execution, reconciliation, and lifecycle recovery remain incomplete.
 
 Build a local app with embedded frontend assets:
 
