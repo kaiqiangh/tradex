@@ -12,6 +12,7 @@ default = []
 integration-test = []
 desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:objc2", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:block2"]
 custom-protocol = ["tauri/custom-protocol"]
+order-gateway-runtime = []
 
 [[bin]]
 name = "tradex"
@@ -25,6 +26,10 @@ path = "src/bin/ipc.rs"
 [[bin]]
 name = "strategy-worker"
 path = "src/bin/strategy-worker.rs"
+
+[[bin]]
+name = "tradex-order-gateway"
+path = "src/bin/tradex-order-gateway.rs"
 
 [build-dependencies]
 tauri-build = { version = "=2.6.3", features = [] }

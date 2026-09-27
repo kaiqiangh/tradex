@@ -447,6 +447,11 @@ export type RiskPolicyChangeScopeKind = "WORKSPACE";
 export type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionDispatchDisposition".
+ */
+export type ExecutionDispatchDisposition = "STOPPED_BEFORE_DISPATCH" | "MAY_HAVE_SUBMITTED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialOperation".
  */
 export type FinancialOperation = "PLACE_ORDER" | "CANCEL";
@@ -454,7 +459,8 @@ export type FinancialOperation = "PLACE_ORDER" | "CANCEL";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ExecutionAttemptState".
  */
-export type ExecutionAttemptState = "RESERVED" | "INVALIDATED";
+export type ExecutionAttemptState =
+  "RESERVED" | "INVALIDATED" | "SUBMITTING" | "ACCEPTED" | "REJECTED" | "UNKNOWN_RECONCILING" | "CANCEL_PENDING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ExecutionReservationStatus".
@@ -2980,7 +2986,9 @@ export interface ExecutionAttempt {
   attemptId: string;
   brokerOrderId?: string | null;
   createdAt: string;
+  dispatchDisposition?: ExecutionDispatchDisposition | null;
   environment: ExecutionContext;
+  errorCode?: string | null;
   intentHash: string;
   intentId: string;
   intentStateVersion: string;
@@ -2988,6 +2996,7 @@ export interface ExecutionAttempt {
   operation: FinancialOperation;
   policyVersion: number;
   proposalId?: string | null;
+  providerStatus?: string | null;
   reservationId?: string | null;
   reviewDigest: string;
   riskDecisionId: string;

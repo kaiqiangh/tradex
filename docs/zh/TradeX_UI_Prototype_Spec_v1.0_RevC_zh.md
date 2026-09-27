@@ -434,16 +434,16 @@ Bitget Live · DISARMED
 
 ```text
 APPROVED
-→ 用户单独显式操作：Prepare PLACE
-→ RESERVED（TradeX 预留；未发送 provider request）
-→ 若派发前策略、账户授权或可信 approval TTL 变化，则 INVALIDATED + RELEASED
-→ SUBMITTING
-→ ACCEPTED (not a fill)
-→ PARTIALLY_FILLED or FILLED
+→ 用户显式操作：Prepare PLACE
+→ RESERVED（TradeX reservation 已提交）
+→ 若停止在 SUBMITTING 前获胜，则 INVALIDATED + RELEASED
+→ SUBMITTING（provider request 可能已发送）
+→ ACCEPTED（provider 确认；不是成交）/ REJECTED / UNKNOWN_RECONCILING
+→ 只有 provider 成交证据才能进入 PARTIALLY_FILLED 或 FILLED
 → reconciliation
 ```
 
-S23 在 `RESERVED` 停止；后续 S24 Gateway 边界才负责 provider 派发。
+Prepare 是唯一公开的 execution authority。`RESERVED` 提交后，Control Plane 在内部启动 Gateway。通过无障碍状态文本显示耐久的 `RESERVED`、`SUBMITTING`、`ACCEPTED`、`REJECTED` 或 `UNKNOWN_RECONCILING`；受理不等于成交，不确定提交不得重发。
 
 Identity 不变。
 
@@ -457,7 +457,7 @@ expected spend、maximum authorized、bid/ask/spread、provenance、fee/slippage
 
 ### F6. Approval Expired
 
-approval 不可复用。若 attempt 仍为 `RESERVED`，可信过期扫描会使其失效，并原子释放 active PLACE reservation。策略变更、账户撤防和 Disable All 执行相同的派发前停止规则。显示持久化的失效原因与已释放金额，并保留“未向 provider 发送 request”说明；相同幂等键重放会恢复已停止结果，不会创建新 attempt。
+approval 不可复用。若 attempt 仍为 `RESERVED`，可信过期扫描会使其失效，并原子释放 active PLACE reservation。策略变更、账户撤防和 Disable All 若在 `SUBMITTING` 前获胜，也执行相同的停止规则。此时显示持久化的失效原因与已释放金额，并说明未发送 provider mutation；一旦 `SUBMITTING` 持久化，则显示 request 可能已发送并保留容量。相同幂等键重放会恢复已保存结果，不会创建新 attempt 或重发。
 
 ### F7. Risk Rejected
 
@@ -782,7 +782,8 @@ Onboard
 → Trade + one Live account
 → arm exactly that account
 → live limit/market approval + full provenance
-→ RESERVED → SUBMITTING → ACCEPTED → fill
+→ RESERVED → SUBMITTING → ACCEPTED / REJECTED / UNKNOWN_RECONCILING
+→ provider fill evidence → PARTIALLY_FILLED / FILLED
 → reservation conflict
 → risk-policy invalidation
 → stale/expired/risk-rejected/rejected/ambiguous
@@ -836,7 +837,7 @@ Generate Proposal 将展示值冻结到新的 proposal ID/hash 及策略/快照�
 
 审批 TTL 过期按 PRD §45 条件释放。过期页面展示 proposal/账户、过期时间/原因、是否可能已经提交，以及后端返回的预留处置。Refresh 创建新 proposal 并要求审批；已提交/未知尝试进入订单活动/对账，不能进入替代订单。
 
-撤单流程：选择开放订单 → 刷新券商状态 → 保留不可变 CANCEL 意图 → 必要时 Arm 精确账户 → 刷新/重新校验撤单意图 → Approve Cancellation → 在 TradeX 中单独准备精确获批的 CANCEL → `RESERVED`（仅本地保存；不发送 provider DELETE，也不新增 PLACE reservation）→ S24 派发 → `CANCEL_PENDING` → 券商确认 CANCELLED 或成交竞态。审批显示提供方订单 ID、账户/环境、标的、已观察成交/剩余数量和时间戳。准备动作有独立的显式操作，并能在导航/重启后显示已保存 attempt；不得宣称券商已撤单。Reject/Back 退出同意且不产生修改。订单变化/成交使旧撤单意图失效，并解释新状态。
+撤单流程：选择开放订单 → 刷新券商状态 → 保留不可变 CANCEL 意图 → 必要时 Arm 精确账户 → 刷新/重新校验撤单意图 → Approve Cancellation → 在 TradeX 显式选择 `Prepare and send approved cancellation` → `RESERVED`（不新增 PLACE reservation）→ `SUBMITTING` → `CANCEL_PENDING` / `REJECTED` / `UNKNOWN_RECONCILING` → 券商确认终态或成交竞态。审批显示提供方订单 ID、账户/环境、标的、已观察成交/剩余数量和时间戳。按钮明确说明 Prepare 会启动发送流程，且导航/重启后展示已保存 attempt；provider 确认不代表撤单完成。Reject/Back 退出同意且不产生修改。订单变化/成交使旧撤单意图失效，并解释新状态。
 
 ## 14.5 未知提交与 Manual Resolution（F3/F9、K7）
 

@@ -68,12 +68,16 @@ impl HttpsFixture {
     fn http(&self) -> BrokerHttp {
         let cert = std::fs::read(self.directory.path().join("cert.pem")).unwrap();
         // Only this test client trusts the ephemeral certificate and tunnels to the loopback fixture.
-        let client = BrokerHttp::client_builder()
+        let client = BrokerHttp::client_builder(true)
             .add_root_certificate(reqwest::Certificate::from_pem(&cert).unwrap())
             .proxy(reqwest::Proxy::https(&self.proxy).unwrap())
             .build()
             .unwrap();
-        BrokerHttp(std::cell::OnceCell::from(Ok(client)))
+        BrokerHttp {
+            client: std::cell::OnceCell::from(Ok(client)),
+            #[cfg(feature = "integration-test")]
+            local_test_base_url: None,
+        }
     }
 }
 impl Drop for HttpsFixture {

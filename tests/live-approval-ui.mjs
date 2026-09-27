@@ -86,14 +86,6 @@ export async function checkLiveApprovalUI(tab, browser) {
       confirmed: true,
     });
     assert.equal(armed.health.arming, 'ARMED');
-    const mountedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
-      workspaceId, providerId: 'trading212', label: 'Mounted refresh fixture',
-    });
-    const armedMountedAccount = await sendIntegrationCommand('account.arm', {
-      workspaceId, connectionId: mountedAccount.connectionId,
-      expectedStateVersion: mountedAccount.stateVersion, confirmed: true,
-    });
-    assert.equal(armedMountedAccount.health.arming, 'ARMED');
     const navigation = ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).first();
     await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
@@ -237,7 +229,7 @@ export async function checkLiveApprovalUI(tab, browser) {
       proposalId: selectedProposal.proposalId,
     });
     assert.equal(issuedHistory.approvals[0]?.status, 'ISSUED', 'Approving does not consume the approval or reserve capacity');
-    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).waitFor({ state: 'visible' });
     assert.match(await ui.getByRole('status').innerText(), /No order was placed/);
     observed.push('Enter is inert on Approve; Space explicitly issues the approval, while preparation remains a separate action and no order has been placed or reserved.');
 
@@ -321,16 +313,28 @@ export async function checkLiveApprovalUI(tab, browser) {
       workspaceId, connectionId: account.connectionId, expectedStateVersion: latestAccount.stateVersion, confirmed: true,
     });
     assert.equal(readyAccount.health.arming, 'ARMED');
+    const executionAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
+      workspaceId, providerId: 'trading212', label: `Gateway dispatch fixture ${Date.now()}`,
+    });
+    await sendIntegrationCommand('time.revalidate', { workspaceId });
+    const executionArm = await sendIntegrationCommand('account.arm', {
+      workspaceId, connectionId: executionAccount.connectionId,
+      expectedStateVersion: executionAccount.stateVersion, confirmed: true,
+    });
+    assert.equal(executionArm.health.arming, 'ARMED');
+    await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
+    await navigation.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('TRADING212_LIVE');
-    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(account.connectionId);
+    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(executionAccount.connectionId);
     await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('equity:US:AAPL');
     await ui.getByRole('combobox', { name: 'Side', exact: true }).selectOption('BUY');
     await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
     await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
     await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.008');
     await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('50000');
-    await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('410');
     await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
     await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
@@ -352,12 +356,14 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByRole('status').filter({ hasText: 'Current checks pass. Approval still requires your explicit action.' }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).press('Space');
     await prepareReview.waitFor({ state: 'hidden' });
-    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).waitFor({ state: 'visible' });
-    const preparationButton = ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true });
+    await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).waitFor({ state: 'visible' });
+    const preparationButton = ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true });
+    await sendIntegrationCommand('live.gateway.fixture.set_result', { workspaceId, scenario: 'ACCEPTED' });
     await preparationButton.press('Enter');
-    await ui.getByRole('status').filter({ hasText: 'TradeX reserved 400 USD; no provider request was sent.' }).waitFor({ state: 'visible' });
-    await ui.getByText(/RESERVED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
-    await ui.getByText(/No order request was sent to the provider\./, { exact: false }).waitFor({ state: 'visible' });
+    await ui.getByText(/ACCEPTED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    const acceptedCard = ui.getByLabel('TradeX execution preparation', { exact: true });
+    await acceptedCard.getByRole('status').filter({ hasText: 'The provider accepted the order. This is not a fill.' }).waitFor({ state: 'visible' });
+    await acceptedCard.getByText('Provider order ID 901', { exact: true }).waitFor({ state: 'visible' });
     const liveReviewButton = ui.getByRole('button', { name: 'Review Live approval', exact: true });
     for (let attempt = 0; attempt < 40 && await liveReviewButton.isEnabled(); attempt += 1) await ui.waitForTimeout(50);
     assert.equal(await liveReviewButton.isEnabled(), false, 'A consumed proposal cannot open a second live review');
@@ -368,6 +374,18 @@ export async function checkLiveApprovalUI(tab, browser) {
       approvalId: preparedHistory.approvals[0].approvalId,
     });
     assert.ok(durablePreparation.preparation?.attempt.attemptId, 'The saved attempt is queryable without its original idempotency key');
+    assert.equal(durablePreparation.preparation.attempt.state, 'ACCEPTED');
+    assert.equal(durablePreparation.preparation.attempt.brokerOrderId, '901');
+    assert.equal(durablePreparation.preparation.attempt.providerStatus, 'NEW');
+    assert.equal(durablePreparation.preparation.reservation.status, 'ACTIVE', 'Provider acceptance does not release capacity before provider evidence does.');
+    const gatewayRequests = (await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests;
+    const placeRequests = gatewayRequests.filter(request => request.method === 'POST');
+    assert.equal(placeRequests.length, 1, 'The approved attempt causes exactly one provider mutation.');
+    assert.equal(placeRequests[0].path, '/api/v0/equity/orders/limit');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(placeRequests[0].body)), {
+      ticker: 'AAPL_US_EQ', quantity: 0.008, limitPrice: 50000, timeValidity: 'GOOD_TILL_CANCEL',
+    });
+    assert.equal(placeRequests[0].authorizationPresent, true, 'The synthetic provider receives credentials only in its authorization header.');
     const consumedProposal = await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: preparedProposal.proposalId });
     assert.equal(consumedProposal.status, 'CONSUMED', 'The same transaction consumes the exact immutable proposal');
     await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
@@ -379,13 +397,15 @@ export async function checkLiveApprovalUI(tab, browser) {
     const recoveredCard = ui.getByLabel('TradeX execution preparation', { exact: true });
     await recoveredCard.waitFor({ state: 'visible' });
     assert.ok((await recoveredCard.innerText()).includes(durablePreparation.preparation.attempt.attemptId), 'Reopening Order Drafts restores the persisted preparation');
+    assert.match(await recoveredCard.innerText(), /ACCEPTED · TradeX execution attempt/);
+    assert.match(await recoveredCard.innerText(), /Provider order ID 901/);
     assert.ok((await recoveredCard.innerText()).includes('Capacity after TradeX reservation'), 'The recovered reservation restores its backend capacity projection');
-    observed.push('A second explicit action consumes the issued approval, shows a durable RESERVED attempt and exact capacity projection, and confirms no provider request was sent.');
+    observed.push('The explicit Prepare action consumes the approval, dispatches one exact fake-provider POST, and persists ACCEPTED with provider order 901 while keeping capacity held.');
     observed.push('Reopening Order Drafts restores the preparation through its approval ID without renderer-held idempotency state.');
 
     await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('TRADING212_LIVE');
-    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(account.connectionId);
+    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(executionAccount.connectionId);
     await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('equity:US:AAPL');
     await ui.getByRole('combobox', { name: 'Side', exact: true }).selectOption('BUY');
     await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
@@ -423,7 +443,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     await expectFocus(ui, 'Reject this review');
     await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).press('Space');
     await conflictDialog.waitFor({ state: 'hidden' });
-    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).press('Enter');
     await ui.getByRole('alert').filter({ hasText: 'RISK_REJECTED · RESERVED_CAPACITY' }).waitFor({ state: 'visible' });
     await ui.getByText(/Next step: Reduce the request or wait for earlier reservations/).waitFor({ state: 'visible' });
     const refusalSummary = ui.getByLabel('Capacity evidence at refusal', { exact: true });
@@ -447,7 +467,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.equal(conflictPreparation.preparation, null, 'Over-limit preparation creates no execution attempt');
     assert.equal(conflictPreparation.rejections[0].capacityContext.effectiveAvailable, '600');
     assert.equal(conflictPreparation.rejections[0].capacityContext.remediation, 'REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS');
-    assert.equal(await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).isEnabled(), true);
+    assert.equal(await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).isEnabled(), true);
     observed.push('F11 shows $1,000 provider capacity, $400 reserved by TradeX, and $600 effective before a $700 request; refusal evidence fits at 1280/768/390px, preserves the approval, records remediation, and creates no attempt.');
 
     const staleAccount = await sendIntegrationCommand('account.capacity.fixture.stale', {
@@ -490,25 +510,40 @@ export async function checkLiveApprovalUI(tab, browser) {
     }
     await staleDialog.press('Escape');
     await staleDialog.waitFor({ state: 'hidden' });
+    await viewport.set({ width: 1280, height: 900 });
     observed.push('F11 stale capacity review hides every amount, announces the stale state to assistive technology, blocks approval, and fits at 1280/768/390px.');
 
     await selectDraft(ui, workspaceId, preparedProposal.draftId, '0.008');
     await ui.locator('.order-proposal-row').filter({ hasText: preparedProposal.proposalId }).click();
     const preparationCard = ui.getByLabel('TradeX execution preparation', { exact: true });
-    await ui.getByText(/RESERVED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    await ui.getByText(/ACCEPTED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
     const policy = await sendIntegrationCommand('risk.get_policy', { workspaceId });
     const stoppedPolicy = { ...policy.policy, staleQuoteThresholdSeconds: Math.max(1, policy.policy.staleQuoteThresholdSeconds - 1) };
     await sendIntegrationCommand('risk.save_policy', {
       workspaceId, expectedStateVersion: policy.stateVersion, policy: stoppedPolicy,
     });
-    await ui.getByText(/INVALIDATED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
-    const stoppedText = await preparationCard.innerText();
-    assert.ok(stoppedText.includes('RISK_POLICY_CHANGED'), `Policy change reason is visible: ${stoppedText}`);
-    assert.ok(stoppedText.includes('Reservation released: 400 USD'), `Released capacity is visible: ${stoppedText}`);
-    assert.ok(stoppedText.includes('No provider request was sent'), `The no-provider disclosure remains visible: ${stoppedText}`);
-    assert.ok(!stoppedText.includes('Capacity after TradeX reservation'), `Released capacity is not presented as held: ${stoppedText}`);
-    observed.push('A shared risk-policy update refreshes the durable RESERVED card to INVALIDATED, shows RISK_POLICY_CHANGED and RELEASED capacity, and keeps the no-provider-request disclosure.');
+    const acceptedAfterPolicyChange = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: preparedHistory.approvals[0].approvalId,
+    });
+    assert.equal(acceptedAfterPolicyChange.preparation.attempt.state, 'ACCEPTED', 'A post-dispatch policy update cannot claim it prevented the provider request.');
+    assert.equal(acceptedAfterPolicyChange.preparation.reservation.status, 'ACTIVE');
+    assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST')).length, 1);
+    assert.match(await preparationCard.innerText(), /ACCEPTED · TradeX execution attempt/);
+    observed.push('A risk-policy update after provider acceptance preserves the persisted ACCEPTED attempt and its active capacity reservation.');
 
+    const mountedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
+      workspaceId, providerId: 'trading212', label: `Mounted refresh fixture ${Date.now()}`,
+    });
+    await sendIntegrationCommand('time.revalidate', { workspaceId });
+    const armedMountedAccount = await sendIntegrationCommand('account.arm', {
+      workspaceId, connectionId: mountedAccount.connectionId,
+      expectedStateVersion: mountedAccount.stateVersion, confirmed: true,
+    });
+    assert.equal(armedMountedAccount.health.arming, 'ARMED');
+    await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
+    await navigation.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
     await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('TRADING212_LIVE');
     await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(mountedAccount.connectionId);
@@ -518,7 +553,6 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
     await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.001');
     await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('50000');
-    await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('60');
     await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
     await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
@@ -546,20 +580,82 @@ export async function checkLiveApprovalUI(tab, browser) {
     });
     assert.equal(mountedApproval.status, 'ISSUED');
     await ui.getByRole('button', { name: 'Reload history', exact: true }).press('Enter');
-    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).waitFor({ state: 'visible' });
-    await ui.getByRole('button', { name: 'Prepare PLACE and reserve capacity', exact: true }).press('Enter');
-    await ui.getByText(/RESERVED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).waitFor({ state: 'visible' });
+    await sendIntegrationCommand('live.gateway.fixture.set_result', { workspaceId, scenario: 'UNKNOWN' });
+    await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).press('Enter');
+    await ui.getByText(/UNKNOWN_RECONCILING · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    const unknownCard = ui.getByLabel('TradeX execution preparation', { exact: true });
+    await unknownCard.getByRole('status').filter({ hasText: 'The provider outcome is uncertain. Capacity remains held; do not resend this request.' }).waitFor({ state: 'visible' });
     const mountedPolicy = await sendIntegrationCommand('risk.get_policy', { workspaceId });
     await sendIntegrationCommand('risk.save_policy', {
       workspaceId,
       expectedStateVersion: mountedPolicy.stateVersion,
       policy: { ...mountedPolicy.policy, staleQuoteThresholdSeconds: Math.max(1, mountedPolicy.policy.staleQuoteThresholdSeconds - 1) },
     });
-    await ui.getByText(/INVALIDATED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
-    const mountedStoppedText = await ui.getByLabel('TradeX execution preparation', { exact: true }).innerText();
-    assert.ok(mountedStoppedText.includes('RISK_POLICY_CHANGED'), `Mounted preparation refreshes its invalidation reason: ${mountedStoppedText}`);
-    assert.ok(mountedStoppedText.includes('Reservation released: 50 USD'), `Mounted preparation refreshes its released amount: ${mountedStoppedText}`);
-    observed.push('A policy change after preparation updates the mounted card from RESERVED/ACTIVE to INVALIDATED/RELEASED without navigation.');
+    const unknownPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: mountedApproval.approvalId,
+    });
+    assert.equal(unknownPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
+    assert.equal(unknownPreparation.preparation.reservation.status, 'ACTIVE', 'Unknown provider outcome keeps capacity frozen after a policy update.');
+    assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST')).length, 2, 'Unknown outcome is never resent.');
+    const mountedStoppedText = await unknownCard.innerText();
+    assert.match(mountedStoppedText, /UNKNOWN_RECONCILING · TradeX execution attempt/);
+    assert.match(mountedStoppedText, /Capacity remains held; do not resend this request/);
+    assert.equal(await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).count(), 0, 'An uncertain consumed approval exposes no resend action.');
+    observed.push('An ambiguous provider outcome remains UNKNOWN_RECONCILING with active capacity after policy change and cannot be resent.');
+
+    const rejectedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
+      workspaceId, providerId: 'trading212', label: `Rejected gateway fixture ${Date.now()}`,
+    });
+    await sendIntegrationCommand('time.revalidate', { workspaceId });
+    const armedRejectedAccount = await sendIntegrationCommand('account.arm', {
+      workspaceId, connectionId: rejectedAccount.connectionId,
+      expectedStateVersion: rejectedAccount.stateVersion, confirmed: true,
+    });
+    assert.equal(armedRejectedAccount.health.arming, 'ARMED');
+    await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
+    await navigation.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+    await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('TRADING212_LIVE');
+    await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(rejectedAccount.connectionId);
+    await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('equity:US:AAPL');
+    await ui.getByRole('combobox', { name: 'Side', exact: true }).selectOption('BUY');
+    await ui.getByRole('combobox', { name: 'Order type', exact: true }).selectOption('LIMIT');
+    await ui.getByRole('combobox', { name: 'Quantity type', exact: true }).selectOption('BASE');
+    await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.001');
+    await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('50000');
+    await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
+    await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Draft saved at version 1.' }).waitFor({ state: 'visible' });
+    const proposalsBeforeRejection = new Set((await sendIntegrationCommand('trade.proposal.list', { workspaceId })).proposals.map(item => item.proposalId));
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    const rejectedProposal = (await sendIntegrationCommand('trade.proposal.list', { workspaceId })).proposals.find(item => !proposalsBeforeRejection.has(item.proposalId));
+    assert.ok(rejectedProposal, 'The definitive-rejection proposal was persisted');
+    await ui.locator('.order-proposal-row').filter({ hasText: rejectedProposal.proposalId }).click();
+    await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
+    const rejectedDialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
+    await rejectedDialog.waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).press('Space');
+    await rejectedDialog.waitFor({ state: 'hidden' });
+    await sendIntegrationCommand('live.gateway.fixture.set_result', { workspaceId, scenario: 'REJECTED' });
+    await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).press('Enter');
+    const rejectedCard = ui.getByLabel('TradeX execution preparation', { exact: true });
+    await rejectedCard.getByText(/REJECTED · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
+    await rejectedCard.getByRole('status').filter({ hasText: 'The provider rejected the order. TradeX released its reservation.' }).waitFor({ state: 'visible' });
+    const rejectedApproval = (await sendIntegrationCommand('trade.approval.list', {
+      workspaceId, proposalId: rejectedProposal.proposalId,
+    })).approvals[0];
+    const rejectedPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: rejectedApproval.approvalId,
+    });
+    assert.equal(rejectedPreparation.preparation.attempt.state, 'REJECTED');
+    assert.equal(rejectedPreparation.preparation.reservation.status, 'RELEASED');
+    assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST').length), 3, 'Each explicit attempt causes one POST; rejection is not replayed.');
+    assert.equal(await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).count(), 0, 'A rejected consumed approval exposes no resend action.');
+    observed.push('A definitive provider rejection is persisted, releases only its reservation, displays accurate status, and cannot be resent.');
 
     const pageErrors = await tab.dev.logs({ levels: ['error'], limit: 20 });
     assert.equal(pageErrors.filter(log => !log.url?.startsWith('chrome-extension://') && !log.message.includes('chrome-extension://')).length, 0);

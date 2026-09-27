@@ -581,17 +581,17 @@ Visible sequence:
 ```text
 APPROVED
 → explicit user action: Prepare PLACE
-→ RESERVED (TradeX reservation; no provider request)
-→ INVALIDATED + RELEASED if policy, account authority, or trusted approval TTL changes before dispatch
-→ SUBMITTING
-→ ACCEPTED (not a fill)
-→ PARTIALLY_FILLED or FILLED
+→ RESERVED (TradeX reservation committed)
+→ INVALIDATED + RELEASED if a stop wins before SUBMITTING
+→ SUBMITTING (the provider request may have been sent)
+→ ACCEPTED (provider acknowledgement; not a fill) / REJECTED / UNKNOWN_RECONCILING
+→ PARTIALLY_FILLED or FILLED only from provider fill evidence
 → reconciliation
 ```
 
 Order identity remains unchanged.
 
-S23 ends at `RESERVED`; the later S24 Gateway boundary owns any provider dispatch.
+The explicit Prepare action is the only public execution authority. After `RESERVED` is committed, the Control Plane starts the Gateway internally. Show accessible, persisted `RESERVED`, `SUBMITTING`, `ACCEPTED`, `REJECTED`, or `UNKNOWN_RECONCILING` status; acceptance is not a fill, and an uncertain submission has no resend action.
 
 ### F4. Market Order Approval — Binance / BTC
 
@@ -1122,7 +1122,7 @@ After approval, the user separately prepares the exact Live PLACE. Reopening pro
 
 Approval TTL expiry uses the guarded PRD §45 release rules. The expiry screen shows proposal/account, expiry time/reason, whether submission may have begun, and the backend-provided reservation disposition. Refresh creates a new proposal requiring approval; a submitted/unknown attempt routes to order activity/reconciliation, not a replacement order.
 
-Cancellation flow: select an open order → refresh its broker state → preserve an immutable CANCEL intent → Arm exact account if needed → refresh/revalidate cancellation intent → Approve Cancellation → separately prepare the exact approved CANCEL in TradeX → `RESERVED` (saved locally; no provider DELETE and no new PLACE reservation) → S24 dispatch → `CANCEL_PENDING` → broker-confirmed CANCELLED or a fill race. The approval displays provider order ID, account/environment, instrument, observed filled/remaining quantity and timestamp. Preparation has its own explicit action and displays the saved attempt after navigation/restart; it never claims the broker order was cancelled. Reject/Back dismisses consent without a mutation. A changed/filled order invalidates the old cancellation intent and explains the new state.
+Cancellation flow: select an open order → refresh its broker state → preserve an immutable CANCEL intent → Arm exact account if needed → refresh/revalidate cancellation intent → Approve Cancellation → explicitly `Prepare and send approved cancellation` in TradeX → `RESERVED` (no new PLACE reservation) → `SUBMITTING` → `CANCEL_PENDING` / `REJECTED` / `UNKNOWN_RECONCILING` → broker-confirmed terminal state or a fill race. The approval displays provider order ID, account/environment, instrument, observed filled/remaining quantity and timestamp. The button explains that Prepare starts the send lifecycle; reopening history displays the saved attempt after navigation/restart. Never claim that a provider acknowledgement means the order was cancelled. Reject/Back dismisses consent without a mutation. A changed/filled order invalidates the old cancellation intent and explains the new state.
 
 ## 14.5 Unknown submission and Manual Resolution (F3/F9, K7)
 

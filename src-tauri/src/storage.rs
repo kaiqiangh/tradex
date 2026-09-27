@@ -34,7 +34,8 @@ use crate::protocol::{
     BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptState,
     BitgetDemoOrderSubmit, CancellationApprovalHistory, CancellationApprovalRejection,
     CancellationIntent, CancellationIntentHistoryEntry, DomainEvent, DomainProjection, EventSink,
-    ExecutionAttempt, ExecutionAttemptState, ExecutionContext, ExecutionPreparation,
+    ExecutionAttempt, ExecutionAttemptState, ExecutionContext, ExecutionDispatchDisposition,
+    ExecutionDispatchGrant, ExecutionDispatchGrantStatus, ExecutionPreparation,
     ExecutionPreparationRejection, ExecutionReservation, ExecutionReservationStatus,
     FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
     LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder, LocalPaperState,
@@ -57,7 +58,7 @@ use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 27;
+pub(crate) const SCHEMA_VERSION: u32 = 28;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -671,6 +672,59 @@ impl Store {
                 CREATE INDEX execution_preparation_rejections_approval ON execution_preparation_rejections(workspace_id,approval_id,sequence);
                 PRAGMA user_version=27;").map_err(storage_error)?;
             }
+            if version < 28 {
+                tx.execute_batch("DROP INDEX execution_attempts_account_state;
+                DROP INDEX execution_reservations_capacity;
+                DROP INDEX execution_reservations_workspace_status;
+                ALTER TABLE execution_reservations RENAME TO execution_reservations_legacy;
+                ALTER TABLE execution_attempts RENAME TO execution_attempts_legacy;
+                CREATE TABLE execution_attempts (
+                    attempt_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    approval_id TEXT NOT NULL REFERENCES financial_approvals(approval_id),
+                    account_id TEXT NOT NULL REFERENCES accounts(connection_id),
+                    operation TEXT NOT NULL CHECK(operation IN ('PLACE_ORDER','CANCEL')),
+                    intent_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN ('RESERVED','INVALIDATED','SUBMITTING','ACCEPTED','REJECTED','UNKNOWN_RECONCILING','CANCEL_PENDING')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,approval_id),
+                    UNIQUE(workspace_id,idempotency_key),
+                    UNIQUE(workspace_id,operation,intent_id)
+                );
+                INSERT INTO execution_attempts SELECT * FROM execution_attempts_legacy;
+                CREATE TABLE execution_reservations (
+                    reservation_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    account_id TEXT NOT NULL REFERENCES accounts(connection_id),
+                    attempt_id TEXT NOT NULL UNIQUE REFERENCES execution_attempts(attempt_id) DEFERRABLE INITIALLY DEFERRED,
+                    capacity_key TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ACTIVE','RELEASED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                INSERT INTO execution_reservations SELECT * FROM execution_reservations_legacy;
+                DROP TABLE execution_reservations_legacy;
+                DROP TABLE execution_attempts_legacy;
+                CREATE INDEX execution_attempts_account_state ON execution_attempts(account_id,state);
+                CREATE INDEX execution_reservations_capacity ON execution_reservations(account_id,capacity_key,status);
+                CREATE INDEX execution_reservations_workspace_status ON execution_reservations(workspace_id,status);
+                CREATE TABLE execution_dispatch_grants (
+                    grant_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    attempt_id TEXT NOT NULL REFERENCES execution_attempts(attempt_id),
+                    account_id TEXT NOT NULL REFERENCES accounts(connection_id),
+                    gateway_session_id TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ISSUED','CONSUMED','REVOKED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX execution_dispatch_grants_account_status ON execution_dispatch_grants(account_id,status);
+                CREATE INDEX execution_dispatch_grants_attempt ON execution_dispatch_grants(attempt_id);
+                CREATE UNIQUE INDEX execution_dispatch_grants_one_issued_per_attempt ON execution_dispatch_grants(attempt_id) WHERE status='ISSUED';
+                PRAGMA user_version=28;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -701,7 +755,106 @@ impl Store {
         store.recover_interrupted_bitget_demo_attempts()?;
         store.recover_interrupted_binance_testnet_cancels()?;
         store.recover_interrupted_alpaca_paper_cancels()?;
+        store.recover_interrupted_live_execution_attempts()?;
         Ok(store)
+    }
+
+    fn recover_interrupted_live_execution_attempts(&mut self) -> Result<()> {
+        let attempts = {
+            let mut statement = self.connection.prepare(
+                "SELECT workspace_id,attempt_id,state FROM execution_attempts WHERE state IN ('RESERVED','SUBMITTING') ORDER BY account_id,attempt_id",
+            ).map_err(storage_error)?;
+            statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for (workspace_id, attempt_id, state) in attempts {
+            let now = timestamp()?;
+            let tx = self
+                .connection
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(storage_error)?;
+            let mut attempt = load_execution_attempt(&tx, &workspace_id, &attempt_id)?
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if state == "RESERVED" {
+                if attempt.state == ExecutionAttemptState::Invalidated {
+                    tx.commit().map_err(storage_error)?;
+                    continue;
+                }
+                if attempt.state != ExecutionAttemptState::Reserved {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                if let Some(grant) = load_execution_dispatch_grant(&tx, &attempt_id, true)? {
+                    match grant.status {
+                        ExecutionDispatchGrantStatus::Issued => {
+                            revoke_execution_dispatch_grant_tx(&tx, &attempt_id)?;
+                        }
+                        ExecutionDispatchGrantStatus::Revoked => {}
+                        ExecutionDispatchGrantStatus::Consumed => {
+                            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                        }
+                    }
+                }
+                tx.commit().map_err(storage_error)?;
+                continue;
+            }
+            if state != "SUBMITTING" || attempt.state != ExecutionAttemptState::Submitting {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let grant = load_execution_dispatch_grant(&tx, &attempt_id, true)?
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if grant.status != ExecutionDispatchGrantStatus::Consumed
+                || grant.workspace_id != workspace_id
+                || grant.attempt_id != attempt.attempt_id
+                || grant.account_id != attempt.account_id
+                || grant.operation != attempt.operation
+                || grant.intent_id != attempt.intent_id
+                || grant.intent_hash != attempt.intent_hash
+                || grant.approval_id != attempt.approval_id
+                || grant.reservation_id != attempt.reservation_id
+                || grant.account_state_version != attempt.account_state_version
+                || grant.intent_state_version != attempt.intent_state_version
+                || grant.policy_version != attempt.policy_version
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let (account_sequence, projection): (i64, String) = tx
+                .query_row(
+                    "SELECT sequence,projection FROM accounts WHERE connection_id=?1",
+                    [&attempt.account_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let mut account: AccountConnection = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            account.validate_persisted(&workspace_id)?;
+            if account_sequence < 1
+                || account.connection_id != attempt.account_id
+                || account.environment != "LIVE"
+                || account.state_version != format!("{}:{account_sequence}", account.connection_id)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if account.health.arming == "ARMED" {
+                account.health.arming = "DISARMED".into();
+                account.health.arming_reason = "WORKSPACE_REOPENED".into();
+                save_account_tx(&tx, account, account_sequence + 1, &now)?;
+            }
+            attempt.state = ExecutionAttemptState::UnknownReconciling;
+            attempt.invalidation_reason = None;
+            let key = execution_attempt_idempotency_key(&tx, &workspace_id, &attempt)?;
+            write_execution_attempt_tx(&tx, attempt, &key, &now)?;
+            tx.commit().map_err(storage_error)?;
+        }
+        Ok(())
     }
 
     fn recover_interrupted_trading212_demo_attempts(&mut self) -> Result<()> {
@@ -3104,6 +3257,296 @@ impl Store {
                 approval_id,
             )?,
         })
+    }
+
+    pub fn execution_preparation_for_attempt(
+        &self,
+        workspace_id: &str,
+        attempt_id: &str,
+    ) -> Result<ExecutionPreparation> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let attempt = load_execution_attempt(&self.connection, workspace_id, attempt_id)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        let reservation =
+            load_execution_reservation_for_attempt(&self.connection, workspace_id, attempt_id)?;
+        Ok(ExecutionPreparation {
+            attempt: Box::new(attempt),
+            reservation: reservation.map(Box::new),
+        })
+    }
+
+    pub fn execution_dispatch_grant(&self, grant_id: &str) -> Result<ExecutionDispatchGrant> {
+        if !valid_order_text(grant_id, 128) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        load_execution_dispatch_grant(&self.connection, grant_id, false)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))
+    }
+
+    pub fn issue_execution_dispatch_grant(
+        &mut self,
+        attempt_id: &str,
+        gateway_session_id: &str,
+        expected_review_digest: &str,
+        now: &str,
+    ) -> Result<ExecutionDispatchGrant> {
+        if !valid_order_text(attempt_id, 128)
+            || !valid_order_text(gateway_session_id, 128)
+            || !valid_order_text(expected_review_digest, 80)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        let workspace_id = self.workspace_id()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let attempt = load_execution_attempt(&tx, &workspace_id, attempt_id)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        if attempt.state != ExecutionAttemptState::Reserved {
+            return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+        }
+        validate_live_dispatch_bindings(&tx, &workspace_id, &attempt, expected_review_digest, now)?;
+        if let Some(existing) = load_execution_dispatch_grant(&tx, attempt_id, true)? {
+            if existing.status == ExecutionDispatchGrantStatus::Issued {
+                if existing.gateway_session_id == gateway_session_id
+                    && existing.expires_at
+                        == load_financial_approval_for_attempt(&tx, &attempt)?.expires_at
+                    && !approval_expired(&existing.expires_at, now)
+                    && existing.attempt_id == attempt.attempt_id
+                    && existing.account_state_version == attempt.account_state_version
+                    && existing.intent_state_version == attempt.intent_state_version
+                    && existing.intent_hash == attempt.intent_hash
+                    && existing.approval_id == attempt.approval_id
+                    && existing.reservation_id == attempt.reservation_id
+                    && existing.policy_version == attempt.policy_version
+                {
+                    tx.commit().map_err(storage_error)?;
+                    return Ok(existing);
+                }
+                revoke_execution_dispatch_grant_tx(&tx, attempt_id)?;
+            } else if existing.status == ExecutionDispatchGrantStatus::Consumed {
+                return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+            }
+        }
+        let approval = load_financial_approval_for_attempt(&tx, &attempt)?;
+        let grant = ExecutionDispatchGrant {
+            grant_id: Uuid::new_v4().to_string(),
+            workspace_id,
+            attempt_id: attempt.attempt_id.clone(),
+            account_id: attempt.account_id.clone(),
+            operation: attempt.operation,
+            intent_id: attempt.intent_id.clone(),
+            intent_hash: attempt.intent_hash.clone(),
+            approval_id: attempt.approval_id.clone(),
+            reservation_id: attempt.reservation_id.clone(),
+            gateway_session_id: gateway_session_id.into(),
+            account_state_version: attempt.account_state_version.clone(),
+            intent_state_version: attempt.intent_state_version.clone(),
+            policy_version: attempt.policy_version,
+            issued_at: now.into(),
+            expires_at: approval.expires_at,
+            status: ExecutionDispatchGrantStatus::Issued,
+            state_version: String::new(),
+        };
+        let grant = write_execution_dispatch_grant_tx(&tx, grant)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(grant)
+    }
+
+    pub fn begin_execution_submission(
+        &mut self,
+        grant_id: &str,
+        gateway_session_id: &str,
+        expected_review_digest: &str,
+        now: &str,
+    ) -> Result<(ExecutionAttempt, DomainEvent)> {
+        if !valid_order_text(grant_id, 128)
+            || !valid_order_text(gateway_session_id, 128)
+            || !valid_order_text(expected_review_digest, 80)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        let workspace_id = self.workspace_id()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let mut grant = load_execution_dispatch_grant(&tx, grant_id, false)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        if grant.gateway_session_id != gateway_session_id {
+            return Err(TradeXError::new("GATEWAY_AUTH_FAILED"));
+        }
+        if grant.status != ExecutionDispatchGrantStatus::Issued
+            || grant.workspace_id != workspace_id
+            || approval_expired(&grant.expires_at, now)
+        {
+            return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+        }
+        let mut attempt = load_execution_attempt(&tx, &workspace_id, &grant.attempt_id)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        if attempt.state != ExecutionAttemptState::Reserved
+            || attempt.account_id != grant.account_id
+            || attempt.operation != grant.operation
+            || attempt.intent_id != grant.intent_id
+            || attempt.intent_hash != grant.intent_hash
+            || attempt.approval_id != grant.approval_id
+            || attempt.reservation_id != grant.reservation_id
+            || attempt.account_state_version != grant.account_state_version
+            || attempt.intent_state_version != grant.intent_state_version
+            || attempt.policy_version != grant.policy_version
+        {
+            return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+        }
+        validate_live_dispatch_bindings(&tx, &workspace_id, &attempt, expected_review_digest, now)?;
+        grant.status = ExecutionDispatchGrantStatus::Consumed;
+        write_execution_dispatch_grant_tx(&tx, grant)?;
+        attempt.state = ExecutionAttemptState::Submitting;
+        attempt.invalidation_reason = None;
+        attempt.dispatch_disposition = Some(ExecutionDispatchDisposition::MayHaveSubmitted);
+        let idempotency_key = execution_attempt_idempotency_key(&tx, &workspace_id, &attempt)?;
+        let event = write_execution_attempt_tx(&tx, attempt, &idempotency_key, now)?;
+        let DomainProjection::ExecutionAttempt(attempt) = &event.payload else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        let attempt = (**attempt).clone();
+        tx.commit().map_err(storage_error)?;
+        Ok((attempt, event))
+    }
+
+    pub fn complete_execution_submission(
+        &mut self,
+        attempt_id: &str,
+        state: ExecutionAttemptState,
+        provider_order_id: Option<&str>,
+        provider_status: Option<&str>,
+        error_code: Option<&str>,
+        now: &str,
+    ) -> Result<(ExecutionPreparation, Vec<DomainEvent>)> {
+        if !valid_order_text(attempt_id, 128)
+            || !matches!(
+                state,
+                ExecutionAttemptState::Accepted
+                    | ExecutionAttemptState::Rejected
+                    | ExecutionAttemptState::UnknownReconciling
+                    | ExecutionAttemptState::CancelPending
+            )
+            || provider_order_id
+                .is_some_and(|value| !crate::provider_io::valid_t212_order_id(value))
+            || provider_status.is_some_and(|value| !valid_order_text(value, 64))
+            || error_code.is_some_and(|value| !valid_order_text(value, 128))
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        let workspace_id = self.workspace_id()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let mut attempt = load_execution_attempt(&tx, &workspace_id, attempt_id)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        if attempt.state != ExecutionAttemptState::Submitting
+            || attempt.dispatch_disposition != Some(ExecutionDispatchDisposition::MayHaveSubmitted)
+        {
+            return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+        }
+        match (attempt.operation, state) {
+            (crate::protocol::FinancialOperation::PlaceOrder, ExecutionAttemptState::Accepted)
+                if provider_order_id.is_some()
+                    && provider_status.is_some()
+                    && error_code.is_none() => {}
+            (crate::protocol::FinancialOperation::Cancel, ExecutionAttemptState::CancelPending)
+                if provider_order_id == attempt.broker_order_id.as_deref()
+                    && provider_status.is_some()
+                    && error_code.is_none() => {}
+            (_, ExecutionAttemptState::Rejected) if error_code.is_some() => {}
+            (_, ExecutionAttemptState::UnknownReconciling) if error_code.is_some() => {}
+            _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+        }
+        attempt.state = state;
+        attempt.broker_order_id = provider_order_id
+            .map(str::to_owned)
+            .or(attempt.broker_order_id);
+        attempt.provider_status = provider_status.map(str::to_owned);
+        attempt.error_code = error_code.map(str::to_owned);
+        let idempotency_key = execution_attempt_idempotency_key(&tx, &workspace_id, &attempt)?;
+        let mut events = vec![write_execution_attempt_tx(
+            &tx,
+            attempt.clone(),
+            &idempotency_key,
+            now,
+        )?];
+        if state == ExecutionAttemptState::Rejected
+            && attempt.operation == crate::protocol::FinancialOperation::PlaceOrder
+        {
+            let reservation_id = attempt
+                .reservation_id
+                .as_deref()
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let mut reservation =
+                load_execution_reservation_for_attempt(&tx, &workspace_id, &attempt.attempt_id)?
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if reservation.reservation_id != reservation_id
+                || reservation.status != ExecutionReservationStatus::Active
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            reservation.status = ExecutionReservationStatus::Released;
+            events.push(write_execution_reservation_tx(&tx, reservation, now)?);
+        }
+        let reservation =
+            load_execution_reservation_for_attempt(&tx, &workspace_id, &attempt.attempt_id)?;
+        tx.commit().map_err(storage_error)?;
+        Ok((
+            ExecutionPreparation {
+                attempt: Box::new(attempt),
+                reservation: reservation.map(Box::new),
+            },
+            events,
+        ))
+    }
+
+    pub fn invalidate_reserved_live_execution_attempt(
+        &mut self,
+        attempt_id: &str,
+        reason: &str,
+        now: &str,
+    ) -> Result<Vec<DomainEvent>> {
+        if !valid_order_text(attempt_id, 128)
+            || !valid_order_text(reason, 256)
+            || !matches!(
+                reason,
+                "RISK_EVIDENCE_UNAVAILABLE"
+                    | "POLICY_VERSION_STALE"
+                    | "APPROVAL_EXPIRED"
+                    | "ACCOUNT_STATE_CHANGED"
+                    | "CLOCK_UNTRUSTED"
+                    | "ORDER_CHANGED_REVIEW_AGAIN"
+            )
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        let workspace_id = self.workspace_id()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let attempt = load_execution_attempt(&tx, &workspace_id, attempt_id)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        let events = if attempt.state == ExecutionAttemptState::Reserved {
+            let key = execution_attempt_idempotency_key(&tx, &workspace_id, &attempt)?;
+            invalidate_reserved_execution_attempt_tx(&tx, attempt, &key, reason, now)?
+        } else {
+            Vec::new()
+        };
+        tx.commit().map_err(storage_error)?;
+        Ok(events)
     }
 
     pub fn expire_unsubmitted_approvals(
@@ -11189,7 +11632,7 @@ fn validate_refreshed_replacement(
     Ok(())
 }
 
-fn approval_expired(expires_at: &str, now: &str) -> bool {
+pub(crate) fn approval_expired(expires_at: &str, now: &str) -> bool {
     let (Ok(expires), Ok(now)) = (
         OffsetDateTime::parse(expires_at, &Rfc3339),
         OffsetDateTime::parse(now, &Rfc3339),
@@ -11302,6 +11745,487 @@ fn load_execution_reservation_for_attempt(
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
     Ok(Some(reservation))
+}
+
+fn load_execution_attempt(
+    connection: &Connection,
+    workspace_id: &str,
+    attempt_id: &str,
+) -> Result<Option<ExecutionAttempt>> {
+    let row: Option<(String, String, i64, String, String, String, String)> = connection
+        .query_row(
+            "SELECT attempt_id,workspace_id,sequence,account_id,approval_id,state,projection FROM execution_attempts WHERE workspace_id=?1 AND attempt_id=?2",
+            params![workspace_id, attempt_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((row_id, row_workspace, sequence, account_id, approval_id, state, projection)) = row
+    else {
+        return Ok(None);
+    };
+    let attempt: ExecutionAttempt = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let expected_state = serde_json::to_value(attempt.state)
+        .map_err(storage_error)?
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || row_id != attempt_id
+        || row_workspace != workspace_id
+        || attempt.attempt_id != attempt_id
+        || attempt.workspace_id != workspace_id
+        || attempt.account_id != account_id
+        || attempt.approval_id != approval_id
+        || state != expected_state
+        || attempt.state_version != format!("execution-attempt:{attempt_id}:{sequence}")
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(Some(attempt))
+}
+
+fn execution_attempt_idempotency_key(
+    connection: &Connection,
+    workspace_id: &str,
+    attempt: &ExecutionAttempt,
+) -> Result<String> {
+    let (row_workspace, account_id, approval_id, key): (String, String, String, String) = connection
+        .query_row(
+            "SELECT workspace_id,account_id,approval_id,idempotency_key FROM execution_attempts WHERE attempt_id=?1",
+            [&attempt.attempt_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .map_err(storage_error)?;
+    if row_workspace != workspace_id
+        || account_id != attempt.account_id
+        || approval_id != attempt.approval_id
+        || key.is_empty()
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(key)
+}
+
+fn load_financial_approval_for_attempt(
+    connection: &Connection,
+    attempt: &ExecutionAttempt,
+) -> Result<FinancialApproval> {
+    let (sequence, projection): (i64, String) = connection
+        .query_row(
+            "SELECT sequence,projection FROM financial_approvals WHERE workspace_id=?1 AND approval_id=?2",
+            params![attempt.workspace_id, attempt.approval_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(storage_error)?;
+    let approval: FinancialApproval = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || approval.workspace_id != attempt.workspace_id
+        || approval.approval_id != attempt.approval_id
+        || approval.account_id != attempt.account_id
+        || approval.state_version
+            != format!("financial-approval:{}:{sequence}", approval.approval_id)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(approval)
+}
+
+fn validate_live_dispatch_bindings(
+    connection: &Connection,
+    workspace_id: &str,
+    attempt: &ExecutionAttempt,
+    expected_review_digest: &str,
+    now: &str,
+) -> Result<()> {
+    let approval = load_financial_approval_for_attempt(connection, attempt)?;
+    if attempt.workspace_id != workspace_id
+        || attempt.state != ExecutionAttemptState::Reserved
+        || attempt.environment != approval.environment
+        || attempt.operation != approval.operation()
+        || attempt.policy_version != approval.policy_version
+        || attempt.risk_decision_id != approval.risk_decision_id
+        || attempt.review_digest != approval.review_digest
+        || expected_review_digest != approval.review_digest
+        || approval.status != FinancialApprovalStatus::Consumed
+        || approval.consumed_at.is_none()
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    if approval_expired(&approval.expires_at, now) {
+        return Err(TradeXError::new("APPROVAL_EXPIRED"));
+    }
+    let expected_provider = execution_provider(&approval.environment)
+        .ok_or_else(|| TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"))?;
+    let account_projection: String = connection
+        .query_row(
+            "SELECT projection FROM accounts WHERE connection_id=?1",
+            [&attempt.account_id],
+            |row| row.get(0),
+        )
+        .map_err(|error| {
+            if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("ACCOUNT_NOT_FOUND")
+            } else {
+                storage_error(error)
+            }
+        })?;
+    let account: AccountConnection = serde_json::from_str(&account_projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    account.validate_persisted(workspace_id)?;
+    let provider = crate::providers::definition(expected_provider, "LIVE")?;
+    let observed = account
+        .last_successful_sync
+        .as_deref()
+        .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok())
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    let now_time =
+        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+    if account.connection_id != attempt.account_id
+        || account.environment != "LIVE"
+        || account.provider_id != expected_provider
+        || account.state_version != attempt.account_state_version
+        || account.connection_state != ConnectionState::Connected
+        || account.health.arming != "ARMED"
+        || account.health.connection != "ONLINE"
+        || account.health.authentication != "VALID"
+        || !matches!(
+            account.health.credential.as_str(),
+            "AVAILABLE" | "CONFIGURED"
+        )
+        || account.health.reconciliation != "CURRENT"
+        || matches!(
+            account.health.private_stream.as_str(),
+            "DEGRADED" | "AUTH_FAILED" | "STOPPED"
+        )
+        || account.permissions.scope != "VERIFIED"
+        || !account.permissions.forbidden.is_empty()
+        || !account.permissions.unsupported.is_empty()
+        || !provider.required_permissions.iter().all(|permission| {
+            account
+                .permissions
+                .detected
+                .iter()
+                .any(|value| value == permission)
+                && account
+                    .data
+                    .as_ref()
+                    .is_some_and(|data| data.capabilities.iter().any(|value| value == permission))
+        })
+        || now_time < observed
+        || (now_time - observed).whole_milliseconds() > 30_000
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let policy_projection: String = connection
+        .query_row(
+            "SELECT projection FROM risk_state WHERE singleton=1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| {
+            if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("RISK_POLICY_UNCONFIGURED")
+            } else {
+                storage_error(error)
+            }
+        })?;
+    let policy = RiskPolicyState::from_persisted_json(&policy_projection, workspace_id)?;
+    if !policy.configured || policy.policy_version != attempt.policy_version {
+        return Err(TradeXError::new("POLICY_VERSION_STALE"));
+    }
+    match &approval.intent {
+        FinancialApprovalIntent::PlaceOrder {
+            proposal_id,
+            proposal_hash,
+        } => {
+            if attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+                || attempt.intent_id != *proposal_id
+                || attempt.intent_hash != *proposal_hash
+                || attempt.proposal_id.as_deref() != Some(proposal_id.as_str())
+            {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            let (row_workspace, draft_id, draft_version, hash, sequence, projection): (
+                String,
+                String,
+                i64,
+                String,
+                i64,
+                String,
+            ) = connection
+                .query_row(
+                    "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 AND proposal_id=?2",
+                    params![workspace_id, proposal_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+                )
+                .map_err(storage_error)?;
+            let stored = decode_stored_order_proposal(
+                &projection,
+                proposal_id,
+                &row_workspace,
+                &draft_id,
+                draft_version,
+                &hash,
+                sequence,
+                workspace_id,
+            )?;
+            let proposal = materialize_order_proposal(connection, stored)?;
+            let (status, _, current_sequence) =
+                proposal_event_state(connection, proposal_id, workspace_id)?;
+            let bound_sequence = attempt
+                .intent_state_version
+                .strip_prefix(&format!("order-proposal:{proposal_id}:"))
+                .and_then(|value| value.parse::<i64>().ok());
+            if status != OrderProposalStatus::Consumed
+                || proposal.status != OrderProposalStatus::Consumed
+                || proposal.proposal_hash != *proposal_hash
+                || proposal.workspace_id != workspace_id
+                || proposal.fields.account_id.as_deref() != Some(attempt.account_id.as_str())
+                || proposal.fields.environment != approval.environment
+                || bound_sequence.is_none_or(|value| value + 1 != current_sequence)
+            {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            let (sequence, decision_projection): (i64, String) = connection
+                .query_row(
+                    "SELECT sequence,projection FROM risk_decisions WHERE workspace_id=?1 AND decision_id=?2 AND proposal_id=?3",
+                    params![workspace_id, approval.risk_decision_id, proposal_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(storage_error)?;
+            let decision: RiskDecision = serde_json::from_str(&decision_projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            decision.validate(workspace_id, proposal_id, sequence as u64)?;
+            if decision.status != crate::risk::RiskDecisionStatus::Allowed
+                || decision.proposal_hash != *proposal_hash
+                || decision.account_id.as_deref() != Some(attempt.account_id.as_str())
+                || decision.policy_version != Some(attempt.policy_version)
+            {
+                return Err(TradeXError::new("RISK_REJECTED"));
+            }
+            let reservation = load_execution_reservation_for_attempt(
+                connection,
+                workspace_id,
+                &attempt.attempt_id,
+            )?
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+            if attempt.reservation_id.as_deref() != Some(reservation.reservation_id.as_str())
+                || reservation.status != ExecutionReservationStatus::Active
+                || reservation.workspace_id != workspace_id
+                || reservation.account_id != attempt.account_id
+                || reservation.proposal_id != *proposal_id
+                || reservation.proposal_hash != *proposal_hash
+            {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+        }
+        FinancialApprovalIntent::Cancel {
+            cancellation_intent_id,
+            intent_hash,
+            broker_order_id,
+            remaining_quantity,
+            snapshot_version,
+            ..
+        } => {
+            if attempt.operation != crate::protocol::FinancialOperation::Cancel
+                || attempt.intent_id != *cancellation_intent_id
+                || attempt.intent_hash != *intent_hash
+                || attempt.broker_order_id.as_deref() != Some(broker_order_id.as_str())
+                || attempt.intent_state_version != *snapshot_version
+                || attempt.reservation_id.is_some()
+            {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            let (status, projection): (String, String) = connection
+                .query_row(
+                    "SELECT status,projection FROM cancellation_intents WHERE workspace_id=?1 AND intent_id=?2",
+                    params![workspace_id, cancellation_intent_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(storage_error)?;
+            let intent: CancellationIntent = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            validate_cancellation_intent(&intent, workspace_id)?;
+            if status != "CURRENT"
+                || intent.intent_hash != *intent_hash
+                || cancellation_intent_hash(&intent)? != *intent_hash
+                || intent.account_id != attempt.account_id
+                || intent.environment != approval.environment
+                || intent.provider_order_id != *broker_order_id
+                || intent.remaining_quantity != *remaining_quantity
+            {
+                return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+            }
+            validate_cancellation_snapshot(&account, &intent)?;
+            if load_execution_reservation_for_attempt(
+                connection,
+                workspace_id,
+                &attempt.attempt_id,
+            )?
+            .is_some()
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn load_execution_dispatch_grant(
+    connection: &Connection,
+    identity: &str,
+    by_attempt_id: bool,
+) -> Result<Option<ExecutionDispatchGrant>> {
+    let query = if by_attempt_id {
+        "SELECT grant_id,workspace_id,attempt_id,account_id,gateway_session_id,status,sequence,projection FROM execution_dispatch_grants WHERE attempt_id=?1 ORDER BY rowid DESC LIMIT 1"
+    } else {
+        "SELECT grant_id,workspace_id,attempt_id,account_id,gateway_session_id,status,sequence,projection FROM execution_dispatch_grants WHERE grant_id=?1"
+    };
+    type ExecutionDispatchGrantRow = (String, String, String, String, String, String, i64, String);
+    let row: Option<ExecutionDispatchGrantRow> = connection
+        .query_row(query, [identity], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+            ))
+        })
+        .optional()
+        .map_err(storage_error)?;
+    let Some((
+        grant_id,
+        workspace_id,
+        attempt_id,
+        account_id,
+        session_id,
+        status,
+        sequence,
+        projection,
+    )) = row
+    else {
+        return Ok(None);
+    };
+    let grant: ExecutionDispatchGrant = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let expected_status = serde_json::to_value(grant.status)
+        .map_err(storage_error)?
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || grant.grant_id != grant_id
+        || grant.workspace_id != workspace_id
+        || grant.attempt_id != attempt_id
+        || grant.account_id != account_id
+        || grant.gateway_session_id != session_id
+        || status != expected_status
+        || grant.state_version != format!("execution-dispatch-grant:{grant_id}:{sequence}")
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(Some(grant))
+}
+
+fn write_execution_dispatch_grant_tx(
+    tx: &Transaction<'_>,
+    mut grant: ExecutionDispatchGrant,
+) -> Result<ExecutionDispatchGrant> {
+    let previous = load_execution_dispatch_grant(tx, &grant.attempt_id, true)?;
+    let sequence = match previous {
+        None if grant.status == ExecutionDispatchGrantStatus::Issued => 1,
+        Some(previous)
+            if previous.status == ExecutionDispatchGrantStatus::Revoked
+                && grant.status == ExecutionDispatchGrantStatus::Issued
+                && previous.attempt_id == grant.attempt_id
+                && previous.grant_id != grant.grant_id =>
+        {
+            1
+        }
+        Some(previous)
+            if previous.status == ExecutionDispatchGrantStatus::Issued
+                && matches!(
+                    grant.status,
+                    ExecutionDispatchGrantStatus::Consumed | ExecutionDispatchGrantStatus::Revoked
+                )
+                && previous.grant_id == grant.grant_id
+                && previous.workspace_id == grant.workspace_id
+                && previous.attempt_id == grant.attempt_id
+                && previous.account_id == grant.account_id
+                && previous.operation == grant.operation
+                && previous.intent_id == grant.intent_id
+                && previous.intent_hash == grant.intent_hash
+                && previous.approval_id == grant.approval_id
+                && previous.reservation_id == grant.reservation_id
+                && previous.gateway_session_id == grant.gateway_session_id
+                && previous.account_state_version == grant.account_state_version
+                && previous.intent_state_version == grant.intent_state_version
+                && previous.policy_version == grant.policy_version
+                && previous.issued_at == grant.issued_at
+                && previous.expires_at == grant.expires_at =>
+        {
+            let previous_sequence = previous
+                .state_version
+                .rsplit(':')
+                .next()
+                .and_then(|value| value.parse::<i64>().ok())
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            previous_sequence
+                .checked_add(1)
+                .filter(|value| *value <= MAX_SEQUENCE as i64)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?
+        }
+        _ => return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY")),
+    };
+    grant.state_version = format!("execution-dispatch-grant:{}:{sequence}", grant.grant_id);
+    let status = serde_json::to_value(grant.status)
+        .map_err(storage_error)?
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let projection = serde_json::to_string(&grant).map_err(storage_error)?;
+    let existing: Option<String> = tx
+        .query_row(
+            "SELECT grant_id FROM execution_dispatch_grants WHERE attempt_id=?1 ORDER BY rowid DESC LIMIT 1",
+            [&grant.attempt_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    if existing.as_deref() == Some(grant.grant_id.as_str()) {
+        let changed = tx.execute(
+            "UPDATE execution_dispatch_grants SET status=?1,sequence=?2,projection=?3 WHERE grant_id=?4 AND status='ISSUED' AND sequence=?5",
+            params![status, sequence, projection, grant.grant_id, sequence - 1],
+        ).map_err(storage_error)?;
+        if changed != 1 {
+            return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+        }
+    } else {
+        tx.execute(
+            "INSERT INTO execution_dispatch_grants(grant_id,workspace_id,attempt_id,account_id,gateway_session_id,status,sequence,projection) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+            params![grant.grant_id, grant.workspace_id, grant.attempt_id, grant.account_id, grant.gateway_session_id, status, sequence, projection],
+        )
+        .map_err(storage_error)?;
+    }
+    Ok(grant)
+}
+
+fn revoke_execution_dispatch_grant_tx(tx: &Transaction<'_>, attempt_id: &str) -> Result<()> {
+    let Some(mut grant) = load_execution_dispatch_grant(tx, attempt_id, true)? else {
+        return Ok(());
+    };
+    if grant.status == ExecutionDispatchGrantStatus::Issued {
+        grant.status = ExecutionDispatchGrantStatus::Revoked;
+        write_execution_dispatch_grant_tx(tx, grant)?;
+    }
+    Ok(())
 }
 
 fn write_execution_reservation_tx(
@@ -11422,18 +12346,76 @@ fn write_execution_attempt_tx(
     idempotency_key: &str,
     occurred_at: &str,
 ) -> Result<DomainEvent> {
-    let previous: Option<(i64, String)> = tx
+    let previous: Option<(i64, String, String)> = tx
         .query_row(
-            "SELECT sequence,idempotency_key FROM execution_attempts WHERE attempt_id=?1",
+            "SELECT sequence,idempotency_key,projection FROM execution_attempts WHERE attempt_id=?1",
             [&attempt.attempt_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .optional()
         .map_err(storage_error)?;
-    let sequence = previous.as_ref().map_or(Ok(1), |(sequence, saved_key)| {
-        if saved_key != idempotency_key {
+    if let Some((_, saved_key, previous_projection)) = &previous {
+        let previous_attempt: ExecutionAttempt = serde_json::from_str(previous_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        let allowed = matches!(
+            (previous_attempt.state, attempt.state),
+            (
+                ExecutionAttemptState::Reserved,
+                ExecutionAttemptState::Invalidated
+            ) | (
+                ExecutionAttemptState::Reserved,
+                ExecutionAttemptState::Submitting
+            ) | (
+                ExecutionAttemptState::Submitting,
+                ExecutionAttemptState::Accepted
+            ) | (
+                ExecutionAttemptState::Submitting,
+                ExecutionAttemptState::Rejected
+            ) | (
+                ExecutionAttemptState::Submitting,
+                ExecutionAttemptState::UnknownReconciling
+            ) | (
+                ExecutionAttemptState::Submitting,
+                ExecutionAttemptState::CancelPending
+            )
+        );
+        let mut comparable_previous = previous_attempt.clone();
+        comparable_previous.state = attempt.state;
+        comparable_previous.invalidation_reason = attempt.invalidation_reason.clone();
+        comparable_previous.state_version = attempt.state_version.clone();
+        match (previous_attempt.state, attempt.state) {
+            (ExecutionAttemptState::Reserved, ExecutionAttemptState::Invalidated) => {
+                if attempt.dispatch_disposition
+                    != Some(ExecutionDispatchDisposition::StoppedBeforeDispatch)
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                comparable_previous.dispatch_disposition = attempt.dispatch_disposition;
+            }
+            (ExecutionAttemptState::Reserved, ExecutionAttemptState::Submitting) => {
+                if attempt.dispatch_disposition
+                    != Some(ExecutionDispatchDisposition::MayHaveSubmitted)
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                comparable_previous.dispatch_disposition = attempt.dispatch_disposition;
+            }
+            (ExecutionAttemptState::Submitting, _) => {
+                comparable_previous.broker_order_id = attempt.broker_order_id.clone();
+                comparable_previous.provider_status = attempt.provider_status.clone();
+                comparable_previous.error_code = attempt.error_code.clone();
+            }
+            _ => {}
+        }
+        if saved_key != idempotency_key || !allowed || comparable_previous != attempt {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
+    } else if attempt.state != ExecutionAttemptState::Reserved
+        || attempt.invalidation_reason.is_some()
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let sequence = previous.as_ref().map_or(Ok(1), |(sequence, _, _)| {
         sequence
             .checked_add(1)
             .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))
@@ -11513,6 +12495,7 @@ fn invalidate_reserved_execution_attempt_tx(
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
+    revoke_execution_dispatch_grant_tx(tx, &attempt.attempt_id)?;
     let operation = attempt.operation;
     let attempt_id = attempt.attempt_id.clone();
     let workspace_id = attempt.workspace_id.clone();
@@ -11520,6 +12503,7 @@ fn invalidate_reserved_execution_attempt_tx(
     let reservation_id = attempt.reservation_id.clone();
     attempt.state = ExecutionAttemptState::Invalidated;
     attempt.invalidation_reason = Some(reason.into());
+    attempt.dispatch_disposition = Some(ExecutionDispatchDisposition::StoppedBeforeDispatch);
     let mut events = vec![write_execution_attempt_tx(
         tx,
         attempt,
@@ -11967,6 +12951,24 @@ fn save_account_tx(
         .map(serde_json::from_str::<AccountConnection>)
         .transpose()
         .map_err(storage_error)?;
+    let open_orders_changed = match previous_account.as_ref() {
+        Some(previous) => {
+            serde_json::to_vec(&previous.data.as_ref().map(|data| &data.open_orders))
+                .map_err(storage_error)?
+                != serde_json::to_vec(&account.data.as_ref().map(|data| &data.open_orders))
+                    .map_err(storage_error)?
+        }
+        None => false,
+    };
+    let account_observation_changed = match previous_account.as_ref() {
+        Some(previous) => {
+            serde_json::to_vec(&previous.data).map_err(storage_error)?
+                != serde_json::to_vec(&account.data).map_err(storage_error)?
+                || previous.last_successful_sync != account.last_successful_sync
+                || previous.last_private_stream_event_at != account.last_private_stream_event_at
+        }
+        None => false,
+    };
     let arming_changed = previous_account
         .as_ref()
         .is_some_and(|previous| previous.health.arming != account.health.arming);
@@ -11976,6 +12978,7 @@ fn save_account_tx(
         previous.connection_state != account.connection_state
             || previous.health != account.health
             || previous.permissions != account.permissions
+            || previous.label != account.label
             || previous
                 .data
                 .as_ref()
@@ -11984,7 +12987,15 @@ fn save_account_tx(
                     .data
                     .as_ref()
                     .map(|data| data.remote_account_id.as_str())
+            || account_observation_changed
     });
+    let attempt_invalidation_reason = if arming_changed && !arming_reason.is_empty() {
+        arming_reason.as_str()
+    } else if authority_changed {
+        "ACCOUNT_HEALTH_CHANGED"
+    } else {
+        "ACCOUNT_STATE_CHANGED"
+    };
     let workspace_id = account.workspace_id.clone();
     let connection_id = account.connection_id.clone();
     account.state_version = format!("{}:{sequence}", account.connection_id);
@@ -12004,16 +13015,14 @@ fn save_account_tx(
     )
     .map_err(storage_error)?;
     let mut events = Vec::new();
+    if open_orders_changed {
+        reconcile_cancellation_intents_for_account_tx(tx, &account, occurred_at)?;
+    }
     if authority_changed {
         let approval_invalidation_reason = if arming_changed {
             "ACCOUNT_DISARMED"
         } else {
             "ACCOUNT_HEALTH_CHANGED"
-        };
-        let attempt_invalidation_reason = if arming_changed && !arming_reason.is_empty() {
-            arming_reason.as_str()
-        } else {
-            approval_invalidation_reason
         };
         events.extend(invalidate_financial_approvals_tx(
             tx,
@@ -12023,17 +13032,19 @@ fn save_account_tx(
             approval_invalidation_reason,
             occurred_at,
         )?);
-        if live_account {
-            events.extend(invalidate_reserved_execution_attempts_tx(
-                tx,
-                &workspace_id,
-                Some(&connection_id),
-                attempt_invalidation_reason,
-                occurred_at,
-            )?);
-        }
     }
-    reconcile_cancellation_intents_for_account_tx(tx, &account, occurred_at)?;
+    if live_account {
+        events.extend(invalidate_reserved_execution_attempts_tx(
+            tx,
+            &workspace_id,
+            Some(&connection_id),
+            attempt_invalidation_reason,
+            occurred_at,
+        )?);
+    }
+    if !open_orders_changed {
+        reconcile_cancellation_intents_for_account_tx(tx, &account, occurred_at)?;
+    }
     let event = DomainEvent {
         event_id: Uuid::new_v4().to_string(),
         event_type: if arming_changed {

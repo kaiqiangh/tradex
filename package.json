@@ -8,14 +8,14 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "dev:browser": "cargo build --quiet --bin tradex-ipc --features integration-test && vite --host 127.0.0.1 --mode integration",
-    "desktop": "tauri dev --features desktop",
+    "dev:browser": "node scripts/desktop-order-gateway.mjs browser",
+    "desktop": "node scripts/desktop-order-gateway.mjs dev",
     "build": "npm run typecheck && vite build",
-    "desktop:build": "tauri build --features desktop --no-bundle",
+    "desktop:build": "node scripts/desktop-order-gateway.mjs build",
     "typecheck": "tsc --noEmit",
     "schema:generate": "node scripts/ipc-schema.mjs",
     "schema:check": "node scripts/ipc-schema.mjs --check",
-    "test:unit": "node --test tests/projection.test.ts",
+    "test:unit": "node --test tests/*.test.ts",
     "check": "npm run schema:check && npm run build && npm run test:unit && cargo test --workspace && python3 scripts/check_requirements.py"
   },
   "dependencies": {

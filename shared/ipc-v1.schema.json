@@ -6205,8 +6205,26 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "dispatchDisposition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionDispatchDisposition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "environment": {
           "$ref": "#/$defs/ExecutionContext"
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
         },
         "intentHash": {
           "type": "string",
@@ -6244,6 +6262,14 @@
             "null"
           ],
           "maxLength": 128,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
           "minLength": 1
         },
         "reservationId": {
@@ -6301,7 +6327,12 @@
       "type": "string",
       "enum": [
         "RESERVED",
-        "INVALIDATED"
+        "INVALIDATED",
+        "SUBMITTING",
+        "ACCEPTED",
+        "REJECTED",
+        "UNKNOWN_RECONCILING",
+        "CANCEL_PENDING"
       ]
     },
     "ExecutionContext": {
@@ -6317,6 +6348,13 @@
         "BINANCE_LIVE",
         "BITGET_DEMO",
         "BITGET_LIVE"
+      ]
+    },
+    "ExecutionDispatchDisposition": {
+      "type": "string",
+      "enum": [
+        "STOPPED_BEFORE_DISPATCH",
+        "MAY_HAVE_SUBMITTED"
       ]
     },
     "ExecutionPreparation": {
@@ -15358,7 +15396,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 27,
+          "maximum": 28,
           "minimum": 1
         },
         "workspaceId": {

@@ -18,6 +18,8 @@ pub mod model;
 pub mod model_credentials;
 #[cfg(all(feature = "desktop", target_os = "macos"))]
 pub mod native_credentials;
+#[cfg(unix)]
+pub mod order_gateway;
 pub mod paper;
 pub mod portfolio;
 pub mod protocol;
@@ -1947,6 +1949,237 @@ impl ControlPlane {
         self.dispatch_with_events(request, "headless", None)
     }
 
+    pub fn issue_live_dispatch_grant(
+        &mut self,
+        attempt_id: &str,
+        gateway_session_id: &str,
+    ) -> Result<protocol::ExecutionDispatchGrant> {
+        let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
+        self.time.require_trusted()?;
+        let now = self.time.status(&workspace_id)?.wall_clock;
+        let expired = self
+            .store
+            .as_mut()
+            .unwrap()
+            .expire_unsubmitted_approvals(&workspace_id, &now)?;
+        for event in &expired {
+            self.publish(event);
+        }
+        let preparation = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)?;
+        let attempt = *preparation.attempt;
+        if attempt.state != protocol::ExecutionAttemptState::Reserved {
+            return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+        }
+        let review_digest = match self.revalidate_live_dispatch_attempt(&attempt) {
+            Ok(digest) => digest,
+            Err(error) => {
+                self.invalidate_failed_live_dispatch(&attempt, &error, &now)?;
+                return Err(error);
+            }
+        };
+        self.store.as_mut().unwrap().issue_execution_dispatch_grant(
+            attempt_id,
+            gateway_session_id,
+            &review_digest,
+            &now,
+        )
+    }
+
+    pub fn live_dispatch_package(
+        &mut self,
+        attempt_id: &str,
+        gateway_session_id: &str,
+    ) -> Result<order_gateway::GatewayDispatchPackage> {
+        let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
+        let preparation = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)?;
+        let account = self
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&preparation.attempt.account_id)?;
+        if account.provider_id != "trading212" || account.environment != "LIVE" {
+            let error = TradeXError::new("PROVIDER_LIVE_UNSUPPORTED");
+            self.invalidate_failed_live_dispatch(
+                &preparation.attempt,
+                &error,
+                &storage::timestamp()?,
+            )?;
+            return Err(error);
+        }
+        let grant = self.issue_live_dispatch_grant(attempt_id, gateway_session_id)?;
+        let preparation = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)?;
+        let intent = match preparation.attempt.operation {
+            protocol::FinancialOperation::PlaceOrder => {
+                order_gateway::GatewayDispatchIntent::Place(Box::new(
+                    self.store
+                        .as_ref()
+                        .unwrap()
+                        .order_proposal(&preparation.attempt.intent_id)?,
+                ))
+            }
+            protocol::FinancialOperation::Cancel => {
+                order_gateway::GatewayDispatchIntent::Cancel(Box::new(
+                    self.store
+                        .as_ref()
+                        .unwrap()
+                        .cancellation_intent(&workspace_id, &preparation.attempt.intent_id)?,
+                ))
+            }
+        };
+        Ok(order_gateway::GatewayDispatchPackage {
+            grant,
+            attempt: *preparation.attempt,
+            reservation: preparation.reservation.map(|reservation| *reservation),
+            credential_reference: account.credential_ref(),
+            account,
+            intent,
+            #[cfg(feature = "integration-test")]
+            local_test_base_url: None,
+        })
+    }
+
+    pub fn stop_live_dispatch_before_submission(
+        &mut self,
+        attempt_id: &str,
+        code: &str,
+    ) -> Result<()> {
+        let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
+        let preparation = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)?;
+        if preparation.attempt.state != protocol::ExecutionAttemptState::Reserved {
+            return Ok(());
+        }
+        let reason = match code {
+            "APPROVAL_EXPIRED" => "APPROVAL_EXPIRED",
+            "POLICY_VERSION_STALE" => "POLICY_VERSION_STALE",
+            "CLOCK_SKEW" | "CLOCK_UNTRUSTED" => "CLOCK_UNTRUSTED",
+            "ORDER_CHANGED_REVIEW_AGAIN" => "ORDER_CHANGED_REVIEW_AGAIN",
+            "ACCOUNT_STATE_CHANGED" | "STATE_VERSION_CONFLICT" => "ACCOUNT_STATE_CHANGED",
+            _ => "RISK_EVIDENCE_UNAVAILABLE",
+        };
+        let events = self
+            .store
+            .as_mut()
+            .unwrap()
+            .invalidate_reserved_live_execution_attempt(
+                attempt_id,
+                reason,
+                &storage::timestamp()?,
+            )?;
+        for event in &events {
+            self.publish(event);
+        }
+        Ok(())
+    }
+
+    pub fn complete_live_execution_submission(
+        &mut self,
+        attempt_id: &str,
+        outcome: &provider_io::LiveDispatchOutcome,
+    ) -> Result<protocol::ExecutionPreparation> {
+        let (preparation, events) = self.store.as_mut().unwrap().complete_execution_submission(
+            attempt_id,
+            outcome.state,
+            outcome.broker_order_id.as_deref(),
+            outcome.provider_status.as_deref(),
+            outcome.error_code.as_deref(),
+            &storage::timestamp()?,
+        )?;
+        for event in &events {
+            self.publish(event);
+        }
+        Ok(preparation)
+    }
+
+    pub fn begin_live_execution_submission(
+        &mut self,
+        grant_id: &str,
+        gateway_session_id: &str,
+    ) -> Result<protocol::ExecutionAttempt> {
+        let grant = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_dispatch_grant(grant_id)?;
+        if grant.gateway_session_id != gateway_session_id {
+            return Err(TradeXError::new("GATEWAY_AUTH_FAILED"));
+        }
+        let workspace_id = self.store.as_ref().unwrap().workspace_id()?;
+        self.time.require_trusted()?;
+        let now = self.time.status(&workspace_id)?.wall_clock;
+        let expired = self
+            .store
+            .as_mut()
+            .unwrap()
+            .expire_unsubmitted_approvals(&workspace_id, &now)?;
+        for event in &expired {
+            self.publish(event);
+        }
+        let preparation = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &grant.attempt_id)?;
+        let attempt = *preparation.attempt;
+        if attempt.state != protocol::ExecutionAttemptState::Reserved {
+            return Err(TradeXError::new("EXECUTION_DISPATCH_NOT_READY"));
+        }
+        let review_digest = match self.revalidate_live_dispatch_attempt(&attempt) {
+            Ok(digest) => digest,
+            Err(error) => {
+                self.invalidate_failed_live_dispatch(&attempt, &error, &now)?;
+                return Err(error);
+            }
+        };
+        let (attempt, event) = self.store.as_mut().unwrap().begin_execution_submission(
+            grant_id,
+            gateway_session_id,
+            &review_digest,
+            &now,
+        )?;
+        self.publish(&event);
+        Ok(attempt)
+    }
+
+    fn invalidate_failed_live_dispatch(
+        &mut self,
+        attempt: &protocol::ExecutionAttempt,
+        error: &TradeXError,
+        now: &str,
+    ) -> Result<()> {
+        let reason = match error.code.as_str() {
+            "APPROVAL_EXPIRED" => "APPROVAL_EXPIRED",
+            "CLOCK_SKEW" | "CLOCK_UNTRUSTED" => "CLOCK_UNTRUSTED",
+            "ORDER_NOT_CANCELLABLE" | "ORDER_CHANGED_REVIEW_AGAIN" => "ORDER_CHANGED_REVIEW_AGAIN",
+            "POLICY_VERSION_STALE" => "POLICY_VERSION_STALE",
+            _ => "RISK_EVIDENCE_UNAVAILABLE",
+        };
+        let events = self
+            .store
+            .as_mut()
+            .unwrap()
+            .invalidate_reserved_live_execution_attempt(&attempt.attempt_id, reason, now)?;
+        for event in &events {
+            self.publish(event);
+        }
+        Ok(())
+    }
+
     #[cfg(test)]
     fn enable_live_approval_fixture(&mut self) {
         self.live_approval_fixture_enabled = true;
@@ -1992,7 +2225,35 @@ impl ControlPlane {
         account.health.arming_reason = "SYNTHETIC_FIXTURE".into();
         account.permissions.scope = "VERIFIED".into();
         account.permissions.detected = provider.required_permissions.clone();
-        let remote_account_id = format!("synthetic-live-{}", account.connection_id);
+        let remote_account_id = if provider_id == "trading212" {
+            let accounts = self
+                .store
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("WORKSPACE_NOT_OPEN"))?
+                .accounts()?;
+            let highest_numeric_id = accounts
+                .iter()
+                .filter(|existing| {
+                    existing.provider_id == provider_id && existing.environment == "LIVE"
+                })
+                .filter_map(|existing| {
+                    existing
+                        .data
+                        .as_ref()
+                        .and_then(|data| data.remote_account_id.parse::<u64>().ok())
+                })
+                .max();
+            highest_numeric_id
+                .map(|id| {
+                    id.checked_add(1)
+                        .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))
+                })
+                .transpose()?
+                .unwrap_or(777)
+                .to_string()
+        } else {
+            format!("synthetic-live-{}", account.connection_id)
+        };
         let balances = match provider_id {
             "binance" | "bitget" => json!([{
                 "asset": "USDT", "available": "1000", "total": "1000", "reserved": "0"
@@ -6982,6 +7243,112 @@ impl ControlPlane {
         })
     }
 
+    fn revalidate_live_dispatch_attempt(
+        &mut self,
+        attempt: &protocol::ExecutionAttempt,
+    ) -> Result<String> {
+        let approval_snapshot = self
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("financial-approval", &attempt.approval_id)?;
+        let protocol::DomainProjection::FinancialApproval(approval) = approval_snapshot.projection
+        else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        if approval.workspace_id != attempt.workspace_id
+            || approval.approval_id != attempt.approval_id
+            || approval.account_id != attempt.account_id
+            || approval.operation() != attempt.operation
+            || approval.status != protocol::FinancialApprovalStatus::Consumed
+            || approval.review_digest != attempt.review_digest
+            || approval.risk_decision_id != attempt.risk_decision_id
+            || approval.policy_version != attempt.policy_version
+            || approval.intent_hash() != attempt.intent_hash
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        let now = self.time.status(&attempt.workspace_id)?.wall_clock;
+        if storage::approval_expired(&approval.expires_at, &now) {
+            return Err(TradeXError::new("APPROVAL_EXPIRED"));
+        }
+        match &approval.intent {
+            protocol::FinancialApprovalIntent::PlaceOrder { proposal_id, .. } => {
+                if attempt.proposal_id.as_deref() != Some(proposal_id.as_str())
+                    || attempt.intent_id != *proposal_id
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                let mut proposal = self.store.as_ref().unwrap().order_proposal(proposal_id)?;
+                if proposal.status != protocol::OrderProposalStatus::Consumed
+                    || proposal.state_version
+                        != format!("order-proposal:{}:2", proposal.proposal_id)
+                    || attempt.intent_state_version.is_empty()
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                proposal.status = protocol::OrderProposalStatus::NeedsApproval;
+                proposal.state_version = attempt.intent_state_version.clone();
+                let history = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .risk_decision_history(&attempt.workspace_id, proposal_id)?;
+                let bound_decision = history
+                    .decisions
+                    .into_iter()
+                    .find(|decision| decision.decision_id == approval.risk_decision_id)
+                    .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                let review = self.build_approval_review(&proposal, Some(bound_decision))?;
+                if !review.eligible
+                    || review.review_digest != approval.review_digest
+                    || review.risk_decision.decision_id != approval.risk_decision_id
+                    || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
+                    || review.risk_decision.policy_version != Some(approval.policy_version)
+                    || review.account.as_ref().is_none_or(|account| {
+                        account.connection_id != attempt.account_id
+                            || account.state_version != attempt.account_state_version
+                    })
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                Ok(review.review_digest)
+            }
+            protocol::FinancialApprovalIntent::Cancel {
+                cancellation_intent_id,
+                snapshot_version,
+                snapshot_evidence_id,
+                ..
+            } => {
+                if attempt.intent_id != *cancellation_intent_id
+                    || attempt.intent_state_version != *snapshot_version
+                    || attempt.reservation_id.is_some()
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                let intent = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .cancellation_intent(&attempt.workspace_id, cancellation_intent_id)?;
+                let account = self.store.as_ref().unwrap().account(&attempt.account_id)?;
+                let review = self.build_cancellation_review(&intent, &account)?;
+                if !review.eligible
+                    || review.review_digest != approval.review_digest
+                    || review.risk_decision.decision_id != approval.risk_decision_id
+                    || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
+                    || review.risk_decision.policy_version != approval.policy_version
+                    || review.snapshot_version != *snapshot_version
+                    || review.snapshot_evidence_id != *snapshot_evidence_id
+                    || review.account.state_version != attempt.account_state_version
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                Ok(review.review_digest)
+            }
+        }
+    }
+
     fn prepare_live_execution(
         &mut self,
         input: protocol::ExecutionPrepareRequest,
@@ -7141,6 +7508,9 @@ impl ControlPlane {
             intent_hash: proposal.proposal_hash.clone(),
             proposal_id: Some(proposal.proposal_id.clone()),
             broker_order_id: None,
+            provider_status: None,
+            error_code: None,
+            dispatch_disposition: None,
             account_id: account.connection_id.clone(),
             environment: proposal.fields.environment.clone(),
             policy_version: approval.policy_version,
@@ -7299,6 +7669,9 @@ impl ControlPlane {
             intent_hash: intent_hash.clone(),
             proposal_id: None,
             broker_order_id: Some(broker_order_id.clone()),
+            provider_status: None,
+            error_code: None,
+            dispatch_disposition: None,
             account_id: approval.account_id.clone(),
             environment: approval.environment.clone(),
             policy_version: approval.policy_version,
@@ -11450,6 +11823,9 @@ mod thread_tests {
             .execute("DROP TABLE execution_preparation_rejections", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE execution_dispatch_grants", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -13640,6 +14016,500 @@ mod live_approval_tests {
     }
 
     #[test]
+    fn live_dispatch_grant_is_one_use_and_bound_to_its_gateway_session() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-for-gateway-grant",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session-a")
+            .unwrap();
+        assert_eq!(grant.status, protocol::ExecutionDispatchGrantStatus::Issued);
+        let replay = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session-a")
+            .unwrap();
+        assert_eq!(replay.grant_id, grant.grant_id);
+        assert_eq!(replay.state_version, grant.state_version);
+
+        let wrong_session = control
+            .begin_live_execution_submission(&grant.grant_id, "gateway-session-b")
+            .unwrap_err();
+        assert_eq!(wrong_session.code, "GATEWAY_AUTH_FAILED");
+
+        let restarted_gateway = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session-b")
+            .unwrap();
+        assert_ne!(restarted_gateway.grant_id, grant.grant_id);
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_dispatch_grant(&grant.grant_id)
+                .unwrap()
+                .status,
+            protocol::ExecutionDispatchGrantStatus::Revoked
+        );
+        assert_eq!(
+            control
+                .begin_live_execution_submission(&grant.grant_id, "gateway-session-a")
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
+        );
+
+        let submitting = control
+            .begin_live_execution_submission(&restarted_gateway.grant_id, "gateway-session-b")
+            .unwrap();
+        assert_eq!(submitting.attempt_id, attempt_id);
+        assert_eq!(
+            submitting.state,
+            protocol::ExecutionAttemptState::Submitting
+        );
+        assert_eq!(
+            control
+                .begin_live_execution_submission(&restarted_gateway.grant_id, "gateway-session-b")
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
+        );
+    }
+
+    #[test]
+    fn accepted_live_place_persists_trading212_order_identity() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-for-provider-acceptance",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+            .unwrap();
+
+        let invalid_identity = control
+            .complete_live_execution_submission(
+                attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::Accepted,
+                    broker_order_id: Some("not-a-trading212-order-id".into()),
+                    provider_status: Some("NEW".into()),
+                    error_code: None,
+                },
+            )
+            .unwrap_err();
+        assert_eq!(invalid_identity.code, "IPC_PAYLOAD_INVALID");
+
+        let accepted = control
+            .complete_live_execution_submission(
+                attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::Accepted,
+                    broker_order_id: Some("901".into()),
+                    provider_status: Some("NEW".into()),
+                    error_code: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            accepted.attempt.state,
+            protocol::ExecutionAttemptState::Accepted
+        );
+        assert_eq!(accepted.attempt.broker_order_id.as_deref(), Some("901"));
+        assert_eq!(accepted.attempt.provider_status.as_deref(), Some("NEW"));
+        assert_eq!(
+            accepted.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+    }
+
+    #[test]
+    fn definitive_live_place_rejection_releases_capacity_once() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-for-provider-rejection",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+            .unwrap();
+
+        let rejected = control
+            .complete_live_execution_submission(
+                attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::Rejected,
+                    broker_order_id: None,
+                    provider_status: None,
+                    error_code: Some("PROVIDER_ORDER_REJECTED".into()),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            rejected.attempt.state,
+            protocol::ExecutionAttemptState::Rejected
+        );
+        assert_eq!(
+            rejected.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Released
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            control
+                .complete_live_execution_submission(
+                    attempt_id,
+                    &provider_io::LiveDispatchOutcome {
+                        state: protocol::ExecutionAttemptState::Rejected,
+                        broker_order_id: None,
+                        provider_status: None,
+                        error_code: Some("PROVIDER_ORDER_REJECTED".into()),
+                    },
+                )
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
+        );
+    }
+
+    #[test]
+    fn ambiguous_live_place_keeps_capacity_frozen_and_cannot_be_retried() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-for-ambiguous-provider-result",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+            .unwrap();
+
+        let unknown = control
+            .complete_live_execution_submission(
+                attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::UnknownReconciling,
+                    broker_order_id: None,
+                    provider_status: None,
+                    error_code: Some("ORDER_STATUS_UNKNOWN".into()),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            unknown.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+        assert_eq!(
+            unknown.attempt.dispatch_disposition,
+            Some(protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
+        );
+        assert_eq!(
+            unknown.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(
+            control
+                .issue_live_dispatch_grant(attempt_id, "new-gateway-session")
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
+        );
+    }
+
+    #[test]
+    fn disable_all_winning_before_submit_revokes_grant_and_releases_place_reservation() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-for-revocation",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+
+        let disabled = dispatch_main(
+            &mut control,
+            "account.disable_all_live",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(disabled["ok"], true, "{disabled}");
+        assert_eq!(
+            control
+                .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
+        );
+
+        let recovered = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":prepared["data"]["attempt"]["approvalId"],
+            }),
+        );
+        assert_eq!(recovered["ok"], true, "{recovered}");
+        assert_eq!(
+            recovered["data"]["preparation"]["attempt"]["state"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["reservation"]["status"],
+            "RELEASED"
+        );
+    }
+
+    #[test]
+    fn disable_all_after_submitting_preserves_may_have_submitted_capacity() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-for-disable-after-boundary",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+            .unwrap();
+
+        let disabled = dispatch_main(
+            &mut control,
+            "account.disable_all_live",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(disabled["ok"], true, "{disabled}");
+        let attempt = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        assert_eq!(
+            attempt.attempt.state,
+            protocol::ExecutionAttemptState::Submitting
+        );
+        assert_eq!(
+            attempt.attempt.dispatch_disposition,
+            Some(protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
+        );
+        assert_eq!(
+            attempt.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(
+            control
+                .issue_live_dispatch_grant(attempt_id, "new-gateway-session")
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
+        );
+    }
+
+    #[test]
+    fn individual_account_disarm_revokes_issued_dispatch_grant() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-for-account-disarm",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+
+        let disarmed = dispatch_main(
+            &mut control,
+            "account.disarm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":account.state_version,
+            }),
+        );
+        assert_eq!(disarmed["ok"], true, "{disarmed}");
+        assert_eq!(
+            control
+                .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
+        );
+        let recovered = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":prepared["data"]["attempt"]["approvalId"],
+            }),
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["attempt"]["state"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["reservation"]["status"],
+            "RELEASED"
+        );
+    }
+
+    #[test]
+    fn restart_before_submitting_revokes_grant_and_preserves_reservation() {
+        let (folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-before-restart",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        drop(control);
+
+        let mut reopened = ControlPlane::new(folder.path().to_path_buf());
+        reopened.store = Some(
+            storage::Store::open(
+                folder.path().to_path_buf(),
+                &protocol::OpenWorkspace {
+                    path: None,
+                    name: None,
+                    base_currency: None,
+                },
+            )
+            .unwrap(),
+        );
+        let preparation = reopened
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        assert_eq!(
+            preparation.attempt.state,
+            protocol::ExecutionAttemptState::Reserved
+        );
+        assert_eq!(
+            preparation.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(
+            reopened
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_dispatch_grant(&grant.grant_id)
+                .unwrap()
+                .status,
+            protocol::ExecutionDispatchGrantStatus::Revoked
+        );
+    }
+
+    #[test]
+    fn restart_after_submitting_marks_unknown_and_keeps_reservation() {
+        let (folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "prepare-live-place-after-submit-boundary",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+            .unwrap();
+        drop(control);
+
+        let mut reopened = ControlPlane::new(folder.path().to_path_buf());
+        let opened = dispatch(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let preparation = reopened
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        assert_eq!(
+            preparation.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+        assert_eq!(
+            preparation.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(
+            reopened
+                .store
+                .as_ref()
+                .unwrap()
+                .account(&account.connection_id)
+                .unwrap()
+                .health
+                .arming,
+            "DISARMED"
+        );
+    }
+
+    #[test]
     fn live_place_preparation_capacity_failure_leaves_approval_and_ledger_unchanged() {
         let (_folder, mut control, workspace_id, _account, proposal, review) =
             reviewed_live_capacity_fixture_with_available("400");
@@ -14407,6 +15277,11 @@ mod live_approval_tests {
         assert_eq!(second["data"]["reservation"]["existingReservations"], "0");
         assert_eq!(second["data"]["reservation"]["effectiveAvailable"], "500");
         assert_ne!(first_account.connection_id, seeded.connection_id);
+        let first_remote_id = &first_account.data.as_ref().unwrap().remote_account_id;
+        let second_remote_id = &second_account.data.as_ref().unwrap().remote_account_id;
+        assert!(first_remote_id.parse::<u64>().is_ok());
+        assert!(second_remote_id.parse::<u64>().is_ok());
+        assert_ne!(first_remote_id, second_remote_id);
         assert_eq!(
             control
                 .store

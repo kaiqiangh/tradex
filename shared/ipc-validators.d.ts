@@ -141,6 +141,7 @@ declare const validators: {
   ExecutionAttempt: (value: unknown) => boolean;
   ExecutionAttemptState: (value: unknown) => boolean;
   ExecutionContext: (value: unknown) => boolean;
+  ExecutionDispatchDisposition: (value: unknown) => boolean;
   ExecutionPreparation: (value: unknown) => boolean;
   ExecutionPreparationQuery: (value: unknown) => boolean;
   ExecutionPreparationQueryResult: (value: unknown) => boolean;

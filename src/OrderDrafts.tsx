@@ -37,6 +37,7 @@ import type {
   TradeXError,
 } from '../shared/ipc-types.ts';
 import { CommandError, explainError, request } from './client.ts';
+import { liveExecutionStatus } from './liveExecution.ts';
 import { fromAccountSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
 
@@ -362,7 +363,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     }),
     enabled: Boolean(preparationApproval),
     refetchOnMount: 'always',
-    refetchInterval: query => query.state.data?.preparation?.attempt.state === 'RESERVED' ? 1_000 : false,
+    refetchInterval: query => ['RESERVED', 'SUBMITTING'].includes(query.state.data?.preparation?.attempt.state ?? '') ? 1_000 : false,
   });
   const visibleExecutionPreparation = savedExecutionPreparation.data?.preparation;
   const alpacaAttempt = useQuery({
@@ -749,7 +750,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setExecutionPrepareIdentity(identity);
     setExecutionPrepareBusy(true); setError(undefined); setNotice('');
     try {
-      const prepared = await request('trade.execution.prepare', {
+      await request('trade.execution.prepare', {
         workspaceId,
         approvalId: approval.approvalId,
         expectedApprovalStateVersion: approval.stateVersion,
@@ -757,14 +758,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         confirmed: true,
       });
       setApprovalToPrepare(undefined);
-      const reservation = prepared.reservation;
-      setNotice(reservation
-        ? `TradeX reserved ${reservation.amount} ${reservation.unit}; no provider request was sent.`
-        : `TradeX prepared the approved PLACE; no provider request was sent.`);
-      await savedExecutionPreparation.refetch();
       await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, approval.proposalId] });
       await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
       await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId, approval.proposalId] });
+      const refreshed = await savedExecutionPreparation.refetch();
+      setNotice(refreshed.data?.preparation
+        ? liveExecutionStatus(refreshed.data.preparation.attempt)
+        : 'The Order Gateway started this approved PLACE. Reload the saved attempt before taking further action.');
     } catch (cause) {
       if (cause instanceof CommandError && cause.detail.reason === 'RESERVED_CAPACITY') {
         setExecutionPrepareIdentity(undefined);
@@ -1394,7 +1394,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
             <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />
             {['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data.fields.environment) && <section className="live-approval-panel" aria-label="Live approval history">
-              <div className="section-heading"><div><h3>Live approval</h3><p className="muted">Approval and capacity reservation are separate explicit actions. Preparing reserves locally and never sends a provider request.</p></div><button type="button" onClick={() => void approvalHistory.refetch()} disabled={approvalHistory.isFetching}>Reload history</button></div>
+              <div className="section-heading"><div><h3>Live approval</h3><p className="muted">Approval alone sends nothing. The separate Prepare action reserves capacity and starts the provider send lifecycle through the isolated Order Gateway.</p></div><button type="button" onClick={() => void approvalHistory.refetch()} disabled={approvalHistory.isFetching}>Reload history</button></div>
               {approvalHistory.isPending && <p role="status">Loading saved approvals…</p>}
               {approvalHistory.isError && <p className="error-text" role="alert">Approval history is unavailable: {explainError(approvalHistory.error)}</p>}
               {approvalHistory.data && <>
@@ -1430,10 +1430,14 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                   <LiveCapacitySummary capacity={visibleExecutionPreparation.reservation.capacityProjection} label="Capacity after TradeX reservation" />
                 </>}
                 {visibleExecutionPreparation.reservation?.status === 'RELEASED' && <span>Reservation released: {visibleExecutionPreparation.reservation.amount} {visibleExecutionPreparation.reservation.unit}. This capacity is no longer held by TradeX.</span>}
-                <span>{visibleExecutionPreparation.attempt.state === 'INVALIDATED' ? 'No provider request was sent; this attempt cannot be dispatched.' : 'No order request was sent to the provider.'}</span>
+                <p role="status" aria-live="polite">{liveExecutionStatus(visibleExecutionPreparation.attempt)}</p>
+                {visibleExecutionPreparation.attempt.brokerOrderId && <span>Provider order ID {visibleExecutionPreparation.attempt.brokerOrderId}</span>}
+                {visibleExecutionPreparation.attempt.providerStatus && <span>Provider status {visibleExecutionPreparation.attempt.providerStatus}</span>}
+                {visibleExecutionPreparation.attempt.errorCode && <span>Outcome code {visibleExecutionPreparation.attempt.errorCode}</span>}
+                {visibleExecutionPreparation.attempt.dispatchDisposition && <span>Dispatch disposition {visibleExecutionPreparation.attempt.dispatchDisposition}</span>}
               </article>}
               {prepareApproval && !visibleExecutionPreparation && <button type="button" className="primary" onClick={() => void prepareLiveExecution(prepareApproval)} disabled={executionPrepareBusy}>
-                {executionPrepareBusy ? 'Revalidating and reserving…' : 'Prepare PLACE and reserve capacity'}
+                {executionPrepareBusy ? 'Sending through secure Order Gateway…' : 'Prepare and send approved PLACE'}
               </button>}
               <button type="button" className="primary" onClick={event => void requestLiveApproval(event.currentTarget)} disabled={approvalBusy || proposalDetail.data.status !== 'NEEDS_APPROVAL' || approvalHistory.data?.approvals.some(approval => approval.status === 'ISSUED' && Date.parse(approval.expiresAt) > Date.now())}>
                 {approvalBusy ? 'Preparing review…' : 'Review Live approval'}
@@ -1611,7 +1615,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       </div>
     </div></div>, document.body)}
     {approvalReview && createPortal(<div className="picker-backdrop"><div className="picker-dialog approval-review-dialog" role="dialog" aria-modal="true" aria-labelledby="live-approval-title" aria-busy={approvalBusy} ref={confirmationRef}>
-      <div className="picker-dialog-heading"><div><h2 id="live-approval-title">Review Live approval</h2><p className="muted">Approval is bound to this proposal and expires within 30 seconds. After approval, a separate explicit action prepares the PLACE and reserves capacity; neither action sends an order.</p></div></div>
+      <div className="picker-dialog-heading"><div><h2 id="live-approval-title">Review Live approval</h2><p className="muted">Approval is bound to this proposal and expires within 30 seconds. Approval alone sends nothing. A separate explicit Prepare action reserves capacity and starts sending the approved order through the isolated Order Gateway.</p></div></div>
       {Boolean(error) && <p className="error-text" role="alert">{explainError(error)}</p>}
       <dl className="proposal-fields approval-review-fields">
         <div><dt>Environment / account</dt><dd>{approvalReview.proposal.fields.environment} · {approvalReview.account?.providerId ?? 'Unavailable'} · {approvalReview.account?.label ?? 'Unavailable'} · {approvalReview.account?.data?.remoteAccountId ?? 'Unavailable'}</dd></div>

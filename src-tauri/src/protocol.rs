@@ -438,7 +438,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 27))]
+    #[schemars(range(min = 1, max = 28))]
     pub storage_schema_version: u32,
 }
 
@@ -3067,6 +3067,48 @@ pub struct OrderProposalConsumption {
 pub enum ExecutionAttemptState {
     Reserved,
     Invalidated,
+    Submitting,
+    Accepted,
+    Rejected,
+    UnknownReconciling,
+    CancelPending,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExecutionDispatchDisposition {
+    StoppedBeforeDispatch,
+    MayHaveSubmitted,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExecutionDispatchGrantStatus {
+    Issued,
+    Consumed,
+    Revoked,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionDispatchGrant {
+    pub grant_id: String,
+    pub workspace_id: String,
+    pub attempt_id: String,
+    pub account_id: String,
+    pub operation: FinancialOperation,
+    pub intent_id: String,
+    pub intent_hash: String,
+    pub approval_id: String,
+    pub reservation_id: Option<String>,
+    pub gateway_session_id: String,
+    pub account_state_version: String,
+    pub intent_state_version: String,
+    pub policy_version: u64,
+    pub issued_at: String,
+    pub expires_at: String,
+    pub status: ExecutionDispatchGrantStatus,
+    pub state_version: String,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -3096,6 +3138,14 @@ pub struct ExecutionAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub broker_order_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub error_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatch_disposition: Option<ExecutionDispatchDisposition>,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
     pub environment: ExecutionContext,

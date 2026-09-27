@@ -8,6 +8,9 @@ use tradex::{
     BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor, protocol::EventSink,
 };
 
+#[cfg(all(feature = "integration-test", target_os = "macos"))]
+#[path = "../../tests/support/fake_live_provider.rs"]
+mod fake_live_provider;
 #[cfg(feature = "integration-test")]
 #[path = "../../tests/support/provider_fixtures.rs"]
 mod fixtures;
@@ -23,6 +26,14 @@ fn main() -> io::Result<()> {
     let supervisor = RuntimeSupervisor::new();
     let strategy_supervisor = StrategySupervisor::new();
     let backtest_supervisor = BacktestSupervisor::new();
+    #[cfg(all(feature = "integration-test", target_os = "macos"))]
+    let live_provider = if std::env::var_os("TRADEX_INTEGRATION_ORDER_GATEWAY").is_some() {
+        Some(fake_live_provider::FakeLiveProvider::start()?)
+    } else {
+        None
+    };
+    #[cfg(all(feature = "integration-test", target_os = "macos"))]
+    let mut order_gateway: Option<tradex::order_gateway::OrderGatewayHost> = None;
     #[cfg(all(feature = "integration-test", target_os = "macos"))]
     let runtime_path =
         std::env::temp_dir().join(format!("tradex-model-ui-{}", uuid::Uuid::new_v4()));
@@ -59,6 +70,63 @@ fn main() -> io::Result<()> {
                 serde_json::from_slice(&frame).unwrap_or(Value::Null)
             };
             let command = request.get("command").and_then(Value::as_str);
+            #[cfg(all(feature = "integration-test", target_os = "macos"))]
+            if command == Some("live.gateway.fixture.set_result") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let scenario = payload.get("scenario").and_then(Value::as_str);
+                let result = match (live_provider.as_ref(), scenario) {
+                    (Some(provider), Some("ACCEPTED")) => {
+                        provider.set_next_result(fake_live_provider::MutationResult::Accepted);
+                        Ok(())
+                    }
+                    (Some(provider), Some("REJECTED")) => {
+                        provider.set_next_result(fake_live_provider::MutationResult::Rejected);
+                        Ok(())
+                    }
+                    (Some(provider), Some("UNKNOWN")) => {
+                        provider.set_next_result(fake_live_provider::MutationResult::Unknown);
+                        Ok(())
+                    }
+                    (None, _) => Err(tradex::protocol::TradeXError::new("IPC_COMMAND_UNKNOWN")),
+                    _ => Err(tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")),
+                };
+                let reply = match result {
+                    Ok(()) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                        "data":{"configured":true}
+                    }),
+                    Err(error) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":error
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(all(feature = "integration-test", target_os = "macos"))]
+            if command == Some("live.gateway.fixture.inspect") {
+                let reply = match live_provider.as_ref() {
+                    Some(provider) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                        "data":{"requests":provider.requests().into_iter().map(|request| json!({
+                            "method":request.method,
+                            "path":request.path,
+                            "body":request.body,
+                            "authorizationPresent":request.authorization_present
+                        })).collect::<Vec<_>>()}
+                    }),
+                    None => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_COMMAND_UNKNOWN")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             #[cfg(feature = "integration-test")]
             if command == Some("alpaca.paper.stream.fixture") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
@@ -540,10 +608,13 @@ fn main() -> io::Result<()> {
                         Ok(mut control) => {
                             match control.seed_live_arming_fixture(workspace_id, provider_id, label)
                             {
-                                Ok(account) => json!({
-                                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
-                                    "data":account
-                                }),
+                                Ok(account) => {
+                                    vault.present.borrow_mut().insert(account.credential_ref());
+                                    json!({
+                                        "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                        "data":account
+                                    })
+                                }
                                 Err(error) => json!({
                                     "requestId":request["requestId"],"schemaVersion":1,"ok":false,
                                     "error":error
@@ -814,6 +885,15 @@ fn main() -> io::Result<()> {
                 }),
                 _ => result,
             };
+            #[cfg(all(feature = "integration-test", target_os = "macos"))]
+            let result = dispatch_fake_live_execution(
+                result,
+                &request,
+                &control,
+                live_provider.as_ref(),
+                &mut order_gateway,
+                &sink,
+            );
             write_frame(&output, &json!({"kind":"result", "result":result}))?;
             frame.clear();
             oversized = false;
@@ -826,6 +906,152 @@ fn main() -> io::Result<()> {
         let _ = std::fs::remove_dir_all(runtime_path);
     }
     Ok(())
+}
+
+#[cfg(all(feature = "integration-test", target_os = "macos"))]
+fn dispatch_fake_live_execution(
+    mut reply: Value,
+    request: &Value,
+    control: &Arc<Mutex<ControlPlane>>,
+    provider: Option<&fake_live_provider::FakeLiveProvider>,
+    gateway: &mut Option<tradex::order_gateway::OrderGatewayHost>,
+    sink: &EventSink,
+) -> Value {
+    if provider.is_none()
+        || request.get("command").and_then(Value::as_str) != Some("trade.execution.prepare")
+        || reply["ok"] != true
+        || reply["data"]["attempt"]["state"] != "RESERVED"
+    {
+        return reply;
+    }
+    let Some(provider) = provider else {
+        return reply;
+    };
+    let attempt_id = reply["data"]["attempt"]["attemptId"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let approval_id = reply["data"]["attempt"]["approvalId"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let workspace_id = reply["data"]["attempt"]["workspaceId"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let startup = (|| -> Result<(), &'static str> {
+        if gateway.is_none() {
+            let executable = std::env::current_exe()
+                .map_err(|_| "GATEWAY_BINARY_INVALID")?
+                .with_file_name("tradex-order-gateway");
+            let pin = std::env::var("TRADEX_ORDER_GATEWAY_SHA256")
+                .map_err(|_| "GATEWAY_BINARY_INVALID")?;
+            *gateway = Some(tradex::order_gateway::OrderGatewayHost::new(
+                executable, pin,
+            ));
+        }
+        let gateway = gateway.as_mut().ok_or("GATEWAY_UNAVAILABLE")?;
+        if !gateway.is_running() {
+            gateway.start()?;
+        }
+        Ok(())
+    })();
+    let dispatch = startup.and_then(|()| {
+        gateway
+            .as_mut()
+            .ok_or("GATEWAY_UNAVAILABLE")?
+            .dispatch_attempt(
+                &attempt_id,
+                {
+                    let control = control.clone();
+                    move |attempt_id, session_id| {
+                        let mut control = control
+                            .lock()
+                            .map_err(|_| "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned())?;
+                        let mut package = control
+                            .live_dispatch_package(attempt_id, session_id)
+                            .map_err(|error| error.code)?;
+                        let remote_account_id = package
+                            .account
+                            .data
+                            .as_ref()
+                            .map(|data| data.remote_account_id.clone())
+                            .ok_or_else(|| "PROVIDER_REVIEW_REQUIRED".to_owned())?;
+                        drop(control);
+                        provider.set_remote_account_id(remote_account_id);
+                        package.local_test_base_url = Some(provider.base_url().to_owned());
+                        Ok(package)
+                    }
+                },
+                {
+                    let control = control.clone();
+                    move |grant_id, session_id| {
+                        control
+                            .lock()
+                            .map_err(|_| "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned())?
+                            .begin_live_execution_submission(grant_id, session_id)
+                            .map(|_| ())
+                            .map_err(|error| error.code)
+                    }
+                },
+                {
+                    let control = control.clone();
+                    move |attempt_id, code| {
+                        if let Ok(mut control) = control.lock() {
+                            let _ = control.stop_live_dispatch_before_submission(attempt_id, code);
+                        }
+                    }
+                },
+                {
+                    let control = control.clone();
+                    move |attempt_id, outcome| {
+                        control
+                            .lock()
+                            .map_err(|_| "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned())?
+                            .complete_live_execution_submission(attempt_id, outcome)
+                            .map(|_| ())
+                            .map_err(|error| error.code)
+                    }
+                },
+            )
+    });
+    if dispatch.is_err() {
+        if let Some(gateway) = gateway.as_mut() {
+            gateway.stop();
+        }
+        if let Ok(mut control) = control.lock() {
+            let _ =
+                control.stop_live_dispatch_before_submission(&attempt_id, "GATEWAY_PROCESS_FAILED");
+        }
+    }
+    let saved = match control.lock() {
+        Ok(mut control) => control.dispatch_with_events(
+            json!({
+                "requestId":request["requestId"],
+                "schemaVersion":1,
+                "command":"trade.execution.preparation.get",
+                "payload":{"workspaceId":workspace_id,"approvalId":approval_id}
+            }),
+            "stdio",
+            Some(sink.clone()),
+        ),
+        Err(_) => return failed_reply(&reply, "IPC_CONTROL_PLANE_UNAVAILABLE"),
+    };
+    if saved["ok"] != true || saved["data"]["preparation"].is_null() {
+        return failed_reply(&reply, "WORKSPACE_INTEGRITY_FAILED");
+    }
+    reply["data"] = saved["data"]["preparation"].clone();
+    reply
+}
+
+#[cfg(all(feature = "integration-test", target_os = "macos"))]
+fn failed_reply(reply: &Value, code: &str) -> Value {
+    json!({
+        "requestId":reply["requestId"],
+        "schemaVersion":1,
+        "ok":false,
+        "error":tradex::protocol::TradeXError::new(code)
+    })
 }
 
 fn write_frame(output: &Mutex<io::Stdout>, frame: &Value) -> io::Result<()> {

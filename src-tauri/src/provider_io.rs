@@ -6,11 +6,11 @@ use crate::{
         AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, BinanceTestnetOrderAttempt,
         BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookAction,
         BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancelState, BitgetDemoOrderAttempt,
-        BitgetDemoOrderAttemptState, ExecutionContext, OrderProposal, OrderQuantityType, OrderSide,
-        OrderType, Result, TimeInForce, TradeXError, Trading212DemoCancelState,
-        Trading212DemoNormalizedOrderStatus, Trading212DemoOrder, Trading212DemoOrderAttempt,
-        Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
-        Trading212DemoOrderOrigin,
+        BitgetDemoOrderAttemptState, CancellationIntent, ExecutionContext, OrderProposal,
+        OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
+        Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrder,
+        Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
+        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin,
     },
     providers::*,
 };
@@ -342,6 +342,12 @@ impl ProviderEndpoint {
                         && path.starts_with("/api/v3/order?")
                         && self.allows(path))
                     || (self == Self::BitgetDemo && path == "/api/v2/spot/trade/place-order")
+                    || (cfg!(feature = "order-gateway-runtime")
+                        && self == Self::Trading212Live
+                        && matches!(
+                            path,
+                            "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
+                        ))
             }
             ProviderHttpMethod::Delete => {
                 self == Self::AlpacaPaper
@@ -350,6 +356,9 @@ impl ProviderEndpoint {
                         .is_some_and(valid_provider_order_id)
                     || self == Self::Trading212Demo && valid_t212_order_detail_path(path)
                     || self == Self::BinanceTestnet && binance::allows_cancel(path)
+                    || (cfg!(feature = "order-gateway-runtime")
+                        && self == Self::Trading212Live
+                        && valid_t212_order_detail_path(path))
             }
         }
     }
@@ -483,13 +492,235 @@ pub trait ProviderHttp {
     }
 }
 
-#[derive(Default)]
-pub struct BrokerHttp(std::cell::OnceCell<Result<Client>>);
+pub enum PrivilegedLiveOperation<'a> {
+    Place(&'a OrderProposal),
+    Cancel(&'a CancellationIntent),
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveDispatchOutcome {
+    pub state: crate::protocol::ExecutionAttemptState,
+    pub broker_order_id: Option<String>,
+    pub provider_status: Option<String>,
+    pub error_code: Option<String>,
+}
+
+pub struct PreparedLiveMutation {
+    path: String,
+    method: ProviderHttpMethod,
+    body: Option<Value>,
+    headers: HeaderMap,
+    secrets: Zeroizing<Vec<String>>,
+    expected_ticker: Option<String>,
+    order_id: Option<String>,
+}
+
+pub fn prepare_trading212_live_mutation(
+    account: &AccountConnection,
+    credential_reference: &str,
+    operation: PrivilegedLiveOperation<'_>,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+) -> Result<PreparedLiveMutation> {
+    if account.provider_id != "trading212"
+        || account.environment != "LIVE"
+        || credential_reference != account.credential_ref()
+        || account.data.is_none()
+    {
+        return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+    }
+    let (path, method, body, expected_ticker, order_id) = match operation {
+        PrivilegedLiveOperation::Place(proposal) => {
+            if proposal.workspace_id != account.workspace_id
+                || proposal.fields.account_id.as_deref() != Some(&account.connection_id)
+                || proposal.fields.environment != ExecutionContext::Trading212Live
+                || proposal.status != crate::protocol::OrderProposalStatus::Consumed
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let (path, body) = trading212_live_order_request(proposal, &account.connection_id)?;
+            (
+                path,
+                ProviderHttpMethod::Post,
+                Some(body),
+                Some(body_ticker_for_live_proposal(proposal)?),
+                None,
+            )
+        }
+        PrivilegedLiveOperation::Cancel(intent) => {
+            if intent.workspace_id != account.workspace_id
+                || intent.account_id != account.connection_id
+                || intent.environment != ExecutionContext::Trading212Live
+                || !valid_t212_order_id(&intent.provider_order_id)
+            {
+                return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+            }
+            (
+                format!("/api/v0/equity/orders/{}", intent.provider_order_id),
+                ProviderHttpMethod::Delete,
+                None,
+                None,
+                Some(intent.provider_order_id.clone()),
+            )
+        }
+    };
+    let credential = vault.get(credential_reference)?;
+    let mut secrets = credential.values()?;
+    if secrets.len() != 2 || secrets[0].contains(':') {
+        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+    }
+    use base64::Engine;
+    let combined = Zeroizing::new(format!("{}:{}", secrets[0], secrets[1]));
+    let encoded =
+        Zeroizing::new(base64::engine::general_purpose::STANDARD.encode(combined.as_bytes()));
+    let authorization = Zeroizing::new(format!("Basic {}", encoded.as_str()));
+    let mut header = HeaderValue::from_str(authorization.as_str())
+        .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+    header.set_sensitive(true);
+    let mut headers = HeaderMap::new();
+    headers.insert("Authorization", header);
+    secrets.push(encoded.to_string());
+
+    let identity = http.request(
+        ProviderEndpoint::Trading212Live,
+        ProviderHttpMethod::Get,
+        "/api/v0/equity/account/summary",
+        headers.clone(),
+        None,
+    )?;
+    if identity.status != 200 {
+        return Err(trading212_order_read_error(
+            identity.status,
+            Trading212Endpoint::OrderDetail,
+        ));
+    }
+    let identity: Value = serde_json::from_slice(&identity.body).map_err(|_| invalid())?;
+    let expected_remote_id = account
+        .data
+        .as_ref()
+        .map(|data| data.remote_account_id.as_str())
+        .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+    if contains_secret(&identity, &secrets)
+        || trading212::account_id(&identity)? != expected_remote_id
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    Ok(PreparedLiveMutation {
+        path,
+        method,
+        body,
+        headers,
+        secrets,
+        expected_ticker,
+        order_id,
+    })
+}
+
+impl PreparedLiveMutation {
+    pub fn send(self, http: &impl ProviderHttp) -> LiveDispatchOutcome {
+        let response = http.request(
+            ProviderEndpoint::Trading212Live,
+            self.method,
+            &self.path,
+            self.headers,
+            self.body.as_ref(),
+        );
+        let response = match response {
+            Ok(response) => response,
+            Err(_) => return unknown_live_dispatch(),
+        };
+        if matches!(response.status, 400 | 401 | 403 | 429) {
+            return LiveDispatchOutcome {
+                state: crate::protocol::ExecutionAttemptState::Rejected,
+                broker_order_id: self.order_id,
+                provider_status: None,
+                error_code: Some(
+                    match response.status {
+                        400 => "PROVIDER_ORDER_REJECTED",
+                        401 => "PROVIDER_AUTH_FAILED",
+                        403 => "PROVIDER_PERMISSION_BLOCKED",
+                        _ => "PROVIDER_RATE_LIMITED",
+                    }
+                    .into(),
+                ),
+            };
+        }
+        if response.status != 200 {
+            return unknown_live_dispatch();
+        }
+        if let Some(order_id) = self.order_id {
+            return LiveDispatchOutcome {
+                state: crate::protocol::ExecutionAttemptState::CancelPending,
+                broker_order_id: Some(order_id),
+                provider_status: Some("CANCEL_PENDING".into()),
+                error_code: None,
+            };
+        }
+        let acknowledged = (|| -> Result<(String, Option<String>)> {
+            let value: Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
+            if contains_secret(&value, &self.secrets)
+                || self.expected_ticker.as_deref() != value.get("ticker").and_then(Value::as_str)
+            {
+                return Err(invalid());
+            }
+            let provider_order_id = trading212::order_id(&value)?;
+            let provider_status = value
+                .get("status")
+                .and_then(Value::as_str)
+                .filter(|status| {
+                    !status.is_empty()
+                        && status.len() <= 64
+                        && status.bytes().all(|byte| byte.is_ascii_graphic())
+                })
+                .map(str::to_owned);
+            Ok((provider_order_id, provider_status))
+        })();
+        match acknowledged {
+            Ok((broker_order_id, provider_status)) => LiveDispatchOutcome {
+                state: crate::protocol::ExecutionAttemptState::Accepted,
+                broker_order_id: Some(broker_order_id),
+                provider_status,
+                error_code: None,
+            },
+            Err(_) => unknown_live_dispatch(),
+        }
+    }
+}
+
+fn unknown_live_dispatch() -> LiveDispatchOutcome {
+    LiveDispatchOutcome {
+        state: crate::protocol::ExecutionAttemptState::UnknownReconciling,
+        broker_order_id: None,
+        provider_status: None,
+        error_code: Some("ORDER_STATUS_UNKNOWN".into()),
+    }
+}
+
+fn body_ticker_for_live_proposal(proposal: &OrderProposal) -> Result<String> {
+    market::instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == proposal.fields.instrument_id)
+        .and_then(|instrument| {
+            instrument
+                .providers
+                .into_iter()
+                .find(|mapping| mapping.provider_id == "trading212")
+                .map(|mapping| mapping.provider_symbol)
+        })
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"))
+}
+
+pub struct BrokerHttp {
+    client: std::cell::OnceCell<Result<Client>>,
+    #[cfg(feature = "integration-test")]
+    local_test_base_url: Option<String>,
+}
 
 impl BrokerHttp {
-    fn client_builder() -> reqwest::blocking::ClientBuilder {
+    fn client_builder(https_only: bool) -> reqwest::blocking::ClientBuilder {
         Client::builder()
-            .https_only(true)
+            .https_only(https_only)
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(12))
@@ -497,14 +728,59 @@ impl BrokerHttp {
     }
 
     fn client(&self) -> Result<&Client> {
-        self.0
+        self.client
             .get_or_init(|| {
-                Self::client_builder()
+                Self::client_builder(self.local_test_base_url().is_none())
                     .build()
                     .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))
             })
             .as_ref()
             .map_err(Clone::clone)
+    }
+
+    #[cfg(feature = "integration-test")]
+    pub fn for_loopback_test(base_url: &str) -> Result<Self> {
+        let port = base_url
+            .strip_prefix("http://127.0.0.1:")
+            .and_then(|value| value.parse::<u16>().ok());
+        if !port.is_some_and(|port| port > 0) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        Ok(Self {
+            client: std::cell::OnceCell::new(),
+            local_test_base_url: Some(base_url.trim_end_matches('/').to_owned()),
+        })
+    }
+
+    fn local_test_base_url(&self) -> Option<&str> {
+        #[cfg(feature = "integration-test")]
+        {
+            self.local_test_base_url.as_deref()
+        }
+        #[cfg(not(feature = "integration-test"))]
+        {
+            None
+        }
+    }
+
+    fn url(&self, endpoint: ProviderEndpoint, path: &str) -> String {
+        let base = if endpoint == ProviderEndpoint::Trading212Live {
+            self.local_test_base_url()
+                .unwrap_or_else(|| endpoint.base_url())
+        } else {
+            endpoint.base_url()
+        };
+        format!("{base}{path}")
+    }
+}
+
+impl Default for BrokerHttp {
+    fn default() -> Self {
+        Self {
+            client: std::cell::OnceCell::new(),
+            #[cfg(feature = "integration-test")]
+            local_test_base_url: None,
+        }
     }
 }
 
@@ -519,7 +795,7 @@ impl ProviderHttp for BrokerHttp {
         }
         let response = self
             .client()?
-            .get(format!("{}{path}", endpoint.base_url()))
+            .get(self.url(endpoint, path))
             .headers(headers)
             .send()
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
@@ -598,7 +874,7 @@ impl ProviderHttp for BrokerHttp {
         let request = match method {
             ProviderHttpMethod::Get if body.is_none() => self
                 .client()?
-                .get(format!("{}{path}", endpoint.base_url()))
+                .get(self.url(endpoint, path))
                 .headers(headers),
             ProviderHttpMethod::Post if body.is_some() => {
                 let body = serde_json::to_vec(body.unwrap()).map_err(|_| invalid())?;
@@ -606,7 +882,7 @@ impl ProviderHttp for BrokerHttp {
                     return Err(invalid());
                 }
                 self.client()?
-                    .post(format!("{}{path}", endpoint.base_url()))
+                    .post(self.url(endpoint, path))
                     .headers(headers)
                     .header(reqwest::header::CONTENT_TYPE, "application/json")
                     .body(body)
@@ -615,12 +891,12 @@ impl ProviderHttp for BrokerHttp {
                 if endpoint == ProviderEndpoint::BinanceTestnet && body.is_none() =>
             {
                 self.client()?
-                    .post(format!("{}{path}", endpoint.base_url()))
+                    .post(self.url(endpoint, path))
                     .headers(headers)
             }
             ProviderHttpMethod::Delete if body.is_none() => self
                 .client()?
-                .delete(format!("{}{path}", endpoint.base_url()))
+                .delete(self.url(endpoint, path))
                 .headers(headers),
             _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
         };
@@ -3226,12 +3502,27 @@ fn trading212_demo_order_request(
     proposal: &OrderProposal,
     connection_id: &str,
 ) -> Result<(String, Value)> {
+    trading212_order_request(proposal, connection_id, ExecutionContext::Trading212Demo)
+}
+
+pub(crate) fn trading212_live_order_request(
+    proposal: &OrderProposal,
+    connection_id: &str,
+) -> Result<(String, Value)> {
+    trading212_order_request(proposal, connection_id, ExecutionContext::Trading212Live)
+}
+
+fn trading212_order_request(
+    proposal: &OrderProposal,
+    connection_id: &str,
+    environment: ExecutionContext,
+) -> Result<(String, Value)> {
     let fields = &proposal.fields;
     if !matches!(
         proposal.status,
         crate::protocol::OrderProposalStatus::NeedsApproval
             | crate::protocol::OrderProposalStatus::Consumed
-    ) || fields.environment != ExecutionContext::Trading212Demo
+    ) || fields.environment != environment
         || fields.account_id.as_deref() != Some(connection_id)
         || fields.quantity.r#type != OrderQuantityType::Base
         || fields.maximum_spend.is_some()
@@ -3730,7 +4021,7 @@ fn allowed_path(path: &str) -> bool {
             .is_some_and(valid_provider_order_id)
 }
 
-fn valid_provider_order_id(id: &str) -> bool {
+pub(crate) fn valid_provider_order_id(id: &str) -> bool {
     id.len() == 36 && uuid::Uuid::parse_str(id).is_ok()
 }
 

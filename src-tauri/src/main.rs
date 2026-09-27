@@ -21,6 +21,8 @@ use tauri::{Manager, ipc::Channel};
 use tradex::alpaca_stream::AlpacaPrivateStreamSupervisor;
 #[cfg(target_os = "macos")]
 use tradex::binance_stream::{BinancePrivateStreamSupervisor, mark_connected_accounts_degraded};
+#[cfg(unix)]
+use tradex::order_gateway::OrderGatewayHost;
 use tradex::{
     BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
     gateway_process::GatewayHost,
@@ -40,6 +42,7 @@ struct Service(
     Arc<AtomicBool>,
     #[cfg(target_os = "macos")] AlpacaPrivateStreamSupervisor,
     #[cfg(target_os = "macos")] BinancePrivateStreamSupervisor,
+    #[cfg(unix)] Arc<Mutex<OrderGatewayHost>>,
 );
 
 #[tauri::command]
@@ -70,8 +73,20 @@ async fn control(
     let private_stream_supervisor = service.6.clone();
     #[cfg(target_os = "macos")]
     let binance_stream_supervisor = service.7.clone();
+    #[cfg(target_os = "macos")]
+    let order_gateway_host = service.8.clone();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let order_gateway_host = service.6.clone();
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(unix)]
+        if request.get("command").and_then(Value::as_str) == Some("trade.execution.prepare")
+            && !order_gateway_host
+                .lock()
+                .is_ok_and(|mut host| host.is_running())
+        {
+            return failed(&request, "GATEWAY_UNAVAILABLE");
+        }
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
             let job = match engine.lock() {
                 Ok(mut engine) => match engine.prepare_data_source_probe(&request) {
@@ -196,6 +211,7 @@ async fn control(
         if command == Some("backtest.cancel") {
             return backtest_supervisor.cancel(engine, request);
         }
+        let execution_engine = engine.clone();
         let prepared = match engine.lock() {
             Ok(mut engine) => match engine.prepare_provider_for(&request, &consumer) {
                 Ok(Some(job)) => job,
@@ -215,6 +231,8 @@ async fn control(
                     };
                     #[cfg(feature = "integration-test")]
                     let fixture_request = request.clone();
+                    let is_live_execution_prepare = request.get("command").and_then(Value::as_str)
+                        == Some("trade.execution.prepare");
                     let reply = engine.dispatch_with_runtime(
                         request,
                         &consumer,
@@ -248,6 +266,81 @@ async fn control(
                         reply
                     };
                     drop(engine);
+                    #[cfg(unix)]
+                    if is_live_execution_prepare
+                        && reply["ok"] == true
+                        && reply["data"]["attempt"]["state"] == "RESERVED"
+                    {
+                        let attempt_id = reply["data"]["attempt"]["attemptId"]
+                            .as_str()
+                            .unwrap_or_default()
+                            .to_owned();
+                        let dispatch_result = order_gateway_host.lock().map(|mut host| {
+                            host.dispatch_attempt(
+                                &attempt_id,
+                                {
+                                    let engine = execution_engine.clone();
+                                    move |attempt_id, session_id| {
+                                        engine
+                                            .lock()
+                                            .map_err(|_| {
+                                                "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
+                                            })?
+                                            .live_dispatch_package(attempt_id, session_id)
+                                            .map_err(|error| error.code)
+                                    }
+                                },
+                                {
+                                    let engine = execution_engine.clone();
+                                    move |grant_id, session_id| {
+                                        engine
+                                            .lock()
+                                            .map_err(|_| {
+                                                "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
+                                            })?
+                                            .begin_live_execution_submission(grant_id, session_id)
+                                            .map(|_| ())
+                                            .map_err(|error| error.code)
+                                    }
+                                },
+                                {
+                                    let engine = execution_engine.clone();
+                                    move |attempt_id, code| {
+                                        if let Ok(mut engine) = engine.lock() {
+                                            let _ = engine.stop_live_dispatch_before_submission(
+                                                attempt_id, code,
+                                            );
+                                        }
+                                    }
+                                },
+                                {
+                                    let engine = execution_engine.clone();
+                                    move |attempt_id, outcome| {
+                                        engine
+                                            .lock()
+                                            .map_err(|_| {
+                                                "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
+                                            })?
+                                            .complete_live_execution_submission(attempt_id, outcome)
+                                            .map(|_| ())
+                                            .map_err(|error| error.code)
+                                    }
+                                },
+                            )
+                        });
+                        let failed = !matches!(dispatch_result, Ok(Ok(())));
+                        if failed {
+                            if let Ok(mut host) = order_gateway_host.lock() {
+                                host.stop();
+                            }
+                            if let Ok(mut engine) = execution_engine.lock() {
+                                let _ = engine.stop_live_dispatch_before_submission(
+                                    &attempt_id,
+                                    "GATEWAY_PROCESS_FAILED",
+                                );
+                            }
+                        }
+                    }
                     #[cfg(target_os = "macos")]
                     if opening_workspace {
                         private_stream_supervisor.resume();
@@ -377,6 +470,18 @@ fn main() {
             std::fs::create_dir_all(&app_data)?;
             let engine = Arc::new(Mutex::new(ControlPlane::new(default)));
             let gateway = Arc::new(Mutex::new(GatewayHost::new(app_data.join("models"))));
+            #[cfg(unix)]
+            let order_gateway_host = {
+                let pinned = option_env!("TRADEX_ORDER_GATEWAY_SHA256").unwrap_or_default();
+                let mut host = OrderGatewayHost::from_current_executable(pinned)
+                    .map_err(std::io::Error::other)?;
+                if !pinned.is_empty()
+                    && let Err(code) = host.start()
+                {
+                    eprintln!("TradeX Order Gateway startup failed: {code}");
+                }
+                Arc::new(Mutex::new(host))
+            };
             let exiting = Arc::new(AtomicBool::new(false));
             #[cfg(target_os = "macos")]
             register_live_safety_observers(engine.clone());
@@ -394,6 +499,7 @@ fn main() {
                 exiting.clone(),
                 private_stream_supervisor.clone(),
                 binance_stream_supervisor.clone(),
+                order_gateway_host.clone(),
             ));
             #[cfg(not(target_os = "macos"))]
             app.manage(Service(
@@ -403,6 +509,8 @@ fn main() {
                 StrategySupervisor::new(),
                 BacktestSupervisor::new(),
                 exiting.clone(),
+                #[cfg(unix)]
+                order_gateway_host.clone(),
             ));
             #[cfg(target_os = "macos")]
             let stream_engine = engine.clone();
@@ -521,6 +629,14 @@ fn main() {
                     mark_connected_accounts_degraded(&service.0);
                 }
                 if let Ok(mut gateway) = app.state::<Service>().1.lock() {
+                    gateway.stop();
+                }
+                #[cfg(target_os = "macos")]
+                if let Ok(mut gateway) = app.state::<Service>().8.lock() {
+                    gateway.stop();
+                }
+                #[cfg(all(unix, not(target_os = "macos")))]
+                if let Ok(mut gateway) = app.state::<Service>().6.lock() {
                     gateway.stop();
                 }
             }

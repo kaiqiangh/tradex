@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AccountConnection, Accounts as AccountList, CancellationReview, ExecutionPreparation, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
 import { CommandError, desktop, browserIntegration, explainError, request } from './client.ts';
 import { fromAccountSnapshot, fromRiskSnapshot } from './projection.ts';
+import { liveExecutionStatus } from './liveExecution.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
 import { Portfolio } from './Portfolio.tsx';
 
@@ -28,7 +29,6 @@ function isExactCancellationPreparation(preparation: ExecutionPreparation, appro
     && attempt.workspaceId === approval.workspaceId
     && attempt.approvalId === approval.approvalId
     && attempt.operation === 'CANCEL'
-    && attempt.state === 'RESERVED'
     && attempt.intentId === approval.cancellationIntentId
     && attempt.intentHash === approval.intentHash
     && attempt.brokerOrderId === brokerOrderId
@@ -126,7 +126,7 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
           if (!isExactCancellationPreparation(saved.preparation, savedApproval, account, brokerOrderId)) throw new Error('WORKSPACE_INTEGRITY_FAILED');
           setPreparation(saved.preparation);
           setApprovalToPrepare(undefined);
-          setNotice('Restored the saved TradeX CANCEL preparation. No provider cancellation was sent.');
+          setNotice(liveExecutionStatus(saved.preparation.attempt));
           return;
         }
         if (savedApproval.status === 'CONSUMED') throw new Error('WORKSPACE_INTEGRITY_FAILED');
@@ -207,10 +207,15 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
         confirmed: true,
       });
       if (!isExactCancellationPreparation(prepared, approvalToPrepare, account, brokerOrderId)) throw new Error('IPC_IDENTITY_CONFLICT');
-      setPreparation(prepared);
+      const saved = await request('trade.execution.preparation.get', {
+        workspaceId: approvalToPrepare.workspaceId,
+        approvalId: approvalToPrepare.approvalId,
+      });
+      if (!saved.preparation || !isExactCancellationPreparation(saved.preparation, approvalToPrepare, account, brokerOrderId)) throw new Error('WORKSPACE_INTEGRITY_FAILED');
+      setPreparation(saved.preparation);
       setApprovalToPrepare(undefined);
       setPrepareIdentity(undefined);
-      setNotice('CANCEL is RESERVED in TradeX. No provider cancellation request was sent; the order state still requires provider observation.');
+      setNotice(liveExecutionStatus(saved.preparation.attempt));
       await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId, brokerOrderId] });
     } catch (failure) { setError(explainError(failure)); }
     finally { setBusy(false); }
@@ -225,7 +230,7 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
       <span>Intent hash {approvalToPrepare.intentHash} · remaining quantity {approvalToPrepare.remainingQuantity}</span>
       <span>Approval expires {time(approvalToPrepare.expiresAt)}</span>
       <p>This approval permits only a separate local preparation. It does not cancel the provider order.</p>
-      <button type="button" className="primary" onClick={() => void prepareCancellation()} disabled={busy}>{busy ? 'Preparing CANCEL in TradeX…' : 'Prepare cancellation in TradeX'}</button>
+      <button type="button" className="primary" onClick={() => void prepareCancellation()} disabled={busy}>{busy ? 'Sending through secure Order Gateway…' : 'Prepare and send approved cancellation'}</button>
     </article>}
     {preparation && <article className="live-approval-record" aria-label="TradeX cancellation preparation">
       <strong>{preparation.attempt.state} · TradeX CANCEL preparation</strong>
@@ -233,7 +238,10 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
       <span>{account.providerId} · LIVE · account {preparation.attempt.accountId}</span>
       <span>Provider order {preparation.attempt.brokerOrderId} · intent {preparation.attempt.intentId} · {preparation.attempt.intentHash}</span>
       <span>No new PLACE capacity reservation was created.</span>
-      <p>No provider cancellation request was sent. Use the latest provider observation for the order's current open, pending, filled, canceled, or other terminal state.</p>
+      {preparation.attempt.providerStatus && <span>Provider status {preparation.attempt.providerStatus}</span>}
+      {preparation.attempt.errorCode && <span>Outcome code {preparation.attempt.errorCode}</span>}
+      {preparation.attempt.dispatchDisposition && <span>Dispatch disposition {preparation.attempt.dispatchDisposition}</span>}
+      <p role="status" aria-live="polite">{liveExecutionStatus(preparation.attempt)} Use the latest provider observation for the order's current state.</p>
     </article>}
     <dialog ref={dialogRef} className="picker-dialog live-cancel-dialog" aria-modal="true" aria-labelledby="live-cancel-title" onCancel={event => { event.preventDefault(); if (!busy) setReview(undefined); }} onKeyDown={event => {
       if (event.key === 'Escape' && !busy) { event.preventDefault(); setReview(undefined); }

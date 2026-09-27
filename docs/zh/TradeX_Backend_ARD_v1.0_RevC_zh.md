@@ -1040,16 +1040,18 @@ Database transaction 是 correctness boundary；in-memory lock 只是降低争�
 
 ### 22.3 Reservation lifecycle
 
-S23 的 `trade.execution.prepare` 是审批后的独立显式用户操作。对于 Live PLACE，一个 SQLite immediate transaction 重新校验精确 proposal 与账户，消费 approval 和 proposal，创建精确容量 reservation 与 `RESERVED` attempt，并提交审计/outbox。对于 Live CANCEL，同一命令重新校验获批的不可变意图、提供方订单身份、账户快照/证据、策略与剩余数量，然后只消费撤单 approval，并保存不带新增 reservation 的 `RESERVED` attempt。在权威提供方证据确认撤单或成交竞态之前，原订单承诺继续占用容量。两种操作都会在 Order Gateway 或 provider I/O 之前停止；派发属于后续 S24 边界。共享策略变更、账户撤防/Disable All 或可信 approval TTL 到期，会在同一事务中使仍处于 `RESERVED` 的匹配 attempt 失效；active PLACE reservation 转为 `RELEASED`。已消费 approval 保留已消费审计状态，同幂等键重放返回已停止的 attempt。响应丢失或重启后，`trade.execution.preparation.get` 按 workspace 和 approval 身份读取耐久 attempt 及其 active/released PLACE reservation。
+显式 `trade.execution.prepare` 仍是唯一公开的 PLACE/CANCEL 授权入口。对于 Live PLACE，一个 SQLite immediate transaction 重新校验精确 proposal 与账户，消费 approval 和 proposal，创建精确容量 reservation 与 `RESERVED` attempt，并提交审计/outbox。对于 Live CANCEL，同一命令重新校验获批的不可变意图、提供方订单身份、账户快照/证据、策略与剩余数量，然后只消费撤单 approval，并保存不带新增 reservation 的 `RESERVED` attempt。在该事务提交后，Control Plane 在内部启动隔离的 Order Gateway。Gateway 只有在当前授权复核并记录一次性许可后才能继续；只有 `SUBMITTING` 及其审计/outbox 持久化后，才允许 provider I/O。在权威提供方证据确认撤单或成交竞态之前，原订单承诺继续占用容量。若共享策略变更、账户撤防/Disable All 或可信 approval TTL 到期先于 `SUBMITTING` 获胜，则原子使 attempt 失效；active PLACE reservation 恰好释放一次。已消费 approval 保留已消费审计状态，同幂等键重放只读取已保存状态，不会重发。响应丢失或重启后，`trade.execution.preparation.get` 按 workspace 和 approval 身份读取耐久 attempt 及其 active/released PLACE reservation。
 
 ```text
 PLACE：APPROVED → RESERVED（精确 reservation）→ SUBMITTING
        → ACCEPTED / REJECTED / UNKNOWN_RECONCILING
        → 仅依据权威处置证据调整/释放
-CANCEL：APPROVED → RESERVED（不新增 reservation）→ S24 派发
-        → CANCEL_PENDING → 提供方确认的终态或成交竞态
+CANCEL：APPROVED → RESERVED（不新增 reservation）→ SUBMITTING
+        → CANCEL_PENDING / REJECTED / UNKNOWN_RECONCILING
+        → 提供方确认的终态或成交竞态
 
-S24 派发前：RESERVED → INVALIDATED；active PLACE reservation → RELEASED
+若停止在 SUBMITTING 前获胜：RESERVED → INVALIDATED（STOPPED_BEFORE_DISPATCH）；
+                                active PLACE reservation → RELEASED
 ```
 
 ### 22.4 Unknown state
@@ -1096,7 +1098,8 @@ approval valid + unconsumed?
 → consume approval
 → consume proposal
 → transition RESERVED
-→ stop；此命令不发送 provider request
+→ commit 后由 Control Plane 在内部启动 Order Gateway
+→ Gateway 重新验证后才可记录 SUBMITTING；provider mutation 必须在该提交之后
 ```
 
 Material failure 会 invalidate/reject flow，并在需要时要求新的用户同意。
@@ -1128,10 +1131,10 @@ intent_id 在 PLACE_ORDER 时解析为不可变 OrderProposal，在 CANCEL 时�
 
 ### 24.1.1 派发权威与故障边界
 
-1. 派发前，S23 已在账户/策略串行化边界内消费 proposal 与 approval，并原子持久化 `RESERVED` attempt、reservation、审计和 outbox。Gateway 重新读取这些耐久状态。
+1. 显式 `trade.execution.prepare` 在账户/策略串行化边界内消费 proposal/approval，并原子持久化 `RESERVED` attempt、适用的 PLACE reservation、审计和 outbox。事务提交后，Control Plane 在内部启动 Gateway；Gateway 重新读取这些耐久状态。
 2. Gateway 经私有通道为该尝试申请一次性派发许可。控制面使用与 disarm/策略保存相同的串行化边界，重新校验 arming、健康、权限、策略、proposal 身份、行情/时钟/FX 可执行性及当前预留；先持久化许可，再回复。
 3. Gateway 按账户串行处理派发与撤销，确认许可仍有效，并在提供方 I/O 前通过控制面持久化 `SUBMITTING` 意图。在此边界前已确认的 disable 阻止 I/O；跨过边界后，取消本地工作不能证明提供方没有收到请求。
-4. 许可发出后若交付、子进程健康或传输确认不确定，必须保留容量并优先查询提供方。控制面不能根据 Gateway 未回复推断“未提交”。只有持久化的派发/撤销证据证明传输从未开始，或后续提供方证据解决了尝试，才允许释放。
+4. 若停止在 `SUBMITTING` 前获胜，则撤销许可、持久化 `STOPPED_BEFORE_DISPATCH`/失效状态，不发送 provider mutation，并恰好释放一次 active PLACE reservation。若 `SUBMITTING` 先提交，则持久化 `MAY_HAVE_SUBMITTED`、保留容量，不重放 POST/DELETE，也不声称本地取消阻止了请求。该边界后结果丢失或不确定时保持 `UNKNOWN_RECONCILING`，等待后续对账。
 
 Disable All 返回各账户 disarm 状态，以及各尝试的 STOPPED_BEFORE_DISPATCH 或 MAY_HAVE_SUBMITTED 处置。前者要求 Gateway 在派发边界前确认撤销；Gateway 不可达时按后者处理并保留容量。这些是派发处置，不是新增券商订单状态。
 
@@ -1874,8 +1877,8 @@ interface TradeXError {
 | 刷新陈旧 proposal | trade.refresh_proposal | proposal_id、expected_state_version；返回新 proposal 并使旧同意失效 |
 | 请求审批审阅 | trade.request_approval | workspace_id、proposal_id；返回后端持有的 proposal/账户/报价摘要和当前 RiskDecision ID 供比较；不签发授权 |
 | 显式批准 | trade.approve | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；后端重新校验完整审阅并创建短时 approval；不消费、不创建 reservation |
-| 准备已批准的 Live PLACE | trade.execution.prepare | workspace_id、approval_id、expected_approval_state_version、idempotency_key、confirmed=true；后端重新读取并校验精确 proposal/账户/策略/报价/FX/容量/时钟证据，然后原子消费 proposal 与 approval，并创建一个 `RESERVED` attempt 和精确 reservation。相同幂等键重放返回已保存结果。容量拒绝会在同一验证事务中追加脱敏拒绝记录与 outbox event，同时保持 proposal、approval、reservation 和 attempt 不变；重放该 key 返回同一拒绝。不启动 Order Gateway 或 provider request。 |
-| 准备已批准的 Live CANCEL | trade.execution.prepare | 使用相同 workspace/approval/version/idempotency/confirmed payload；后端重新校验带 CANCEL 标签的 approval、精确当前意图/订单/账户/策略/快照证据，然后原子消费 approval 并写入一个 `RESERVED` attempt，且 `reservation=null`。相同幂等键重放返回该 attempt；不同 key 不能再次消费 approval。不消费 proposal、不创建 PLACE reservation，也不启动 Order Gateway 或 provider request。 |
+| 准备并发送已批准的 Live PLACE | trade.execution.prepare | workspace_id、approval_id、expected_approval_state_version、idempotency_key、confirmed=true；后端重新读取并校验精确 proposal/账户/策略/报价/FX/容量/时钟证据，然后原子消费 proposal 与 approval，并创建一个 `RESERVED` attempt 和精确 reservation。提交后 Control Plane 在内部启动 Gateway；Gateway 获取当前一次性许可并在持久化 `SUBMITTING` 后发送唯一一次 provider POST。结果持久化为 `ACCEPTED`（不是成交）、`REJECTED` 或 `UNKNOWN_RECONCILING`。相同幂等键重放只返回已保存状态，不会再次 POST。容量拒绝不执行 provider mutation，且保留 proposal/approval。 |
+| 准备并发送已批准的 Live CANCEL | trade.execution.prepare | 使用相同 workspace/approval/version/idempotency/confirmed payload；后端校验带 CANCEL 标签的 approval、精确当前意图/订单/账户/策略/快照证据，然后原子消费 approval 并写入一个 `RESERVED` attempt，且 `reservation=null`。提交后 Control Plane 在内部启动 Gateway；持久化 `SUBMITTING` 先于唯一一次精确 provider DELETE。提供方确认只成为 `CANCEL_PENDING`，不表示 `CANCELLED`；明确拒绝与结果未知保持不同状态。不消费 proposal、不创建 PLACE reservation。同幂等键重放只读取已保存状态，不会再次 DELETE。 |
 | 恢复 Live execution preparation | trade.execution.preparation.get | workspace_id、approval_id；响应丢失或重启后返回耐久的 `ExecutionPreparation | null`（适用时含 PLACE reservation）与容量拒绝历史。只读，不发送 provider request。 |
 | 拒绝审批审阅 | trade.reject | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；记录 `USER_REJECTED`；不创建 approval 或执行券商操作 |
 | 读取审批历史 | trade.approval.list | workspace_id、proposal_id；返回已签发、已拒绝、已失效、已过期及后续已消费状态和脱敏审计原因 |
