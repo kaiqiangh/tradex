@@ -20,4 +20,4 @@
 
 ## 保留边界
 
-本证据仅关闭 #93 的并发、容量与事务原子性切片。父规范 #88 保持 OPEN，S27 生命周期恢复及 S33 全页面/键盘/窄屏回归仍由各自工作项负责；S24 Gateway dispatch、provider mutation、真实订单和 broker acknowledgement 未实现或验证。
+本证据关闭 #93 的并发、容量与事务原子性切片，并补齐 S23 父规范 #88 的最后验收条件。S27 生命周期恢复及 S33 全页面/键盘/窄屏回归仍由各自工作项负责，不阻塞 S23 结案；S24 Gateway dispatch、provider mutation、真实订单和 broker acknowledgement 未实现或验证。
