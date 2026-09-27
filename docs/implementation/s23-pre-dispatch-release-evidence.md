@@ -15,7 +15,7 @@
 - `npm run check` 通过：IPC schema 同步、TypeScript 检查与生产构建、11 个 Node 单测、187 个 Rust library tests、workspace 集成测试及需求追溯（203 requirements、70 screens、13 QA scenarios、23 baseline files）。集成套件中原生 Keychain、固定 Gateway 与外部证据门控的测试按现有规则 ignored。
 - `cargo fmt --all -- --check`、`git diff --check` 和 `node --check tests/live-approval-ui.mjs` 通过。
 - `tests/live-approval-ui.mjs` 的 Rust-backed 隔离浏览器运行通过 13 项观测：合成账户、行情及容量 fixture 覆盖显式 approval/preparation、历史恢复、容量冲突、键盘操作、1280/768/390 宽度、策略失效/释放和同页刷新。断言确认没有发送 provider 请求。
-- 固定审查基线 `031bfdb3456f6f05e3d66997d8a370416bafcd15` 的 Spec 与 Standards 复审均通过。精确实现提交 SHA 将在提交后补入本页，并在关闭 #92 前写入其 resolution comment。
+- 固定审查基线 `031bfdb3456f6f05e3d66997d8a370416bafcd15` 的 Spec 与 Standards 复审通过。实现提交为 `b790c095f268b78b3ef954faac8dd615d2cb4877`；最终证据索引提交和 `dev` HEAD 将写入关闭 #92 前的 resolution comment。
 
 ## 保留边界
 
