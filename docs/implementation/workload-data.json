@@ -1,35 +1,33 @@
 {
- "generated": "2026-09-25 23:06 +0100",
- "commit": "4438b83",
+ "generated": "2026-09-27 12:02 +0100",
+ "commit": "c888648",
  "branch": "dev",
- "ahead": 2,
+ "ahead": 6,
  "req_total": 203,
  "req_status": {
-  "IMPLEMENTED_UNVERIFIED": 60,
-  "NOT_STARTED": 94,
+  "IMPLEMENTED_UNVERIFIED": 61,
+  "NOT_STARTED": 90,
   "IN_PROGRESS": 29,
-  "VERIFIED": 17,
+  "VERIFIED": 20,
   "DEFERRED": 3
  },
  "surf_total": 83,
  "surf_status": {
   "VERIFIED": 1,
-  "IN_PROGRESS": 7,
-  "IMPLEMENTED_UNVERIFIED": 38,
-  "NOT_STARTED": 37
+  "IN_PROGRESS": 11,
+  "IMPLEMENTED_UNVERIFIED": 39,
+  "NOT_STARTED": 32
  },
- "issue_total": 86,
- "issue_open": 6,
+ "issue_total": 95,
+ "issue_open": 4,
  "open_issues": [
   1,
   56,
-  79,
-  83,
-  85,
-  86
+  94,
+  95
  ],
- "slice_closed": 19,
- "slice_inprog": 3,
+ "slice_closed": 22,
+ "slice_inprog": 2,
  "slices": [
   {
    "id": "S01",
@@ -471,15 +469,15 @@
   {
    "id": "S21",
    "title": "配置并执行确定性风险政策",
-   "state": "IN_PROGRESS",
+   "state": "CLOSED",
    "issues": [
     79,
     80,
     81,
     82
    ],
-   "issues_closed": 3,
-   "issues_open": 1,
+   "issues_closed": 4,
+   "issues_open": 0,
    "total": 11,
    "not_started": 1,
    "in_progress": 5,
@@ -493,15 +491,16 @@
   {
    "id": "S22",
    "title": "显式 Arm 并批准精确金融意图",
-   "state": "IN_PROGRESS",
+   "state": "CLOSED",
    "issues": [
     83,
     84,
     85,
-    86
+    86,
+    87
    ],
-   "issues_closed": 1,
-   "issues_open": 3,
+   "issues_closed": 5,
+   "issues_open": 0,
    "total": 35,
    "not_started": 31,
    "in_progress": 3,
@@ -515,27 +514,37 @@
   {
    "id": "S23",
    "title": "原子消费审批并预留账户容量",
-   "state": "NOT_STARTED",
-   "issues": [],
-   "issues_closed": 0,
+   "state": "CLOSED",
+   "issues": [
+    88,
+    89,
+    90,
+    91,
+    92,
+    93
+   ],
+   "issues_closed": 6,
    "issues_open": 0,
    "total": 15,
-   "not_started": 9,
+   "not_started": 5,
    "in_progress": 4,
-   "hold": 2,
-   "verified": 0,
+   "hold": 3,
+   "verified": 3,
    "deferred": 0,
-   "open": 13,
-   "done": 0,
+   "open": 9,
+   "done": 3,
    "phase": "P5"
   },
   {
    "id": "S24",
    "title": "经认证的独立 Gateway 派发执行",
-   "state": "NOT_STARTED",
-   "issues": [],
+   "state": "IN_PROGRESS",
+   "issues": [
+    94,
+    95
+   ],
    "issues_closed": 0,
-   "issues_open": 0,
+   "issues_open": 2,
    "total": 18,
    "not_started": 11,
    "in_progress": 6,
@@ -824,14 +833,14 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 52,
+   "not_started": 48,
    "in_progress": 5,
-   "hold": 0,
-   "verified": 0,
+   "hold": 1,
+   "verified": 3,
    "deferred": 0,
    "total": 57,
-   "open": 57,
-   "done": 0,
+   "open": 53,
+   "done": 3,
    "code": "P5",
    "name": "风控与实盘",
    "range": "S21–S30",
@@ -847,8 +856,8 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 0,
-   "slice_inprog": 2
+   "slice_closed": 3,
+   "slice_inprog": 1
   },
   {
    "not_started": 13,
@@ -980,14 +989,14 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 52,
+   "not_started": 48,
    "in_progress": 5,
-   "hold": 0,
-   "verified": 0,
+   "hold": 1,
+   "verified": 3,
    "deferred": 0,
    "total": 57,
-   "open": 57,
-   "done": 0,
+   "open": 53,
+   "done": 3,
    "code": "P5",
    "name": "风控与实盘",
    "range": "S21–S30",
@@ -1003,8 +1012,8 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 0,
-   "slice_inprog": 2
+   "slice_closed": 3,
+   "slice_inprog": 1
   },
   {
    "not_started": 13,
@@ -1136,14 +1145,14 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 64,
+   "not_started": 60,
    "in_progress": 13,
-   "hold": 8,
-   "verified": 0,
+   "hold": 9,
+   "verified": 3,
    "deferred": 0,
    "total": 85,
-   "open": 77,
-   "done": 0,
+   "open": 73,
+   "done": 3,
    "code": "P5",
    "name": "风控与实盘",
    "range": "S21–S30",
@@ -1159,8 +1168,8 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 0,
-   "slice_inprog": 2
+   "slice_closed": 3,
+   "slice_inprog": 1
   },
   {
    "not_started": 19,
@@ -1206,26 +1215,26 @@
   {
    "id": "FR",
    "name": "功能需求",
-   "not_started": 27,
+   "not_started": 26,
    "in_progress": 10,
-   "hold": 32,
+   "hold": 33,
    "verified": 9,
    "deferred": 3,
    "total": 81,
-   "open": 37,
+   "open": 36,
    "done": 12
   },
   {
    "id": "AC",
    "name": "验收准则",
-   "not_started": 36,
+   "not_started": 34,
    "in_progress": 10,
    "hold": 14,
-   "verified": 7,
+   "verified": 9,
    "deferred": 0,
    "total": 67,
-   "open": 46,
-   "done": 7
+   "open": 44,
+   "done": 9
   },
   {
    "id": "NFR",
@@ -1266,14 +1275,14 @@
   {
    "id": "OPS",
    "name": "运维",
-   "not_started": 8,
+   "not_started": 7,
    "in_progress": 0,
    "hold": 1,
-   "verified": 0,
+   "verified": 1,
    "deferred": 0,
    "total": 9,
-   "open": 8,
-   "done": 0
+   "open": 7,
+   "done": 1
   },
   {
    "id": "UX",
@@ -1291,14 +1300,14 @@
  "owners": [
   {
    "id": "kaiqiangh",
-   "total": 70,
+   "total": 81,
    "open": 3,
-   "closed": 67
+   "closed": 78
   },
   {
    "id": "unassigned",
-   "total": 16,
-   "open": 3,
+   "total": 14,
+   "open": 1,
    "closed": 13
   }
  ],
@@ -1419,13 +1428,13 @@
     "F11",
     "F12"
    ],
-   "not_started": 11,
-   "in_progress": 0,
-   "hold": 1,
+   "not_started": 7,
+   "in_progress": 3,
+   "hold": 2,
    "verified": 0,
    "deferred": 0,
    "total": 12,
-   "open": 11,
+   "open": 10,
    "done": 0
   },
   {
@@ -1545,8 +1554,8 @@
     "QA-12",
     "QA-13"
    ],
-   "not_started": 9,
-   "in_progress": 0,
+   "not_started": 8,
+   "in_progress": 1,
    "hold": 4,
    "verified": 0,
    "deferred": 0,
@@ -1667,6 +1676,38 @@
    "req": "Implement OrderProposal model"
   },
   {
+   "id": "FR-020",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S21"
+   ],
+   "req": "Implement deterministic Risk Engine"
+  },
+  {
+   "id": "FR-021",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement pre-approval validation"
+  },
+  {
+   "id": "FR-024",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement single-use live approval"
+  },
+  {
+   "id": "FR-027",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement account-scoped live arming/disarming + global disable-all"
+  },
+  {
    "id": "FR-031",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
@@ -1715,6 +1756,17 @@
    "req": "Implement market calendar and corporate actions"
   },
   {
+   "id": "FR-044",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S01",
+    "S02",
+    "S03",
+    "S21"
+   ],
+   "req": "Implement complete five-step onboarding flow"
+  },
+  {
    "id": "FR-045",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
@@ -1729,6 +1781,14 @@
     "S05"
    ],
    "req": "Implement context/account/model pickers"
+  },
+  {
+   "id": "FR-052",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement market-order maximum-authorized-notional approval UI"
   },
   {
    "id": "FR-053",
@@ -1761,6 +1821,22 @@
     "S05"
    ],
    "req": "Implement Ask mode with no execution capability"
+  },
+  {
+   "id": "FR-057",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement complete live-approval market snapshot provenance"
+  },
+  {
+   "id": "FR-059",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S23"
+   ],
+   "req": "Implement reservation-conflict UI/reasoning surface"
   },
   {
    "id": "FR-060",
@@ -1901,6 +1977,15 @@
    "req": "Agent can combine market data, portfolio state, and research in one thread."
   },
   {
+   "id": "AC-008",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S07",
+    "S22"
+   ],
+   "req": "Every market snapshot shown in a live approval has source, provider timestamp, TradeX received timestamp, venue, realtime/delayed entitlement, and freshness state."
+  },
+  {
    "id": "AC-010",
    "status": "IN_PROGRESS",
    "slices": [
@@ -1909,6 +1994,24 @@
     "S20"
    ],
    "req": "User can execute supported Demo/Testnet order workflows on Trading 212, Binance, and Bitget where available, with explicit environment labels through acknowledgement/fill state."
+  },
+  {
+   "id": "AC-013",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Changing instrument, side, quantity, account, order type, price, or time-in-force invalidates prior approval."
+  },
+  {
+   "id": "AC-018",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05",
+    "S21"
+   ],
+   "req": "Agent cannot modify risk policy."
   },
   {
    "id": "AC-027",
@@ -1928,6 +2031,51 @@
    "req": "External research content cannot authorize a trade."
   },
   {
+   "id": "AC-030",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S05",
+    "S22"
+   ],
+   "req": "Selecting Trade mode or a Live execution context does not arm live execution."
+  },
+  {
+   "id": "AC-031",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Requesting a live order while DISARMED requires a separate explicit Arm action before transaction approval is shown."
+  },
+  {
+   "id": "AC-032",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "The instrument, account, side, quantity, and order type displayed during order monitoring are the same immutable transaction approved by the user."
+  },
+  {
+   "id": "AC-035",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Market-order approval displays expected spend, maximum authorized spend, bid/ask/spread, quote age, and fees/slippage estimate where available."
+  },
+  {
+   "id": "AC-038",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S01",
+    "S02",
+    "S03",
+    "S21"
+   ],
+   "req": "The complete first-run workflow covers Workspace → Providers → LLM (Model) → Risk Defaults → Ready, where the Model step configures the LLM provider: CLIProxyAPI sidecar state (running/OAuth-authorized) and/or DeepSeek key validated by probe + test inference (§26.3)."
+  },
+  {
    "id": "AC-040",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
@@ -1942,6 +2090,23 @@
     "S05"
    ],
    "req": "Ask mode provides lightweight analysis/read-only context and does not expose paper or live execution capability."
+  },
+  {
+   "id": "AC-042",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Live arming is account-scoped: arming Trading 212 does not arm Binance or Bitget; global Disable All disarms all live accounts."
+  },
+  {
+   "id": "AC-043",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S07",
+    "S22"
+   ],
+   "req": "Every live approval exposes complete market snapshot provenance defined by AC-008."
   },
   {
    "id": "AC-046",
@@ -2026,12 +2191,50 @@
    "req": "Quote age, approval expiry, and reconciliation timers fail closed for live authority decisions when TimeService reports unacceptable clock uncertainty."
   },
   {
+   "id": "AC-065",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Editing a generated order creates a new immutable `OrderProposal` identity and invalidates any approval tied to the prior proposal."
+  },
+  {
    "id": "AC-066",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
     "S09"
    ],
    "req": "Cross-account valuation involving stablecoins/FX shows source/path/timestamps/freshness and a quality/depeg state; unreliable conversion cannot silently drive live risk calculations."
+  },
+  {
+   "id": "NFR-009",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S07",
+    "S22"
+   ],
+   "req": "Live approval market snapshots include source, provider timestamp, TradeX received timestamp, venue, entitlement, and freshness"
+  },
+  {
+   "id": "NFR-011",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Material order change invalidates approval"
+  },
+  {
+   "id": "NFR-014",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09",
+    "S13",
+    "S21",
+    "S23"
+   ],
+   "req": "Financial price/quantity/notional calculations use decimal-safe arithmetic"
   },
   {
    "id": "NFR-017",
@@ -2043,12 +2246,40 @@
    "req": "Turn/provider provenance is complete for every agent turn"
   },
   {
+   "id": "SEC-003",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05",
+    "S22"
+   ],
+   "req": "Generic Codex approvals cannot authorize financial execution."
+  },
+  {
    "id": "SEC-004",
    "status": "NOT_STARTED",
    "slices": [
     "S14"
    ],
    "req": "Strategy sandbox cannot access broker credentials, keychain, privileged gateway, or unrestricted network."
+  },
+  {
+   "id": "SEC-005",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S05",
+    "S10",
+    "S21"
+   ],
+   "req": "Untrusted external content cannot alter risk policy, authority, credentials, or approve execution."
+  },
+  {
+   "id": "SEC-006",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S23"
+   ],
+   "req": "Live approvals are account/action/proposal-bound, short-lived, and single-use."
   },
   {
    "id": "SEC-007",
@@ -2061,12 +2292,32 @@
    "req": "All model inference traffic has exactly one exit: the local CLIProxyAPI endpoint (127.0.0.1:8317). TradeX, Codex, and the strategy sandbox must not connect to any external LLM endpoint directly."
   },
   {
+   "id": "SEC-009",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S02",
+    "S22"
+   ],
+   "req": "A Live broker connection with withdrawal/transfer/custody permissions detected must not become execution-ready until those permissions are removed; TradeX must not use unsupported margin/leverage permissions."
+  },
+  {
    "id": "DATA-001",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
     "S07"
    ],
    "req": "Domain logic uses canonical instrument IDs; provider symbols remain adapter mappings."
+  },
+  {
+   "id": "DATA-002",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S09",
+    "S13",
+    "S21",
+    "S23"
+   ],
+   "req": "Price, quantity, and notional calculations use decimal-safe representations."
   },
   {
    "id": "DATA-003",
@@ -2126,6 +2377,24 @@
    "req": "TimeService detects material wall-clock jumps/skew and blocks Live freshness/TTL authority decisions until trusted time is restored."
   },
   {
+   "id": "UX-001",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S05",
+    "S22"
+   ],
+   "req": "Selecting Trade mode or a Live execution context never arms execution."
+  },
+  {
+   "id": "UX-003",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Live approval displays immutable order identity and market-data provenance."
+  },
+  {
    "id": "UX-008",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
@@ -2161,6 +2430,30 @@
    "req": "Implement OrderProposal model"
   },
   {
+   "id": "FR-021",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement pre-approval validation"
+  },
+  {
+   "id": "FR-024",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement single-use live approval"
+  },
+  {
+   "id": "FR-027",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement account-scoped live arming/disarming + global disable-all"
+  },
+  {
    "id": "FR-032",
    "status": "NOT_STARTED",
    "slices": [
@@ -2177,12 +2470,28 @@
    "req": "Implement strategy versioning"
   },
   {
+   "id": "FR-052",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement market-order maximum-authorized-notional approval UI"
+  },
+  {
    "id": "FR-056",
    "status": "NOT_STARTED",
    "slices": [
     "S05"
    ],
    "req": "Implement Ask mode with no execution capability"
+  },
+  {
+   "id": "FR-057",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Implement complete live-approval market snapshot provenance"
   },
   {
    "id": "FR-080",
@@ -2209,12 +2518,108 @@
    "req": "Agent can combine market data, portfolio state, and research in one thread."
   },
   {
+   "id": "AC-008",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S07",
+    "S22"
+   ],
+   "req": "Every market snapshot shown in a live approval has source, provider timestamp, TradeX received timestamp, venue, realtime/delayed entitlement, and freshness state."
+  },
+  {
+   "id": "AC-013",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Changing instrument, side, quantity, account, order type, price, or time-in-force invalidates prior approval."
+  },
+  {
+   "id": "AC-018",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05",
+    "S21"
+   ],
+   "req": "Agent cannot modify risk policy."
+  },
+  {
    "id": "AC-027",
    "status": "NOT_STARTED",
    "slices": [
     "S14"
    ],
    "req": "Strategy code cannot access broker credentials."
+  },
+  {
+   "id": "AC-031",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Requesting a live order while DISARMED requires a separate explicit Arm action before transaction approval is shown."
+  },
+  {
+   "id": "AC-032",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "The instrument, account, side, quantity, and order type displayed during order monitoring are the same immutable transaction approved by the user."
+  },
+  {
+   "id": "AC-035",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Market-order approval displays expected spend, maximum authorized spend, bid/ask/spread, quote age, and fees/slippage estimate where available."
+  },
+  {
+   "id": "AC-042",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22"
+   ],
+   "req": "Live arming is account-scoped: arming Trading 212 does not arm Binance or Bitget; global Disable All disarms all live accounts."
+  },
+  {
+   "id": "AC-043",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S07",
+    "S22"
+   ],
+   "req": "Every live approval exposes complete market snapshot provenance defined by AC-008."
+  },
+  {
+   "id": "AC-065",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Editing a generated order creates a new immutable `OrderProposal` identity and invalidates any approval tied to the prior proposal."
+  },
+  {
+   "id": "NFR-009",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S07",
+    "S22"
+   ],
+   "req": "Live approval market snapshots include source, provider timestamp, TradeX received timestamp, venue, entitlement, and freshness"
+  },
+  {
+   "id": "NFR-011",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Material order change invalidates approval"
   },
   {
    "id": "NFR-017",
@@ -2226,15 +2631,42 @@
    "req": "Turn/provider provenance is complete for every agent turn"
   },
   {
+   "id": "SEC-003",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05",
+    "S22"
+   ],
+   "req": "Generic Codex approvals cannot authorize financial execution."
+  },
+  {
    "id": "SEC-004",
    "status": "NOT_STARTED",
    "slices": [
     "S14"
    ],
    "req": "Strategy sandbox cannot access broker credentials, keychain, privileged gateway, or unrestricted network."
+  },
+  {
+   "id": "SEC-006",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S23"
+   ],
+   "req": "Live approvals are account/action/proposal-bound, short-lived, and single-use."
+  },
+  {
+   "id": "UX-003",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S13",
+    "S22"
+   ],
+   "req": "Live approval displays immutable order identity and market-data provenance."
   }
  ],
- "orphans_held": 59,
+ "orphans_held": 69,
  "matrix": {
   "S01": {
    "not_started": 0,
@@ -2413,10 +2845,10 @@
    "total": 35
   },
   "S23": {
-   "not_started": 9,
+   "not_started": 5,
    "in_progress": 4,
-   "hold": 2,
-   "verified": 0,
+   "hold": 3,
+   "verified": 3,
    "deferred": 0,
    "total": 15
   },

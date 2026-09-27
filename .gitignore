@@ -225,7 +225,7 @@ __marimo__/
 # Desktop/frontend build and local verification output
 node_modules/
 test-results/
-playwright-report/
+*playwright*/
 .artifacts/
 src-tauri/gen/
 .tradex/
