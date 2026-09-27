@@ -428,18 +428,21 @@ Bitget Live · DISARMED
 
 ### F2. Limit Order Approval — Trading 212 / AAPL
 
-展示 immutable proposal、proposal ID/hash、policy version、account/venue/environment、side/qty/type/limit/TIF、notional、`Available / Reserved / Effective Available`、完整 MarketSnapshot provenance(source/provider timestamp/TradeX received/venue/entitlement/age/freshness)、risk、Reject/Approve。
+展示 immutable proposal、proposal ID/hash、policy version、account/venue/environment、side/qty/type/limit/TIF、notional、`Available / Reserved / Effective Available`、完整 MarketSnapshot provenance(source/provider timestamp/TradeX received/venue/entitlement/age/freshness)、risk、Reject/Approve。Approve 只签发短时 approval，不预留容量或下单。
 
 ### F3. AAPL Submission / Monitoring
 
 ```text
 APPROVED
-→ RESERVED
+→ 用户单独显式操作：Prepare PLACE
+→ RESERVED（TradeX 预留；未发送 provider request）
 → SUBMITTING
 → ACCEPTED (not a fill)
 → PARTIALLY_FILLED or FILLED
 → reconciliation
 ```
+
+S23 在 `RESERVED` 停止；后续 S24 Gateway 边界才负责 provider 派发。
 
 Identity 不变。
 
@@ -488,6 +491,7 @@ Reserved = €4,000
 Effective Available = €6,000
 Thread B requires €7,000
 → RISK_REJECTED · RESERVED_CAPACITY
+后端上下文：需求 €7,000；券商可用 €10,000；已有预留 €4,000；本次需求前的有效容量 €6,000。
 ```
 
 ### F12. Risk-policy Change Invalidation
@@ -822,6 +826,8 @@ Generate Proposal 将展示值冻结到新的 proposal ID/hash 及策略/快照�
 | Disable All / 重启 / 休眠 / 锁屏 | 全部 Live 账户均在作用范围 | 全部 disarm；区分派发前已停止和可能已提交的尝试 |
 
 账户专属故障影响该账户，共享策略变更影响全部绑定账户。UI 当前选择不能限制系统级恢复范围。Disable All 阻止新传输并使未派发同意失效，不撤销已提交的券商订单。对可能已离开 TradeX 的尝试保留容量并对账。恢复或模型切换均不能自动 arming。
+
+审批后，用户需单独准备精确的 Live PLACE。重新打开 proposal 历史时，按 approval ID 读取耐久的 `RESERVED` 结果和脱敏容量拒绝。容量拒绝保留 approval 与 proposal；重试必须由用户显式触发并使用新的幂等键。
 
 ## 14.4 过期与撤单继续流程（F6/F10）
 

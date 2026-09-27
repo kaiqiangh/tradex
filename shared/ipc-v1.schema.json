@@ -211,6 +211,9 @@
     "capabilityQuery": {
       "$ref": "#/$defs/CapabilityQuery"
     },
+    "capacityRejectionContext": {
+      "$ref": "#/$defs/CapacityRejectionContext"
+    },
     "chatgptLogin": {
       "$ref": "#/$defs/ChatgptLogin"
     },
@@ -240,6 +243,24 @@
     },
     "event": {
       "$ref": "#/$defs/DomainEvent"
+    },
+    "executionAttempt": {
+      "$ref": "#/$defs/ExecutionAttempt"
+    },
+    "executionPreparation": {
+      "$ref": "#/$defs/ExecutionPreparation"
+    },
+    "executionPreparationQuery": {
+      "$ref": "#/$defs/ExecutionPreparationQuery"
+    },
+    "executionPreparationQueryResult": {
+      "$ref": "#/$defs/ExecutionPreparationQueryResult"
+    },
+    "executionPrepare": {
+      "$ref": "#/$defs/ExecutionPrepareRequest"
+    },
+    "executionReservation": {
+      "$ref": "#/$defs/ExecutionReservation"
     },
     "financialApproval": {
       "$ref": "#/$defs/FinancialApproval"
@@ -535,6 +556,13 @@
     "financialApproval",
     "financialApprovalHistoryQuery",
     "financialApprovalHistory",
+    "executionPrepare",
+    "executionAttempt",
+    "executionReservation",
+    "executionPreparation",
+    "executionPreparationQuery",
+    "executionPreparationQueryResult",
+    "capacityRejectionContext",
     "approvalRejection",
     "cancellationIntentRequest",
     "cancellationIntent",
@@ -5228,6 +5256,55 @@
         "executionContext"
       ]
     },
+    "CapacityLimitSource": {
+      "type": "string",
+      "enum": [
+        "BROKER_AVAILABLE",
+        "WORKSPACE_RESERVED_CAPITAL"
+      ]
+    },
+    "CapacityRejectionContext": {
+      "type": "object",
+      "properties": {
+        "capacityLimit": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "effectiveAvailable": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "existingReservations": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requestedAmount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "#/$defs/CapacityLimitSource"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "requestedAmount",
+        "unit",
+        "capacityLimit",
+        "existingReservations",
+        "effectiveAvailable"
+      ]
+    },
     "ChatgptLogin": {
       "type": "object",
       "properties": {
@@ -5770,6 +5847,10 @@
             "risk",
             "risk-decision",
             "financial-approval",
+            "execution-attempt",
+            "execution-reservation",
+            "execution-preparation",
+            "order-proposal-consumption",
             "approval-audit",
             "thread",
             "trading212-demo-order-attempt",
@@ -5801,6 +5882,10 @@
             "trade.approval.expired",
             "trade.approval.consumed",
             "trade.approval.rejected",
+            "trade.reservation.created",
+            "trade.execution.attempt.changed",
+            "trade.execution.preparation.rejected",
+            "trade.proposal.consumed",
             "thread.created",
             "thread.updated",
             "trading212.demo.order.attempt.changed",
@@ -5865,6 +5950,18 @@
         },
         {
           "$ref": "#/$defs/FinancialApproval"
+        },
+        {
+          "$ref": "#/$defs/ExecutionAttempt"
+        },
+        {
+          "$ref": "#/$defs/ExecutionReservation"
+        },
+        {
+          "$ref": "#/$defs/ExecutionPreparationRejection"
+        },
+        {
+          "$ref": "#/$defs/OrderProposalConsumption"
         },
         {
           "$ref": "#/$defs/ApprovalRejection"
@@ -5945,6 +6042,141 @@
         "currency"
       ]
     },
+    "ExecutionAttempt": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "accountStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "approvalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "brokerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/ExecutionContext"
+        },
+        "intentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "intentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intentStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "invalidationReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "operation": {
+          "$ref": "#/$defs/FinancialOperation"
+        },
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1
+        },
+        "proposalId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reservationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reviewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "riskDecisionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/ExecutionAttemptState"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attemptId",
+        "workspaceId",
+        "approvalId",
+        "operation",
+        "intentId",
+        "intentHash",
+        "accountId",
+        "environment",
+        "policyVersion",
+        "riskDecisionId",
+        "reviewDigest",
+        "accountStateVersion",
+        "intentStateVersion",
+        "state",
+        "createdAt",
+        "stateVersion"
+      ]
+    },
+    "ExecutionAttemptState": {
+      "type": "string",
+      "enum": [
+        "RESERVED",
+        "INVALIDATED"
+      ]
+    },
     "ExecutionContext": {
       "type": "string",
       "enum": [
@@ -5958,6 +6190,303 @@
         "BINANCE_LIVE",
         "BITGET_DEMO",
         "BITGET_LIVE"
+      ]
+    },
+    "ExecutionPreparation": {
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "$ref": "#/$defs/ExecutionAttempt"
+        },
+        "reservation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionReservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attempt"
+      ]
+    },
+    "ExecutionPreparationQuery": {
+      "type": "object",
+      "properties": {
+        "approvalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "approvalId"
+      ]
+    },
+    "ExecutionPreparationQueryResult": {
+      "type": "object",
+      "properties": {
+        "preparation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionPreparation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rejections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionPreparationRejection"
+          },
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rejections"
+      ]
+    },
+    "ExecutionPreparationRejection": {
+      "type": "object",
+      "properties": {
+        "approvalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "auditId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "capacityContext": {
+          "$ref": "#/$defs/CapacityRejectionContext"
+        },
+        "idempotencyDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "occurredAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "const": "RESERVED_CAPACITY"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "auditId",
+        "workspaceId",
+        "approvalId",
+        "idempotencyDigest",
+        "reason",
+        "capacityContext",
+        "occurredAt",
+        "stateVersion"
+      ]
+    },
+    "ExecutionPrepareRequest": {
+      "type": "object",
+      "properties": {
+        "approvalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "expectedApprovalStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "approvalId",
+        "expectedApprovalStateVersion",
+        "idempotencyKey",
+        "confirmed"
+      ]
+    },
+    "ExecutionReservation": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "accountStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "amount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "brokerAvailable": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "capacityKey": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "effectiveAvailable": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "existingReservations": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "notional": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "notionalCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reservationId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/ExecutionReservationStatus"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "workspaceCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceNotional": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "reservationId",
+        "workspaceId",
+        "accountId",
+        "attemptId",
+        "proposalId",
+        "proposalHash",
+        "instrumentId",
+        "side",
+        "capacityKey",
+        "amount",
+        "unit",
+        "notional",
+        "notionalCurrency",
+        "workspaceCurrency",
+        "brokerAvailable",
+        "existingReservations",
+        "effectiveAvailable",
+        "accountStateVersion",
+        "status",
+        "createdAt",
+        "stateVersion"
+      ]
+    },
+    "ExecutionReservationStatus": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "RELEASED"
       ]
     },
     "FailureEnvelope": {
@@ -6232,6 +6761,13 @@
         "INVALIDATED",
         "EXPIRED",
         "CONSUMED"
+      ]
+    },
+    "FinancialOperation": {
+      "type": "string",
+      "enum": [
+        "PLACE_ORDER",
+        "CANCEL"
       ]
     },
     "FxFreshness": {
@@ -8418,6 +8954,49 @@
         "history"
       ]
     },
+    "OrderProposalConsumption": {
+      "type": "object",
+      "properties": {
+        "approvalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "proposalHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "approvalId",
+        "attemptId",
+        "occurredAt"
+      ]
+    },
     "OrderProposalGenerate": {
       "type": "object",
       "properties": {
@@ -9792,6 +10371,12 @@
         },
         {
           "$ref": "#/$defs/FinancialApprovalHistory"
+        },
+        {
+          "$ref": "#/$defs/ExecutionPreparation"
+        },
+        {
+          "$ref": "#/$defs/ExecutionPreparationQueryResult"
         },
         {
           "$ref": "#/$defs/ApprovalRejection"
@@ -12118,6 +12703,10 @@
             "risk",
             "risk-decision",
             "financial-approval",
+            "execution-attempt",
+            "execution-reservation",
+            "execution-preparation",
+            "order-proposal-consumption",
             "approval-audit",
             "thread",
             "trading212-demo-order-attempt",
@@ -12775,6 +13364,10 @@
             "risk",
             "risk-decision",
             "financial-approval",
+            "execution-attempt",
+            "execution-reservation",
+            "execution-preparation",
+            "order-proposal-consumption",
             "approval-audit",
             "thread",
             "trading212-demo-order-attempt",
@@ -13453,6 +14046,16 @@
         "blocking": {
           "type": "boolean"
         },
+        "capacityContext": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapacityRejectionContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "category": {
           "type": "string"
         },
@@ -13466,6 +14069,14 @@
         },
         "message": {
           "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
         },
         "remediationActions": {
           "type": "array",
@@ -14610,7 +15221,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 25,
+          "maximum": 27,
           "minimum": 1
         },
         "workspaceId": {

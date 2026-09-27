@@ -12,6 +12,8 @@ import type {
   OrderProposal,
   OrderProposalSummary,
   ApprovalReview,
+  ExecutionPreparation,
+  FinancialApproval,
   LiveArmingEligibility,
   RiskDecisionHistory,
   PaperOrderResult,
@@ -276,9 +278,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [bitgetDemoReview, setBitgetDemoReview] = useState<{ connectionId: string; accountLabel: string; remoteAccountId: string }>();
   const [paperConfirmation, setPaperConfirmation] = useState<PaperConfirmation>();
   const [approvalReview, setApprovalReview] = useState<ApprovalReview>();
+  const [approvalToPrepare, setApprovalToPrepare] = useState<FinancialApproval>();
+  const [executionPreparation, setExecutionPreparation] = useState<ExecutionPreparation>();
+  const [executionPrepareIdentity, setExecutionPrepareIdentity] = useState<{ approvalId: string; idempotencyKey: string }>();
   const [liveArmReview, setLiveArmReview] = useState<LiveArmReview>();
   const [liveArmError, setLiveArmError] = useState('');
   const [approvalBusy, setApprovalBusy] = useState(false);
+  const [executionPrepareBusy, setExecutionPrepareBusy] = useState(false);
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
   const [binanceTestnetOrdersBusy, setBinanceTestnetOrdersBusy] = useState(false);
@@ -302,6 +308,21 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       && ['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data?.fields.environment ?? ''),
     refetchOnMount: 'always',
   });
+  const consumedApproval = approvalHistory.data?.approvals.find(approval => approval.status === 'CONSUMED');
+  const preparationApproval = consumedApproval ?? [...(approvalHistory.data?.approvals ?? [])].reverse()
+    .find(approval => approval.operation === 'PLACE_ORDER' && approval.status === 'ISSUED');
+  const savedExecutionPreparation = useQuery({
+    queryKey: ['execution-preparation', workspaceId, preparationApproval?.approvalId],
+    queryFn: () => request('trade.execution.preparation.get', {
+      workspaceId,
+      approvalId: preparationApproval!.approvalId,
+    }),
+    enabled: Boolean(preparationApproval),
+    refetchOnMount: 'always',
+  });
+  const visibleExecutionPreparation = executionPreparation?.attempt.intentId === selectedProposalId
+    ? executionPreparation
+    : savedExecutionPreparation.data?.preparation;
   const alpacaAttempt = useQuery({
     queryKey: ['alpaca-paper-attempt', workspaceId, selectedProposalId],
     queryFn: () => request('alpaca.paper.order.attempt.get', { workspaceId, proposalId: selectedProposalId! }),
@@ -332,7 +353,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const orderBook = ordersQuery.data?.book;
 
   useEffect(() => {
-    if (error instanceof CommandError && ['RISK_REJECTED', 'RISK_EVIDENCE_UNAVAILABLE'].includes(error.detail.code)) {
+    if (error instanceof CommandError && error.detail.reason !== 'RESERVED_CAPACITY'
+      && ['RISK_REJECTED', 'RISK_EVIDENCE_UNAVAILABLE'].includes(error.detail.code)) {
       void riskDecisions.refetch();
     }
   }, [error, riskDecisions.refetch]);
@@ -376,6 +398,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setBinanceTestnetReview(undefined);
     setBitgetDemoReview(undefined);
     setApprovalReview(undefined);
+    setApprovalToPrepare(undefined);
+    setExecutionPreparation(undefined);
+    setExecutionPrepareIdentity(undefined);
     setLiveArmReview(undefined);
     setLiveArmError('');
   }, [selectedProposalId]);
@@ -659,9 +684,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       };
       if (approve) {
         const saved = await request('trade.approve', input);
+        setApprovalToPrepare(saved);
+        setExecutionPreparation(undefined);
+        setExecutionPrepareIdentity(undefined);
         setNotice(`Live approval issued until ${new Date(saved.expiresAt).toLocaleTimeString()}. No order was placed.`);
       } else {
         const saved = await request('trade.reject', input);
+        setApprovalToPrepare(undefined);
         setNotice(`Live review rejected and recorded at ${new Date(saved.occurredAt).toLocaleString()}. No order was placed.`);
       }
       setApprovalReview(undefined);
@@ -669,6 +698,41 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
     } catch (cause) { setError(cause); }
     finally { setApprovalBusy(false); }
+  };
+
+  const prepareLiveExecution = async (approval: FinancialApproval) => {
+    if (approval.operation !== 'PLACE_ORDER' || approval.proposalId !== selectedProposalId
+      || approval.status !== 'ISSUED' || Date.parse(approval.expiresAt) <= Date.now()) return;
+    const identity = executionPrepareIdentity?.approvalId === approval.approvalId
+      ? executionPrepareIdentity
+      : { approvalId: approval.approvalId, idempotencyKey: crypto.randomUUID() };
+    setExecutionPrepareIdentity(identity);
+    setExecutionPrepareBusy(true); setError(undefined); setNotice('');
+    try {
+      const prepared = await request('trade.execution.prepare', {
+        workspaceId,
+        approvalId: approval.approvalId,
+        expectedApprovalStateVersion: approval.stateVersion,
+        idempotencyKey: identity.idempotencyKey,
+        confirmed: true,
+      });
+      setExecutionPreparation(prepared);
+      setApprovalToPrepare(undefined);
+      const reservation = prepared.reservation;
+      setNotice(reservation
+        ? `TradeX reserved ${reservation.amount} ${reservation.unit}; no provider request was sent.`
+        : `TradeX prepared the approved PLACE; no provider request was sent.`);
+      await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, approval.proposalId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposals', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['order-proposal', workspaceId, approval.proposalId] });
+    } catch (cause) {
+      if (cause instanceof CommandError && cause.detail.reason === 'RESERVED_CAPACITY') {
+        setExecutionPrepareIdentity(undefined);
+      }
+      setError(cause);
+      await queryClient.invalidateQueries({ queryKey: ['financial-approvals', workspaceId, approval.proposalId] });
+      await savedExecutionPreparation.refetch();
+    } finally { setExecutionPrepareBusy(false); }
   };
 
   const submitProposal = async () => {
@@ -1237,6 +1301,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     setBitgetDemoReview(undefined);
   };
 
+  const prepareApproval = approvalToPrepare?.proposalId === selectedProposalId
+    ? approvalToPrepare
+    : [...(approvalHistory.data?.approvals ?? [])].reverse().find(approval => approval.operation === 'PLACE_ORDER'
+      && approval.proposalId === selectedProposalId && approval.status === 'ISSUED' && Date.parse(approval.expiresAt) > Date.now());
+
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
   if (library.isError) return <div className="error-banner" role="alert"><div><strong>Order drafts are unavailable.</strong><p>{explainError(library.error)}</p></div><button type="button" onClick={() => void library.refetch()}>Reload drafts</button></div>;
   return <>
@@ -1285,7 +1354,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
             <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />
             {['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data.fields.environment) && <section className="live-approval-panel" aria-label="Live approval history">
-              <div className="section-heading"><div><h3>Live approval</h3><p className="muted">An approval authorizes this exact proposal briefly. It does not submit an order.</p></div><button type="button" onClick={() => void approvalHistory.refetch()} disabled={approvalHistory.isFetching}>Reload history</button></div>
+              <div className="section-heading"><div><h3>Live approval</h3><p className="muted">Approval and capacity reservation are separate explicit actions. Preparing reserves locally and never sends a provider request.</p></div><button type="button" onClick={() => void approvalHistory.refetch()} disabled={approvalHistory.isFetching}>Reload history</button></div>
               {approvalHistory.isPending && <p role="status">Loading saved approvals…</p>}
               {approvalHistory.isError && <p className="error-text" role="alert">Approval history is unavailable: {explainError(approvalHistory.error)}</p>}
               {approvalHistory.data && <>
@@ -1301,6 +1370,26 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                   <time dateTime={rejection.occurredAt}>{new Date(rejection.occurredAt).toLocaleString()}</time>
                 </article>)}
               </>}
+              {preparationApproval && savedExecutionPreparation.isPending && !visibleExecutionPreparation && <p role="status">Loading saved execution preparation…</p>}
+              {preparationApproval && savedExecutionPreparation.isError && <p className="error-text" role="alert">Saved execution preparation is unavailable: {explainError(savedExecutionPreparation.error)} <button type="button" onClick={() => void savedExecutionPreparation.refetch()}>Reload preparation</button></p>}
+              {consumedApproval && savedExecutionPreparation.data && !savedExecutionPreparation.data.preparation && !visibleExecutionPreparation && <p className="error-text" role="alert">The approval is consumed but its saved execution preparation is missing. Reload the workspace before continuing.</p>}
+              {savedExecutionPreparation.data?.rejections.map(rejection => <article className="live-approval-record" key={rejection.auditId}>
+                <strong>REJECTED · {rejection.reason}</strong>
+                <span>Requested {rejection.capacityContext.requestedAmount} {rejection.capacityContext.unit}; {rejection.capacityContext.source === 'BROKER_AVAILABLE' ? 'broker available' : 'workspace reserved-capital'} limit {rejection.capacityContext.capacityLimit}; existing reservations {rejection.capacityContext.existingReservations}; available before request {rejection.capacityContext.effectiveAvailable}.</span>
+                <time dateTime={rejection.occurredAt}>{new Date(rejection.occurredAt).toLocaleString()}</time>
+              </article>)}
+              {visibleExecutionPreparation && visibleExecutionPreparation.attempt.intentId === selectedProposalId && <article className="live-approval-record" aria-label="TradeX execution preparation">
+                <strong>{visibleExecutionPreparation.attempt.state} · TradeX capacity reservation</strong>
+                <span>Attempt {visibleExecutionPreparation.attempt.attemptId} · approval {visibleExecutionPreparation.attempt.approvalId}</span>
+                {visibleExecutionPreparation.reservation && <>
+                  <span>Reserved {visibleExecutionPreparation.reservation.amount} {visibleExecutionPreparation.reservation.unit} for {visibleExecutionPreparation.reservation.instrumentId}</span>
+                  <span>Available {visibleExecutionPreparation.reservation.brokerAvailable} · existing reservations {visibleExecutionPreparation.reservation.existingReservations} · remaining after reservation {visibleExecutionPreparation.reservation.effectiveAvailable}</span>
+                </>}
+                <span>No order request was sent to the provider.</span>
+              </article>}
+              {prepareApproval && !visibleExecutionPreparation && <button type="button" className="primary" onClick={() => void prepareLiveExecution(prepareApproval)} disabled={executionPrepareBusy}>
+                {executionPrepareBusy ? 'Revalidating and reserving…' : 'Prepare PLACE and reserve capacity'}
+              </button>}
               <button type="button" className="primary" onClick={event => void requestLiveApproval(event.currentTarget)} disabled={approvalBusy || proposalDetail.data.status !== 'NEEDS_APPROVAL' || approvalHistory.data?.approvals.some(approval => approval.status === 'ISSUED' && Date.parse(approval.expiresAt) > Date.now())}>
                 {approvalBusy ? 'Preparing review…' : 'Review Live approval'}
               </button>
@@ -1477,7 +1566,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       </div>
     </div></div>, document.body)}
     {approvalReview && createPortal(<div className="picker-backdrop"><div className="picker-dialog approval-review-dialog" role="dialog" aria-modal="true" aria-labelledby="live-approval-title" aria-busy={approvalBusy} ref={confirmationRef}>
-      <div className="picker-dialog-heading"><div><h2 id="live-approval-title">Review Live approval</h2><p className="muted">Approval is bound to this proposal and expires within 30 seconds. It does not submit an order or reserve funds.</p></div></div>
+      <div className="picker-dialog-heading"><div><h2 id="live-approval-title">Review Live approval</h2><p className="muted">Approval is bound to this proposal and expires within 30 seconds. After approval, a separate explicit action prepares the PLACE and reserves capacity; neither action sends an order.</p></div></div>
       {Boolean(error) && <p className="error-text" role="alert">{explainError(error)}</p>}
       <dl className="proposal-fields approval-review-fields">
         <div><dt>Environment / account</dt><dd>{approvalReview.proposal.fields.environment} · {approvalReview.account?.providerId ?? 'Unavailable'} · {approvalReview.account?.label ?? 'Unavailable'} · {approvalReview.account?.data?.remoteAccountId ?? 'Unavailable'}</dd></div>

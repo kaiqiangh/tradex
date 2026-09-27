@@ -572,7 +572,7 @@ Shows immutable proposal plus:
   - quote age;
   - freshness;
 - risk results;
-- explicit Reject / Approve & Place.
+- explicit Reject / Approve; approval does not reserve capacity or place an order.
 
 ### F3. AAPL Submission / Monitoring
 
@@ -580,7 +580,8 @@ Visible sequence:
 
 ```text
 APPROVED
-→ RESERVED
+→ explicit user action: Prepare PLACE
+→ RESERVED (TradeX reservation; no provider request)
 → SUBMITTING
 → ACCEPTED (not a fill)
 → PARTIALLY_FILLED or FILLED
@@ -588,6 +589,8 @@ APPROVED
 ```
 
 Order identity remains unchanged.
+
+S23 ends at `RESERVED`; the later S24 Gateway boundary owns any provider dispatch.
 
 ### F4. Market Order Approval — Binance / BTC
 
@@ -651,6 +654,7 @@ Reserved = €4,000
 Effective Available = €6,000
 Thread B requires €7,000
 → RISK_REJECTED · RESERVED_CAPACITY
+Backend context: requested €7,000; broker available €10,000; existing reservations €4,000; effective capacity before this request €6,000.
 ```
 
 ### F12. Risk-policy Change Invalidation
@@ -1108,6 +1112,8 @@ Generate Proposal freezes the displayed values into a new proposal ID/hash and p
 | Disable All / restart / sleep / session lock | All Live accounts in scope | Disarm all; distinguish stopped-before-dispatch from possibly submitted attempts |
 
 Account-specific faults affect that account; shared policy changes affect all bound accounts. The selected UI account never limits system-wide recovery. Disable All blocks new transmissions and invalidates undispatched consent; it does not cancel an already submitted broker order. Retain/reconcile capacity for attempts that may have left TradeX. Recovery and model switching never auto-arm accounts.
+
+After approval, the user separately prepares the exact Live PLACE. Reopening proposal history reads the durable `RESERVED` result and sanitized capacity refusals by approval ID. A capacity refusal leaves approval and proposal available; retry is explicit and uses a fresh idempotency key.
 
 ## 14.4 Expiry and cancellation continuation (F6/F10)
 

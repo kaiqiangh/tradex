@@ -1035,6 +1035,8 @@ Database transaction 是 correctness boundary；in-memory lock 只是降低争�
 
 ### 22.3 Reservation lifecycle
 
+S23 的 `trade.execution.prepare` 是审批后的独立显式用户操作。它在一个 SQLite immediate transaction 中重新校验精确 Live PLACE，消费 approval 与 proposal，创建容量预留和 `RESERVED` attempt，并提交相关审计/outbox。返回权威 attempt 与 reservation 后即停止，不进入 Order Gateway 或 provider I/O；派发属于后续 S24 边界。响应丢失或重启后，`trade.execution.preparation.get` 按 workspace 和 approval 身份读取同一耐久结果。
+
 ```text
 APPROVED
 → RESERVED
@@ -1072,7 +1074,7 @@ proposal immutable?
 
 ### 23.2 Pre-execution
 
-提交 broker 前立即执行：
+尝试进入后续 S24 broker 派发边界前执行：
 
 ```text
 approval valid + unconsumed?
@@ -1085,8 +1087,9 @@ approval valid + unconsumed?
 → cash/positions/open orders refreshed as policy requires?
 → reservation created atomically
 → consume approval
+→ consume proposal
 → transition RESERVED
-→ call Order Gateway
+→ stop；此命令不发送 provider request
 ```
 
 Material failure 会 invalidate/reject flow，并在需要时要求新的用户同意。
@@ -1118,7 +1121,7 @@ intent_id 在 PLACE_ORDER 时解析为不可变 OrderProposal，在 CANCEL 时�
 
 ### 24.1.1 派发权威与故障边界
 
-1. 控制面在账户/策略串行化边界内创建预留、消费审批，并将执行尝试持久化为 `RESERVED`。
+1. 派发前，S23 已在账户/策略串行化边界内消费 proposal 与 approval，并原子持久化 `RESERVED` attempt、reservation、审计和 outbox。Gateway 重新读取这些耐久状态。
 2. Gateway 经私有通道为该尝试申请一次性派发许可。控制面使用与 disarm/策略保存相同的串行化边界，重新校验 arming、健康、权限、策略、proposal 身份、行情/时钟/FX 可执行性及当前预留；先持久化许可，再回复。
 3. Gateway 按账户串行处理派发与撤销，确认许可仍有效，并在提供方 I/O 前通过控制面持久化 `SUBMITTING` 意图。在此边界前已确认的 disable 阻止 I/O；跨过边界后，取消本地工作不能证明提供方没有收到请求。
 4. 许可发出后若交付、子进程健康或传输确认不确定，必须保留容量并优先查询提供方。控制面不能根据 Gateway 未回复推断“未提交”。只有持久化的派发/撤销证据证明传输从未开始，或后续提供方证据解决了尝试，才允许释放。
@@ -1430,6 +1433,7 @@ Secret 不进入这些普通文件目录。
 - 非关键 editable metadata 使用 optimistic version；
 - financial event 尽可能 append-only；
 - 对 single-use approval consumption 和 idempotency identity 设置 unique constraint。
+- 在同一 transaction 中提交已消费的 proposal event、approval、reservation、`RESERVED` attempt 及其 outbox records；S23 execution rows 用 SQLite foreign keys 约束 workspace、approval、account 和 attempt 引用。
 
 ### 33.3 推荐 uniqueness constraints
 
@@ -1456,6 +1460,7 @@ Approval table 必须 transactionally enforce consumed-at-most-once。
 - AccountArmed/Disarmed；
 - RiskPolicyChanged；
 - ProposalGenerated；
+- ProposalConsumed / ExecutionPreparationRejected；
 - RiskEvaluated；
 - ApprovalIssued/Invalidated/Consumed/Expired；
 - ReservationCreated/Adjusted/Released/Frozen；
@@ -1763,6 +1768,8 @@ trade.generate_proposal
 trade.refresh_proposal
 trade.request_approval
 trade.approve
+trade.execution.prepare
+trade.execution.preparation.get
 trade.reject
 trade.cancel_request
 trade.cancel_approve
@@ -1842,6 +1849,8 @@ interface TradeXError {
   message: string;  // sanitized user-facing explanation
   retryable: boolean; // not permission to retry a financial mutation
   blocking: boolean;
+  reason?: string; // 一个 code 对应多种原因时使用稳定子原因
+  capacityContext?: CapacityRejectionContext; // 后端持有的精确容量比较
   remediationActions: Array<{ id: string; label: string }>;
   aggregateId?: string;
   providerCode?: string; // sanitized, optional
@@ -1858,6 +1867,8 @@ interface TradeXError {
 | 刷新陈旧 proposal | trade.refresh_proposal | proposal_id、expected_state_version；返回新 proposal 并使旧同意失效 |
 | 请求审批审阅 | trade.request_approval | workspace_id、proposal_id；返回后端持有的 proposal/账户/报价摘要和当前 RiskDecision ID 供比较；不签发授权 |
 | 显式批准 | trade.approve | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；后端重新校验完整审阅并创建短时 approval；不消费、不创建 reservation |
+| 准备已批准的 Live PLACE | trade.execution.prepare | workspace_id、approval_id、expected_approval_state_version、idempotency_key、confirmed=true；后端重新读取并校验精确 proposal/账户/策略/报价/FX/容量/时钟证据，然后原子消费 proposal 与 approval，并创建一个 `RESERVED` attempt 和精确 reservation。相同幂等键重放返回已保存结果。容量拒绝会在同一验证事务中追加脱敏拒绝记录与 outbox event，同时保持 proposal、approval、reservation 和 attempt 不变；重放该 key 返回同一拒绝。不启动 Order Gateway 或 provider request。 |
+| 恢复 Live PLACE preparation | trade.execution.preparation.get | workspace_id、approval_id；响应丢失或重启后返回耐久的 `ExecutionPreparation | null` 与容量拒绝历史。只读，不发送 provider request。 |
 | 拒绝审批审阅 | trade.reject | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；记录 `USER_REJECTED`；不创建 approval 或执行券商操作 |
 | 读取审批历史 | trade.approval.list | workspace_id、proposal_id；返回已签发、已拒绝、已失效、已过期及后续已消费状态和脱敏审计原因 |
 | 准备撤单审阅 | trade.cancel_request | workspace_id、account_id、broker_order_id、expected_state_version、可选 previous_intent_id；Control Plane 执行认证后的 Live 只读请求并持久化观测，返回含不可变意图 ID/hash、精确剩余数量、snapshot_version/evidence、账户、RiskDecision、阻断原因和 review digest 的 CancellationReview。Arm 后只有当订单语义身份/状态/数量未变化时才复用同一意图。 |
@@ -1868,6 +1879,44 @@ interface TradeXError {
 | 处置未知提交 | trade.manual_resolution | §27.4 payload；提交处置时再次核验 decision/evidence |
 
 状态版本是后端生成、限于返回聚合对象的不透明 token。Decimal 金额使用规范化字符串；ID、枚举、时间表示及必填/可选字段属于命令的版本化 schema。request ID 只关联一次交互，不能替代 proposal/approval/execution 身份。改变权限的命令超时后必须先查询状态再决定重试；不得把传输重试变成重复同意。
+
+```ts
+interface ExecutionPrepareRequest {
+  workspaceId: string;
+  approvalId: string;
+  expectedApprovalStateVersion: string;
+  idempotencyKey: string;
+  confirmed: boolean;
+}
+interface ExecutionPreparation {
+  attempt: ExecutionAttempt; // state RESERVED
+  reservation?: ExecutionReservation; // PLACE 时存在
+}
+interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
+interface ExecutionPreparationRejection {
+  auditId: string;
+  workspaceId: string;
+  approvalId: string;
+  idempotencyDigest: string; // SHA-256；不持久化原始 key
+  reason: 'RESERVED_CAPACITY';
+  capacityContext: CapacityRejectionContext;
+  occurredAt: string;
+  stateVersion: string;
+}
+interface ExecutionPreparationQueryResult {
+  preparation: ExecutionPreparation | null;
+  rejections: ExecutionPreparationRejection[];
+}
+type CapacityLimitSource = 'BROKER_AVAILABLE' | 'WORKSPACE_RESERVED_CAPITAL';
+interface CapacityRejectionContext {
+  source: CapacityLimitSource;
+  requestedAmount: string;
+  unit: string;
+  capacityLimit: string;
+  existingReservations: string;
+  effectiveAvailable: string; // 本次预留前的可用容量
+}
+```
 
 #### 41.1.1 回测生命周期 payload（S15）
 
@@ -2018,7 +2067,7 @@ interface BacktestRun {
 
 | 命令 | Payload | 成功 data |
 |---|---|---|
-| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`；省略时使用应用默认工作区目录；提供的 path 必须为绝对目录路径 | Workspace 投影：`{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 5}`，result envelope 附不透明 `stateVersion` |
+| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`；省略时使用应用默认工作区目录；提供的 path 必须为绝对目录路径 | Workspace 投影：`{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 27}`，result envelope 附不透明 `stateVersion` |
 | runtime.status | `{}` | `{components: [{id, status, message}], modelAvailable: boolean, liveExecutionAvailable: boolean}`；初始 Codex/CLIProxyAPI 为 `NOT_CONFIGURED`，不得推断健康 |
 | domain.snapshot | `{aggregateType: "workspace", aggregateId: string}` | `{aggregateType, aggregateId, projection: Workspace, lastSequence}` |
 | domain.subscribe | `{aggregateType: "workspace", aggregateId: string, afterSequence: number}` | 在交付完确认游标之前全部保留事件后返回 `{aggregateType, aggregateId, afterSequence, lastSequence, replayedCount}`；后续事件沿用同一传输通道 |
@@ -2709,7 +2758,9 @@ trade.proposal.created
 trade.proposal.invalidated
 trade.approval.issued
 trade.approval.invalidated
+trade.approval.consumed
 trade.reservation.created
+trade.execution.attempt.changed
 trade.order.state_changed
 trade.fill.observed
 trade.reconciliation.changed

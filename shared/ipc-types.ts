@@ -347,6 +347,11 @@ export type AgentMode = "ASK" | "RESEARCH" | "BACKTEST" | "TRADE";
 export type CapabilityLevel = "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapacityLimitSource".
+ */
+export type CapacityLimitSource = "BROKER_AVAILABLE" | "WORKSPACE_RESERVED_CAPITAL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ChatgptLoginAction".
  */
 export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
@@ -362,6 +367,10 @@ export type DomainProjection =
   | RiskPolicyState
   | RiskDecision
   | FinancialApproval
+  | ExecutionAttempt
+  | ExecutionReservation
+  | ExecutionPreparationRejection
+  | OrderProposalConsumption
   | ApprovalRejection
   | Thread
   | Trading212DemoOrderAttempt
@@ -415,6 +424,21 @@ export type RiskPolicyChangeScopeKind = "WORKSPACE";
  * via the `definition` "RiskPolicyEnvironment".
  */
 export type RiskPolicyEnvironment = "LOCAL_PAPER" | "PAPER" | "DEMO" | "TESTNET" | "LIVE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialOperation".
+ */
+export type FinancialOperation = "PLACE_ORDER" | "CANCEL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionAttemptState".
+ */
+export type ExecutionAttemptState = "RESERVED" | "INVALIDATED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservationStatus".
+ */
+export type ExecutionReservationStatus = "ACTIVE" | "RELEASED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadStatus".
@@ -588,6 +612,8 @@ export type ReplyData =
   | ApprovalReview
   | FinancialApproval
   | FinancialApprovalHistory
+  | ExecutionPreparation
+  | ExecutionPreparationQueryResult
   | ApprovalRejection
   | CancellationReview
   | CancellationApprovalHistory
@@ -796,6 +822,7 @@ export interface IpcSchema {
   cancellationIntentRequest: CancellationIntentRequest;
   cancellationReview: CancellationReview;
   capabilityQuery: CapabilityQuery;
+  capacityRejectionContext: CapacityRejectionContext;
   chatgptLogin: ChatgptLogin;
   command: CommandEnvelope;
   completeOnboarding: CompleteOnboarding;
@@ -806,6 +833,12 @@ export interface IpcSchema {
   empty: EmptyPayload;
   equityPoint: EquityPoint;
   event: DomainEvent;
+  executionAttempt: ExecutionAttempt;
+  executionPreparation: ExecutionPreparation;
+  executionPreparationQuery: ExecutionPreparationQuery;
+  executionPreparationQueryResult: ExecutionPreparationQueryResult;
+  executionPrepare: ExecutionPrepareRequest;
+  executionReservation: ExecutionReservation;
   financialApproval: FinancialApproval;
   financialApprovalHistory: FinancialApprovalHistory;
   financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
@@ -2506,6 +2539,18 @@ export interface ThreadContextRef {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CapacityRejectionContext".
+ */
+export interface CapacityRejectionContext {
+  capacityLimit: string;
+  effectiveAvailable: string;
+  existingReservations: string;
+  requestedAmount: string;
+  source: CapacityLimitSource;
+  unit: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ChatgptLogin".
  */
 export interface ChatgptLogin {
@@ -2581,6 +2626,10 @@ export interface DomainEvent {
     | "risk"
     | "risk-decision"
     | "financial-approval"
+    | "execution-attempt"
+    | "execution-reservation"
+    | "execution-preparation"
+    | "order-proposal-consumption"
     | "approval-audit"
     | "thread"
     | "trading212-demo-order-attempt"
@@ -2605,6 +2654,10 @@ export interface DomainEvent {
     | "trade.approval.expired"
     | "trade.approval.consumed"
     | "trade.approval.rejected"
+    | "trade.reservation.created"
+    | "trade.execution.attempt.changed"
+    | "trade.execution.preparation.rejected"
+    | "trade.proposal.consumed"
     | "thread.created"
     | "thread.updated"
     | "trading212.demo.order.attempt.changed"
@@ -2873,6 +2926,86 @@ export interface RiskPolicy {
 export interface RiskAssetClassLimit {
   assetClass: AssetClass;
   maxExposurePercent: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionAttempt".
+ */
+export interface ExecutionAttempt {
+  accountId: string;
+  accountStateVersion: string;
+  approvalId: string;
+  attemptId: string;
+  brokerOrderId?: string | null;
+  createdAt: string;
+  environment: ExecutionContext;
+  intentHash: string;
+  intentId: string;
+  intentStateVersion: string;
+  invalidationReason?: string | null;
+  operation: FinancialOperation;
+  policyVersion: number;
+  proposalId?: string | null;
+  reservationId?: string | null;
+  reviewDigest: string;
+  riskDecisionId: string;
+  state: ExecutionAttemptState;
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservation".
+ */
+export interface ExecutionReservation {
+  accountId: string;
+  accountStateVersion: string;
+  amount: string;
+  attemptId: string;
+  brokerAvailable: string;
+  capacityKey: string;
+  createdAt: string;
+  effectiveAvailable: string;
+  existingReservations: string;
+  instrumentId: string;
+  notional: string;
+  notionalCurrency: string;
+  proposalHash: string;
+  proposalId: string;
+  reservationId: string;
+  side: OrderSide;
+  stateVersion: string;
+  status: ExecutionReservationStatus;
+  unit: string;
+  workspaceCurrency: string;
+  workspaceId: string;
+  workspaceNotional?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionPreparationRejection".
+ */
+export interface ExecutionPreparationRejection {
+  approvalId: string;
+  auditId: string;
+  capacityContext: CapacityRejectionContext;
+  idempotencyDigest: string;
+  occurredAt: string;
+  reason: "RESERVED_CAPACITY";
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "OrderProposalConsumption".
+ */
+export interface OrderProposalConsumption {
+  approvalId: string;
+  attemptId: string;
+  occurredAt: string;
+  proposalHash: string;
+  proposalId: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -3296,6 +3429,44 @@ export interface Trading212DemoRateLimits {
   historyRetryAt?: string | null;
   orderDetailRetryAt?: string | null;
   pendingOrdersRetryAt?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionPreparation".
+ */
+export interface ExecutionPreparation {
+  attempt: ExecutionAttempt;
+  reservation?: ExecutionReservation | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionPreparationQuery".
+ */
+export interface ExecutionPreparationQuery {
+  approvalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionPreparationQueryResult".
+ */
+export interface ExecutionPreparationQueryResult {
+  preparation?: ExecutionPreparation | null;
+  /**
+   * @maxItems 32
+   */
+  rejections: ExecutionPreparationRejection[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionPrepareRequest".
+ */
+export interface ExecutionPrepareRequest {
+  approvalId: string;
+  confirmed: boolean;
+  expectedApprovalStateVersion: string;
+  idempotencyKey: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -3758,6 +3929,10 @@ export interface Snapshot {
     | "risk"
     | "risk-decision"
     | "financial-approval"
+    | "execution-attempt"
+    | "execution-reservation"
+    | "execution-preparation"
+    | "order-proposal-consumption"
     | "approval-audit"
     | "thread"
     | "trading212-demo-order-attempt"
@@ -3825,6 +4000,10 @@ export interface SubscriptionAck {
     | "risk"
     | "risk-decision"
     | "financial-approval"
+    | "execution-attempt"
+    | "execution-reservation"
+    | "execution-preparation"
+    | "order-proposal-consumption"
     | "approval-audit"
     | "thread"
     | "trading212-demo-order-attempt"
@@ -5232,10 +5411,12 @@ export interface FailureEnvelope {
  */
 export interface TradeXError {
   blocking: boolean;
+  capacityContext?: CapacityRejectionContext | null;
   category: string;
   code: string;
   field?: string;
   message: string;
+  reason?: string | null;
   remediationActions: Remediation[];
   retryable: boolean;
 }

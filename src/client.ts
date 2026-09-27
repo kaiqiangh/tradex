@@ -1,6 +1,7 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountArmingMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, ApprovalAction, ApprovalReview, ApprovalReviewRequest, CancellationIntentRequest, CancellationReview, CancellationApprovalAction, CancellationApprovalHistoryQuery, CancellationApprovalHistory, FinancialApproval, FinancialApprovalHistory, FinancialApprovalHistoryQuery, ApprovalRejection, CancellationApprovalRejection, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
+import type { ExecutionPreparation, ExecutionPreparationQuery, ExecutionPreparationQueryResult, ExecutionPrepareRequest } from '../shared/ipc-types.ts';
 import type { Trading212DemoOrderBook, Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh } from '../shared/ipc-types.ts';
 
 interface Inputs {
@@ -92,6 +93,8 @@ interface Inputs {
   'trade.proposal.get': OrderProposalQuery;
   'trade.request_approval': ApprovalReviewRequest;
   'trade.approve': ApprovalAction;
+  'trade.execution.prepare': ExecutionPrepareRequest;
+  'trade.execution.preparation.get': ExecutionPreparationQuery;
   'trade.reject': ApprovalAction;
   'trade.approval.list': FinancialApprovalHistoryQuery;
   'trade.cancel_request': CancellationIntentRequest;
@@ -210,6 +213,8 @@ interface Outputs {
   'trade.proposal.get': OrderProposal;
   'trade.request_approval': ApprovalReview;
   'trade.approve': FinancialApproval;
+  'trade.execution.prepare': ExecutionPreparation;
+  'trade.execution.preparation.get': ExecutionPreparationQueryResult;
   'trade.reject': ApprovalRejection;
   'trade.approval.list': FinancialApprovalHistory;
   'trade.cancel_request': CancellationReview;
@@ -328,6 +333,8 @@ const definitions = {
   'trade.proposal.get': ['OrderProposalQuery', 'OrderProposal'],
   'trade.request_approval': ['ApprovalReviewRequest', 'ApprovalReview'],
   'trade.approve': ['ApprovalAction', 'FinancialApproval'],
+  'trade.execution.prepare': ['ExecutionPrepareRequest', 'ExecutionPreparation'],
+  'trade.execution.preparation.get': ['ExecutionPreparationQuery', 'ExecutionPreparationQueryResult'],
   'trade.reject': ['ApprovalAction', 'ApprovalRejection'],
   'trade.approval.list': ['FinancialApprovalHistoryQuery', 'FinancialApprovalHistory'],
   'trade.cancel_request': ['CancellationIntentRequest', 'CancellationReview'],
@@ -414,7 +421,16 @@ export async function subscribe(payload: Subscribe, onEvent: (event: unknown) =>
 }
 
 export function explainError(error: unknown): string {
-  if (error instanceof CommandError) return error.message;
+  if (error instanceof CommandError) {
+    const context = error.detail.capacityContext;
+    if (error.detail.reason === 'RESERVED_CAPACITY' && context) {
+      const source = context.source === 'BROKER_AVAILABLE'
+        ? 'broker available'
+        : 'workspace reserved-capital limit';
+      return `RISK_REJECTED · RESERVED_CAPACITY — requested ${context.requestedAmount} ${context.unit}; ${source} ${context.capacityLimit} ${context.unit}; existing reservations ${context.existingReservations} ${context.unit}; effective capacity before this request ${context.effectiveAvailable} ${context.unit}.`;
+    }
+    return error.message;
+  }
   if (error instanceof Error && error.message === 'IPC_SCHEMA_INCOMPATIBLE') return 'The application and runtime are incompatible. Update them together before continuing.';
   if (error instanceof Error && error.message.startsWith('IPC_SEQUENCE')) return 'Updates were interrupted. Reload the workspace to recover authoritative state.';
   return 'The local control plane is unavailable. Reopen TradeX or retry when it is available.';

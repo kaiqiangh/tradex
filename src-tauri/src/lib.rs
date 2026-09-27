@@ -1291,6 +1291,157 @@ fn live_provider_id(environment: &protocol::ExecutionContext) -> Option<&'static
     }
 }
 
+fn live_place_capacity(
+    proposal: &protocol::OrderProposal,
+    account: &AccountConnection,
+    review: &protocol::ApprovalReview,
+    now: &str,
+) -> Result<(String, String, String, String)> {
+    let data = account
+        .data
+        .as_ref()
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    let observed = account
+        .last_successful_sync
+        .as_deref()
+        .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok())
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    let now_time =
+        OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+    if now_time < observed
+        || now_time - observed > ::time::Duration::seconds(30)
+        || account.health.reconciliation != "CURRENT"
+        || !["account.read", "positions.read", "orders.read"]
+            .iter()
+            .all(|required| {
+                data.capabilities
+                    .iter()
+                    .any(|capability| capability == required)
+            })
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let instrument = &review.market.instrument;
+    let quote_currency = instrument.currency.as_str();
+    if quote_currency.len() < 2
+        || quote_currency.len() > 16
+        || !quote_currency
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let capacity = match proposal.fields.side {
+        protocol::OrderSide::Buy => {
+            let amount = review
+                .maximum_authorized_spend
+                .as_deref()
+                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+            if crate::provider_io::decimal_cmp(amount, "0")? != std::cmp::Ordering::Greater {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            let balances = data
+                .balances
+                .iter()
+                .filter(|balance| balance.asset.eq_ignore_ascii_case(quote_currency))
+                .collect::<Vec<_>>();
+            if balances.len() != 1 {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            // Provider adapters expose free/available-to-trade cash after broker order locks.
+            // Subtracting those same orders again would double-count committed capacity.
+            let available = crate::provider_io::decimal(&serde_json::Value::String(
+                balances[0].available.clone(),
+            ))?;
+            (
+                format!("cash:{quote_currency}"),
+                amount.to_owned(),
+                quote_currency.to_owned(),
+                available,
+            )
+        }
+        protocol::OrderSide::Sell => {
+            if proposal.fields.quantity.r#type != protocol::OrderQuantityType::Base {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            let amount = crate::provider_io::decimal(&serde_json::Value::String(
+                proposal.fields.quantity.value.clone(),
+            ))?;
+            if crate::provider_io::decimal_cmp(&amount, "0")? != std::cmp::Ordering::Greater {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            if account.provider_id == "trading212" {
+                let positions = data
+                    .positions
+                    .iter()
+                    .filter(|position| {
+                        position.instrument_id.as_deref() == Some(instrument.instrument_id.as_str())
+                            || position.symbol == instrument.symbol
+                    })
+                    .collect::<Vec<_>>();
+                if positions.len() != 1 {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                let mut available = crate::provider_io::decimal(&serde_json::Value::String(
+                    positions[0].quantity.clone(),
+                ))?;
+                for order in data.open_orders.iter().filter(|order| {
+                    order.side.eq_ignore_ascii_case("SELL")
+                        && order.symbol == instrument.symbol
+                        && matches!(
+                            order.status.as_str(),
+                            "LOCAL"
+                                | "UNCONFIRMED"
+                                | "CONFIRMED"
+                                | "NEW"
+                                | "CANCELLING"
+                                | "PARTIALLY_FILLED"
+                                | "REPLACING"
+                        )
+                }) {
+                    let quantity = order
+                        .quantity
+                        .as_deref()
+                        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                    let filled = order
+                        .filled_quantity
+                        .as_deref()
+                        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                    let remaining = crate::provider_io::decimal_subtract(quantity, filled)?;
+                    available = crate::provider_io::decimal_subtract(&available, &remaining)?;
+                }
+                if crate::provider_io::decimal_cmp(&available, "0")? == std::cmp::Ordering::Less {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                (
+                    format!("asset:{}", instrument.symbol),
+                    amount,
+                    instrument.symbol.clone(),
+                    available,
+                )
+            } else {
+                let base = instrument
+                    .base
+                    .as_deref()
+                    .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                let balances = data
+                    .balances
+                    .iter()
+                    .filter(|balance| balance.asset.eq_ignore_ascii_case(base))
+                    .collect::<Vec<_>>();
+                if balances.len() != 1 {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                let available = crate::provider_io::decimal(&serde_json::Value::String(
+                    balances[0].available.clone(),
+                ))?;
+                (format!("asset:{base}"), amount, base.to_owned(), available)
+            }
+        }
+    };
+    Ok(capacity)
+}
+
 fn proposal_value(
     proposal: &protocol::OrderProposal,
     market: Option<&protocol::MarketDetail>,
@@ -1667,13 +1818,22 @@ impl ControlPlane {
         account.permissions.scope = "VERIFIED".into();
         account.permissions.detected = provider.required_permissions.clone();
         let remote_account_id = format!("synthetic-live-{}", account.connection_id);
+        let balances = match provider_id {
+            "binance" | "bitget" => json!([{
+                "asset": "USDT", "available": "1000", "total": "1000", "reserved": "0"
+            }]),
+            "trading212" => json!([{
+                "asset": "USD", "available": "1000", "total": "1000", "reserved": "0"
+            }]),
+            _ => json!([]),
+        };
         account.data = Some(
             serde_json::from_value(json!({
                 "remoteAccountId": remote_account_id,
                 "accountType": "SYNTHETIC_LIVE_FIXTURE",
                 "currency": "USD",
                 "buyingPower": null,
-                "balances": [],
+                "balances": balances,
                 "positions": [],
                 "openOrders": [],
                 "bitgetOrderBook": null,
@@ -1682,6 +1842,7 @@ impl ControlPlane {
             }))
             .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
         );
+        account.last_successful_sync = Some(storage::timestamp()?);
         self.persist_account(account)
     }
 
@@ -2095,6 +2256,45 @@ impl ControlPlane {
                 }
                 Ok((json!(approval), Some(approval.state_version.clone())))
             }
+            "trade.execution.prepare" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::ExecutionPrepareRequest = payload(request.payload)?;
+                if !input.confirmed {
+                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+                }
+                self.require_workspace(&input.workspace_id)?;
+                let (preparation, events) = self.prepare_live_place(input)?;
+                for event in &events {
+                    self.publish(event);
+                }
+                let version = preparation.attempt.state_version.clone();
+                Ok((json!(preparation), Some(version)))
+            }
+            "trade.execution.preparation.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::ExecutionPreparationQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .execution_preparation_query(&input.workspace_id, &input.approval_id)?;
+                let version = result
+                    .preparation
+                    .as_ref()
+                    .map(|saved| saved.attempt.state_version.clone())
+                    .or_else(|| {
+                        result
+                            .rejections
+                            .last()
+                            .map(|saved| saved.state_version.clone())
+                    });
+                Ok((json!(result), version))
+            }
             "trade.reject" => {
                 if !provider_order_consumer_allowed(consumer) {
                     return Err(TradeXError::new("IPC_ACCESS_DENIED"));
@@ -2152,30 +2352,32 @@ impl ControlPlane {
                 if proposal.workspace_id != input.workspace_id {
                     return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
                 }
-                let latest = self
-                    .store
-                    .as_ref()
-                    .unwrap()
-                    .risk_decision_history(&input.workspace_id, &input.proposal_id)?
-                    .decisions
-                    .into_iter()
-                    .last();
-                let review = self.build_approval_review(&proposal, latest)?;
-                let now = self.time.status(&input.workspace_id)?.wall_clock;
-                let events = self.store.as_mut().unwrap().reconcile_financial_approvals(
-                    &input.workspace_id,
-                    &input.proposal_id,
-                    Some(&review.review_digest),
-                    review.eligible,
-                    review
-                        .blockers
-                        .first()
-                        .map(String::as_str)
-                        .unwrap_or("REVIEW_INELIGIBLE"),
-                    &now,
-                )?;
-                for event in &events {
-                    self.publish(event);
+                if proposal.status == protocol::OrderProposalStatus::NeedsApproval {
+                    let latest = self
+                        .store
+                        .as_ref()
+                        .unwrap()
+                        .risk_decision_history(&input.workspace_id, &input.proposal_id)?
+                        .decisions
+                        .into_iter()
+                        .last();
+                    let review = self.build_approval_review(&proposal, latest)?;
+                    let now = self.time.status(&input.workspace_id)?.wall_clock;
+                    let events = self.store.as_mut().unwrap().reconcile_financial_approvals(
+                        &input.workspace_id,
+                        &input.proposal_id,
+                        Some(&review.review_digest),
+                        review.eligible,
+                        review
+                            .blockers
+                            .first()
+                            .map(String::as_str)
+                            .unwrap_or("REVIEW_INELIGIBLE"),
+                        &now,
+                    )?;
+                    for event in &events {
+                        self.publish(event);
+                    }
                 }
                 let history = self
                     .store
@@ -5942,6 +6144,32 @@ impl ControlPlane {
             Some(self.approval_market_detail_for(proposal, account.as_ref())?)
         };
         let time_status = self.time.status(workspace_id)?;
+        let active_reservations = self
+            .store
+            .as_ref()
+            .unwrap()
+            .active_execution_reservations(workspace_id)?;
+        let base_currency = self.store.as_ref().unwrap().base_currency()?;
+        let mut existing_reserved_capital = Some("0".to_owned());
+        if policy
+            .as_ref()
+            .is_some_and(|state| state.policy.max_reserved_capital.is_some())
+        {
+            for reservation in &active_reservations {
+                let Some(amount) = reservation
+                    .workspace_notional
+                    .as_deref()
+                    .filter(|_| reservation.workspace_currency == base_currency)
+                else {
+                    existing_reserved_capital = None;
+                    break;
+                };
+                existing_reserved_capital = Some(crate::portfolio::decimal_add(
+                    existing_reserved_capital.as_deref().unwrap_or("0"),
+                    amount,
+                )?);
+            }
+        }
         let portfolio_input_id = portfolio.as_ref().map_or_else(
             || "portfolio:unavailable".into(),
             |portfolio| format!("portfolio:{}", portfolio.observed_at),
@@ -5993,6 +6221,12 @@ impl ControlPlane {
                 Some(time_status.observed_at.clone()),
                 &time_status,
             )?,
+            risk::input_reference(
+                risk::RiskDecisionInputKind::Reservations,
+                format!("reservations:{workspace_id}"),
+                Some(time_status.observed_at.clone()),
+                &active_reservations,
+            )?,
         ];
         let decision = risk::evaluate(
             proposal,
@@ -6002,6 +6236,7 @@ impl ControlPlane {
             market.as_ref(),
             &time_status,
             inputs,
+            existing_reserved_capital.as_deref(),
             storage::timestamp()?,
         );
         Ok((decision, account, market, time_status))
@@ -6441,6 +6676,180 @@ impl ControlPlane {
             estimated_slippage_percent: None,
             reviewed_at: time_status.wall_clock,
         })
+    }
+
+    fn prepare_live_place(
+        &mut self,
+        input: protocol::ExecutionPrepareRequest,
+    ) -> Result<(protocol::ExecutionPreparation, Vec<protocol::DomainEvent>)> {
+        if input.idempotency_key.chars().any(char::is_control)
+            || input.idempotency_key.trim() != input.idempotency_key
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        if let Some(prepared) = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_idempotency_key(
+                &input.workspace_id,
+                &input.approval_id,
+                &input.idempotency_key,
+            )?
+        {
+            return Ok((prepared, Vec::new()));
+        }
+        if let Some(rejection) = self
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_rejection_for_idempotency_key(
+                &input.workspace_id,
+                &input.approval_id,
+                &input.idempotency_key,
+            )?
+        {
+            return Err(TradeXError::reserved_capacity(rejection.capacity_context));
+        }
+        let approval_snapshot = self
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("financial-approval", &input.approval_id)?;
+        let protocol::DomainProjection::FinancialApproval(approval) = approval_snapshot.projection
+        else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        if approval.workspace_id != input.workspace_id
+            || approval.state_version != input.expected_approval_state_version
+            || approval.status != protocol::FinancialApprovalStatus::Issued
+        {
+            return Err(TradeXError::new(
+                if approval.status == protocol::FinancialApprovalStatus::Consumed {
+                    "APPROVAL_CONSUMED"
+                } else {
+                    "STATE_VERSION_CONFLICT"
+                },
+            ));
+        }
+        let protocol::FinancialApprovalIntent::PlaceOrder {
+            proposal_id,
+            proposal_hash,
+        } = &approval.intent
+        else {
+            return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
+        };
+        let (proposal, bound_decision) = self.current_approval_binding(
+            &input.workspace_id,
+            proposal_id,
+            &approval.risk_decision_id,
+        )?;
+        if proposal.proposal_hash != *proposal_hash
+            || proposal.fields.account_id.as_deref() != Some(approval.account_id.as_str())
+            || proposal.fields.environment != approval.environment
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let review = self.build_approval_review(&proposal, Some(bound_decision.clone()))?;
+        if !review.eligible
+            || review.review_digest != approval.review_digest
+            || review.risk_decision.decision_id != approval.risk_decision_id
+            || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
+            || review.account.as_ref().is_none_or(|account| {
+                account.connection_id != approval.account_id || account.state_version.is_empty()
+            })
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        self.time.require_trusted()?;
+        let now = self.time.status(&input.workspace_id)?.wall_clock;
+        let account = review
+            .account
+            .as_deref()
+            .ok_or_else(|| TradeXError::new("ACCOUNT_NOT_FOUND"))?;
+        let (capacity_key, amount, unit, broker_available) =
+            live_place_capacity(&proposal, account, &review, &now)?;
+        let notional = review
+            .maximum_authorized_spend
+            .as_deref()
+            .or(review.expected_spend.as_deref())
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?
+            .to_owned();
+        let notional_currency = review.market.instrument.currency.clone();
+        let workspace_currency = self.store.as_ref().unwrap().base_currency()?;
+        let workspace_notional = if notional_currency == workspace_currency {
+            Some(notional.clone())
+        } else {
+            let portfolio = self.current_portfolio_snapshot(&input.workspace_id, false)?;
+            crate::risk::trusted_workspace_notional(
+                &notional,
+                &notional_currency,
+                &workspace_currency,
+                &portfolio,
+                &now,
+            )
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))
+            .map(Some)?
+        };
+        let reservation_id = uuid::Uuid::new_v4().to_string();
+        let attempt_id = uuid::Uuid::new_v4().to_string();
+        let attempt = protocol::ExecutionAttempt {
+            attempt_id: attempt_id.clone(),
+            workspace_id: input.workspace_id.clone(),
+            approval_id: approval.approval_id.clone(),
+            operation: protocol::FinancialOperation::PlaceOrder,
+            intent_id: proposal.proposal_id.clone(),
+            intent_hash: proposal.proposal_hash.clone(),
+            proposal_id: Some(proposal.proposal_id.clone()),
+            broker_order_id: None,
+            account_id: account.connection_id.clone(),
+            environment: proposal.fields.environment.clone(),
+            policy_version: approval.policy_version,
+            risk_decision_id: approval.risk_decision_id.clone(),
+            review_digest: approval.review_digest.clone(),
+            account_state_version: account.state_version.clone(),
+            intent_state_version: proposal.state_version.clone(),
+            reservation_id: Some(reservation_id.clone()),
+            state: protocol::ExecutionAttemptState::Reserved,
+            invalidation_reason: None,
+            created_at: now.clone(),
+            state_version: String::new(),
+        };
+        let reservation = protocol::ExecutionReservation {
+            reservation_id,
+            workspace_id: input.workspace_id.clone(),
+            account_id: account.connection_id.clone(),
+            attempt_id,
+            proposal_id: proposal.proposal_id.clone(),
+            proposal_hash: proposal.proposal_hash.clone(),
+            instrument_id: proposal.fields.instrument_id.clone(),
+            side: proposal.fields.side,
+            capacity_key,
+            amount,
+            unit,
+            notional,
+            notional_currency,
+            workspace_notional,
+            workspace_currency,
+            broker_available,
+            existing_reservations: "0".into(),
+            effective_available: "0".into(),
+            account_state_version: account.state_version.clone(),
+            status: protocol::ExecutionReservationStatus::Active,
+            created_at: now.clone(),
+            state_version: String::new(),
+        };
+        self.store.as_mut().unwrap().prepare_live_place(
+            &approval.approval_id,
+            &input.expected_approval_state_version,
+            &input.idempotency_key,
+            &account.state_version,
+            &proposal.state_version,
+            &approval.review_digest,
+            attempt,
+            reservation,
+            &now,
+        )
     }
 
     fn current_approval_binding(
@@ -10561,6 +10970,15 @@ mod thread_tests {
             .execute("DROP TABLE cancellation_intents", [])
             .unwrap();
         migration_database
+            .execute("DROP TABLE execution_reservations", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE execution_attempts", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE execution_preparation_rejections", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -11091,49 +11509,63 @@ mod live_approval_tests {
         workspace_id: &str,
         account: &AccountConnection,
     ) -> Value {
-        let current = dispatch(
-            control,
-            "risk.get_policy",
-            json!({"workspaceId":workspace_id}),
-        );
-        let mut policy = current["data"]["policy"].clone();
-        policy["staleQuoteThresholdSeconds"] = 120.into();
-        let saved = dispatch(
-            control,
-            "risk.save_policy",
-            json!({
-                "workspaceId": workspace_id,
-                "expectedStateVersion": current["data"]["stateVersion"],
-                "policy": policy,
-            }),
-        );
-        assert_eq!(saved["ok"], true, "{saved}");
+        let (venue, environment, instrument_id, quantity, price) =
+            if account.provider_id == "trading212" {
+                ("XNAS", "TRADING212_LIVE", "equity:US:AAPL", "1", "500")
+            } else {
+                (
+                    "BINANCE",
+                    "BINANCE_LIVE",
+                    "crypto:BTC/USDT:spot",
+                    "0.01",
+                    "50000",
+                )
+            };
+        if account.health.arming != "ARMED" {
+            let current = dispatch(
+                control,
+                "risk.get_policy",
+                json!({"workspaceId":workspace_id}),
+            );
+            let mut policy = current["data"]["policy"].clone();
+            policy["staleQuoteThresholdSeconds"] = 120.into();
+            let saved = dispatch(
+                control,
+                "risk.save_policy",
+                json!({
+                    "workspaceId": workspace_id,
+                    "expectedStateVersion": current["data"]["stateVersion"],
+                    "policy": policy,
+                }),
+            );
+            assert_eq!(saved["ok"], true, "{saved}");
 
-        control.time.set_test_time(
-            OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000,
-            100,
-        );
+            control.time.set_test_time(
+                OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000,
+                100,
+            );
 
-        let revalidated = dispatch(
-            control,
-            "time.revalidate",
-            json!({"workspaceId":workspace_id}),
-        );
-        assert_eq!(
-            revalidated["data"]["confidence"], "TRUSTED",
-            "{revalidated}"
-        );
-        let armed = dispatch(
-            control,
-            "account.arm",
-            json!({
-                "workspaceId": workspace_id,
-                "connectionId": account.connection_id,
-                "expectedStateVersion": account.state_version,
-                "confirmed": true,
-            }),
-        );
-        assert_eq!(armed["ok"], true, "{armed}");
+            let revalidated = dispatch(
+                control,
+                "time.revalidate",
+                json!({"workspaceId":workspace_id}),
+            );
+            assert_eq!(
+                revalidated["data"]["confidence"], "TRUSTED",
+                "{revalidated}"
+            );
+            let armed = dispatch(
+                control,
+                "account.arm",
+                json!({
+                    "workspaceId": workspace_id,
+                    "connectionId": account.connection_id,
+                    "expectedStateVersion": account.state_version,
+                    "confirmed": true,
+                }),
+            );
+            assert_eq!(armed["ok"], true, "{armed}");
+        }
 
         let draft = dispatch(
             control,
@@ -11142,13 +11574,13 @@ mod live_approval_tests {
                 "workspaceId": workspace_id,
                 "fields": {
                     "accountId": account.connection_id,
-                    "venue": "BINANCE",
-                    "environment": "BINANCE_LIVE",
-                    "instrumentId": "crypto:BTC/USDT:spot",
+                    "venue": venue,
+                    "environment": environment,
+                    "instrumentId": instrument_id,
                     "side": "BUY",
                     "orderType": "LIMIT",
-                    "quantity": {"type":"BASE","value":"0.01"},
-                    "limitPrice": "50000",
+                    "quantity": {"type":"BASE","value":quantity},
+                    "limitPrice": price,
                     "timeInForce": "GTC",
                 },
             }),
@@ -11224,6 +11656,729 @@ mod live_approval_tests {
             "reviewDigest": review["reviewDigest"],
             "expectedStateVersion": proposal["stateVersion"],
         })
+    }
+
+    fn reviewed_live_capacity_fixture() -> (
+        tempfile::TempDir,
+        ControlPlane,
+        String,
+        AccountConnection,
+        Value,
+        Value,
+    ) {
+        reviewed_live_capacity_fixture_with_available("1000")
+    }
+
+    fn reviewed_live_capacity_fixture_with_available(
+        broker_available: &str,
+    ) -> (
+        tempfile::TempDir,
+        ControlPlane,
+        String,
+        AccountConnection,
+        Value,
+        Value,
+    ) {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        control.enable_live_approval_fixture();
+        let opened = dispatch(
+            &mut control,
+            "workspace.open",
+            json!({"baseCurrency":"USD"}),
+        );
+        assert_eq!(opened["ok"], true, "{opened}");
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let seeded = control
+            .seed_live_arming_fixture(&workspace_id, "trading212", "capacity fixture")
+            .unwrap();
+        let mut account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        account.data.as_mut().unwrap().balances = vec![Balance {
+            asset: "USD".into(),
+            available: broker_available.into(),
+            total: Some(broker_available.into()),
+            reserved: Some("0".into()),
+            in_pies: None,
+            locked: None,
+            restricted_available: None,
+        }];
+        account.last_successful_sync = Some(control.time.status(&workspace_id).unwrap().wall_clock);
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_account(account)
+            .unwrap();
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        let _earlier_proposal = live_proposal(&mut control, &workspace_id, &account);
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        let proposal = live_proposal(&mut control, &workspace_id, &account);
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": proposal["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["eligible"], true, "{review}");
+        (
+            folder,
+            control,
+            workspace_id,
+            account,
+            proposal,
+            review["data"].clone(),
+        )
+    }
+
+    #[test]
+    fn live_place_preparation_consumes_approval_once_and_replays_idempotently() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepare = json!({
+            "workspaceId": workspace_id,
+            "approvalId": approval["data"]["approvalId"],
+            "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+            "idempotencyKey": "prepare-live-place-once",
+            "confirmed": true,
+        });
+        let unauthorized = control.dispatch_with_events(
+            request("trade.execution.prepare", prepare.clone()),
+            "agent",
+            None,
+        );
+        assert_eq!(unauthorized["ok"], false, "{unauthorized}");
+        assert_eq!(
+            unauthorized["error"]["code"], "IPC_ACCESS_DENIED",
+            "{unauthorized}"
+        );
+        let unconfirmed = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-live-place-unconfirmed",
+                "confirmed": false,
+            }),
+        );
+        assert_eq!(unconfirmed["ok"], false, "{unconfirmed}");
+        assert_eq!(
+            unconfirmed["error"]["code"], "IPC_PAYLOAD_INVALID",
+            "{unconfirmed}"
+        );
+        let prepared = dispatch_main(&mut control, "trade.execution.prepare", prepare.clone());
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        assert_eq!(
+            prepared["data"]["attempt"]["state"], "RESERVED",
+            "{prepared}"
+        );
+        assert_eq!(
+            prepared["data"]["reservation"]["amount"], "500",
+            "{prepared}"
+        );
+        assert_eq!(prepared["data"]["reservation"]["unit"], "USD", "{prepared}");
+        assert_eq!(
+            prepared["data"]["reservation"]["effectiveAvailable"], "500",
+            "{prepared}"
+        );
+        let recovered = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+            }),
+        );
+        assert_eq!(recovered["ok"], true, "{recovered}");
+        assert_eq!(
+            recovered["data"]["preparation"]["attempt"]["attemptId"],
+            prepared["data"]["attempt"]["attemptId"],
+            "{recovered}"
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["reservation"]["reservationId"],
+            prepared["data"]["reservation"]["reservationId"],
+            "{recovered}"
+        );
+        assert_eq!(recovered["data"]["rejections"], json!([]), "{recovered}");
+        let replay = dispatch_main(&mut control, "trade.execution.prepare", prepare.clone());
+        assert_eq!(replay["ok"], true, "{replay}");
+        assert_eq!(
+            replay["data"]["attempt"]["attemptId"], prepared["data"]["attempt"]["attemptId"],
+            "{replay}"
+        );
+        let proposal_read = dispatch_main(
+            &mut control,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(proposal_read["ok"], true, "{proposal_read}");
+        assert_eq!(
+            proposal_read["data"]["status"], "CONSUMED",
+            "{proposal_read}"
+        );
+        assert_eq!(
+            proposal_read["data"]["history"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["event"],
+            "CONSUMED",
+            "{proposal_read}"
+        );
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert_eq!(
+            approval_history["data"]["approvals"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["status"],
+            "CONSUMED",
+            "{approval_history}"
+        );
+        let approval_snapshot = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for(
+                "financial-approval",
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap();
+        let DomainProjection::FinancialApproval(saved_approval) = approval_snapshot.projection
+        else {
+            panic!("wrong approval projection");
+        };
+        assert_eq!(
+            saved_approval.status,
+            protocol::FinancialApprovalStatus::Consumed
+        );
+        let consumed_proposal = control
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(proposal["proposalId"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(
+            consumed_proposal.status,
+            protocol::OrderProposalStatus::Consumed
+        );
+        assert_eq!(
+            consumed_proposal.history.last().unwrap().event,
+            protocol::OrderProposalHistoryEvent::Consumed
+        );
+        let proposal_consumption = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for(
+                "order-proposal-consumption",
+                proposal["proposalId"].as_str().unwrap(),
+            )
+            .unwrap();
+        assert_eq!(proposal_consumption.last_sequence, 1);
+        let DomainProjection::OrderProposalConsumption(consumption) =
+            proposal_consumption.projection
+        else {
+            panic!("wrong proposal consumption projection");
+        };
+        assert_eq!(
+            consumption.attempt_id,
+            prepared["data"]["attempt"]["attemptId"]
+        );
+        let deliveries = std::sync::Arc::new(std::sync::Mutex::new(0));
+        let delivered = deliveries.clone();
+        let sink: EventSink = std::sync::Arc::new(move |event| {
+            assert_eq!(event.event_type, "trade.proposal.consumed");
+            *delivered.lock().unwrap() += 1;
+            true
+        });
+        let replay = control
+            .store
+            .as_mut()
+            .unwrap()
+            .replay(
+                "order-proposal-consumption",
+                proposal["proposalId"].as_str().unwrap(),
+                0,
+                &sink,
+            )
+            .unwrap();
+        assert_eq!(replay.replayed_count, 1);
+        assert_eq!(*deliveries.lock().unwrap(), 1);
+        let second_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(second_approval["ok"], false, "{second_approval}");
+        assert_eq!(
+            second_approval["error"]["code"], "STATE_VERSION_CONFLICT",
+            "{second_approval}"
+        );
+        let mut different_key = prepare;
+        different_key["idempotencyKey"] = "prepare-live-place-second-key".into();
+        let reused = dispatch_main(&mut control, "trade.execution.prepare", different_key);
+        assert_eq!(reused["ok"], false, "{reused}");
+        assert_eq!(reused["error"]["code"], "APPROVAL_CONSUMED", "{reused}");
+    }
+
+    #[test]
+    fn live_place_preparation_capacity_failure_leaves_approval_and_ledger_unchanged() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture_with_available("400");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-live-place-over-capacity",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(prepared["ok"], false, "{prepared}");
+        assert_eq!(prepared["error"]["code"], "RISK_REJECTED", "{prepared}");
+        let approval_id = approval["data"]["approvalId"].as_str().unwrap();
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_preparation_for_idempotency_key(
+                    &workspace_id,
+                    approval["data"]["approvalId"].as_str().unwrap(),
+                    "prepare-live-place-over-capacity",
+                )
+                .unwrap()
+                .is_none()
+        );
+        let restored_rejection = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval_id}),
+        );
+        assert_eq!(restored_rejection["ok"], true, "{restored_rejection}");
+        assert_eq!(restored_rejection["data"]["preparation"], Value::Null);
+        assert_eq!(
+            restored_rejection["data"]["rejections"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            restored_rejection["data"]["rejections"][0]["reason"],
+            "RESERVED_CAPACITY"
+        );
+        assert_eq!(
+            restored_rejection["data"]["rejections"][0]["capacityContext"]["source"],
+            "BROKER_AVAILABLE"
+        );
+        assert_ne!(
+            restored_rejection["data"]["rejections"][0]["idempotencyDigest"],
+            "prepare-live-place-over-capacity"
+        );
+        let repeated = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval_id,
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-live-place-over-capacity",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(repeated["ok"], false, "{repeated}");
+        assert_eq!(repeated["error"]["reason"], "RESERVED_CAPACITY");
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_preparation_query(&workspace_id, approval_id)
+                .unwrap()
+                .rejections
+                .len(),
+            1
+        );
+        let rejection_snapshot = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("execution-preparation", approval_id)
+            .unwrap();
+        assert_eq!(rejection_snapshot.last_sequence, 1);
+        let deliveries = std::sync::Arc::new(std::sync::Mutex::new(0));
+        let delivered = deliveries.clone();
+        let sink: EventSink = std::sync::Arc::new(move |event| {
+            assert_eq!(event.event_type, "trade.execution.preparation.rejected");
+            *delivered.lock().unwrap() += 1;
+            true
+        });
+        let replay = control
+            .store
+            .as_mut()
+            .unwrap()
+            .replay("execution-preparation", approval_id, 0, &sink)
+            .unwrap();
+        assert_eq!(replay.replayed_count, 1);
+        assert_eq!(*deliveries.lock().unwrap(), 1);
+        let db = rusqlite::Connection::open(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .path
+                .join("workspace.sqlite3"),
+        )
+        .unwrap();
+        let foreign_keys = db
+            .prepare("PRAGMA foreign_key_list(execution_attempts)")
+            .unwrap()
+            .query_map([], |_| Ok(()))
+            .unwrap()
+            .count();
+        assert!(foreign_keys >= 3);
+        let unchanged_proposal = control
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(proposal["proposalId"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(
+            unchanged_proposal.status,
+            protocol::OrderProposalStatus::NeedsApproval
+        );
+        assert_eq!(unchanged_proposal.history.len(), 1);
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+        let approval_snapshot = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("financial-approval", approval_id)
+            .unwrap();
+        let DomainProjection::FinancialApproval(saved_approval) = approval_snapshot.projection
+        else {
+            panic!("wrong approval projection");
+        };
+        assert_eq!(
+            saved_approval.status,
+            protocol::FinancialApprovalStatus::Issued
+        );
+    }
+
+    #[test]
+    fn live_place_preparation_rejects_missing_cross_currency_fx_without_partial_state() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-live-place-missing-fx",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(prepared["ok"], false, "{prepared}");
+        assert_eq!(
+            prepared["error"]["code"], "RISK_EVIDENCE_UNAVAILABLE",
+            "{prepared}"
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+        let unchanged_proposal = control
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(proposal["proposalId"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(
+            unchanged_proposal.status,
+            protocol::OrderProposalStatus::NeedsApproval
+        );
+        let approvals = control
+            .store
+            .as_ref()
+            .unwrap()
+            .financial_approval_history(&workspace_id, proposal["proposalId"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(
+            approvals.approvals[0].status,
+            protocol::FinancialApprovalStatus::Issued
+        );
+    }
+
+    #[test]
+    fn live_place_preparation_subtracts_existing_account_reservations() {
+        let (_folder, mut control, workspace_id, account, first_proposal, first_review) =
+            reviewed_live_capacity_fixture();
+        let first_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &first_proposal, &first_review),
+        );
+        let first = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": first_approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": first_approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-first-capacity",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(first["ok"], true, "{first}");
+
+        let draft = dispatch(
+            &mut control,
+            "trade.save_draft",
+            json!({
+                "workspaceId": workspace_id,
+                "fields": {
+                    "accountId": account.connection_id,
+                    "venue": "XNAS",
+                    "environment": "TRADING212_LIVE",
+                    "instrumentId": "equity:US:AAPL",
+                    "side": "BUY",
+                    "orderType": "LIMIT",
+                    "quantity": {"type":"BASE","value":"1.2"},
+                    "limitPrice": "500",
+                    "timeInForce": "GTC",
+                },
+            }),
+        );
+        assert_eq!(draft["ok"], true, "{draft}");
+        let proposal = dispatch(
+            &mut control,
+            "trade.generate_proposal",
+            json!({
+                "workspaceId": workspace_id,
+                "draftId": draft["data"]["draftId"],
+                "expectedDraftVersion": 1,
+            }),
+        );
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        let proposal = proposal["data"].clone();
+        let created_at =
+            OffsetDateTime::parse(proposal["createdAt"].as_str().unwrap(), &Rfc3339).unwrap();
+        control
+            .time
+            .set_test_time(created_at.unix_timestamp_nanos() / 1_000_000 + 10, 120);
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId": workspace_id, "proposalId": proposal["proposalId"]}),
+        );
+        assert_eq!(review["data"]["eligible"], true, "{review}");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review["data"]),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let rejected = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-second-capacity",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(rejected["ok"], false, "{rejected}");
+        assert_eq!(rejected["error"]["code"], "RISK_REJECTED", "{rejected}");
+        assert_eq!(
+            rejected["error"]["reason"], "RESERVED_CAPACITY",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["source"], "BROKER_AVAILABLE",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["capacityLimit"], "1000",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["requestedAmount"], "600",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["existingReservations"], "500",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["effectiveAvailable"], "500",
+            "{rejected}"
+        );
+        let reservations = control
+            .store
+            .as_ref()
+            .unwrap()
+            .active_execution_reservations(&workspace_id)
+            .unwrap();
+        assert_eq!(reservations.len(), 1);
+        assert_eq!(reservations[0].amount, "500");
+    }
+
+    #[test]
+    fn live_place_reservations_are_scoped_to_the_bound_account() {
+        let (_folder, mut control, workspace_id, first_account, first_proposal, first_review) =
+            reviewed_live_capacity_fixture();
+        let first_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &first_proposal, &first_review),
+        );
+        let first = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": first_approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": first_approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-account-one",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(first["ok"], true, "{first}");
+
+        let seeded = control
+            .seed_live_arming_fixture(&workspace_id, "trading212", "second capacity fixture")
+            .unwrap();
+        let mut second_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        second_account.data.as_mut().unwrap().balances = vec![Balance {
+            asset: "USD".into(),
+            available: "1000".into(),
+            total: Some("1000".into()),
+            reserved: Some("0".into()),
+            in_pies: None,
+            locked: None,
+            restricted_available: None,
+        }];
+        second_account.last_successful_sync =
+            Some(control.time.status(&workspace_id).unwrap().wall_clock);
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_account(second_account)
+            .unwrap();
+        let second_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        let second_proposal = live_proposal(&mut control, &workspace_id, &second_account);
+        let second_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId": workspace_id, "proposalId": second_proposal["proposalId"]}),
+        );
+        assert_eq!(second_review["data"]["eligible"], true, "{second_review}");
+        let second_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &second_proposal, &second_review["data"]),
+        );
+        assert_eq!(second_approval["ok"], true, "{second_approval}");
+        let second = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": second_approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": second_approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-account-two",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(second["ok"], true, "{second}");
+        assert_eq!(second["data"]["reservation"]["existingReservations"], "0");
+        assert_eq!(second["data"]["reservation"]["effectiveAvailable"], "500");
+        assert_ne!(first_account.connection_id, seeded.connection_id);
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .len(),
+            2
+        );
     }
 
     #[test]

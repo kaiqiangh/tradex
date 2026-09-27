@@ -1101,6 +1101,7 @@ pub(crate) fn evaluate(
     market: Option<&crate::protocol::MarketDetail>,
     time_status: &crate::protocol::TimeStatus,
     inputs: Vec<RiskDecisionInputReference>,
+    existing_reserved_capital: Option<&str>,
     evaluated_at: String,
 ) -> RiskDecision {
     use crate::protocol::{ExecutionContext, MarketSession, OrderSide, OrderType, TimeConfidence};
@@ -1535,7 +1536,7 @@ pub(crate) fn evaluate(
         },
     );
 
-    let notional = proposal_notional_in_base(proposal, portfolio);
+    let notional = proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock);
     limit!(
         RiskCheckId::OrderNotional,
         notional.as_deref(),
@@ -1765,23 +1766,49 @@ pub(crate) fn evaluate(
         },
     );
     let reserved_limit = policy.and_then(|policy| policy.max_reserved_capital.as_deref());
+    let projected_reserved_capital = existing_reserved_capital
+        .zip(proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock).as_deref())
+        .and_then(|(reserved, proposed)| crate::portfolio::decimal_add(reserved, proposed).ok());
+    let (reserved_outcome, reserved_reason, reserved_message) = match reserved_limit {
+        None => (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::LimitNotConfigured,
+            "Reserved-capital limit is not configured.".to_owned(),
+        ),
+        Some(_) if projected_reserved_capital.is_none() => (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::ReservationUnavailable,
+            "A complete reservation ledger and trusted workspace-currency notional are required."
+                .to_owned(),
+        ),
+        Some(maximum) => match crate::provider_io::decimal_cmp(
+            projected_reserved_capital.as_deref().unwrap(),
+            maximum,
+        ) {
+            Ok(Ordering::Greater) => (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::LimitExceeded,
+                "Active reservations plus this proposal exceed the reserved-capital limit."
+                    .to_owned(),
+            ),
+            Ok(_) => (
+                RiskCheckOutcome::Pass,
+                RiskDecisionReasonCode::WithinLimit,
+                "Active reservations and this proposal are within the reserved-capital limit."
+                    .to_owned(),
+            ),
+            Err(_) => (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::ReservationUnavailable,
+                "Reserved-capital values could not be compared exactly.".to_owned(),
+            ),
+        },
+    };
     push!(
         RiskCheckId::ReservedCapital,
-        if reserved_limit.is_some() {
-            RiskCheckOutcome::Unavailable
-        } else {
-            RiskCheckOutcome::Pass
-        },
-        if reserved_limit.is_some() {
-            RiskDecisionReasonCode::ReservationUnavailable
-        } else {
-            RiskDecisionReasonCode::LimitNotConfigured
-        },
-        if reserved_limit.is_some() {
-            "No complete workspace reservation ledger is available."
-        } else {
-            "Reserved-capital limit is not configured."
-        },
+        reserved_outcome,
+        reserved_reason,
+        reserved_message,
     );
 
     let market_order = proposal.fields.order_type == OrderType::Market;
@@ -2040,14 +2067,61 @@ pub(crate) fn evaluate(
 fn proposal_notional_in_base(
     proposal: &crate::protocol::OrderProposal,
     portfolio: Option<&crate::protocol::PortfolioSnapshot>,
+    now: &str,
 ) -> Option<String> {
     let portfolio = portfolio?;
-    if !portfolio_complete(portfolio) {
+    let amount = proposal.estimated_notional.as_deref()?;
+    let currency = proposal.estimated_notional_currency.as_deref()?;
+    trusted_workspace_notional(amount, currency, &portfolio.base_currency, portfolio, now)
+}
+
+pub(crate) fn trusted_workspace_notional(
+    amount: &str,
+    currency: &str,
+    base_currency: &str,
+    portfolio: &crate::protocol::PortfolioSnapshot,
+    now: &str,
+) -> Option<String> {
+    let now =
+        time::OffsetDateTime::parse(now, &time::format_description::well_known::Rfc3339).ok()?;
+    let observed = time::OffsetDateTime::parse(
+        &portfolio.observed_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .ok()?;
+    if portfolio.workspace_id.is_empty()
+        || portfolio.base_currency != base_currency
+        || !portfolio_complete(portfolio)
+        || now < observed
+        || now - observed > time::Duration::seconds(30)
+    {
         return None;
     }
-    (proposal.estimated_notional_currency.as_deref() == Some(portfolio.base_currency.as_str()))
-        .then(|| proposal.estimated_notional.clone())
-        .flatten()
+    if currency == base_currency {
+        return Some(amount.into());
+    }
+    let route = portfolio.fx_routes.iter().find(|route| {
+        route.pair_path == format!("{currency} -> {base_currency}")
+            && route.freshness == crate::protocol::FxFreshness::Healthy
+            && route.quality == crate::protocol::FxQuality::Verified
+            && route.depeg_warning.is_none()
+    })?;
+    let received = time::OffsetDateTime::parse(
+        &route.received_timestamp,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .ok()?;
+    let provider = route.provider_timestamp.as_deref().and_then(|timestamp| {
+        time::OffsetDateTime::parse(timestamp, &time::format_description::well_known::Rfc3339).ok()
+    })?;
+    if now < received
+        || now < provider
+        || now - received > time::Duration::seconds(30)
+        || now - provider > time::Duration::seconds(30)
+    {
+        return None;
+    }
+    crate::portfolio::decimal_mul(amount, route.rate.as_deref()?).ok()
 }
 
 fn portfolio_complete(portfolio: &crate::protocol::PortfolioSnapshot) -> bool {
@@ -2674,5 +2748,62 @@ mod tests {
             ..RiskPolicy::default()
         };
         assert!(policy_weakening_reasons(&RiskPolicy::default(), &restricted).is_empty());
+    }
+
+    #[test]
+    fn reserved_capital_fx_conversion_requires_recent_verified_route() {
+        let portfolio: crate::protocol::PortfolioSnapshot = serde_json::from_value(serde_json::json!({
+            "workspaceId": "workspace",
+            "baseCurrency": "EUR",
+            "observedAt": "2026-09-26T12:00:00Z",
+            "status": "AVAILABLE",
+            "availabilityReason": "Current provider observations.",
+            "totals": {
+                "equity": {"workspaceValue": "1000", "workspaceCurrency": "EUR"},
+                "cash": {"workspaceValue": "500", "workspaceCurrency": "EUR"},
+                "unrealizedPnl": {"workspaceValue": "0", "workspaceCurrency": "EUR"},
+                "realizedPnl": {"workspaceValue": "0", "workspaceCurrency": "EUR"},
+                "exposure": {"workspaceValue": "500", "workspaceCurrency": "EUR"}
+            },
+            "accounts": [{
+                "connectionId": "connection",
+                "label": "Fixture",
+                "providerId": "binance",
+                "environment": "LIVE",
+                "connectionState": "CONNECTED",
+                "health": {
+                    "connection": "ONLINE", "authentication": "VALID", "credential": "AVAILABLE",
+                    "privateStream": "UNKNOWN", "reconciliation": "CURRENT", "executionEligibility": "ELIGIBLE",
+                    "arming": "ARMED", "armingReason": "USER_ACTION", "reason": "Current"
+                },
+                "accountCurrency": "EUR",
+                "equity": {"workspaceValue": "1000", "workspaceCurrency": "EUR"},
+                "cash": {"workspaceValue": "500", "workspaceCurrency": "EUR"},
+                "positionsCount": 0,
+                "openOrdersCount": 0
+            }],
+            "holdings": [],
+            "openOrders": [],
+            "fxRoutes": [{
+                "sourceId": "fixture",
+                "pairPath": "USDT -> EUR",
+                "rate": "0.9",
+                "providerTimestamp": "2026-09-26T12:00:00Z",
+                "receivedTimestamp": "2026-09-26T12:00:00Z",
+                "freshness": "HEALTHY",
+                "quality": "VERIFIED"
+            }],
+            "liveRisk": {"eligible": true, "reason": "Current"}
+        })).unwrap();
+
+        assert_eq!(
+            trusted_workspace_notional("100", "USDT", "EUR", &portfolio, "2026-09-26T12:00:30Z")
+                .as_deref(),
+            Some("90")
+        );
+        assert!(
+            trusted_workspace_notional("100", "USDT", "EUR", &portfolio, "2026-09-26T12:00:31Z")
+                .is_none()
+        );
     }
 }

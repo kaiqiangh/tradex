@@ -1035,6 +1035,8 @@ The database transaction is the correctness boundary; the in-memory lock is a co
 
 ### 22.3 Reservation lifecycle
 
+The S23 `trade.execution.prepare` command is a separate explicit user action after approval. In one SQLite immediate transaction it revalidates the exact Live PLACE, consumes the approval and proposal, creates the capacity reservation and `RESERVED` attempt, and commits their audit/outbox records. It returns the authoritative attempt and reservation and stops before Order Gateway or provider I/O; dispatch is a later S24 boundary. After a lost response or restart, `trade.execution.preparation.get` reads the same durable result by workspace and approval identity.
+
 ```text
 APPROVED
 → RESERVED
@@ -1072,7 +1074,7 @@ proposal immutable?
 
 ### 23.2 Pre-execution
 
-Immediately before broker submission:
+Before an attempt can enter the later S24 broker-dispatch boundary:
 
 ```text
 approval valid + unconsumed?
@@ -1085,8 +1087,9 @@ approval valid + unconsumed?
 → cash/positions/open orders refreshed as policy requires?
 → reservation created atomically
 → consume approval
+→ consume proposal
 → transition RESERVED
-→ call Order Gateway
+→ stop; this command sends no provider request
 ```
 
 A material failure invalidates or rejects the flow and requires refreshed user consent where necessary.
@@ -1118,7 +1121,7 @@ The intent_id resolves to an immutable OrderProposal for PLACE_ORDER or Cancella
 
 ### 24.1.1 Dispatch ownership and failure boundary
 
-1. The control plane creates the reservation and consumes approval under account/policy serialization, persisting the execution attempt as `RESERVED`.
+1. Before dispatch, S23 has already consumed the proposal and approval and atomically persisted the `RESERVED` attempt, reservation, audit, and outbox under account/policy serialization. The Gateway reloads that durable state.
 2. The Gateway requests a one-use dispatch grant for that attempt over the private channel. Under the same serialization used by disarm/policy-save, the control plane rechecks arming, health, permissions, policy, proposal identity, market/clock/FX eligibility and current reservation; it records the grant before replying.
 3. The Gateway serializes dispatch and revocation per account, confirms the grant is current, and records a durable `SUBMITTING` intent through the control plane immediately before provider I/O. A disable acknowledged before this boundary prevents I/O. Once the boundary is crossed, cancellation of local work cannot prove absence at the provider.
 4. If delivery, child health, or transmission acknowledgement is uncertain after a grant, retain capacity and query the provider first. The control plane must not infer “not submitted” from a missing Gateway reply. Release is allowed only when durable dispatch/revocation evidence proves that transmission never began, or later provider evidence resolves the attempt.
@@ -1430,6 +1433,7 @@ Use explicit transactions and foreign-key constraints. Recommended patterns:
 - optimistic version columns for non-critical editable metadata;
 - append-only financial events where possible;
 - unique constraints on single-use approval consumption and idempotency identities.
+- commit the consumed proposal event, consumed approval, reservation, `RESERVED` attempt, and their outbox records in the same transaction; the S23 execution rows enforce workspace, approval, account, and attempt references with SQLite foreign keys.
 
 ### 33.3 Suggested uniqueness constraints
 
@@ -1456,6 +1460,7 @@ Important state changes append immutable events:
 - AccountArmed/Disarmed;
 - RiskPolicyChanged;
 - ProposalGenerated;
+- ProposalConsumed / ExecutionPreparationRejected;
 - RiskEvaluated;
 - ApprovalIssued/Invalidated/Consumed/Expired;
 - ReservationCreated/Adjusted/Released/Frozen;
@@ -1763,6 +1768,8 @@ trade.generate_proposal
 trade.refresh_proposal
 trade.request_approval
 trade.approve
+trade.execution.prepare
+trade.execution.preparation.get
 trade.reject
 trade.cancel_request
 trade.cancel_approve
@@ -1842,6 +1849,8 @@ interface TradeXError {
   message: string;  // sanitized user-facing explanation
   retryable: boolean; // not permission to retry a financial mutation
   blocking: boolean;
+  reason?: string; // stable subreason when a code has multiple causes
+  capacityContext?: CapacityRejectionContext; // backend-owned exact capacity comparison
   remediationActions: Array<{ id: string; label: string }>;
   aggregateId?: string;
   providerCode?: string; // sanitized, optional
@@ -1858,6 +1867,8 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Refresh stale proposal | trade.refresh_proposal | proposal_id, expected_state_version; return a new proposal and invalidate old consent |
 | Request approval review | trade.request_approval | workspace_id, proposal_id; returns backend-owned proposal/account/quote summary and current RiskDecision ID for comparison; does not issue authority |
 | Explicitly approve | trade.approve | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; backend revalidates the exact review and creates a short-lived approval; no consumption or reservation |
+| Prepare approved Live PLACE | trade.execution.prepare | workspace_id, approval_id, expected_approval_state_version, idempotency_key, confirmed=true; backend rereads and revalidates exact proposal/account/policy/quote/FX/capacity/time evidence, then atomically consumes proposal and approval and creates one `RESERVED` attempt plus exact reservation. Same-key replay returns the saved result. A capacity refusal appends a sanitized rejection and outbox event in the same validation transaction while leaving proposal, approval, reservation, and attempt unchanged; replaying that key returns the same refusal. No Order Gateway or provider request is made. |
+| Recover Live PLACE preparation | trade.execution.preparation.get | workspace_id, approval_id; returns the durable `ExecutionPreparation | null` and capacity rejection history after a lost response or restart. Read-only; no provider request. |
 | Reject approval review | trade.reject | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; records `USER_REJECTED`; no approval or broker action |
 | Read approval history | trade.approval.list | workspace_id, proposal_id; returns issued, rejected, invalidated, expired, and later consumed states with sanitized audit reasons |
 | Prepare cancellation review | trade.cancel_request | workspace_id, account_id, broker_order_id, expected_state_version, optional previous_intent_id; Control Plane runs an authenticated Live read, persists the observation, and returns a CancellationReview with immutable intent ID/hash, exact remaining quantity, snapshot_version/evidence, account, risk decision, blockers, and review digest. Revalidation after Arm reuses the same intent only when its semantic order identity/state/quantities are unchanged. |
@@ -1868,6 +1879,44 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Resolve ambiguity | trade.manual_resolution | §27.4 payload; decision/evidence validated again at commit |
 
 State versions are opaque backend tokens, scoped to the returned aggregate. Decimal amounts use normalized strings; IDs, enum values, time representations, and required/optional fields are part of the command's versioned schema. A request ID correlates one exchange and never substitutes for proposal/approval/execution identity. After timeout on an authority-changing command, query state before any retry; never turn transport retries into repeated consent.
+
+```ts
+interface ExecutionPrepareRequest {
+  workspaceId: string;
+  approvalId: string;
+  expectedApprovalStateVersion: string;
+  idempotencyKey: string;
+  confirmed: boolean;
+}
+interface ExecutionPreparation {
+  attempt: ExecutionAttempt; // state RESERVED
+  reservation?: ExecutionReservation; // present for PLACE
+}
+interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
+interface ExecutionPreparationRejection {
+  auditId: string;
+  workspaceId: string;
+  approvalId: string;
+  idempotencyDigest: string; // SHA-256; the raw key is never persisted
+  reason: 'RESERVED_CAPACITY';
+  capacityContext: CapacityRejectionContext;
+  occurredAt: string;
+  stateVersion: string;
+}
+interface ExecutionPreparationQueryResult {
+  preparation: ExecutionPreparation | null;
+  rejections: ExecutionPreparationRejection[];
+}
+type CapacityLimitSource = 'BROKER_AVAILABLE' | 'WORKSPACE_RESERVED_CAPITAL';
+interface CapacityRejectionContext {
+  source: CapacityLimitSource;
+  requestedAmount: string;
+  unit: string;
+  capacityLimit: string;
+  existingReservations: string;
+  effectiveAvailable: string; // before the requested reservation
+}
+```
 
 #### 41.1.1 Backtest lifecycle payloads (S15)
 
@@ -2018,7 +2067,7 @@ The following version-1 payloads define the first desktop vertical slice. All ob
 
 | Command | Payload | Success data |
 |---|---|---|
-| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`; omitted means the application default workspace directory; a supplied path must be an absolute directory path | Workspace projection: `{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 5}` and opaque `stateVersion` in the result envelope |
+| workspace.open | `{path?: string, name?: string, baseCurrency?: string}`; omitted means the application default workspace directory; a supplied path must be an absolute directory path | Workspace projection: `{workspaceId, name, baseCurrency, path, createdAt, lastOpenedAt, storageSchemaVersion: 27}` and opaque `stateVersion` in the result envelope |
 | runtime.status | `{}` | `{components: [{id, status, message}], modelAvailable: boolean, liveExecutionAvailable: boolean}`; initial Codex/CLIProxyAPI status is `NOT_CONFIGURED`, never inferred healthy |
 | domain.snapshot | `{aggregateType: "workspace", aggregateId: string}` | `{aggregateType, aggregateId, projection: Workspace, lastSequence}` |
 | domain.subscribe | `{aggregateType: "workspace", aggregateId: string, afterSequence: number}` | `{aggregateType, aggregateId, afterSequence, lastSequence, replayedCount}` after all retained events through the acknowledged cursor have been delivered; subsequent events use the same transport channel |
@@ -2709,7 +2758,9 @@ trade.proposal.created
 trade.proposal.invalidated
 trade.approval.issued
 trade.approval.invalidated
+trade.approval.consumed
 trade.reservation.created
+trade.execution.attempt.changed
 trade.order.state_changed
 trade.fill.observed
 trade.reconciliation.changed

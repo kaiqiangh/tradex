@@ -716,6 +716,8 @@ Global Disable All 调用一次后端动作，再渲染后端返回的每个账�
 
 `Enter` 永远不能作为默认 approval 动作。
 
+Approve 只签发短时、单次 approval。之后必须由独立且明确的 `Prepare PLACE and reserve capacity` 操作调用 `trade.execution.prepare`。展示后端返回的 `RESERVED` attempt、精确 reservation 金额/单位、券商可用余额、已有预留和预留后的 effective capacity，并明确说明没有向 provider 发送 request。打开 proposal 历史时按 approval ID 读取 preparation 与脱敏容量拒绝历史，使响应丢失或重启后能恢复已保存结果。遇到 `RISK_REJECTED · RESERVED_CAPACITY` 时显示后端原因、容量来源/上限、本次需求、已有预留和有效容量；不能把 `ALLOWED` RiskDecision 当作拒绝原因重新读取或展示。容量拒绝不会消费 approval 或 proposal；后续显式重试使用新的幂等键。
+
 ### 14.6 Reservation conflict
 
 如果 proposal 因 effective capacity 降低而失败，直接展示后端原因和 reservation context。浏览器端不得重新计算金融结论。

@@ -716,6 +716,8 @@ Mandatory content:
 
 `Enter` must never activate approval by default.
 
+Approving issues only the short-lived single-use approval. A separate explicit `Prepare PLACE and reserve capacity` action invokes `trade.execution.prepare`. Show the backend's `RESERVED` attempt, exact reservation amount/unit, broker available balance, existing reservations, and remaining effective capacity, with clear text that no provider request was sent. Read preparation and sanitized capacity-rejection history by approval ID when opening proposal history so a lost response or restart restores the saved result. A `RISK_REJECTED · RESERVED_CAPACITY` failure shows the backend reason, capacity source/limit, requested amount, existing reservations, and effective capacity; do not refetch an `ALLOWED` RiskDecision as though it caused the rejection. A confirmed capacity refusal leaves approval and proposal available; the next explicit retry uses a fresh idempotency key.
+
 ### 14.6 Reservation conflict
 
 If a proposal fails due to reduced effective capacity, render the backend reason and reservation context. Do not recompute the financial answer in the browser.

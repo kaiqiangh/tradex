@@ -34,10 +34,12 @@ use crate::protocol::{
     BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptState,
     BitgetDemoOrderSubmit, CancellationApprovalHistory, CancellationApprovalRejection,
     CancellationIntent, CancellationIntentHistoryEntry, DomainEvent, DomainProjection, EventSink,
-    ExecutionContext, FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent,
-    FinancialApprovalStatus, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder,
-    LocalPaperState, MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary,
-    OrderDraftSave, OrderDraftSummary, OrderProposal, OrderProposalGenerate,
+    ExecutionAttempt, ExecutionAttemptState, ExecutionContext, ExecutionPreparation,
+    ExecutionPreparationRejection, ExecutionReservation, ExecutionReservationStatus,
+    FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
+    LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder, LocalPaperState,
+    MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
+    OrderDraftSummary, OrderProposal, OrderProposalConsumption, OrderProposalGenerate,
     OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
     OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
     OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult,
@@ -55,7 +57,7 @@ use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 25;
+pub(crate) const SCHEMA_VERSION: u32 = 27;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -177,6 +179,9 @@ impl Store {
         let mut connection = Connection::open(&db_path).map_err(storage_error)?;
         connection
             .busy_timeout(Duration::from_secs(2))
+            .map_err(storage_error)?;
+        connection
+            .pragma_update(None, "foreign_keys", "ON")
             .map_err(storage_error)?;
         if existing {
             let valid: String = connection
@@ -583,6 +588,88 @@ impl Store {
                 );
                 CREATE INDEX cancellation_rejections_workspace_intent ON cancellation_rejections(workspace_id,intent_id,sequence DESC);
                 PRAGMA user_version=25;").map_err(storage_error)?;
+            }
+            if version < 26 {
+                tx.execute_batch("CREATE TABLE execution_attempts (
+                    attempt_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    approval_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    operation TEXT NOT NULL CHECK(operation IN ('PLACE_ORDER','CANCEL')),
+                    intent_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN ('RESERVED','INVALIDATED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,approval_id),
+                    UNIQUE(workspace_id,idempotency_key),
+                    UNIQUE(workspace_id,operation,intent_id)
+                );
+                CREATE INDEX execution_attempts_account_state ON execution_attempts(account_id,state);
+                CREATE TABLE execution_reservations (
+                    reservation_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL UNIQUE,
+                    capacity_key TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ACTIVE','RELEASED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE INDEX execution_reservations_capacity ON execution_reservations(account_id,capacity_key,status);
+                CREATE INDEX execution_reservations_workspace_status ON execution_reservations(workspace_id,status);
+                PRAGMA user_version=26;").map_err(storage_error)?;
+            }
+            if version < 27 {
+                tx.execute_batch("DROP INDEX execution_attempts_account_state;
+                DROP INDEX execution_reservations_capacity;
+                DROP INDEX execution_reservations_workspace_status;
+                ALTER TABLE execution_reservations RENAME TO execution_reservations_legacy;
+                ALTER TABLE execution_attempts RENAME TO execution_attempts_legacy;
+                CREATE TABLE execution_attempts (
+                    attempt_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    approval_id TEXT NOT NULL REFERENCES financial_approvals(approval_id),
+                    account_id TEXT NOT NULL REFERENCES accounts(connection_id),
+                    operation TEXT NOT NULL CHECK(operation IN ('PLACE_ORDER','CANCEL')),
+                    intent_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN ('RESERVED','INVALIDATED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,approval_id),
+                    UNIQUE(workspace_id,idempotency_key),
+                    UNIQUE(workspace_id,operation,intent_id)
+                );
+                INSERT INTO execution_attempts SELECT * FROM execution_attempts_legacy;
+                CREATE TABLE execution_reservations (
+                    reservation_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    account_id TEXT NOT NULL REFERENCES accounts(connection_id),
+                    attempt_id TEXT NOT NULL UNIQUE REFERENCES execution_attempts(attempt_id) DEFERRABLE INITIALLY DEFERRED,
+                    capacity_key TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ACTIVE','RELEASED')),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL
+                );
+                INSERT INTO execution_reservations SELECT * FROM execution_reservations_legacy;
+                DROP TABLE execution_reservations_legacy;
+                DROP TABLE execution_attempts_legacy;
+                CREATE INDEX execution_attempts_account_state ON execution_attempts(account_id,state);
+                CREATE INDEX execution_reservations_capacity ON execution_reservations(account_id,capacity_key,status);
+                CREATE INDEX execution_reservations_workspace_status ON execution_reservations(workspace_id,status);
+                CREATE TABLE execution_preparation_rejections (
+                    audit_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    approval_id TEXT NOT NULL REFERENCES financial_approvals(approval_id),
+                    idempotency_digest TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    UNIQUE(workspace_id,idempotency_digest),
+                    UNIQUE(workspace_id,approval_id,sequence)
+                );
+                CREATE INDEX execution_preparation_rejections_approval ON execution_preparation_rejections(workspace_id,approval_id,sequence);
+                PRAGMA user_version=27;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1143,6 +1230,10 @@ impl Store {
                             | "trade.approval.expired"
                             | "trade.approval.consumed"
                     ),
+                    "execution-preparation" => {
+                        event.event_type != "trade.execution.preparation.rejected"
+                    }
+                    "order-proposal-consumption" => event.event_type != "trade.proposal.consumed",
                     "approval-audit" => event.event_type != "trade.approval.rejected",
                     "thread" => !matches!(
                         event.event_type.as_str(),
@@ -2116,6 +2207,127 @@ impl Store {
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
+        if kind == "execution-attempt" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, projection): (i64, String) = self
+                .connection
+                .query_row(
+                    "SELECT sequence,projection FROM execution_attempts WHERE workspace_id=?1 AND attempt_id=?2",
+                    params![workspace_id, id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else { storage_error(error) })?;
+            let attempt: ExecutionAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || attempt.attempt_id != id
+                || attempt.workspace_id != workspace_id
+                || attempt.state_version != format!("execution-attempt:{id}:{sequence}")
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::ExecutionAttempt(Box::new(attempt)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "execution-reservation" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, projection): (i64, String) = self
+                .connection
+                .query_row(
+                    "SELECT sequence,projection FROM execution_reservations WHERE workspace_id=?1 AND reservation_id=?2",
+                    params![workspace_id, id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else { storage_error(error) })?;
+            let reservation: ExecutionReservation = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || reservation.reservation_id != id
+                || reservation.workspace_id != workspace_id
+                || reservation.state_version != format!("execution-reservation:{id}:{sequence}")
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::ExecutionReservation(Box::new(reservation)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "execution-preparation" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, audit_id, digest, projection): (i64, String, String, String) = self
+                .connection
+                .query_row(
+                    "SELECT sequence,audit_id,idempotency_digest,projection FROM execution_preparation_rejections WHERE workspace_id=?1 AND approval_id=?2 ORDER BY sequence DESC LIMIT 1",
+                    params![workspace_id, id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else { storage_error(error) })?;
+            let rejection: ExecutionPreparationRejection = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            validate_execution_preparation_rejection(
+                &rejection,
+                &workspace_id,
+                id,
+                &digest,
+                &audit_id,
+                sequence,
+            )?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::ExecutionPreparationRejection(Box::new(rejection)),
+                last_sequence: u64::try_from(sequence).map_err(storage_error)?,
+            });
+        }
+        if kind == "order-proposal-consumption" {
+            let workspace_id = self.workspace_id()?;
+            let (sequence, event_id, envelope): (i64, String, String) = self
+                .connection
+                .query_row(
+                    "SELECT sequence,event_id,envelope FROM outbox WHERE aggregate_type=?1 AND aggregate_id=?2 ORDER BY sequence DESC LIMIT 1",
+                    params![kind, id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("IPC_AGGREGATE_NOT_FOUND")
+                } else { storage_error(error) })?;
+            let event: DomainEvent = serde_json::from_str(&envelope)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let DomainProjection::OrderProposalConsumption(consumption) = event.payload.clone()
+            else {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            };
+            if sequence != 1
+                || event.event_id != event_id
+                || event.event_type != "trade.proposal.consumed"
+                || event.aggregate_type != kind
+                || event.aggregate_id != id
+                || event.sequence != 1
+                || consumption.workspace_id != workspace_id
+                || consumption.proposal_id != id
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::OrderProposalConsumption(consumption),
+                last_sequence: 1,
+            });
+        }
         if kind == "approval-audit" {
             let workspace_id = self.workspace_id()?;
             let (sequence, projection): (i64, String) = self.connection.query_row(
@@ -2792,6 +3004,599 @@ impl Store {
             proposal_id: proposal_id.into(),
             decisions,
         })
+    }
+
+    pub fn execution_preparation_for_idempotency_key(
+        &self,
+        workspace_id: &str,
+        approval_id: &str,
+        idempotency_key: &str,
+    ) -> Result<Option<ExecutionPreparation>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let row: Option<(i64, String, String)> = self
+            .connection
+            .query_row(
+                "SELECT sequence,attempt_id,projection FROM execution_attempts WHERE workspace_id=?1 AND idempotency_key=?2",
+                params![workspace_id, idempotency_key],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((sequence, attempt_id, projection)) = row else {
+            return Ok(None);
+        };
+        let attempt: ExecutionAttempt = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if sequence < 1
+            || attempt.attempt_id != attempt_id
+            || attempt.workspace_id != workspace_id
+            || attempt.approval_id != approval_id
+            || attempt.state_version != format!("execution-attempt:{attempt_id}:{sequence}")
+        {
+            return Err(TradeXError::new(if attempt.approval_id != approval_id {
+                "STATE_VERSION_CONFLICT"
+            } else {
+                "WORKSPACE_INTEGRITY_FAILED"
+            }));
+        }
+        let reservation =
+            load_execution_reservation_for_attempt(&self.connection, workspace_id, &attempt_id)?;
+        Ok(Some(ExecutionPreparation {
+            attempt: Box::new(attempt),
+            reservation: reservation.map(Box::new),
+        }))
+    }
+
+    pub fn execution_preparation_for_approval(
+        &self,
+        workspace_id: &str,
+        approval_id: &str,
+    ) -> Result<Option<ExecutionPreparation>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let idempotency_key: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT idempotency_key FROM execution_attempts WHERE workspace_id=?1 AND approval_id=?2",
+                params![workspace_id, approval_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some(idempotency_key) = idempotency_key else {
+            return Ok(None);
+        };
+        self.execution_preparation_for_idempotency_key(workspace_id, approval_id, &idempotency_key)
+    }
+
+    pub fn execution_preparation_query(
+        &self,
+        workspace_id: &str,
+        approval_id: &str,
+    ) -> Result<crate::protocol::ExecutionPreparationQueryResult> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        Ok(crate::protocol::ExecutionPreparationQueryResult {
+            preparation: self.execution_preparation_for_approval(workspace_id, approval_id)?,
+            rejections: execution_preparation_rejections_for_approval(
+                &self.connection,
+                workspace_id,
+                approval_id,
+            )?,
+        })
+    }
+
+    pub fn execution_preparation_rejection_for_idempotency_key(
+        &self,
+        workspace_id: &str,
+        approval_id: &str,
+        idempotency_key: &str,
+    ) -> Result<Option<ExecutionPreparationRejection>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let digest = execution_preparation_idempotency_digest(workspace_id, idempotency_key);
+        let rejection = execution_preparation_rejection_for_digest(
+            &self.connection,
+            workspace_id,
+            approval_id,
+            &digest,
+        )?;
+        Ok(rejection)
+    }
+
+    pub fn active_execution_reservations(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<ExecutionReservation>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let mut statement = self.connection.prepare(
+            "SELECT reservation_id,sequence,projection FROM execution_reservations WHERE workspace_id=?1 AND status='ACTIVE' ORDER BY account_id,reservation_id",
+        ).map_err(storage_error)?;
+        let rows = statement
+            .query_map([workspace_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(storage_error)?;
+        let mut reservations = Vec::new();
+        for row in rows {
+            let (reservation_id, sequence, projection) = row.map_err(storage_error)?;
+            let reservation: ExecutionReservation = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || reservation.reservation_id != reservation_id
+                || reservation.workspace_id != workspace_id
+                || reservation.status != ExecutionReservationStatus::Active
+                || reservation.state_version
+                    != format!("execution-reservation:{reservation_id}:{sequence}")
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            reservations.push(reservation);
+        }
+        if reservations.len() > 10_000 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(reservations)
+    }
+
+    pub fn prepare_live_place(
+        &mut self,
+        approval_id: &str,
+        expected_approval_state_version: &str,
+        idempotency_key: &str,
+        expected_account_state_version: &str,
+        expected_proposal_state_version: &str,
+        expected_review_digest: &str,
+        mut attempt: ExecutionAttempt,
+        mut reservation: ExecutionReservation,
+        now: &str,
+    ) -> Result<(ExecutionPreparation, Vec<DomainEvent>)> {
+        let workspace_id = self.workspace_id()?;
+        if approval_id.is_empty()
+            || idempotency_key.is_empty()
+            || idempotency_key.len() > 128
+            || idempotency_key.chars().any(char::is_control)
+            || attempt.workspace_id != workspace_id
+            || attempt.approval_id != approval_id
+            || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+            || attempt.state != ExecutionAttemptState::Reserved
+            || attempt.reservation_id.as_deref() != Some(reservation.reservation_id.as_str())
+            || reservation.workspace_id != workspace_id
+            || reservation.account_id != attempt.account_id
+            || reservation.attempt_id != attempt.attempt_id
+            || reservation.proposal_id != attempt.intent_id
+            || reservation.status != ExecutionReservationStatus::Active
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let workspace_base_currency = self.base_currency()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let existing: Option<(String, String)> = tx
+            .query_row(
+                "SELECT attempt_id,projection FROM execution_attempts WHERE workspace_id=?1 AND idempotency_key=?2",
+                params![workspace_id, idempotency_key],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if let Some((attempt_id, projection)) = existing {
+            let saved: ExecutionAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if saved.attempt_id != attempt_id || saved.approval_id != approval_id {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let reservation =
+                load_execution_reservation_for_attempt(&tx, &workspace_id, &attempt_id)?;
+            tx.commit().map_err(storage_error)?;
+            return Ok((
+                ExecutionPreparation {
+                    attempt: Box::new(saved),
+                    reservation: reservation.map(Box::new),
+                },
+                Vec::new(),
+            ));
+        }
+        let idempotency_digest =
+            execution_preparation_idempotency_digest(&workspace_id, idempotency_key);
+        if let Some(rejection) = execution_preparation_rejection_for_digest(
+            &tx,
+            &workspace_id,
+            approval_id,
+            &idempotency_digest,
+        )? {
+            let error = execution_preparation_rejection_error(&rejection);
+            tx.commit().map_err(storage_error)?;
+            return Err(error);
+        }
+
+        let (approval_sequence, approval_projection): (i64, String) = tx
+            .query_row(
+                "SELECT sequence,projection FROM financial_approvals WHERE workspace_id=?1 AND approval_id=?2",
+                params![workspace_id, approval_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("STATE_VERSION_CONFLICT")
+            } else { storage_error(error) })?;
+        let mut approval: FinancialApproval = serde_json::from_str(&approval_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if approval_sequence < 1
+            || approval.workspace_id != workspace_id
+            || approval.state_version
+                != format!("financial-approval:{approval_id}:{approval_sequence}")
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        if approval.state_version != expected_approval_state_version
+            || approval.status != FinancialApprovalStatus::Issued
+            || approval.operation() != crate::protocol::FinancialOperation::PlaceOrder
+            || approval.review_digest != expected_review_digest
+            || approval_expired(&approval.expires_at, now)
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let proposal_id = match &approval.intent {
+            FinancialApprovalIntent::PlaceOrder { proposal_id, .. } => proposal_id.clone(),
+            FinancialApprovalIntent::Cancel { .. } => {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        };
+        validate_order_proposal_id(&proposal_id)?;
+        let (proposal_workspace, draft_id, draft_version, proposal_hash, proposal_sequence, encoded): (
+            String, String, i64, String, i64, String,
+        ) = tx
+            .query_row(
+                "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 AND proposal_id=?2",
+                params![workspace_id, proposal_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            )
+            .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("ORDER_PROPOSAL_NOT_FOUND")
+            } else { storage_error(error) })?;
+        if proposal_sequence < 1 || proposal_workspace != workspace_id {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let stored = decode_stored_order_proposal(
+            &encoded,
+            &proposal_id,
+            &proposal_workspace,
+            &draft_id,
+            draft_version,
+            &proposal_hash,
+            proposal_sequence,
+            &workspace_id,
+        )?;
+        let proposal = materialize_order_proposal(&tx, stored)?;
+        if proposal.state_version != expected_proposal_state_version
+            || proposal.status != OrderProposalStatus::NeedsApproval
+            || proposal.proposal_hash != approval.intent_hash()
+            || proposal.proposal_hash != attempt.intent_hash
+            || proposal.workspace_id != attempt.workspace_id
+            || proposal.fields.account_id.as_deref() != Some(approval.account_id.as_str())
+            || proposal.fields.environment != approval.environment
+            || attempt.intent_id != proposal_id
+            || attempt.proposal_id.as_deref() != Some(proposal_id.as_str())
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let (account_projection,): (String,) = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&approval.account_id],
+                |row| Ok((row.get(0)?,)),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ACCOUNT_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        let observed = account
+            .last_successful_sync
+            .as_deref()
+            .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok())
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+        let now_time =
+            OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        if account.state_version != expected_account_state_version
+            || account.connection_id != approval.account_id
+            || account.workspace_id != workspace_id
+            || account.environment != "LIVE"
+            || account.health.arming != "ARMED"
+            || account.health.reconciliation != "CURRENT"
+            || account.connection_state != ConnectionState::Connected
+            || account.health.connection != "ONLINE"
+            || account.health.authentication != "VALID"
+            || !matches!(
+                account.health.credential.as_str(),
+                "AVAILABLE" | "CONFIGURED"
+            )
+            || account.provider_id != execution_provider(&approval.environment).unwrap_or_default()
+            || now_time < observed
+            || now_time - observed > time::Duration::seconds(30)
+            || attempt.account_id != account.connection_id
+            || attempt.account_state_version != account.state_version
+            || attempt.intent_state_version != proposal.state_version
+            || attempt.policy_version != approval.policy_version
+            || attempt.risk_decision_id != approval.risk_decision_id
+            || attempt.review_digest != approval.review_digest
+            || attempt.environment != approval.environment
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        let policy_projection: String = tx
+            .query_row(
+                "SELECT projection FROM risk_state WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("RISK_POLICY_UNCONFIGURED")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let policy: RiskPolicyState = serde_json::from_str(&policy_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if !policy.configured || policy.policy_version != approval.policy_version {
+            return Err(TradeXError::new("POLICY_VERSION_STALE"));
+        }
+        let decision_projection: String = tx
+            .query_row(
+                "SELECT projection FROM risk_decisions WHERE decision_id=?1 AND workspace_id=?2 AND proposal_id=?3",
+                params![approval.risk_decision_id, workspace_id, proposal_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("STATE_VERSION_CONFLICT")
+            } else { storage_error(error) })?;
+        let decision: RiskDecision = serde_json::from_str(&decision_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if decision.status != crate::risk::RiskDecisionStatus::Allowed
+            || decision.proposal_hash != approval.intent_hash()
+            || decision.account_id.as_deref() != Some(&approval.account_id)
+            || decision.policy_version != Some(approval.policy_version)
+        {
+            return Err(TradeXError::new("RISK_REJECTED"));
+        }
+
+        let mut existing_capacity = "0".to_owned();
+        {
+            let mut statement = tx
+                .prepare("SELECT reservation_id,sequence,projection FROM execution_reservations WHERE workspace_id=?1 AND account_id=?2 AND capacity_key=?3 AND status='ACTIVE'")
+                .map_err(storage_error)?;
+            let rows = statement
+                .query_map(
+                    params![
+                        workspace_id,
+                        reservation.account_id,
+                        reservation.capacity_key
+                    ],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, String>(2)?,
+                        ))
+                    },
+                )
+                .map_err(storage_error)?;
+            for row in rows {
+                let (reservation_id, sequence, encoded) = row.map_err(storage_error)?;
+                let active: ExecutionReservation = serde_json::from_str(&encoded)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if sequence < 1
+                    || active.reservation_id != reservation_id
+                    || active.workspace_id != workspace_id
+                    || active.account_id != reservation.account_id
+                    || active.capacity_key != reservation.capacity_key
+                    || active.status != ExecutionReservationStatus::Active
+                    || active.state_version
+                        != format!("execution-reservation:{reservation_id}:{sequence}")
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                existing_capacity =
+                    crate::portfolio::decimal_add(&existing_capacity, &active.amount)?;
+            }
+        }
+        let effective_available = crate::provider_io::decimal_subtract(
+            &reservation.broker_available,
+            &existing_capacity,
+        )?;
+        if crate::provider_io::decimal_cmp(&effective_available, "0")? == std::cmp::Ordering::Less
+            || crate::provider_io::decimal_cmp(&reservation.amount, &effective_available)?
+                == std::cmp::Ordering::Greater
+        {
+            let capacity_context = crate::protocol::CapacityRejectionContext {
+                source: crate::protocol::CapacityLimitSource::BrokerAvailable,
+                requested_amount: reservation.amount.clone(),
+                unit: reservation.unit.clone(),
+                capacity_limit: reservation.broker_available.clone(),
+                existing_reservations: existing_capacity.clone(),
+                effective_available: effective_available.clone(),
+            };
+            let error = TradeXError::reserved_capacity(capacity_context.clone());
+            write_execution_preparation_rejection_tx(
+                &tx,
+                ExecutionPreparationRejection {
+                    audit_id: Uuid::new_v4().to_string(),
+                    workspace_id: workspace_id.clone(),
+                    approval_id: approval_id.into(),
+                    idempotency_digest,
+                    reason: "RESERVED_CAPACITY".into(),
+                    capacity_context,
+                    occurred_at: now.into(),
+                    state_version: String::new(),
+                },
+            )?;
+            tx.commit().map_err(storage_error)?;
+            return Err(error);
+        }
+        reservation.existing_reservations = existing_capacity;
+        reservation.effective_available =
+            crate::provider_io::decimal_subtract(&effective_available, &reservation.amount)?;
+
+        if let Some(maximum) = policy.policy.max_reserved_capital.as_deref() {
+            let mut reserved_capital = "0".to_owned();
+            let mut statement = tx
+                .prepare("SELECT projection FROM execution_reservations WHERE workspace_id=?1 AND status='ACTIVE'")
+                .map_err(storage_error)?;
+            let rows = statement
+                .query_map([&workspace_id], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?;
+            let projections = rows
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?;
+            drop(statement);
+            for encoded in projections {
+                let active: ExecutionReservation = serde_json::from_str(&encoded)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if active.status != ExecutionReservationStatus::Active
+                    || active.workspace_currency != workspace_base_currency
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                let amount = active
+                    .workspace_notional
+                    .as_deref()
+                    .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                reserved_capital = crate::portfolio::decimal_add(&reserved_capital, amount)?;
+            }
+            let new_amount = reservation
+                .workspace_notional
+                .as_deref()
+                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+            let projected = crate::portfolio::decimal_add(&reserved_capital, new_amount)?;
+            if crate::provider_io::decimal_cmp(&projected, maximum)? == std::cmp::Ordering::Greater
+            {
+                let effective_available =
+                    crate::provider_io::decimal_subtract(maximum, &reserved_capital)?;
+                let capacity_context = crate::protocol::CapacityRejectionContext {
+                    source: crate::protocol::CapacityLimitSource::WorkspaceReservedCapital,
+                    requested_amount: new_amount.to_owned(),
+                    unit: workspace_base_currency.clone(),
+                    capacity_limit: maximum.to_owned(),
+                    existing_reservations: reserved_capital,
+                    effective_available,
+                };
+                let error = TradeXError::reserved_capacity(capacity_context.clone());
+                write_execution_preparation_rejection_tx(
+                    &tx,
+                    ExecutionPreparationRejection {
+                        audit_id: Uuid::new_v4().to_string(),
+                        workspace_id: workspace_id.clone(),
+                        approval_id: approval_id.into(),
+                        idempotency_digest,
+                        reason: "RESERVED_CAPACITY".into(),
+                        capacity_context,
+                        occurred_at: now.into(),
+                        state_version: String::new(),
+                    },
+                )?;
+                tx.commit().map_err(storage_error)?;
+                return Err(error);
+            }
+        }
+
+        if attempt.intent_id != proposal_id
+            || reservation.proposal_hash != proposal.proposal_hash
+            || reservation.instrument_id != proposal.fields.instrument_id
+            || reservation.side != proposal.fields.side
+            || reservation.account_state_version != account.state_version
+            || reservation.amount.is_empty()
+            || reservation.unit.is_empty()
+            || reservation.capacity_key.is_empty()
+            || crate::provider_io::decimal_cmp(&reservation.amount, "0")?
+                != std::cmp::Ordering::Greater
+            || crate::provider_io::decimal_cmp(&reservation.broker_available, "0")?
+                == std::cmp::Ordering::Less
+            || reservation.workspace_currency != workspace_base_currency
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+
+        approval.status = FinancialApprovalStatus::Consumed;
+        approval.consumed_at = Some(now.into());
+        approval.invalidation_reason = None;
+        attempt.created_at = now.into();
+        reservation.created_at = now.into();
+        let proposal_event_sequence: i64 = tx
+            .query_row(
+                "SELECT COALESCE(MAX(sequence),0) FROM order_proposal_events WHERE proposal_id=?1",
+                [&proposal_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        let consumed_proposal_sequence = proposal_event_sequence
+            .checked_add(1)
+            .filter(|sequence| *sequence <= 32)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        tx.execute(
+            "INSERT INTO order_proposal_events(proposal_id,workspace_id,sequence,event,reason,occurred_at) VALUES(?1,?2,?3,'CONSUMED',?4,?5)",
+            params![
+                proposal_id,
+                workspace_id,
+                consumed_proposal_sequence,
+                format!("Live execution attempt {} reserved this proposal.", attempt.attempt_id),
+                now,
+            ],
+        )
+        .map_err(storage_error)?;
+        let approval_event = write_financial_approval_tx(&tx, approval, None, now)?;
+        let reservation_event = write_execution_reservation_tx(&tx, reservation)?;
+        let attempt_event = write_execution_attempt_tx(&tx, attempt, idempotency_key)?;
+        let saved_attempt = match &attempt_event.payload {
+            DomainProjection::ExecutionAttempt(saved) => (**saved).clone(),
+            _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+        };
+        let saved_reservation = match &reservation_event.payload {
+            DomainProjection::ExecutionReservation(saved) => (**saved).clone(),
+            _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+        };
+        let proposal_event = write_order_proposal_consumption_tx(
+            &tx,
+            OrderProposalConsumption {
+                workspace_id: workspace_id.clone(),
+                proposal_id: proposal.proposal_id,
+                proposal_hash: proposal.proposal_hash,
+                approval_id: approval_id.into(),
+                attempt_id: saved_attempt.attempt_id.clone(),
+                occurred_at: now.into(),
+            },
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok((
+            ExecutionPreparation {
+                attempt: Box::new(saved_attempt),
+                reservation: Some(Box::new(saved_reservation)),
+            },
+            vec![
+                approval_event,
+                proposal_event,
+                reservation_event,
+                attempt_event,
+            ],
+        ))
     }
 
     pub fn issue_financial_approval(
@@ -9997,6 +10802,384 @@ fn write_financial_approval_tx(
         params![
             event.aggregate_id,
             sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn load_execution_reservation_for_attempt(
+    connection: &Connection,
+    workspace_id: &str,
+    attempt_id: &str,
+) -> Result<Option<ExecutionReservation>> {
+    let row: Option<(String, i64, String)> = connection
+        .query_row(
+            "SELECT reservation_id,sequence,projection FROM execution_reservations WHERE workspace_id=?1 AND attempt_id=?2",
+            params![workspace_id, attempt_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((reservation_id, sequence, projection)) = row else {
+        return Ok(None);
+    };
+    let reservation: ExecutionReservation = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || reservation.reservation_id != reservation_id
+        || reservation.workspace_id != workspace_id
+        || reservation.attempt_id != attempt_id
+        || reservation.state_version != format!("execution-reservation:{reservation_id}:{sequence}")
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(Some(reservation))
+}
+
+fn write_execution_reservation_tx(
+    tx: &Transaction<'_>,
+    mut reservation: ExecutionReservation,
+) -> Result<DomainEvent> {
+    if reservation.status != ExecutionReservationStatus::Active
+        || reservation.amount.is_empty()
+        || reservation.capacity_key.is_empty()
+        || reservation.unit.is_empty()
+        || crate::provider_io::decimal_cmp(&reservation.amount, "0")? != std::cmp::Ordering::Greater
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let sequence: Option<i64> = tx
+        .query_row(
+            "SELECT sequence FROM execution_reservations WHERE reservation_id=?1",
+            [&reservation.reservation_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let sequence = sequence
+        .unwrap_or(0)
+        .checked_add(1)
+        .filter(|sequence| *sequence <= MAX_SEQUENCE as i64)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    reservation.state_version = format!(
+        "execution-reservation:{}:{sequence}",
+        reservation.reservation_id
+    );
+    let projection = serde_json::to_string(&reservation).map_err(storage_error)?;
+    if sequence == 1 {
+        tx.execute(
+            "INSERT INTO execution_reservations(reservation_id,workspace_id,account_id,attempt_id,capacity_key,status,sequence,projection) VALUES(?1,?2,?3,?4,?5,'ACTIVE',?6,?7)",
+            params![
+                reservation.reservation_id,
+                reservation.workspace_id,
+                reservation.account_id,
+                reservation.attempt_id,
+                reservation.capacity_key,
+                sequence,
+                projection,
+            ],
+        )
+        .map_err(storage_error)?;
+    } else {
+        tx.execute(
+            "UPDATE execution_reservations SET status='ACTIVE',sequence=?1,projection=?2 WHERE reservation_id=?3",
+            params![sequence, projection, reservation.reservation_id],
+        )
+        .map_err(storage_error)?;
+    }
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trade.reservation.created".into(),
+        schema_version: 1,
+        occurred_at: reservation.created_at.clone(),
+        aggregate_type: "execution-reservation".into(),
+        aggregate_id: reservation.reservation_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::ExecutionReservation(Box::new(reservation)),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES('execution-reservation',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn write_execution_attempt_tx(
+    tx: &Transaction<'_>,
+    mut attempt: ExecutionAttempt,
+    idempotency_key: &str,
+) -> Result<DomainEvent> {
+    let previous: Option<(i64, String)> = tx
+        .query_row(
+            "SELECT sequence,idempotency_key FROM execution_attempts WHERE attempt_id=?1",
+            [&attempt.attempt_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let sequence = previous.as_ref().map_or(Ok(1), |(sequence, saved_key)| {
+        if saved_key != idempotency_key {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        sequence
+            .checked_add(1)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))
+    })?;
+    if !(1..=MAX_SEQUENCE as i64).contains(&sequence) {
+        return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+    }
+    attempt.state_version = format!("execution-attempt:{}:{sequence}", attempt.attempt_id);
+    let operation = serde_json::to_value(attempt.operation)
+        .map_err(storage_error)?
+        .as_str()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?
+        .to_owned();
+    let state = serde_json::to_value(attempt.state)
+        .map_err(storage_error)?
+        .as_str()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?
+        .to_owned();
+    let projection = serde_json::to_string(&attempt).map_err(storage_error)?;
+    if previous.is_some() {
+        tx.execute(
+            "UPDATE execution_attempts SET state=?1,sequence=?2,projection=?3 WHERE attempt_id=?4",
+            params![state, sequence, projection, attempt.attempt_id],
+        )
+        .map_err(storage_error)?;
+    } else {
+        tx.execute(
+            "INSERT INTO execution_attempts(attempt_id,workspace_id,approval_id,account_id,operation,intent_id,idempotency_key,state,sequence,projection) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            params![
+                attempt.attempt_id,
+                attempt.workspace_id,
+                attempt.approval_id,
+                attempt.account_id,
+                operation,
+                attempt.intent_id,
+                idempotency_key,
+                state,
+                sequence,
+                projection,
+            ],
+        )
+        .map_err(storage_error)?;
+    }
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trade.execution.attempt.changed".into(),
+        schema_version: 1,
+        occurred_at: attempt.created_at.clone(),
+        aggregate_type: "execution-attempt".into(),
+        aggregate_id: attempt.attempt_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::ExecutionAttempt(Box::new(attempt)),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES('execution-attempt',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn execution_preparation_idempotency_digest(workspace_id: &str, idempotency_key: &str) -> String {
+    let material = format!("tradex:execution-preparation:v1:{workspace_id}\0{idempotency_key}");
+    format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(material.as_bytes()))
+    )
+}
+
+fn execution_preparation_rejection_for_digest(
+    connection: &Connection,
+    workspace_id: &str,
+    approval_id: &str,
+    idempotency_digest: &str,
+) -> Result<Option<ExecutionPreparationRejection>> {
+    let row: Option<(String, i64, String, String)> = connection
+        .query_row(
+            "SELECT approval_id,sequence,audit_id,projection FROM execution_preparation_rejections WHERE workspace_id=?1 AND idempotency_digest=?2",
+            params![workspace_id, idempotency_digest],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((saved_approval_id, sequence, audit_id, projection)) = row else {
+        return Ok(None);
+    };
+    if saved_approval_id != approval_id {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let rejection: ExecutionPreparationRejection = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    validate_execution_preparation_rejection(
+        &rejection,
+        workspace_id,
+        approval_id,
+        idempotency_digest,
+        &audit_id,
+        sequence,
+    )?;
+    Ok(Some(rejection))
+}
+
+fn execution_preparation_rejections_for_approval(
+    connection: &Connection,
+    workspace_id: &str,
+    approval_id: &str,
+) -> Result<Vec<ExecutionPreparationRejection>> {
+    let mut statement = connection
+        .prepare(
+            "SELECT sequence,audit_id,idempotency_digest,projection FROM execution_preparation_rejections WHERE workspace_id=?1 AND approval_id=?2 ORDER BY sequence",
+        )
+        .map_err(storage_error)?;
+    let rows = statement
+        .query_map(params![workspace_id, approval_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })
+        .map_err(storage_error)?;
+    let mut rejections = Vec::new();
+    for row in rows {
+        let (sequence, audit_id, digest, projection) = row.map_err(storage_error)?;
+        if sequence != rejections.len() as i64 + 1 || rejections.len() >= 32 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let rejection: ExecutionPreparationRejection = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        validate_execution_preparation_rejection(
+            &rejection,
+            workspace_id,
+            approval_id,
+            &digest,
+            &audit_id,
+            sequence,
+        )?;
+        rejections.push(rejection);
+    }
+    Ok(rejections)
+}
+
+fn validate_execution_preparation_rejection(
+    rejection: &ExecutionPreparationRejection,
+    workspace_id: &str,
+    approval_id: &str,
+    idempotency_digest: &str,
+    audit_id: &str,
+    sequence: i64,
+) -> Result<()> {
+    if sequence < 1
+        || rejection.audit_id != audit_id
+        || rejection.workspace_id != workspace_id
+        || rejection.approval_id != approval_id
+        || rejection.idempotency_digest != idempotency_digest
+        || rejection.reason != "RESERVED_CAPACITY"
+        || rejection.state_version
+            != format!(
+                "execution-preparation-rejection:{}:{sequence}",
+                rejection.audit_id
+            )
+        || !valid_order_text(&rejection.occurred_at, 64)
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(())
+}
+
+fn execution_preparation_rejection_error(rejection: &ExecutionPreparationRejection) -> TradeXError {
+    TradeXError::reserved_capacity(rejection.capacity_context.clone())
+}
+
+fn write_execution_preparation_rejection_tx(
+    tx: &Transaction<'_>,
+    mut rejection: ExecutionPreparationRejection,
+) -> Result<DomainEvent> {
+    let previous: i64 = tx
+        .query_row(
+            "SELECT COALESCE(MAX(sequence),0) FROM execution_preparation_rejections WHERE workspace_id=?1 AND approval_id=?2",
+            params![rejection.workspace_id, rejection.approval_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let sequence = previous
+        .checked_add(1)
+        .filter(|sequence| *sequence <= 32)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    rejection.state_version = format!(
+        "execution-preparation-rejection:{}:{sequence}",
+        rejection.audit_id
+    );
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trade.execution.preparation.rejected".into(),
+        schema_version: 1,
+        occurred_at: rejection.occurred_at.clone(),
+        aggregate_type: "execution-preparation".into(),
+        aggregate_id: rejection.approval_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::ExecutionPreparationRejection(Box::new(rejection.clone())),
+    };
+    tx.execute(
+        "INSERT INTO execution_preparation_rejections(audit_id,workspace_id,approval_id,idempotency_digest,sequence,projection) VALUES(?1,?2,?3,?4,?5,?6)",
+        params![
+            rejection.audit_id,
+            rejection.workspace_id,
+            rejection.approval_id,
+            rejection.idempotency_digest,
+            sequence,
+            serde_json::to_string(&rejection).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    tx.execute(
+        "INSERT INTO outbox VALUES('execution-preparation',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn write_order_proposal_consumption_tx(
+    tx: &Transaction<'_>,
+    consumption: OrderProposalConsumption,
+) -> Result<DomainEvent> {
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trade.proposal.consumed".into(),
+        schema_version: 1,
+        occurred_at: consumption.occurred_at.clone(),
+        aggregate_type: "order-proposal-consumption".into(),
+        aggregate_id: consumption.proposal_id.clone(),
+        sequence: 1,
+        payload: DomainProjection::OrderProposalConsumption(Box::new(consumption)),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES('order-proposal-consumption',?1,1,?2,?3)",
+        params![
+            event.aggregate_id,
             event.event_id,
             serde_json::to_string(&event).map_err(storage_error)?
         ],

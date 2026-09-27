@@ -1,5 +1,5 @@
 import generatedValidators from '../shared/ipc-validators.js';
-import type { AccountConnection, AlpacaPaperOrderAttempt, AlpacaPaperOrderBook, BinanceTestnetOrderAttempt, BinanceTestnetOrderBook, DomainEvent, DomainProjection, GatewayState, ModelState, RiskPolicyState, Snapshot, Thread, Trading212DemoOrderAttempt, Trading212DemoOrderBook, Workspace } from '../shared/ipc-types.ts';
+import type { AccountConnection, AlpacaPaperOrderAttempt, AlpacaPaperOrderBook, BinanceTestnetOrderAttempt, BinanceTestnetOrderBook, BitgetDemoOrderAttempt, DomainEvent, DomainProjection, ExecutionAttempt, ExecutionReservation, GatewayState, ModelState, RiskPolicyState, Snapshot, Thread, Trading212DemoOrderAttempt, Trading212DemoOrderBook, Workspace } from '../shared/ipc-types.ts';
 
 const validators = generatedValidators as Record<string, (value: unknown) => boolean>;
 
@@ -14,12 +14,28 @@ export interface Projection<T = Workspace> {
   seen: Map<number, string>;
 }
 
-function projectionKind(p: DomainProjection) { return 'threadId' in p ? 'thread' : 'attemptId' in p ? ('environment' in p ? 'binance-testnet-order-attempt' : 'clientOrderId' in p ? 'alpaca-paper-order-attempt' : 'trading212-demo-order-attempt') : 'orders' in p ? ('environment' in p ? p.environment === 'TESTNET' ? 'binance-testnet-order-book' : 'trading212-demo-order-book' : 'alpaca-paper-order-book') : 'connectionId' in p ? 'account' : 'pinnedVersion' in p ? 'model-gateway' : 'chatgpt' in p ? 'model' : 'hardRules' in p ? 'risk' : 'workspace'; }
+function isProviderAttempt(p: DomainProjection): p is AlpacaPaperOrderAttempt | BinanceTestnetOrderAttempt | BitgetDemoOrderAttempt | Trading212DemoOrderAttempt {
+  return 'connectionId' in p && 'attemptId' in p;
+}
+function isExecutionAttempt(p: DomainProjection): p is ExecutionAttempt {
+  return 'approvalId' in p && 'attemptId' in p;
+}
+function isExecutionReservation(p: DomainProjection): p is ExecutionReservation {
+  return 'reservationId' in p;
+}
+function projectionKind(p: DomainProjection) {
+  return 'threadId' in p ? 'thread'
+    : isExecutionReservation(p) ? 'execution-reservation'
+      : isExecutionAttempt(p) ? 'execution-attempt'
+        : isProviderAttempt(p) ? ('environment' in p ? 'binance-testnet-order-attempt' : 'clientOrderId' in p ? 'alpaca-paper-order-attempt' : 'trading212-demo-order-attempt')
+          : 'orders' in p ? ('environment' in p ? p.environment === 'TESTNET' ? 'binance-testnet-order-book' : 'trading212-demo-order-book' : 'alpaca-paper-order-book')
+            : 'connectionId' in p ? 'account' : 'pinnedVersion' in p ? 'model-gateway' : 'chatgpt' in p ? 'model' : 'hardRules' in p ? 'risk' : 'workspace';
+}
 
-function snapshotOf<T>(value: unknown, kind: 'workspace' | 'account' | 'model-gateway' | 'model' | 'risk' | 'thread' | 'alpaca-paper-order-attempt' | 'trading212-demo-order-attempt' | 'binance-testnet-order-attempt' | 'alpaca-paper-order-book' | 'trading212-demo-order-book' | 'binance-testnet-order-book'): Projection<T> {
+function snapshotOf<T>(value: unknown, kind: 'workspace' | 'account' | 'model-gateway' | 'model' | 'risk' | 'thread' | 'alpaca-paper-order-attempt' | 'trading212-demo-order-attempt' | 'binance-testnet-order-attempt' | 'alpaca-paper-order-book' | 'trading212-demo-order-book' | 'binance-testnet-order-book' | 'execution-attempt' | 'execution-reservation'): Projection<T> {
   const snapshot = decode<Snapshot>('Snapshot', value);
   const p = snapshot.projection;
-  const id = 'threadId' in p ? p.threadId : 'attemptId' in p ? p.attemptId : 'connectionId' in p ? p.connectionId : p.workspaceId;
+  const id = 'threadId' in p ? p.threadId : isExecutionReservation(p) ? p.reservationId : 'attemptId' in p ? p.attemptId : 'connectionId' in p ? p.connectionId : p.workspaceId;
   if (snapshot.aggregateType !== kind || snapshot.aggregateId !== id
       || projectionKind(p) !== kind) throw new Error('IPC_IDENTITY_CONFLICT');
   return { snapshot: snapshot as Projection<T>['snapshot'], seen: new Map() };
@@ -37,23 +53,31 @@ export function fromBinanceTestnetAttemptSnapshot(value: unknown): Projection<Bi
 export function fromAlpacaPaperOrderBookSnapshot(value: unknown): Projection<AlpacaPaperOrderBook> { return snapshotOf(value, 'alpaca-paper-order-book'); }
 export function fromTrading212DemoOrderBookSnapshot(value: unknown): Projection<Trading212DemoOrderBook> { return snapshotOf(value, 'trading212-demo-order-book'); }
 export function fromBinanceTestnetOrderBookSnapshot(value: unknown): Projection<BinanceTestnetOrderBook> { return snapshotOf(value, 'binance-testnet-order-book'); }
+export function fromExecutionAttemptSnapshot(value: unknown): Projection<ExecutionAttempt> { return snapshotOf(value, 'execution-attempt'); }
+export function fromExecutionReservationSnapshot(value: unknown): Projection<ExecutionReservation> { return snapshotOf(value, 'execution-reservation'); }
 
 export function applyEvent<T extends DomainProjection>(current: Projection<T>, value: unknown): Projection<T> {
   const event = decode<DomainEvent>('DomainEvent', value);
   const p = event.payload;
   const old = current.snapshot.projection;
   const thread = 'threadId' in p;
-  const attempt = 'attemptId' in p;
+  const attempt = isProviderAttempt(p);
+  const executionAttempt = isExecutionAttempt(p);
+  const reservation = isExecutionReservation(p);
   const binanceAttempt = attempt && 'environment' in p;
   const alpacaAttempt = attempt && 'clientOrderId' in p && !binanceAttempt;
   const book = 'orders' in p;
   const binanceBook = book && 'environment' in p && p.environment === 'TESTNET';
   const trading212Book = book && 'environment' in p && p.environment === 'DEMO';
   const account = 'connectionId' in p && !attempt && !book;
-  const id = thread ? p.threadId : attempt ? p.attemptId : account || book ? p.connectionId : p.workspaceId;
+  const id = thread ? p.threadId : reservation ? p.reservationId : executionAttempt || attempt ? p.attemptId : account || book ? p.connectionId : p.workspaceId;
   const kind = projectionKind(p);
   const eventTypeValid = thread
     ? event.eventType === 'thread.created' || event.eventType === 'thread.updated'
+    : executionAttempt
+      ? event.eventType === 'trade.execution.attempt.changed'
+    : reservation
+      ? event.eventType === 'trade.reservation.created'
     : attempt
     ? event.eventType === (binanceAttempt ? 'binance.testnet.order.attempt.changed' : alpacaAttempt ? 'alpaca.paper.order.attempt.changed' : 'trading212.demo.order.attempt.changed')
     : book
@@ -71,7 +95,9 @@ export function applyEvent<T extends DomainProjection>(current: Projection<T>, v
       || !eventTypeValid
       || event.aggregateType !== kind || kind !== projectionKind(old) || id !== event.aggregateId
       || ('createdAt' in p && 'createdAt' in old && p.createdAt !== old.createdAt) || p.workspaceId !== old.workspaceId
-      || ('connectionId' in old && 'attemptId' in old && (!attempt || p.attemptId !== old.attemptId || p.connectionId !== old.connectionId || p.remoteAccountId !== old.remoteAccountId || p.proposalId !== old.proposalId || p.proposalHash !== old.proposalHash || ('clientOrderId' in old && (!('clientOrderId' in p) || p.clientOrderId !== old.clientOrderId)) || (!('clientOrderId' in old) && 'clientOrderId' in p) || ('environment' in old && (!('environment' in p) || p.environment !== old.environment)) || (!('environment' in old) && 'environment' in p)))
+      || (isProviderAttempt(old) && (!attempt || p.attemptId !== old.attemptId || p.connectionId !== old.connectionId || p.remoteAccountId !== old.remoteAccountId || p.proposalId !== old.proposalId || p.proposalHash !== old.proposalHash || ('clientOrderId' in old && (!('clientOrderId' in p) || p.clientOrderId !== old.clientOrderId)) || (!('clientOrderId' in old) && 'clientOrderId' in p) || ('environment' in old && (!('environment' in p) || p.environment !== old.environment)) || (!('environment' in old) && 'environment' in p)))
+      || (isExecutionAttempt(old) && (!executionAttempt || p.attemptId !== old.attemptId || p.approvalId !== old.approvalId || p.intentId !== old.intentId || p.intentHash !== old.intentHash || p.accountId !== old.accountId || p.operation !== old.operation))
+      || (isExecutionReservation(old) && (!reservation || p.reservationId !== old.reservationId || p.attemptId !== old.attemptId || p.proposalId !== old.proposalId || p.proposalHash !== old.proposalHash || p.accountId !== old.accountId || p.capacityKey !== old.capacityKey))
       || ('connectionId' in old && 'orders' in old && (!book || p.connectionId !== old.connectionId || p.remoteAccountId !== old.remoteAccountId || ('environment' in old ? !('environment' in p) || p.environment !== old.environment : 'environment' in p)))
       || ('connectionId' in old && !('attemptId' in old) && !('orders' in old) && (!account || !('providerId' in p) || p.connectionId !== old.connectionId || p.providerId !== old.providerId || p.environment !== old.environment))
       || ('threadId' in old && (!thread || p.workspaceId !== old.workspaceId))) throw new Error('IPC_IDENTITY_CONFLICT');
