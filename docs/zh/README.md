@@ -30,6 +30,8 @@ S19 #70 在 Backend ARD §41.27、Frontend ARD §13.15 和 UI Spec §14.13 增�
 
 S19 #71 在 Backend ARD §41.28、Frontend ARD §13.15.1 和 UI Spec §14.14 增加 Binance Spot Testnet 准确订单撤销。Rust-backed fixture 覆盖持久化意图、单次准确 DELETE、结果不明时不重放、provider 订单变化和竞态成交。[本地实现证据](../implementation/s19-binance-testnet-cancel-evidence_zh.md)。未使用真实 Testnet 凭据、未调用 provider、未下单；父 Spec #67 和 provider acceptance #72 已按普通账户接口范围关闭。点击式原型未修改。
 
+S25.1 #97 已实现并在本地验证 Trading 212 Live `PLACE` 进入 `UNKNOWN_RECONCILING` 后的只读对账证据。五分钟窗口超时后容量继续冻结；不确定证据不会证明订单不存在，也不会触发重发。窗口超时后只开放后端授权的 Keep Reconciling 操作；该操作记录决策，但不会重启 provider 查询。[本地验收证据](../implementation/s25-trading212-live-reconciliation-evidence_zh.md)。父级 S25 issue #96 仍为打开状态，其他提供方和确认已提交/未提交的处置仍待完成；未发出真实 provider 请求，点击式原型未修改。
+
 ## 术语和同步规则
 
 - Agent Mode 保留 Ask / Research / Backtest / Trade；Execution Context 区分只读/历史模拟与具体 Local Paper / Paper / Demo / Testnet / Live 环境。

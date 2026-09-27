@@ -277,6 +277,9 @@
     "localPaperState": {
       "$ref": "#/$defs/LocalPaperState"
     },
+    "manualResolutionRequest": {
+      "$ref": "#/$defs/ManualResolutionRequest"
+    },
     "marketCatalogQuery": {
       "$ref": "#/$defs/MarketCatalogQuery"
     },
@@ -337,6 +340,9 @@
     "providerConnect": {
       "$ref": "#/$defs/Connect"
     },
+    "providerOrderCandidate": {
+      "$ref": "#/$defs/ProviderOrderCandidate"
+    },
     "providerSelection": {
       "$ref": "#/$defs/ProviderSelection"
     },
@@ -348,6 +354,21 @@
     },
     "researchResult": {
       "$ref": "#/$defs/ResearchToolResult"
+    },
+    "resolutionEvidence": {
+      "$ref": "#/$defs/ResolutionEvidence"
+    },
+    "resolutionEvidenceLedger": {
+      "$ref": "#/$defs/ResolutionEvidenceLedger"
+    },
+    "resolutionEvidenceQuery": {
+      "$ref": "#/$defs/ResolutionEvidenceQuery"
+    },
+    "resolutionEvidenceQueryResult": {
+      "$ref": "#/$defs/ResolutionEvidenceQueryResult"
+    },
+    "resolutionEvidenceRefresh": {
+      "$ref": "#/$defs/ResolutionEvidenceRefresh"
     },
     "result": {
       "$ref": "#/$defs/ResultEnvelope"
@@ -562,6 +583,13 @@
     "executionPreparation",
     "executionPreparationQuery",
     "executionPreparationQueryResult",
+    "resolutionEvidenceQuery",
+    "resolutionEvidenceRefresh",
+    "manualResolutionRequest",
+    "resolutionEvidenceQueryResult",
+    "resolutionEvidence",
+    "resolutionEvidenceLedger",
+    "providerOrderCandidate",
     "capacityRejectionContext",
     "approvalRejection",
     "cancellationIntentRequest",
@@ -5976,6 +6004,7 @@
             "execution-attempt",
             "execution-reservation",
             "execution-preparation",
+            "resolution-evidence",
             "order-proposal-consumption",
             "approval-audit",
             "thread",
@@ -6012,6 +6041,7 @@
             "trade.reservation.released",
             "trade.execution.attempt.changed",
             "trade.execution.preparation.rejected",
+            "trade.resolution_evidence.changed",
             "trade.proposal.consumed",
             "thread.created",
             "thread.updated",
@@ -6080,6 +6110,9 @@
         },
         {
           "$ref": "#/$defs/ExecutionAttempt"
+        },
+        {
+          "$ref": "#/$defs/ResolutionEvidenceLedger"
         },
         {
           "$ref": "#/$defs/ExecutionReservation"
@@ -6214,6 +6247,14 @@
               "type": "null"
             }
           ]
+        },
+        "dispatchStartedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
         },
         "environment": {
           "$ref": "#/$defs/ExecutionContext"
@@ -7968,6 +8009,105 @@
         "stateVersion",
         "updatedAt",
         "disclosure"
+      ]
+    },
+    "ManualResolutionDecision": {
+      "type": "string",
+      "enum": [
+        "CONFIRMED_NOT_SUBMITTED",
+        "CONFIRMED_SUBMITTED",
+        "KEEP_RECONCILING"
+      ]
+    },
+    "ManualResolutionRecord": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/ManualResolutionDecision"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128
+        },
+        "expectedAttemptStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "resolutionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "resolutionId",
+        "decision",
+        "evidenceIds",
+        "expectedAttemptStateVersion",
+        "occurredAt"
+      ]
+    },
+    "ManualResolutionRequest": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "decision": {
+          "$ref": "#/$defs/ManualResolutionDecision",
+          "const": "KEEP_RECONCILING"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedAttemptStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "expectedEvidenceStateVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "executionAttemptId",
+        "accountId",
+        "decision",
+        "evidenceIds",
+        "expectedAttemptStateVersion"
       ]
     },
     "MarketCatalog": {
@@ -10379,6 +10519,66 @@
         "environment"
       ]
     },
+    "ProviderOrderCandidate": {
+      "type": "object",
+      "properties": {
+        "orderType": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "providerClientId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "submittedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerOrderId",
+        "providerSymbol",
+        "side",
+        "providerStatus",
+        "orderType"
+      ]
+    },
     "ProviderSelection": {
       "type": "object",
       "properties": {
@@ -10552,6 +10752,12 @@
         },
         {
           "$ref": "#/$defs/ExecutionPreparationQueryResult"
+        },
+        {
+          "$ref": "#/$defs/ResolutionEvidenceLedger"
+        },
+        {
+          "$ref": "#/$defs/ResolutionEvidenceQueryResult"
         },
         {
           "$ref": "#/$defs/ApprovalRejection"
@@ -11150,6 +11356,293 @@
         "marker",
         "contextRefs",
         "payload"
+      ]
+    },
+    "ResolutionEvidence": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "candidateOrders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProviderOrderCandidate"
+          },
+          "maxItems": 50
+        },
+        "coverageFrom": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "coverageTo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "evidenceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "nextPagePath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/ResolutionEvidenceOutcome"
+        },
+        "paginationComplete": {
+          "type": "boolean"
+        },
+        "providerId": {
+          "type": "string",
+          "const": "trading212"
+        },
+        "queriedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "queryScope": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "evidenceId",
+        "executionAttemptId",
+        "accountId",
+        "providerId",
+        "queriedAt",
+        "queryScope",
+        "outcome",
+        "paginationComplete",
+        "candidateOrders"
+      ]
+    },
+    "ResolutionEvidenceLedger": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "attemptStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "automaticWindowEndsAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "automaticWindowStartedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResolutionEvidence"
+          },
+          "maxItems": 128
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "historyPagesRead": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 0
+        },
+        "manualResolutions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManualResolutionRecord"
+          },
+          "maxItems": 128
+        },
+        "nextPagePath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "providerId": {
+          "type": "string",
+          "const": "trading212"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "executionAttemptId",
+        "accountId",
+        "providerId",
+        "automaticWindowStartedAt",
+        "automaticWindowEndsAt",
+        "historyPagesRead",
+        "attemptStateVersion",
+        "evidence",
+        "stateVersion"
+      ]
+    },
+    "ResolutionEvidenceOutcome": {
+      "type": "string",
+      "enum": [
+        "CANDIDATES_FOUND",
+        "INCONCLUSIVE"
+      ]
+    },
+    "ResolutionEvidenceQuery": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "executionAttemptId",
+        "accountId"
+      ]
+    },
+    "ResolutionEvidenceQueryResult": {
+      "type": "object",
+      "properties": {
+        "allowedDecisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManualResolutionDecision"
+          },
+          "maxItems": 3
+        },
+        "automaticWindowEndsAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "automaticWindowExpired": {
+          "type": "boolean"
+        },
+        "automaticWindowStartedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "ledger": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolutionEvidenceLedger"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timeTrusted": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "automaticWindowStartedAt",
+        "automaticWindowEndsAt",
+        "automaticWindowExpired",
+        "timeTrusted",
+        "allowedDecisions"
+      ]
+    },
+    "ResolutionEvidenceRefresh": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedAttemptStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "executionAttemptId",
+        "accountId",
+        "expectedAttemptStateVersion"
       ]
     },
     "ResultEnvelope": {
@@ -12881,6 +13374,7 @@
             "execution-attempt",
             "execution-reservation",
             "execution-preparation",
+            "resolution-evidence",
             "order-proposal-consumption",
             "approval-audit",
             "thread",
@@ -13542,6 +14036,7 @@
             "execution-attempt",
             "execution-reservation",
             "execution-preparation",
+            "resolution-evidence",
             "order-proposal-consumption",
             "approval-audit",
             "thread",
@@ -15396,7 +15891,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 28,
+          "maximum": 29,
           "minimum": 1
         },
         "workspaceId": {

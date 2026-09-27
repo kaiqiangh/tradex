@@ -650,6 +650,14 @@ Order Drafts 仅对绑定已连接 Binance `TESTNET` 账户的不可变 `BINANCE
 
 TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户详情显示 `Private stream unavailable · REST reconciliation`；`privateStream` 保持 `NOT_CONFIGURED`，且仅通过用户显式连接或 REST 刷新读取更新观测。
 
+### 13.17 Trading 212 Live 未知 PLACE 对账（S25.1 #97）
+
+Order Drafts 针对准确的 Trading 212 Live `UNKNOWN_RECONCILING` PLACE attempt 加载已保存的对账证据；只有后端时间可信且五分钟窗口未关闭时，才通过 `trade.resolution_evidence.refresh` 刷新。有界 provider 查询至少间隔 11 秒，每次请求只前进一个历史 cursor 页。导航或重新打开 workspace 后恢复 ledger；时钟不可信会暂停 provider 刷新，但已保存观测仍须可见。
+
+可信窗口过期后，显示后端授权的 Keep Reconciling 操作。通过 `trade.manual_resolution` 提交当前 attempt/证据版本和已保存 evidence ID；刷新或重新打开后显示已保存决策。此操作保持 attempt 与 reservation 冻结，不会重启 provider 查询。本 provider 切片不得显示确认已提交、确认未提交、释放或重发操作。
+
+展示已保存的账户/attempt 身份、可信窗口、最近查询、覆盖范围和查询范围、分页/完成状态、候选 provider ID/status、不确定/错误状态及后续动作。候选订单不得标成已关联的 TradeX 订单或提交证明。空结果或不完整结果必须明确表示无法证明不存在。窗口超时后显示账户 DISARMED/STALE，继续展示未知 attempt 和 active reservation，并且只显示后端授权的 Keep Reconciling 操作及其已保存审计记录；该操作不会重启 provider 查询。验证键盘操作及 390/768/1280 px 布局。此界面没有确认解决、provider 写入、重试或释放 reservation 的操作。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

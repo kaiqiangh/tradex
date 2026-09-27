@@ -130,7 +130,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -203,6 +203,8 @@ pub enum ReplyData {
     FinancialApprovalHistory(FinancialApprovalHistory),
     ExecutionPreparation(Box<ExecutionPreparation>),
     ExecutionPreparationQuery(ExecutionPreparationQueryResult),
+    ResolutionEvidence(Box<ResolutionEvidenceLedger>),
+    ResolutionEvidenceQuery(Box<ResolutionEvidenceQueryResult>),
     ApprovalRejection(Box<ApprovalRejection>),
     CancellationReview(Box<CancellationReview>),
     CancellationApprovalHistory(CancellationApprovalHistory),
@@ -330,6 +332,13 @@ pub struct IpcSchema {
     pub execution_preparation: ExecutionPreparation,
     pub execution_preparation_query: ExecutionPreparationQuery,
     pub execution_preparation_query_result: ExecutionPreparationQueryResult,
+    pub resolution_evidence_query: ResolutionEvidenceQuery,
+    pub resolution_evidence_refresh: ResolutionEvidenceRefresh,
+    pub manual_resolution_request: ManualResolutionRequest,
+    pub resolution_evidence_query_result: ResolutionEvidenceQueryResult,
+    pub resolution_evidence: ResolutionEvidence,
+    pub resolution_evidence_ledger: ResolutionEvidenceLedger,
+    pub provider_order_candidate: ProviderOrderCandidate,
     pub capacity_rejection_context: CapacityRejectionContext,
     pub approval_rejection: ApprovalRejection,
     pub cancellation_intent_request: CancellationIntentRequest,
@@ -438,7 +447,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 28))]
+    #[schemars(range(min = 1, max = 29))]
     pub storage_schema_version: u32,
 }
 
@@ -3025,6 +3034,180 @@ pub struct ExecutionPreparationQueryResult {
     pub rejections: Vec<ExecutionPreparationRejection>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResolutionEvidenceQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub execution_attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResolutionEvidenceRefresh {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub execution_attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_attempt_state_version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManualResolutionRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub execution_attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(extend("const" = "KEEP_RECONCILING"))]
+    pub decision: ManualResolutionDecision,
+    #[schemars(length(max = 128))]
+    pub evidence_ids: Vec<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_attempt_state_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_evidence_state_version: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ResolutionEvidenceOutcome {
+    CandidatesFound,
+    Inconclusive,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ManualResolutionDecision {
+    ConfirmedNotSubmitted,
+    ConfirmedSubmitted,
+    KeepReconciling,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProviderOrderCandidate {
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_symbol: String,
+    pub side: OrderSide,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_status: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub order_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>", length(min = 1, max = 64))]
+    pub quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub submitted_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_client_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResolutionEvidence {
+    #[schemars(length(min = 1, max = 128))]
+    pub evidence_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub execution_attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(extend("const" = "trading212"))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub queried_at: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub query_scope: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub coverage_from: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub coverage_to: Option<String>,
+    pub outcome: ResolutionEvidenceOutcome,
+    pub pagination_complete: bool,
+    #[schemars(length(max = 50))]
+    pub candidate_orders: Vec<ProviderOrderCandidate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 512))]
+    pub next_page_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManualResolutionRecord {
+    #[schemars(length(min = 1, max = 128))]
+    pub resolution_id: String,
+    pub decision: ManualResolutionDecision,
+    #[schemars(length(max = 128))]
+    pub evidence_ids: Vec<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_attempt_state_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub occurred_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResolutionEvidenceLedger {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub execution_attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(extend("const" = "trading212"))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub automatic_window_started_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub automatic_window_ends_at: String,
+    #[schemars(range(min = 0, max = 100))]
+    pub history_pages_read: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 512))]
+    pub next_page_path: Option<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub attempt_state_version: String,
+    #[schemars(length(max = 128))]
+    pub evidence: Vec<ResolutionEvidence>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 128))]
+    pub manual_resolutions: Vec<ManualResolutionRecord>,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResolutionEvidenceQueryResult {
+    pub ledger: Option<Box<ResolutionEvidenceLedger>>,
+    #[schemars(length(min = 1, max = 64))]
+    pub automatic_window_started_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub automatic_window_ends_at: String,
+    pub automatic_window_expired: bool,
+    pub time_trusted: bool,
+    #[schemars(length(max = 3))]
+    pub allowed_decisions: Vec<ManualResolutionDecision>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExecutionPreparationRejection {
@@ -3168,6 +3351,9 @@ pub struct ExecutionAttempt {
     pub invalidation_reason: Option<String>,
     #[schemars(length(min = 1, max = 64))]
     pub created_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub dispatch_started_at: Option<String>,
     #[schemars(length(min = 1, max = 256))]
     pub state_version: String,
 }
@@ -4921,6 +5107,7 @@ pub enum DomainProjection {
     RiskDecision(Box<RiskDecision>),
     FinancialApproval(Box<FinancialApproval>),
     ExecutionAttempt(Box<ExecutionAttempt>),
+    ResolutionEvidence(Box<ResolutionEvidenceLedger>),
     ExecutionReservation(Box<ExecutionReservation>),
     ExecutionPreparationRejection(Box<ExecutionPreparationRejection>),
     OrderProposalConsumption(Box<OrderProposalConsumption>),
@@ -4946,6 +5133,7 @@ impl DomainProjection {
             Self::RiskDecision(d) => &d.proposal_id,
             Self::FinancialApproval(a) => &a.approval_id,
             Self::ExecutionAttempt(a) => &a.attempt_id,
+            Self::ResolutionEvidence(e) => &e.execution_attempt_id,
             Self::ExecutionReservation(r) => &r.reservation_id,
             Self::ExecutionPreparationRejection(r) => &r.approval_id,
             Self::OrderProposalConsumption(p) => &p.proposal_id,
@@ -4970,6 +5158,7 @@ impl DomainProjection {
             Self::RiskDecision(_) => "risk-decision",
             Self::FinancialApproval(_) => "financial-approval",
             Self::ExecutionAttempt(_) => "execution-attempt",
+            Self::ResolutionEvidence(_) => "resolution-evidence",
             Self::ExecutionReservation(_) => "execution-reservation",
             Self::ExecutionPreparationRejection(_) => "execution-preparation",
             Self::OrderProposalConsumption(_) => "order-proposal-consumption",
@@ -4991,12 +5180,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.resolution_evidence.changed", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -5008,7 +5197,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,

@@ -1,7 +1,7 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountArmingMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, ApprovalAction, ApprovalReview, ApprovalReviewRequest, CancellationIntentRequest, CancellationReview, CancellationApprovalAction, CancellationApprovalHistoryQuery, CancellationApprovalHistory, FinancialApproval, FinancialApprovalHistory, FinancialApprovalHistoryQuery, ApprovalRejection, CancellationApprovalRejection, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
-import type { ExecutionPreparation, ExecutionPreparationQuery, ExecutionPreparationQueryResult, ExecutionPrepareRequest } from '../shared/ipc-types.ts';
+import type { ExecutionPreparation, ExecutionPreparationQuery, ExecutionPreparationQueryResult, ExecutionPrepareRequest, ManualResolutionRequest, ResolutionEvidenceQuery, ResolutionEvidenceQueryResult, ResolutionEvidenceRefresh } from '../shared/ipc-types.ts';
 import type { Trading212DemoOrderBook, Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh } from '../shared/ipc-types.ts';
 
 interface Inputs {
@@ -95,6 +95,9 @@ interface Inputs {
   'trade.approve': ApprovalAction;
   'trade.execution.prepare': ExecutionPrepareRequest;
   'trade.execution.preparation.get': ExecutionPreparationQuery;
+  'trade.resolution_evidence': ResolutionEvidenceQuery;
+  'trade.resolution_evidence.refresh': ResolutionEvidenceRefresh;
+  'trade.manual_resolution': ManualResolutionRequest;
   'trade.reject': ApprovalAction;
   'trade.approval.list': FinancialApprovalHistoryQuery;
   'trade.cancel_request': CancellationIntentRequest;
@@ -215,6 +218,9 @@ interface Outputs {
   'trade.approve': FinancialApproval;
   'trade.execution.prepare': ExecutionPreparation;
   'trade.execution.preparation.get': ExecutionPreparationQueryResult;
+  'trade.resolution_evidence': ResolutionEvidenceQueryResult;
+  'trade.resolution_evidence.refresh': ResolutionEvidenceQueryResult;
+  'trade.manual_resolution': ResolutionEvidenceQueryResult;
   'trade.reject': ApprovalRejection;
   'trade.approval.list': FinancialApprovalHistory;
   'trade.cancel_request': CancellationReview;
@@ -335,6 +341,9 @@ const definitions = {
   'trade.approve': ['ApprovalAction', 'FinancialApproval'],
   'trade.execution.prepare': ['ExecutionPrepareRequest', 'ExecutionPreparation'],
   'trade.execution.preparation.get': ['ExecutionPreparationQuery', 'ExecutionPreparationQueryResult'],
+  'trade.resolution_evidence': ['ResolutionEvidenceQuery', 'ResolutionEvidenceQueryResult'],
+  'trade.resolution_evidence.refresh': ['ResolutionEvidenceRefresh', 'ResolutionEvidenceQueryResult'],
+  'trade.manual_resolution': ['ManualResolutionRequest', 'ResolutionEvidenceQueryResult'],
   'trade.reject': ['ApprovalAction', 'ApprovalRejection'],
   'trade.approval.list': ['FinancialApprovalHistoryQuery', 'FinancialApprovalHistory'],
   'trade.cancel_request': ['CancellationIntentRequest', 'CancellationReview'],

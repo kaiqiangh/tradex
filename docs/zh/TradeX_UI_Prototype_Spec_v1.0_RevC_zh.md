@@ -935,3 +935,9 @@ TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。显示 `Privat
 ### 14.16 RiskDecision 求值与历史（S21 #81）
 
 Order Drafts 可显式对已保存 proposal 求值或重新求值，并展示 append-only decision history。显示 `ALLOWED`、`REJECTED` 或 `UNAVAILABLE`、绑定的 proposal hash、准确账户/环境、策略版本、逐项结果/原因及输入摘要。Renderer 只发送 workspace/proposal identity。`RISK_REJECTED` 与 `RISK_EVIDENCE_UNAVAILABLE` 分别显示；任一 submit 错误后刷新并显示已持久化 decision，说明未产生 order attempt/provider 或 simulator 订单副作用。`ALLOWED` 不等于审批、Arm、预留或发送权限。保持键盘可访问，并验证 390、768、1280 px 布局。普通 Bitget `LIVE` 明确只读；不创建/使用 Demo，也不显示 Live 写控件。
+
+## 14.17 Trading 212 Live 未知 PLACE 对账（S25.1 #97）
+
+对于已保存的 Trading 212 Live `UNKNOWN_RECONCILING` PLACE attempt，展示准确账户和 attempt、可信五分钟窗口、最近查询时间/范围、覆盖范围、结果、分页、候选、错误及后端下一步。刷新只能执行只读查询，每次读取一页有界历史；窗口过期或可信时间不可用时停止刷新。重新打开后恢复已持久化观测。
+
+精确 ticker/side/quantity/time 匹配只能列为候选；绝不自动关联，也不能把空页说成不存在的证明。空、不完整、延迟、失败、未认证或身份不匹配的读取均明确保持不确定。窗口超时后账户变为 DISARMED/STALE，attempt 仍为 `UNKNOWN_RECONCILING` 且 PLACE reservation 保持 active；只显示后端授权的 Keep Reconciling 决策。不得展示重发、provider 写入或释放控件。在真实界面验证键盘导航及 390/768/1280 px 布局；原型 fixture 证据不能证明 runtime 验收通过。

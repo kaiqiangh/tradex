@@ -548,7 +548,7 @@ fn main() {
                         && let Err(error) = engine.expire_live_arming()
                     {
                         eprintln!(
-                            "TradeX could not enforce Live inactivity deadlines: {}",
+                            "TradeX could not enforce Live safety deadlines: {}",
                             error.code
                         );
                     }

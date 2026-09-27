@@ -650,6 +650,14 @@ Show the TradeX observation time and `CURRENT`, `STALE` (older than five minutes
 
 TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. The account detail states `Private stream unavailable · REST reconciliation`; `privateStream` remains `NOT_CONFIGURED`, and observations update only through explicit connection or REST refresh reads.
 
+### 13.17 Trading 212 Live unknown PLACE reconciliation (S25.1 #97)
+
+Order Drafts loads saved reconciliation evidence for the exact `UNKNOWN_RECONCILING` Trading 212 Live PLACE attempt and refreshes it through `trade.resolution_evidence.refresh` only while backend time is trusted and the five-minute window is open. The bounded provider reads are spaced by at least 11 seconds and advance one history cursor page per request. Restore the ledger after navigation or workspace reopen; an untrusted clock pauses provider refresh but does not hide saved observations.
+
+After trusted expiry, show the backend-authorized Keep reconciling action. Submit it through `trade.manual_resolution` with current attempt/evidence versions and saved evidence IDs; show the persisted decision after refresh or reopen. This action keeps the attempt and reservation frozen and does not restart provider reads. Do not show confirmed-submitted, confirmed-not-submitted, release, or resend actions for this provider slice.
+
+Show the saved account/attempt identity, trusted window, last query, coverage and query scope, pagination/completion, candidate provider IDs/statuses, inconclusive/error states, and next action. A candidate is never labeled a linked TradeX order or proof of submission. Empty or incomplete results explicitly say absence is not proven. At timeout, show the account as DISARMED/STALE, keep the unknown attempt and active reservation visible, and show only the backend-provided Keep Reconciling action with its persisted audit record; the action does not restart provider reads. Verify keyboard operation and 390/768/1280 px layouts. No confirmed resolution, provider write, retry, or reservation release is available from this surface.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

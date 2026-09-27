@@ -610,6 +610,15 @@ fn main() -> io::Result<()> {
                             {
                                 Ok(account) => {
                                     vault.present.borrow_mut().insert(account.credential_ref());
+                                    if account.provider_id == "trading212"
+                                        && account.environment == "LIVE"
+                                        && let Some(remote_id) =
+                                            account.data.as_ref().and_then(|data| {
+                                                data.remote_account_id.parse::<u64>().ok()
+                                            })
+                                    {
+                                        http.trading212_identity.set(remote_id);
+                                    }
                                     json!({
                                         "requestId":request["requestId"],"schemaVersion":1,"ok":true,
                                         "data":account

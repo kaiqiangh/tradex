@@ -389,6 +389,7 @@ export type DomainProjection =
   | RiskDecision
   | FinancialApproval
   | ExecutionAttempt
+  | ResolutionEvidenceLedger
   | ExecutionReservation
   | ExecutionPreparationRejection
   | OrderProposalConsumption
@@ -461,6 +462,16 @@ export type FinancialOperation = "PLACE_ORDER" | "CANCEL";
  */
 export type ExecutionAttemptState =
   "RESERVED" | "INVALIDATED" | "SUBMITTING" | "ACCEPTED" | "REJECTED" | "UNKNOWN_RECONCILING" | "CANCEL_PENDING";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResolutionEvidenceOutcome".
+ */
+export type ResolutionEvidenceOutcome = "CANDIDATES_FOUND" | "INCONCLUSIVE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ManualResolutionDecision".
+ */
+export type ManualResolutionDecision = "CONFIRMED_NOT_SUBMITTED" | "CONFIRMED_SUBMITTED" | "KEEP_RECONCILING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ExecutionReservationStatus".
@@ -641,6 +652,8 @@ export type ReplyData =
   | FinancialApprovalHistory
   | ExecutionPreparation
   | ExecutionPreparationQueryResult
+  | ResolutionEvidenceLedger
+  | ResolutionEvidenceQueryResult
   | ApprovalRejection
   | CancellationReview
   | CancellationApprovalHistory
@@ -871,6 +884,7 @@ export interface IpcSchema {
   financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
   gatewayMutation: GatewayMutation;
   localPaperState: LocalPaperState;
+  manualResolutionRequest: ManualResolutionRequest;
   marketCatalogQuery: MarketCatalogQuery;
   marketGetQuery: MarketGetQuery;
   modelQuery: ModelQuery;
@@ -891,10 +905,16 @@ export interface IpcSchema {
   paperScenarioSet: PaperScenarioSet;
   portfolioQuery: PortfolioQuery;
   providerConnect: Connect;
+  providerOrderCandidate: ProviderOrderCandidate;
   providerSelection: ProviderSelection;
   researchInvocation: ResearchToolInvocation;
   researchRequest: ResearchToolRequest;
   researchResult: ResearchToolResult;
+  resolutionEvidence: ResolutionEvidence;
+  resolutionEvidenceLedger: ResolutionEvidenceLedger;
+  resolutionEvidenceQuery: ResolutionEvidenceQuery;
+  resolutionEvidenceQueryResult: ResolutionEvidenceQueryResult;
+  resolutionEvidenceRefresh: ResolutionEvidenceRefresh;
   result: ResultEnvelope;
   riskDecisionEvaluate: RiskDecisionEvaluate;
   riskDecisionQuery: RiskDecisionQuery;
@@ -2676,6 +2696,7 @@ export interface DomainEvent {
     | "execution-attempt"
     | "execution-reservation"
     | "execution-preparation"
+    | "resolution-evidence"
     | "order-proposal-consumption"
     | "approval-audit"
     | "thread"
@@ -2705,6 +2726,7 @@ export interface DomainEvent {
     | "trade.reservation.released"
     | "trade.execution.attempt.changed"
     | "trade.execution.preparation.rejected"
+    | "trade.resolution_evidence.changed"
     | "trade.proposal.consumed"
     | "thread.created"
     | "thread.updated"
@@ -2987,6 +3009,7 @@ export interface ExecutionAttempt {
   brokerOrderId?: string | null;
   createdAt: string;
   dispatchDisposition?: ExecutionDispatchDisposition | null;
+  dispatchStartedAt?: string | null;
   environment: ExecutionContext;
   errorCode?: string | null;
   intentHash: string;
@@ -3003,6 +3026,80 @@ export interface ExecutionAttempt {
   state: ExecutionAttemptState;
   stateVersion: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResolutionEvidenceLedger".
+ */
+export interface ResolutionEvidenceLedger {
+  accountId: string;
+  attemptStateVersion: string;
+  automaticWindowEndsAt: string;
+  automaticWindowStartedAt: string;
+  /**
+   * @maxItems 128
+   */
+  evidence: ResolutionEvidence[];
+  executionAttemptId: string;
+  historyPagesRead: number;
+  /**
+   * @maxItems 128
+   */
+  manualResolutions?: ManualResolutionRecord[];
+  nextPagePath?: string | null;
+  providerId: "trading212";
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResolutionEvidence".
+ */
+export interface ResolutionEvidence {
+  accountId: string;
+  /**
+   * @maxItems 50
+   */
+  candidateOrders: ProviderOrderCandidate[];
+  coverageFrom?: string | null;
+  coverageTo?: string | null;
+  errorCode?: string | null;
+  evidenceId: string;
+  executionAttemptId: string;
+  nextPagePath?: string | null;
+  outcome: ResolutionEvidenceOutcome;
+  paginationComplete: boolean;
+  providerId: "trading212";
+  queriedAt: string;
+  queryScope: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ProviderOrderCandidate".
+ */
+export interface ProviderOrderCandidate {
+  orderType: string;
+  providerClientId?: string | null;
+  providerOrderId: string;
+  providerStatus: string;
+  providerSymbol: string;
+  quantity?: string | null;
+  side: OrderSide;
+  submittedAt?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ManualResolutionRecord".
+ */
+export interface ManualResolutionRecord {
+  decision: ManualResolutionDecision;
+  /**
+   * @maxItems 128
+   */
+  evidenceIds: string[];
+  expectedAttemptStateVersion: string;
+  occurredAt: string;
+  resolutionId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -3718,6 +3815,22 @@ export interface LocalPaperProfile {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ManualResolutionRequest".
+ */
+export interface ManualResolutionRequest {
+  accountId: string;
+  decision: "KEEP_RECONCILING";
+  /**
+   * @maxItems 128
+   */
+  evidenceIds: string[];
+  executionAttemptId: string;
+  expectedAttemptStateVersion: string;
+  expectedEvidenceStateVersion?: string | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketCatalogQuery".
  */
 export interface MarketCatalogQuery {
@@ -3958,6 +4071,44 @@ export interface ResearchToolRequest {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResolutionEvidenceQuery".
+ */
+export interface ResolutionEvidenceQuery {
+  accountId: string;
+  executionAttemptId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResolutionEvidenceQueryResult".
+ */
+export interface ResolutionEvidenceQueryResult {
+  /**
+   * @maxItems 3
+   */
+  allowedDecisions:
+    | []
+    | [ManualResolutionDecision]
+    | [ManualResolutionDecision, ManualResolutionDecision]
+    | [ManualResolutionDecision, ManualResolutionDecision, ManualResolutionDecision];
+  automaticWindowEndsAt: string;
+  automaticWindowExpired: boolean;
+  automaticWindowStartedAt: string;
+  ledger?: ResolutionEvidenceLedger | null;
+  timeTrusted: boolean;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ResolutionEvidenceRefresh".
+ */
+export interface ResolutionEvidenceRefresh {
+  accountId: string;
+  executionAttemptId: string;
+  expectedAttemptStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SuccessEnvelope".
  */
 export interface SuccessEnvelope {
@@ -3984,6 +4135,7 @@ export interface Snapshot {
     | "execution-attempt"
     | "execution-reservation"
     | "execution-preparation"
+    | "resolution-evidence"
     | "order-proposal-consumption"
     | "approval-audit"
     | "thread"
@@ -4055,6 +4207,7 @@ export interface SubscriptionAck {
     | "execution-attempt"
     | "execution-reservation"
     | "execution-preparation"
+    | "resolution-evidence"
     | "order-proposal-consumption"
     | "approval-audit"
     | "thread"

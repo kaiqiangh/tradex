@@ -1785,6 +1785,7 @@ trade.cancel_request
 trade.cancel_approve
 trade.manual_resolution
 trade.resolution_evidence
+trade.resolution_evidence.refresh
 ```
 
 ### Local Paper simulation (S16)
@@ -1887,6 +1888,7 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Reject cancellation review | trade.cancel_reject | the same exact intent/hash, risk-decision ID, review digest, and expected snapshot version as the displayed review; records a durable `USER_REJECTED` audit and invalidates that intent. |
 | Read cancellation authorization history | trade.cancel_approval.list | workspace_id, account_id, broker_order_id; returns bounded sanitized intent invalidation, approval issuance/expiry/invalidation, and rejection history for that exact provider order. |
 | Inspect resolution evidence | trade.resolution_evidence | execution_attempt_id, account_id; return backend-owned evidence and allowed decisions |
+| Refresh Trading 212 Live reconciliation evidence | trade.resolution_evidence.refresh | workspace_id, execution_attempt_id, account_id, expected_attempt_state_version; run one bounded read-only provider query for the saved unknown PLACE attempt |
 | Resolve ambiguity | trade.manual_resolution | §27.4 payload; decision/evidence validated again at commit |
 
 State versions are opaque backend tokens, scoped to the returned aggregate. Decimal amounts use normalized strings; IDs, enum values, time representations, and required/optional fields are part of the command's versioned schema. A request ID correlates one exchange and never substitutes for proposal/approval/execution identity. After timeout on an authority-changing command, query state before any retry; never turn transport retries into repeated consent.
@@ -2767,6 +2769,69 @@ Live reads omit `paptrading: 1`, cannot fall back to Demo, and expose no submit/
 
 TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. Account/order observations update only through explicit signed REST connect/refresh requests; project `privateStream` as `NOT_CONFIGURED` and disclose `Private stream unavailable · REST reconciliation` in the account limitations.
 
+### 41.30 Trading 212 Live unknown PLACE reconciliation (S25.1 #97)
+
+`ExecutionAttempt.dispatchStartedAt` records the trusted timestamp at the durable `SUBMITTING` boundary. Reconciliation uses that timestamp as the start of its five-minute automatic window; legacy attempts without it use the earlier `createdAt` cutoff. The window is evaluated only with trusted time. If time is untrusted, saved evidence remains readable while provider refresh and automatic expiry are paused.
+
+A native Control Plane deadline pass checks saved eligible attempts independently of the Order Drafts surface, and public command dispatch runs the same safety preflight before handling later Live authority checks. Once trusted time reaches an attempt's deadline, the pass marks its exact account reconciliation `STALE` and `DISARMED`; closing or navigating away from the evidence surface does not defer that transition.
+
+~~~ts
+interface ResolutionEvidenceQuery {
+  workspaceId: string;
+  executionAttemptId: string;
+  accountId: string;
+}
+interface ResolutionEvidenceRefresh extends ResolutionEvidenceQuery {
+  expectedAttemptStateVersion: string;
+}
+interface ManualResolutionRequest extends ResolutionEvidenceQuery {
+  decision: 'KEEP_RECONCILING';
+  evidenceIds: string[];
+  expectedAttemptStateVersion: string;
+  expectedEvidenceStateVersion?: string | null;
+}
+type ResolutionEvidenceOutcome = 'CANDIDATES_FOUND' | 'INCONCLUSIVE';
+interface ProviderOrderCandidate {
+  providerOrderId: string;
+  providerSymbol: string;
+  side: OrderSide;
+  providerStatus: string;
+  orderType: string;
+  quantity?: string | null;
+  submittedAt?: string | null;
+  providerClientId?: string | null;
+}
+interface ResolutionEvidence {
+  evidenceId: string;
+  executionAttemptId: string;
+  accountId: string;
+  providerId: 'trading212';
+  queriedAt: string;
+  queryScope: string;
+  coverageFrom?: string | null;
+  coverageTo?: string | null;
+  outcome: ResolutionEvidenceOutcome;
+  paginationComplete: boolean;
+  candidateOrders: ProviderOrderCandidate[];
+  nextPagePath?: string | null;
+  errorCode?: string | null;
+}
+interface ResolutionEvidenceQueryResult {
+  ledger?: ResolutionEvidenceLedger | null;
+  automaticWindowStartedAt: string;
+  automaticWindowEndsAt: string;
+  automaticWindowExpired: boolean;
+  timeTrusted: boolean;
+  allowedDecisions: ManualResolutionDecision[];
+}
+~~~
+
+`trade.resolution_evidence` accepts `{workspaceId, executionAttemptId, accountId}` and is read-only. It returns the durable `ResolutionEvidenceLedger | null`, window start/end, `automaticWindowExpired`, `timeTrusted`, and backend-authorized decisions. `trade.resolution_evidence.refresh` adds `expectedAttemptStateVersion` and is available only to the main Trade surface (stdio only in integration-test builds). Both commands require the exact saved `trading212` / `LIVE` PLACE attempt in `UNKNOWN_RECONCILING`, its exact connected account and immutable proposal, and its active reservation.
+
+Each refresh verifies the remote account identity, reads open orders, and reads one page of the strict Trading 212 Live `/api/v0/equity/history/orders` GET allowlist (at most 50 rows). The renderer supplies no URL or provider identity. The UI schedules automatic refreshes at least 11 seconds apart; a saved next-page cursor advances only on a later refresh. Candidate selection requires exact ticker, side, quantity, and a provider submission time within the trusted window. A similar order is always only a candidate because Trading 212 supplies no TradeX client-order identity: it is never auto-linked and cannot resolve the attempt.
+
+Successful empty, incomplete, delayed, unauthenticated, identity-mismatched, or failed observations remain `INCONCLUSIVE`; an empty page never proves non-submission. Persist only sanitized scope, time coverage, pagination state, bounded candidate fields, outcome, and stable error code. Each evidence projection and `trade.resolution_evidence.changed` event commit together in SQLite/outbox. At the trusted five-minute timeout, mark the account reconciliation `STALE` and `DISARMED`, expose only `KEEP_RECONCILING`, and retain both `UNKNOWN_RECONCILING` and the active PLACE reservation. The main Trade surface may submit `trade.manual_resolution` with the expected attempt/evidence versions and references to existing evidence; this slice accepts only `KEEP_RECONCILING`. It appends the user decision to the same ledger and outbox transaction. It never changes the attempt or reservation, restarts provider reads, or sends/replays POST/DELETE; other decisions and stale or untrusted requests fail closed.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
@@ -2794,6 +2859,7 @@ trade.approval.consumed
 trade.reservation.created
 trade.reservation.released
 trade.execution.attempt.changed
+trade.resolution_evidence.changed
 trade.order.state_changed
 trade.fill.observed
 trade.reconciliation.changed

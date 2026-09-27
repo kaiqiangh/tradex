@@ -586,6 +586,8 @@ export async function checkLiveApprovalUI(tab, browser) {
     await ui.getByText(/UNKNOWN_RECONCILING · TradeX execution attempt/, { exact: false }).waitFor({ state: 'visible' });
     const unknownCard = ui.getByLabel('TradeX execution preparation', { exact: true });
     await unknownCard.getByRole('status').filter({ hasText: 'The provider outcome is uncertain. Capacity remains held; do not resend this request.' }).waitFor({ state: 'visible' });
+    const evidencePanel = ui.getByLabel('Trading 212 Live reconciliation evidence', { exact: true });
+    await evidencePanel.getByText('No similar order observed; absence is not proven', { exact: true }).waitFor({ state: 'visible' });
     const mountedPolicy = await sendIntegrationCommand('risk.get_policy', { workspaceId });
     await sendIntegrationCommand('risk.save_policy', {
       workspaceId,
@@ -597,12 +599,46 @@ export async function checkLiveApprovalUI(tab, browser) {
     });
     assert.equal(unknownPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
     assert.equal(unknownPreparation.preparation.reservation.status, 'ACTIVE', 'Unknown provider outcome keeps capacity frozen after a policy update.');
+    const persistedEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
+      workspaceId,
+      executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
+      accountId: account.connectionId,
+    });
+    assert.equal(persistedEvidence.ledger.evidence.at(-1).outcome, 'INCONCLUSIVE');
+    assert.deepEqual(persistedEvidence.ledger.evidence.at(-1).candidateOrders, []);
+    assert.match(persistedEvidence.ledger.evidence.at(-1).queryScope, /AAPL/);
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: width === 390 ? 844 : 900 });
+      await evidencePanel.getByText('No similar order observed; absence is not proven', { exact: true }).waitFor({ state: 'visible' });
+      const size = await evidencePanel.evaluate(element => ({
+        left: element.getBoundingClientRect().left,
+        right: element.getBoundingClientRect().right,
+        width: window.innerWidth,
+        documentScroll: document.documentElement.scrollWidth,
+        panelScroll: element.scrollWidth,
+        panelClient: element.clientWidth,
+      }));
+      assert.ok(size.left >= 0 && size.right <= size.width, `Evidence panel fits at ${width}px: ${JSON.stringify(size)}`);
+      assert.ok(size.documentScroll <= size.width, `Evidence view has no page overflow at ${width}px: ${JSON.stringify(size)}`);
+      assert.ok(size.panelScroll <= size.panelClient + 1, `Evidence panel has no local overflow at ${width}px: ${JSON.stringify(size)}`);
+    }
+    await viewport.set({ width: 1280, height: 900 });
+    await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
+    await navigation.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await evidencePanel.getByText('No similar order observed; absence is not proven', { exact: true }).waitFor({ state: 'visible' });
+    const reopenedPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: mountedApproval.approvalId,
+    });
+    assert.equal(reopenedPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
+    assert.equal(reopenedPreparation.preparation.reservation.status, 'ACTIVE', 'Leaving and reopening the evidence surface preserves frozen capacity.');
     assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST')).length, 2, 'Unknown outcome is never resent.');
     const mountedStoppedText = await unknownCard.innerText();
     assert.match(mountedStoppedText, /UNKNOWN_RECONCILING · TradeX execution attempt/);
     assert.match(mountedStoppedText, /Capacity remains held; do not resend this request/);
     assert.equal(await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).count(), 0, 'An uncertain consumed approval exposes no resend action.');
-    observed.push('An ambiguous provider outcome remains UNKNOWN_RECONCILING with active capacity after policy change and cannot be resent.');
+    observed.push('An ambiguous provider outcome remains UNKNOWN_RECONCILING with active capacity after policy change and navigation; inconclusive evidence is accessible at 1280/768/390px and cannot be resent.');
 
     const rejectedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
       workspaceId, providerId: 'trading212', label: `Rejected gateway fixture ${Date.now()}`,

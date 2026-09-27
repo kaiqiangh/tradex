@@ -16,6 +16,8 @@ S23 父规范 #88 已在 #89–#93 全部完成后关闭：PLACE/CANCEL preparat
 
 S24 #95 独立 Privileged Live Order Gateway 已在 `dev@e35d42e` 完成代码、双语契约、真实子进程/loopback 假提供方测试和 Rust-backed 浏览器验收，证据见 [S24 Gateway 验收](s24-live-order-gateway-evidence.md)。只验证合成凭据与本地假提供方，未发送真实 provider POST/DELETE；S25 对账、S26 全撤单/成交竞态、S27 生命周期、S33 全量回归及其他提供方 Live 执行仍未完成。
 
+S25.1 #97 Trading 212 Live UNKNOWN 对账切片已完成本地实现、双语契约、全量检查、串行 Standards/Spec 审查和 synthetic Rust-backed 浏览器验证，证据见 [S25.1 #97 验收](s25-trading212-live-reconciliation-evidence.md)。只读查询、持久化证据、超时后唯一 Keep Reconciling 决策及 5 分钟冻结边界通过验证；未访问真实提供方。父级 #96 仍打开，Binance/Bitget Live 与确认已提交/未提交的 Manual Resolution 等范围仍待后续票完成。
+
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
@@ -48,6 +50,7 @@ S24 #95 独立 Privileged Live Order Gateway 已在 `dev@e35d42e` 完成代码�
 - [S20 #76 Bitget 私有流验收](s20-bitget-private-stream-evidence.md)：官方 Classic v2 / UTA v3 文档边界、REST-only 披露、Rust-backed Live fixture、390/768/1280 窄屏检查和串行双轴审查；未创建/使用 Demo 账户，也未声称 Demo 行为已验证。Demo 专属 #73/#74/#76/#77/#78 已按普通账户接口范围关闭。
 - [S21 #80 风险策略配置与持久化验收](s21-risk-policy-evidence.md)：PRD §21 全字段 Settings form、public IPC validation、SQLite policy version/outbox transaction、旧 projection 兼容、Rust-backed browser save/reopen、响应式与键盘证据；不代表完整 S21 evaluator 已完成。
 - [S24 #95 独立 Gateway 验收](s24-live-order-gateway-evidence.md)：真实子进程认证、单次 grant、PLACE/CANCEL 精确派发、SUBMITTING 持久化边界、未知结果不重放、合成 secret 脱敏和浏览器验收；没有真实 provider 写入。
+- [S25.1 #97 Trading 212 Live 未知提交对账验收](s25-trading212-live-reconciliation-evidence.md)：五分钟 trusted-time 查询边界、SQLite evidence/outbox、候选订单和空结果语义、timeout freeze、Keep Reconciling 审计决策、公开 IPC、窄屏及隔离浏览器证据；父级 S25 仍打开。
 - [S18 Trading 212 Demo 交易生命周期 Spec](s18-trading212-demo.md)：#60 已完成官方 API / 现有实现边界梳理。#61 提交与未知结果恢复已完成，代码提交 `873d42f`、验收证据见 [#61 evidence](s18-trading212-demo-submit-evidence.md)；实现票为 [#62 订单簿与累计成交](https://github.com/kaiqiangh/tradex/issues/62) 已本地验证并关闭（实现 `715abd7`，证据见 [#62 evidence](s18-trading212-demo-orderbook-evidence.md)）、[#63 撤单与成交竞态](https://github.com/kaiqiangh/tradex/issues/63) 已本地验证并关闭（实现代码 SHA c1f6884f700d180534a05001ed12d3e6bfda5b81，证据见 [#63 evidence](s18-trading212-demo-cancel-evidence.md)）；[#64 真实 Demo 验收 gate](https://github.com/kaiqiangh/tradex/issues/64) 依赖前三项，需用户明确授权具体 Demo 写操作。按用户要求串行执行 #62 → #63 → #64；#63 已完成，下一项是 #64。S17 #56 按用户指示保持 OPEN。
 
 ## 1. 文档分析与实施约束

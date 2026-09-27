@@ -1785,6 +1785,7 @@ trade.cancel_request
 trade.cancel_approve
 trade.manual_resolution
 trade.resolution_evidence
+trade.resolution_evidence.refresh
 ```
 
 ### Local Paper simulation（S16）
@@ -1887,6 +1888,7 @@ interface TradeXError {
 | 拒绝撤单审阅 | trade.cancel_reject | 与当前审阅完全相同的意图/hash、RiskDecision ID、review digest 和 expected snapshot version；记录耐久的 `USER_REJECTED` 审计并使该意图失效。 |
 | 读取撤单授权历史 | trade.cancel_approval.list | workspace_id、account_id、broker_order_id；返回该精确券商订单有界且脱敏的意图失效、审批签发/过期/失效及拒绝历史。 |
 | 查看处置证据 | trade.resolution_evidence | execution_attempt_id、account_id；返回后端持有的证据与允许的决策 |
+| 刷新 Trading 212 Live 对账证据 | trade.resolution_evidence.refresh | workspace_id、execution_attempt_id、account_id、expected_attempt_state_version；对已保存的未知 PLACE attempt 执行一次有界只读 provider 查询 |
 | 处置未知提交 | trade.manual_resolution | §27.4 payload；提交处置时再次核验 decision/evidence |
 
 状态版本是后端生成、限于返回聚合对象的不透明 token。Decimal 金额使用规范化字符串；ID、枚举、时间表示及必填/可选字段属于命令的版本化 schema。request ID 只关联一次交互，不能替代 proposal/approval/execution 身份。改变权限的命令超时后必须先查询状态再决定重试；不得把传输重试变成重复同意。
@@ -2767,6 +2769,69 @@ Live 读取省略 `paptrading: 1`，不得回退到 Demo，也不暴露提交、
 
 TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户/订单观测仅通过用户显式连接或 REST 刷新请求读取并更新；`privateStream` 投影为 `NOT_CONFIGURED`，并在账户限制中显示 `Private stream unavailable · REST reconciliation`。
 
+### 41.30 Trading 212 Live 未知 PLACE 对账（S25.1 #97）
+
+`ExecutionAttempt.dispatchStartedAt` 在持久化进入 `SUBMITTING` 边界时记录可信时间戳。对账以此作为五分钟自动窗口起点；缺少该字段的旧 attempt 保守使用更早的 `createdAt`。只有可信时间才能评估窗口。时钟不可信时仍可读取已保存证据，但暂停 provider 刷新和自动过期。
+
+Control Plane 原生 deadline pass 会独立检查已保存且符合条件的 attempt，不依赖 Order Drafts 页面是否打开；公开命令分发也会在处理后续 Live authority check 前运行相同的安全预检。可信时间到达 attempt deadline 后，该 pass 会将准确账户的 reconciliation 标记为 `STALE` 并置为 `DISARMED`；关闭证据页面或导航离开不会延迟此状态转换。
+
+~~~ts
+interface ResolutionEvidenceQuery {
+  workspaceId: string;
+  executionAttemptId: string;
+  accountId: string;
+}
+interface ResolutionEvidenceRefresh extends ResolutionEvidenceQuery {
+  expectedAttemptStateVersion: string;
+}
+interface ManualResolutionRequest extends ResolutionEvidenceQuery {
+  decision: 'KEEP_RECONCILING';
+  evidenceIds: string[];
+  expectedAttemptStateVersion: string;
+  expectedEvidenceStateVersion?: string | null;
+}
+type ResolutionEvidenceOutcome = 'CANDIDATES_FOUND' | 'INCONCLUSIVE';
+interface ProviderOrderCandidate {
+  providerOrderId: string;
+  providerSymbol: string;
+  side: OrderSide;
+  providerStatus: string;
+  orderType: string;
+  quantity?: string | null;
+  submittedAt?: string | null;
+  providerClientId?: string | null;
+}
+interface ResolutionEvidence {
+  evidenceId: string;
+  executionAttemptId: string;
+  accountId: string;
+  providerId: 'trading212';
+  queriedAt: string;
+  queryScope: string;
+  coverageFrom?: string | null;
+  coverageTo?: string | null;
+  outcome: ResolutionEvidenceOutcome;
+  paginationComplete: boolean;
+  candidateOrders: ProviderOrderCandidate[];
+  nextPagePath?: string | null;
+  errorCode?: string | null;
+}
+interface ResolutionEvidenceQueryResult {
+  ledger?: ResolutionEvidenceLedger | null;
+  automaticWindowStartedAt: string;
+  automaticWindowEndsAt: string;
+  automaticWindowExpired: boolean;
+  timeTrusted: boolean;
+  allowedDecisions: ManualResolutionDecision[];
+}
+~~~
+
+`trade.resolution_evidence` 接收 `{workspaceId, executionAttemptId, accountId}`，只读返回耐久的 `ResolutionEvidenceLedger | null`、窗口起止时间、`automaticWindowExpired`、`timeTrusted` 和后端授权决策。`trade.resolution_evidence.refresh` 增加 `expectedAttemptStateVersion`，仅主 Trade 界面可调用（integration-test build 中也仅限 stdio）。两个命令都要求准确的已保存 `trading212` / `LIVE` PLACE attempt 处于 `UNKNOWN_RECONCILING`，并校验准确已连接账户、不可变 proposal 和 active reservation。
+
+每次刷新都会核验远端账户身份、读取开放订单，并读取严格限定的 Trading 212 Live `/api/v0/equity/history/orders` GET 路由中的一页（最多 50 行）。Renderer 不能提供 URL 或 provider identity。UI 至少每隔 11 秒才自动刷新一次；已保存的下一页 cursor 只能由后续刷新前进。候选匹配要求 ticker、side、quantity 完全一致，且 provider 提交时间位于可信窗口内。由于 Trading 212 不提供 TradeX client-order identity，相似订单始终只是候选：不会自动关联，也不能处置 attempt。
+
+成功的空结果、不完整/延迟查询、未认证、身份不匹配或失败的观测均保持 `INCONCLUSIVE`；空页不能证明未提交。只持久化脱敏查询范围、时间覆盖、分页状态、有界候选字段、结果和稳定错误码。每个证据 projection 与 `trade.resolution_evidence.changed` event 在同一 SQLite/outbox 事务中提交。可信五分钟窗口超时后，将账户对账标为 `STALE` 并 disarm，只开放 `KEEP_RECONCILING`，同时保留 `UNKNOWN_RECONCILING` 和 active PLACE reservation。主 Trade 界面可通过 `trade.manual_resolution` 提交当前 attempt/证据版本及已存在的 evidence 引用；本切片只接受 `KEEP_RECONCILING`，并在同一 ledger/outbox 事务中追加用户决策。它不会更改 attempt/reservation、重启 provider 查询或发送/重放 POST/DELETE；其他决策以及过期版本或不可信时钟请求均 fail closed。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
@@ -2794,6 +2859,7 @@ trade.approval.consumed
 trade.reservation.created
 trade.reservation.released
 trade.execution.attempt.changed
+trade.resolution_evidence.changed
 trade.order.state_changed
 trade.fill.observed
 trade.reconciliation.changed

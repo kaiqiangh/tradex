@@ -365,6 +365,7 @@ mod local_provider_tests {
             state: ExecutionAttemptState::Reserved,
             invalidation_reason: None,
             created_at: "2026-09-27T10:00:00Z".into(),
+            dispatch_started_at: None,
             state_version: format!("execution-attempt:{attempt_id}:1"),
         };
         let reservation = reservation_id

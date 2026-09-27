@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs::{self, File, OpenOptions},
     io::{ErrorKind, Write},
     path::{Component, Path, PathBuf},
@@ -39,17 +40,18 @@ use crate::protocol::{
     ExecutionPreparationRejection, ExecutionReservation, ExecutionReservationStatus,
     FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
     LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder, LocalPaperState,
-    MAX_SEQUENCE, OpenWorkspace, OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave,
-    OrderDraftSummary, OrderProposal, OrderProposalConsumption, OrderProposalGenerate,
-    OrderProposalHistoryEntry, OrderProposalHistoryEvent, OrderProposalLibrary,
-    OrderProposalRefresh, OrderProposalRefreshResult, OrderProposalRefreshStatus,
-    OrderProposalStatus, OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult,
-    PaperOrderSubmit, PaperQuoteRefresh, PaperScenarioSet, ProposalReferenceStatus, Result,
-    SavedScreener, ScreenerLibrary, ScreenerResultState, ScreenerSave, ScreenerUpdate, Snapshot,
-    StrategyFailure, StrategyLibrary, StrategyRun, StrategyRunRequest, StrategyRunState,
-    StrategyRunSummary, StrategySave, StrategyVersion, SubscriptionAck, Thread, ThreadList,
-    ThreadSummary, TimeInForce, TradeXError, Trading212DemoCancelState,
-    Trading212DemoNormalizedOrderStatus, Trading212DemoOrderAttempt,
+    MAX_SEQUENCE, ManualResolutionDecision, ManualResolutionRecord, OpenWorkspace, OrderDraft,
+    OrderDraftFields, OrderDraftLibrary, OrderDraftSave, OrderDraftSummary, OrderProposal,
+    OrderProposalConsumption, OrderProposalGenerate, OrderProposalHistoryEntry,
+    OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
+    OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
+    OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult, PaperOrderSubmit,
+    PaperQuoteRefresh, PaperScenarioSet, ProposalReferenceStatus, ResolutionEvidence,
+    ResolutionEvidenceLedger, Result, SavedScreener, ScreenerLibrary, ScreenerResultState,
+    ScreenerSave, ScreenerUpdate, Snapshot, StrategyFailure, StrategyLibrary, StrategyRun,
+    StrategyRunRequest, StrategyRunState, StrategyRunSummary, StrategySave, StrategyVersion,
+    SubscriptionAck, Thread, ThreadList, ThreadSummary, TimeInForce, TradeXError,
+    Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrderAttempt,
     Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
     Trading212DemoOrderCancel, Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist,
     WatchlistItem, Watchlists, Workspace,
@@ -58,7 +60,7 @@ use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 28;
+pub(crate) const SCHEMA_VERSION: u32 = 29;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 
 pub struct Store {
@@ -724,6 +726,17 @@ impl Store {
                 CREATE INDEX execution_dispatch_grants_attempt ON execution_dispatch_grants(attempt_id);
                 CREATE UNIQUE INDEX execution_dispatch_grants_one_issued_per_attempt ON execution_dispatch_grants(attempt_id) WHERE status='ISSUED';
                 PRAGMA user_version=28;").map_err(storage_error)?;
+            }
+            if version < 29 {
+                tx.execute_batch("CREATE TABLE resolution_evidence (
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    attempt_id TEXT NOT NULL UNIQUE REFERENCES execution_attempts(attempt_id),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,attempt_id)
+                );
+                CREATE INDEX resolution_evidence_workspace_attempt ON resolution_evidence(workspace_id,attempt_id);
+                PRAGMA user_version=29;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1391,6 +1404,9 @@ impl Store {
                         "trade.reservation.created" | "trade.reservation.released"
                     ),
                     "execution-attempt" => event.event_type != "trade.execution.attempt.changed",
+                    "resolution-evidence" => {
+                        event.event_type != "trade.resolution_evidence.changed"
+                    }
                     "order-proposal-consumption" => event.event_type != "trade.proposal.consumed",
                     "approval-audit" => event.event_type != "trade.approval.rejected",
                     "thread" => !matches!(
@@ -2393,6 +2409,23 @@ impl Store {
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
+        if kind == "resolution-evidence" {
+            let workspace_id = self.workspace_id()?;
+            let ledger = self
+                .resolution_evidence_ledger(&workspace_id, id)?
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            let sequence = ledger
+                .state_version
+                .strip_prefix(&format!("resolution-evidence:{id}:"))
+                .and_then(|sequence| sequence.parse::<u64>().ok())
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::ResolutionEvidence(Box::new(ledger)),
+                last_sequence: sequence,
+            });
+        }
         if kind == "execution-reservation" {
             let workspace_id = self.workspace_id()?;
             let (sequence, projection): (i64, String) = self
@@ -3275,6 +3308,373 @@ impl Store {
             attempt: Box::new(attempt),
             reservation: reservation.map(Box::new),
         })
+    }
+
+    pub fn unknown_t212_live_place_attempts(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<ExecutionAttempt>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let rows = {
+            let mut statement = self.connection.prepare(
+                "SELECT a.attempt_id,a.operation FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.state='UNKNOWN_RECONCILING' AND a.operation='PLACE_ORDER' AND c.provider_id='trading212' AND c.environment='LIVE' ORDER BY a.account_id,a.attempt_id LIMIT 10001",
+            ).map_err(storage_error)?;
+            statement
+                .query_map([workspace_id], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        if rows.len() > 10_000 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        rows.into_iter()
+            .map(|(attempt_id, operation)| {
+                let attempt = load_execution_attempt(&self.connection, workspace_id, &attempt_id)?
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                let stored_operation = serde_json::to_value(attempt.operation)
+                    .map_err(storage_error)?
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if operation != stored_operation
+                    || attempt.state != ExecutionAttemptState::UnknownReconciling
+                    || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+                    || attempt.environment != ExecutionContext::Trading212Live
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                Ok(attempt)
+            })
+            .collect()
+    }
+
+    pub fn resolution_evidence_ledger(
+        &self,
+        workspace_id: &str,
+        attempt_id: &str,
+    ) -> Result<Option<ResolutionEvidenceLedger>> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let row: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT sequence,projection FROM resolution_evidence WHERE workspace_id=?1 AND attempt_id=?2",
+                params![workspace_id, attempt_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((sequence, projection)) = row else {
+            return Ok(None);
+        };
+        let ledger: ResolutionEvidenceLedger = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if sequence < 1
+            || ledger.workspace_id != workspace_id
+            || ledger.execution_attempt_id != attempt_id
+            || ledger.state_version != format!("resolution-evidence:{attempt_id}:{sequence}")
+            || ledger.evidence.len() > 128
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(Some(ledger))
+    }
+
+    fn persist_resolution_evidence_ledger(
+        tx: &Transaction<'_>,
+        workspace_id: &str,
+        attempt_id: &str,
+        sequence: i64,
+        existed: bool,
+        ledger: &ResolutionEvidenceLedger,
+        occurred_at: &str,
+    ) -> Result<DomainEvent> {
+        let projection = serde_json::to_string(ledger).map_err(storage_error)?;
+        if existed {
+            tx.execute(
+                "UPDATE resolution_evidence SET sequence=?1,projection=?2 WHERE workspace_id=?3 AND attempt_id=?4",
+                params![sequence, projection, workspace_id, attempt_id],
+            )
+            .map_err(storage_error)?;
+        } else {
+            tx.execute(
+                "INSERT INTO resolution_evidence(workspace_id,attempt_id,sequence,projection) VALUES(?1,?2,?3,?4)",
+                params![workspace_id, attempt_id, sequence, projection],
+            )
+            .map_err(storage_error)?;
+        }
+        let event = DomainEvent {
+            event_id: Uuid::new_v4().to_string(),
+            event_type: "trade.resolution_evidence.changed".into(),
+            schema_version: 1,
+            occurred_at: occurred_at.into(),
+            aggregate_type: "resolution-evidence".into(),
+            aggregate_id: attempt_id.into(),
+            sequence: sequence as u64,
+            payload: DomainProjection::ResolutionEvidence(Box::new(ledger.clone())),
+        };
+        tx.execute(
+            "INSERT INTO outbox VALUES('resolution-evidence',?1,?2,?3,?4)",
+            params![
+                attempt_id,
+                sequence,
+                event.event_id,
+                serde_json::to_string(&event).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+        Ok(event)
+    }
+
+    pub fn append_resolution_evidence(
+        &mut self,
+        workspace_id: &str,
+        attempt_id: &str,
+        account_id: &str,
+        expected_attempt_state_version: &str,
+        automatic_window_started_at: &str,
+        automatic_window_ends_at: &str,
+        evidence: ResolutionEvidence,
+        occurred_at: &str,
+    ) -> Result<(ResolutionEvidenceLedger, DomainEvent)> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let attempt = load_execution_attempt(&tx, workspace_id, attempt_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+        if attempt.state != ExecutionAttemptState::UnknownReconciling
+            || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+            || attempt.environment != ExecutionContext::Trading212Live
+            || attempt.account_id != account_id
+            || attempt.state_version != expected_attempt_state_version
+            || attempt
+                .dispatch_started_at
+                .as_deref()
+                .unwrap_or(&attempt.created_at)
+                != automatic_window_started_at
+            || evidence.execution_attempt_id != attempt_id
+            || evidence.account_id != account_id
+            || evidence.provider_id != "trading212"
+            || evidence.evidence_id.is_empty()
+            || evidence.candidate_orders.len() > 50
+            || evidence.query_scope.is_empty()
+            || evidence.query_scope.len() > 512
+            || evidence.error_code.as_deref().is_some_and(|code| {
+                code.is_empty()
+                    || code.len() > 128
+                    || !code
+                        .bytes()
+                        .all(|byte| byte.is_ascii_uppercase() || byte == b'_')
+            })
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let previous: Option<(i64, String)> = tx
+            .query_row(
+                "SELECT sequence,projection FROM resolution_evidence WHERE workspace_id=?1 AND attempt_id=?2",
+                params![workspace_id, attempt_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let mut ledger = if let Some((sequence, projection)) = &previous {
+            let ledger: ResolutionEvidenceLedger = serde_json::from_str(projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if *sequence < 1
+                || ledger.state_version != format!("resolution-evidence:{attempt_id}:{sequence}")
+                || ledger.workspace_id != workspace_id
+                || ledger.execution_attempt_id != attempt_id
+                || ledger.account_id != account_id
+                || ledger.provider_id != "trading212"
+                || ledger.automatic_window_started_at != automatic_window_started_at
+                || ledger.automatic_window_ends_at != automatic_window_ends_at
+                || ledger.attempt_state_version != expected_attempt_state_version
+                || ledger.evidence.len() >= 128
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            ledger
+        } else {
+            ResolutionEvidenceLedger {
+                workspace_id: workspace_id.into(),
+                execution_attempt_id: attempt_id.into(),
+                account_id: account_id.into(),
+                provider_id: "trading212".into(),
+                automatic_window_started_at: automatic_window_started_at.into(),
+                automatic_window_ends_at: automatic_window_ends_at.into(),
+                history_pages_read: 0,
+                next_page_path: None,
+                attempt_state_version: expected_attempt_state_version.into(),
+                evidence: Vec::new(),
+                manual_resolutions: Vec::new(),
+                state_version: String::new(),
+            }
+        };
+        if evidence.error_code.is_none() {
+            ledger.history_pages_read = ledger
+                .history_pages_read
+                .checked_add(1)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+            ledger.next_page_path = evidence.next_page_path.clone();
+        }
+        ledger.evidence.push(evidence);
+        let sequence = previous.as_ref().map_or(Ok(1), |(sequence, _)| {
+            sequence
+                .checked_add(1)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))
+        })?;
+        if !(1..=MAX_SEQUENCE as i64).contains(&sequence) {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        ledger.state_version = format!("resolution-evidence:{attempt_id}:{sequence}");
+        let event = Self::persist_resolution_evidence_ledger(
+            &tx,
+            workspace_id,
+            attempt_id,
+            sequence,
+            previous.is_some(),
+            &ledger,
+            occurred_at,
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok((ledger, event))
+    }
+
+    pub fn append_manual_resolution(
+        &mut self,
+        workspace_id: &str,
+        attempt_id: &str,
+        account_id: &str,
+        expected_attempt_state_version: &str,
+        expected_evidence_state_version: Option<&str>,
+        automatic_window_started_at: &str,
+        automatic_window_ends_at: &str,
+        resolution: ManualResolutionRecord,
+    ) -> Result<(ResolutionEvidenceLedger, DomainEvent)> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if resolution.decision != ManualResolutionDecision::KeepReconciling
+            || resolution.evidence_ids.len() > 128
+            || resolution.resolution_id.is_empty()
+            || resolution.expected_attempt_state_version != expected_attempt_state_version
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let attempt = load_execution_attempt(&tx, workspace_id, attempt_id)?
+            .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
+        let reservation = load_execution_reservation_for_attempt(&tx, workspace_id, attempt_id)?
+            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        if attempt.state != ExecutionAttemptState::UnknownReconciling
+            || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+            || attempt.environment != ExecutionContext::Trading212Live
+            || attempt.account_id != account_id
+            || attempt.state_version != expected_attempt_state_version
+            || attempt
+                .dispatch_started_at
+                .as_deref()
+                .unwrap_or(&attempt.created_at)
+                != automatic_window_started_at
+            || reservation.status != ExecutionReservationStatus::Active
+            || reservation.attempt_id != attempt_id
+            || reservation.account_id != account_id
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let previous: Option<(i64, String)> = tx
+            .query_row(
+                "SELECT sequence,projection FROM resolution_evidence WHERE workspace_id=?1 AND attempt_id=?2",
+                params![workspace_id, attempt_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let mut ledger = if let Some((sequence, projection)) = &previous {
+            let ledger: ResolutionEvidenceLedger = serde_json::from_str(projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if *sequence < 1
+                || ledger.state_version != format!("resolution-evidence:{attempt_id}:{sequence}")
+                || ledger.workspace_id != workspace_id
+                || ledger.execution_attempt_id != attempt_id
+                || ledger.account_id != account_id
+                || ledger.provider_id != "trading212"
+                || ledger.automatic_window_started_at != automatic_window_started_at
+                || ledger.automatic_window_ends_at != automatic_window_ends_at
+                || ledger.attempt_state_version != expected_attempt_state_version
+                || ledger.evidence.len() > 128
+                || ledger.manual_resolutions.len() >= 128
+                || expected_evidence_state_version != Some(ledger.state_version.as_str())
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            ledger
+        } else {
+            if expected_evidence_state_version.is_some() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            ResolutionEvidenceLedger {
+                workspace_id: workspace_id.into(),
+                execution_attempt_id: attempt_id.into(),
+                account_id: account_id.into(),
+                provider_id: "trading212".into(),
+                automatic_window_started_at: automatic_window_started_at.into(),
+                automatic_window_ends_at: automatic_window_ends_at.into(),
+                history_pages_read: 0,
+                next_page_path: None,
+                attempt_state_version: expected_attempt_state_version.into(),
+                evidence: Vec::new(),
+                manual_resolutions: Vec::new(),
+                state_version: String::new(),
+            }
+        };
+        let unique_evidence_ids: HashSet<&str> =
+            resolution.evidence_ids.iter().map(String::as_str).collect();
+        if unique_evidence_ids.len() != resolution.evidence_ids.len()
+            || resolution.evidence_ids.iter().any(|evidence_id| {
+                !ledger
+                    .evidence
+                    .iter()
+                    .any(|evidence| evidence.evidence_id == evidence_id.as_str())
+            })
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let occurred_at = resolution.occurred_at.clone();
+        ledger.manual_resolutions.push(resolution);
+        let sequence = previous.as_ref().map_or(Ok(1), |(sequence, _)| {
+            sequence
+                .checked_add(1)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))
+        })?;
+        if !(1..=MAX_SEQUENCE as i64).contains(&sequence) {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        ledger.state_version = format!("resolution-evidence:{attempt_id}:{sequence}");
+        let event = Self::persist_resolution_evidence_ledger(
+            &tx,
+            workspace_id,
+            attempt_id,
+            sequence,
+            previous.is_some(),
+            &ledger,
+            &occurred_at,
+        )?;
+        tx.commit().map_err(storage_error)?;
+        Ok((ledger, event))
     }
 
     pub fn execution_dispatch_grant(&self, grant_id: &str) -> Result<ExecutionDispatchGrant> {
@@ -12357,6 +12757,14 @@ fn write_execution_attempt_tx(
     if let Some((_, saved_key, previous_projection)) = &previous {
         let previous_attempt: ExecutionAttempt = serde_json::from_str(previous_projection)
             .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if previous_attempt.state == ExecutionAttemptState::Reserved
+            && attempt.state == ExecutionAttemptState::Submitting
+        {
+            if attempt.dispatch_started_at.is_some() {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            attempt.dispatch_started_at = Some(occurred_at.to_owned());
+        }
         let allowed = matches!(
             (previous_attempt.state, attempt.state),
             (
@@ -12382,6 +12790,7 @@ fn write_execution_attempt_tx(
         let mut comparable_previous = previous_attempt.clone();
         comparable_previous.state = attempt.state;
         comparable_previous.invalidation_reason = attempt.invalidation_reason.clone();
+        comparable_previous.dispatch_started_at = attempt.dispatch_started_at.clone();
         comparable_previous.state_version = attempt.state_version.clone();
         match (previous_attempt.state, attempt.state) {
             (ExecutionAttemptState::Reserved, ExecutionAttemptState::Invalidated) => {
@@ -12412,6 +12821,7 @@ fn write_execution_attempt_tx(
         }
     } else if attempt.state != ExecutionAttemptState::Reserved
         || attempt.invalidation_reason.is_some()
+        || attempt.dispatch_started_at.is_some()
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }

@@ -181,6 +181,9 @@ declare const validators: {
   LocalPaperProfile: (value: unknown) => boolean;
   LocalPaperQuote: (value: unknown) => boolean;
   LocalPaperState: (value: unknown) => boolean;
+  ManualResolutionDecision: (value: unknown) => boolean;
+  ManualResolutionRecord: (value: unknown) => boolean;
+  ManualResolutionRequest: (value: unknown) => boolean;
   MarketCatalog: (value: unknown) => boolean;
   MarketCatalogQuery: (value: unknown) => boolean;
   MarketDataStatus: (value: unknown) => boolean;
@@ -249,6 +252,7 @@ declare const validators: {
   ProviderCatalog: (value: unknown) => boolean;
   ProviderDefinition: (value: unknown) => boolean;
   ProviderField: (value: unknown) => boolean;
+  ProviderOrderCandidate: (value: unknown) => boolean;
   ProviderSelection: (value: unknown) => boolean;
   RankSpec: (value: unknown) => boolean;
   Remediation: (value: unknown) => boolean;
@@ -268,6 +272,12 @@ declare const validators: {
   ResearchToolPayload: (value: unknown) => boolean;
   ResearchToolRequest: (value: unknown) => boolean;
   ResearchToolResult: (value: unknown) => boolean;
+  ResolutionEvidence: (value: unknown) => boolean;
+  ResolutionEvidenceLedger: (value: unknown) => boolean;
+  ResolutionEvidenceOutcome: (value: unknown) => boolean;
+  ResolutionEvidenceQuery: (value: unknown) => boolean;
+  ResolutionEvidenceQueryResult: (value: unknown) => boolean;
+  ResolutionEvidenceRefresh: (value: unknown) => boolean;
   ResultEnvelope: (value: unknown) => boolean;
   RiskAssetClassLimit: (value: unknown) => boolean;
   RiskCheckId: (value: unknown) => boolean;

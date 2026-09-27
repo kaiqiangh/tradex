@@ -6,8 +6,10 @@ use crate::{
         AlpacaPaperOrderBookStatus, AlpacaPaperOrderOrigin, BinanceTestnetOrderAttempt,
         BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookAction,
         BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancelState, BitgetDemoOrderAttempt,
-        BitgetDemoOrderAttemptState, CancellationIntent, ExecutionContext, OrderProposal,
-        OrderQuantityType, OrderSide, OrderType, Result, TimeInForce, TradeXError,
+        BitgetDemoOrderAttemptState, CancellationIntent, ExecutionAttempt, ExecutionAttemptState,
+        ExecutionContext, OrderProposal, OrderQuantityType, OrderSide, OrderType,
+        ProviderOrderCandidate, ResolutionEvidence, ResolutionEvidenceLedger,
+        ResolutionEvidenceOutcome, ResolutionEvidenceRefresh, Result, TimeInForce, TradeXError,
         Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrder,
         Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
         Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin,
@@ -320,12 +322,14 @@ impl ProviderEndpoint {
                 ) || valid_t212_order_detail_path(path)
                     || valid_t212_history_path(path)
             }
-            Self::Trading212Live => matches!(
-                path,
-                "/api/v0/equity/account/summary"
-                    | "/api/v0/equity/positions"
-                    | "/api/v0/equity/orders"
-            ),
+            Self::Trading212Live => {
+                matches!(
+                    path,
+                    "/api/v0/equity/account/summary"
+                        | "/api/v0/equity/positions"
+                        | "/api/v0/equity/orders"
+                ) || valid_t212_history_path(path)
+            }
         }
     }
     fn allows_method(self, method: ProviderHttpMethod, path: &str) -> bool {
@@ -385,6 +389,7 @@ pub(crate) fn valid_t212_history_path(path: &str) -> bool {
     }
     let mut limit = false;
     let mut cursor = false;
+    let mut ticker = false;
     for pair in query.split('&') {
         let Some((key, value)) = pair.split_once('=') else {
             return false;
@@ -399,6 +404,16 @@ pub(crate) fn valid_t212_history_path(path: &str) -> bool {
                     && value.parse::<i64>().is_ok() =>
             {
                 cursor = true
+            }
+            "ticker"
+                if !ticker
+                    && !value.is_empty()
+                    && value.len() <= 64
+                    && value.bytes().all(|byte| {
+                        byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_'
+                    }) =>
+            {
+                ticker = true
             }
             _ => return false,
         }
@@ -954,6 +969,15 @@ pub(crate) enum JobKind {
     BitgetDemoSubmit,
     BitgetDemoReconcile,
     CancellationIntentRefresh(Box<crate::protocol::CancellationIntentRequest>),
+    Trading212LiveReconcile {
+        input: Box<ResolutionEvidenceRefresh>,
+        attempt: Box<ExecutionAttempt>,
+        proposal: Box<OrderProposal>,
+        ledger: Option<Box<ResolutionEvidenceLedger>>,
+        queried_at: String,
+        automatic_window_started_at: String,
+        automatic_window_ends_at: String,
+    },
 }
 
 pub struct ProviderJob {
@@ -1004,6 +1028,7 @@ pub struct ProviderOutcome {
     pub(crate) binance_testnet_attempt: Option<BinanceTestnetOrderAttempt>,
     pub(crate) binance_testnet_order_book: Option<BinanceTestnetOrderBook>,
     pub(crate) bitget_demo_attempt: Option<BitgetDemoOrderAttempt>,
+    pub(crate) resolution_evidence: Option<ResolutionEvidence>,
 }
 
 impl ProviderJob {
@@ -1037,7 +1062,11 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
+        }
+        if matches!(&self.kind, JobKind::Trading212LiveReconcile { .. }) {
+            return self.run_trading212_live_reconciliation(vault, http, current);
         }
         if matches!(
             &self.kind,
@@ -1271,6 +1300,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             },
             Err(error) => ProviderOutcome {
                 observation: None,
@@ -1283,7 +1313,285 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             },
+        }
+    }
+
+    fn run_trading212_live_reconciliation(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let JobKind::Trading212LiveReconcile {
+            input,
+            attempt,
+            proposal,
+            ledger,
+            queried_at,
+            automatic_window_started_at,
+            automatic_window_ends_at,
+        } = &self.kind
+        else {
+            unreachable!();
+        };
+        let mut credential = "MISSING";
+        let empty_outcome = |error: TradeXError| ProviderOutcome {
+            observation: None,
+            error: Some(error),
+            credential: credential.into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
+            resolution_evidence: None,
+        };
+        if !current() {
+            return empty_outcome(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let (_, submit_body) =
+            match trading212_live_order_request(proposal, &self.account.connection_id) {
+                Ok(value) => value,
+                Err(error) => return empty_outcome(error),
+            };
+        let Some(ticker) = submit_body["ticker"].as_str() else {
+            return empty_outcome(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        let history_path = ledger
+            .as_deref()
+            .and_then(|ledger| ledger.next_page_path.clone())
+            .unwrap_or_else(|| format!("/api/v0/equity/history/orders?limit=50&ticker={ticker}"));
+        let query_scope = format!(
+            "GET /api/v0/equity/account/summary; GET /api/v0/equity/orders; GET {history_path}"
+        );
+        let result = (|| -> Result<(Vec<ProviderOrderCandidate>, Option<String>, bool)> {
+            if self.account.provider_id != "trading212"
+                || self.account.environment != "LIVE"
+                || self.account.connection_state != ConnectionState::Connected
+                || attempt.state != ExecutionAttemptState::UnknownReconciling
+                || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+                || attempt.environment != ExecutionContext::Trading212Live
+                || attempt.account_id != self.account.connection_id
+                || attempt.attempt_id != input.execution_attempt_id
+                || attempt.workspace_id != input.workspace_id
+                || attempt.state_version != input.expected_attempt_state_version
+                || input.account_id != self.account.connection_id
+                || proposal.workspace_id != attempt.workspace_id
+                || proposal.proposal_id != attempt.intent_id
+                || proposal.proposal_id.as_str()
+                    != attempt.proposal_id.as_deref().unwrap_or_default()
+                || proposal.proposal_hash != attempt.intent_hash
+                || proposal.fields.account_id.as_deref() != Some(attempt.account_id.as_str())
+                || proposal.fields.environment != ExecutionContext::Trading212Live
+                || !valid_t212_history_path(&history_path)
+                || !current()
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if ledger.as_deref().is_some_and(|ledger| {
+                ledger.history_pages_read >= 100 && ledger.next_page_path.is_some()
+            }) {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            let secret = vault.get(&self.account.credential_ref())?;
+            credential = "CONFIGURED";
+            let mut values = secret.values()?;
+            if values.len() != 2 || values[0].contains(':') {
+                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+            }
+            use base64::Engine;
+            let combined = Zeroizing::new(format!("{}:{}", values[0], values[1]));
+            let encoded = Zeroizing::new(
+                base64::engine::general_purpose::STANDARD.encode(combined.as_bytes()),
+            );
+            let header_text = Zeroizing::new(format!("Basic {}", encoded.as_str()));
+            let mut header = HeaderValue::from_str(&header_text)
+                .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+            header.set_sensitive(true);
+            let mut auth = HeaderMap::new();
+            auth.insert("Authorization", header);
+            values.push(encoded.to_string());
+            let query = |path: &str| -> Result<Value> {
+                if !current() {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let response = http.request(
+                    ProviderEndpoint::Trading212Live,
+                    ProviderHttpMethod::Get,
+                    path,
+                    auth.clone(),
+                    None,
+                )?;
+                if response.status != 200 {
+                    return Err(trading212_order_read_error(
+                        response.status,
+                        Trading212Endpoint::History,
+                    ));
+                }
+                if response.body.len() as u64 > MAX_RESPONSE {
+                    return Err(invalid());
+                }
+                let value: Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
+                if contains_secret(&value, &values) {
+                    return Err(invalid());
+                }
+                Ok(value)
+            };
+            let account = query("/api/v0/equity/account/summary")?;
+            let remote_account_id = trading212::account_id(&account)?;
+            if self
+                .account
+                .data
+                .as_ref()
+                .is_none_or(|data| data.remote_account_id != remote_account_id)
+            {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+            }
+            let pending = query("/api/v0/equity/orders")?;
+            let pending = pending.as_array().ok_or_else(invalid)?;
+            if pending.len() > 500 {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            let mut rows = Vec::with_capacity(pending.len() + 50);
+            for row in pending {
+                rows.push(parse_trading212_order(row, queried_at, true)?);
+            }
+            let history = query(&history_path)?;
+            let items = history["items"].as_array().ok_or_else(invalid)?;
+            if items.len() > 50 {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            for row in items {
+                rows.push(parse_trading212_order(row, queried_at, false)?);
+            }
+            let next_page_path = match history.get("nextPagePath") {
+                Some(Value::Null) => None,
+                Some(Value::String(path)) if valid_t212_history_path(path) => Some(path.clone()),
+                _ => return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE")),
+            };
+            if next_page_path.as_deref().is_some_and(|next| {
+                next == history_path
+                    || ledger.as_deref().is_some_and(|ledger| {
+                        ledger
+                            .evidence
+                            .iter()
+                            .any(|evidence| evidence.query_scope.ends_with(&format!("GET {next}")))
+                    })
+            }) {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            let expected_side = match proposal.fields.side {
+                OrderSide::Buy => "BUY",
+                OrderSide::Sell => "SELL",
+            };
+            let window_started = ::time::OffsetDateTime::parse(
+                automatic_window_started_at,
+                &::time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let window_ends = ::time::OffsetDateTime::parse(
+                automatic_window_ends_at,
+                &::time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let proposal_quantity = proposal.fields.quantity.value.as_str();
+            let mut seen = std::collections::HashSet::new();
+            let candidates = rows
+                .into_iter()
+                .filter(|order| order.symbol == ticker && order.side == expected_side)
+                .filter(|order| {
+                    order.quantity.as_deref().is_some_and(|quantity| {
+                        decimal_cmp(quantity, proposal_quantity)
+                            .is_ok_and(|comparison| comparison == std::cmp::Ordering::Equal)
+                    })
+                })
+                .filter(|order| {
+                    ::time::OffsetDateTime::parse(
+                        &order.submitted_at,
+                        &::time::format_description::well_known::Rfc3339,
+                    )
+                    .is_ok_and(|submitted_at| {
+                        submitted_at >= window_started && submitted_at <= window_ends
+                    })
+                })
+                .filter(|order| seen.insert(order.provider_order_id.clone()))
+                .map(|order| ProviderOrderCandidate {
+                    provider_order_id: order.provider_order_id,
+                    provider_symbol: order.symbol,
+                    side: proposal.fields.side,
+                    provider_status: order.provider_status,
+                    order_type: order.order_type,
+                    quantity: order.quantity,
+                    submitted_at: Some(order.submitted_at),
+                    provider_client_id: None,
+                })
+                .collect::<Vec<_>>();
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            Ok((candidates, next_page_path.clone(), next_page_path.is_none()))
+        })();
+        if result
+            .as_ref()
+            .is_err_and(|error| error.code == "PROVIDER_AUTH_FAILED")
+        {
+            credential = "INVALID";
+        }
+        let evidence = match result {
+            Ok((candidate_orders, next_page_path, pagination_complete)) => ResolutionEvidence {
+                evidence_id: uuid::Uuid::new_v4().to_string(),
+                execution_attempt_id: attempt.attempt_id.clone(),
+                account_id: self.account.connection_id.clone(),
+                provider_id: "trading212".into(),
+                queried_at: queried_at.clone(),
+                query_scope,
+                coverage_from: Some(automatic_window_started_at.clone()),
+                coverage_to: Some(queried_at.clone()),
+                outcome: if candidate_orders.is_empty() {
+                    ResolutionEvidenceOutcome::Inconclusive
+                } else {
+                    ResolutionEvidenceOutcome::CandidatesFound
+                },
+                pagination_complete,
+                candidate_orders,
+                next_page_path,
+                error_code: None,
+            },
+            Err(error) if error.code == "STATE_VERSION_CONFLICT" => {
+                return empty_outcome(error);
+            }
+            Err(error) => ResolutionEvidence {
+                evidence_id: uuid::Uuid::new_v4().to_string(),
+                execution_attempt_id: attempt.attempt_id.clone(),
+                account_id: self.account.connection_id.clone(),
+                provider_id: "trading212".into(),
+                queried_at: queried_at.clone(),
+                query_scope,
+                coverage_from: Some(automatic_window_started_at.clone()),
+                coverage_to: Some(queried_at.clone()),
+                outcome: ResolutionEvidenceOutcome::Inconclusive,
+                pagination_complete: false,
+                candidate_orders: Vec::new(),
+                next_page_path: None,
+                error_code: Some(error.code),
+            },
+        };
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: credential.into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
+            resolution_evidence: Some(evidence),
         }
     }
 
@@ -1305,6 +1613,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1423,6 +1732,7 @@ impl ProviderJob {
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
             bitget_demo_attempt: None,
+            resolution_evidence: None,
         }
     }
 
@@ -1444,6 +1754,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -1697,6 +2008,7 @@ impl ProviderJob {
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
             bitget_demo_attempt: None,
+            resolution_evidence: None,
         }
     }
 
@@ -1852,6 +2164,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let Some(proposal) = self.binance_testnet_proposal.as_ref() else {
@@ -1866,6 +2179,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let result = (|| -> Result<BinanceTestnetOrderAttempt> {
@@ -1907,6 +2221,7 @@ impl ProviderJob {
             binance_testnet_attempt: Some(attempt),
             binance_testnet_order_book: None,
             bitget_demo_attempt: None,
+            resolution_evidence: None,
         }
     }
 
@@ -1928,6 +2243,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let reconcile = self.kind == JobKind::BitgetDemoReconcile;
@@ -1975,6 +2291,7 @@ impl ProviderJob {
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
             bitget_demo_attempt: Some(attempt),
+            resolution_evidence: None,
         }
     }
 
@@ -1996,6 +2313,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let mut credential = "MISSING";
@@ -2082,6 +2400,7 @@ impl ProviderJob {
             binance_testnet_attempt: None,
             binance_testnet_order_book: Some(book),
             bitget_demo_attempt: None,
+            resolution_evidence: None,
         }
     }
 
@@ -2103,6 +2422,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -2286,6 +2606,7 @@ impl ProviderJob {
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
             bitget_demo_attempt: None,
+            resolution_evidence: None,
         }
     }
 
@@ -2307,6 +2628,7 @@ impl ProviderJob {
                 binance_testnet_attempt: None,
                 binance_testnet_order_book: None,
                 bitget_demo_attempt: None,
+                resolution_evidence: None,
             };
         };
         let mut credential_state = "MISSING";
@@ -2420,6 +2742,7 @@ impl ProviderJob {
             binance_testnet_attempt: None,
             binance_testnet_order_book: None,
             bitget_demo_attempt: None,
+            resolution_evidence: None,
         }
     }
 
@@ -4168,9 +4491,15 @@ mod trading212_demo_route_tests {
                 .allows("/api/v0/equity/history/orders?limit=50&cursor=1760346100000")
         );
         assert!(
-            !ProviderEndpoint::Trading212Live
+            ProviderEndpoint::Trading212Live
                 .allows("/api/v0/equity/history/orders?limit=50&cursor=1760346100000")
         );
+        for method in [ProviderHttpMethod::Post, ProviderHttpMethod::Delete] {
+            assert!(!ProviderEndpoint::Trading212Live.allows_method(
+                method,
+                "/api/v0/equity/history/orders?limit=50&cursor=1760346100000"
+            ));
+        }
         for path in [
             "/api/v0/equity/orders/0",
             "/api/v0/equity/orders/9007199254740995?x=1",
