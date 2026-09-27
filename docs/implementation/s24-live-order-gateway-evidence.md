@@ -12,7 +12,7 @@
 ## 验证
 
 - `npm run check` **PASS**：schema 一致、TypeScript 与 Vite build、13 个 Node 单测、`cargo test --workspace`（200 个库测试及所有默认集成目标通过；仓库显式 ignored 项仍保持 ignored）、203 条需求/70 个页面/13 个 QA 场景/23 个基线文件的 traceability 检查。Vite 提示现有约 3.75 MB minified JavaScript chunk。
-- `cargo test --manifest-path src-tauri/Cargo.toml --features 'integration-test order-gateway-runtime' --test order_gateway -- --nocapture` **PASS：12/12**。使用真实 Gateway 子进程与仅绑定 loopback 的假 provider；覆盖摘要校验、握手版本/认证/帧大小拒绝、准确 PLACE/CANCEL 身份和请求数、明确拒绝、未知结果、重复激活及结果保存失败不重放。
+- `cargo test --manifest-path src-tauri/Cargo.toml --features 'integration-test order-gateway-runtime' --test order_gateway -- --nocapture` **PASS：13/13**。使用真实 Gateway 子进程与仅绑定 loopback 的假 provider；覆盖摘要校验、握手版本/认证/帧大小拒绝、准确 PLACE/CANCEL 身份和请求数、过期 grant 被拒绝且不触达 provider、明确拒绝、未知结果、重复激活及结果保存失败不重放。Control Plane 单测另验证到期 grant 阻止 `SUBMITTING` 并释放 PLACE reservation。
 - Rust-backed CUA 浏览器验收 **PASS：14 个 PLACE 交互检查**。验证 Prepare 披露、键盘拒绝/显式批准、arm/账户/提案竞争 fail-closed、账户与提案重开恢复、一次 fake-provider POST、`ACCEPTED` / `REJECTED` / `UNKNOWN_RECONCILING` 的持久化与不可重发，以及 390/768/1280 px 和 accessible stale-status 呈现。浏览器状态与 provider responses 均为合成 fixture。
 - 用 `synthetic-api-key` / `synthetic-api-secret` 验证 child 的 authenticated provider request；执行结果序列化中不包含这两个值。全程没有连接 provider host，也没有发送真实 provider POST/DELETE。
 - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`、`git diff --check` 和三个变更/新增 Node 脚本的 `node --check` **PASS**。

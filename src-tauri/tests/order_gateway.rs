@@ -135,8 +135,11 @@ mod local_provider_tests {
         let captured = Arc::new(Mutex::new(Vec::new()));
         let capture = captured.clone();
         let thread = thread::spawn(move || {
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
-            for _ in 0..calls_to_accept {
+            let expect_no_calls = calls_to_accept == 0;
+            let expected_calls = calls_to_accept.max(1);
+            let deadline = std::time::Instant::now()
+                + std::time::Duration::from_secs(if expect_no_calls { 1 } else { 15 });
+            for _ in 0..expected_calls {
                 let (stream, _) = loop {
                     match listener.accept() {
                         Ok(connection) => break connection,
@@ -145,6 +148,12 @@ mod local_provider_tests {
                                 && std::time::Instant::now() < deadline =>
                         {
                             thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        Err(error)
+                            if expect_no_calls
+                                && error.kind() == std::io::ErrorKind::WouldBlock =>
+                        {
+                            return;
                         }
                         Err(error) => panic!("fake provider accept failed: {error}"),
                     }
@@ -468,6 +477,71 @@ mod local_provider_tests {
         );
         assert!(!*stopped.lock().unwrap());
         (gateway, result, dispatch)
+    }
+
+    #[test]
+    fn real_child_does_not_contact_provider_after_expired_grant_is_rejected() {
+        let (url, calls, provider) = fake_provider(0, 200, b"", false);
+        let mut dispatch_package = package(
+            "place-expired-grant",
+            GatewayDispatchIntent::Place(Box::new(proposal())),
+        );
+        dispatch_package.grant.expires_at = "2026-09-27T09:59:59Z".into();
+        let attempt_id = dispatch_package.attempt.attempt_id.clone();
+        let package = Arc::new(Mutex::new(dispatch_package));
+        let issue_package = package.clone();
+        let begin_package = package.clone();
+        let stopped = Arc::new(Mutex::new(false));
+        let stopped_callback = stopped.clone();
+        let result: DispatchOutcomeSlot = Arc::new(Mutex::new(None));
+        let result_callback = result.clone();
+        let executable = Path::new(env!("CARGO_BIN_EXE_tradex-order-gateway"));
+        let mut gateway = OrderGatewayHost::new(executable.to_owned(), digest(executable));
+        gateway.start().unwrap();
+
+        let dispatch = gateway.dispatch_attempt(
+            &attempt_id,
+            move |_, session| {
+                let mut package = issue_package.lock().unwrap();
+                package.grant.gateway_session_id = session.into();
+                package.local_test_base_url = Some(url.clone());
+                Ok(package.clone())
+            },
+            move |grant_id, session| {
+                let package = begin_package.lock().unwrap();
+                if package.grant.grant_id != grant_id || package.grant.gateway_session_id != session
+                {
+                    return Err("GATEWAY_AUTH_FAILED".into());
+                }
+                let now = time::OffsetDateTime::parse(
+                    "2026-09-27T10:00:00Z",
+                    &time::format_description::well_known::Rfc3339,
+                )
+                .unwrap();
+                let expires = time::OffsetDateTime::parse(
+                    &package.grant.expires_at,
+                    &time::format_description::well_known::Rfc3339,
+                )
+                .unwrap();
+                if expires <= now {
+                    Err("EXECUTION_DISPATCH_NOT_READY".into())
+                } else {
+                    Ok(())
+                }
+            },
+            move |_, _| *stopped_callback.lock().unwrap() = true,
+            move |_, outcome| {
+                *result_callback.lock().unwrap() = Some(outcome.clone());
+                Ok(())
+            },
+        );
+
+        assert_eq!(dispatch, Ok(()));
+        assert!(*stopped.lock().unwrap());
+        assert!(result.lock().unwrap().is_none());
+        gateway.stop();
+        provider.join().unwrap();
+        assert!(calls.lock().unwrap().is_empty());
     }
 
     #[test]

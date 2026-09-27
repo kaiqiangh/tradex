@@ -13000,7 +13000,7 @@ mod live_approval_tests {
     }
 
     #[test]
-    fn approval_ttl_expires_reserved_attempt_and_rejects_late_preparation() {
+    fn approval_ttl_rejects_expired_gateway_grant_and_releases_reserved_capacity() {
         let (_folder, mut control, workspace_id, _account, proposal, review) =
             reviewed_live_capacity_fixture();
         let (approval, _, prepared) = issue_and_prepare_live_place(
@@ -13010,10 +13010,25 @@ mod live_approval_tests {
             &review,
             "approval-ttl-release",
         );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        assert_eq!(
+            grant.expires_at,
+            approval["data"]["expiresAt"].as_str().unwrap()
+        );
         advance_test_time_past_approval(
             &mut control,
             &workspace_id,
             approval["data"]["expiresAt"].as_str().unwrap(),
+        );
+        assert_eq!(
+            control
+                .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+                .unwrap_err()
+                .code,
+            "EXECUTION_DISPATCH_NOT_READY"
         );
         control.expire_live_arming().unwrap();
         let stopped = control
