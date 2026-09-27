@@ -157,6 +157,7 @@ Coordinates UI flows such as:
 - generate/refresh live proposal;
 - submit approval/rejection;
 - approve cancellation;
+- separately prepare the exact approved Live CANCEL and restore its saved `RESERVED` attempt without presenting it as provider cancellation;
 - resolve ambiguous submission;
 - configure provider/model;
 - import/restore workspace.

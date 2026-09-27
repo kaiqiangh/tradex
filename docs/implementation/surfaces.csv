@@ -37,7 +37,7 @@ F6,Approval Expired,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,610,"S22,S33",NOT
 F7,Risk Rejected,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,614,"S21,S33",NOT_STARTED,
 F8,Broker Rejected,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,618,"S25,S33",NOT_STARTED,
 F9,Ambiguous Submission / Manual Resolution,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,622,"S25,S33",NOT_STARTED,
-F10,Live Cancellation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,640,"S26,S33",NOT_STARTED,
+F10,Live Cancellation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,640,"S23,S26,S33",IN_PROGRESS,"S23 #90 adds a separately prepared durable RESERVED CANCEL attempt with no new reservation or provider DELETE; provider cancellation lifecycle in S26 and S33 cross-surface regression remain pending"
 F11,Reservation Conflict,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,646,"S23,S33",NOT_STARTED,
 F12,Risk-policy Change Invalidation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,660,"S21,S23,S27,S33",NOT_STARTED,
 G1,Local Paper,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,673,"S16,S33",IMPLEMENTED_UNVERIFIED,"docs/implementation/s16-local-paper-isolation-evidence.md; S16 Local Paper browser/Rust evidence on final dev SHA; S33 full regression remains pending"

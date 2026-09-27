@@ -1233,6 +1233,7 @@ impl Store {
                     "execution-preparation" => {
                         event.event_type != "trade.execution.preparation.rejected"
                     }
+                    "execution-attempt" => event.event_type != "trade.execution.attempt.changed",
                     "order-proposal-consumption" => event.event_type != "trade.proposal.consumed",
                     "approval-audit" => event.event_type != "trade.approval.rejected",
                     "thread" => !matches!(
@@ -3596,6 +3597,275 @@ impl Store {
                 reservation_event,
                 attempt_event,
             ],
+        ))
+    }
+
+    pub fn prepare_live_cancel(
+        &mut self,
+        approval_id: &str,
+        expected_approval_state_version: &str,
+        idempotency_key: &str,
+        expected_account_state_version: &str,
+        expected_review_digest: &str,
+        mut attempt: ExecutionAttempt,
+        now: &str,
+    ) -> Result<(ExecutionPreparation, Vec<DomainEvent>)> {
+        let workspace_id = self.workspace_id()?;
+        if approval_id.is_empty()
+            || idempotency_key.is_empty()
+            || idempotency_key.len() > 128
+            || idempotency_key.chars().any(char::is_control)
+            || attempt.workspace_id != workspace_id
+            || attempt.approval_id != approval_id
+            || attempt.operation != crate::protocol::FinancialOperation::Cancel
+            || attempt.state != ExecutionAttemptState::Reserved
+            || attempt.proposal_id.is_some()
+            || attempt.reservation_id.is_some()
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let existing: Option<(String, String)> = tx
+            .query_row(
+                "SELECT attempt_id,projection FROM execution_attempts WHERE workspace_id=?1 AND idempotency_key=?2",
+                params![workspace_id, idempotency_key],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if let Some((attempt_id, projection)) = existing {
+            let saved: ExecutionAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if saved.attempt_id != attempt_id
+                || saved.approval_id != approval_id
+                || saved.operation != crate::protocol::FinancialOperation::Cancel
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if load_execution_reservation_for_attempt(&tx, &workspace_id, &attempt_id)?.is_some() {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            tx.commit().map_err(storage_error)?;
+            return Ok((
+                ExecutionPreparation {
+                    attempt: Box::new(saved),
+                    reservation: None,
+                },
+                Vec::new(),
+            ));
+        }
+        let idempotency_digest =
+            execution_preparation_idempotency_digest(&workspace_id, idempotency_key);
+        if let Some(rejection) = execution_preparation_rejection_for_digest(
+            &tx,
+            &workspace_id,
+            approval_id,
+            &idempotency_digest,
+        )? {
+            let error = execution_preparation_rejection_error(&rejection);
+            tx.commit().map_err(storage_error)?;
+            return Err(error);
+        }
+
+        let (approval_sequence, approval_projection): (i64, String) = tx
+            .query_row(
+                "SELECT sequence,projection FROM financial_approvals WHERE workspace_id=?1 AND approval_id=?2",
+                params![workspace_id, approval_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("STATE_VERSION_CONFLICT")
+            } else { storage_error(error) })?;
+        let mut approval: FinancialApproval = serde_json::from_str(&approval_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if approval_sequence < 1
+            || approval.workspace_id != workspace_id
+            || approval.state_version
+                != format!("financial-approval:{approval_id}:{approval_sequence}")
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        if approval.state_version != expected_approval_state_version
+            || approval.status != FinancialApprovalStatus::Issued
+            || approval.operation() != crate::protocol::FinancialOperation::Cancel
+            || approval.review_digest != expected_review_digest
+            || approval_expired(&approval.expires_at, now)
+        {
+            return Err(TradeXError::new(
+                if approval.status == FinancialApprovalStatus::Consumed {
+                    "APPROVAL_CONSUMED"
+                } else {
+                    "STATE_VERSION_CONFLICT"
+                },
+            ));
+        }
+        let (
+            cancellation_intent_id,
+            intent_hash,
+            broker_order_id,
+            remaining_quantity,
+            snapshot_version,
+            snapshot_evidence_id,
+        ) = match &approval.intent {
+            FinancialApprovalIntent::Cancel {
+                cancellation_intent_id,
+                intent_hash,
+                broker_order_id,
+                remaining_quantity,
+                snapshot_version,
+                snapshot_evidence_id,
+            } => (
+                cancellation_intent_id.clone(),
+                intent_hash.clone(),
+                broker_order_id.clone(),
+                remaining_quantity.clone(),
+                snapshot_version.clone(),
+                snapshot_evidence_id.clone(),
+            ),
+            FinancialApprovalIntent::PlaceOrder { .. } => {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        };
+        if attempt.intent_id != cancellation_intent_id
+            || attempt.intent_hash != intent_hash
+            || attempt.broker_order_id.as_deref() != Some(broker_order_id.as_str())
+            || attempt.account_id != approval.account_id
+            || attempt.environment != approval.environment
+            || attempt.policy_version != approval.policy_version
+            || attempt.risk_decision_id != approval.risk_decision_id
+            || attempt.review_digest != approval.review_digest
+            || attempt.account_state_version != expected_account_state_version
+            || attempt.intent_state_version != snapshot_version
+        {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let (intent_status, intent_projection): (String, String) = tx
+            .query_row(
+                "SELECT status,projection FROM cancellation_intents WHERE workspace_id=?1 AND intent_id=?2",
+                params![workspace_id, cancellation_intent_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|error| if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                TradeXError::new("STATE_VERSION_CONFLICT")
+            } else { storage_error(error) })?;
+        let intent: CancellationIntent = serde_json::from_str(&intent_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        validate_cancellation_intent(&intent, &workspace_id)?;
+        if intent_status != "CURRENT"
+            || intent.intent_hash != intent_hash
+            || cancellation_intent_hash(&intent)? != intent_hash
+            || intent.account_id != approval.account_id
+            || intent.environment != approval.environment
+            || intent.provider_order_id != broker_order_id
+            || intent.remaining_quantity != remaining_quantity
+        {
+            return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+        }
+        let account_projection: String = tx
+            .query_row(
+                "SELECT projection FROM accounts WHERE connection_id=?1",
+                [&approval.account_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("ACCOUNT_NOT_FOUND")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let account: AccountConnection = serde_json::from_str(&account_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        account.validate_persisted(&workspace_id)?;
+        validate_cancellation_snapshot(&account, &intent)?;
+        if account.state_version != expected_account_state_version
+            || account.state_version != snapshot_version
+            || account.environment != "LIVE"
+            || account.connection_state != ConnectionState::Connected
+            || account.health.arming != "ARMED"
+            || account.health.connection != "ONLINE"
+            || account.health.authentication != "VALID"
+            || !matches!(
+                account.health.credential.as_str(),
+                "AVAILABLE" | "CONFIGURED"
+            )
+            || account.data.is_none()
+            || execution_provider(&intent.environment) != Some(account.provider_id.as_str())
+            || cancellation_snapshot_evidence_id(&account, &intent)? != snapshot_evidence_id
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        let observed = account
+            .last_successful_sync
+            .as_deref()
+            .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok())
+            .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+        let now_time =
+            OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        if now_time < observed || (now_time - observed).whole_milliseconds() > 30_000 {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        let policy_projection: String = tx
+            .query_row(
+                "SELECT projection FROM risk_state WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                if matches!(error, rusqlite::Error::QueryReturnedNoRows) {
+                    TradeXError::new("RISK_POLICY_UNCONFIGURED")
+                } else {
+                    storage_error(error)
+                }
+            })?;
+        let policy: RiskPolicyState = serde_json::from_str(&policy_projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if !policy.configured || policy.policy_version != approval.policy_version {
+            return Err(TradeXError::new("POLICY_VERSION_STALE"));
+        }
+        let prior_approval_attempt: Option<String> = tx
+            .query_row(
+                "SELECT attempt_id FROM execution_attempts WHERE workspace_id=?1 AND approval_id=?2",
+                params![workspace_id, approval_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if prior_approval_attempt.is_some() {
+            return Err(TradeXError::new("APPROVAL_CONSUMED"));
+        }
+        let prior_intent_attempt: Option<String> = tx
+            .query_row(
+                "SELECT attempt_id FROM execution_attempts WHERE workspace_id=?1 AND operation='CANCEL' AND intent_id=?2",
+                params![workspace_id, cancellation_intent_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if prior_intent_attempt.is_some() {
+            return Err(TradeXError::new("APPROVAL_CONSUMED"));
+        }
+
+        approval.status = FinancialApprovalStatus::Consumed;
+        approval.consumed_at = Some(now.into());
+        approval.invalidation_reason = None;
+        attempt.created_at = now.into();
+        let approval_event = write_financial_approval_tx(&tx, approval, None, now)?;
+        let attempt_event = write_execution_attempt_tx(&tx, attempt, idempotency_key)?;
+        let saved_attempt = match &attempt_event.payload {
+            DomainProjection::ExecutionAttempt(saved) => (**saved).clone(),
+            _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+        };
+        tx.commit().map_err(storage_error)?;
+        Ok((
+            ExecutionPreparation {
+                attempt: Box::new(saved_attempt),
+                reservation: None,
+            },
+            vec![approval_event, attempt_event],
         ))
     }
 

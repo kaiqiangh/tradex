@@ -1035,14 +1035,14 @@ Database transaction 是 correctness boundary；in-memory lock 只是降低争�
 
 ### 22.3 Reservation lifecycle
 
-S23 的 `trade.execution.prepare` 是审批后的独立显式用户操作。它在一个 SQLite immediate transaction 中重新校验精确 Live PLACE，消费 approval 与 proposal，创建容量预留和 `RESERVED` attempt，并提交相关审计/outbox。返回权威 attempt 与 reservation 后即停止，不进入 Order Gateway 或 provider I/O；派发属于后续 S24 边界。响应丢失或重启后，`trade.execution.preparation.get` 按 workspace 和 approval 身份读取同一耐久结果。
+S23 的 `trade.execution.prepare` 是审批后的独立显式用户操作。对于 Live PLACE，一个 SQLite immediate transaction 重新校验精确 proposal 与账户，消费 approval 和 proposal，创建精确容量 reservation 与 `RESERVED` attempt，并提交审计/outbox。对于 Live CANCEL，同一命令重新校验获批的不可变意图、提供方订单身份、账户快照/证据、策略与剩余数量，然后只消费撤单 approval，并保存不带新增 reservation 的 `RESERVED` attempt。在权威提供方证据确认撤单或成交竞态之前，原订单承诺继续占用容量。两种操作都会在 Order Gateway 或 provider I/O 之前停止；派发属于后续 S24 边界。响应丢失或重启后，`trade.execution.preparation.get` 按 workspace 和 approval 身份读取同一耐久 attempt，以及适用时的 PLACE reservation。
 
 ```text
-APPROVED
-→ RESERVED
-→ SUBMITTING
-→ ACCEPTED / REJECTED / UNKNOWN_RECONCILING
-→ adjust/release only from authoritative resolution
+PLACE：APPROVED → RESERVED（精确 reservation）→ SUBMITTING
+       → ACCEPTED / REJECTED / UNKNOWN_RECONCILING
+       → 仅依据权威处置证据调整/释放
+CANCEL：APPROVED → RESERVED（不新增 reservation）→ S24 派发
+        → CANCEL_PENDING → 提供方确认的终态或成交竞态
 ```
 
 ### 22.4 Unknown state
@@ -1868,7 +1868,8 @@ interface TradeXError {
 | 请求审批审阅 | trade.request_approval | workspace_id、proposal_id；返回后端持有的 proposal/账户/报价摘要和当前 RiskDecision ID 供比较；不签发授权 |
 | 显式批准 | trade.approve | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；后端重新校验完整审阅并创建短时 approval；不消费、不创建 reservation |
 | 准备已批准的 Live PLACE | trade.execution.prepare | workspace_id、approval_id、expected_approval_state_version、idempotency_key、confirmed=true；后端重新读取并校验精确 proposal/账户/策略/报价/FX/容量/时钟证据，然后原子消费 proposal 与 approval，并创建一个 `RESERVED` attempt 和精确 reservation。相同幂等键重放返回已保存结果。容量拒绝会在同一验证事务中追加脱敏拒绝记录与 outbox event，同时保持 proposal、approval、reservation 和 attempt 不变；重放该 key 返回同一拒绝。不启动 Order Gateway 或 provider request。 |
-| 恢复 Live PLACE preparation | trade.execution.preparation.get | workspace_id、approval_id；响应丢失或重启后返回耐久的 `ExecutionPreparation | null` 与容量拒绝历史。只读，不发送 provider request。 |
+| 准备已批准的 Live CANCEL | trade.execution.prepare | 使用相同 workspace/approval/version/idempotency/confirmed payload；后端重新校验带 CANCEL 标签的 approval、精确当前意图/订单/账户/策略/快照证据，然后原子消费 approval 并写入一个 `RESERVED` attempt，且 `reservation=null`。相同幂等键重放返回该 attempt；不同 key 不能再次消费 approval。不消费 proposal、不创建 PLACE reservation，也不启动 Order Gateway 或 provider request。 |
+| 恢复 Live execution preparation | trade.execution.preparation.get | workspace_id、approval_id；响应丢失或重启后返回耐久的 `ExecutionPreparation | null`（适用时含 PLACE reservation）与容量拒绝历史。只读，不发送 provider request。 |
 | 拒绝审批审阅 | trade.reject | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；记录 `USER_REJECTED`；不创建 approval 或执行券商操作 |
 | 读取审批历史 | trade.approval.list | workspace_id、proposal_id；返回已签发、已拒绝、已失效、已过期及后续已消费状态和脱敏审计原因 |
 | 准备撤单审阅 | trade.cancel_request | workspace_id、account_id、broker_order_id、expected_state_version、可选 previous_intent_id；Control Plane 执行认证后的 Live 只读请求并持久化观测，返回含不可变意图 ID/hash、精确剩余数量、snapshot_version/evidence、账户、RiskDecision、阻断原因和 review digest 的 CancellationReview。Arm 后只有当订单语义身份/状态/数量未变化时才复用同一意图。 |

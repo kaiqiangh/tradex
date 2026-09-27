@@ -1035,14 +1035,14 @@ The database transaction is the correctness boundary; the in-memory lock is a co
 
 ### 22.3 Reservation lifecycle
 
-The S23 `trade.execution.prepare` command is a separate explicit user action after approval. In one SQLite immediate transaction it revalidates the exact Live PLACE, consumes the approval and proposal, creates the capacity reservation and `RESERVED` attempt, and commits their audit/outbox records. It returns the authoritative attempt and reservation and stops before Order Gateway or provider I/O; dispatch is a later S24 boundary. After a lost response or restart, `trade.execution.preparation.get` reads the same durable result by workspace and approval identity.
+The S23 `trade.execution.prepare` command is a separate explicit user action after approval. For Live PLACE, one SQLite immediate transaction revalidates the exact proposal and account, consumes the approval and proposal, creates the exact capacity reservation and `RESERVED` attempt, and commits their audit/outbox records. For Live CANCEL, the same command revalidates the approved immutable intent, provider order identity, account snapshot/evidence, policy, and remaining quantity, then consumes only the cancellation approval and saves a `RESERVED` attempt with no new reservation. Existing order commitment remains until authoritative provider evidence resolves cancellation or a fill race. Both operations stop before Order Gateway or provider I/O; dispatch is a later S24 boundary. After a lost response or restart, `trade.execution.preparation.get` reads the same durable attempt and any PLACE reservation by workspace and approval identity.
 
 ```text
-APPROVED
-→ RESERVED
-→ SUBMITTING
-→ ACCEPTED / REJECTED / UNKNOWN_RECONCILING
-→ adjust/release only from authoritative resolution
+PLACE: APPROVED → RESERVED (exact reservation) → SUBMITTING
+       → ACCEPTED / REJECTED / UNKNOWN_RECONCILING
+       → adjust/release only from authoritative resolution
+CANCEL: APPROVED → RESERVED (no new reservation) → S24 dispatch
+        → CANCEL_PENDING → provider-confirmed terminal state or fill race
 ```
 
 ### 22.4 Unknown state
@@ -1868,7 +1868,8 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Request approval review | trade.request_approval | workspace_id, proposal_id; returns backend-owned proposal/account/quote summary and current RiskDecision ID for comparison; does not issue authority |
 | Explicitly approve | trade.approve | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; backend revalidates the exact review and creates a short-lived approval; no consumption or reservation |
 | Prepare approved Live PLACE | trade.execution.prepare | workspace_id, approval_id, expected_approval_state_version, idempotency_key, confirmed=true; backend rereads and revalidates exact proposal/account/policy/quote/FX/capacity/time evidence, then atomically consumes proposal and approval and creates one `RESERVED` attempt plus exact reservation. Same-key replay returns the saved result. A capacity refusal appends a sanitized rejection and outbox event in the same validation transaction while leaving proposal, approval, reservation, and attempt unchanged; replaying that key returns the same refusal. No Order Gateway or provider request is made. |
-| Recover Live PLACE preparation | trade.execution.preparation.get | workspace_id, approval_id; returns the durable `ExecutionPreparation | null` and capacity rejection history after a lost response or restart. Read-only; no provider request. |
+| Prepare approved Live CANCEL | trade.execution.prepare | The same workspace/approval/version/idempotency/confirmed payload; the backend revalidates the tagged CANCEL approval, exact current intent/order/account/policy/snapshot evidence, then atomically consumes the approval and writes one `RESERVED` attempt with `reservation=null`. Same-key replay returns that attempt; a different key cannot consume the approval again. No proposal is consumed, no PLACE reservation is created, and no Order Gateway or provider request is made. |
+| Recover Live execution preparation | trade.execution.preparation.get | workspace_id, approval_id; returns the durable `ExecutionPreparation | null` (a PLACE reservation when applicable) and capacity rejection history after a lost response or restart. Read-only; no provider request. |
 | Reject approval review | trade.reject | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; records `USER_REJECTED`; no approval or broker action |
 | Read approval history | trade.approval.list | workspace_id, proposal_id; returns issued, rejected, invalidated, expired, and later consumed states with sanitized audit reasons |
 | Prepare cancellation review | trade.cancel_request | workspace_id, account_id, broker_order_id, expected_state_version, optional previous_intent_id; Control Plane runs an authenticated Live read, persists the observation, and returns a CancellationReview with immutable intent ID/hash, exact remaining quantity, snapshot_version/evidence, account, risk decision, blockers, and review digest. Revalidation after Arm reuses the same intent only when its semantic order identity/state/quantities are unchanged. |

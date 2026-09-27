@@ -157,6 +157,7 @@ Presentation component 接收明确的 state 和 callback，不直接调用 brok
 - 生成/刷新 live proposal；
 - 提交批准/拒绝；
 - 批准撤单；
+- 单独准备精确获批的 Live CANCEL，并恢复已保存的 `RESERVED` attempt；不得将其显示为提供方已撤单；
 - 处理 ambiguous submission；
 - 配置 provider/model；
 - 导入/恢复 Workspace。

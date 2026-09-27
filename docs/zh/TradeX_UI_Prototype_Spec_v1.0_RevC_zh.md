@@ -833,7 +833,7 @@ Generate Proposal 将展示值冻结到新的 proposal ID/hash 及策略/快照�
 
 审批 TTL 过期按 PRD §45 条件释放。过期页面展示 proposal/账户、过期时间/原因、是否可能已经提交，以及后端返回的预留处置。Refresh 创建新 proposal 并要求审批；已提交/未知尝试进入订单活动/对账，不能进入替代订单。
 
-撤单流程：选择开放订单 → 刷新券商状态 → 保留不可变 CANCEL 意图 → 必要时 Arm 精确账户 → 刷新/重新校验撤单意图 → 撤单审批 → CANCEL_PENDING → 券商确认 CANCELLED 或成交竞态。审批显示提供方订单 ID、账户/环境、标的、已观察成交/剩余数量和时间戳。动作名为 Approve Cancellation，不能使用 Approve & Place。Reject/Back 退出同意且不产生修改。订单变化/成交使旧撤单意图失效，并解释新状态。
+撤单流程：选择开放订单 → 刷新券商状态 → 保留不可变 CANCEL 意图 → 必要时 Arm 精确账户 → 刷新/重新校验撤单意图 → Approve Cancellation → 在 TradeX 中单独准备精确获批的 CANCEL → `RESERVED`（仅本地保存；不发送 provider DELETE，也不新增 PLACE reservation）→ S24 派发 → `CANCEL_PENDING` → 券商确认 CANCELLED 或成交竞态。审批显示提供方订单 ID、账户/环境、标的、已观察成交/剩余数量和时间戳。准备动作有独立的显式操作，并能在导航/重启后显示已保存 attempt；不得宣称券商已撤单。Reject/Back 退出同意且不产生修改。订单变化/成交使旧撤单意图失效，并解释新状态。
 
 ## 14.5 未知提交与 Manual Resolution（F3/F9、K7）
 

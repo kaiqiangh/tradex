@@ -188,6 +188,60 @@ export async function checkLiveCancellationApprovalUI(tab, browser) {
   observed.push('Explicit approval is durably recorded as CANCEL for the same exact intent, with a short expiry; the UI states the broker order was not cancelled.');
 
   await viewport.set({ width: 1280, height: 900 });
+  await ui.getByRole('button', { name: 'Order Drafts', exact: true }).click();
+  await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
+  const approvalRestoreAccountRow = ui.locator('.account-row').filter({ hasText: account.label });
+  await approvalRestoreAccountRow.waitFor({ state: 'visible' });
+  await approvalRestoreAccountRow.click();
+  const approvalRestoreRow = ui.locator('tr').filter({ hasText: '9007199254740995' });
+  await approvalRestoreRow.getByRole('button', { name: 'Review cancellation', exact: true }).click();
+  const restoredApprovalCard = approvalRestoreRow.getByRole('article', { name: 'Approved Live cancellation preparation', exact: true });
+  await restoredApprovalCard.waitFor({ state: 'visible' });
+  const restoredApprovalText = await restoredApprovalCard.innerText();
+  assert.ok(restoredApprovalText.includes(originalIntentId));
+  assert.ok(restoredApprovalText.includes(originalIntentHash));
+  assert.equal(await approvalRestoreRow.getByRole('button', { name: 'Prepare cancellation in TradeX', exact: true }).count(), 1);
+  assert.equal(await approvalRestoreRow.getByRole('article', { name: 'TradeX cancellation preparation', exact: true }).count(), 0);
+  observed.push('An issued CANCEL approval survives navigation and returns as the same exact intent with a separate preparation action.');
+
+  const prepareCancel = approvalRestoreRow.getByRole('button', { name: 'Prepare cancellation in TradeX', exact: true });
+  await prepareCancel.click();
+  const preparedCard = approvalRestoreRow.getByRole('article', { name: 'TradeX cancellation preparation', exact: true });
+  await preparedCard.waitFor({ state: 'visible' });
+  const preparedText = await preparedCard.innerText();
+  for (const value of ['RESERVED', originalIntentId, firstBrokerOrderId, 'No new PLACE capacity reservation was created.', 'No provider cancellation request was sent']) {
+    assert.ok(preparedText.includes(value), `Prepared CANCEL presentation contains ${value}: ${preparedText}`);
+  }
+  let preparation = await command('trade.execution.preparation.get', { workspaceId, approvalId: history.approvals[0].approvalId });
+  assert.equal(preparation.preparation.attempt.operation, 'CANCEL');
+  assert.equal(preparation.preparation.attempt.intentId, originalIntentId);
+  assert.equal(preparation.preparation.attempt.intentHash, originalIntentHash);
+  assert.equal(preparation.preparation.attempt.brokerOrderId, firstBrokerOrderId);
+  assert.equal(preparation.preparation.attempt.state, 'RESERVED');
+  assert.equal(preparation.preparation.reservation, undefined, 'CANCEL preparation has no purchase reservation.');
+  assert.equal((await approvalRestoreRow.locator('td').nth(4).innerText()).trim(), 'NEW', 'Preparing a CANCEL does not change provider order state.');
+  history = await command('trade.cancel_approval.list', { workspaceId, accountId: account.connectionId, brokerOrderId: firstBrokerOrderId });
+  assert.equal(history.approvals[0].status, 'CONSUMED');
+  observed.push('A separate explicit action prepares the same approved CANCEL as a durable RESERVED attempt, without a reservation or provider cancellation request.');
+
+  await viewport.set({ width: 1280, height: 900 });
+  await ui.getByRole('button', { name: 'Order Drafts', exact: true }).click();
+  await ui.getByRole('button', { name: 'Accounts', exact: true }).click();
+  const restoredAccountRow = ui.locator('.account-row').filter({ hasText: account.label });
+  await restoredAccountRow.waitFor({ state: 'visible' });
+  await restoredAccountRow.click();
+  const restoredOrderRow = ui.locator('tr').filter({ hasText: '9007199254740995' });
+  const restoreButton = restoredOrderRow.getByRole('button', { name: 'Review cancellation', exact: true });
+  await restoreButton.click();
+  const restoredPreparation = restoredOrderRow.getByRole('article', { name: 'TradeX cancellation preparation', exact: true });
+  await restoredPreparation.waitFor({ state: 'visible' });
+  const restoredText = await restoredPreparation.innerText();
+  assert.ok(restoredText.includes(originalIntentId), `Restored prepared CANCEL retains its intent: ${restoredText}`);
+  assert.ok(restoredText.includes(firstBrokerOrderId), `Restored prepared CANCEL retains its provider order: ${restoredText}`);
+  assert.equal(await restoredOrderRow.getByRole('button', { name: 'Prepare cancellation in TradeX', exact: true }).count(), 0);
+  observed.push('Leaving Accounts and returning restores the consumed approval and saved CANCEL attempt instead of starting a new intent or preparation.');
+
+  await viewport.set({ width: 1280, height: 900 });
   await waitFor(ui, () => reviewButtons.first().isEnabled(), 'The account snapshot did not settle after the cancellation decision.');
   const rejectedRow = ui.locator('tr').filter({ hasText: '9007199254741001' });
   const rejectReviewButton = rejectedRow.getByRole('button', { name: 'Review cancellation', exact: true });

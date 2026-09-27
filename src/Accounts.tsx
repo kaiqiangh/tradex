@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountConnection, Accounts as AccountList, CancellationReview, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
+import type { AccountConnection, Accounts as AccountList, CancellationReview, ExecutionPreparation, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
 import { CommandError, desktop, browserIntegration, explainError, request } from './client.ts';
 import { fromAccountSnapshot, fromRiskSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -15,9 +15,41 @@ function restoreCancellationFocus(trigger: HTMLButtonElement | null) {
   else document.getElementById('connections-title')?.focus();
 }
 
+function isExactCancellationPreparation(preparation: ExecutionPreparation, approval: FinancialApproval, account: AccountConnection, brokerOrderId: string) {
+  const attempt = preparation.attempt;
+  const expectedEnvironment = account.providerId === 'trading212' ? 'TRADING212_LIVE'
+    : account.providerId === 'binance' ? 'BINANCE_LIVE'
+      : account.providerId === 'bitget' ? 'BITGET_LIVE' : undefined;
+  return approval.operation === 'CANCEL'
+    && approval.workspaceId === account.workspaceId
+    && approval.accountId === account.connectionId
+    && account.environment === 'LIVE'
+    && approval.environment === expectedEnvironment
+    && attempt.workspaceId === approval.workspaceId
+    && attempt.approvalId === approval.approvalId
+    && attempt.operation === 'CANCEL'
+    && attempt.state === 'RESERVED'
+    && attempt.intentId === approval.cancellationIntentId
+    && attempt.intentHash === approval.intentHash
+    && attempt.brokerOrderId === brokerOrderId
+    && attempt.accountId === approval.accountId
+    && attempt.environment === approval.environment
+    && attempt.policyVersion === approval.policyVersion
+    && attempt.riskDecisionId === approval.riskDecisionId
+    && attempt.reviewDigest === approval.reviewDigest
+    && attempt.accountStateVersion === approval.snapshotVersion
+    && attempt.intentStateVersion === approval.snapshotVersion
+    && attempt.proposalId == null
+    && attempt.reservationId == null
+    && preparation.reservation == null;
+}
+
 function LiveCancellationAuthorization({ account, brokerOrderId, disabled = false }: { account: AccountConnection; brokerOrderId: string; disabled?: boolean }) {
   const queryClient = useQueryClient();
   const [review, setReview] = useState<CancellationReview>();
+  const [approvalToPrepare, setApprovalToPrepare] = useState<FinancialApproval>();
+  const [preparation, setPreparation] = useState<ExecutionPreparation>();
+  const [prepareIdentity, setPrepareIdentity] = useState<{ approvalId: string; idempotencyKey: string }>();
   const [busy, setBusy] = useState(false);
   const [armConfirmed, setArmConfirmed] = useState(false);
   const [error, setError] = useState('');
@@ -77,6 +109,36 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
   const startReview = async () => {
     setBusy(true); setError(''); setNotice('');
     try {
+      const savedHistory = await request('trade.cancel_approval.list', {
+        workspaceId: account.workspaceId,
+        accountId: account.connectionId,
+        brokerOrderId,
+      });
+      const savedApproval = savedHistory.approvals.find(approval =>
+        approval.operation === 'CANCEL' && ['ISSUED', 'CONSUMED'].includes(approval.status),
+      );
+      if (savedApproval) {
+        const saved = await request('trade.execution.preparation.get', {
+          workspaceId: account.workspaceId,
+          approvalId: savedApproval.approvalId,
+        });
+        if (saved.preparation) {
+          if (!isExactCancellationPreparation(saved.preparation, savedApproval, account, brokerOrderId)) throw new Error('WORKSPACE_INTEGRITY_FAILED');
+          setPreparation(saved.preparation);
+          setApprovalToPrepare(undefined);
+          setNotice('Restored the saved TradeX CANCEL preparation. No provider cancellation was sent.');
+          return;
+        }
+        if (savedApproval.status === 'CONSUMED') throw new Error('WORKSPACE_INTEGRITY_FAILED');
+        setPreparation(undefined);
+        setPrepareIdentity(undefined);
+        setApprovalToPrepare(savedApproval);
+        setNotice('The exact CANCEL approval is ready for a separate TradeX preparation step. The broker order is unchanged.');
+        return;
+      }
+      setApprovalToPrepare(undefined);
+      setPreparation(undefined);
+      setPrepareIdentity(undefined);
       await refreshReview();
     } catch (failure) { setError(explainError(failure)); }
     finally {
@@ -113,9 +175,14 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
     try {
       if (approve) {
         const approval: FinancialApproval = await request('trade.cancel_approve', input);
-        setNotice(`CANCEL approval issued until ${new Date(approval.expiresAt).toLocaleTimeString()}. The broker order was not cancelled.`);
+        setApprovalToPrepare(approval);
+        setPreparation(undefined);
+        setPrepareIdentity(undefined);
+        setNotice(`CANCEL approval issued until ${new Date(approval.expiresAt).toLocaleTimeString()}. Prepare it separately in TradeX; the broker order was not cancelled.`);
       } else {
         await request('trade.cancel_reject', input);
+        setApprovalToPrepare(undefined);
+        setPreparation(undefined);
         setNotice('Cancellation review rejected and recorded. The broker order was not changed.');
       }
       setReview(undefined);
@@ -124,9 +191,50 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
     } catch (failure) { setError(explainError(failure)); }
     finally { setBusy(false); }
   };
+  const prepareCancellation = async () => {
+    if (!approvalToPrepare || approvalToPrepare.operation !== 'CANCEL' || busy) return;
+    const identity = prepareIdentity?.approvalId === approvalToPrepare.approvalId
+      ? prepareIdentity
+      : { approvalId: approvalToPrepare.approvalId, idempotencyKey: crypto.randomUUID() };
+    setPrepareIdentity(identity);
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const prepared = await request('trade.execution.prepare', {
+        workspaceId: approvalToPrepare.workspaceId,
+        approvalId: approvalToPrepare.approvalId,
+        expectedApprovalStateVersion: approvalToPrepare.stateVersion,
+        idempotencyKey: identity.idempotencyKey,
+        confirmed: true,
+      });
+      if (!isExactCancellationPreparation(prepared, approvalToPrepare, account, brokerOrderId)) throw new Error('IPC_IDENTITY_CONFLICT');
+      setPreparation(prepared);
+      setApprovalToPrepare(undefined);
+      setPrepareIdentity(undefined);
+      setNotice('CANCEL is RESERVED in TradeX. No provider cancellation request was sent; the order state still requires provider observation.');
+      await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId, brokerOrderId] });
+    } catch (failure) { setError(explainError(failure)); }
+    finally { setBusy(false); }
+  };
   return <>
     <button type="button" disabled={!canStart || busy} onClick={event => { triggerRef.current = event.currentTarget; void startReview(); }}>{busy && !review ? 'Refreshing order…' : 'Review cancellation'}</button>
     {error && !review && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {approvalToPrepare?.operation === 'CANCEL' && <article className="live-approval-record" aria-label="Approved Live cancellation preparation">
+      <strong>Approved CANCEL · preparation not yet saved</strong>
+      <span>{account.providerId} · LIVE · {account.label} · account {account.connectionId}</span>
+      <span>Provider order {approvalToPrepare.brokerOrderId} · intent {approvalToPrepare.cancellationIntentId}</span>
+      <span>Intent hash {approvalToPrepare.intentHash} · remaining quantity {approvalToPrepare.remainingQuantity}</span>
+      <span>Approval expires {time(approvalToPrepare.expiresAt)}</span>
+      <p>This approval permits only a separate local preparation. It does not cancel the provider order.</p>
+      <button type="button" className="primary" onClick={() => void prepareCancellation()} disabled={busy}>{busy ? 'Preparing CANCEL in TradeX…' : 'Prepare cancellation in TradeX'}</button>
+    </article>}
+    {preparation && <article className="live-approval-record" aria-label="TradeX cancellation preparation">
+      <strong>{preparation.attempt.state} · TradeX CANCEL preparation</strong>
+      <span>Attempt {preparation.attempt.attemptId} · approval {preparation.attempt.approvalId}</span>
+      <span>{account.providerId} · LIVE · account {preparation.attempt.accountId}</span>
+      <span>Provider order {preparation.attempt.brokerOrderId} · intent {preparation.attempt.intentId} · {preparation.attempt.intentHash}</span>
+      <span>No new PLACE capacity reservation was created.</span>
+      <p>No provider cancellation request was sent. Use the latest provider observation for the order's current open, pending, filled, canceled, or other terminal state.</p>
+    </article>}
     <dialog ref={dialogRef} className="picker-dialog live-cancel-dialog" aria-modal="true" aria-labelledby="live-cancel-title" onCancel={event => { event.preventDefault(); if (!busy) setReview(undefined); }} onKeyDown={event => {
       if (event.key === 'Escape' && !busy) { event.preventDefault(); setReview(undefined); }
       const dialog = dialogRef.current;
