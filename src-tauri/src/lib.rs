@@ -1638,6 +1638,14 @@ fn quote_age_ms(
     u64::try_from((now - received).whole_milliseconds()).ok()
 }
 
+fn is_approval_bound_risk_input(input: &&risk::RiskDecisionInputReference) -> bool {
+    input.kind != risk::RiskDecisionInputKind::Reservations
+}
+
+fn is_approval_bound_risk_check(check: &&risk::RiskCheckResult) -> bool {
+    check.check_id != risk::RiskCheckId::ReservedCapital
+}
+
 fn approval_review_digest(
     proposal: &protocol::OrderProposal,
     account: Option<&AccountConnection>,
@@ -1670,6 +1678,16 @@ fn approval_review_digest(
         risk::canonicalize_timestamp_field(provenance.get_mut("providerTimestamp"));
         risk::canonicalize_timestamp_field(provenance.get_mut("receivedTimestamp"));
     }
+    let bound_checks = bound_decision
+        .checks
+        .iter()
+        .filter(is_approval_bound_risk_check)
+        .collect::<Vec<_>>();
+    let current_checks = current_decision
+        .checks
+        .iter()
+        .filter(is_approval_bound_risk_check)
+        .collect::<Vec<_>>();
     let material = json!({
         "proposal": {
             "workspaceId": proposal.workspace_id,
@@ -1693,16 +1711,16 @@ fn approval_review_digest(
             "environment": bound_decision.environment,
             "policyVersion": bound_decision.policy_version,
             "status": bound_decision.status,
-            "checks": bound_decision.checks,
-            "inputs": bound_decision.inputs.iter().map(|input| json!({
+            "checks": bound_checks,
+            "inputs": bound_decision.inputs.iter().filter(is_approval_bound_risk_input).map(|input| json!({
                 "kind": input.kind,
                 "digest": input.digest,
             })).collect::<Vec<_>>(),
         },
         "currentRiskChecks": {
-            "status": current_decision.status,
-            "checks": current_decision.checks,
-            "inputs": current_decision.inputs.iter().map(|input| json!({
+            "status": bound_decision.status,
+            "checks": current_checks,
+            "inputs": current_decision.inputs.iter().filter(is_approval_bound_risk_input).map(|input| json!({
                 "kind": input.kind,
                 "digest": input.digest,
             })).collect::<Vec<_>>(),
@@ -6744,24 +6762,49 @@ impl ControlPlane {
         let policy = self.store.as_ref().unwrap().risk_or_new()?;
         let (current_decision, account, market, time_status) =
             self.build_risk_evaluation(proposal, policy.clone())?;
+        let defer_reservation_recheck = bound_decision.is_some();
         let bound = bound_decision.unwrap_or_else(|| current_decision.clone());
-        let decision_matches = bound.status == current_decision.status
-            && bound.checks == current_decision.checks
+        // A bound approval defers the mutable reservation limit to S23's preparation transaction.
+        let bound_inputs = bound
+            .inputs
+            .iter()
+            .filter(is_approval_bound_risk_input)
+            .collect::<Vec<_>>();
+        let current_inputs = current_decision
+            .inputs
+            .iter()
+            .filter(is_approval_bound_risk_input)
+            .collect::<Vec<_>>();
+        let bound_checks = bound
+            .checks
+            .iter()
+            .filter(|check| !defer_reservation_recheck || is_approval_bound_risk_check(check))
+            .collect::<Vec<_>>();
+        let current_checks = current_decision
+            .checks
+            .iter()
+            .filter(|check| !defer_reservation_recheck || is_approval_bound_risk_check(check))
+            .collect::<Vec<_>>();
+        let decision_matches = bound.status == risk::RiskDecisionStatus::Allowed
+            && (defer_reservation_recheck || bound.status == current_decision.status)
+            && bound_checks == current_checks
             && bound.proposal_hash == current_decision.proposal_hash
             && bound.account_id == current_decision.account_id
             && bound.policy_version == current_decision.policy_version
-            && bound.inputs.len() == current_decision.inputs.len()
-            && bound
-                .inputs
+            && bound_inputs.len() == current_inputs.len()
+            && bound_inputs
                 .iter()
-                .zip(&current_decision.inputs)
+                .zip(&current_inputs)
                 .all(|(bound, current)| {
                     bound.kind == current.kind && bound.digest == current.digest
                 });
         let mut blockers: Vec<String> = current_decision
             .checks
             .iter()
-            .filter(|check| check.outcome != risk::RiskCheckOutcome::Pass)
+            .filter(|check| {
+                (!defer_reservation_recheck || is_approval_bound_risk_check(check))
+                    && check.outcome != risk::RiskCheckOutcome::Pass
+            })
             .map(|check| format!("{:?}: {}", check.check_id, check.reason))
             .collect();
         if !decision_matches {
@@ -6924,7 +6967,8 @@ impl ControlPlane {
             risk_decision: Box::new(decision_for_review),
             review_digest,
             eligible: blockers.is_empty()
-                && current_decision.status == risk::RiskDecisionStatus::Allowed,
+                && (defer_reservation_recheck
+                    || current_decision.status == risk::RiskDecisionStatus::Allowed),
             blockers,
             quote_age_ms,
             expected_spend,
@@ -11913,6 +11957,7 @@ mod thread_tests {
 #[cfg(test)]
 mod live_approval_tests {
     use super::*;
+    use std::sync::{Arc, Barrier, Mutex, mpsc};
 
     fn request(command: &str, payload: Value) -> Value {
         json!({
@@ -11929,6 +11974,95 @@ mod live_approval_tests {
 
     fn dispatch_main(control: &mut ControlPlane, command: &str, payload: Value) -> Value {
         control.dispatch_with_events(request(command, payload), "main", None)
+    }
+
+    fn prepare_payload(workspace_id: &str, approval: &Value, idempotency_key: &str) -> Value {
+        json!({
+            "workspaceId": workspace_id,
+            "approvalId": approval["approvalId"],
+            "expectedApprovalStateVersion": approval["stateVersion"],
+            "idempotencyKey": idempotency_key,
+            "confirmed": true,
+        })
+    }
+
+    fn dispatch_barrier_concurrently(
+        control: Arc<Mutex<ControlPlane>>,
+        calls: Vec<(&'static str, Value)>,
+    ) -> Vec<Value> {
+        let ready = Arc::new(Barrier::new(calls.len() + 1));
+        let workers = calls
+            .into_iter()
+            .map(|(command, payload)| {
+                let control = control.clone();
+                let ready = ready.clone();
+                std::thread::spawn(move || {
+                    ready.wait();
+                    control.lock().unwrap().dispatch_with_events(
+                        request(command, payload),
+                        "main",
+                        None,
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+        ready.wait();
+        workers
+            .into_iter()
+            .map(|worker| worker.join().expect("command worker must finish"))
+            .collect()
+    }
+
+    fn dispatch_barrier_pair_in_order(
+        control: Arc<Mutex<ControlPlane>>,
+        first: (&'static str, Value),
+        second: (&'static str, Value),
+    ) -> (Value, Value) {
+        let ready = Arc::new(Barrier::new(3));
+        let (first_gate_tx, first_gate_rx) = mpsc::channel();
+        let (second_gate_tx, second_gate_rx) = mpsc::channel();
+        let first_control = control.clone();
+        let first_ready = ready.clone();
+        let first_worker = std::thread::spawn(move || {
+            first_ready.wait();
+            first_gate_rx.recv().unwrap();
+            first_control.lock().unwrap().dispatch_with_events(
+                request(first.0, first.1),
+                "main",
+                None,
+            )
+        });
+        let second_ready = ready.clone();
+        let second_worker = std::thread::spawn(move || {
+            second_ready.wait();
+            second_gate_rx.recv().unwrap();
+            control
+                .lock()
+                .unwrap()
+                .dispatch_with_events(request(second.0, second.1), "main", None)
+        });
+        ready.wait();
+        first_gate_tx.send(()).unwrap();
+        let first_result = first_worker.join().expect("first command must finish");
+        second_gate_tx.send(()).unwrap();
+        let second_result = second_worker.join().expect("second command must finish");
+        (first_result, second_result)
+    }
+
+    fn reopen_store(control: &mut ControlPlane) {
+        let path = control.store.as_ref().unwrap().path.clone();
+        drop(control.store.take());
+        control.store = Some(
+            Store::open(
+                path,
+                &protocol::OpenWorkspace {
+                    path: None,
+                    name: None,
+                    base_currency: None,
+                },
+            )
+            .unwrap(),
+        );
     }
 
     fn live_proposal(
@@ -12685,6 +12819,600 @@ mod live_approval_tests {
         )
     }
 
+    fn add_capacity_account(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+    ) -> (AccountConnection, Value) {
+        let seeded = control
+            .seed_live_arming_fixture(workspace_id, "trading212", "second capacity fixture")
+            .unwrap();
+        let mut account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        account.data.as_mut().unwrap().balances = vec![Balance {
+            asset: "USD".into(),
+            available: "1000".into(),
+            total: Some("1000".into()),
+            reserved: Some("0".into()),
+            in_pies: None,
+            locked: None,
+            restricted_available: None,
+        }];
+        account.last_successful_sync = Some(control.time.status(workspace_id).unwrap().wall_clock);
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_account(account)
+            .unwrap();
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        let armed = dispatch_main(
+            control,
+            "account.arm",
+            json!({
+                "workspaceId": workspace_id,
+                "connectionId": account.connection_id,
+                "expectedStateVersion": account.state_version,
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&seeded.connection_id)
+            .unwrap();
+        let proposal = live_proposal(control, workspace_id, &account);
+        (account, proposal)
+    }
+
+    fn assert_policy_prepare_order(preparation_first: bool) {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepare = prepare_payload(
+            &workspace_id,
+            &approval["data"],
+            if preparation_first {
+                "concurrent-prepare-before-policy"
+            } else {
+                "concurrent-policy-before-prepare"
+            },
+        );
+        let current = dispatch_main(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let mut policy = current["data"]["policy"].clone();
+        let threshold = policy["staleQuoteThresholdSeconds"].as_u64().unwrap_or(120);
+        policy["staleQuoteThresholdSeconds"] = threshold.saturating_sub(1).max(1).into();
+        let save_policy = json!({
+            "workspaceId": workspace_id,
+            "expectedStateVersion": current["data"]["stateVersion"],
+            "policy": policy,
+        });
+        let control = Arc::new(Mutex::new(control));
+        let (first, second) = if preparation_first {
+            dispatch_barrier_pair_in_order(
+                control.clone(),
+                ("trade.execution.prepare", prepare),
+                ("risk.save_policy", save_policy),
+            )
+        } else {
+            dispatch_barrier_pair_in_order(
+                control.clone(),
+                ("risk.save_policy", save_policy),
+                ("trade.execution.prepare", prepare),
+            )
+        };
+        let (prepared, saved) = if preparation_first {
+            (&first, &second)
+        } else {
+            (&second, &first)
+        };
+        assert_eq!(saved["ok"], true, "{saved}");
+        let mut control = control.lock().unwrap();
+        let query = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":approval["data"]["approvalId"],
+            }),
+        );
+        assert_eq!(query["ok"], true, "{query}");
+        if preparation_first {
+            assert_eq!(prepared["ok"], true, "{prepared}");
+            assert_eq!(
+                query["data"]["preparation"]["attempt"]["state"],
+                "INVALIDATED"
+            );
+            assert_eq!(
+                query["data"]["preparation"]["attempt"]["invalidationReason"],
+                "RISK_POLICY_CHANGED"
+            );
+            assert_eq!(
+                query["data"]["preparation"]["reservation"]["status"],
+                "RELEASED"
+            );
+        } else {
+            assert_eq!(prepared["ok"], false, "{prepared}");
+            assert_eq!(prepared["error"]["code"], "STATE_VERSION_CONFLICT");
+            assert_eq!(query["data"]["preparation"], Value::Null);
+            let history = dispatch_main(
+                &mut control,
+                "trade.approval.list",
+                json!({
+                    "workspaceId":workspace_id,
+                    "proposalId":proposal["proposalId"],
+                }),
+            );
+            assert_eq!(history["data"]["approvals"][0]["status"], "INVALIDATED");
+        }
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn concurrent_live_place_preparations_isolate_account_capacity() {
+        let (_folder, mut control, workspace_id, first_account, first_proposal, _) =
+            reviewed_live_capacity_fixture_with_available("500");
+        let second_proposal = live_proposal(&mut control, &workspace_id, &first_account);
+        let (second_account, third_proposal) = add_capacity_account(&mut control, &workspace_id);
+        let first_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":first_proposal["proposalId"]}),
+        );
+        let second_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":second_proposal["proposalId"]}),
+        );
+        let third_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":third_proposal["proposalId"]}),
+        );
+        for review in [&first_review, &second_review, &third_review] {
+            assert_eq!(review["ok"], true, "{review}");
+            assert_eq!(review["data"]["eligible"], true, "{review}");
+        }
+        let first_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &first_proposal, &first_review["data"]),
+        );
+        let second_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &second_proposal, &second_review["data"]),
+        );
+        let third_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &third_proposal, &third_review["data"]),
+        );
+        for approval in [&first_approval, &second_approval, &third_approval] {
+            assert_eq!(approval["ok"], true, "{approval}");
+        }
+        let shared = Arc::new(Mutex::new(control));
+        let results = dispatch_barrier_concurrently(
+            shared.clone(),
+            vec![
+                (
+                    "trade.execution.prepare",
+                    prepare_payload(&workspace_id, &first_approval["data"], "same-account-one"),
+                ),
+                (
+                    "trade.execution.prepare",
+                    prepare_payload(&workspace_id, &second_approval["data"], "same-account-two"),
+                ),
+                (
+                    "trade.execution.prepare",
+                    prepare_payload(&workspace_id, &third_approval["data"], "other-account-one"),
+                ),
+            ],
+        );
+        assert_eq!(
+            results[..2]
+                .iter()
+                .filter(|result| result["ok"] == true)
+                .count(),
+            1,
+            "only one $500 request fits in the first account's $500 capacity: {results:?}"
+        );
+        assert_eq!(results[2]["ok"], true, "{results:?}");
+        let rejected = results[..2]
+            .iter()
+            .find(|result| result["ok"] == false)
+            .unwrap();
+        assert_eq!(rejected["error"]["code"], "RISK_REJECTED", "{rejected}");
+        assert_eq!(
+            rejected["error"]["capacityContext"]["effectiveAvailable"],
+            "0"
+        );
+        let winner = results[..2]
+            .iter()
+            .find(|result| result["ok"] == true)
+            .unwrap();
+        assert_eq!(winner["data"]["attempt"]["state"], "RESERVED");
+        assert_eq!(
+            winner["data"]["reservation"]["accountId"],
+            first_account.connection_id
+        );
+        assert_eq!(winner["data"]["reservation"]["effectiveAvailable"], "0");
+        assert_eq!(
+            results[2]["data"]["reservation"]["accountId"],
+            second_account.connection_id
+        );
+        assert_eq!(
+            results[2]["data"]["reservation"]["existingReservations"],
+            "0"
+        );
+        assert_eq!(
+            results[2]["data"]["reservation"]["effectiveAvailable"],
+            "500"
+        );
+
+        let rejected_index = results[..2]
+            .iter()
+            .position(|result| result["ok"] == false)
+            .unwrap();
+        let rejected_approval = [&first_approval, &second_approval][rejected_index];
+        let rejected_proposal = [&first_proposal, &second_proposal][rejected_index];
+        let mut control = shared.lock().unwrap();
+        let rejection_history = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":rejected_approval["data"]["approvalId"],
+            }),
+        );
+        assert_eq!(rejection_history["ok"], true, "{rejection_history}");
+        assert_eq!(rejection_history["data"]["preparation"], Value::Null);
+        assert_eq!(
+            rejection_history["data"]["rejections"][0]["reason"],
+            "RESERVED_CAPACITY"
+        );
+        assert_eq!(
+            rejection_history["data"]["rejections"][0]["capacityContext"]["effectiveAvailable"],
+            "0"
+        );
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({
+                "workspaceId":workspace_id,
+                "proposalId":rejected_proposal["proposalId"],
+            }),
+        );
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert_eq!(approval_history["data"]["approvals"][0]["status"], "ISSUED");
+        let proposal_state = dispatch_main(
+            &mut control,
+            "trade.proposal.get",
+            json!({
+                "workspaceId":workspace_id,
+                "proposalId":rejected_proposal["proposalId"],
+            }),
+        );
+        assert_eq!(proposal_state["ok"], true, "{proposal_state}");
+        assert_eq!(proposal_state["data"]["status"], "NEEDS_APPROVAL");
+
+        let reservations = control
+            .store
+            .as_ref()
+            .unwrap()
+            .active_execution_reservations(&workspace_id)
+            .unwrap();
+        assert_eq!(reservations.len(), 2);
+        assert_eq!(
+            reservations
+                .iter()
+                .filter(|r| r.account_id == first_account.connection_id)
+                .count(),
+            1
+        );
+        assert_eq!(
+            reservations
+                .iter()
+                .filter(|r| r.account_id == second_account.connection_id)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn concurrent_policy_save_and_preparation_obey_both_serial_orders() {
+        assert_policy_prepare_order(false);
+        assert_policy_prepare_order(true);
+    }
+
+    #[test]
+    fn interrupted_live_place_preparation_rolls_back_and_retries_idempotently() {
+        let (folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let approval_id = approval["data"]["approvalId"].as_str().unwrap();
+        let proposal_id = proposal["proposalId"].as_str().unwrap();
+        let prepare = prepare_payload(
+            &workspace_id,
+            &approval["data"],
+            "retry-after-sqlite-failure",
+        );
+        let database_path = folder.path().join("workspace.sqlite3");
+        let database = rusqlite::Connection::open(&database_path).unwrap();
+        database
+            .execute_batch(
+                "CREATE TRIGGER fail_s23_attempt_outbox
+                 BEFORE INSERT ON outbox
+                 WHEN NEW.aggregate_type='execution-attempt'
+                 BEGIN SELECT RAISE(ABORT, 'injected S23 transaction failure'); END;",
+            )
+            .unwrap();
+
+        let provider_job = control
+            .prepare_provider_for(&request("trade.execution.prepare", prepare.clone()), "main")
+            .unwrap();
+        assert!(
+            provider_job.is_none(),
+            "preparation must not dispatch to a provider"
+        );
+        let failed = dispatch_main(&mut control, "trade.execution.prepare", prepare.clone());
+        assert_eq!(failed["ok"], false, "{failed}");
+        assert_eq!(failed["error"]["code"], "WORKSPACE_OPEN_FAILED");
+        database
+            .execute_batch("DROP TRIGGER fail_s23_attempt_outbox;")
+            .unwrap();
+        drop(database);
+
+        reopen_store(&mut control);
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
+        );
+        assert_eq!(approval_history["data"]["approvals"][0]["status"], "ISSUED");
+        let proposal_state = dispatch_main(
+            &mut control,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
+        );
+        assert_eq!(proposal_state["data"]["status"], "NEEDS_APPROVAL");
+        assert_ne!(
+            proposal_state["data"]["history"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["event"],
+            "CONSUMED"
+        );
+        let preparation = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval_id}),
+        );
+        assert_eq!(preparation["data"]["preparation"], Value::Null);
+        assert_eq!(preparation["data"]["rejections"], json!([]));
+        let database = rusqlite::Connection::open(&database_path).unwrap();
+        for (query, identity) in [
+            (
+                "SELECT COUNT(*) FROM execution_attempts WHERE approval_id=?1",
+                approval_id,
+            ),
+            (
+                "SELECT COUNT(*) FROM execution_reservations WHERE account_id=(SELECT account_id FROM financial_approvals WHERE approval_id=?1)",
+                approval_id,
+            ),
+            (
+                "SELECT COUNT(*) FROM order_proposal_events WHERE proposal_id=?1 AND event='CONSUMED'",
+                proposal_id,
+            ),
+        ] {
+            let count: i64 = database
+                .query_row(query, [identity], |row| row.get(0))
+                .unwrap();
+            assert_eq!(count, 0, "{query}");
+        }
+        for (aggregate_type, aggregate_id, event_type) in [
+            ("financial-approval", approval_id, "trade.approval.consumed"),
+            (
+                "order-proposal-consumption",
+                proposal_id,
+                "trade.proposal.consumed",
+            ),
+        ] {
+            let count: i64 = database
+                .query_row(
+                    "SELECT COUNT(*) FROM outbox WHERE aggregate_type=?1 AND aggregate_id=?2 AND json_extract(envelope,'$.eventType')=?3",
+                    rusqlite::params![aggregate_type, aggregate_id, event_type],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 0, "{event_type} must roll back");
+        }
+        let approval_audit_count: i64 = database
+            .query_row(
+                "SELECT COUNT(*) FROM approval_rejections WHERE proposal_id=?1",
+                [proposal_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(approval_audit_count, 0, "approval audit must roll back");
+        let approval_audit_events: i64 = database
+            .query_row(
+                "SELECT COUNT(*) FROM outbox WHERE aggregate_type='approval-audit' AND aggregate_id=?1",
+                [proposal_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(approval_audit_events, 0);
+        let consumed_approvals: i64 = database
+            .query_row(
+                "SELECT COUNT(*) FROM financial_approvals WHERE approval_id=?1 AND status='CONSUMED'",
+                [approval_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(consumed_approvals, 0);
+        for aggregate in ["execution-attempt", "execution-reservation"] {
+            let count: i64 = database
+                .query_row(
+                    "SELECT COUNT(*) FROM outbox WHERE aggregate_type=?1",
+                    [aggregate],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 0, "{aggregate} outbox must roll back");
+        }
+        drop(database);
+
+        let retried = dispatch_main(&mut control, "trade.execution.prepare", prepare.clone());
+        assert_eq!(retried["ok"], true, "{retried}");
+        assert_eq!(retried["data"]["attempt"]["state"], "RESERVED");
+        let replayed = dispatch_main(&mut control, "trade.execution.prepare", prepare);
+        assert_eq!(replayed["ok"], true, "{replayed}");
+        assert_eq!(
+            replayed["data"]["attempt"]["attemptId"],
+            retried["data"]["attempt"]["attemptId"]
+        );
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .len(),
+            1
+        );
+        reopen_store(&mut control);
+        let recovered = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval_id}),
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["attempt"]["state"],
+            "RESERVED"
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["attempt"]["attemptId"],
+            retried["data"]["attempt"]["attemptId"]
+        );
+        let recovered_preparation = &recovered["data"]["preparation"];
+        let attempt_id = recovered_preparation["attempt"]["attemptId"]
+            .as_str()
+            .unwrap();
+        let reservation_id = recovered_preparation["reservation"]["reservationId"]
+            .as_str()
+            .unwrap();
+        assert_eq!(recovered_preparation["attempt"]["state"], "RESERVED");
+        assert_eq!(recovered_preparation["reservation"]["status"], "ACTIVE");
+        assert_eq!(
+            recovered_preparation["reservation"]["accountId"],
+            account.connection_id
+        );
+        assert_eq!(recovered_preparation["reservation"]["amount"], "500");
+        assert_eq!(
+            recovered_preparation["reservation"]["effectiveAvailable"],
+            "500"
+        );
+        assert_eq!(
+            recovered_preparation["reservation"]["capacityProjection"]["reserved"],
+            "500"
+        );
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({
+                "workspaceId":workspace_id,
+                "proposalId":proposal_id,
+            }),
+        );
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert_eq!(
+            approval_history["data"]["approvals"][0]["status"],
+            "CONSUMED"
+        );
+        let proposal_state = dispatch_main(
+            &mut control,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal_id}),
+        );
+        assert_eq!(proposal_state["ok"], true, "{proposal_state}");
+        assert_eq!(proposal_state["data"]["status"], "CONSUMED");
+        let database = rusqlite::Connection::open(&database_path).unwrap();
+        let saved_idempotency_key: String = database
+            .query_row(
+                "SELECT idempotency_key FROM execution_attempts WHERE attempt_id=?1",
+                [attempt_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(saved_idempotency_key, "retry-after-sqlite-failure");
+        for (aggregate_type, aggregate_id, event_type) in [
+            (
+                "execution-attempt",
+                attempt_id,
+                "trade.execution.attempt.changed",
+            ),
+            (
+                "execution-reservation",
+                reservation_id,
+                "trade.reservation.created",
+            ),
+        ] {
+            let mut statement = database
+                .prepare(
+                    "SELECT sequence,envelope FROM outbox WHERE aggregate_type=?1 AND aggregate_id=?2 ORDER BY sequence",
+                )
+                .unwrap();
+            let events: Vec<(i64, String)> = statement
+                .query_map([aggregate_type, aggregate_id], |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })
+                .unwrap()
+                .map(|row| row.unwrap())
+                .collect();
+            assert_eq!(events.len(), 1, "{aggregate_type} outbox");
+            assert_eq!(events[0].0, 1, "{aggregate_type} sequence");
+            let event: Value = serde_json::from_str(&events[0].1).unwrap();
+            assert_eq!(event["eventType"], event_type);
+            assert_eq!(event["aggregateId"], aggregate_id);
+            assert_eq!(event["sequence"], 1);
+        }
+    }
+
     #[test]
     fn live_place_preparation_consumes_approval_once_and_replays_idempotently() {
         let (_folder, mut control, workspace_id, _account, proposal, review) =
@@ -13083,6 +13811,155 @@ mod live_approval_tests {
         assert_eq!(
             saved_approval.status,
             protocol::FinancialApprovalStatus::Issued
+        );
+    }
+
+    #[test]
+    fn workspace_reserved_capital_rejection_uses_transaction_capacity_context() {
+        let (_folder, mut control, workspace_id, account, _, _) = reviewed_live_capacity_fixture();
+        let current = dispatch_main(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let mut policy = current["data"]["policy"].clone();
+        policy["maxReservedCapital"] = json!("500");
+        let saved = dispatch_main(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,
+                "expectedStateVersion":current["data"]["stateVersion"],
+                "policy":policy,
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+
+        let first_proposal = live_proposal(&mut control, &workspace_id, &account);
+        let second_proposal = live_proposal(&mut control, &workspace_id, &account);
+        let first_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":first_proposal["proposalId"]}),
+        );
+        let second_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":second_proposal["proposalId"]}),
+        );
+        for review in [&first_review, &second_review] {
+            assert_eq!(review["ok"], true, "{review}");
+            assert_eq!(review["data"]["eligible"], true, "{review}");
+        }
+        let first_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &first_proposal, &first_review["data"]),
+        );
+        let second_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &second_proposal, &second_review["data"]),
+        );
+        assert_eq!(first_approval["ok"], true, "{first_approval}");
+        assert_eq!(second_approval["ok"], true, "{second_approval}");
+
+        let first_preparation = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            prepare_payload(
+                &workspace_id,
+                &first_approval["data"],
+                "workspace-cap-first",
+            ),
+        );
+        assert_eq!(first_preparation["ok"], true, "{first_preparation}");
+        assert_eq!(first_preparation["data"]["attempt"]["state"], "RESERVED");
+
+        let blocked_proposal = live_proposal(&mut control, &workspace_id, &account);
+        let blocked_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":blocked_proposal["proposalId"]}),
+        );
+        assert_eq!(blocked_review["ok"], true, "{blocked_review}");
+        assert_eq!(
+            blocked_review["data"]["eligible"], false,
+            "{blocked_review}"
+        );
+        assert_eq!(blocked_review["data"]["riskDecision"]["status"], "REJECTED");
+
+        let second_prepare = prepare_payload(
+            &workspace_id,
+            &second_approval["data"],
+            "workspace-cap-second",
+        );
+        let rejected = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            second_prepare.clone(),
+        );
+        assert_eq!(rejected["ok"], false, "{rejected}");
+        assert_eq!(rejected["error"]["code"], "RISK_REJECTED", "{rejected}");
+        assert_eq!(
+            rejected["error"]["reason"], "RESERVED_CAPACITY",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["source"], "WORKSPACE_RESERVED_CAPITAL",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["requestedAmount"],
+            "500"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["existingReservations"],
+            "500"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["effectiveAvailable"],
+            "0"
+        );
+        let replayed = dispatch_main(&mut control, "trade.execution.prepare", second_prepare);
+        assert_eq!(replayed["ok"], false, "{replayed}");
+        assert_eq!(
+            replayed["error"]["capacityContext"],
+            rejected["error"]["capacityContext"]
+        );
+
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":second_proposal["proposalId"]}),
+        );
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert_eq!(approval_history["data"]["approvals"][0]["status"], "ISSUED");
+        let proposal_state = dispatch_main(
+            &mut control,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":second_proposal["proposalId"]}),
+        );
+        assert_eq!(proposal_state["data"]["status"], "NEEDS_APPROVAL");
+        let preparation = dispatch_main(
+            &mut control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":second_approval["data"]["approvalId"]}),
+        );
+        assert_eq!(preparation["data"]["preparation"], Value::Null);
+        assert_eq!(
+            preparation["data"]["rejections"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .len(),
+            1
         );
     }
 

@@ -2082,6 +2082,12 @@ pub(crate) fn trusted_workspace_notional(
     portfolio: &crate::protocol::PortfolioSnapshot,
     now: &str,
 ) -> Option<String> {
+    if portfolio.workspace_id.is_empty() || portfolio.base_currency != base_currency {
+        return None;
+    }
+    if currency == base_currency {
+        return Some(amount.into());
+    }
     let now =
         time::OffsetDateTime::parse(now, &time::format_description::well_known::Rfc3339).ok()?;
     let observed = time::OffsetDateTime::parse(
@@ -2089,16 +2095,11 @@ pub(crate) fn trusted_workspace_notional(
         &time::format_description::well_known::Rfc3339,
     )
     .ok()?;
-    if portfolio.workspace_id.is_empty()
-        || portfolio.base_currency != base_currency
-        || !portfolio_complete(portfolio)
+    if !portfolio_complete(portfolio)
         || now < observed
         || now - observed > time::Duration::seconds(30)
     {
         return None;
-    }
-    if currency == base_currency {
-        return Some(amount.into());
     }
     let route = portfolio.fx_routes.iter().find(|route| {
         route.pair_path == format!("{currency} -> {base_currency}")
@@ -2804,6 +2805,20 @@ mod tests {
         assert!(
             trusted_workspace_notional("100", "USDT", "EUR", &portfolio, "2026-09-26T12:00:31Z")
                 .is_none()
+        );
+
+        let mut degraded_same_currency = portfolio.clone();
+        degraded_same_currency.status = crate::protocol::PortfolioStatus::Degraded;
+        assert_eq!(
+            trusted_workspace_notional(
+                "100",
+                "EUR",
+                "EUR",
+                &degraded_same_currency,
+                "2026-09-26T12:00:31Z",
+            )
+            .as_deref(),
+            Some("100")
         );
     }
 }
