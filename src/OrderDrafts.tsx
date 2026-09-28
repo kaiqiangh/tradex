@@ -386,7 +386,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     },
     enabled: Boolean(unknownLiveAttempt
       && unknownLiveAttempt.intentId === selectedProposalId
-      && ['TRADING212_LIVE', 'BINANCE_LIVE'].includes(unknownLiveAttempt.environment)
+      && ['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(unknownLiveAttempt.environment)
       && unknownLiveAttempt.state === 'UNKNOWN_RECONCILING'),
     refetchOnMount: 'always',
     refetchInterval: query => query.state.data?.automaticWindowExpired
@@ -1488,25 +1488,26 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                 {visibleExecutionPreparation.attempt.dispatchDisposition && <span>Dispatch disposition {visibleExecutionPreparation.attempt.dispatchDisposition}</span>}
               </article>}
               {unknownLiveAttempt && unknownLiveAttempt.intentId === selectedProposalId
-                && ['TRADING212_LIVE', 'BINANCE_LIVE'].includes(unknownLiveAttempt.environment)
+                && ['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(unknownLiveAttempt.environment)
                 && unknownLiveAttempt.state === 'UNKNOWN_RECONCILING'
                 && <section className="notice" aria-label="Live reconciliation evidence">
-                  <h4>{unknownLiveAttempt.environment === 'BINANCE_LIVE' ? 'Binance' : 'Trading 212'} Live reconciliation evidence</h4>
+                  <h4>{unknownLiveAttempt.environment === 'BINANCE_LIVE' ? 'Binance' : unknownLiveAttempt.environment === 'BITGET_LIVE' ? 'Bitget' : 'Trading 212'} Live reconciliation evidence</h4>
                   {resolutionEvidence.isPending && <p role="status">Loading saved evidence and checking the broker read-only…</p>}
                   {resolutionEvidence.isError && <p className="error-text" role="alert">Reconciliation evidence is unavailable: {explainError(resolutionEvidence.error)} <button type="button" onClick={() => void resolutionEvidence.refetch()}>Retry read-only check</button></p>}
                   {resolutionEvidence.data && (() => {
                     const attempt = unknownLiveAttempt!;
                     const result: ResolutionEvidenceQueryResult = resolutionEvidence.data;
                     const latest = result.ledger?.evidence.at(-1);
+                    const exactProviderLookup = ['binance', 'bitget'].includes(latest?.providerId ?? '');
                     const manualResolution = result.ledger?.manualResolutions?.at(-1);
                     return <>
                       <dl className="proposal-fields approval-review-fields">
-                        <div><dt>Attempt / account</dt><dd>{attempt.attemptId} · {attempt.accountId}</dd></div>
+                        <div><dt>Attempt / Live account</dt><dd>{attempt.attemptId} · {attempt.accountId} · remote {accounts.data?.accounts.find(account => account.connectionId === attempt.accountId)?.data?.remoteAccountId ?? 'identity unavailable'}</dd></div>
                         <div><dt>Automatic window</dt><dd>{new Date(result.automaticWindowStartedAt).toLocaleString()} – {new Date(result.automaticWindowEndsAt).toLocaleString()}</dd></div>
                         <div><dt>Last query</dt><dd>{latest ? new Date(latest.queriedAt).toLocaleString() : 'No provider query recorded yet'}</dd></div>
                         <div><dt>Coverage / source</dt><dd>{latest ? `${latest.coverageFrom ? new Date(latest.coverageFrom).toLocaleString() : 'Unknown start'} – ${latest.coverageTo ? new Date(latest.coverageTo).toLocaleString() : 'Unknown end'} · ${latest.providerId} · ${latest.queryScope}` : 'No persisted provider observation'}</dd></div>
-                        <div><dt>Observed result</dt><dd>{latest?.outcome === 'CANDIDATES_FOUND' ? 'Similar orders observed; candidates only' : latest?.errorCode ? `Inconclusive · ${latest.errorCode}` : latest?.outcome === 'INCONCLUSIVE' ? 'No similar order observed; absence is not proven' : 'No evidence yet'}</dd></div>
-                        <div><dt>{latest?.providerId === 'binance' ? 'Order lookup' : 'History coverage'}</dt><dd>{latest ? latest.providerId === 'binance'
+                        <div><dt>Observed result</dt><dd>{latest?.outcome === 'CANDIDATES_FOUND' ? exactProviderLookup ? 'Exact provider order identity observed; candidate only' : 'Similar orders observed; candidates only' : latest?.errorCode ? `Inconclusive · ${latest.errorCode}` : latest?.outcome === 'INCONCLUSIVE' ? exactProviderLookup ? 'No exact order observed; absence is not proven' : 'No similar order observed; absence is not proven' : 'No evidence yet'}</dd></div>
+                        <div><dt>{latest && exactProviderLookup ? 'Order lookup' : 'History coverage'}</dt><dd>{latest ? exactProviderLookup
                           ? latest.paginationComplete ? 'Exact-order lookup complete' : 'Exact-order lookup incomplete'
                           : latest.paginationComplete ? 'Returned page complete' : `Incomplete · ${result.ledger?.historyPagesRead ?? 0} page(s) read`
                           : 'Not queried'}</dd></div>
@@ -1515,6 +1516,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                         <strong>Candidate only · provider order {candidate.providerOrderId}</strong>
                         <span>{candidate.providerSymbol} · {candidate.side} · {candidate.quantity ?? 'quantity unavailable'} · {candidate.providerStatus} · {candidate.orderType}</span>
                         {candidate.providerClientId && <span>Provider client order ID {candidate.providerClientId}</span>}
+                        <span>Provider order observation only; this is not fill evidence or an automatic resolution.</span>
                         <time dateTime={candidate.submittedAt ?? undefined}>{candidate.submittedAt ? new Date(candidate.submittedAt).toLocaleString() : 'Provider time unavailable'}</time>
                       </article>)}
                       <p className={result.automaticWindowExpired ? 'error-text' : 'muted'} role="status" aria-live="polite">

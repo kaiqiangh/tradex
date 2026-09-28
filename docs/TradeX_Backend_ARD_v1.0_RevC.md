@@ -1888,7 +1888,7 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Reject cancellation review | trade.cancel_reject | the same exact intent/hash, risk-decision ID, review digest, and expected snapshot version as the displayed review; records a durable `USER_REJECTED` audit and invalidates that intent. |
 | Read cancellation authorization history | trade.cancel_approval.list | workspace_id, account_id, broker_order_id; returns bounded sanitized intent invalidation, approval issuance/expiry/invalidation, and rejection history for that exact provider order. |
 | Inspect resolution evidence | trade.resolution_evidence | execution_attempt_id, account_id; return backend-owned evidence and allowed decisions |
-| Refresh Live reconciliation evidence | trade.resolution_evidence.refresh | workspace_id, execution_attempt_id, account_id, expected_attempt_state_version; run one bounded read-only provider query for a saved Trading 212 or Binance Live unknown PLACE attempt |
+| Refresh Live reconciliation evidence | trade.resolution_evidence.refresh | workspace_id, execution_attempt_id, account_id, expected_attempt_state_version; run one bounded read-only provider query for a saved Trading 212, Binance Spot, or Bitget Spot Live unknown PLACE attempt |
 | Resolve ambiguity | trade.manual_resolution | §27.4 payload; decision/evidence validated again at commit |
 
 State versions are opaque backend tokens, scoped to the returned aggregate. Decimal amounts use normalized strings; IDs, enum values, time representations, and required/optional fields are part of the command's versioned schema. A request ID correlates one exchange and never substitutes for proposal/approval/execution identity. After timeout on an authority-changing command, query state before any retry; never turn transport retries into repeated consent.
@@ -2769,7 +2769,7 @@ Live reads omit `paptrading: 1`, cannot fall back to Demo, and expose no submit/
 
 TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. Account/order observations update only through explicit signed REST connect/refresh requests; project `privateStream` as `NOT_CONFIGURED` and disclose `Private stream unavailable · REST reconciliation` in the account limitations.
 
-### 41.30 Live unknown PLACE reconciliation (S25.1 #97, S25.2 #98)
+### 41.30 Live unknown PLACE reconciliation (S25.1 #97, S25.2 #98, S25.3 #99)
 
 `ExecutionAttempt.dispatchStartedAt` records the trusted timestamp at the durable `SUBMITTING` boundary. Reconciliation uses that timestamp as the start of its five-minute automatic window; legacy attempts without it use the earlier `createdAt` cutoff. The window is evaluated only with trusted time. If time is untrusted, saved evidence remains readable while provider refresh and automatic expiry are paused.
 
@@ -2805,7 +2805,7 @@ interface ResolutionEvidence {
   evidenceId: string;
   executionAttemptId: string;
   accountId: string;
-  providerId: 'trading212' | 'binance';
+  providerId: 'trading212' | 'binance' | 'bitget';
   queriedAt: string;
   queryScope: string;
   coverageFrom?: string | null;
@@ -2826,11 +2826,13 @@ interface ResolutionEvidenceQueryResult {
 }
 ~~~
 
-`trade.resolution_evidence` accepts `{workspaceId, executionAttemptId, accountId}` and is read-only. It returns the durable `ResolutionEvidenceLedger | null`, window start/end, `automaticWindowExpired`, `timeTrusted`, and backend-authorized decisions. `trade.resolution_evidence.refresh` adds `expectedAttemptStateVersion` and is available only to the main Trade surface (stdio only in integration-test builds). Both commands require the exact saved Trading 212 Live or Binance Spot Live PLACE attempt in `UNKNOWN_RECONCILING`, its exact connected account and immutable proposal, and its active reservation. The renderer supplies neither provider identity nor URL.
+`trade.resolution_evidence` accepts `{workspaceId, executionAttemptId, accountId}` and is read-only. It returns the durable `ResolutionEvidenceLedger | null`, window start/end, `automaticWindowExpired`, `timeTrusted`, and backend-authorized decisions. `trade.resolution_evidence.refresh` adds `expectedAttemptStateVersion` and is available only to the main Trade surface (stdio only in integration-test builds). Both commands require the exact saved Trading 212 Live, Binance Spot Live, or Bitget Spot Live PLACE attempt in `UNKNOWN_RECONCILING`, its exact connected account and immutable proposal, and its active reservation. The renderer supplies neither provider identity nor URL.
 
 Each refresh verifies the remote account identity, reads open orders, and reads one page of the strict Trading 212 Live `/api/v0/equity/history/orders` GET allowlist (at most 50 rows). The renderer supplies no URL or provider identity. The UI schedules automatic refreshes at least 11 seconds apart; a saved next-page cursor advances only on a later refresh. Candidate selection requires exact ticker, side, quantity, and a provider submission time within the trusted window. A similar order is always only a candidate because Trading 212 supplies no TradeX client-order identity: it is never auto-linked and cannot resolve the attempt.
 
 For Binance Spot Live, one reconciliation performs signed GETs against the ordinary production endpoint `https://api.binance.com`: `/api/v3/account` verifies the saved numeric SPOT account identity, then `/api/v3/order` queries the exact provider symbol and the attempt's saved `providerClientOrderId` as `origClientOrderId`. Binance derives this value as `tx-{execution_attempt_id without hyphens}` and persists it before submission. The order query is read-only and does not enable Binance Live submission. A returned row is a candidate only if its client ID, symbol, side, order type, exact base or quote quantity, and provider timestamp match the immutable proposal and trusted five-minute window. LIMIT rows must also match the saved limit price and time-in-force. Binance `-2013` (no matching order), a missing client ID, malformed or partial data, account mismatch, authentication failure, transport failure, and rate limiting all leave the attempt `UNKNOWN_RECONCILING` and its reservation active. This Live path never uses the Testnet endpoint and never sends POST or DELETE.
+
+For Bitget Classic Spot Live, one reconciliation uses only signed GETs against the ordinary production host `https://api.bitget.com`: `/api/v2/public/time` supplies the signing clock, `/api/v2/spot/account/info` verifies the saved remote `userId`, and `/api/v2/spot/trade/orderInfo?clientOid={saved-clientOid}` queries the exact saved order. TradeX derives and persists `clientOid` as `tx-{execution_attempt_id without hyphens}` before submission. The response must contain exactly one row whose `userId`, `clientOid`, symbol, side, order type, size, and `cTime` match the saved account, immutable proposal, and trusted five-minute window; LIMIT rows must also match price and `force`, and `tpslType` must be `normal`. Bitget's empty `data` array remains inconclusive; multiple rows, missing fields, unrelated identity, malformed data, authentication/rate-limit errors, and transport failures never resolve the attempt or release capacity. This path omits the Demo-only `paptrading: 1` header, rejects Testnet/Demo contexts, and never sends POST or DELETE.
 
 Successful empty, incomplete, delayed, unauthenticated, identity-mismatched, or failed observations remain `INCONCLUSIVE`; an empty response never proves non-submission. Persist only sanitized scope, time coverage, pagination state, bounded candidate fields, outcome, and stable error code. Each evidence projection and `trade.resolution_evidence.changed` event commit together in SQLite/outbox. At the trusted five-minute timeout, mark the account reconciliation `STALE` and `DISARMED`, expose only `KEEP_RECONCILING`, and retain both `UNKNOWN_RECONCILING` and the active PLACE reservation. The main Trade surface may submit `trade.manual_resolution` with the expected attempt/evidence versions and references to existing evidence; this slice accepts only `KEEP_RECONCILING`. It appends the user decision to the same ledger and outbox transaction. It never changes the attempt or reservation, restarts provider reads after expiry, or sends/replays POST/DELETE; other decisions and stale or untrusted requests fail closed.
 

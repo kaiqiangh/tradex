@@ -1888,7 +1888,7 @@ interface TradeXError {
 | 拒绝撤单审阅 | trade.cancel_reject | 与当前审阅完全相同的意图/hash、RiskDecision ID、review digest 和 expected snapshot version；记录耐久的 `USER_REJECTED` 审计并使该意图失效。 |
 | 读取撤单授权历史 | trade.cancel_approval.list | workspace_id、account_id、broker_order_id；返回该精确券商订单有界且脱敏的意图失效、审批签发/过期/失效及拒绝历史。 |
 | 查看处置证据 | trade.resolution_evidence | execution_attempt_id、account_id；返回后端持有的证据与允许的决策 |
-| 刷新 Live 对账证据 | trade.resolution_evidence.refresh | workspace_id、execution_attempt_id、account_id、expected_attempt_state_version；对已保存的 Trading 212 或 Binance Live 未知 PLACE attempt 执行一次有界只读 provider 查询 |
+| 刷新 Live 对账证据 | trade.resolution_evidence.refresh | workspace_id、execution_attempt_id、account_id、expected_attempt_state_version；对已保存的 Trading 212、Binance Spot 或 Bitget Spot Live 未知 PLACE attempt 执行一次有界只读 provider 查询 |
 | 处置未知提交 | trade.manual_resolution | §27.4 payload；提交处置时再次核验 decision/evidence |
 
 状态版本是后端生成、限于返回聚合对象的不透明 token。Decimal 金额使用规范化字符串；ID、枚举、时间表示及必填/可选字段属于命令的版本化 schema。request ID 只关联一次交互，不能替代 proposal/approval/execution 身份。改变权限的命令超时后必须先查询状态再决定重试；不得把传输重试变成重复同意。
@@ -2769,7 +2769,7 @@ Live 读取省略 `paptrading: 1`，不得回退到 Demo，也不暴露提交、
 
 TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户/订单观测仅通过用户显式连接或 REST 刷新请求读取并更新；`privateStream` 投影为 `NOT_CONFIGURED`，并在账户限制中显示 `Private stream unavailable · REST reconciliation`。
 
-### 41.30 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98）
+### 41.30 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98、S25.3 #99）
 
 `ExecutionAttempt.dispatchStartedAt` 在持久化进入 `SUBMITTING` 边界时记录可信时间戳。对账以此作为五分钟自动窗口起点；缺少该字段的旧 attempt 保守使用更早的 `createdAt`。只有可信时间才能评估窗口。时钟不可信时仍可读取已保存证据，但暂停 provider 刷新和自动过期。
 
@@ -2805,7 +2805,7 @@ interface ResolutionEvidence {
   evidenceId: string;
   executionAttemptId: string;
   accountId: string;
-  providerId: 'trading212' | 'binance';
+  providerId: 'trading212' | 'binance' | 'bitget';
   queriedAt: string;
   queryScope: string;
   coverageFrom?: string | null;
@@ -2826,11 +2826,13 @@ interface ResolutionEvidenceQueryResult {
 }
 ~~~
 
-`trade.resolution_evidence` 接收 `{workspaceId, executionAttemptId, accountId}`，只读返回耐久的 `ResolutionEvidenceLedger | null`、窗口起止时间、`automaticWindowExpired`、`timeTrusted` 和后端授权决策。`trade.resolution_evidence.refresh` 增加 `expectedAttemptStateVersion`，仅主 Trade 界面可调用（integration-test build 中也仅限 stdio）。两个命令都要求准确的已保存 Trading 212 Live 或 Binance Spot Live PLACE attempt 处于 `UNKNOWN_RECONCILING`，并校验准确已连接账户、不可变 proposal 和 active reservation。Renderer 不提供 provider identity 或 URL。
+`trade.resolution_evidence` 接收 `{workspaceId, executionAttemptId, accountId}`，只读返回耐久的 `ResolutionEvidenceLedger | null`、窗口起止时间、`automaticWindowExpired`、`timeTrusted` 和后端授权决策。`trade.resolution_evidence.refresh` 增加 `expectedAttemptStateVersion`，仅主 Trade 界面可调用（integration-test build 中也仅限 stdio）。两个命令都要求准确的已保存 Trading 212 Live、Binance Spot Live 或 Bitget Spot Live PLACE attempt 处于 `UNKNOWN_RECONCILING`，并校验准确已连接账户、不可变 proposal 和 active reservation。Renderer 不提供 provider identity 或 URL。
 
 每次刷新都会核验远端账户身份、读取开放订单，并读取严格限定的 Trading 212 Live `/api/v0/equity/history/orders` GET 路由中的一页（最多 50 行）。Renderer 不能提供 URL 或 provider identity。UI 至少每隔 11 秒才自动刷新一次；已保存的下一页 cursor 只能由后续刷新前进。候选匹配要求 ticker、side、quantity 完全一致，且 provider 提交时间位于可信窗口内。由于 Trading 212 不提供 TradeX client-order identity，相似订单始终只是候选：不会自动关联，也不能处置 attempt。
 
 Binance Spot Live 对账仅向普通生产端点 `https://api.binance.com` 发送签名 GET：先读取 `/api/v3/account` 并核验保存的数字型 SPOT 账户身份，再通过 `/api/v3/order` 使用 attempt 已保存的 `providerClientOrderId` 作为 `origClientOrderId` 查询准确 provider symbol。Binance 将其生成为 `tx-{去掉连字符的 execution_attempt_id}`，并在提交前持久化。此只读查询不会启用 Binance Live 下单。只有返回记录的 client ID、symbol、side、order type、准确的 base 或 quote quantity，以及 provider 时间均符合不可变 proposal 和可信五分钟窗口时，才会保存为候选；LIMIT 订单还必须匹配已保存的 limit price 和 time-in-force。Binance `-2013`（未找到匹配订单）、缺少 client ID、格式错误或不完整数据、账户身份不符、认证失败、传输失败和限流都会让 attempt 保持 `UNKNOWN_RECONCILING`，reservation 保持 active。该 Live 路径不会使用 Testnet 端点，也不会发送 POST 或 DELETE。
+
+Bitget Classic Spot Live 对账只向普通生产主机 `https://api.bitget.com` 发送签名 GET：`/api/v2/public/time` 提供签名时钟，`/api/v2/spot/account/info` 核验已保存的远端 `userId`，`/api/v2/spot/trade/orderInfo?clientOid={saved-clientOid}` 查询准确的已保存订单。TradeX 将 `clientOid` 生成为 `tx-{去掉连字符的 execution_attempt_id}` 并在提交前持久化。响应必须恰好包含一行；其 `userId`、`clientOid`、symbol、side、order type、size 和 `cTime` 必须与已保存账户、不可变 proposal 和可信五分钟窗口匹配。LIMIT 订单还须匹配 price 与 `force`，且 `tpslType` 必须为 `normal`。Bitget 空 `data` 数组仍是不确定结果；多行、字段缺失、identity 无关、格式错误、认证/限流错误及传输失败均不能处置 attempt 或释放容量。此路径省略仅供 Demo 使用的 `paptrading: 1` header，拒绝 Testnet/Demo 上下文，且不发送 POST 或 DELETE。
 
 成功的空结果、不完整/延迟查询、未认证、身份不匹配或失败的观测均保持 `INCONCLUSIVE`；空响应不能证明未提交。只持久化脱敏查询范围、时间覆盖、分页状态、有界候选字段、结果和稳定错误码。每个证据 projection 与 `trade.resolution_evidence.changed` event 在同一 SQLite/outbox 事务中提交。可信五分钟窗口超时后，将账户对账标为 `STALE` 并 disarm，只开放 `KEEP_RECONCILING`，同时保留 `UNKNOWN_RECONCILING` 和 active PLACE reservation。主 Trade 界面可通过 `trade.manual_resolution` 提交当前 attempt/证据版本及已存在的 evidence 引用；本切片只接受 `KEEP_RECONCILING`，并在同一 ledger/outbox 事务中追加用户决策。它不会更改 attempt/reservation、在窗口过期后重启 provider 查询或发送/重放 POST/DELETE；其他决策以及过期版本或不可信时钟请求均 fail closed。
 

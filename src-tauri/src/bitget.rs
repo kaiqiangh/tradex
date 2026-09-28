@@ -80,6 +80,17 @@ fn valid_client_oid(value: &str) -> bool {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
+
+pub(super) fn live_client_order_id(attempt_id: &str) -> Result<String> {
+    let attempt_id = uuid::Uuid::parse_str(attempt_id).map_err(|_| invalid())?;
+    let client_oid = format!("tx-{}", attempt_id.simple());
+    if valid_client_oid(&client_oid) {
+        Ok(client_oid)
+    } else {
+        Err(invalid())
+    }
+}
+
 pub(super) fn business(v: Value) -> Result<Value> {
     match v["code"].as_str() {
         Some("00000") => Ok(v["data"].clone()),
@@ -96,6 +107,111 @@ pub(super) fn business(v: Value) -> Result<Value> {
         None => Err(invalid()),
     }
 }
+
+fn response_json(
+    endpoint: ProviderEndpoint,
+    path: &str,
+    headers: HeaderMap,
+    signature: Option<&str>,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<Value> {
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let bytes = http.get(endpoint, path, headers)?;
+    if bytes.len() as u64 > MAX_RESPONSE {
+        return Err(invalid());
+    }
+    let value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+    if contains_secret(&value, secrets)
+        || signature.is_some_and(|signature| contains_secret(&value, &[signature.into()]))
+    {
+        return Err(invalid());
+    }
+    business(value)
+}
+
+fn server_clock(
+    endpoint: ProviderEndpoint,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<(u64, Instant)> {
+    let started = Instant::now();
+    let time = response_json(
+        endpoint,
+        "/api/v2/public/time",
+        HeaderMap::new(),
+        None,
+        secrets,
+        http,
+        current,
+    )?;
+    let server = time["serverTime"]
+        .as_str()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| valid_time(*value))
+        .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?;
+    if started.elapsed() > Duration::from_secs(2) {
+        return Err(TradeXError::new("CLOCK_SKEW"));
+    }
+    Ok((server, Instant::now()))
+}
+
+fn signed_get(
+    endpoint: ProviderEndpoint,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+    server: u64,
+    sampled: Instant,
+    path: &str,
+) -> Result<Value> {
+    if secrets.len() != 3 {
+        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+    }
+    if sampled.elapsed() > Duration::from_secs(60) {
+        return Err(TradeXError::new("CLOCK_SKEW"));
+    }
+    let timestamp = server
+        .checked_add(sampled.elapsed().as_millis() as u64)
+        .filter(|value| valid_time(*value))
+        .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?
+        .to_string();
+    let mut mac = Hmac::<Sha256>::new_from_slice(secrets[1].as_bytes()).map_err(|_| invalid())?;
+    mac.update(format!("{timestamp}GET{path}").as_bytes());
+    let signature = Zeroizing::new(STANDARD.encode(mac.finalize().into_bytes()));
+    let mut headers = HeaderMap::new();
+    for (name, value) in [
+        ("ACCESS-KEY", secrets[0].as_str()),
+        ("ACCESS-PASSPHRASE", secrets[2].as_str()),
+        ("ACCESS-SIGN", signature.as_str()),
+    ] {
+        let mut header =
+            HeaderValue::from_str(value).map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+        header.set_sensitive(true);
+        headers.insert(name, header);
+    }
+    headers.insert(
+        "ACCESS-TIMESTAMP",
+        HeaderValue::from_str(&timestamp).map_err(|_| invalid())?,
+    );
+    if endpoint == ProviderEndpoint::BitgetDemo {
+        headers.insert("paptrading", HeaderValue::from_static("1"));
+    }
+    response_json(
+        endpoint,
+        path,
+        headers,
+        Some(&signature),
+        secrets,
+        http,
+        current,
+    )
+}
+
 pub(super) fn read(
     endpoint: ProviderEndpoint,
     secrets: &[String],
@@ -103,66 +219,8 @@ pub(super) fn read(
     current: &impl Fn() -> bool,
     old: Option<&AccountData>,
 ) -> Result<Observation> {
-    let query = |path: &str, headers: HeaderMap, signature: Option<&str>| -> Result<Value> {
-        if !current() {
-            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-        }
-        let bytes = http.get(endpoint, path, headers)?;
-        if bytes.len() as u64 > MAX_RESPONSE {
-            return Err(invalid());
-        }
-        let value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
-        if contains_secret(&value, secrets)
-            || signature.is_some_and(|s| contains_secret(&value, &[s.into()]))
-        {
-            return Err(invalid());
-        }
-        business(value)
-    };
-    let started = Instant::now();
-    let time = query("/api/v2/public/time", HeaderMap::new(), None)?;
-    let server = time["serverTime"]
-        .as_str()
-        .and_then(|s| s.parse::<u64>().ok())
-        .filter(|n| valid_time(*n))
-        .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?;
-    if started.elapsed() > Duration::from_secs(2) {
-        return Err(TradeXError::new("CLOCK_SKEW"));
-    }
-    let sampled = Instant::now();
-    let signed = |path: &str| -> Result<Value> {
-        if sampled.elapsed() > Duration::from_secs(60) {
-            return Err(TradeXError::new("CLOCK_SKEW"));
-        }
-        let timestamp = server
-            .checked_add(sampled.elapsed().as_millis() as u64)
-            .filter(|n| valid_time(*n))
-            .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?
-            .to_string();
-        let mut mac =
-            Hmac::<Sha256>::new_from_slice(secrets[1].as_bytes()).map_err(|_| invalid())?;
-        mac.update(format!("{timestamp}GET{path}").as_bytes());
-        let signature = Zeroizing::new(STANDARD.encode(mac.finalize().into_bytes()));
-        let mut headers = HeaderMap::new();
-        for (name, value) in [
-            ("ACCESS-KEY", secrets[0].as_str()),
-            ("ACCESS-PASSPHRASE", secrets[2].as_str()),
-            ("ACCESS-SIGN", signature.as_str()),
-        ] {
-            let mut header = HeaderValue::from_str(value)
-                .map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
-            header.set_sensitive(true);
-            headers.insert(name, header);
-        }
-        headers.insert(
-            "ACCESS-TIMESTAMP",
-            HeaderValue::from_str(&timestamp).map_err(|_| invalid())?,
-        );
-        if endpoint == ProviderEndpoint::BitgetDemo {
-            headers.insert("paptrading", HeaderValue::from_static("1"));
-        }
-        query(path, headers, Some(&signature))
-    };
+    let (server, sampled) = server_clock(endpoint, secrets, http, current)?;
+    let signed = |path: &str| signed_get(endpoint, secrets, http, current, server, sampled, path);
     let account = signed("/api/v2/spot/account/info")?;
     let identity = id(&account, "userId")?;
     if old.is_some_and(|a| a.remote_account_id != identity) {
@@ -933,12 +991,16 @@ fn demo_get(
     business(value)
 }
 
-fn bitget_symbol(proposal: &OrderProposal, connection_id: &str) -> Result<String> {
+fn bitget_symbol(
+    proposal: &OrderProposal,
+    connection_id: &str,
+    environment: ExecutionContext,
+) -> Result<String> {
     let fields = &proposal.fields;
     if !matches!(
         proposal.status,
         OrderProposalStatus::NeedsApproval | OrderProposalStatus::Consumed
-    ) || fields.environment != ExecutionContext::BitgetDemo
+    ) || fields.environment != environment
         || fields.account_id.as_deref() != Some(connection_id)
         || fields.venue != "BITGET"
     {
@@ -963,15 +1025,29 @@ fn demo_order_intent(
     proposal: &OrderProposal,
     attempt: &BitgetDemoOrderAttempt,
 ) -> Result<DemoOrderIntent> {
-    let fields = &proposal.fields;
     if attempt.environment != "DEMO"
         || attempt.proposal_id != proposal.proposal_id
         || attempt.proposal_hash != proposal.proposal_hash
-        || fields.maximum_spend.is_some()
     {
         return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
     }
-    let symbol = bitget_symbol(proposal, &attempt.connection_id)?;
+    bitget_order_intent(
+        proposal,
+        &attempt.connection_id,
+        ExecutionContext::BitgetDemo,
+    )
+}
+
+fn bitget_order_intent(
+    proposal: &OrderProposal,
+    connection_id: &str,
+    environment: ExecutionContext,
+) -> Result<DemoOrderIntent> {
+    let fields = &proposal.fields;
+    if fields.maximum_spend.is_some() {
+        return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
+    }
+    let symbol = bitget_symbol(proposal, connection_id, environment)?;
     let size = provider_io::decimal(&json!(fields.quantity.value))?;
     if provider_io::decimal_cmp(&size, "0")? != std::cmp::Ordering::Greater {
         return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
@@ -1046,7 +1122,7 @@ fn demo_order_intent(
 }
 
 pub(super) fn validate_demo_proposal(proposal: &OrderProposal, connection_id: &str) -> Result<()> {
-    let symbol = bitget_symbol(proposal, connection_id)?;
+    let symbol = bitget_symbol(proposal, connection_id, ExecutionContext::BitgetDemo)?;
     let attempt = BitgetDemoOrderAttempt {
         attempt_id: "preflight".into(),
         workspace_id: proposal.workspace_id.clone(),
@@ -1070,6 +1146,101 @@ pub(super) fn validate_demo_proposal(proposal: &OrderProposal, connection_id: &s
         return Err(invalid());
     }
     Ok(())
+}
+
+pub(super) fn query_live_reconciliation_candidate(
+    proposal: &OrderProposal,
+    attempt_id: &str,
+    provider_client_order_id: &str,
+    connection_id: &str,
+    remote_account_id: &str,
+    window_started_at: &str,
+    window_ends_at: &str,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<Option<ProviderOrderCandidate>> {
+    if secrets.len() != 3
+        || proposal.status != OrderProposalStatus::Consumed
+        || proposal.fields.environment != ExecutionContext::BitgetLive
+        || remote_account_id.is_empty()
+        || live_client_order_id(attempt_id)? != provider_client_order_id
+    {
+        return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+    }
+    let intent = bitget_order_intent(proposal, connection_id, ExecutionContext::BitgetLive)?;
+    let endpoint = ProviderEndpoint::BitgetLive;
+    let (server, sampled) = server_clock(endpoint, secrets, http, current)?;
+    let signed = |path: &str| signed_get(endpoint, secrets, http, current, server, sampled, path);
+    let account = signed("/api/v2/spot/account/info")?;
+    if id(&account, "userId")? != remote_account_id {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let path = format!("/api/v2/spot/trade/orderInfo?clientOid={provider_client_order_id}");
+    let response = signed(&path)?;
+    let rows = response.as_array().ok_or_else(invalid)?;
+    if rows.is_empty() {
+        return Ok(None);
+    }
+    if rows.len() != 1 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    let row = &rows[0];
+    let account_id = id(row, "userId")?;
+    let provider_symbol = text(row, "symbol", 32)?;
+    let order_id = id(row, "orderId")?;
+    let client_oid = text(row, "clientOid", 50)?;
+    let side = text(row, "side", 8)?;
+    let order_type = text(row, "orderType", 8)?;
+    let status = text(row, "status", 32)?;
+    let quantity = positive(&row["size"])?;
+    let submitted_at =
+        timestamp(row, "cTime")?.ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+    let submitted = time::OffsetDateTime::parse(
+        &submitted_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| invalid())?;
+    let window_started = time::OffsetDateTime::parse(
+        window_started_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| invalid())?;
+    let window_ends = time::OffsetDateTime::parse(
+        window_ends_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| invalid())?;
+    let quantity_matches =
+        provider_io::decimal_cmp(&quantity, &intent.size)? == std::cmp::Ordering::Equal;
+    let limit_fields_match = intent.order_type != "limit"
+        || (provider_io::decimal_cmp(&positive(&row["price"])?, intent.price.as_deref().unwrap())?
+            == std::cmp::Ordering::Equal
+            && text(row, "force", 16)? == intent.force.unwrap());
+    if account_id != remote_account_id
+        || provider_symbol != intent.symbol
+        || client_oid != provider_client_order_id
+        || side != intent.side
+        || order_type != intent.order_type
+        || normalized_status(&status) == "UNKNOWN"
+        || row["tpslType"] != "normal"
+        || !quantity_matches
+        || !limit_fields_match
+        || submitted < window_started
+        || submitted > window_ends
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    Ok(Some(ProviderOrderCandidate {
+        provider_order_id: order_id,
+        provider_symbol,
+        side: proposal.fields.side,
+        provider_status: status,
+        order_type,
+        quantity: Some(quantity),
+        submitted_at: Some(submitted_at),
+        provider_client_id: Some(client_oid),
+    }))
 }
 
 fn symbol_number(value: &Value, name: &str) -> Result<u32> {

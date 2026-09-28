@@ -3316,7 +3316,7 @@ impl Store {
         }
         let rows = {
             let mut statement = self.connection.prepare(
-                "SELECT a.attempt_id,a.operation FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.state='UNKNOWN_RECONCILING' AND a.operation='PLACE_ORDER' AND c.provider_id IN ('trading212','binance') AND c.environment='LIVE' ORDER BY a.account_id,a.attempt_id LIMIT 10001",
+                "SELECT a.attempt_id,a.operation FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.state='UNKNOWN_RECONCILING' AND a.operation='PLACE_ORDER' AND c.provider_id IN ('trading212','binance','bitget') AND c.environment='LIVE' ORDER BY a.account_id,a.attempt_id LIMIT 10001",
             ).map_err(storage_error)?;
             statement
                 .query_map([workspace_id], |row| {
@@ -10278,6 +10278,7 @@ fn live_reconciliation_provider(environment: &ExecutionContext) -> Option<&'stat
     match environment {
         ExecutionContext::Trading212Live => Some("trading212"),
         ExecutionContext::BinanceLive => Some("binance"),
+        ExecutionContext::BitgetLive => Some("bitget"),
         _ => None,
     }
 }
@@ -10286,6 +10287,9 @@ fn expected_live_provider_client_order_id(attempt: &ExecutionAttempt) -> Result<
     match live_reconciliation_provider(&attempt.environment) {
         Some("binance") => {
             crate::provider_io::binance_live_client_order_id(&attempt.attempt_id).map(Some)
+        }
+        Some("bitget") => {
+            crate::provider_io::bitget_live_client_order_id(&attempt.attempt_id).map(Some)
         }
         Some("trading212") => Ok(None),
         _ => Err(TradeXError::new("STATE_VERSION_CONFLICT")),

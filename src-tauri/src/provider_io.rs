@@ -45,6 +45,10 @@ pub(crate) fn binance_live_client_order_id(attempt_id: &str) -> Result<String> {
     binance::live_client_order_id(attempt_id)
 }
 
+pub(crate) fn bitget_live_client_order_id(attempt_id: &str) -> Result<String> {
+    bitget::live_client_order_id(attempt_id)
+}
+
 pub(crate) fn binance_testnet_private_stream_subscription(
     http: &impl ProviderHttp,
     secrets: &[String],
@@ -1070,10 +1074,10 @@ impl ProviderJob {
             };
         }
         if matches!(&self.kind, JobKind::LiveOrderReconcile { .. }) {
-            return if self.account.provider_id == "binance" {
-                self.run_binance_live_reconciliation(vault, http, current)
-            } else {
-                self.run_trading212_live_reconciliation(vault, http, current)
+            return match self.account.provider_id.as_str() {
+                "binance" => self.run_binance_live_reconciliation(vault, http, current),
+                "bitget" => self.run_bitget_live_reconciliation(vault, http, current),
+                _ => self.run_trading212_live_reconciliation(vault, http, current),
             };
         }
         if matches!(
@@ -1462,6 +1466,153 @@ impl ProviderJob {
                 execution_attempt_id: attempt.attempt_id.clone(),
                 account_id: self.account.connection_id.clone(),
                 provider_id: "binance".into(),
+                queried_at: queried_at.clone(),
+                query_scope,
+                coverage_from: Some(automatic_window_started_at.clone()),
+                coverage_to: Some(queried_at.clone()),
+                outcome: if candidate_orders.is_empty() {
+                    ResolutionEvidenceOutcome::Inconclusive
+                } else {
+                    ResolutionEvidenceOutcome::CandidatesFound
+                },
+                pagination_complete: error_code.is_none(),
+                candidate_orders,
+                next_page_path: None,
+                error_code,
+            }),
+        }
+    }
+
+    fn run_bitget_live_reconciliation(
+        &self,
+        vault: &impl CredentialVault,
+        http: &impl ProviderHttp,
+        current: impl Fn() -> bool,
+    ) -> ProviderOutcome {
+        let JobKind::LiveOrderReconcile {
+            input,
+            attempt,
+            proposal,
+            queried_at,
+            automatic_window_started_at,
+            automatic_window_ends_at,
+            ..
+        } = &self.kind
+        else {
+            unreachable!();
+        };
+        let mut credential = "MISSING";
+        let empty_outcome = |error: TradeXError| ProviderOutcome {
+            observation: None,
+            error: Some(error),
+            credential: credential.into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
+            resolution_evidence: None,
+        };
+        if !current() {
+            return empty_outcome(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let expected_client_order_id = bitget::live_client_order_id(&attempt.attempt_id);
+        let query_scope = attempt.provider_client_order_id.as_ref().map_or_else(
+            || "GET /api/v2/public/time; GET /api/v2/spot/account/info; GET /api/v2/spot/trade/orderInfo using the saved Bitget clientOid".into(),
+            |client_oid| format!(
+                "GET /api/v2/public/time; GET /api/v2/spot/account/info; GET /api/v2/spot/trade/orderInfo?clientOid={client_oid}"
+            ),
+        );
+        let result = (|| -> Result<Option<crate::protocol::ProviderOrderCandidate>> {
+            if self.account.provider_id != "bitget"
+                || self.account.environment != "LIVE"
+                || self.account.connection_state != ConnectionState::Connected
+                || attempt.state != ExecutionAttemptState::UnknownReconciling
+                || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+                || attempt.environment != ExecutionContext::BitgetLive
+                || attempt.account_id != self.account.connection_id
+                || attempt.attempt_id != input.execution_attempt_id
+                || attempt.workspace_id != input.workspace_id
+                || attempt.state_version != input.expected_attempt_state_version
+                || input.account_id != self.account.connection_id
+                || expected_client_order_id
+                    .as_ref()
+                    .ok()
+                    .zip(attempt.provider_client_order_id.as_ref())
+                    .is_none_or(|(expected, saved)| expected != saved)
+                || proposal.workspace_id != attempt.workspace_id
+                || proposal.proposal_id != attempt.intent_id
+                || proposal.proposal_id.as_str()
+                    != attempt.proposal_id.as_deref().unwrap_or_default()
+                || proposal.proposal_hash != attempt.intent_hash
+                || proposal.fields.account_id.as_deref() != Some(attempt.account_id.as_str())
+                || proposal.fields.environment != ExecutionContext::BitgetLive
+                || !current()
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            let remote_account_id = self
+                .account
+                .data
+                .as_ref()
+                .map(|data| data.remote_account_id.as_str())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+            let secrets = vault.get(&self.account.credential_ref())?;
+            credential = "CONFIGURED";
+            let values = secrets.values()?;
+            if values.len() != 3 {
+                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+            }
+            let candidate = bitget::query_live_reconciliation_candidate(
+                proposal,
+                &attempt.attempt_id,
+                attempt
+                    .provider_client_order_id
+                    .as_deref()
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?,
+                &self.account.connection_id,
+                remote_account_id,
+                automatic_window_started_at,
+                automatic_window_ends_at,
+                &values,
+                http,
+                &current,
+            )?;
+            if !current() {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            Ok(candidate)
+        })();
+        if result
+            .as_ref()
+            .is_err_and(|error| error.code == "PROVIDER_AUTH_FAILED")
+        {
+            credential = "INVALID";
+        }
+        let (candidate_orders, error_code) = match result {
+            Ok(candidate) => (candidate.into_iter().collect::<Vec<_>>(), None),
+            Err(error) if error.code == "STATE_VERSION_CONFLICT" => return empty_outcome(error),
+            Err(error) => (Vec::new(), Some(error.code)),
+        };
+        ProviderOutcome {
+            observation: None,
+            error: None,
+            credential: credential.into(),
+            trading212_demo_attempt: None,
+            trading212_demo_order_book: None,
+            alpaca_paper_attempt: None,
+            alpaca_paper_order_book: None,
+            binance_testnet_attempt: None,
+            binance_testnet_order_book: None,
+            bitget_demo_attempt: None,
+            resolution_evidence: Some(ResolutionEvidence {
+                evidence_id: uuid::Uuid::new_v4().to_string(),
+                execution_attempt_id: attempt.attempt_id.clone(),
+                account_id: self.account.connection_id.clone(),
+                provider_id: "bitget".into(),
                 queried_at: queried_at.clone(),
                 query_scope,
                 coverage_from: Some(automatic_window_started_at.clone()),

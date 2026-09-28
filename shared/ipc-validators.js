@@ -73148,7 +73148,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			},
 			"providerId": {
 				"type": "string",
-				"enum": ["trading212", "binance"]
+				"enum": [
+					"trading212",
+					"binance",
+					"bitget"
+				]
 			},
 			"stateVersion": {
 				"type": "string",
@@ -73222,7 +73226,11 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"paginationComplete": { "type": "boolean" },
 			"providerId": {
 				"type": "string",
-				"enum": ["trading212", "binance"]
+				"enum": [
+					"trading212",
+					"binance",
+					"bitget"
+				]
 			},
 			"queriedAt": {
 				"type": "string",
@@ -74026,7 +74034,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		}];
 																		return false;
 																	}
-																	if (!(data11 === "trading212" || data11 === "binance")) {
+																	if (!(data11 === "trading212" || data11 === "binance" || data11 === "bitget")) {
 																		validate179.errors = [{
 																			instancePath: instancePath + "/providerId",
 																			schemaPath: "#/properties/providerId/enum",
@@ -74780,7 +74788,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																}
-																if (!(data11 === "trading212" || data11 === "binance")) {
+																if (!(data11 === "trading212" || data11 === "binance" || data11 === "bitget")) {
 																	validate178.errors = [{
 																		instancePath: instancePath + "/providerId",
 																		schemaPath: "#/properties/providerId/enum",
@@ -144443,7 +144451,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																		}];
 																		return false;
 																	}
-																	if (!(data11 === "trading212" || data11 === "binance")) {
+																	if (!(data11 === "trading212" || data11 === "binance" || data11 === "bitget")) {
 																		validate969.errors = [{
 																			instancePath: instancePath + "/providerId",
 																			schemaPath: "#/properties/providerId/enum",
@@ -144973,7 +144981,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																	}];
 																	return false;
 																}
-																if (!(data11 === "trading212" || data11 === "binance")) {
+																if (!(data11 === "trading212" || data11 === "binance" || data11 === "bitget")) {
 																	validate971.errors = [{
 																		instancePath: instancePath + "/providerId",
 																		schemaPath: "#/properties/providerId/enum",

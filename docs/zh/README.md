@@ -30,9 +30,11 @@ S19 #70 在 Backend ARD §41.27、Frontend ARD §13.15 和 UI Spec §14.13 增�
 
 S19 #71 在 Backend ARD §41.28、Frontend ARD §13.15.1 和 UI Spec §14.14 增加 Binance Spot Testnet 准确订单撤销。Rust-backed fixture 覆盖持久化意图、单次准确 DELETE、结果不明时不重放、provider 订单变化和竞态成交。[本地实现证据](../implementation/s19-binance-testnet-cancel-evidence_zh.md)。未使用真实 Testnet 凭据、未调用 provider、未下单；父 Spec #67 和 provider acceptance #72 已按普通账户接口范围关闭。点击式原型未修改。
 
-S25.1 #97 已实现并在本地验证 Trading 212 Live `PLACE` 进入 `UNKNOWN_RECONCILING` 后的只读对账证据。五分钟窗口超时后容量继续冻结；不确定证据不会证明订单不存在，也不会触发重发。窗口超时后只开放后端授权的 Keep Reconciling 操作；该操作记录决策，但不会重启 provider 查询。[本地验收证据](../implementation/s25-trading212-live-reconciliation-evidence_zh.md)。父级 S25 issue #96 仍为打开状态，其他提供方和确认已提交/未提交的处置仍待完成；未发出真实 provider 请求，点击式原型未修改。
+S25.1 #97 已实现并在本地验证 Trading 212 Live `PLACE` 进入 `UNKNOWN_RECONCILING` 后的只读对账证据。五分钟窗口超时后容量继续冻结；不确定证据不会证明订单不存在，也不会触发重发。窗口超时后只开放后端授权的 Keep Reconciling 操作；该操作记录决策，但不会重启 provider 查询。[本地验收证据](../implementation/s25-trading212-live-reconciliation-evidence_zh.md)。父级 S25 issue #96 仍为打开状态，已提交/未提交的确认处置仍待完成；未发出真实 provider 请求，点击式原型未修改。
 
 S25.2 #98 为 Binance Spot Live 增加相同的只读证据路径。它会核验已保存的 SPOT 账户身份，只在普通 Live 端点按已保存的准确 `providerClientOrderId` 查询；未匹配或不完整结果保持不确定，容量继续冻结。[本地实现证据](../implementation/s25-binance-live-reconciliation-evidence_zh.md)。未发出真实 provider 请求或写入，点击式原型未修改；父 issue #96 仍开放，跟踪 S25 剩余范围。
+
+S25.3 #99 将共享只读证据路径扩展到 Bitget Classic Spot Live。它核验已保存远端账户及准确持久化的 `clientOid`；账户/意图不匹配、空或格式错误的响应、认证失败和传输失败均保持不确定并冻结容量。[本地验收证据](../implementation/s25-bitget-live-reconciliation-evidence_zh.md)。验证仅使用合成凭据和本地 fixture；未发出真实 provider 请求或写入，点击式原型未修改。父 issue #96 仍开放，跟踪剩余 Manual Resolution 切片和完整 S25 验证。
 
 ## 术语和同步规则
 

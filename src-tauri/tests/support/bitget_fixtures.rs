@@ -15,7 +15,31 @@ pub struct Http(
     pub RefCell<Vec<String>>,
     RefCell<Option<Value>>,
     RefCell<Vec<Value>>,
+    RefCell<Option<String>>,
+    RefCell<bool>,
 );
+
+impl Http {
+    pub fn set_order_info(&self, order: Option<Value>) {
+        *self.1.borrow_mut() = order;
+        *self.3.borrow_mut() = None;
+        *self.4.borrow_mut() = false;
+    }
+
+    pub fn set_order_info_error(&self, code: Option<String>) {
+        *self.3.borrow_mut() = code;
+        *self.4.borrow_mut() = false;
+    }
+
+    pub fn set_order_info_transport_error(&self, enabled: bool) {
+        *self.3.borrow_mut() = None;
+        *self.4.borrow_mut() = enabled;
+    }
+
+    pub fn order_writes(&self) -> usize {
+        self.2.borrow().len()
+    }
+}
 
 fn verify_signature(
     method: &str,
@@ -136,6 +160,15 @@ impl ProviderHttp for Http {
                 {"symbol":"BTCUSDT","bidPr":"65000","askPr":"65001","lastPr":"65000"}
             ]),
             path if path.starts_with("/api/v2/spot/trade/orderInfo?clientOid=") => {
+                if *self.4.borrow() {
+                    return Err(tradex::protocol::TradeXError::new("PROVIDER_UNAVAILABLE"));
+                }
+                if let Some(code) = self.3.borrow().as_ref() {
+                    return Ok(serde_json::to_vec(
+                        &json!({"code":code,"msg":"fixture error","data":[]}),
+                    )
+                    .unwrap());
+                }
                 let client_oid = path
                     .strip_prefix("/api/v2/spot/trade/orderInfo?clientOid=")
                     .unwrap();

@@ -3048,7 +3048,7 @@ export interface ResolutionEvidenceLedger {
    */
   manualResolutions?: ManualResolutionRecord[];
   nextPagePath?: string | null;
-  providerId: "trading212" | "binance";
+  providerId: "trading212" | "binance" | "bitget";
   stateVersion: string;
   workspaceId: string;
 }
@@ -3070,7 +3070,7 @@ export interface ResolutionEvidence {
   nextPagePath?: string | null;
   outcome: ResolutionEvidenceOutcome;
   paginationComplete: boolean;
-  providerId: "trading212" | "binance";
+  providerId: "trading212" | "binance" | "bitget";
   queriedAt: string;
   queryScope: string;
 }

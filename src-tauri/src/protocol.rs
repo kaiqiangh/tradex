@@ -3125,7 +3125,7 @@ pub struct ResolutionEvidence {
     pub execution_attempt_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
-    #[schemars(extend("enum" = ["trading212", "binance"]))]
+    #[schemars(extend("enum" = ["trading212", "binance", "bitget"]))]
     pub provider_id: String,
     #[schemars(length(min = 1, max = 64))]
     pub queried_at: String,
@@ -3172,7 +3172,7 @@ pub struct ResolutionEvidenceLedger {
     pub execution_attempt_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
-    #[schemars(extend("enum" = ["trading212", "binance"]))]
+    #[schemars(extend("enum" = ["trading212", "binance", "bitget"]))]
     pub provider_id: String,
     #[schemars(length(min = 1, max = 64))]
     pub automatic_window_started_at: String,

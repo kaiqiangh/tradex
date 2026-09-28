@@ -11433,7 +11433,8 @@
           "type": "string",
           "enum": [
             "trading212",
-            "binance"
+            "binance",
+            "bitget"
           ]
         },
         "queriedAt": {
@@ -11520,7 +11521,8 @@
           "type": "string",
           "enum": [
             "trading212",
-            "binance"
+            "binance",
+            "bitget"
           ]
         },
         "stateVersion": {

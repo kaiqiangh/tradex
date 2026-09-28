@@ -646,7 +646,17 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
-            if command == Some("binance.live.reconciliation.fixture.account.seed") {
+            if matches!(
+                command,
+                Some("binance.live.reconciliation.fixture.account.seed")
+                    | Some("bitget.live.reconciliation.fixture.account.seed")
+            ) {
+                let provider_id =
+                    if command == Some("binance.live.reconciliation.fixture.account.seed") {
+                        "binance"
+                    } else {
+                        "bitget"
+                    };
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
                 let label = payload.get("label").and_then(Value::as_str);
@@ -654,12 +664,14 @@ fn main() -> io::Result<()> {
                     (Some(workspace_id), Some(label)) => match control.lock() {
                         Ok(mut control) => match control.seed_live_cancellation_fixture(
                             workspace_id,
-                            "binance",
+                            provider_id,
                             label,
                         ) {
                             Ok(account) => {
                                 vault.present.borrow_mut().insert(account.credential_ref());
-                                http.binance_uid.set(9_007_199_254_740_993);
+                                if provider_id == "binance" {
+                                    http.binance_uid.set(9_007_199_254_740_993);
+                                }
                                 json!({
                                     "requestId":request["requestId"],"schemaVersion":1,"ok":true,
                                     "data":account
@@ -686,7 +698,17 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
-            if command == Some("binance.live.reconciliation.fixture.attempt.seed") {
+            if matches!(
+                command,
+                Some("binance.live.reconciliation.fixture.attempt.seed")
+                    | Some("bitget.live.reconciliation.fixture.attempt.seed")
+            ) {
+                let provider_id =
+                    if command == Some("binance.live.reconciliation.fixture.attempt.seed") {
+                        "binance"
+                    } else {
+                        "bitget"
+                    };
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
                 let proposal_id = payload.get("proposalId").and_then(Value::as_str);
@@ -698,13 +720,21 @@ fn main() -> io::Result<()> {
                 let reply = match (workspace_id, proposal_id, approval_id, capacity) {
                     (Some(workspace_id), Some(proposal_id), Some(approval_id), Some(capacity)) => {
                         match control.lock() {
-                            Ok(mut control) => match control
-                                .seed_binance_live_unknown_attempt_fixture(
+                            Ok(mut control) => match if provider_id == "binance" {
+                                control.seed_binance_live_unknown_attempt_fixture(
                                     workspace_id,
                                     proposal_id,
                                     approval_id,
                                     capacity,
-                                ) {
+                                )
+                            } else {
+                                control.seed_bitget_live_unknown_attempt_fixture(
+                                    workspace_id,
+                                    proposal_id,
+                                    approval_id,
+                                    capacity,
+                                )
+                            } {
                                 Ok(attempt) => {
                                     let submitted_at = attempt
                                         .dispatch_started_at
@@ -718,19 +748,38 @@ fn main() -> io::Result<()> {
                                         })
                                         .map(|value| value.unix_timestamp_nanos() / 1_000_000)
                                         .unwrap_or_default();
-                                    *http.binance_order_by_client_id.borrow_mut() = Some(json!({
-                                        "orderId":987654321,
-                                        "symbol":"BTCUSDT",
-                                        "clientOrderId":attempt.provider_client_order_id.clone(),
-                                        "side":"BUY",
-                                        "type":"LIMIT",
-                                        "timeInForce":"GTC",
-                                        "origQty":"0.01",
-                                        "origQuoteOrderQty":"0.00000000",
-                                        "price":"50000.00000000",
-                                        "status":"NEW",
-                                        "time":submitted_at
-                                    }));
+                                    if provider_id == "binance" {
+                                        *http.binance_order_by_client_id.borrow_mut() = Some(
+                                            json!({
+                                                "orderId":987654321,
+                                                "symbol":"BTCUSDT",
+                                                "clientOrderId":attempt.provider_client_order_id.clone(),
+                                                "side":"BUY",
+                                                "type":"LIMIT",
+                                                "timeInForce":"GTC",
+                                                "origQty":"0.01",
+                                                "origQuoteOrderQty":"0.00000000",
+                                                "price":"50000.00000000",
+                                                "status":"NEW",
+                                                "time":submitted_at
+                                            }),
+                                        );
+                                    } else {
+                                        http.bitget.set_order_info(Some(json!({
+                                            "userId":"9007199254740993",
+                                            "symbol":"BTCUSDT",
+                                            "orderId":"987654321",
+                                            "clientOid":attempt.provider_client_order_id,
+                                            "price":"50000",
+                                            "size":"0.01",
+                                            "orderType":"limit",
+                                            "side":"buy",
+                                            "status":"live",
+                                            "force":"gtc",
+                                            "tpslType":"normal",
+                                            "cTime":submitted_at.to_string()
+                                        })));
+                                    }
                                     json!({
                                         "requestId":request["requestId"],"schemaVersion":1,"ok":true,
                                         "data":{"attempt":attempt}
@@ -758,10 +807,78 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
-            if command == Some("binance.live.reconciliation.fixture.inspect") {
+            if command == Some("bitget.live.reconciliation.fixture.set_scenario") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let scenario = payload.get("scenario").and_then(Value::as_str);
+                let client_oid = payload.get("clientOid").and_then(Value::as_str);
+                let submitted_at = payload.get("submittedAt").and_then(Value::as_str);
+                let configured = match (scenario, client_oid, submitted_at) {
+                    (Some("EMPTY"), _, _) => {
+                        http.bitget.set_order_info(None);
+                        true
+                    }
+                    (Some("AUTH_ERROR"), _, _) => {
+                        http.bitget.set_order_info_error(Some("40001".into()));
+                        true
+                    }
+                    (Some("TRANSPORT_ERROR"), _, _) => {
+                        http.bitget.set_order_info_transport_error(true);
+                        true
+                    }
+                    (Some("MISMATCH"), Some(client_oid), Some(submitted_at)) => {
+                        http.bitget.set_order_info(Some(json!({
+                            "userId":"42",
+                            "symbol":"BTCUSDT",
+                            "orderId":"987654321",
+                            "clientOid":client_oid,
+                            "price":"50000",
+                            "size":"0.01",
+                            "orderType":"limit",
+                            "side":"buy",
+                            "status":"live",
+                            "force":"gtc",
+                            "tpslType":"normal",
+                            "cTime":submitted_at
+                        })));
+                        true
+                    }
+                    (Some("WRONG_SIDE"), Some(client_oid), Some(submitted_at)) => {
+                        http.bitget.set_order_info(Some(json!({
+                            "userId":"9007199254740993",
+                            "symbol":"BTCUSDT",
+                            "orderId":"987654321",
+                            "clientOid":client_oid,
+                            "price":"50000",
+                            "size":"0.01",
+                            "orderType":"limit",
+                            "side":"sell",
+                            "status":"live",
+                            "force":"gtc",
+                            "tpslType":"normal",
+                            "cTime":submitted_at
+                        })));
+                        true
+                    }
+                    _ => false,
+                };
+                let reply = json!({
+                    "requestId":request["requestId"],"schemaVersion":1,"ok":configured,
+                    "data":{"configured":configured}
+                });
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if matches!(
+                command,
+                Some("binance.live.reconciliation.fixture.inspect")
+                    | Some("bitget.live.reconciliation.fixture.inspect")
+            ) {
                 let reply = json!({
                     "requestId":request["requestId"],"schemaVersion":1,"ok":true,
-                    "data":{"providerOrderWrites":http.binance_posts.borrow().len()}
+                    "data":{"providerOrderWrites":http.binance_posts.borrow().len() + http.bitget.order_writes()}
                 });
                 write_frame(&output, &json!({"kind":"result", "result":reply}))?;
                 frame.clear();
