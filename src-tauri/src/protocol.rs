@@ -347,6 +347,8 @@ pub struct IpcSchema {
     pub cancellation_approval_action: CancellationApprovalAction,
     pub cancellation_approval_history_query: CancellationApprovalHistoryQuery,
     pub cancellation_approval_history: CancellationApprovalHistory,
+    pub trading212_live_order_refresh_request: Trading212LiveOrderRefreshRequest,
+    pub trading212_live_order_observation: Trading212LiveOrderObservation,
     pub cancellation_approval_rejection: CancellationApprovalRejection,
     pub trading212_demo_order_attempt: Trading212DemoOrderAttempt,
     pub trading212_demo_order_submit: Trading212DemoOrderSubmit,
@@ -2885,6 +2887,21 @@ pub struct CancellationIntentRequest {
     pub previous_intent_id: Option<String>,
 }
 
+#[derive(Clone, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212LiveOrderRefreshRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub approval_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CancellationRiskDecision {
@@ -3326,6 +3343,35 @@ pub enum ExecutionReservationStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Trading212LiveOrderObservation {
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_order_id: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: String,
+    pub disposition: LiveOrderDisposition,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub order_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub filled_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub remaining_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub filled_value: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_observed_at: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub source: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExecutionAttempt {
     #[schemars(length(min = 1, max = 128))]
     pub attempt_id: String,
@@ -3350,6 +3396,8 @@ pub struct ExecutionAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 64))]
     pub provider_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trading212_live_order_observation: Option<Trading212LiveOrderObservation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub error_code: Option<String>,
@@ -3808,8 +3856,9 @@ pub struct CancellationApprovalHistoryQuery {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
-    pub broker_order_id: String,
+    pub broker_order_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -3819,8 +3868,9 @@ pub struct CancellationApprovalHistory {
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
-    pub broker_order_id: String,
+    pub broker_order_id: Option<String>,
     pub intents: Vec<CancellationIntentHistoryEntry>,
     pub approvals: Vec<FinancialApproval>,
     pub rejections: Vec<CancellationApprovalRejection>,

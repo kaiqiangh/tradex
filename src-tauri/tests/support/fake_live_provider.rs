@@ -122,6 +122,23 @@ fn handle(stream: TcpStream, state: &Arc<Mutex<State>>) {
                 .map(|id| (200, json!({"id":id}).to_string().into_bytes()))
                 .unwrap_or_else(|| (500, b"{}".to_vec())),
         ),
+        ("GET", "/api/v0/equity/orders/9007199254740996") => Some((
+            200,
+            json!({
+                "id":9007199254740996u64,
+                "ticker":"MSFT_US_EQ",
+                "strategy":"QUANTITY",
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"DAY",
+                "status":"PARTIALLY_FILLED",
+                "quantity":1,
+                "filledQuantity":0.25,
+                "filledValue":32.5
+            })
+            .to_string()
+            .into_bytes(),
+        )),
         ("POST", "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit") => {
             mutation_response(&mut state, &body, None)
         }

@@ -616,7 +616,7 @@ fn valid_outcome(intent: &GatewayDispatchIntent, outcome: &LiveDispatchOutcome) 
         }
         (GatewayDispatchIntent::Cancel(intent), ExecutionAttemptState::CancelPending) => {
             outcome.broker_order_id.as_deref() == Some(intent.provider_order_id.as_str())
-                && outcome.provider_status.as_deref() == Some("CANCEL_PENDING")
+                && outcome.provider_status.as_deref() == Some(intent.provider_status.as_str())
                 && outcome.error_code.is_none()
         }
         (_, ExecutionAttemptState::Rejected) => {
@@ -647,4 +647,46 @@ fn stop_child(child: &mut Child) {
         let _ = child.kill();
     }
     let _ = child.wait();
+}
+
+#[cfg(test)]
+mod outcome_tests {
+    use super::{GatewayDispatchIntent, valid_outcome};
+    use crate::{
+        protocol::{CancellationIntent, ExecutionAttemptState, ExecutionContext},
+        provider_io::LiveDispatchOutcome,
+    };
+
+    fn cancel_intent() -> GatewayDispatchIntent {
+        GatewayDispatchIntent::Cancel(Box::new(CancellationIntent {
+            cancellation_intent_id: "cancel:1".into(),
+            intent_hash: format!("sha256:{}", "a".repeat(64)),
+            workspace_id: "workspace".into(),
+            account_id: "account".into(),
+            environment: ExecutionContext::Trading212Live,
+            provider_order_id: "123".into(),
+            instrument_id: "equity:US:MSFT".into(),
+            symbol: "MSFT_US_EQ".into(),
+            side: "BUY".into(),
+            provider_status: "PARTIALLY_FILLED".into(),
+            quantity: "1".into(),
+            filled_quantity: "0.25".into(),
+            remaining_quantity: "0.75".into(),
+            created_at: "2026-09-28T10:00:00Z".into(),
+        }))
+    }
+
+    #[test]
+    fn cancel_ack_requires_the_preflight_provider_status() {
+        let intent = cancel_intent();
+        let outcome = |provider_status: &str| LiveDispatchOutcome {
+            state: ExecutionAttemptState::CancelPending,
+            broker_order_id: Some("123".into()),
+            provider_status: Some(provider_status.into()),
+            error_code: None,
+        };
+
+        assert!(valid_outcome(&intent, &outcome("PARTIALLY_FILLED")));
+        assert!(!valid_outcome(&intent, &outcome("CANCEL_PENDING")));
+    }
 }

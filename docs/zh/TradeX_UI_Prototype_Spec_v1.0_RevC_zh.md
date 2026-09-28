@@ -947,3 +947,9 @@ Order Drafts 可显式对已保存 proposal 求值或重新求值，并展示 ap
 对于 Binance Spot Live，在同一证据面板中标明 provider、已保存账户/attempt、只读账户身份及准确 client-order 查询范围，并展示 Binance 返回的订单 ID、client order ID、状态和可信查询窗口。使用 attempt 已保存的 `providerClientOrderId`（`tx-{去掉连字符的 execution-attempt UUID}`）作为查询参数 `origClientOrderId`；仅当响应 client ID、symbol、side、order type、准确的 base 或 quote quantity 和时间均与已保存 proposal/窗口一致，才列为候选；LIMIT 订单还必须匹配 limit price 和 time-in-force。Binance `-2013`、身份缺失/格式错误/不匹配、覆盖不完整、认证、限流及传输失败都保持不确定；它们不能证明未提交或释放容量。新鲜且准确的候选可提供 Confirm submitted；不确定证据仍只能 Keep。Binance 路径没有 POST、DELETE、重试或 Testnet 回退。
 
 对于 Bitget Classic Spot Live，在同一证据面板中标明已保存 Live 账户和远端 `userId`、attempt、准确的 `orderInfo?clientOid=...` 只读查询范围、返回的 Bitget 订单 ID/clientOid/status 及可信查询窗口。只有 clientOid、账户、symbol、side、order type、size 和时间完全匹配，且 LIMIT 订单同时匹配 price/force 并满足 `tpslType=normal` 时，才显示为候选。候选是券商订单观测，不是成交证据或自动处置。空、无关、不完整、延迟、格式错误、认证、限流或传输结果均保持不确定，不能证明未提交或释放容量。新鲜且准确的候选可提供 Confirm submitted；不确定证据仍只能 Keep。Bitget 路径没有 POST、DELETE、重试、`paptrading` header 或 Demo/Testnet 回退。
+
+## 14.18 Trading 212 Live 撤单历史与成交竞态（S26.2 #104）
+
+Accounts 展示账户范围内已保存的 Trading 212 Live CANCEL 审批历史，包括准确订单不再开放后的已消费 attempt。每次进入时重新读取耐久 attempt，并将其 acknowledgement 与最新准确 provider 观测及按准确 provider order ID 关联的 S26.1 PLACE settlement 分开呈现。
+
+“刷新准确订单”是针对捕获的已消费 approval、账户与 provider order ID 的显式只读操作。显示 provider 原始状态与归一 disposition、准确可用的订单/成交/剩余数量和累计金额、来源、TradeX 观测时间、可选 provider 时间，以及关联结算的剩余容量/未解决原因。缺少 fee/trade facts 时继续显示不可用。账户已连接时允许刷新；若连接需复核，仅当在线、认证有效且凭据可用时允许；此例外不授予写入或 Arm 权限。DELETE 后竞态到达的成交成为最新订单观测，而撤单 attempt 仍保持 `CANCEL_PENDING`；acknowledgement 不表示撤单已完成。导航/重开后恢复相同事实。提供 accessible 状态/错误、键盘可操作刷新按钮，并检查 390/768/1280 px。不自动轮询。

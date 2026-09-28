@@ -32,6 +32,8 @@ S19 #71 在 Backend ARD §41.28、Frontend ARD §13.15.1 和 UI Spec §14.14 增
 
 S25.1 #97 已实现并在本地验证 Trading 212 Live `PLACE` 进入 `UNKNOWN_RECONCILING` 后的只读对账证据。五分钟窗口超时后容量继续冻结；不确定证据不会证明订单不存在，也不会触发重发。窗口超时后只开放后端授权的 Keep Reconciling 操作；该操作记录决策，但不会重启 provider 查询。[本地验收证据](../implementation/s25-trading212-live-reconciliation-evidence_zh.md)。未发出真实 provider 请求，点击式原型未修改。
 
+S26.2 #104 已在本地验证 Trading 212 Live 耐久撤单历史与竞态全额成交。准确撤单仅通过隔离 Gateway 派发一次；后续准确订单刷新保存 `FILLED` 观测，同时保留 `CANCEL_PENDING` attempt、将订单移出开放订单投影，且不再次写入 provider。[本地验收证据](../implementation/s26-2-trading212-live-cancel-evidence_zh.md)。仅使用合成凭据和本地 fake provider，点击式原型保持未修改。
+
 S25.2 #98 为 Binance Spot Live 增加相同的只读证据路径。它会核验已保存的 SPOT 账户身份，只在普通 Live 端点按已保存的准确 `providerClientOrderId` 查询；未匹配或不完整结果保持不确定，容量继续冻结。[本地实现证据](../implementation/s25-binance-live-reconciliation-evidence_zh.md)。未发出真实 provider 请求或写入，点击式原型未修改。
 
 S25.3 #99 将共享只读证据路径扩展到 Bitget Classic Spot Live。它核验已保存远端账户及准确持久化的 `clientOid`；账户/意图不匹配、空或格式错误的响应、认证失败和传输失败均保持不确定并冻结容量。[本地验收证据](../implementation/s25-bitget-live-reconciliation-evidence_zh.md)。验证仅使用合成凭据和本地 fixture；未发出真实 provider 请求或写入，点击式原型未修改。

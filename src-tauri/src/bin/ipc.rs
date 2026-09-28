@@ -558,6 +558,34 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("trading212.live.cancel.fixture.seed_order") {
+                http.seed_trading212_live_cancel_order();
+                write_frame(
+                    &output,
+                    &json!({
+                        "kind":"result",
+                        "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"seeded":true}}
+                    }),
+                )?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("trading212.live.cancel.fixture.fill_race") {
+                http.fill_trading212_live_cancel_race();
+                write_frame(
+                    &output,
+                    &json!({
+                        "kind":"result",
+                        "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"filled":true}}
+                    }),
+                )?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("account.cancellation.fixture.seed") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);

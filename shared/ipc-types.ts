@@ -465,6 +465,11 @@ export type ExecutionAttemptState =
   "RESERVED" | "INVALIDATED" | "SUBMITTING" | "ACCEPTED" | "REJECTED" | "UNKNOWN_RECONCILING" | "CANCEL_PENDING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LiveOrderDisposition".
+ */
+export type LiveOrderDisposition = "WORKING" | "TERMINAL" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ResolutionEvidenceOutcome".
  */
 export type ResolutionEvidenceOutcome = "CANDIDATES_FOUND" | "INCONCLUSIVE";
@@ -478,11 +483,6 @@ export type ManualResolutionDecision = "CONFIRMED_NOT_SUBMITTED" | "CONFIRMED_SU
  * via the `definition` "ExecutionReservationStatus".
  */
 export type ExecutionReservationStatus = "ACTIVE" | "RELEASED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "LiveOrderDisposition".
- */
-export type LiveOrderDisposition = "WORKING" | "TERMINAL" | "UNKNOWN";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LiveOrderSettlementStatus".
@@ -964,6 +964,8 @@ export interface IpcSchema {
   trading212DemoOrderBookRefresh: Trading212DemoOrderBookRefresh;
   trading212DemoOrderCancel: Trading212DemoOrderCancel;
   trading212DemoOrderSubmit: Trading212DemoOrderSubmit;
+  trading212LiveOrderObservation: Trading212LiveOrderObservation;
+  trading212LiveOrderRefreshRequest: Trading212LiveOrderRefreshRequest;
   turnCancel: TurnCancel;
   turnRetry: TurnRetry;
   turnStart: TurnStart;
@@ -2480,7 +2482,7 @@ export interface CancellationApprovalAction {
 export interface CancellationApprovalHistory {
   accountId: string;
   approvals: FinancialApproval[];
-  brokerOrderId: string;
+  brokerOrderId?: string | null;
   intents: CancellationIntentHistoryEntry[];
   rejections: CancellationApprovalRejection[];
   workspaceId: string;
@@ -2518,7 +2520,7 @@ export interface CancellationApprovalRejection {
  */
 export interface CancellationApprovalHistoryQuery {
   accountId: string;
-  brokerOrderId: string;
+  brokerOrderId?: string | null;
   workspaceId: string;
 }
 /**
@@ -3040,7 +3042,24 @@ export interface ExecutionAttempt {
   riskDecisionId: string;
   state: ExecutionAttemptState;
   stateVersion: string;
+  trading212LiveOrderObservation?: Trading212LiveOrderObservation | null;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212LiveOrderObservation".
+ */
+export interface Trading212LiveOrderObservation {
+  disposition: LiveOrderDisposition;
+  filledQuantity?: string;
+  filledValue?: string;
+  observedAt: string;
+  orderQuantity?: string;
+  providerObservedAt?: string | null;
+  providerOrderId: string;
+  providerStatus: string;
+  remainingQuantity?: string;
+  source: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -5995,6 +6014,17 @@ export interface Trading212DemoOrderSubmit {
   idempotencyKey: string;
   proposalHash: string;
   proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "Trading212LiveOrderRefreshRequest".
+ */
+export interface Trading212LiveOrderRefreshRequest {
+  accountId: string;
+  approvalId: string;
+  brokerOrderId: string;
+  expectedStateVersion: string;
   workspaceId: string;
 }
 /**

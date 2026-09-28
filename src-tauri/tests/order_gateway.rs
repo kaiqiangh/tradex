@@ -160,9 +160,20 @@ mod local_provider_tests {
                 };
                 let (request, mut stream) = read_request(stream);
                 let is_mutation = request.method != "GET";
+                let read_body = if request.path == "/api/v0/equity/account/summary" {
+                    br#"{"id":777}"#.as_slice()
+                } else if request.path == "/api/v0/equity/orders/123457" {
+                    br#"{"id":123457,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY","quantity":2,"filledQuantity":0,"status":"NEW"}"#.as_slice()
+                } else if request.path == "/api/v0/equity/orders/123458" {
+                    br#"{"id":123458,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY","quantity":1,"filledQuantity":0,"status":"FILLED"}"#.as_slice()
+                } else if request.path == "/api/v0/equity/orders/123459" {
+                    br#"{"id":123459,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY","quantity":1,"filledQuantity":0}"#.as_slice()
+                } else {
+                    br#"{"id":123456,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY","quantity":1,"filledQuantity":0,"status":"NEW"}"#.as_slice()
+                };
                 capture.lock().unwrap().push(request);
                 let (status, body) = if !is_mutation {
-                    (200, br#"{"id":777}"#.as_slice())
+                    (200, read_body)
                 } else if drop_mutation_response {
                     let _ = stream.shutdown(Shutdown::Both);
                     continue;
@@ -353,6 +364,7 @@ mod local_provider_tests {
             broker_order_id: provider_order_id.clone(),
             provider_client_order_id: None,
             provider_status: None,
+            trading212_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: "account-1".into(),
@@ -422,6 +434,25 @@ mod local_provider_tests {
             account,
             intent,
             local_test_base_url: None,
+        }
+    }
+
+    fn cancel_intent(order_id: &str) -> CancellationIntent {
+        CancellationIntent {
+            cancellation_intent_id: format!("cancel-intent-{order_id}"),
+            intent_hash: format!("sha256:{}", "c".repeat(64)),
+            workspace_id: "integration-test".into(),
+            account_id: "account-1".into(),
+            environment: ExecutionContext::Trading212Live,
+            provider_order_id: order_id.into(),
+            instrument_id: "equity:US:AAPL".into(),
+            symbol: "AAPL_US_EQ".into(),
+            side: "BUY".into(),
+            provider_status: "NEW".into(),
+            quantity: "1".into(),
+            filled_quantity: "0".into(),
+            remaining_quantity: "1".into(),
+            created_at: "2026-09-27T10:00:00Z".into(),
         }
     }
 
@@ -615,36 +646,94 @@ mod local_provider_tests {
 
     #[test]
     fn real_child_sends_the_exact_live_cancel_and_records_only_pending_acknowledgement() {
-        let intent = CancellationIntent {
-            cancellation_intent_id: "cancel-intent-1".into(),
-            intent_hash: format!("sha256:{}", "c".repeat(64)),
-            workspace_id: "integration-test".into(),
-            account_id: "account-1".into(),
-            environment: ExecutionContext::Trading212Live,
-            provider_order_id: "123456".into(),
-            instrument_id: "equity:US:AAPL".into(),
-            symbol: "AAPL_US_EQ".into(),
-            side: "BUY".into(),
-            provider_status: "NEW".into(),
-            quantity: "1".into(),
-            filled_quantity: "0".into(),
-            remaining_quantity: "1".into(),
-            created_at: "2026-09-27T10:00:00Z".into(),
-        };
-        let (url, calls, provider) = fake_provider(2, 200, b"", false);
+        let intent = cancel_intent("123456");
+        let (url, calls, provider) = fake_provider(3, 204, b"", false);
         let (mut gateway, result) = run_child(
             package("cancel-1", GatewayDispatchIntent::Cancel(Box::new(intent))),
             url,
         );
         provider.join().unwrap();
         let requests = calls.lock().unwrap();
-        assert_eq!(requests.len(), 2);
-        assert_eq!(requests[1].method, "DELETE");
+        assert_eq!(requests.len(), 3);
+        assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[0].path, "/api/v0/equity/account/summary");
+        assert_eq!(requests[1].method, "GET");
         assert_eq!(requests[1].path, "/api/v0/equity/orders/123456");
+        assert_eq!(requests[2].method, "DELETE");
+        assert_eq!(requests[2].path, "/api/v0/equity/orders/123456");
+        assert!(requests[0].authorization.is_some());
+        assert!(
+            requests
+                .iter()
+                .all(|request| { request.authorization == requests[0].authorization })
+        );
         let outcome = result.lock().unwrap().clone().unwrap();
         assert_eq!(outcome.state, ExecutionAttemptState::CancelPending);
         assert_eq!(outcome.broker_order_id.as_deref(), Some("123456"));
-        assert_eq!(outcome.provider_status.as_deref(), Some("CANCEL_PENDING"));
+        assert_eq!(outcome.provider_status.as_deref(), Some("NEW"));
+        drop(requests);
+        let duplicate = gateway.dispatch_attempt(
+            "cancel-1",
+            |_, _| Err("EXECUTION_DISPATCH_NOT_READY".into()),
+            |_, _| panic!("duplicate cancellation must not cross SUBMITTING"),
+            |_, _| {},
+            |_, _| Ok(()),
+        );
+        assert_eq!(duplicate, Ok(()));
+        assert_eq!(calls.lock().unwrap().len(), 3);
+        gateway.stop();
+    }
+
+    #[test]
+    fn real_child_stops_before_submitting_for_changed_terminal_or_malformed_orders() {
+        for order_id in ["123457", "123458", "123459"] {
+            let (url, calls, provider) = fake_provider(2, 200, b"", false);
+            let (mut gateway, result) = run_child(
+                package(
+                    &format!("cancel-preflight-{order_id}"),
+                    GatewayDispatchIntent::Cancel(Box::new(cancel_intent(order_id))),
+                ),
+                url,
+            );
+            provider.join().unwrap();
+            let requests = calls.lock().unwrap();
+            assert_eq!(requests.len(), 2);
+            assert_eq!(requests[0].path, "/api/v0/equity/account/summary");
+            assert_eq!(requests[1].method, "GET");
+            assert_eq!(
+                requests[1].path,
+                format!("/api/v0/equity/orders/{order_id}")
+            );
+            assert!(requests.iter().all(|request| request.method == "GET"));
+            assert!(result.lock().unwrap().is_none());
+            drop(requests);
+            gateway.stop();
+            assert!(
+                calls
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .all(|request| request.method != "DELETE")
+            );
+        }
+    }
+
+    #[test]
+    fn real_child_rejects_a_different_live_account_before_reading_or_mutating_the_order() {
+        let (url, calls, provider) = fake_provider(1, 200, b"", false);
+        let mut package = package(
+            "cancel-account-mismatch",
+            GatewayDispatchIntent::Cancel(Box::new(cancel_intent("123456"))),
+        );
+        package.account.data.as_mut().unwrap().remote_account_id = "778".into();
+        let (mut gateway, result) = run_child(package, url);
+        provider.join().unwrap();
+        let requests = calls.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].path, "/api/v0/equity/account/summary");
+        assert!(result.lock().unwrap().is_none());
+        assert!(requests.iter().all(|request| request.method == "GET"));
+        drop(requests);
         gateway.stop();
     }
 
@@ -802,7 +891,7 @@ mod local_provider_tests {
                 Some("ORDER_STATUS_UNKNOWN"),
             ),
         ] {
-            let (url, calls, provider) = fake_provider(2, status, b"", drop_response);
+            let (url, calls, provider) = fake_provider(3, status, b"", drop_response);
             let (mut gateway, result) = run_child(
                 package(
                     attempt_id,
@@ -827,7 +916,9 @@ mod local_provider_tests {
             );
             provider.join().unwrap();
             let requests = calls.lock().unwrap();
-            assert_eq!(requests.len(), 2);
+            assert_eq!(requests.len(), 3);
+            assert_eq!(requests[0].path, "/api/v0/equity/account/summary");
+            assert_eq!(requests[1].path, "/api/v0/equity/orders/123456");
             assert_eq!(
                 requests
                     .iter()
@@ -835,7 +926,7 @@ mod local_provider_tests {
                     .count(),
                 1
             );
-            assert_eq!(requests[1].path, "/api/v0/equity/orders/123456");
+            assert_eq!(requests[2].path, "/api/v0/equity/orders/123456");
             let outcome = result.lock().unwrap().clone().unwrap();
             assert_eq!(outcome.state, expected_state);
             assert_eq!(outcome.error_code.as_deref(), expected_code);
@@ -844,7 +935,24 @@ mod local_provider_tests {
             } else {
                 assert_eq!(outcome.broker_order_id, None);
             }
+            drop(requests);
             gateway.stop();
+            if expected_state == ExecutionAttemptState::UnknownReconciling {
+                let executable = Path::new(env!("CARGO_BIN_EXE_tradex-order-gateway"));
+                let mut restarted =
+                    OrderGatewayHost::new(executable.to_owned(), digest(executable));
+                restarted.start().unwrap();
+                let replay = restarted.dispatch_attempt(
+                    attempt_id,
+                    |_, _| Err("EXECUTION_DISPATCH_NOT_READY".into()),
+                    |_, _| panic!("reopened unknown cancel must not cross SUBMITTING"),
+                    |_, _| {},
+                    |_, _| Ok(()),
+                );
+                assert_eq!(replay, Ok(()));
+                restarted.stop();
+                assert_eq!(calls.lock().unwrap().len(), 3);
+            }
         }
     }
 }

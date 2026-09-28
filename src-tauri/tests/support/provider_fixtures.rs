@@ -172,6 +172,57 @@ impl Default for Http {
 impl Http {
     #[cfg(feature = "integration-test")]
     #[allow(dead_code)]
+    pub fn seed_trading212_live_cancel_order(&self) {
+        let order_id = "9007199254740996";
+        let order = |status: &str, filled_quantity: f64, filled_value: f64| {
+            json!({
+                "id":9007199254740996u64,
+                "ticker":"MSFT_US_EQ",
+                "strategy":"QUANTITY",
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"DAY",
+                "status":status,
+                "currency":"GBP",
+                "quantity":1,
+                "filledQuantity":filled_quantity,
+                "filledValue":filled_value,
+                "limitPrice":130,
+                "createdAt":"2026-09-28T08:00:00Z"
+            })
+        };
+        let partial = order("PARTIALLY_FILLED", 0.25, 32.5);
+        *self.trading212_order_list.borrow_mut() = Some(vec![partial.clone()]);
+        self.trading212_order_details
+            .borrow_mut()
+            .insert(order_id.into(), partial);
+    }
+
+    #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
+    pub fn fill_trading212_live_cancel_race(&self) {
+        self.trading212_order_details.borrow_mut().insert(
+            "9007199254740996".into(),
+            json!({
+                "id":9007199254740996u64,
+                "ticker":"MSFT_US_EQ",
+                "strategy":"QUANTITY",
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"DAY",
+                "status":"FILLED",
+                "currency":"GBP",
+                "quantity":1,
+                "filledQuantity":1,
+                "filledValue":130,
+                "limitPrice":130,
+                "createdAt":"2026-09-28T08:00:00Z"
+            }),
+        );
+    }
+
+    #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
     pub fn mirror_binance_private_stream_book(&self, book: &BinanceTestnetOrderBook) {
         let order = |row: &tradex::protocol::BinanceTestnetOrder| {
             json!({

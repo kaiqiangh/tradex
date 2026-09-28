@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountConnection, Accounts as AccountList, CancellationReview, ExecutionPreparation, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
+import type { AccountConnection, Accounts as AccountList, CancellationApprovalHistory, CancellationReview, ExecutionPreparation, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
 import { CommandError, desktop, browserIntegration, explainError, request } from './client.ts';
 import { fromAccountSnapshot, fromRiskSnapshot } from './projection.ts';
 import { liveExecutionStatus } from './liveExecution.ts';
@@ -186,7 +186,7 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
         setNotice('Cancellation review rejected and recorded. The broker order was not changed.');
       }
       setReview(undefined);
-      await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId, brokerOrderId] });
+      await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId] });
       await queryClient.invalidateQueries({ queryKey: ['accounts', account.workspaceId] });
     } catch (failure) { setError(explainError(failure)); }
     finally { setBusy(false); }
@@ -216,7 +216,7 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
       setApprovalToPrepare(undefined);
       setPrepareIdentity(undefined);
       setNotice(liveExecutionStatus(saved.preparation.attempt));
-      await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId, brokerOrderId] });
+      await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId] });
     } catch (failure) { setError(explainError(failure)); }
     finally { setBusy(false); }
   };
@@ -283,6 +283,104 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
       </>}
     </dialog>
   </>;
+}
+
+type CancelApproval = Extract<FinancialApproval, { operation: 'CANCEL' }>;
+
+function LiveCancellationAttemptHistory({ account, approval }: { account: AccountConnection; approval: CancelApproval }) {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const saved = useQuery({
+    queryKey: ['cancel-execution-preparation', account.workspaceId, account.connectionId, approval.approvalId],
+    queryFn: () => request('trade.execution.preparation.get', {
+      workspaceId: account.workspaceId,
+      approvalId: approval.approvalId,
+    }),
+    enabled: approval.status === 'CONSUMED',
+    refetchOnMount: 'always',
+  });
+  const refreshExactOrder = async () => {
+    if (refreshing) return;
+    setRefreshing(true); setError(''); setNotice('');
+    try {
+      if (!preparation) throw new Error('EXECUTION_DISPATCH_NOT_READY');
+      const next = await request('trade.live_order.refresh', {
+        workspaceId: account.workspaceId,
+        accountId: account.connectionId,
+        approvalId: approval.approvalId,
+        brokerOrderId: approval.brokerOrderId,
+        expectedStateVersion: account.stateVersion,
+      });
+      if (next.connectionId !== account.connectionId || next.providerId !== 'trading212' || next.environment !== 'LIVE') {
+        throw new Error('IPC_IDENTITY_CONFLICT');
+      }
+      await queryClient.invalidateQueries({ queryKey: ['account', account.connectionId] });
+      await queryClient.invalidateQueries({ queryKey: ['accounts', account.workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId] });
+      await queryClient.invalidateQueries({ queryKey: ['cancel-execution-preparation', account.workspaceId, account.connectionId] });
+      setNotice('Exact Trading 212 order evidence refreshed. Provider acknowledgement is still not a cancellation confirmation.');
+    } catch (failure) { setError(explainError(failure)); }
+    finally { setRefreshing(false); }
+  };
+  const preparation = saved.data?.preparation;
+  const settlement = preparation?.liveOrderSettlement;
+  const orderObservation = preparation?.attempt.trading212LiveOrderObservation;
+  const accountReadable = account.connectionState === 'CONNECTED'
+    || (account.connectionState === 'REVIEW_REQUIRED'
+      && account.health.connection === 'ONLINE'
+      && account.health.authentication === 'VALID');
+  return <article className="live-approval-record" aria-label="Saved Trading 212 Live cancellation attempt">
+    <strong>{approval.status} · Trading 212 Live cancellation</strong>
+    <span>Order {approval.brokerOrderId} · intent {approval.cancellationIntentId} · approval {approval.approvalId}</span>
+    <span>Approved {time(approval.issuedAt)} · expires {time(approval.expiresAt)}{approval.consumedAt ? ` · consumed ${time(approval.consumedAt)}` : ''}</span>
+    {saved.isPending && <p role="status">Loading the saved cancellation attempt…</p>}
+    {saved.error && <p role="alert">Unable to restore the saved attempt: {explainError(saved.error)}</p>}
+    {preparation && <>
+      <span>Attempt {preparation.attempt.attemptId} · {preparation.attempt.state}</span>
+      <span>Provider status {preparation.attempt.providerStatus ?? 'Unavailable'} · outcome {preparation.attempt.errorCode ?? preparation.attempt.dispatchDisposition ?? 'No error recorded'}</span>
+      {orderObservation && <>
+        <span>Latest exact order: {orderObservation.providerStatus} · {orderObservation.disposition}</span>
+        <span>Order quantity {orderObservation.orderQuantity ?? 'Unavailable'} · cumulative filled {orderObservation.filledQuantity ?? 'Unavailable'} · remaining quantity {orderObservation.remainingQuantity ?? 'Unavailable'}</span>
+        <span>Cumulative filled value {money(orderObservation.filledValue)} · fees unavailable in Trading 212 order evidence</span>
+        <span>TradeX observation {time(orderObservation.observedAt)} · provider time {time(orderObservation.providerObservedAt)} · source {orderObservation.source}</span>
+      </>}
+      {settlement
+        ? <>
+          <span>Latest exact order: {settlement.providerStatus ?? 'Provider status unavailable'} · {settlement.disposition} · {settlement.status}</span>
+          <span>Cumulative filled quantity {settlement.filledQuantity ?? 'Unavailable'} · value {settlement.filledValue ?? 'Unavailable'}</span>
+          <span>Fees {settlement.fees?.length ? settlement.fees.map(fee => `${fee.amount} ${fee.asset}`).join(', ') : 'Unavailable in Trading 212 order evidence'}</span>
+          <span>Capacity remaining {settlement.remainingCommitment} · unresolved {settlement.unresolvedReason ?? 'none'}</span>
+          <span>Observation {time(settlement.observedAt)} · provider time {time(settlement.providerObservedAt)} · source {settlement.source}</span>
+        </>
+        : <span>No TradeX PLACE settlement is linked to this provider order.</span>}
+    </>}
+    {error && <p role="alert">{error}</p>}{notice && <p role="status" aria-live="polite">{notice}</p>}
+    <button type="button" onClick={() => void refreshExactOrder()} disabled={refreshing || approval.status !== 'CONSUMED' || !preparation || !accountReadable || ['MISSING', 'DELETE_PENDING'].includes(account.health.credential)}>
+      {refreshing ? 'Refreshing exact order…' : 'Refresh exact order'}
+    </button>
+  </article>;
+}
+
+function Trading212LiveCancellationHistory({ account }: { account: AccountConnection }) {
+  const history = useQuery<CancellationApprovalHistory>({
+    queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId],
+    queryFn: () => request('trade.cancel_approval.list', {
+      workspaceId: account.workspaceId,
+      accountId: account.connectionId,
+    }),
+    refetchOnMount: 'always',
+  });
+  const approvals = history.data?.approvals.filter((approval): approval is CancelApproval => approval.operation === 'CANCEL') ?? [];
+  return <section aria-labelledby="t212-live-cancel-history-title">
+    <h3 id="t212-live-cancel-history-title">Trading 212 Live cancellation history</h3>
+    <p className="muted">Saved attempts and provider observations remain available after the order leaves the open-order list.</p>
+    {history.isPending && <p role="status">Loading saved cancellation history…</p>}
+    {history.error && <p role="alert">Unable to load saved cancellation history: {explainError(history.error)}</p>}
+    {approvals.map(approval => <LiveCancellationAttemptHistory key={approval.approvalId} account={account} approval={approval} />)}
+    {history.data && !approvals.length && <p>No Live cancellation approvals are saved for this account.</p>}
+  </section>;
 }
 
 function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
@@ -496,6 +594,7 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
       {(account.providerId !== 'bitget' || account.environment !== 'LIVE') && <><h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th>{supportsLiveCancelReview && <th>TradeX authorization</th>}</tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td>{supportsLiveCancelReview && <td>{row.instrumentId && row.quantity != null && row.filledQuantity != null ? <LiveCancellationAuthorization account={account} brokerOrderId={row.brokerOrderId} /> : 'Unavailable for cancellation review'}</td>}</tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}</>}
       <h3>Capabilities and limitations</h3><p>{account.data.capabilities.join(', ')}</p><ul>{account.data.limitations.map(text => <li key={text}>{text}</li>)}</ul>
     </>}
+    {account.providerId === 'trading212' && account.environment === 'LIVE' && <Trading212LiveCancellationHistory account={account} />}
     <p className="muted">{localPaper ? 'Built-in TradeX simulation. No credential, provider connection or Live order exists for this account.' : 'Disconnect stops local access and removes the stored credential. It does not revoke the provider key or cancel external orders.'}</p>
     <dialog ref={deleteDialog} className="picker-dialog account-delete-dialog" aria-labelledby="account-delete-title" onCancel={event => { event.preventDefault(); if (!busy) setConfirmDelete(false); }}>
       <div className="picker-dialog-heading"><div><h2 id="account-delete-title">Delete local account?</h2><p className="muted">This permanently removes TradeX-local account details and account/order-book observations.</p></div></div>

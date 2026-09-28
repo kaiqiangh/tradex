@@ -387,6 +387,8 @@ declare const validators: {
   Trading212DemoOrderOrigin: (value: unknown) => boolean;
   Trading212DemoOrderSubmit: (value: unknown) => boolean;
   Trading212DemoRateLimits: (value: unknown) => boolean;
+  Trading212LiveOrderObservation: (value: unknown) => boolean;
+  Trading212LiveOrderRefreshRequest: (value: unknown) => boolean;
   TurnCancel: (value: unknown) => boolean;
   TurnRetry: (value: unknown) => boolean;
   TurnSnapshot: (value: unknown) => boolean;

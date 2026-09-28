@@ -662,6 +662,12 @@ After trusted expiry, show backend-authorized actions through `trade.manual_reso
 
 Show the saved account/attempt identity, trusted window, last query, coverage and query scope, pagination/completion, candidate provider IDs/statuses, inconclusive/error states, and next action. A candidate is never labeled a linked TradeX order or proof of submission. Empty or incomplete results explicitly say absence is not proven. At timeout, show the account as DISARMED/STALE and keep the unknown attempt and active reservation visible. Show only backend-authorized actions: Keep Reconciling for inconclusive evidence or Confirm submitted for a fresh exact Binance/Bitget candidate, each with its persisted audit record; neither action restarts provider reads. Verify keyboard operation and 390/768/1280 px layouts. No confirmed-not-submitted resolution, provider write, retry, or reservation release is available from this surface.
 
+### 13.18 Trading 212 Live cancellation history and fill race (S26.2 #104)
+
+Accounts lists saved Trading 212 Live cancellation approvals at account scope so consumed attempts remain visible after their orders leave the open-order projection. Reload the approval list and each consumed approval's execution preparation after navigation or workspace reopen. Show the saved attempt/acknowledgement separately from the latest exact provider observation and any S26.1 settlement linked by the exact provider order ID.
+
+“Refresh exact order” sends only `trade.live_order.refresh` for the captured account, consumed approval, exact provider order ID, and current account state version. It is an explicit read-only action; allow it while connected, or while connection review is required only if the account remains online with valid authentication and a usable credential. This read-only recovery does not make writes or arming eligible. Display raw status, normalized disposition, exact available quantity/fill/remaining/value, source, TradeX observation time, and provider time only when supplied. Show provider fees/trade facts as unavailable when absent and retain the linked settlement's completeness, unresolved reason, and remaining capacity. A racing fill is shown as the latest provider fact while the cancellation attempt stays `CANCEL_PENDING`; never label provider acknowledgement as cancellation confirmation. Use status/alert semantics, keyboard-operable refresh, and responsive 390/768/1280 px layouts. Do not poll automatically.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

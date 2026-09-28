@@ -336,7 +336,8 @@ impl ProviderEndpoint {
                     "/api/v0/equity/account/summary"
                         | "/api/v0/equity/positions"
                         | "/api/v0/equity/orders"
-                ) || valid_t212_history_path(path)
+                ) || valid_t212_order_detail_path(path)
+                    || valid_t212_history_path(path)
             }
         }
     }
@@ -537,6 +538,7 @@ pub struct PreparedLiveMutation {
     secrets: Zeroizing<Vec<String>>,
     expected_ticker: Option<String>,
     order_id: Option<String>,
+    cancel_provider_status: Option<String>,
 }
 
 pub fn prepare_trading212_live_mutation(
@@ -553,7 +555,7 @@ pub fn prepare_trading212_live_mutation(
     {
         return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
     }
-    let (path, method, body, expected_ticker, order_id) = match operation {
+    let (path, method, body, expected_ticker, order_id, cancel_intent) = match operation {
         PrivilegedLiveOperation::Place(proposal) => {
             if proposal.workspace_id != account.workspace_id
                 || proposal.fields.account_id.as_deref() != Some(&account.connection_id)
@@ -568,6 +570,7 @@ pub fn prepare_trading212_live_mutation(
                 ProviderHttpMethod::Post,
                 Some(body),
                 Some(body_ticker_for_live_proposal(proposal)?),
+                None,
                 None,
             )
         }
@@ -585,6 +588,7 @@ pub fn prepare_trading212_live_mutation(
                 None,
                 None,
                 Some(intent.provider_order_id.clone()),
+                Some(intent.clone()),
             )
         }
     };
@@ -629,6 +633,32 @@ pub fn prepare_trading212_live_mutation(
     {
         return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
     }
+    let cancel_provider_status = if let Some(intent) = cancel_intent.as_ref() {
+        let response = http.request(
+            ProviderEndpoint::Trading212Live,
+            ProviderHttpMethod::Get,
+            &format!("/api/v0/equity/orders/{}", intent.provider_order_id),
+            headers.clone(),
+            None,
+        )?;
+        if response.status != 200 {
+            return Err(if response.status == 404 {
+                TradeXError::new("ORDER_NOT_CANCELLABLE")
+            } else {
+                trading212_order_read_error(response.status, Trading212Endpoint::OrderDetail)
+            });
+        }
+        if response.body.len() as u64 > MAX_RESPONSE {
+            return Err(invalid());
+        }
+        let order: Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
+        if contains_secret(&order, &secrets) {
+            return Err(invalid());
+        }
+        Some(validate_trading212_live_cancel_snapshot(&order, intent)?)
+    } else {
+        None
+    };
     Ok(PreparedLiveMutation {
         path,
         method,
@@ -637,6 +667,7 @@ pub fn prepare_trading212_live_mutation(
         secrets,
         expected_ticker,
         order_id,
+        cancel_provider_status,
     })
 }
 
@@ -669,14 +700,14 @@ impl PreparedLiveMutation {
                 ),
             };
         }
-        if response.status != 200 {
+        if !(200..300).contains(&response.status) {
             return unknown_live_dispatch();
         }
         if let Some(order_id) = self.order_id {
             return LiveDispatchOutcome {
                 state: crate::protocol::ExecutionAttemptState::CancelPending,
                 broker_order_id: Some(order_id),
-                provider_status: Some("CANCEL_PENDING".into()),
+                provider_status: self.cancel_provider_status,
                 error_code: None,
             };
         }
@@ -709,6 +740,128 @@ impl PreparedLiveMutation {
             Err(_) => unknown_live_dispatch(),
         }
     }
+}
+
+fn validate_trading212_live_cancel_snapshot(
+    order: &Value,
+    intent: &CancellationIntent,
+) -> Result<String> {
+    let order_id = trading212::order_id(order)?;
+    let symbol = if order.get("instrument").is_some_and(Value::is_object) {
+        text(&order["instrument"], "ticker", 64)?
+    } else {
+        text(order, "ticker", 64)?
+    };
+    let side = text(order, "side", 8)?.to_ascii_uppercase();
+    let status = text(order, "status", 32)?;
+    if !matches!(
+        status.as_str(),
+        "UNCONFIRMED" | "CONFIRMED" | "NEW" | "PARTIALLY_FILLED"
+    ) {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    }
+    if text(order, "strategy", 16)? != "QUANTITY" {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    }
+    let quantity = decimal_magnitude(&trading212::number(&order["quantity"])?)?;
+    let filled_quantity = decimal_magnitude(&trading212::number(&order["filledQuantity"])?)?;
+    let remaining = decimal_subtract(&quantity, &filled_quantity)
+        .map_err(|_| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+    let instrument_id = market::canonical_instrument_id("trading212", &symbol);
+    if order_id != intent.provider_order_id
+        || symbol != intent.symbol
+        || side != intent.side
+        || instrument_id.as_deref() != Some(intent.instrument_id.as_str())
+        || quantity != intent.quantity
+        || filled_quantity != intent.filled_quantity
+        || remaining != intent.remaining_quantity
+        || status != intent.provider_status
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    Ok(status)
+}
+
+pub(crate) fn decimal_magnitude(value: &str) -> Result<String> {
+    let normalized = decimal(&Value::String(value.into()))?;
+    Ok(normalized.strip_prefix('-').unwrap_or(&normalized).into())
+}
+
+fn read_trading212_live_order(
+    order_id: &str,
+    auth: &HeaderMap,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+) -> Result<(Value, &'static str)> {
+    if !valid_t212_order_id(order_id) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    let path = format!("/api/v0/equity/orders/{order_id}");
+    if !current() {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let detail = http.request(
+        ProviderEndpoint::Trading212Live,
+        ProviderHttpMethod::Get,
+        &path,
+        auth.clone(),
+        None,
+    )?;
+    let (body, source) = match detail.status {
+        200 => (detail.body, "trading212.live.order-detail"),
+        404 => {
+            let history = http.request(
+                ProviderEndpoint::Trading212Live,
+                ProviderHttpMethod::Get,
+                "/api/v0/equity/history/orders?limit=50",
+                auth.clone(),
+                None,
+            )?;
+            if history.status != 200 {
+                return Err(trading212_order_read_error(
+                    history.status,
+                    Trading212Endpoint::History,
+                ));
+            }
+            if history.body.len() as u64 > MAX_RESPONSE {
+                return Err(invalid());
+            }
+            let page: Value = serde_json::from_slice(&history.body).map_err(|_| invalid())?;
+            if contains_secret(&page, secrets) {
+                return Err(invalid());
+            }
+            let items = page["items"].as_array().ok_or_else(invalid)?;
+            if items.len() > 50 {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            let mut exact = items
+                .iter()
+                .filter(|item| trading212::order_id(item).is_ok_and(|id| id == order_id));
+            let Some(order) = exact.next() else {
+                return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+            };
+            if exact.next().is_some() {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+            }
+            let bytes = serde_json::to_vec(order).map_err(|_| invalid())?;
+            (bytes, "trading212.live.order-history")
+        }
+        status => {
+            return Err(trading212_order_read_error(
+                status,
+                Trading212Endpoint::OrderDetail,
+            ));
+        }
+    };
+    if body.len() as u64 > MAX_RESPONSE {
+        return Err(invalid());
+    }
+    let order: Value = serde_json::from_slice(&body).map_err(|_| invalid())?;
+    if contains_secret(&order, secrets) || trading212::order_id(&order)? != order_id {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+    }
+    Ok((order, source))
 }
 
 fn unknown_live_dispatch() -> LiveDispatchOutcome {
@@ -977,6 +1130,10 @@ pub(crate) enum JobKind {
     BitgetDemoSubmit,
     BitgetDemoReconcile,
     CancellationIntentRefresh(Box<crate::protocol::CancellationIntentRequest>),
+    Trading212LiveOrderRefresh {
+        order_id: String,
+        attempt_id: String,
+    },
     LiveOrderReconcile {
         input: Box<ResolutionEvidenceRefresh>,
         attempt: Box<ExecutionAttempt>,
@@ -1017,12 +1174,15 @@ pub(crate) struct LiveOrderObservation {
     pub provider_order_id: String,
     pub raw_status: String,
     pub disposition: crate::protocol::LiveOrderDisposition,
+    pub order_quantity: Option<String>,
     pub filled_quantity: Option<String>,
+    pub remaining_quantity: Option<String>,
     pub filled_value: Option<String>,
     pub fees: Option<Vec<crate::protocol::LiveOrderFee>>,
     pub trade_facts_complete: bool,
     pub trade_facts: Vec<crate::protocol::LiveOrderTradeFact>,
     pub provider_observed_at: Option<String>,
+    pub source: String,
 }
 
 pub(crate) struct Observation {
@@ -1289,11 +1449,55 @@ impl ProviderJob {
                 {
                     return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
                 }
-                trading212::observe(
+                let mut observation = trading212::observe(
                     account,
                     query("/api/v0/equity/positions")?,
                     query("/api/v0/equity/orders")?,
-                )?
+                    endpoint == ProviderEndpoint::Trading212Live,
+                )?;
+                #[cfg(feature = "integration-test")]
+                if endpoint == ProviderEndpoint::Trading212Live
+                    && std::env::var_os("TRADEX_S26_2_CANCEL_FIXTURE").is_some()
+                    && self
+                        .account
+                        .label
+                        .starts_with("SYNTHETIC · S26.2 T212 Live")
+                    && self.account.permissions.scope == "VERIFIED"
+                {
+                    observation.permissions.scope = "VERIFIED".into();
+                }
+                let target_order_id = match &self.kind {
+                    JobKind::CancellationIntentRefresh(input) => {
+                        Some(input.broker_order_id.as_str())
+                    }
+                    JobKind::Trading212LiveOrderRefresh { order_id, .. } => Some(order_id.as_str()),
+                    _ => None,
+                };
+                if endpoint == ProviderEndpoint::Trading212Live
+                    && let Some(order_id) = target_order_id
+                {
+                    let (order, source) =
+                        read_trading212_live_order(order_id, &auth, &values, http, &current)?;
+                    let exact = trading212::open_order(&order)?;
+                    let terminal = matches!(
+                        exact.status.as_str(),
+                        "CANCELLED" | "FILLED" | "REJECTED" | "REPLACED" | "EXPIRED"
+                    );
+                    observation
+                        .data
+                        .open_orders
+                        .retain(|saved| saved.broker_order_id != order_id);
+                    if !terminal {
+                        observation.data.open_orders.push(exact);
+                    }
+                    observation
+                        .live_order_settlements
+                        .retain(|saved| saved.provider_order_id != order_id);
+                    observation
+                        .live_order_settlements
+                        .push(trading212::live_order_observation(&order, source)?);
+                }
+                observation
             };
             normalize_account_data(&mut observation.data, &self.account.provider_id);
             if !current() {
@@ -4829,6 +5033,10 @@ mod trading212_demo_route_tests {
             ProviderEndpoint::Trading212Live
                 .allows("/api/v0/equity/history/orders?limit=50&cursor=1760346100000")
         );
+        assert!(ProviderEndpoint::Trading212Live.allows_method(
+            ProviderHttpMethod::Get,
+            "/api/v0/equity/orders/9007199254740995"
+        ));
         for method in [ProviderHttpMethod::Post, ProviderHttpMethod::Delete] {
             assert!(!ProviderEndpoint::Trading212Live.allows_method(
                 method,
@@ -5063,6 +5271,76 @@ mod trading212_demo_route_tests {
                 .unwrap_err()
                 .code,
             "PROVIDER_IDENTITY_CONFLICT"
+        );
+    }
+}
+
+#[cfg(test)]
+mod trading212_live_cancel_preflight_tests {
+    use super::{ProviderEndpoint, ProviderHttpMethod, validate_trading212_live_cancel_snapshot};
+    use crate::protocol::{CancellationIntent, ExecutionContext};
+    use serde_json::json;
+
+    fn intent() -> CancellationIntent {
+        CancellationIntent {
+            cancellation_intent_id: "cancel:1".into(),
+            intent_hash: format!("sha256:{}", "a".repeat(64)),
+            workspace_id: "workspace".into(),
+            account_id: "account".into(),
+            environment: ExecutionContext::Trading212Live,
+            provider_order_id: "123".into(),
+            instrument_id: "equity:US:AAPL".into(),
+            symbol: "AAPL_US_EQ".into(),
+            side: "SELL".into(),
+            provider_status: "PARTIALLY_FILLED".into(),
+            quantity: "5".into(),
+            filled_quantity: "1.25".into(),
+            remaining_quantity: "3.75".into(),
+            created_at: "2026-09-28T10:00:00Z".into(),
+        }
+    }
+
+    fn order() -> serde_json::Value {
+        json!({
+            "id": 123,
+            "ticker": "AAPL_US_EQ",
+            "side": "SELL",
+            "type": "LIMIT",
+            "timeInForce": "GOOD_TILL_CANCEL",
+            "strategy": "QUANTITY",
+            "quantity": -5,
+            "filledQuantity": -1.25,
+            "status": "PARTIALLY_FILLED"
+        })
+    }
+
+    #[test]
+    fn live_cancel_preflight_accepts_exact_signed_sell_snapshot_and_rejects_changes() {
+        let intent = intent();
+        assert_eq!(
+            validate_trading212_live_cancel_snapshot(&order(), &intent).unwrap(),
+            "PARTIALLY_FILLED"
+        );
+
+        let mut changed = order();
+        changed["filledQuantity"] = json!(-2);
+        assert_eq!(
+            validate_trading212_live_cancel_snapshot(&changed, &intent)
+                .unwrap_err()
+                .code,
+            "ORDER_CHANGED_REVIEW_AGAIN"
+        );
+        let mut terminal = order();
+        terminal["status"] = json!("FILLED");
+        assert_eq!(
+            validate_trading212_live_cancel_snapshot(&terminal, &intent)
+                .unwrap_err()
+                .code,
+            "ORDER_NOT_CANCELLABLE"
+        );
+        assert!(
+            ProviderEndpoint::Trading212Live
+                .allows_method(ProviderHttpMethod::Get, "/api/v0/equity/orders/123")
         );
     }
 }

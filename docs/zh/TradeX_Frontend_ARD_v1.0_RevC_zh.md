@@ -662,6 +662,12 @@ Order Drafts 针对准确的 Trading 212、Binance 或 Bitget Live `UNKNOWN_RECO
 
 展示已保存的账户/attempt 身份、可信窗口、最近查询、覆盖范围和查询范围、分页/完成状态、候选 provider ID/status、不确定/错误状态及后续动作。候选订单不得标成已关联的 TradeX 订单或提交证明。空结果或不完整结果必须明确表示无法证明不存在。窗口超时后显示账户 DISARMED/STALE，继续展示未知 attempt 和 active reservation；只显示后端授权的操作：不确定证据使用 Keep Reconciling，新鲜且准确的 Binance/Bitget 候选使用 Confirm submitted，并显示已保存审计记录；两者均不会重启 provider 查询。验证键盘操作及 390/768/1280 px 布局。此界面没有确认未提交、provider 写入、重试或释放 reservation 的操作。
 
+### 13.18 Trading 212 Live 撤单历史与成交竞态（S26.2 #104）
+
+Accounts 在账户范围列出已保存的 Trading 212 Live 撤单审批，因此准确订单离开开放订单投影后，已消费 attempt 仍可见。导航或重新打开 workspace 后重新读取审批列表及每个已消费审批的 execution preparation。将已保存 attempt/acknowledgement 与最新准确 provider 观测，以及按准确 provider order ID 关联的 S26.1 settlement 分开展示。
+
+“刷新准确订单”只对捕获的账户、已消费 approval、准确 provider order ID 和当前账户状态版本发送 `trade.live_order.refresh`。这是显式只读操作；账户已连接时可用；连接需复核时，只有账户仍在线、认证有效且凭据可用时才可刷新。此只读恢复不使写入或 Arm 变为可用。显示原始状态、归一 disposition、准确可用的数量/成交/剩余/金额、来源、TradeX 观测时间，以及仅在提供时显示 provider 时间。若缺少 provider fee/trade facts，标为不可用并保留关联 settlement 的完整性、未解决原因和剩余容量。竞态成交应成为最新 provider 事实，同时撤单 attempt 继续保持 `CANCEL_PENDING`；不得将 provider acknowledgement 标成撤单已确认。使用 status/alert 语义、键盘可操作的刷新按钮，并验证 390/768/1280 px 布局；不自动轮询。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

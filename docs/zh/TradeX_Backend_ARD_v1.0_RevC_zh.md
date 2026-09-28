@@ -1886,7 +1886,8 @@ interface TradeXError {
 | 准备撤单审阅 | trade.cancel_request | workspace_id、account_id、broker_order_id、expected_state_version、可选 previous_intent_id；Control Plane 执行认证后的 Live 只读请求并持久化观测，返回含不可变意图 ID/hash、精确剩余数量、snapshot_version/evidence、账户、RiskDecision、阻断原因和 review digest 的 CancellationReview。Arm 后只有当订单语义身份/状态/数量未变化时才复用同一意图。 |
 | 批准撤单 | trade.cancel_approve | workspace_id、cancellation_intent_id、intent_hash、reviewed_risk_decision_id、review_digest、expected_state_version；重新核验当前账户/订单/策略/Arm/新鲜度，并签发带 `CANCEL` operation 标签的 FinancialApproval，绑定精确券商订单 ID、剩余数量、snapshot_version/evidence、策略版本和 30 秒 TTL。本命令不会调用提供方 DELETE。 |
 | 拒绝撤单审阅 | trade.cancel_reject | 与当前审阅完全相同的意图/hash、RiskDecision ID、review digest 和 expected snapshot version；记录耐久的 `USER_REJECTED` 审计并使该意图失效。 |
-| 读取撤单授权历史 | trade.cancel_approval.list | workspace_id、account_id、broker_order_id；返回该精确券商订单有界且脱敏的意图失效、审批签发/过期/失效及拒绝历史。 |
+| 读取撤单授权历史 | trade.cancel_approval.list | workspace_id、account_id、可选 broker_order_id；返回账户或准确券商订单范围内有界且脱敏的意图失效、审批签发/过期/失效及拒绝历史。 |
+| 刷新 Trading 212 Live 准确撤单证据 | trade.live_order.refresh | workspace_id、account_id、approval_id、broker_order_id、expected_state_version；对已消费的 Trading 212 Live CANCEL 审批执行只读准确订单刷新，并持久化订单观测及其准确关联的 PLACE 结算 |
 | 查看处置证据 | trade.resolution_evidence | execution_attempt_id、account_id；返回后端持有的证据与允许的决策 |
 | 刷新 Live 对账证据 | trade.resolution_evidence.refresh | workspace_id、execution_attempt_id、account_id、expected_attempt_state_version；对已保存的 Trading 212、Binance Spot 或 Bitget Spot Live 未知 PLACE attempt 执行一次有界只读 provider 查询 |
 | 处置未知提交 | trade.manual_resolution | §27.4 payload；提交处置时再次核验 decision/evidence |
@@ -2878,6 +2879,16 @@ Binance Spot Live 对账仅向普通生产端点 `https://api.binance.com` 发�
 Bitget Classic Spot Live 对账只向普通生产主机 `https://api.bitget.com` 发送签名 GET：`/api/v2/public/time` 提供签名时钟，`/api/v2/spot/account/info` 核验已保存的远端 `userId`，`/api/v2/spot/trade/orderInfo?clientOid={saved-clientOid}` 查询准确的已保存订单。TradeX 将 `clientOid` 生成为 `tx-{去掉连字符的 execution_attempt_id}` 并在提交前持久化。响应必须恰好包含一行；其 `userId`、`clientOid`、symbol、side、order type、size 和 `cTime` 必须与已保存账户、不可变 proposal 和可信五分钟窗口匹配。LIMIT 订单还须匹配 price 与 `force`，且 `tpslType` 必须为 `normal`。Bitget 空 `data` 数组仍是不确定结果；多行、字段缺失、identity 无关、格式错误、认证/限流错误及传输失败均不能处置 attempt 或释放容量。此路径省略仅供 Demo 使用的 `paptrading: 1` header，拒绝 Testnet/Demo 上下文，且不发送 POST 或 DELETE。
 
 成功的空结果、不完整/延迟查询、未认证、身份不匹配或失败的观测均保持 `INCONCLUSIVE`；空响应不能证明未提交。只持久化脱敏查询范围、时间覆盖、分页状态、有界候选字段、结果和稳定错误码。每个证据 projection 与 `trade.resolution_evidence.changed` event 在同一 SQLite/outbox 事务中提交。可信五分钟窗口超时后，将账户对账标为 `STALE` 并 disarm，保留 `UNKNOWN_RECONCILING` 与 active PLACE reservation，并允许 `KEEP_RECONCILING`。只有最新观测新鲜、完整、绑定账户快照，且来自准确的 Binance/Bitget 已保存 client-order-ID 查询，恰好返回一笔与不可变 proposal 和可信窗口匹配的 provider 订单时，才额外允许 `CONFIRMED_SUBMITTED`。提交事务会再次核验数量语义（base/quote）、LIMIT 价格和 time-in-force/force，以及 Bitget `tpslType`，再将 provider order ID/status 关联到 attempt，同时追加人工决策及两个 outbox projection；reservation 仍保持 active，且不会合成 fill。Trading 212 相似订单候选以及所有空、不完整、延迟、过期、不匹配或不支持的观测均只能 Keep。实现 provider-specific 的充分未提交证明前，不开放 `CONFIRMED_NOT_SUBMITTED`。主 Trade 界面通过 `trade.manual_resolution` 提交当前 attempt/证据版本和已有 evidence 引用。窗口过期后不会重启 provider 查询，也不发送/重放 POST/DELETE；过期版本或不可信时钟请求均 fail closed。
+
+### 41.31 Trading 212 Live 撤单竞态与准确订单观测（S26.2 #104）
+
+`trade.cancel_approval.list` 接收 `{workspaceId, accountId, brokerOrderId?}`。省略可选订单 ID 时返回该账户有界的撤单历史，使导航或重启后仍能发现已消费审批；提供订单 ID 时仍限定到准确订单。
+
+`trade.live_order.refresh` 接收 `{workspaceId, accountId, approvalId, brokerOrderId, expectedStateVersion}`，返回刷新的 `AccountConnection`。它要求准确且已消费的 CANCEL approval、已保存的账户及 provider order ID，以及其带 `MAY_HAVE_SUBMITTED` 派发处置的耐久 `REJECTED`、`UNKNOWN_RECONCILING` 或 `CANCEL_PENDING` attempt。仅已连接的 Trading 212 Live 账户可用；若在线的 `REVIEW_REQUIRED` 账户认证仍有效且只是提供方权限范围需要复核，也允许调用此只读命令。凭据缺失/待删除、身份变化、账户版本陈旧、格式错误数据、provider 故障及不支持状态均 fail closed。此例外不授予 Arm、审批或提供方写权限。
+
+Adapter 使用已保存凭据执行全部读取，并将 `/api/v0/equity/account/summary` 与已保存远端账户 ID 核对。它读取准确的 `/api/v0/equity/orders/{id}` 详情；由于 Trading 212 详情接口仅支持待处理订单，HTTP 404 会回退到一页有界的 `/api/v0/equity/history/orders`，且只接受已保存的准确 ID。本命令只发 GET，不改变撤单状态，也不会重试 DELETE。
+
+将校验后的原始 provider status、归一 `WORKING`/`TERMINAL`/`UNKNOWN` disposition、准确可用的订单/成交/剩余数量与累计金额、TradeX 观测时间、可选 provider 时间和来源，保存到同一 CANCEL attempt。在同一 SQLite 事务中，将准确订单的成交证据交由 S26.1 settlement 处理，并匹配唯一关联的 PLACE attempt。较新的成交观测优先于陈旧的 pending 订单数据，但 CANCEL attempt 仍保持 `CANCEL_PENDING`；provider acknowledgement 永不呈现为撤单已确认。缺少 provider fee 或 trade facts 时继续显示不可用，保留 S26.1 完整性/未解决状态，且不释放容量。工作区重开后，可从 execution-preparation 历史恢复已保存观测及关联结算。不增加后台轮询。
 
 ## 42. Backend-to-Frontend Event Surface
 

@@ -82,7 +82,127 @@ fn rows(value: &Value) -> Result<&Vec<Value>> {
     Ok(rows)
 }
 
-pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result<Observation> {
+pub(super) fn open_order(order: &Value) -> Result<OpenOrder> {
+    let broker_order_id = account_id(order)?;
+    let side = text(order, "side", 4)?;
+    if !matches!(side.as_str(), "BUY" | "SELL") {
+        return Err(invalid());
+    }
+    let status = text(order, "status", 32)?;
+    if !matches!(
+        status.as_str(),
+        "LOCAL"
+            | "UNCONFIRMED"
+            | "CONFIRMED"
+            | "NEW"
+            | "CANCELLING"
+            | "CANCELLED"
+            | "PARTIALLY_FILLED"
+            | "FILLED"
+            | "REJECTED"
+            | "REPLACING"
+            | "REPLACED"
+            | "EXPIRED"
+    ) {
+        return Err(invalid());
+    }
+    let symbol = if order.get("instrument").is_some_and(Value::is_object) {
+        ticker(&order["instrument"])?
+    } else {
+        ticker(order)?
+    };
+    if order.get("ticker").is_some() && ticker(order)? != symbol {
+        return Err(invalid());
+    }
+    let strategy = text(order, "strategy", 8)?;
+    let (quantity, notional, filled_quantity, filled_value) = match strategy.as_str() {
+        "QUANTITY" => (
+            Some(number(&order["quantity"])?),
+            None,
+            optional(order, "filledQuantity")?,
+            optional(order, "filledValue")?,
+        ),
+        "VALUE" => (
+            None,
+            Some(number(&order["value"])?),
+            None,
+            optional(order, "filledValue")?,
+        ),
+        _ => return Err(invalid()),
+    };
+    let limit_price = optional(order, "limitPrice")?;
+    let currency = if notional.is_some() || limit_price.is_some() || order.get("currency").is_some()
+    {
+        Some(currency(order)?)
+    } else {
+        None
+    };
+    Ok(OpenOrder {
+        kind: None,
+        trigger_price: None,
+        broker_order_id,
+        symbol,
+        instrument_id: None,
+        side: side.to_ascii_lowercase(),
+        quantity,
+        notional,
+        filled_quantity,
+        filled_value,
+        currency,
+        status,
+        limit_price,
+    })
+}
+
+pub(super) fn live_order_observation(order: &Value, source: &str) -> Result<LiveOrderObservation> {
+    let provider_order_id = order_id(order)?;
+    let raw_status = text(order, "status", 32)?;
+    let disposition = match raw_status.as_str() {
+        "UNCONFIRMED" | "CONFIRMED" | "NEW" | "CANCELLING" | "PARTIALLY_FILLED" => {
+            crate::protocol::LiveOrderDisposition::Working
+        }
+        "CANCELLED" | "FILLED" | "REJECTED" | "REPLACED" | "EXPIRED" => {
+            crate::protocol::LiveOrderDisposition::Terminal
+        }
+        _ => crate::protocol::LiveOrderDisposition::Unknown,
+    };
+    let magnitude = |value: Option<String>| {
+        value
+            .map(|value| super::decimal_magnitude(&value))
+            .transpose()
+    };
+    let order_quantity = if text(order, "strategy", 8)? == "QUANTITY" {
+        magnitude(Some(number(&order["quantity"])?))?
+    } else {
+        None
+    };
+    let filled_quantity = magnitude(optional(order, "filledQuantity")?)?;
+    let remaining_quantity = match (order_quantity.as_deref(), filled_quantity.as_deref()) {
+        (Some(quantity), Some(filled)) => Some(super::decimal_subtract(quantity, filled)?),
+        _ => None,
+    };
+    Ok(LiveOrderObservation {
+        provider_order_id,
+        raw_status,
+        disposition,
+        order_quantity,
+        filled_quantity,
+        remaining_quantity,
+        filled_value: magnitude(optional(order, "filledValue")?)?,
+        fees: None,
+        trade_facts_complete: false,
+        trade_facts: Vec::new(),
+        provider_observed_at: None,
+        source: source.into(),
+    })
+}
+
+pub(super) fn observe(
+    account: Value,
+    positions: Value,
+    orders: Value,
+    include_live_order_settlements: bool,
+) -> Result<Observation> {
     let account_currency = currency(&account)?;
     let mut tickers = std::collections::HashSet::new();
     let positions = rows(&positions)?
@@ -111,83 +231,25 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
             })
         })
         .collect::<Result<Vec<_>>>()?;
+    let rows = rows(&orders)?;
     let mut ids = std::collections::HashSet::new();
-    let orders = rows(&orders)?
+    let orders = rows
         .iter()
-        .map(|o| {
-            let broker_order_id = account_id(o)?;
-            if !ids.insert(broker_order_id.clone()) {
+        .map(|order| {
+            let parsed = open_order(order)?;
+            if !ids.insert(parsed.broker_order_id.clone()) {
                 return Err(invalid());
             }
-            let side = text(o, "side", 4)?;
-            if !matches!(side.as_str(), "BUY" | "SELL") {
-                return Err(invalid());
-            }
-            let status = text(o, "status", 32)?;
-            if !matches!(
-                status.as_str(),
-                "LOCAL"
-                    | "UNCONFIRMED"
-                    | "CONFIRMED"
-                    | "NEW"
-                    | "CANCELLING"
-                    | "CANCELLED"
-                    | "PARTIALLY_FILLED"
-                    | "FILLED"
-                    | "REJECTED"
-                    | "REPLACING"
-                    | "REPLACED"
-            ) {
-                return Err(invalid());
-            }
-            let symbol = if o.get("instrument").is_some_and(Value::is_object) {
-                ticker(&o["instrument"])?
-            } else {
-                ticker(o)?
-            };
-            if o.get("ticker").is_some() && ticker(o)? != symbol {
-                return Err(invalid());
-            }
-            let strategy = text(o, "strategy", 8)?;
-            let (quantity, notional, filled_quantity, filled_value) = match strategy.as_str() {
-                "QUANTITY" => (
-                    Some(number(&o["quantity"])?),
-                    None,
-                    optional(o, "filledQuantity")?,
-                    None,
-                ),
-                "VALUE" => (
-                    None,
-                    Some(number(&o["value"])?),
-                    None,
-                    optional(o, "filledValue")?,
-                ),
-                _ => return Err(invalid()),
-            };
-            let limit_price = optional(o, "limitPrice")?;
-            let currency =
-                if notional.is_some() || limit_price.is_some() || o.get("currency").is_some() {
-                    Some(currency(o)?)
-                } else {
-                    None
-                };
-            Ok(OpenOrder {
-                kind: None,
-                trigger_price: None,
-                broker_order_id,
-                symbol,
-                instrument_id: None,
-                side: side.to_ascii_lowercase(),
-                quantity,
-                notional,
-                filled_quantity,
-                filled_value,
-                currency,
-                status,
-                limit_price,
-            })
+            Ok(parsed)
         })
         .collect::<Result<Vec<_>>>()?;
+    let live_order_settlements = if include_live_order_settlements {
+        rows.iter()
+            .map(|order| live_order_observation(order, "trading212.live.pending-orders"))
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        Vec::new()
+    };
     let permissions = PermissionReview {
         detected: vec![
             "account.read".into(),
@@ -210,5 +272,5 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
             "Manual refresh reads summary and pending orders at a limit of one request per five seconds per account (positions: one per second). A quota error requires a later manual retry.".into(),
             "TradeX execution, reconciliation and effective available funds are not configured. Successful reads do not grant trading authority.".into(),
         ],
-    }, permissions, live_order_settlements: Vec::new() })
+    }, permissions, live_order_settlements })
 }
