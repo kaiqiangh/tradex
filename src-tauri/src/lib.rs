@@ -81,6 +81,12 @@ use std::{
 };
 use storage::Store;
 
+pub struct StartupLiveRecoveryPlan {
+    pub workspace_id: String,
+    pub unresolved_attempts: Vec<protocol::ResolutionEvidenceRefresh>,
+    pub account_ids: Vec<String>,
+}
+
 struct PreparedTurn {
     thread_id: String,
     turn_id: String,
@@ -714,6 +720,224 @@ mod live_arming_tests {
         let inactive = stored_account(&control, &account.connection_id);
         assert_eq!(inactive.health.arming, "DISARMED");
         assert_eq!(inactive.health.arming_reason, "SESSION_INACTIVE");
+    }
+
+    #[test]
+    fn reopening_the_same_workspace_stales_and_disarms_every_live_account() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let accounts = [
+            seed_healthy_live_account(&mut control, &workspace),
+            control
+                .seed_live_arming_fixture(&workspace, "binance", "Restart recovery test")
+                .unwrap(),
+        ];
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        for account in &accounts {
+            arm_live_account(&mut control, &workspace, account);
+        }
+
+        let same_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .to_string_lossy()
+            .into_owned();
+        let reopened = dispatch(&mut control, "workspace.open", json!({"path":same_path}));
+        assert_eq!(reopened["ok"], true, "{reopened}");
+
+        for account in &accounts {
+            let current = stored_account(&control, &account.connection_id);
+            assert_eq!(current.health.arming, "DISARMED");
+            assert_eq!(current.health.connection, "STALE");
+            assert_eq!(current.health.authentication, "UNVERIFIED");
+            assert_eq!(current.health.credential, "UNCHECKED");
+            assert_eq!(current.health.reconciliation, "STALE");
+        }
+        let time = dispatch(
+            &mut control,
+            "time.status",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(time["data"]["confidence"], "CLOCK_UNCERTAIN");
+    }
+
+    #[test]
+    fn startup_revalidates_local_clock_without_connected_live_accounts() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        let plan = control.prepare_startup_live_recovery_plan().unwrap();
+        assert!(plan.is_none());
+        let time = dispatch(
+            &mut control,
+            "time.status",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(time["data"]["confidence"], "TRUSTED");
+    }
+
+    #[test]
+    fn startup_recovery_covers_all_live_accounts_and_preserves_unknown_scope() {
+        let (_folder, mut control, workspace_id, t212, proposal, review) =
+            crate::live_approval_tests::reviewed_live_capacity_fixture();
+        let (_, _, prepared) = crate::live_approval_tests::issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "startup-recovery-unknown",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let grant = control
+            .issue_live_dispatch_grant(&attempt_id, "startup-recovery-gateway")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "startup-recovery-gateway")
+            .unwrap();
+        let unknown = control
+            .complete_live_execution_submission(
+                &attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::UnknownReconciling,
+                    broker_order_id: None,
+                    provider_status: None,
+                    error_code: Some("ORDER_STATUS_UNKNOWN".into()),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            unknown.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        let binance = control
+            .seed_live_arming_fixture(&workspace_id, "binance", "Restart recovery")
+            .unwrap();
+        let bitget = control
+            .seed_live_arming_fixture(&workspace_id, "bitget", "Restart recovery")
+            .unwrap();
+
+        let path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .to_string_lossy()
+            .into_owned();
+        let reopened = dispatch(&mut control, "workspace.open", json!({"path":path}));
+        assert_eq!(reopened["ok"], true, "{reopened}");
+        let plan = control
+            .prepare_startup_live_recovery_plan()
+            .unwrap()
+            .unwrap();
+        assert_eq!(plan.workspace_id, workspace_id);
+        let planned_accounts = plan.account_ids.iter().cloned().collect::<HashSet<_>>();
+        assert_eq!(
+            planned_accounts,
+            HashSet::from([
+                t212.connection_id.clone(),
+                binance.connection_id.clone(),
+                bitget.connection_id.clone(),
+            ])
+        );
+        assert_eq!(plan.unresolved_attempts.len(), 1);
+        assert_eq!(plan.unresolved_attempts[0].execution_attempt_id, attempt_id);
+        assert_eq!(plan.unresolved_attempts[0].account_id, t212.connection_id);
+        let time = dispatch(
+            &mut control,
+            "time.status",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(time["data"]["confidence"], "TRUSTED");
+
+        let mut recovered_binance = stored_account(&control, &binance.connection_id);
+        recovered_binance.health.connection = "ONLINE".into();
+        recovered_binance.health.authentication = "VALID".into();
+        recovered_binance.health.credential = "CONFIGURED".into();
+        control.persist_account(recovered_binance).unwrap();
+        assert!(
+            control
+                .finish_startup_live_reconciliation(&workspace_id, &binance.connection_id)
+                .unwrap()
+        );
+        assert_eq!(
+            stored_account(&control, &binance.connection_id)
+                .health
+                .reconciliation,
+            "CURRENT"
+        );
+        assert_eq!(
+            stored_account(&control, &binance.connection_id)
+                .health
+                .arming,
+            "DISARMED"
+        );
+
+        let mut unknown_t212 = stored_account(&control, &t212.connection_id);
+        unknown_t212.health.connection = "ONLINE".into();
+        unknown_t212.health.authentication = "VALID".into();
+        unknown_t212.health.credential = "CONFIGURED".into();
+        control.persist_account(unknown_t212).unwrap();
+        assert!(
+            !control
+                .finish_startup_live_reconciliation(&workspace_id, &t212.connection_id)
+                .unwrap()
+        );
+        let unresolved_account = stored_account(&control, &t212.connection_id);
+        assert_eq!(unresolved_account.health.reconciliation, "STALE");
+        assert!(unresolved_account.health.reason.contains("unresolved"));
+        assert_eq!(unresolved_account.health.arming, "DISARMED");
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_preparation_for_attempt(&workspace_id, &attempt_id)
+                .unwrap()
+                .reservation
+                .unwrap()
+                .status,
+            protocol::ExecutionReservationStatus::Active
+        );
+
+        control.time.set_test_time(1_000_000, 1_000);
+        control.time.revalidate(&workspace_id).unwrap();
+        control.time.set_test_time(1_003_001, 2_000);
+        assert_eq!(
+            control.time.status(&workspace_id).unwrap().confidence,
+            protocol::TimeConfidence::ClockUncertain
+        );
+        let mut untrusted_bitget = stored_account(&control, &bitget.connection_id);
+        untrusted_bitget.health.connection = "ONLINE".into();
+        untrusted_bitget.health.authentication = "VALID".into();
+        untrusted_bitget.health.credential = "CONFIGURED".into();
+        control.persist_account(untrusted_bitget).unwrap();
+        assert!(
+            !control
+                .finish_startup_live_reconciliation(&workspace_id, &bitget.connection_id)
+                .unwrap()
+        );
+        let untrusted_account = stored_account(&control, &bitget.connection_id);
+        assert_eq!(untrusted_account.health.reconciliation, "STALE");
+        assert!(untrusted_account.health.reason.contains("clock"));
+        assert_eq!(untrusted_account.health.arming, "DISARMED");
     }
 
     #[test]
@@ -2277,6 +2501,154 @@ impl ControlPlane {
         Ok(())
     }
 
+    pub fn prepare_startup_live_recovery_plan(
+        &mut self,
+    ) -> Result<Option<StartupLiveRecoveryPlan>> {
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let workspace_id = store.workspace_id()?;
+        let account_ids = store
+            .accounts()?
+            .into_iter()
+            .filter(|account| {
+                account.environment == "LIVE"
+                    && matches!(
+                        account.provider_id.as_str(),
+                        "trading212" | "binance" | "bitget"
+                    )
+                    && account.connection_state == ConnectionState::Connected
+            })
+            .map(|account| account.connection_id)
+            .collect::<Vec<_>>();
+        self.time.revalidate(&workspace_id)?;
+        if account_ids.is_empty() {
+            return Ok(None);
+        }
+
+        let connected = account_ids
+            .iter()
+            .map(String::as_str)
+            .collect::<HashSet<_>>();
+        let unresolved_attempts = self
+            .store
+            .as_ref()
+            .unwrap()
+            .unknown_live_place_attempts(&workspace_id)?
+            .into_iter()
+            .filter(|attempt| connected.contains(attempt.account_id.as_str()))
+            .map(|attempt| protocol::ResolutionEvidenceRefresh {
+                workspace_id: workspace_id.clone(),
+                execution_attempt_id: attempt.attempt_id,
+                account_id: attempt.account_id,
+                expected_attempt_state_version: attempt.state_version,
+            })
+            .collect();
+
+        Ok(Some(StartupLiveRecoveryPlan {
+            workspace_id,
+            unresolved_attempts,
+            account_ids,
+        }))
+    }
+
+    pub fn prepare_startup_live_order_reconciliation(
+        &mut self,
+        input: &protocol::ResolutionEvidenceRefresh,
+    ) -> Result<Option<ProviderJob>> {
+        let request = json!({
+            "requestId": uuid::Uuid::new_v4().to_string(),
+            "schemaVersion": 1,
+            "command": "trade.resolution_evidence.refresh",
+            "payload": {
+                "workspaceId": input.workspace_id,
+                "executionAttemptId": input.execution_attempt_id,
+                "accountId": input.account_id,
+                "expectedAttemptStateVersion": input.expected_attempt_state_version,
+            },
+        });
+        self.prepare_provider_for(&request, "main")
+    }
+
+    pub fn prepare_startup_live_account_refresh(
+        &mut self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<Option<ProviderJob>> {
+        self.require_workspace(workspace_id)?;
+        let account = self.store.as_ref().unwrap().account(connection_id)?;
+        if account.workspace_id != workspace_id
+            || account.environment != "LIVE"
+            || !matches!(
+                account.provider_id.as_str(),
+                "trading212" | "binance" | "bitget"
+            )
+            || account.connection_state != ConnectionState::Connected
+        {
+            return Ok(None);
+        }
+        let request = json!({
+            "requestId": uuid::Uuid::new_v4().to_string(),
+            "schemaVersion": 1,
+            "command": "account.refresh",
+            "payload": {
+                "workspaceId": workspace_id,
+                "connectionId": connection_id,
+                "expectedStateVersion": account.state_version,
+            },
+        });
+        self.prepare_provider_for(&request, "main")
+    }
+
+    pub fn finish_startup_live_reconciliation(
+        &mut self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<bool> {
+        self.require_workspace(workspace_id)?;
+        let mut account = self.store.as_ref().unwrap().account(connection_id)?;
+        if account.workspace_id != workspace_id
+            || account.environment != "LIVE"
+            || account.connection_state != ConnectionState::Connected
+            || account.health.connection != "ONLINE"
+            || account.health.authentication != "VALID"
+            || account.data.is_none()
+            || account.last_successful_sync.is_none()
+        {
+            return Ok(false);
+        }
+        let time_trusted =
+            self.time.status(workspace_id)?.confidence == protocol::TimeConfidence::Trusted;
+        let unresolved = self
+            .store
+            .as_ref()
+            .unwrap()
+            .unknown_live_place_attempts(workspace_id)?
+            .iter()
+            .any(|attempt| attempt.account_id == connection_id);
+        if !time_trusted || unresolved {
+            account.health.reconciliation = "STALE".into();
+            account.health.execution_eligibility = "BLOCKED".into();
+            account.health.arming = "DISARMED".into();
+            account.health.reason = if !time_trusted {
+                "Startup reconciliation is waiting for a trusted local clock. Live remains disarmed until time is validated.".into()
+            } else {
+                "Startup account observations refreshed, but unresolved Live PLACE attempts remain. Exact order reconciliation is required before Live health can recover.".into()
+            };
+            self.persist_account(account)?;
+            return Ok(false);
+        }
+        if account.health.reconciliation != "CURRENT" {
+            account.health.reconciliation = "CURRENT".into();
+            account.health.execution_eligibility = "BLOCKED".into();
+            account.health.reason = "Startup account and order reconciliation completed from fresh provider observations. Explicit Arm is still required before Live execution.".into();
+            account.health.arming = "DISARMED".into();
+            self.persist_account(account)?;
+        }
+        Ok(true)
+    }
+
     #[cfg(any(test, feature = "integration-test"))]
     pub fn advance_test_clock_fixture(
         &mut self,
@@ -2810,6 +3182,7 @@ impl ControlPlane {
                 let same = self.store.as_ref().is_some_and(|store| store.path == path);
                 if same {
                     self.disarm_live_for_safety("WORKSPACE_REOPENED")?;
+                    self.store.as_mut().unwrap().mark_accounts_stale()?;
                     market::ensure_history(&self.store.as_ref().unwrap().path)?;
                     self.store.as_mut().unwrap().reconcile_strategy_runs()?;
                     self.store.as_mut().unwrap().reconcile_backtest_runs()?;
@@ -15999,7 +16372,7 @@ mod live_approval_tests {
         );
     }
 
-    fn reviewed_live_capacity_fixture() -> (
+    pub(super) fn reviewed_live_capacity_fixture() -> (
         tempfile::TempDir,
         ControlPlane,
         String,

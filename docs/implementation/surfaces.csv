@@ -59,11 +59,11 @@ J1,Providers & Models,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,754,"S02,S03,S3
 J2,Risk & Limits,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,771,"S21,S33",IMPLEMENTED_UNVERIFIED,docs/implementation/s03-onboarding-evidence.md; docs/implementation/s21-risk-policy-evidence.md; S21 #80 complete policy configuration/persistence verified at code 20113b0; S21 evaluator and S33 remain pending
 J3,Data & Storage,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,790,"S31,S33",NOT_STARTED,
 J4,Import / Restore Workspace,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,801,"S31,S33",NOT_STARTED,
-J5,Account Health,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,816,"S27,S32,S33",NOT_STARTED,
+J5,Account Health,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,816,"S27,S32,S33",IN_PROGRESS,docs/implementation/s27-1-live-startup-recovery-evidence.md; #108 restores account-scoped startup health/reason; the full health surface and S33 visual regression remain pending
 J6,Appearance,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,827,"S32,S33",NOT_STARTED,
 J7,About,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,831,"S32,S34,S33",NOT_STARTED,
 K1,Resume after Sleep,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,839,"S27,S33",NOT_STARTED,
-K2,Startup Reconciliation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,840,"S27,S33",NOT_STARTED,
+K2,Startup Reconciliation,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,840,"S27,S33",IN_PROGRESS,docs/implementation/s27-1-live-startup-recovery-evidence.md; #108 persists startup/reopen progress and remediation reason; native visual recovery flow and S33 regression remain pending
 K3,Authentication Failure,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,841,"S02,S27,S33",IN_PROGRESS,"docs/implementation/s02-alpaca-evidence.md (Alpaca task #6 verified at c36296ba0d121e54703555430542bb573146b2c4; other mapped work incomplete); Trading 212 task #7 verified at 5f487ec10c48eea6616dac91472abe38a8297b19: docs/implementation/s02-trading212-evidence.md; other mapped work incomplete.; Binance Spot task #8 verified at feea542bf07be13b4f4cd98eea1e81a243c7b230: docs/implementation/s02-binance-evidence.md; other mapped work incomplete.; Bitget #9: 7b5f32929cef26a784aadd44833793b5f569d330, s02-bitget-evidence.md; S02 integration/later mapped work remain incomplete"
 K4,Private Stream Disconnect,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,842,"S27,S33",NOT_STARTED,
 K5,Rate Limiting,docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md,843,"S27,S33",NOT_STARTED,

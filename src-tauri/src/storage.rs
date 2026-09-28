@@ -10293,6 +10293,8 @@ impl Store {
             account.health.connection = "STALE".into();
             account.health.authentication = "UNVERIFIED".into();
             account.health.credential = "UNCHECKED".into();
+            account.health.reconciliation = "STALE".into();
+            account.health.execution_eligibility = "BLOCKED".into();
             account.health.reason =
                 "Re-test the connection to verify credentials and refresh saved observations."
                     .into();

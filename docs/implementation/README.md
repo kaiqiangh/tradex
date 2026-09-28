@@ -29,6 +29,8 @@ S25.4 #100 Live Manual Resolution 已在收窄范围内完成并通过全量检�
 S25.5 研究票 #101 已关闭。Trading 212、Binance Spot 和 Bitget Classic Spot 官方文档均没有规定有上限的订单可见性期限或“准确查询无结果即从未接收”的语义，因此未知 attempt 继续冻结容量并只允许 Keep。Binance 的精确 `-2010 NEW_ORDER_REJECTED` 是直接拒单响应，不属于查询缺失证据；只有响应与单次 PLACE 耐久绑定时才可作为该次请求被拒的证据。[官方资料研究记录](s25-live-absence-proof-research.md)。没有 provider 凭据、请求或订单写入。S25 父项 [#96 已完成并关闭](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675)：全部五个切片已关闭，最终 `npm run check` 通过；当前不确定 attempt 仍保持 Keep-only 与 reservation 冻结。
 
 S26 [Spec：刷新并审批 Live 撤单与成交竞态收敛](https://github.com/kaiqiangh/tradex/issues/102)及四张实现子票的验收已在 `dev@9e1f6d041a564beab0ca954671455ddfece0c03d` 完成（#103–#106 子票均已关闭）：[S26.1 恰好一次结算](https://github.com/kaiqiangh/tradex/issues/103#issuecomment-5864907639)、[S26.2 Trading 212](https://github.com/kaiqiangh/tradex/issues/104#issuecomment-5868462824)、[S26.3 Binance Spot](https://github.com/kaiqiangh/tradex/issues/105#issuecomment-5871424750)、[S26.4 Bitget Classic Spot](https://github.com/kaiqiangh/tradex/issues/106#issuecomment-5879544778)。当前 `npm run check`、20 项 Gateway-child 测试、三家订单刷新/成交恢复和 S26.1 容量结算测试均通过。只用合成凭据与 loopback fake provider；没有真实 provider 写操作，AC-033 点击原型仍为 FAILED。
+
+S27.1 #108 已完成实现与隔离 Rust 验证：所有已连接的受支持 Live 账户在启动/重开后保持 DISARMED，未知 PLACE 先走 S25 精确证据读取，只有可信时钟、成功账户刷新且无未决未知提交时才恢复 `CURRENT`。[验收证据](s27-1-live-startup-recovery-evidence.md)。未访问真实 provider；原生启动 `< 5 s` 计时与 S27 其余切片仍待完成。
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。

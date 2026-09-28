@@ -30,7 +30,7 @@ use tradex::{
     model_credentials::{ModelVault, NativeModelVault},
     native_credentials,
     protocol::{DomainEvent, TradeXError},
-    provider_io::{BrokerHttp, NativeVault},
+    provider_io::{BrokerHttp, NativeVault, ProviderJob},
 };
 
 struct Service(
@@ -44,6 +44,94 @@ struct Service(
     #[cfg(target_os = "macos")] BinancePrivateStreamSupervisor,
     #[cfg(unix)] Arc<Mutex<OrderGatewayHost>>,
 );
+
+fn run_startup_provider_job(engine: &Arc<Mutex<ControlPlane>>, job: &ProviderJob) -> bool {
+    let outcome = job.run(
+        &NativeVault,
+        |_| Err(TradeXError::new("PROVIDER_NATIVE_ENTRY_REQUIRED")),
+        &BrokerHttp::default(),
+        || {
+            engine
+                .lock()
+                .is_ok_and(|control| control.provider_job_current(job))
+        },
+    );
+    engine
+        .lock()
+        .is_ok_and(|mut control| control.complete_provider(job, outcome)["ok"] == true)
+}
+
+fn start_startup_live_recovery(engine: Arc<Mutex<ControlPlane>>, workspace_id: String) {
+    #[cfg(feature = "integration-test")]
+    if std::env::var_os("TRADEX_INTEGRATION_STARTUP_RECOVERY").is_none() {
+        return;
+    }
+
+    std::thread::spawn(move || {
+        let plan = match engine.lock() {
+            Ok(mut control) => match control.prepare_startup_live_recovery_plan() {
+                Ok(Some(plan)) if plan.workspace_id == workspace_id => plan,
+                Ok(_) => return,
+                Err(error) => {
+                    eprintln!(
+                        "TradeX startup recovery could not be prepared: {}",
+                        error.code
+                    );
+                    return;
+                }
+            },
+            Err(_) => return,
+        };
+
+        // P0 exact-attempt reconciliation runs before P1 account refresh.
+        for input in &plan.unresolved_attempts {
+            let job = match engine.lock() {
+                Ok(mut control) => match control.prepare_startup_live_order_reconciliation(input) {
+                    Ok(Some(job)) => job,
+                    Ok(None) => continue,
+                    Err(error) => {
+                        eprintln!(
+                            "TradeX startup order reconciliation skipped: {}",
+                            error.code
+                        );
+                        continue;
+                    }
+                },
+                Err(_) => return,
+            };
+            if !run_startup_provider_job(&engine, &job) {
+                eprintln!("TradeX startup order reconciliation remains pending.");
+            }
+        }
+
+        for connection_id in &plan.account_ids {
+            let job = match engine.lock() {
+                Ok(mut control) => {
+                    match control
+                        .prepare_startup_live_account_refresh(&plan.workspace_id, connection_id)
+                    {
+                        Ok(Some(job)) => job,
+                        Ok(None) => continue,
+                        Err(error) => {
+                            eprintln!("TradeX startup account refresh skipped: {}", error.code);
+                            continue;
+                        }
+                    }
+                }
+                Err(_) => return,
+            };
+            if !run_startup_provider_job(&engine, &job) {
+                continue;
+            }
+            if let Ok(mut control) = engine.lock()
+                && let Err(error) =
+                    control.finish_startup_live_reconciliation(&plan.workspace_id, connection_id)
+            {
+                eprintln!("TradeX startup recovery remains blocked: {}", error.code);
+            }
+        }
+    });
+}
 
 #[tauri::command]
 async fn control(
@@ -266,6 +354,15 @@ async fn control(
                         reply
                     };
                     drop(engine);
+                    if opening_workspace
+                        && reply["ok"] == true
+                        && let Some(workspace_id) = reply["data"]["workspaceId"].as_str()
+                    {
+                        start_startup_live_recovery(
+                            execution_engine.clone(),
+                            workspace_id.to_owned(),
+                        );
+                    }
                     #[cfg(unix)]
                     if is_live_execution_prepare
                         && reply["ok"] == true
