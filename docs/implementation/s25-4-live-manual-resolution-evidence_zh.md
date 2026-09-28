@@ -1,6 +1,6 @@
 # S25.4 Live 人工处置验证证据
 
-评估日期：2026-09-28。状态：**收窄范围内的实现验收已通过；串行复审和 #100 结案仍在进行。**
+评估日期：2026-09-28。状态：**收窄范围内验收完成；Standards 与 Spec 已串行复审通过；#100 已关闭。父项 #96 与研究票 #101 仍开放。**
 
 ## 已实现边界
 
@@ -11,10 +11,11 @@
 
 ## 验证结果
 
-- `npm run check` 在 `dev@4935d3b` 通过：schema 一致性、TypeScript 生产构建、13 个前端单测、207 个 Rust 单测、workspace 集成测试及需求追踪（203 条需求、70 个 screen、13 个 QA 场景、23 个基线文件）。仓库明确标记为 ignored 的测试保持跳过。构建仍报告既有的大 bundle 提示和 fixture dead-code warning。
+- `npm run check` 在已审查并提交为 `dev@f67463d` 的代码快照通过：schema 一致性、TypeScript 生产构建、13 个前端单测、207 个 Rust 单测、workspace 集成测试及需求追踪（203 条需求、70 个 screen、13 个 QA 场景、23 个基线文件）。仓库明确标记为 ignored 的测试保持跳过。构建仍报告既有的大 bundle 提示和 fixture dead-code warning。
 - `cargo build --manifest-path src-tauri/Cargo.toml --features integration-test,order-gateway-runtime --bin tradex-ipc --bin tradex-order-gateway` 通过。
 - Rust-backed 浏览器 UI 验收通过：Trading 212 超时后仅 Keep、Binance 精确已提交订单确认、Bitget 精确已提交订单确认。测试使用临时 SQLite workspace 和合成 provider fixture，不请求外部 provider，也不触碰真实账户。Binance/Bitget fixture 的订单写入计数均为 0。Trading 212 流程使用本地 fake gateway；人工 Keep 没有新增写入，原有合成 POST 计数保持不变。Binance/Bitget 保留 active reservation，账户保持 `DISARMED`；证据面板通过 1280/768/390 px 检查。
 - Binance 公共 IPC 回归还会先以过期的 attempt 与 evidence state version 提交 `CONFIRMED_SUBMITTED`；两次请求都被拒绝，且 attempt 仍为 unknown、reservation 仍为 active，随后正确版本才能成功确认。
+- Standards 与 Spec 已按 `f7531640a69bd11fe8473d3f322ea4e348f69e7b..f67463d857850d69ba68050b2110612e3022394b` 串行复审通过；此前 AC7 问题已由 stale-version 提交路径回归测试解决。
 - 未修改 prototype 代码或 fixture package。这些运行时检查不改变 prototype coverage 或 QA 证据状态。
 
 ## S25.4 验收

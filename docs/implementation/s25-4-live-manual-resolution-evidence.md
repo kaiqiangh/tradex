@@ -1,6 +1,6 @@
 # S25.4 Live Manual Resolution Evidence
 
-Assessment date: 2026-09-28. Status: **Implementation acceptance verified within the narrowed scope; serial review and issue #100 resolution remain in progress.**
+Assessment date: 2026-09-28. Status: **Narrowed acceptance complete; Standards and Spec reviews passed serially; issue #100 closed. Parent #96 and research #101 remain open.**
 
 ## Implemented boundary
 
@@ -11,10 +11,11 @@ Assessment date: 2026-09-28. Status: **Implementation acceptance verified within
 
 ## Verification
 
-- `npm run check` passed on `dev@4935d3b`: schema generation consistency, TypeScript production build, 13 frontend unit tests, 207 Rust unit tests, workspace integration suites, and requirement traceability (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files). Repository-designated ignored tests remain ignored. The build reports the existing large-chunk advisory and fixture dead-code warnings.
+- `npm run check` passed on the reviewed code snapshot committed as `dev@f67463d`: schema generation consistency, TypeScript production build, 13 frontend unit tests, 207 Rust unit tests, workspace integration suites, and requirement traceability (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files). Repository-designated ignored tests remain ignored. The build reports the existing large-chunk advisory and fixture dead-code warnings.
 - `cargo build --manifest-path src-tauri/Cargo.toml --features integration-test,order-gateway-runtime --bin tradex-ipc --bin tradex-order-gateway` passed.
 - Rust-backed browser UI checks passed for Trading 212 Keep-only after timeout, Binance exact submitted-order confirmation, and Bitget exact submitted-order confirmation. They used temporary SQLite workspaces and synthetic provider fixtures, with no external provider requests or real accounts. Binance and Bitget fixture counters remained at zero order writes. The Trading 212 flow used a local fake gateway; manual Keep added no write and the existing synthetic POST count did not increase. Binance and Bitget retained active reservations and left accounts `DISARMED`; the evidence panel passed 1280/768/390 px checks.
 - The Binance public IPC regression also submits `CONFIRMED_SUBMITTED` with stale attempt and evidence state versions before the valid decision; both are rejected without changing the unknown attempt or active reservation.
+- Serial Standards and Spec reviews passed for `f7531640a69bd11fe8473d3f322ea4e348f69e7b..f67463d857850d69ba68050b2110612e3022394b`; the prior AC7 finding was resolved with the stale-version commit-path regression.
 - No prototype code or fixture package was changed. These runtime checks do not upgrade prototype coverage or QA evidence.
 
 ## S25.4 acceptance
