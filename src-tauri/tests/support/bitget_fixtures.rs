@@ -90,7 +90,14 @@ impl ProviderHttp for Http {
             assert!(!headers.contains_key("paptrading"));
         }
         verify_signature("GET", path, None, &headers);
-        let order = |id: u64, kind: &str| json!({"userId":"9007199254740993","orderId":id.to_string(),"symbol":"BTCUSDT","size":"0.1234567890123456789","orderType":"limit","side":"buy","status":"live","tpslType":kind,"priceAvg":"12345.67","triggerPrice":"12000","baseVolume":"0.01","quoteVolume":"123.4567"});
+        let order = |id: u64, kind: &str| {
+            let size = if id == 200 && kind == "normal" {
+                "0.123456"
+            } else {
+                "0.1234567890123456789"
+            };
+            json!({"userId":"9007199254740993","orderId":id.to_string(),"symbol":"BTCUSDT","size":size,"orderType":"limit","side":"buy","status":"live","tpslType":kind,"priceAvg":"12345.67","triggerPrice":"12000","baseVolume":"0.01","quoteVolume":"123.4567"})
+        };
         let data = match path {
             "/api/v2/spot/account/info" => {
                 json!({"userId":"9007199254740993","ips":"127.0.0.1","authorities":["stor","stow"]})
@@ -155,7 +162,7 @@ impl ProviderHttp for Http {
             }]),
             "/api/v2/spot/trade/orderInfo?orderId=200" => json!([{
                 "userId":"9007199254740993", "orderId":"200", "symbol":"BTCUSDT",
-                "size":"0.1234567890123456789", "orderType":"limit", "side":"buy",
+                "size":"0.123456", "orderType":"limit", "side":"buy",
                 "status":"live", "tpslType":"normal", "priceAvg":"12345.67",
                 "baseVolume":"0.01", "quoteVolume":"123.4567", "quoteCoin":"USDT",
                 "cTime":"1788849500000", "uTime":"1788849600000"
