@@ -2901,6 +2901,20 @@ Order Gateway 在执行修改前重新核验已保存 Spot 账户和准确订单
 
 同一 SQLite 事务同时保存 CANCEL 观测并将准确订单/成交证据交给 S26.1 settlement。DELETE 期间发生的成交更新最新 provider facts，而 CANCEL attempt 仍保持 `CANCEL_PENDING`。Working、unknown 或不完整证据保留保守的剩余 commitment；只有完整且权威的终态证据才结算累计成交/费用，并且仅一次释放未使用部分。缺失或冲突的交易/手续费事实绝不当作零。工作区重开后，execution-preparation history 恢复观测和关联 settlement。不增加后台轮询。
 
+### 41.33 Bitget Classic Spot Live 撤单竞态与准确订单观测（S26.4 #106）
+
+已连接的 Bitget Classic Spot Live 账户通过 `{workspaceId, accountId, approvalId, brokerOrderId, expectedStateVersion}` 调用 `trade.live_order.refresh`。已保存撤单身份采用 `normal:{numericOrderId}` 命名空间；只接受正十进制 provider ID（不超过有符号 64 位范围）、准确已保存 symbol、准确账户 `userId` 和普通 `tpslType=normal` 订单。在线且认证/已保存凭据有效的 `REVIEW_REQUIRED` 账户可使用此只读刷新，但不会因此获得 Arm、审批或写权限。订单离开开放订单投影后，`trade.cancel_approval.list` 仍返回账户范围的耐久历史。
+
+特权 Gateway 在派发前重新核验准确签名账户和订单。耐久写入 `SUBMITTING` 后，最多发送一次带 HMAC 签名的 `POST /api/v2/spot/trade/cancel-order`，JSON body 只包含已保存的 `symbol` 和数字 `orderId`。不发送 client ID、`tpslType` 或额外订单身份。只能路由到 Bitget Classic Spot Live；Demo/Testnet、批量撤单、撤单替换及撤销全部均被拒绝。经核验的 provider acknowledgement 进入 `CANCEL_PENDING`，绝不表示 `CANCELLED`。明确拒绝单独记录；超时、传输模糊、响应丢失、重启或 acknowledgement 不确定均不会重试非幂等 POST。
+
+Gateway CANCEL frame 只携带准确匹配的开放订单和对应的普通 Bitget order-book 记录；其他余额、仓位、能力与成交仍保留在 SQLite 持久化证据中，不放入这一次性的派发 package，以保证小于 64 KiB 帧上限。完整刷新的账户投影保持不变。只有所有历史 attempt 都有耐久证据表明其为 `INVALIDATED` / `STOPPED_BEFORE_DISPATCH`、没有派发开始时间且没有 provider 结果或订单观测时，新 approval 才能为同一 intent 创建新 attempt。任何可能已到达 provider 的历史 attempt 都视为已消费。Schema version 31 允许保留此类 CANCEL 历史，同时维持每个 intent 仅一个 PLACE attempt。
+
+读取并核验已保存账户身份、准确 `/api/v2/spot/trade/orderInfo?orderId={id}`，以及有界的订单范围 `/api/v2/spot/trade/fills?limit=100&orderId={id}` 分页（最多 20 页/2,000 笔成交）。在已保存的 CANCEL attempt 和 Bitget order book 中持久化原始 provider status、归一 disposition、准确 base quantity、累计成交/剩余 quantity 与 quote value、trade ID、逐笔手续费资产/金额、provider 执行/更新时间、来源和 TradeX 观测时间。共享 settlement model 将 Bitget 有符号负 `totalFee` 余额变化规范为非负手续费成本，并保留准确 decimal 精度。
+
+同一 SQLite 事务中持久化准确 CANCEL 观测，并将完整订单/成交证据交由 S26.1 settlement。只有同一账户、数字 provider order ID、规范 instrument 和已保存 proposal 均匹配才关联 PLACE。竞态 POST 的成交会更新 provider facts，而 attempt 继续保持 `CANCEL_PENDING`。Working、unknown、陈旧、格式错误、身份不匹配、分页不完整、缺少手续费或累计数据冲突均保守保留容量；绝不把缺失费用/成交当作零。只有完整且权威的终态证据才结算累计成交，并且仅一次释放未使用部分。工作区重开后，execution-preparation history 恢复观测与 settlement。
+
+真实 Gateway 子进程集成测试使用 loopback fake provider 验证准确签名序列化、仅一次 POST，以及拒绝、传输丢失或进程重启后的不重放。确定性测试无需调用真实 Bitget。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

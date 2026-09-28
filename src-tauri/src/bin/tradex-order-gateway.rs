@@ -159,6 +159,15 @@ fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io:
                     &http,
                 )
             }
+            GatewayDispatchIntent::Cancel(intent) if package.account.provider_id == "bitget" => {
+                tradex::provider_io::prepare_bitget_live_cancel_mutation(
+                    &package.account,
+                    &package.credential_reference,
+                    intent,
+                    &GatewayVault,
+                    &http,
+                )
+            }
             _ => Err(tradex::protocol::TradeXError::new("PROVIDER_UNSUPPORTED")),
         }
     };
@@ -232,6 +241,14 @@ impl CredentialVault for GatewayVault {
         ))
     }
     fn get(&self, reference: &str) -> tradex::protocol::Result<Credentials> {
+        if reference.contains("/bitget/LIVE/") {
+            return Credentials::new(vec![
+                "synthetic-api-key".into(),
+                "synthetic-api-secret".into(),
+                "synthetic-api-passphrase".into(),
+            ])
+            .map_err(|_| tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+        }
         if !reference.contains("/trading212/LIVE/") && !reference.contains("/binance/LIVE/") {
             return Err(tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"));
         }

@@ -1,4 +1,4 @@
-use crate::protocol::{Result, TradeXError};
+use crate::protocol::{LiveOrderFee, Result, TradeXError};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -287,6 +287,10 @@ pub struct BitgetSpotFill {
     pub value: Option<String>,
     pub currency: Option<String>,
     pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_executed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fees: Option<Vec<LiveOrderFee>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

@@ -101,7 +101,8 @@ mod local_provider_tests {
         },
         provider_io::LiveDispatchOutcome,
         providers::{
-            AccountConnection, AccountData, AccountHealth, ConnectionState, PermissionReview,
+            AccountConnection, AccountData, AccountHealth, BitgetSpotOrder, BitgetSpotOrderBook,
+            ConnectionState, OpenOrder, PermissionReview,
         },
     };
 
@@ -111,6 +112,11 @@ mod local_provider_tests {
         path: String,
         authorization: Option<String>,
         api_key: Option<String>,
+        access_key: Option<String>,
+        access_passphrase: Option<String>,
+        access_sign: Option<String>,
+        access_timestamp: Option<String>,
+        paptrading: Option<String>,
         body: Value,
     }
 
@@ -270,6 +276,102 @@ mod local_provider_tests {
         (format!("http://{address}"), captured, thread)
     }
 
+    fn fake_bitget_provider(
+        mutation_status: u16,
+        mutation_body: &'static [u8],
+        drop_mutation_response: bool,
+    ) -> (
+        String,
+        Arc<Mutex<Vec<CapturedRequest>>>,
+        thread::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let capture = captured.clone();
+        let thread = thread::spawn(move || {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(6);
+            for _ in 0..5 {
+                let (stream, _) = loop {
+                    match listener.accept() {
+                        Ok(connection) => break connection,
+                        Err(error)
+                            if error.kind() == std::io::ErrorKind::WouldBlock
+                                && std::time::Instant::now() < deadline =>
+                        {
+                            thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => return,
+                        Err(error) => panic!("fake Bitget provider accept failed: {error}"),
+                    }
+                };
+                let (request, mut stream) = read_request(stream);
+                let (status, body) = match (request.method.as_str(), request.path.as_str()) {
+                    ("GET", "/api/v2/public/time") => (
+                        200,
+                        br#"{"code":"00000","data":{"serverTime":"1788849600000"}}"#.as_slice(),
+                    ),
+                    ("GET", "/api/v2/spot/account/info") => (
+                        200,
+                        br#"{"code":"00000","data":{"userId":"777","ips":"127.0.0.1","authorities":["stor","stow"]}}"#.as_slice(),
+                    ),
+                    ("GET", "/api/v2/spot/trade/orderInfo?orderId=12345") => (
+                        200,
+                        br#"{"code":"00000","data":[{"userId":"777","orderId":"12345","symbol":"BTCUSDT","price":"70000","size":"1","orderType":"limit","side":"buy","status":"live","priceAvg":"0","baseVolume":"0","quoteVolume":"0","quoteCoin":"USDT","tpslType":"normal","cTime":"1788849500000","uTime":"1788849600000"}]}"#.as_slice(),
+                    ),
+                    ("POST", "/api/v2/spot/trade/cancel-order") => {
+                        capture.lock().unwrap().push(request.clone());
+                        if drop_mutation_response {
+                            let _ = stream.shutdown(Shutdown::Both);
+                            continue;
+                        }
+                        (mutation_status, mutation_body)
+                    }
+                    _ => panic!(
+                        "unexpected Bitget loopback request: {} {}",
+                        request.method, request.path
+                    ),
+                };
+                if request.method != "POST" {
+                    capture.lock().unwrap().push(request);
+                }
+                write!(
+                    stream,
+                    "HTTP/1.1 {status} OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .unwrap();
+                stream.write_all(body).unwrap();
+            }
+        });
+        (format!("http://{address}"), captured, thread)
+    }
+
+    fn assert_bitget_signature(request: &CapturedRequest) {
+        use base64::Engine;
+        assert_eq!(request.access_key.as_deref(), Some("synthetic-api-key"));
+        assert_eq!(
+            request.access_passphrase.as_deref(),
+            Some("synthetic-api-passphrase")
+        );
+        assert!(request.paptrading.is_none());
+        let timestamp = request.access_timestamp.as_deref().unwrap();
+        let body = if request.body.is_null() {
+            String::new()
+        } else {
+            serde_json::to_string(&request.body).unwrap()
+        };
+        let mut mac = Hmac::<Sha256>::new_from_slice(b"synthetic-api-secret").unwrap();
+        mac.update(format!("{timestamp}{}{}{}", request.method, request.path, body).as_bytes());
+        mac.verify_slice(
+            &base64::engine::general_purpose::STANDARD
+                .decode(request.access_sign.as_deref().unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+    }
+
     fn assert_binance_signature(request: &CapturedRequest) {
         assert_eq!(request.api_key.as_deref(), Some("synthetic-api-key"));
         let (_, query) = request.path.split_once('?').unwrap();
@@ -289,6 +391,11 @@ mod local_provider_tests {
         reader.read_line(&mut request_line).unwrap();
         let mut authorization = None;
         let mut api_key = None;
+        let mut access_key = None;
+        let mut access_passphrase = None;
+        let mut access_sign = None;
+        let mut access_timestamp = None;
+        let mut paptrading = None;
         let mut content_length = 0;
         loop {
             let mut line = String::new();
@@ -302,6 +409,21 @@ mod local_provider_tests {
                 }
                 if name.eq_ignore_ascii_case("x-mbx-apikey") {
                     api_key = Some(value.trim().to_owned());
+                }
+                if name.eq_ignore_ascii_case("access-key") {
+                    access_key = Some(value.trim().to_owned());
+                }
+                if name.eq_ignore_ascii_case("access-passphrase") {
+                    access_passphrase = Some(value.trim().to_owned());
+                }
+                if name.eq_ignore_ascii_case("access-sign") {
+                    access_sign = Some(value.trim().to_owned());
+                }
+                if name.eq_ignore_ascii_case("access-timestamp") {
+                    access_timestamp = Some(value.trim().to_owned());
+                }
+                if name.eq_ignore_ascii_case("paptrading") {
+                    paptrading = Some(value.trim().to_owned());
                 }
                 if name.eq_ignore_ascii_case("content-length") {
                     content_length = value.trim().parse().unwrap_or_default();
@@ -319,6 +441,11 @@ mod local_provider_tests {
                 path,
                 authorization,
                 api_key,
+                access_key,
+                access_passphrase,
+                access_sign,
+                access_timestamp,
+                paptrading,
                 body: if body.is_empty() {
                     Value::Null
                 } else {
@@ -397,10 +524,10 @@ mod local_provider_tests {
         let execution_context = cancel
             .map(|intent| intent.environment.clone())
             .unwrap_or(ExecutionContext::Trading212Live);
-        let provider_id = if execution_context == ExecutionContext::BinanceLive {
-            "binance"
-        } else {
-            "trading212"
+        let provider_id = match execution_context {
+            ExecutionContext::BinanceLive => "binance",
+            ExecutionContext::BitgetLive => "bitget",
+            _ => "trading212",
         };
         let mut account = AccountConnection::new(
             "integration-test".into(),
@@ -436,6 +563,7 @@ mod local_provider_tests {
             ip_allow_list_status: "UNKNOWN".into(),
             ip_allow_list: None,
         };
+        let bitget_live = provider_id == "bitget";
         account.data = Some(AccountData {
             remote_account_id: "777".into(),
             account_type: "INVEST".into(),
@@ -443,8 +571,46 @@ mod local_provider_tests {
             buying_power: Some("1000".into()),
             balances: vec![],
             positions: vec![],
-            open_orders: vec![],
-            bitget_order_book: None,
+            open_orders: if bitget_live {
+                vec![OpenOrder {
+                    broker_order_id: "normal:12345".into(),
+                    symbol: "BTCUSDT".into(),
+                    instrument_id: Some("crypto:BTC/USDT:spot".into()),
+                    side: "BUY".into(),
+                    quantity: Some("1".into()),
+                    notional: None,
+                    filled_quantity: Some("0".into()),
+                    filled_value: Some("0".into()),
+                    currency: Some("USDT".into()),
+                    status: "LIVE".into(),
+                    limit_price: None,
+                    kind: Some("NORMAL".into()),
+                    trigger_price: None,
+                }]
+            } else {
+                vec![]
+            },
+            bitget_order_book: bitget_live.then(|| BitgetSpotOrderBook {
+                orders: vec![BitgetSpotOrder {
+                    provider_order_id: "12345".into(),
+                    kind: "NORMAL".into(),
+                    symbol: "BTCUSDT".into(),
+                    side: "BUY".into(),
+                    quantity: Some("1".into()),
+                    notional: None,
+                    filled_quantity: Some("0".into()),
+                    filled_value: Some("0".into()),
+                    remaining_quantity: Some("1".into()),
+                    currency: Some("USDT".into()),
+                    provider_status: "live".into(),
+                    normalized_status: "OPEN".into(),
+                    origin: "external".into(),
+                    created_at: Some("2026-09-08T06:38:20Z".into()),
+                    updated_at: Some("2026-09-08T06:40:00Z".into()),
+                }],
+                fills: vec![],
+                observed_at: "2026-09-08T06:40:00Z".into(),
+            }),
             capabilities: vec![
                 "account.read".into(),
                 "positions.read".into(),
@@ -465,6 +631,7 @@ mod local_provider_tests {
             provider_status: None,
             trading212_live_order_observation: None,
             binance_live_order_observation: None,
+            bitget_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: "account-1".into(),
@@ -575,6 +742,25 @@ mod local_provider_tests {
         }
     }
 
+    fn bitget_cancel_intent() -> CancellationIntent {
+        CancellationIntent {
+            cancellation_intent_id: "cancel-bitget-12345".into(),
+            intent_hash: format!("sha256:{}", "e".repeat(64)),
+            workspace_id: "integration-test".into(),
+            account_id: "account-1".into(),
+            environment: ExecutionContext::BitgetLive,
+            provider_order_id: "normal:12345".into(),
+            instrument_id: "crypto:BTC/USDT:spot".into(),
+            symbol: "BTCUSDT".into(),
+            side: "BUY".into(),
+            provider_status: "LIVE".into(),
+            quantity: "1".into(),
+            filled_quantity: "0".into(),
+            remaining_quantity: "1".into(),
+            created_at: "2026-09-08T06:38:20Z".into(),
+        }
+    }
+
     fn run_child(
         package: GatewayDispatchPackage,
         base_url: String,
@@ -582,6 +768,54 @@ mod local_provider_tests {
         let (gateway, result, dispatch) = run_child_with_persistence(package, base_url, true);
         dispatch.unwrap();
         (gateway, result)
+    }
+
+    fn run_child_recording_pre_dispatch(
+        package: GatewayDispatchPackage,
+        base_url: String,
+    ) -> (
+        OrderGatewayHost,
+        DispatchOutcomeSlot,
+        Arc<Mutex<Option<String>>>,
+    ) {
+        let executable = Path::new(env!("CARGO_BIN_EXE_tradex-order-gateway"));
+        let mut gateway = OrderGatewayHost::new(executable.to_owned(), digest(executable));
+        gateway.start().unwrap();
+        let package = Arc::new(Mutex::new(package));
+        let result = Arc::new(Mutex::new(None));
+        let stopped = Arc::new(Mutex::new(None));
+        let attempt_id = package.lock().unwrap().attempt.attempt_id.clone();
+        let issue_package = package.clone();
+        let begin_package = package.clone();
+        let stopped_callback = stopped.clone();
+        let result_callback = result.clone();
+        gateway
+            .dispatch_attempt(
+                &attempt_id,
+                move |_, session| {
+                    let mut package = issue_package.lock().unwrap();
+                    package.grant.gateway_session_id = session.into();
+                    package.local_test_base_url = Some(base_url.clone());
+                    Ok(package.clone())
+                },
+                move |grant_id, session| {
+                    let package = begin_package.lock().unwrap();
+                    if package.grant.grant_id == grant_id
+                        && package.grant.gateway_session_id == session
+                    {
+                        Ok(())
+                    } else {
+                        Err("GATEWAY_AUTH_FAILED".into())
+                    }
+                },
+                move |_, reason| *stopped_callback.lock().unwrap() = Some(reason.into()),
+                move |_, outcome| {
+                    *result_callback.lock().unwrap() = Some(outcome.clone());
+                    Ok(())
+                },
+            )
+            .unwrap();
+        (gateway, result, stopped)
     }
 
     fn run_child_with_persistence(
@@ -816,7 +1050,7 @@ mod local_provider_tests {
         );
         provider.join().unwrap();
         let requests = calls.lock().unwrap();
-        assert_eq!(requests.len(), 5);
+        assert_eq!(requests.len(), 5, "{requests:#?}");
         assert_eq!(requests[0].method, "GET");
         assert_eq!(requests[0].path, "/api/v3/time");
         assert_eq!(requests[1].method, "GET");
@@ -863,6 +1097,139 @@ mod local_provider_tests {
         assert_eq!(duplicate, Ok(()));
         assert_eq!(calls.lock().unwrap().len(), 5);
         gateway.stop();
+    }
+
+    #[test]
+    fn real_child_sends_one_signed_exact_bitget_classic_spot_live_cancel() {
+        let (url, calls, provider) = fake_bitget_provider(
+            200,
+            br#"{"code":"00000","data":{"orderId":"12345"}}"#,
+            false,
+        );
+        let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
+            package(
+                "bitget-cancel-1",
+                GatewayDispatchIntent::Cancel(Box::new(bitget_cancel_intent())),
+            ),
+            url,
+        );
+        provider.join().unwrap();
+        assert_eq!(*stopped.lock().unwrap(), None);
+        let outcome = result.lock().unwrap().clone().unwrap();
+        assert_eq!(
+            outcome.state,
+            ExecutionAttemptState::CancelPending,
+            "{outcome:?}"
+        );
+        let requests = calls.lock().unwrap();
+        assert_eq!(requests.len(), 5);
+        assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[0].path, "/api/v2/public/time");
+        assert_eq!(requests[1].path, "/api/v2/spot/account/info");
+        assert_eq!(
+            requests[2].path,
+            "/api/v2/spot/trade/orderInfo?orderId=12345"
+        );
+        assert_eq!(requests[3].path, "/api/v2/public/time");
+        assert_eq!(requests[4].method, "POST");
+        assert_eq!(requests[4].path, "/api/v2/spot/trade/cancel-order");
+        assert_eq!(
+            requests[4].body,
+            json!({"symbol":"BTCUSDT","orderId":"12345"})
+        );
+        assert_eq!(
+            requests
+                .iter()
+                .filter(|request| request.method == "POST")
+                .count(),
+            1
+        );
+        for request in [&requests[1], &requests[2], &requests[4]] {
+            assert_bitget_signature(request);
+        }
+        assert_eq!(outcome.broker_order_id.as_deref(), Some("normal:12345"));
+        assert_eq!(outcome.provider_status.as_deref(), Some("LIVE"));
+        let safe_result = serde_json::to_string(&outcome).unwrap();
+        assert!(!safe_result.contains("synthetic-api-key"));
+        assert!(!safe_result.contains("synthetic-api-secret"));
+        assert!(!safe_result.contains("synthetic-api-passphrase"));
+        drop(requests);
+
+        let duplicate = gateway.dispatch_attempt(
+            "bitget-cancel-1",
+            |_, _| Err("EXECUTION_DISPATCH_NOT_READY".into()),
+            |_, _| panic!("duplicate Bitget cancellation must not cross SUBMITTING"),
+            |_, _| {},
+            |_, _| Ok(()),
+        );
+        assert_eq!(duplicate, Ok(()));
+        assert_eq!(calls.lock().unwrap().len(), 5);
+        gateway.stop();
+    }
+
+    #[test]
+    fn bitget_cancel_rejection_and_lost_response_are_terminal_without_replay_after_restart() {
+        for (suffix, status, body, drop_response, expected_state, expected_error) in [
+            (
+                "rejected",
+                400,
+                br#"{"code":"40017","msg":"rejected"}"#.as_slice(),
+                false,
+                ExecutionAttemptState::Rejected,
+                Some("PROVIDER_ORDER_REJECTED"),
+            ),
+            (
+                "unknown",
+                200,
+                b"".as_slice(),
+                true,
+                ExecutionAttemptState::UnknownReconciling,
+                Some("ORDER_STATUS_UNKNOWN"),
+            ),
+        ] {
+            let attempt_id = format!("bitget-cancel-{suffix}");
+            let (url, calls, provider) = fake_bitget_provider(status, body, drop_response);
+            let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
+                package(
+                    &attempt_id,
+                    GatewayDispatchIntent::Cancel(Box::new(bitget_cancel_intent())),
+                ),
+                url.clone(),
+            );
+            provider.join().unwrap();
+            assert_eq!(*stopped.lock().unwrap(), None);
+            let outcome = result.lock().unwrap().clone().unwrap();
+            assert_eq!(outcome.state, expected_state, "{outcome:?}");
+            assert_eq!(outcome.error_code.as_deref(), expected_error);
+            let requests = calls.lock().unwrap();
+            assert_eq!(requests.len(), 5, "{requests:#?}");
+            assert_eq!(
+                requests
+                    .iter()
+                    .filter(|request| request.method == "POST")
+                    .count(),
+                1
+            );
+            for request in [&requests[1], &requests[2], &requests[4]] {
+                assert_bitget_signature(request);
+            }
+            drop(requests);
+            gateway.stop();
+
+            let executable = Path::new(env!("CARGO_BIN_EXE_tradex-order-gateway"));
+            let mut restarted = OrderGatewayHost::new(executable.to_owned(), digest(executable));
+            restarted.start().unwrap();
+            let replay = restarted.dispatch_attempt(
+                &attempt_id,
+                |_, _| Err("EXECUTION_DISPATCH_NOT_READY".into()),
+                |_, _| panic!("a restarted gateway cannot resubmit a terminal attempt"),
+                |_, _| {},
+                |_, _| Ok(()),
+            );
+            assert_eq!(replay, Ok(()));
+            assert_eq!(calls.lock().unwrap().len(), 5);
+            restarted.stop();
+        }
     }
 
     #[test]

@@ -153,6 +153,20 @@ impl ProviderHttp for Http {
                 "symbol":"BTCUSDT","orderType":"limit","side":"buy","priceAvg":"70000.125",
                 "size":"0.0002","amount":"14.000025","cTime":"1788849500","uTime":"1788849600"
             }]),
+            "/api/v2/spot/trade/orderInfo?orderId=200" => json!([{
+                "userId":"9007199254740993", "orderId":"200", "symbol":"BTCUSDT",
+                "size":"0.1234567890123456789", "orderType":"limit", "side":"buy",
+                "status":"live", "tpslType":"normal", "priceAvg":"12345.67",
+                "baseVolume":"0.01", "quoteVolume":"123.4567", "quoteCoin":"USDT",
+                "cTime":"1788849500000", "uTime":"1788849600000"
+            }]),
+            "/api/v2/spot/trade/fills?limit=100&orderId=200" => json!([{
+                "userId":"9007199254740993", "orderId":"200", "tradeId":"300",
+                "symbol":"BTCUSDT", "side":"buy", "priceAvg":"12345.67",
+                "size":"0.01", "amount":"123.4567",
+                "feeDetail":{"feeCoin":"USDT","totalFee":"-0.123"},
+                "cTime":"1788849500", "uTime":"1788849600"
+            }]),
             "/api/v2/spot/public/symbols?symbol=BTCUSDT" => json!([
                 {"symbol":"BTCUSDT","baseCoin":"BTC","quoteCoin":"USDT","status":"online","pricePrecision":"2","quantityPrecision":"6","quotePrecision":"8","minTradeUSDT":"1"}
             ]),

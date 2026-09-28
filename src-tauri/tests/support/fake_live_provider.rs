@@ -8,7 +8,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 #[derive(Clone, Copy)]
@@ -29,6 +29,7 @@ pub struct CapturedRequest {
 #[derive(Default)]
 struct State {
     remote_account_id: Option<String>,
+    bitget_order: Option<Value>,
     next_results: VecDeque<MutationResult>,
     requests: Vec<CapturedRequest>,
 }
@@ -76,6 +77,10 @@ impl FakeLiveProvider {
         self.state.lock().unwrap().remote_account_id = Some(remote_account_id);
     }
 
+    pub fn set_bitget_order(&self, order: Value) {
+        self.state.lock().unwrap().bitget_order = Some(order);
+    }
+
     pub fn set_next_result(&self, result: MutationResult) {
         self.state.lock().unwrap().next_results.push_back(result);
     }
@@ -114,6 +119,20 @@ fn handle(stream: TcpStream, state: &Arc<Mutex<State>>) {
         authorization_present: request.authorization_present,
     });
     let response = match (request.method.as_str(), request.path.as_str()) {
+        ("GET", "/api/v2/public/time") => Some((
+            200,
+            json!({"code":"00000","data":{"serverTime":SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis().to_string()}}).to_string().into_bytes(),
+        )),
+        ("GET", "/api/v2/spot/account/info") => Some((
+            200,
+            json!({"code":"00000","data":{"userId":state.remote_account_id,"ips":"127.0.0.1","authorities":["stor","stow"]}}).to_string().into_bytes(),
+        )),
+        ("GET", path) if path.starts_with("/api/v2/spot/trade/orderInfo?orderId=") => {
+            let order_id = path.strip_prefix("/api/v2/spot/trade/orderInfo?orderId=").unwrap_or_default();
+            let order = state.bitget_order.as_ref().filter(|order| order["orderId"] == order_id);
+            Some((200, json!({"code":"00000","data":order.into_iter().collect::<Vec<_>>()}).to_string().into_bytes()))
+        }
+        ("POST", "/api/v2/spot/trade/cancel-order") => bitget_cancel_response(&mut state, &body),
         ("GET", "/api/v0/equity/account/summary") => Some(
             state
                 .remote_account_id
@@ -163,6 +182,36 @@ fn handle(stream: TcpStream, state: &Arc<Mutex<State>>) {
     let _ = stream.shutdown(Shutdown::Both);
 }
 
+fn bitget_cancel_response(state: &mut State, body: &Value) -> Option<(u16, Vec<u8>)> {
+    let exact = body.as_object().is_some_and(|fields| fields.len() == 2)
+        && state.bitget_order.as_ref().is_some_and(|order| {
+            body["symbol"] == order["symbol"] && body["orderId"] == order["orderId"]
+        });
+    if !exact {
+        return Some((
+            200,
+            br#"{"code":"40004","msg":"unexpected cancellation identity"}"#.to_vec(),
+        ));
+    }
+    match state
+        .next_results
+        .pop_front()
+        .unwrap_or(MutationResult::Accepted)
+    {
+        MutationResult::Accepted => Some((
+            200,
+            json!({"code":"00000","data":{"orderId":body["orderId"]}})
+                .to_string()
+                .into_bytes(),
+        )),
+        MutationResult::Rejected => Some((
+            200,
+            br#"{"code":"40004","msg":"synthetic cancel rejection"}"#.to_vec(),
+        )),
+        MutationResult::Unknown => None,
+    }
+}
+
 struct Request {
     method: String,
     path: String,
@@ -185,7 +234,8 @@ fn read_request(stream: TcpStream) -> io::Result<(Request, Vec<u8>, TcpStream)> 
             break;
         }
         if let Some((name, value)) = line.split_once(':') {
-            if name.eq_ignore_ascii_case("authorization") {
+            if name.eq_ignore_ascii_case("authorization") || name.eq_ignore_ascii_case("access-key")
+            {
                 authorization_present = !value.trim().is_empty();
             } else if name.eq_ignore_ascii_case("content-length") {
                 content_length = value.trim().parse().unwrap_or(usize::MAX);

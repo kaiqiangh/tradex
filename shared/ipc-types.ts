@@ -965,7 +965,7 @@ export interface IpcSchema {
   trading212DemoOrderBookRefresh: Trading212DemoOrderBookRefresh;
   trading212DemoOrderCancel: Trading212DemoOrderCancel;
   trading212DemoOrderSubmit: Trading212DemoOrderSubmit;
-  trading212LiveOrderObservation: Trading212LiveOrderObservation;
+  trading212LiveOrderObservation: LiveOrderObservation;
   turnCancel: TurnCancel;
   turnRetry: TurnRetry;
   turnStart: TurnStart;
@@ -1304,14 +1304,24 @@ export interface BitgetSpotOrderBook {
  */
 export interface BitgetSpotFill {
   currency?: string | null;
+  fees?: LiveOrderFee[] | null;
   observedAt: string;
   price?: string | null;
+  providerExecutedAt?: string | null;
   providerOrderId: string;
   providerTradeId: string;
   quantity: string;
   side: "BUY" | "SELL";
   symbol: string;
   value?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LiveOrderFee".
+ */
+export interface LiveOrderFee {
+  amount: string;
+  asset: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -3022,7 +3032,8 @@ export interface ExecutionAttempt {
   accountStateVersion: string;
   approvalId: string;
   attemptId: string;
-  binanceLiveOrderObservation?: Trading212LiveOrderObservation | null;
+  binanceLiveOrderObservation?: LiveOrderObservation | null;
+  bitgetLiveOrderObservation?: LiveOrderObservation | null;
   brokerOrderId?: string | null;
   createdAt: string;
   dispatchDisposition?: ExecutionDispatchDisposition | null;
@@ -3043,14 +3054,14 @@ export interface ExecutionAttempt {
   riskDecisionId: string;
   state: ExecutionAttemptState;
   stateVersion: string;
-  trading212LiveOrderObservation?: Trading212LiveOrderObservation | null;
+  trading212LiveOrderObservation?: LiveOrderObservation | null;
   workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "Trading212LiveOrderObservation".
+ * via the `definition` "LiveOrderObservation".
  */
-export interface Trading212LiveOrderObservation {
+export interface LiveOrderObservation {
   disposition: LiveOrderDisposition;
   filledQuantity?: string;
   filledValue?: string;
@@ -3203,14 +3214,6 @@ export interface LiveOrderSettlement {
   tradeFactsComplete: boolean;
   unresolvedReason?: string | null;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "LiveOrderFee".
- */
-export interface LiveOrderFee {
-  amount: string;
-  asset: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

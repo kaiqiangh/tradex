@@ -961,3 +961,13 @@ Accounts 按账户列出 Binance Spot Live 撤单历史，并在导航或重新�
 “刷新准确订单”是针对捕获账户、已消费 CANCEL approval 和准确 `symbol:orderId` 的显式只读操作。重新核验普通 Spot Live 账户身份，然后只读取准确订单及其订单范围内的成交证据。显示 provider 原始状态、归一 disposition、准确数量/已成交/剩余数量、累计 quote value、完整时的 trade ID 与 commission 金额/资产、观测来源和时间，以及关联 settlement 完整性、未解决原因与剩余容量。成交/手续费证据缺失、格式错误或不完整时继续显示不可用，并保守保留容量。
 
 撤单流程保持显式：刷新并审阅准确当前订单、审批不可变 CANCEL intent，然后单独通过 Order Gateway prepare/send。Gateway 仅在 `SUBMITTING` 持久化后，为该准确 symbol 和数字订单 ID 签名并发送一次 DELETE；不使用撤销全部或 Testnet 路由。Provider acknowledgement 进入 `CANCEL_PENDING`，不进入 `CANCELLED`。DELETE 期间发生的成交更新准确订单及关联 PLACE settlement，而 CANCEL attempt 继续保持 `CANCEL_PENDING`。只有同一账户的数字订单 ID 和规范 instrument 均准确匹配时才关联 TradeX PLACE；外部订单或相似订单不关联。导航/重开后恢复保存事实。提供 accessible 状态/错误、键盘可操作控件，并检查 390/768/1280 px。不自动轮询。
+
+## 14.20 Bitget Classic Spot Live 撤单历史与成交竞态（S26.4 #106）
+
+Accounts 按账户列出已保存的 Bitget Classic Spot Live CANCEL approval，包括订单离开开放订单列表后的已消费 attempt。导航或重新打开 workspace 后仍能恢复，并将 provider acknowledgement、最新准确订单观测与 S26.1 PLACE settlement 作为彼此独立的已保存事实。
+
+撤单保持显式步骤：刷新并审阅准确的普通 `normal` Spot 订单，批准其不可变 CANCEL intent，然后通过隔离的 Order Gateway 单独准备并发送。Gateway 在修改前重新核验已连接的 Live 账户与准确订单，耐久写入 `SUBMITTING` 后，仅发送一次签名 `POST /api/v2/spot/trade/cancel-order`，请求体只含已保存的 `symbol` 和数字 `orderId`。成功 acknowledgement 只表示 `CANCEL_PENDING`，绝不表示 `CANCELLED`；拒绝、结果模糊、超时、重启或响应丢失均不会自动重发。不可使用 Demo/Testnet、批量撤单或撤单替换路由。
+
+如果派发前准确证据发生变化，且已保存 attempt 为 `INVALIDATED` / `STOPPED_BEFORE_DISPATCH`，应保留该 attempt 历史，并允许对同一准确订单重新刷新和审阅。可能已到达 provider 的 attempt 必须继续对账，不得重试。
+
+“刷新准确订单”是针对捕获账户、已消费 approval 和准确 `normal:{orderId}` 的显式只读操作。显示 Bitget 原始状态、归一 disposition、准确订单/成交/剩余 base quantity 与累计 quote value、完整时的 trade ID 和手续费金额/资产、来源，以及 provider/TradeX 观测时间。Bitget 有符号 `totalFee` 余额变化以非负手续费成本显示。竞态成交会更新已保存观测及关联的 S26.1 settlement，而 CANCEL attempt 继续保持 `CANCEL_PENDING`。不完整、陈旧、冲突或缺少手续费/成交证据时继续标为不可用，并保守保留容量。外部或仅相似的订单绝不关联。使用可访问的状态/错误提示、键盘可操作的审阅与刷新控件，并验证 390/768/1280 px 布局。不自动轮询。

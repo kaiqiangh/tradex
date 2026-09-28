@@ -488,7 +488,7 @@
       "$ref": "#/$defs/Trading212DemoOrderSubmit"
     },
     "trading212LiveOrderObservation": {
-      "$ref": "#/$defs/Trading212LiveOrderObservation"
+      "$ref": "#/$defs/LiveOrderObservation"
     },
     "turnCancel": {
       "$ref": "#/$defs/TurnCancel"
@@ -4533,10 +4533,25 @@
             "null"
           ]
         },
+        "fees": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/LiveOrderFee"
+          }
+        },
         "observedAt": {
           "type": "string"
         },
         "price": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "providerExecutedAt": {
           "type": [
             "string",
             "null"
@@ -6246,7 +6261,17 @@
         "binanceLiveOrderObservation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Trading212LiveOrderObservation"
+              "$ref": "#/$defs/LiveOrderObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bitgetLiveOrderObservation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LiveOrderObservation"
             },
             {
               "type": "null"
@@ -6377,7 +6402,7 @@
         "trading212LiveOrderObservation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Trading212LiveOrderObservation"
+              "$ref": "#/$defs/LiveOrderObservation"
             },
             {
               "type": "null"
@@ -7447,6 +7472,70 @@
       "required": [
         "asset",
         "amount"
+      ]
+    },
+    "LiveOrderObservation": {
+      "type": "object",
+      "properties": {
+        "disposition": {
+          "$ref": "#/$defs/LiveOrderDisposition"
+        },
+        "filledQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "filledValue": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "orderQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "remainingQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerOrderId",
+        "providerStatus",
+        "disposition",
+        "observedAt",
+        "source"
       ]
     },
     "LiveOrderRefreshRequest": {
@@ -15806,70 +15895,6 @@
       },
       "additionalProperties": false
     },
-    "Trading212LiveOrderObservation": {
-      "type": "object",
-      "properties": {
-        "disposition": {
-          "$ref": "#/$defs/LiveOrderDisposition"
-        },
-        "filledQuantity": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "filledValue": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "observedAt": {
-          "type": "string",
-          "maxLength": 64,
-          "minLength": 1
-        },
-        "orderQuantity": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "providerObservedAt": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 64,
-          "minLength": 1
-        },
-        "providerOrderId": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "providerStatus": {
-          "type": "string",
-          "maxLength": 64,
-          "minLength": 1
-        },
-        "remainingQuantity": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "source": {
-          "type": "string",
-          "maxLength": 64,
-          "minLength": 1
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "providerOrderId",
-        "providerStatus",
-        "disposition",
-        "observedAt",
-        "source"
-      ]
-    },
     "TurnCancel": {
       "type": "object",
       "properties": {
@@ -16347,7 +16372,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 30,
+          "maximum": 31,
           "minimum": 1
         },
         "workspaceId": {

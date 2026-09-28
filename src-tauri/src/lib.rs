@@ -2055,12 +2055,17 @@ impl ControlPlane {
             .as_ref()
             .unwrap()
             .execution_preparation_for_attempt(&workspace_id, attempt_id)?;
-        let account = self
+        let mut account = self
             .store
             .as_ref()
             .unwrap()
             .account(&preparation.attempt.account_id)?;
-        if account.provider_id != "trading212" || account.environment != "LIVE" {
+        let supported = account.environment == "LIVE"
+            && matches!(
+                (account.provider_id.as_str(), preparation.attempt.operation),
+                ("trading212", _) | ("bitget", protocol::FinancialOperation::Cancel)
+            );
+        if !supported {
             let error = TradeXError::new("PROVIDER_LIVE_UNSUPPORTED");
             self.invalidate_failed_live_dispatch(
                 &preparation.attempt,
@@ -2093,6 +2098,30 @@ impl ControlPlane {
                 ))
             }
         };
+        if account.provider_id == "bitget"
+            && preparation.attempt.operation == protocol::FinancialOperation::Cancel
+        {
+            // Keep the dispatch frame below the Gateway's 64 KiB limit; full evidence stays in SQLite.
+            let broker_order_id = preparation.attempt.broker_order_id.as_deref();
+            let provider_order_id = broker_order_id.and_then(|value| value.strip_prefix("normal:"));
+            if let Some(data) = account.data.as_mut() {
+                data.open_orders
+                    .retain(|order| Some(order.broker_order_id.as_str()) == broker_order_id);
+                data.balances.clear();
+                data.positions.clear();
+                data.capabilities.clear();
+                data.limitations.clear();
+                data.currency = None;
+                data.buying_power = None;
+                if let Some(book) = data.bitget_order_book.as_mut() {
+                    book.orders.retain(|order| {
+                        order.kind == "NORMAL"
+                            && Some(order.provider_order_id.as_str()) == provider_order_id
+                    });
+                    book.fills.clear();
+                }
+            }
+        }
         Ok(order_gateway::GatewayDispatchPackage {
             grant,
             attempt: *preparation.attempt,
@@ -2248,7 +2277,7 @@ impl ControlPlane {
         Ok(())
     }
 
-    #[cfg(feature = "integration-test")]
+    #[cfg(any(test, feature = "integration-test"))]
     pub fn advance_test_clock_fixture(
         &mut self,
         workspace_id: &str,
@@ -2459,6 +2488,7 @@ impl ControlPlane {
             provider_status: None,
             trading212_live_order_observation: None,
             binance_live_order_observation: None,
+            bitget_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: account.connection_id.clone(),
@@ -7690,16 +7720,21 @@ impl ControlPlane {
                     .unwrap()
                     .cancellation_intent(&attempt.workspace_id, cancellation_intent_id)?;
                 let account = self.store.as_ref().unwrap().account(&attempt.account_id)?;
-                let review = self.build_cancellation_review(&intent, &account)?;
-                if !review.eligible
-                    || review.review_digest != approval.review_digest
-                    || review.risk_decision.decision_id != approval.risk_decision_id
-                    || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
-                    || review.risk_decision.policy_version != approval.policy_version
-                    || review.snapshot_version != *snapshot_version
-                    || review.snapshot_evidence_id != *snapshot_evidence_id
-                    || review.account.state_version != attempt.account_state_version
-                {
+                let review = match self.build_cancellation_review(&intent, &account) {
+                    Ok(review) => review,
+                    Err(error) => return Err(error),
+                };
+                let matches = [
+                    review.eligible,
+                    review.review_digest == approval.review_digest,
+                    review.risk_decision.decision_id == approval.risk_decision_id,
+                    review.risk_decision.status == risk::RiskDecisionStatus::Allowed,
+                    review.risk_decision.policy_version == approval.policy_version,
+                    review.snapshot_version == *snapshot_version,
+                    review.snapshot_evidence_id == *snapshot_evidence_id,
+                    review.account.state_version == attempt.account_state_version,
+                ];
+                if matches.iter().any(|matched| !matched) {
                     return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
                 }
                 Ok(review.review_digest)
@@ -7879,6 +7914,7 @@ impl ControlPlane {
             provider_status: None,
             trading212_live_order_observation: None,
             binance_live_order_observation: None,
+            bitget_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: account.connection_id.clone(),
@@ -8044,6 +8080,7 @@ impl ControlPlane {
             provider_status: None,
             trading212_live_order_observation: None,
             binance_live_order_observation: None,
+            bitget_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: approval.account_id.clone(),
@@ -8705,6 +8742,7 @@ impl ControlPlane {
         let expected_environment = match account.provider_id.as_str() {
             "trading212" => protocol::ExecutionContext::Trading212Live,
             "binance" => protocol::ExecutionContext::BinanceLive,
+            "bitget" => protocol::ExecutionContext::BitgetLive,
             _ => return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED")),
         };
         if account.environment != "LIVE"
@@ -10764,7 +10802,10 @@ impl ControlPlane {
             if let Some(error) = outcome.error {
                 let exact_live_order_read = matches!(&job.kind, JobKind::LiveOrderRefresh { .. })
                     || (matches!(&job.kind, JobKind::CancellationIntentRefresh(_))
-                        && matches!(job.account.provider_id.as_str(), "trading212" | "binance")
+                        && matches!(
+                            job.account.provider_id.as_str(),
+                            "trading212" | "binance" | "bitget"
+                        )
                         && job.account.environment == "LIVE");
                 if exact_live_order_read {
                     return Err(error);
@@ -13413,7 +13454,7 @@ mod live_approval_tests {
         reviewed_live_fixture_with_numeric_binance_id(false)
     }
 
-    fn reviewed_bitget_live_fixture() -> (
+    pub(super) fn reviewed_bitget_live_fixture() -> (
         tempfile::TempDir,
         ControlPlane,
         String,
@@ -13847,6 +13888,7 @@ mod live_approval_tests {
             provider_status: None,
             trading212_live_order_observation: None,
             binance_live_order_observation: None,
+            bitget_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: account.connection_id.clone(),
@@ -19072,8 +19114,19 @@ mod cancellation_approval_tests {
             Ok(())
         }
 
-        fn get(&self, _: &str) -> Result<provider_io::Credentials> {
-            provider_io::Credentials::new(vec!["synthetic-key".into(), "synthetic-secret".into()])
+        fn get(&self, reference: &str) -> Result<provider_io::Credentials> {
+            if reference.contains("/bitget/LIVE/") {
+                provider_io::Credentials::new(vec![
+                    "synthetic-bitget-key".into(),
+                    "synthetic-bitget-secret".into(),
+                    "synthetic-bitget-passphrase".into(),
+                ])
+            } else {
+                provider_io::Credentials::new(vec![
+                    "synthetic-key".into(),
+                    "synthetic-secret".into(),
+                ])
+            }
         }
 
         fn remove(&self, _: &str) -> Result<()> {
@@ -19306,6 +19359,182 @@ mod cancellation_approval_tests {
         }
     }
 
+    #[derive(Default)]
+    struct SyntheticBitgetHttp {
+        phase: std::sync::Mutex<usize>,
+        calls: std::sync::Mutex<Vec<(provider_io::ProviderHttpMethod, String)>>,
+    }
+
+    impl SyntheticBitgetHttp {
+        fn set_phase(&self, phase: usize) {
+            *self.phase.lock().unwrap() = phase;
+        }
+
+        fn order(phase: usize) -> Value {
+            let (status, filled, value) = match phase {
+                0 => ("live", "0", "0"),
+                1 | 2 => ("partially_filled", "0.004", "200"),
+                _ => ("filled", "0.01", "500"),
+            };
+            json!({
+                "userId":"9007199254740993",
+                "orderId":"12345",
+                "symbol":"BTCUSDT",
+                "price":"50000",
+                "size":"0.01",
+                "orderType":"limit",
+                "side":"buy",
+                "status":status,
+                "priceAvg":"50000",
+                "baseVolume":filled,
+                "quoteVolume":value,
+                "quoteCoin":"USDT",
+                "tpslType":"normal",
+                "cTime":"1788849500000",
+                "uTime":(1788849600000u64 + phase as u64 * 1000).to_string(),
+            })
+        }
+
+        fn trades(phase: usize) -> Vec<Value> {
+            let first = json!({
+                "userId":"9007199254740993","orderId":"12345","tradeId":"111",
+                "symbol":"BTCUSDT","orderType":"limit","side":"buy","priceAvg":"50000",
+                "size":"0.004","amount":"200",
+                "feeDetail":{"feeCoin":"BTC","totalFee":"-0.000004"},
+                "cTime":"1788849500","uTime":"1788849600"
+            });
+            if phase < 3 {
+                vec![first]
+            } else {
+                vec![
+                    json!({
+                        "userId":"9007199254740993","orderId":"12345","tradeId":"112",
+                        "symbol":"BTCUSDT","orderType":"limit","side":"buy","priceAvg":"50000",
+                        "size":"0.006","amount":"300",
+                        "feeDetail":{"feeCoin":"BGB","totalFee":"-0.15"},
+                        "cTime":"1788849501","uTime":"1788849601"
+                    }),
+                    first,
+                ]
+            }
+        }
+
+        fn body(&self, path: &str) -> Result<Vec<u8>> {
+            let phase = *self.phase.lock().unwrap();
+            let data = match path {
+                "/api/v2/public/time" => json!({
+                    "serverTime":(OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).to_string()
+                }),
+                "/api/v2/spot/account/info" => json!({
+                    "userId":"9007199254740993","ips":"127.0.0.1","authorities":["stor","stow"]
+                }),
+                "/api/v2/spot/account/assets?assetType=all" => json!([
+                    {"coin":"USDT","available":"100000","frozen":"0","locked":"0","limitAvailable":"100000"}
+                ]),
+                "/api/v2/spot/trade/unfilled-orders?limit=100&tpslType=normal" => {
+                    if phase >= 3 {
+                        json!([])
+                    } else {
+                        let mut orders = vec![Self::order(phase)];
+                        for order_id in 12400..12498 {
+                            let mut unrelated = Self::order(phase);
+                            unrelated["orderId"] = json!(order_id.to_string());
+                            unrelated["symbol"] = json!("ETHUSDT");
+                            orders.push(unrelated);
+                        }
+                        json!(orders)
+                    }
+                }
+                "/api/v2/spot/trade/unfilled-orders?limit=100&tpslType=tpsl" => json!([]),
+                "/api/v2/spot/trade/current-plan-order?limit=100" => json!({
+                    "nextFlag":false,"idLessThan":"0","orderList":[]
+                }),
+                "/api/v2/spot/trade/history-orders?limit=100" => {
+                    if phase >= 3 {
+                        json!([Self::order(phase)])
+                    } else {
+                        json!([])
+                    }
+                }
+                "/api/v2/spot/trade/history-orders?limit=100&tpslType=tpsl" => json!([]),
+                "/api/v2/spot/trade/history-plan-order?limit=100" => json!({
+                    "nextFlag":false,"idLessThan":"0","orderList":[]
+                }),
+                "/api/v2/spot/trade/fills?limit=100" => json!(Self::trades(phase)),
+                "/api/v2/spot/trade/orderInfo?orderId=12345" => json!([Self::order(phase)]),
+                "/api/v2/spot/trade/fills?limit=100&orderId=12345" => {
+                    json!(Self::trades(phase))
+                }
+                _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+            let envelope = json!({"code":"00000","data":data});
+            serde_json::to_vec(&envelope).map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))
+        }
+    }
+
+    impl provider_io::ProviderHttp for SyntheticBitgetHttp {
+        fn get(
+            &self,
+            endpoint: provider_io::ProviderEndpoint,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+        ) -> Result<Vec<u8>> {
+            use base64::Engine;
+            use hmac::Mac;
+            if endpoint != provider_io::ProviderEndpoint::BitgetLive {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            self.calls
+                .lock()
+                .unwrap()
+                .push((provider_io::ProviderHttpMethod::Get, path.into()));
+            if path == "/api/v2/public/time" {
+                if !headers.is_empty() {
+                    return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+                }
+            } else {
+                if headers.get("ACCESS-KEY").and_then(|v| v.to_str().ok())
+                    != Some("synthetic-bitget-key")
+                    || headers
+                        .get("ACCESS-PASSPHRASE")
+                        .and_then(|v| v.to_str().ok())
+                        != Some("synthetic-bitget-passphrase")
+                    || headers.contains_key("paptrading")
+                {
+                    return Err(TradeXError::new("PROVIDER_AUTH_FAILED"));
+                }
+                let timestamp = headers["ACCESS-TIMESTAMP"]
+                    .to_str()
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                let mut mac =
+                    hmac::Hmac::<sha2::Sha256>::new_from_slice(b"synthetic-bitget-secret").unwrap();
+                mac.update(format!("{timestamp}GET{path}").as_bytes());
+                mac.verify_slice(
+                    &base64::engine::general_purpose::STANDARD
+                        .decode(headers["ACCESS-SIGN"].as_bytes())
+                        .map_err(|_| TradeXError::new("PROVIDER_AUTH_FAILED"))?,
+                )
+                .map_err(|_| TradeXError::new("PROVIDER_AUTH_FAILED"))?;
+            }
+            self.body(path)
+        }
+
+        fn request(
+            &self,
+            endpoint: provider_io::ProviderEndpoint,
+            method: provider_io::ProviderHttpMethod,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+            body: Option<&Value>,
+        ) -> Result<provider_io::ProviderHttpResponse> {
+            if method != provider_io::ProviderHttpMethod::Get || body.is_some() {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            self.get(endpoint, path, headers)
+                .map(|body| provider_io::ProviderHttpResponse { status: 200, body })
+        }
+    }
+
     fn envelope(command: &str, payload: Value) -> Value {
         json!({
             "requestId": format!("cancel-{command}"),
@@ -19485,6 +19714,98 @@ mod cancellation_approval_tests {
         reply["data"].clone()
     }
 
+    fn request_bitget_review(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account: &AccountConnection,
+        previous_intent_id: Option<&str>,
+        broker_order_id: &str,
+        http: &SyntheticBitgetHttp,
+    ) -> Value {
+        let mut payload = json!({
+            "workspaceId":workspace_id,
+            "accountId":account.connection_id,
+            "brokerOrderId":broker_order_id,
+            "expectedStateVersion":account.state_version,
+        });
+        if let Some(previous_id) = previous_intent_id {
+            payload["previousIntentId"] = json!(previous_id);
+        }
+        let job = control
+            .prepare_provider_for(&envelope("trade.cancel_request", payload), "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &SyntheticCredentialVault,
+            |_| unreachable!("review refresh must use saved credentials"),
+            http,
+            || control.provider_job_current(&job),
+        );
+        assert!(
+            outcome.error.is_none(),
+            "{:?}; calls={:?}",
+            outcome.error,
+            http.calls.lock().unwrap()
+        );
+        let reply = control.complete_provider(&job, outcome);
+        assert_eq!(reply["ok"], true, "{reply}");
+        reply["data"].clone()
+    }
+
+    #[test]
+    fn bitget_cancel_review_read_failure_does_not_mark_account_failed() {
+        let (_folder, mut control, workspace_id, account, _, _) =
+            super::live_approval_tests::reviewed_bitget_live_fixture();
+        let before = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let job = control
+            .prepare_provider_for(
+                &envelope(
+                    "trade.cancel_request",
+                    json!({
+                        "workspaceId":workspace_id,
+                        "accountId":account.connection_id,
+                        "brokerOrderId":"normal:12345",
+                        "expectedStateVersion":before.state_version,
+                    }),
+                ),
+                "main",
+            )
+            .unwrap()
+            .unwrap();
+        let reply = control.complete_provider(
+            &job,
+            provider_io::ProviderOutcome {
+                observation: None,
+                error: Some(TradeXError::new("PROVIDER_DATA_INCOMPLETE")),
+                credential: "CONFIGURED".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
+                resolution_evidence: None,
+            },
+        );
+        assert_eq!(reply["ok"], false, "{reply}");
+        assert_eq!(reply["error"]["code"], "PROVIDER_DATA_INCOMPLETE");
+        let after = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        assert_eq!(after.connection_state, before.connection_state);
+        assert_eq!(after.health.connection, before.health.connection);
+        assert_eq!(after.state_version, before.state_version);
+    }
+
     fn approval_action(review: &Value) -> Value {
         json!({
             "workspaceId":review["workspaceId"],
@@ -19564,6 +19885,46 @@ mod cancellation_approval_tests {
         let outcome = job.run(
             &SyntheticCredentialVault,
             |_| unreachable!("refresh does not capture credentials"),
+            http,
+            || control.provider_job_current(&job),
+        );
+        assert!(
+            outcome.error.is_none(),
+            "{:?}; calls={:?}",
+            outcome.error,
+            http.calls.lock().unwrap()
+        );
+        control.complete_provider(&job, outcome)
+    }
+
+    fn refresh_bitget_live_order(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account_id: &str,
+        approval_id: &str,
+        broker_order_id: &str,
+        http: &SyntheticBitgetHttp,
+    ) -> Value {
+        let account = control.store.as_ref().unwrap().account(account_id).unwrap();
+        let job = control
+            .prepare_provider_for(
+                &envelope(
+                    "trade.live_order.refresh",
+                    json!({
+                        "workspaceId":workspace_id,
+                        "accountId":account_id,
+                        "approvalId":approval_id,
+                        "brokerOrderId":broker_order_id,
+                        "expectedStateVersion":account.state_version,
+                    }),
+                ),
+                "main",
+            )
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &SyntheticCredentialVault,
+            |_| unreachable!("refresh must use saved credentials"),
             http,
             || control.provider_job_current(&job),
         );
@@ -19937,7 +20298,8 @@ mod cancellation_approval_tests {
         let partial_settlement = partial_place.live_order_settlement.unwrap();
         assert_eq!(
             partial_settlement.status,
-            protocol::LiveOrderSettlementStatus::Working
+            protocol::LiveOrderSettlementStatus::Working,
+            "{partial_settlement:?}"
         );
         assert_eq!(partial_settlement.remaining_commitment, "250");
         assert_eq!(partial_settlement.provider_trade_count, 1);
@@ -19965,7 +20327,8 @@ mod cancellation_approval_tests {
         let full_settlement = full_place.live_order_settlement.unwrap();
         assert_eq!(
             full_settlement.status,
-            protocol::LiveOrderSettlementStatus::Settled
+            protocol::LiveOrderSettlementStatus::Settled,
+            "{full_settlement:?}"
         );
         assert_eq!(full_settlement.filled_quantity.as_deref(), Some("0.01"));
         assert_eq!(full_settlement.filled_value.as_deref(), Some("500"));
@@ -20049,6 +20412,695 @@ mod cancellation_approval_tests {
         );
         assert_eq!(history["ok"], true, "{history}");
         assert_eq!(history["data"]["approvals"][0]["approvalId"], approval_id);
+        assert_eq!(history["data"]["approvals"][0]["status"], "CONSUMED");
+    }
+
+    #[test]
+    fn bitget_live_cancel_refresh_settles_partial_then_full_fills_across_reopen() {
+        let (folder, mut control, workspace_id, account, proposal, place_review) =
+            super::live_approval_tests::reviewed_bitget_live_fixture();
+        let place_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            super::live_approval_tests::approval_action(&workspace_id, &proposal, &place_review),
+        );
+        assert_eq!(place_approval["ok"], true, "{place_approval}");
+        let capacity: protocol::CapacityProjection =
+            serde_json::from_value(place_review["capacityProjection"].clone()).unwrap();
+        let place_attempt_id = uuid::Uuid::new_v4().to_string();
+        let reservation_id = uuid::Uuid::new_v4().to_string();
+        let prepared_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let amount = capacity.requested_amount.clone().unwrap();
+        let notional = proposal["estimatedNotional"].as_str().unwrap().to_owned();
+        let notional_currency = proposal["estimatedNotionalCurrency"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let now = control.time.status(&workspace_id).unwrap().wall_clock;
+        let place_attempt = protocol::ExecutionAttempt {
+            attempt_id: place_attempt_id.clone(),
+            workspace_id: workspace_id.clone(),
+            approval_id: place_approval["data"]["approvalId"]
+                .as_str()
+                .unwrap()
+                .into(),
+            operation: protocol::FinancialOperation::PlaceOrder,
+            intent_id: proposal["proposalId"].as_str().unwrap().into(),
+            intent_hash: proposal["proposalHash"].as_str().unwrap().into(),
+            proposal_id: Some(proposal["proposalId"].as_str().unwrap().into()),
+            broker_order_id: None,
+            provider_client_order_id: Some(
+                provider_io::bitget_live_client_order_id(&place_attempt_id).unwrap(),
+            ),
+            provider_status: None,
+            trading212_live_order_observation: None,
+            binance_live_order_observation: None,
+            bitget_live_order_observation: None,
+            error_code: None,
+            dispatch_disposition: None,
+            account_id: account.connection_id.clone(),
+            environment: protocol::ExecutionContext::BitgetLive,
+            policy_version: place_approval["data"]["policyVersion"].as_u64().unwrap(),
+            risk_decision_id: place_review["riskDecision"]["decisionId"]
+                .as_str()
+                .unwrap()
+                .into(),
+            review_digest: place_review["reviewDigest"].as_str().unwrap().into(),
+            account_state_version: prepared_account.state_version.clone(),
+            intent_state_version: proposal["stateVersion"].as_str().unwrap().into(),
+            reservation_id: Some(reservation_id.clone()),
+            state: protocol::ExecutionAttemptState::Reserved,
+            invalidation_reason: None,
+            created_at: now.clone(),
+            dispatch_started_at: None,
+            state_version: String::new(),
+        };
+        let reservation = protocol::ExecutionReservation {
+            reservation_id,
+            workspace_id: workspace_id.clone(),
+            account_id: account.connection_id.clone(),
+            attempt_id: place_attempt_id.clone(),
+            proposal_id: proposal["proposalId"].as_str().unwrap().into(),
+            proposal_hash: proposal["proposalHash"].as_str().unwrap().into(),
+            instrument_id: proposal["fields"]["instrumentId"].as_str().unwrap().into(),
+            side: protocol::OrderSide::Buy,
+            capacity_key: "cash:USDT".into(),
+            amount,
+            unit: capacity.unit.clone(),
+            notional: notional.clone(),
+            notional_currency: notional_currency.clone(),
+            workspace_notional: Some(notional),
+            workspace_currency: "USD".into(),
+            broker_available: capacity.available.clone().unwrap(),
+            existing_reservations: "0".into(),
+            effective_available: capacity.effective_available.clone().unwrap(),
+            capacity_projection: Some(capacity),
+            account_state_version: prepared_account.state_version.clone(),
+            status: protocol::ExecutionReservationStatus::Active,
+            created_at: now.clone(),
+            state_version: String::new(),
+        };
+        let (_, events) = control
+            .store
+            .as_mut()
+            .unwrap()
+            .prepare_live_place(
+                place_approval["data"]["approvalId"].as_str().unwrap(),
+                place_approval["data"]["stateVersion"].as_str().unwrap(),
+                "prepare-bitget-live-place-for-cancel-settlement",
+                &prepared_account.state_version,
+                proposal["stateVersion"].as_str().unwrap(),
+                place_review["reviewDigest"].as_str().unwrap(),
+                place_attempt,
+                reservation,
+                &now,
+            )
+            .unwrap();
+        for event in &events {
+            control.publish(event);
+        }
+        let now = control.time.status(&workspace_id).unwrap().wall_clock;
+        let place_grant = control
+            .issue_live_dispatch_grant(&place_attempt_id, "synthetic-bitget-place")
+            .unwrap();
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_execution_submission(
+                &place_grant.grant_id,
+                "synthetic-bitget-place",
+                place_review["reviewDigest"].as_str().unwrap(),
+                &now,
+            )
+            .unwrap();
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .complete_execution_submission(
+                &place_attempt_id,
+                protocol::ExecutionAttemptState::Accepted,
+                Some("12345"),
+                Some("live"),
+                None,
+                &now,
+            )
+            .unwrap();
+
+        let mut account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        account.health.reconciliation = "CURRENT".into();
+        account.last_successful_sync = Some(now.clone());
+        let data = account.data.as_mut().unwrap();
+        data.open_orders = vec![providers::OpenOrder {
+            broker_order_id: "normal:12345".into(),
+            symbol: "BTCUSDT".into(),
+            instrument_id: Some("crypto:BTC/USDT:spot".into()),
+            side: "BUY".into(),
+            quantity: Some("0.01".into()),
+            notional: None,
+            filled_quantity: Some("0".into()),
+            filled_value: Some("0".into()),
+            currency: Some("USDT".into()),
+            status: "LIVE".into(),
+            limit_price: Some("50000".into()),
+            kind: Some("NORMAL".into()),
+            trigger_price: None,
+        }];
+        data.bitget_order_book = Some(providers::BitgetSpotOrderBook {
+            orders: vec![providers::BitgetSpotOrder {
+                provider_order_id: "12345".into(),
+                kind: "NORMAL".into(),
+                symbol: "BTCUSDT".into(),
+                side: "BUY".into(),
+                quantity: Some("0.01".into()),
+                notional: None,
+                filled_quantity: Some("0".into()),
+                filled_value: Some("0".into()),
+                remaining_quantity: Some("0.01".into()),
+                currency: Some("USDT".into()),
+                provider_status: "live".into(),
+                normalized_status: "OPEN".into(),
+                origin: "TRADEX".into(),
+                created_at: Some("2026-09-08T06:38:20Z".into()),
+                updated_at: Some("2026-09-08T06:40:00Z".into()),
+            }],
+            fills: vec![],
+            observed_at: now.clone(),
+        });
+        let account = control.persist_account(account).unwrap();
+        let broker_order_id = "normal:12345";
+        let http = SyntheticBitgetHttp::default();
+        http.set_phase(1);
+        control
+            .advance_test_clock_fixture(&workspace_id, 10_000)
+            .unwrap();
+        let unarmed_review = request_bitget_review(
+            &mut control,
+            &workspace_id,
+            &account,
+            None,
+            broker_order_id,
+            &http,
+        );
+        assert_eq!(unarmed_review["eligible"], false, "{unarmed_review}");
+        let confirmed = dispatch_main(
+            &mut control,
+            "provider.connect",
+            json!({
+                "step":"confirm",
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":unarmed_review["account"]["stateVersion"],
+                "acknowledgeUnverified":false,
+            }),
+        );
+        assert_eq!(confirmed["ok"], true, "{confirmed}");
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":confirmed["data"]["stateVersion"],
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let armed_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let reviewed = request_bitget_review(
+            &mut control,
+            &workspace_id,
+            &armed_account,
+            Some(
+                unarmed_review["intent"]["cancellationIntentId"]
+                    .as_str()
+                    .unwrap(),
+            ),
+            broker_order_id,
+            &http,
+        );
+        assert_eq!(reviewed["eligible"], true, "{reviewed}");
+        assert_eq!(reviewed["intent"]["providerStatus"], "PARTIALLY_FILLED");
+        assert_eq!(reviewed["intent"]["filledQuantity"], "0.004");
+        assert_eq!(reviewed["intent"]["remainingQuantity"], "0.006");
+
+        let stopped_approval = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&reviewed),
+        );
+        assert_eq!(stopped_approval["ok"], true, "{stopped_approval}");
+        let stopped_approval_id = stopped_approval["data"]["approvalId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let stopped_preparation = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":stopped_approval_id,
+                "expectedApprovalStateVersion":stopped_approval["data"]["stateVersion"],
+                "idempotencyKey":"prepare-bitget-live-cancel-before-dispatch-stop",
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(stopped_preparation["ok"], true, "{stopped_preparation}");
+        let stopped_attempt_id = stopped_preparation["data"]["attempt"]["attemptId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        control
+            .stop_live_dispatch_before_submission(&stopped_attempt_id, "ORDER_CHANGED_REVIEW_AGAIN")
+            .unwrap();
+        let stopped_attempt = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &stopped_attempt_id)
+            .unwrap();
+        assert_eq!(
+            stopped_attempt.attempt.state,
+            protocol::ExecutionAttemptState::Invalidated
+        );
+        assert_eq!(
+            stopped_attempt.attempt.dispatch_disposition,
+            Some(protocol::ExecutionDispatchDisposition::StoppedBeforeDispatch)
+        );
+        let refreshed_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let retried_review = request_bitget_review(
+            &mut control,
+            &workspace_id,
+            &refreshed_account,
+            Some(reviewed["intent"]["cancellationIntentId"].as_str().unwrap()),
+            broker_order_id,
+            &http,
+        );
+        assert_eq!(retried_review["eligible"], true, "{retried_review}");
+        assert_eq!(
+            retried_review["intent"]["cancellationIntentId"],
+            reviewed["intent"]["cancellationIntentId"]
+        );
+        let cancel_approval = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&retried_review),
+        );
+        assert_eq!(cancel_approval["ok"], true, "{cancel_approval}");
+        let cancel_approval_id = cancel_approval["data"]["approvalId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":cancel_approval_id,
+                "expectedApprovalStateVersion":cancel_approval["data"]["stateVersion"],
+                "idempotencyKey":"prepare-bitget-live-cancel-fill-race",
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        let cancel_attempt_id = prepared["data"]["attempt"]["attemptId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert_ne!(cancel_attempt_id, stopped_attempt_id);
+        let latest_cancel = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &cancel_approval_id)
+            .unwrap()
+            .unwrap();
+        let latest_intent = control
+            .store
+            .as_ref()
+            .unwrap()
+            .cancellation_intent(&workspace_id, &latest_cancel.attempt.intent_id)
+            .unwrap();
+        let latest_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let latest_review = control
+            .build_cancellation_review(&latest_intent, &latest_account)
+            .unwrap();
+        assert!(latest_review.eligible, "{latest_review:?}");
+        assert_eq!(latest_review.review_digest, retried_review["reviewDigest"]);
+        assert_eq!(
+            latest_review.snapshot_version,
+            retried_review["snapshotVersion"]
+        );
+        assert_eq!(
+            latest_review.risk_decision.decision_id,
+            latest_cancel.attempt.risk_decision_id
+        );
+        assert_eq!(
+            latest_review.account.state_version,
+            latest_cancel.attempt.account_state_version
+        );
+        let approval_snapshot = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("financial-approval", &cancel_approval_id)
+            .unwrap();
+        let protocol::DomainProjection::FinancialApproval(cancel_approval) =
+            approval_snapshot.projection
+        else {
+            panic!("expected cancellation approval projection");
+        };
+        assert_eq!(
+            latest_review.risk_decision.policy_version,
+            cancel_approval.policy_version
+        );
+        assert_eq!(
+            latest_review.risk_decision.status,
+            risk::RiskDecisionStatus::Allowed
+        );
+        assert_eq!(
+            cancel_approval.status,
+            protocol::FinancialApprovalStatus::Consumed
+        );
+        assert_eq!(
+            cancel_approval.workspace_id,
+            latest_cancel.attempt.workspace_id
+        );
+        assert_eq!(cancel_approval.account_id, latest_cancel.attempt.account_id);
+        assert_eq!(
+            cancel_approval.review_digest,
+            latest_cancel.attempt.review_digest
+        );
+        assert_eq!(
+            cancel_approval.risk_decision_id,
+            latest_cancel.attempt.risk_decision_id
+        );
+        assert_eq!(
+            cancel_approval.policy_version,
+            latest_cancel.attempt.policy_version
+        );
+        assert_eq!(
+            cancel_approval.intent_hash(),
+            latest_cancel.attempt.intent_hash
+        );
+        let protocol::FinancialApprovalIntent::Cancel {
+            snapshot_evidence_id,
+            snapshot_version,
+            ..
+        } = cancel_approval.intent
+        else {
+            panic!("expected cancellation approval intent");
+        };
+        assert_eq!(latest_review.snapshot_evidence_id, snapshot_evidence_id);
+        assert_eq!(latest_cancel.attempt.intent_state_version, snapshot_version);
+        assert_eq!(latest_cancel.attempt.approval_id, cancel_approval_id);
+        assert_eq!(
+            latest_cancel.attempt.intent_id,
+            latest_intent.cancellation_intent_id
+        );
+        assert!(latest_cancel.attempt.reservation_id.is_none());
+        assert!(latest_cancel.reservation.is_none());
+        assert_eq!(
+            latest_cancel.attempt.state,
+            protocol::ExecutionAttemptState::Reserved
+        );
+        let revalidated = control.revalidate_live_dispatch_attempt(&latest_cancel.attempt);
+        assert!(revalidated.is_ok(), "{revalidated:?}");
+        assert_eq!(
+            revalidated.unwrap(),
+            retried_review["reviewDigest"].as_str().unwrap()
+        );
+        let now = control.time.status(&workspace_id).unwrap().wall_clock;
+        assert!(
+            !storage::approval_expired(&cancel_approval.expires_at, &now),
+            "expiry={} now={now}",
+            cancel_approval.expires_at
+        );
+        let mut cancel_package = control
+            .live_dispatch_package(&cancel_attempt_id, "synthetic-bitget-cancel")
+            .unwrap();
+        assert_eq!(cancel_package.account.provider_id, "bitget");
+        assert!(matches!(
+            &cancel_package.intent,
+            order_gateway::GatewayDispatchIntent::Cancel(intent)
+                if intent.cancellation_intent_id == latest_cancel.attempt.intent_id
+                    && intent.provider_order_id == broker_order_id
+        ));
+        assert!(cancel_package.reservation.is_none());
+        let cancel_data = cancel_package.account.data.as_ref().unwrap();
+        assert_eq!(cancel_data.open_orders.len(), 1);
+        assert_eq!(cancel_data.open_orders[0].broker_order_id, broker_order_id);
+        let cancel_book = cancel_data.bitget_order_book.as_ref().unwrap();
+        assert_eq!(cancel_book.orders.len(), 1);
+        assert_eq!(cancel_book.orders[0].provider_order_id, "12345");
+        assert!(cancel_book.fills.is_empty());
+        let persisted_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        assert!(persisted_account.data.as_ref().unwrap().open_orders.len() > 1);
+        assert!(
+            persisted_account
+                .data
+                .as_ref()
+                .unwrap()
+                .bitget_order_book
+                .as_ref()
+                .unwrap()
+                .fills
+                .len()
+                > 0
+        );
+        let gateway_credential = "00000000-0000-4000-8000-000000000000";
+        cancel_package.grant.gateway_session_id = gateway_credential.into();
+        #[cfg(feature = "integration-test")]
+        {
+            cancel_package.local_test_base_url = Some("http://127.0.0.1:54321".into());
+        }
+        let dispatch_frame = serde_json::to_vec(&json!({
+            "kind":"grant",
+            "protocolVersion":1,
+            "sessionCredential":gateway_credential,
+            "package":cancel_package.clone(),
+        }))
+        .unwrap();
+        assert!(
+            dispatch_frame.len() < 65_536,
+            "Bitget cancel grant exceeds the Gateway's 64 KiB frame: {} bytes",
+            dispatch_frame.len()
+        );
+        let cancel_grant = cancel_package.grant;
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_execution_submission(
+                &cancel_grant.grant_id,
+                "synthetic-bitget-cancel",
+                retried_review["reviewDigest"].as_str().unwrap(),
+                &now,
+            )
+            .unwrap();
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .complete_execution_submission(
+                &cancel_attempt_id,
+                protocol::ExecutionAttemptState::CancelPending,
+                Some(broker_order_id),
+                Some("PARTIALLY_FILLED"),
+                None,
+                &now,
+            )
+            .unwrap();
+
+        http.set_phase(2);
+        control
+            .advance_test_clock_fixture(&workspace_id, 10_000)
+            .unwrap();
+        let partial = refresh_bitget_live_order(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            &cancel_approval_id,
+            broker_order_id,
+            &http,
+        );
+        assert_eq!(partial["ok"], true, "{partial}");
+        let partial_place = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                place_approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        let partial_settlement = partial_place.live_order_settlement.unwrap();
+        assert_eq!(
+            partial_settlement.status,
+            protocol::LiveOrderSettlementStatus::Working,
+            "{partial_settlement:?}"
+        );
+        assert_eq!(partial_settlement.remaining_commitment, "300");
+        assert_eq!(partial_settlement.provider_trade_count, 1);
+        assert_eq!(
+            partial_place.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+
+        http.set_phase(3);
+        control
+            .advance_test_clock_fixture(&workspace_id, 10_000)
+            .unwrap();
+        let full = refresh_bitget_live_order(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            &cancel_approval_id,
+            broker_order_id,
+            &http,
+        );
+        assert_eq!(full["ok"], true, "{full}");
+        let full_place = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                place_approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        let full_settlement = full_place.live_order_settlement.unwrap();
+        assert_eq!(
+            full_settlement.status,
+            protocol::LiveOrderSettlementStatus::Settled,
+            "{full_settlement:?}"
+        );
+        assert_eq!(full_settlement.filled_quantity.as_deref(), Some("0.01"));
+        assert_eq!(full_settlement.filled_value.as_deref(), Some("500"));
+        assert_eq!(full_settlement.provider_trade_count, 2);
+        let facts = full_settlement.trade_facts.as_ref().unwrap();
+        assert_eq!(facts[0].provider_trade_id, "111");
+        assert_eq!(facts[0].fees[0].asset, "BTC");
+        assert_eq!(facts[0].fees[0].amount, "0.000004");
+        assert_eq!(facts[1].provider_trade_id, "112");
+        assert_eq!(facts[1].fees[0].asset, "BGB");
+        assert_eq!(facts[1].fees[0].amount, "0.15");
+        let released = full_place.reservation.unwrap();
+        assert_eq!(released.amount, "0");
+        assert_eq!(
+            released.status,
+            protocol::ExecutionReservationStatus::Released
+        );
+        let cancel = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &cancel_approval_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            cancel.attempt.state,
+            protocol::ExecutionAttemptState::CancelPending
+        );
+        let observation = cancel.attempt.bitget_live_order_observation.unwrap();
+        assert_eq!(observation.provider_status, "filled");
+        assert_eq!(
+            observation.disposition,
+            protocol::LiveOrderDisposition::Terminal
+        );
+        assert_eq!(observation.filled_quantity.as_deref(), Some("0.01"));
+        assert_eq!(observation.filled_value.as_deref(), Some("500"));
+        assert_eq!(
+            cancel.live_order_settlement.unwrap().attempt_id,
+            place_attempt_id
+        );
+        assert!(
+            http.calls
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|(method, _)| { *method == provider_io::ProviderHttpMethod::Get })
+        );
+        assert_eq!(
+            http.calls
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(_, path)| path == "/api/v2/spot/trade/orderInfo?orderId=12345")
+                .count(),
+            5
+        );
+        drop(control);
+
+        let mut reopened = ControlPlane::new(folder.path().to_path_buf());
+        let opened = dispatch(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let preparation = dispatch_main(
+            &mut reopened,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":cancel_approval_id}),
+        );
+        assert_eq!(preparation["ok"], true, "{preparation}");
+        let attempt = &preparation["data"]["preparation"]["attempt"];
+        assert_eq!(attempt["state"], "CANCEL_PENDING");
+        assert_eq!(
+            attempt["bitgetLiveOrderObservation"]["providerStatus"],
+            "filled"
+        );
+        assert_eq!(
+            attempt["bitgetLiveOrderObservation"]["source"],
+            "bitget.live.exact-order"
+        );
+        assert_eq!(
+            preparation["data"]["preparation"]["liveOrderSettlement"]["status"],
+            "SETTLED"
+        );
+        assert_eq!(
+            preparation["data"]["preparation"]["liveOrderSettlement"]["tradeFacts"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        let history = dispatch_main(
+            &mut reopened,
+            "trade.cancel_approval.list",
+            json!({"workspaceId":workspace_id,"accountId":account.connection_id}),
+        );
+        assert_eq!(history["ok"], true, "{history}");
         assert_eq!(history["data"]["approvals"][0]["status"], "CONSUMED");
     }
 

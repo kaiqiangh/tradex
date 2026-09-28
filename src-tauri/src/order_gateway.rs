@@ -87,6 +87,7 @@ impl GatewayDispatchPackage {
                     "trading212",
                     crate::protocol::ExecutionContext::Trading212Live
                 ) | ("binance", crate::protocol::ExecutionContext::BinanceLive)
+                    | ("bitget", crate::protocol::ExecutionContext::BitgetLive)
             )
             || self.account.credential_ref() != self.credential_reference
             || self.account.connection_state != crate::providers::ConnectionState::Connected

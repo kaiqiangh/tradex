@@ -30,6 +30,12 @@ test('the UI applies only contiguous supported events and ignores exact duplicat
   assert.equal(next.snapshot.lastSequence, 2, 'rejected events cannot advance the cursor');
 });
 
+test('workspace snapshots accept the current storage schema version', () => {
+  const current = { ...workspace, storageSchemaVersion: 31 };
+  assert.equal(fromSnapshot({ ...snapshot, projection: current }).snapshot.projection.storageSchemaVersion, 31);
+  assert.throws(() => fromSnapshot({ ...snapshot, projection: { ...current, storageSchemaVersion: 32 } }));
+});
+
 test('generated result schema rejects false success, mixed envelopes and foreign payloads', () => {
   const good = { requestId: 'one', schemaVersion: 1, ok: true, data: workspace };
   assert.deepEqual(decode('ResultEnvelope', good), good);

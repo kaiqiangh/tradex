@@ -319,7 +319,11 @@ impl ProviderEndpoint {
         match self {
             Self::AlpacaPaper => allowed_path(path),
             Self::BitgetDemo => bitget::allows(path),
-            Self::BitgetLive => bitget::allows(path) || bitget::allows_live_history(path),
+            Self::BitgetLive => {
+                bitget::allows(path)
+                    || bitget::allows_live_history(path)
+                    || bitget::allows_live_cancel_observation(path)
+            }
             Self::BinanceTestnet | Self::BinanceLive => binance::allows(self, path),
             Self::Trading212Demo => {
                 matches!(
@@ -361,6 +365,9 @@ impl ProviderEndpoint {
                             path,
                             "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
                         ))
+                    || (cfg!(feature = "order-gateway-runtime")
+                        && self == Self::BitgetLive
+                        && path == "/api/v2/spot/trade/cancel-order")
             }
             ProviderHttpMethod::Delete => {
                 self == Self::AlpacaPaper
@@ -398,6 +405,9 @@ pub(crate) fn valid_live_cancel_order_id(provider_id: &str, value: &str) -> bool
         "binance" => value.split_once(':').is_some_and(|(symbol, id)| {
             binance::valid_binance_symbol(symbol) && binance::valid_order_id(id)
         }),
+        "bitget" => value
+            .strip_prefix("normal:")
+            .is_some_and(bitget::valid_live_cancel_number),
         _ => false,
     }
 }
@@ -558,6 +568,7 @@ pub struct PreparedLiveMutation {
     order_id: Option<String>,
     cancel_provider_status: Option<String>,
     binance_live_cancel: Option<(String, String)>,
+    bitget_live_cancel: Option<(String, String)>,
 }
 
 pub fn prepare_trading212_live_mutation(
@@ -689,6 +700,7 @@ pub fn prepare_trading212_live_mutation(
         order_id,
         cancel_provider_status,
         binance_live_cancel: None,
+        bitget_live_cancel: None,
     })
 }
 
@@ -781,6 +793,47 @@ pub fn prepare_binance_live_cancel_mutation(
         order_id: Some(intent.provider_order_id.clone()),
         cancel_provider_status: Some(cancel_provider_status),
         binance_live_cancel: Some((symbol.to_owned(), order_id.to_owned())),
+        bitget_live_cancel: None,
+    })
+}
+
+pub fn prepare_bitget_live_cancel_mutation(
+    account: &AccountConnection,
+    credential_reference: &str,
+    intent: &CancellationIntent,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+) -> Result<PreparedLiveMutation> {
+    if account.provider_id != "bitget"
+        || account.environment != "LIVE"
+        || credential_reference != account.credential_ref()
+        || intent.workspace_id != account.workspace_id
+        || intent.account_id != account.connection_id
+        || intent.environment != ExecutionContext::BitgetLive
+        || !valid_live_cancel_order_id("bitget", &intent.provider_order_id)
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    let order_id = intent
+        .provider_order_id
+        .strip_prefix("normal:")
+        .ok_or_else(|| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+    let credential = vault.get(credential_reference)?;
+    let secrets = credential.values()?;
+    let cancel_provider_status =
+        bitget::prepare_live_cancel_preflight(account, intent, &secrets, http)?;
+    Ok(PreparedLiveMutation {
+        endpoint: ProviderEndpoint::BitgetLive,
+        path: "/api/v2/spot/trade/cancel-order".into(),
+        method: ProviderHttpMethod::Post,
+        body: Some(json!({"symbol":intent.symbol,"orderId":order_id})),
+        headers: HeaderMap::new(),
+        secrets,
+        expected_ticker: None,
+        order_id: Some(intent.provider_order_id.clone()),
+        cancel_provider_status: Some(cancel_provider_status),
+        binance_live_cancel: None,
+        bitget_live_cancel: Some((intent.symbol.clone(), order_id.into())),
     })
 }
 
@@ -814,6 +867,8 @@ impl PreparedLiveMutation {
                 sampled,
                 &current,
             )
+        } else if let Some((symbol, order_id)) = self.bitget_live_cancel.as_ref() {
+            bitget::send_live_cancel(&self.secrets, symbol, order_id, http)
         } else {
             http.request(
                 self.endpoint,
@@ -846,6 +901,20 @@ impl PreparedLiveMutation {
         }
         if !(200..300).contains(&response.status) {
             return unknown_live_dispatch();
+        }
+        if let Some((_, order_id)) = self.bitget_live_cancel.as_ref() {
+            match bitget::live_cancel_acknowledgement(&response, &self.secrets, order_id) {
+                bitget::LiveCancelAcknowledgement::Accepted => (),
+                bitget::LiveCancelAcknowledgement::Rejected(code) => {
+                    return LiveDispatchOutcome {
+                        state: crate::protocol::ExecutionAttemptState::Rejected,
+                        broker_order_id: self.order_id,
+                        provider_status: None,
+                        error_code: Some(code.into()),
+                    };
+                }
+                bitget::LiveCancelAcknowledgement::Unknown => return unknown_live_dispatch(),
+            }
         }
         if let Some((symbol, numeric_order_id)) = self.binance_live_cancel.as_ref() {
             let acknowledged = (|| -> Result<()> {
@@ -1109,7 +1178,9 @@ impl BrokerHttp {
     fn url(&self, endpoint: ProviderEndpoint, path: &str) -> String {
         let base = if matches!(
             endpoint,
-            ProviderEndpoint::Trading212Live | ProviderEndpoint::BinanceLive
+            ProviderEndpoint::Trading212Live
+                | ProviderEndpoint::BinanceLive
+                | ProviderEndpoint::BitgetLive
         ) {
             self.local_test_base_url()
                 .unwrap_or_else(|| endpoint.base_url())
@@ -1504,12 +1575,26 @@ impl ProviderJob {
                 return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
             }
             if endpoint.is_bitget() {
+                let exact_cancel_order_id = match &self.kind {
+                    JobKind::CancellationIntentRefresh(input)
+                        if endpoint == ProviderEndpoint::BitgetLive =>
+                    {
+                        Some(input.broker_order_id.as_str())
+                    }
+                    JobKind::LiveOrderRefresh { order_id, .. }
+                        if endpoint == ProviderEndpoint::BitgetLive =>
+                    {
+                        Some(order_id.as_str())
+                    }
+                    _ => None,
+                };
                 let mut observation = bitget::read(
                     endpoint,
                     &values,
                     http,
                     &current,
                     self.account.data.as_ref(),
+                    exact_cancel_order_id,
                 )?;
                 normalize_account_data(&mut observation.data, &self.account.provider_id);
                 return Ok(observation);
@@ -5165,6 +5250,59 @@ pub fn decimal(value: &Value) -> Result<String> {
         if fraction.is_empty() { "" } else { "." },
         fraction
     ))
+}
+
+#[cfg(test)]
+mod bitget_live_cancel_route_tests {
+    use super::{ProviderEndpoint, ProviderHttpMethod, valid_live_cancel_order_id};
+
+    #[test]
+    fn bitget_live_cancel_and_exact_read_routes_are_narrow() {
+        assert!(valid_live_cancel_order_id(
+            "bitget",
+            "normal:9223372036854775807"
+        ));
+        for order_id in [
+            "tpsl:12",
+            "plan:12",
+            "normal:0",
+            "normal:012",
+            "normal:abc",
+            "normal:9223372036854775808",
+        ] {
+            assert!(
+                !valid_live_cancel_order_id("bitget", order_id),
+                "{order_id}"
+            );
+        }
+
+        for path in [
+            "/api/v2/spot/trade/orderInfo?orderId=9223372036854775807",
+            "/api/v2/spot/trade/fills?limit=100&orderId=9223372036854775807",
+            "/api/v2/spot/trade/fills?limit=100&orderId=9223372036854775807&idLessThan=9223372036854775806",
+        ] {
+            assert!(ProviderEndpoint::BitgetLive.allows(path), "{path}");
+        }
+        for path in [
+            "/api/v2/spot/trade/orderInfo?orderId=0",
+            "/api/v2/spot/trade/orderInfo?orderId=9223372036854775808",
+            "/api/v2/spot/trade/orderInfo?clientOid=tx-0123456789abcdef&orderId=1",
+            "/api/v2/spot/trade/fills?limit=100&orderId=9223372036854775808",
+            "/api/v2/spot/trade/fills?limit=100&orderId=1&symbol=ETHUSDT",
+            "/api/v2/spot/trade/fills?limit=100&orderId=1&idLessThan=0",
+        ] {
+            assert!(!ProviderEndpoint::BitgetLive.allows(path), "{path}");
+        }
+        assert_eq!(
+            ProviderEndpoint::BitgetLive
+                .allows_method(ProviderHttpMethod::Post, "/api/v2/spot/trade/cancel-order"),
+            cfg!(feature = "order-gateway-runtime")
+        );
+        assert!(
+            !ProviderEndpoint::BitgetDemo
+                .allows_method(ProviderHttpMethod::Post, "/api/v2/spot/trade/cancel-order")
+        );
+    }
 }
 
 #[cfg(test)]

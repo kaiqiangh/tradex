@@ -1,6 +1,8 @@
 use super::*;
 use crate::{
-    protocol::{AssetClass, OrderProposalStatus},
+    protocol::{
+        AssetClass, LiveOrderDisposition, LiveOrderFee, LiveOrderTradeFact, OrderProposalStatus,
+    },
     provider_io,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
@@ -13,11 +15,19 @@ use std::{
 
 fn id(v: &Value, key: &str) -> Result<String> {
     let s = v[key].as_str().ok_or_else(invalid)?;
-    if s.is_empty() || s.len() > 40 || s.starts_with('0') || !s.bytes().all(|b| b.is_ascii_digit())
-    {
+    if !valid_order_id(s) {
         return Err(invalid());
     }
     Ok(s.into())
+}
+pub(super) fn valid_order_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 40
+        && !value.starts_with('0')
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+pub(super) fn valid_live_cancel_number(value: &str) -> bool {
+    valid_order_id(value) && value.parse::<i64>().is_ok_and(|order_id| order_id > 0)
 }
 fn older(a: &str, b: &str) -> bool {
     (a.len(), a) < (b.len(), b)
@@ -72,6 +82,24 @@ pub(super) fn allows_live_history(path: &str) -> bool {
             .any(|base| query.strip_prefix(base).is_some_and(cursor_suffix)),
         _ => false,
     }
+}
+pub(super) fn allows_live_cancel_observation(path: &str) -> bool {
+    if let Some(order_id) = path.strip_prefix("/api/v2/spot/trade/orderInfo?orderId=") {
+        return valid_live_cancel_number(order_id);
+    }
+    let Some((route, query)) = path.split_once('?') else {
+        return false;
+    };
+    if route != "/api/v2/spot/trade/fills" {
+        return false;
+    }
+    let Some(query) = query.strip_prefix("limit=100&orderId=") else {
+        return false;
+    };
+    let Some((order_id, cursor)) = query.split_once("&idLessThan=") else {
+        return valid_live_cancel_number(query);
+    };
+    valid_live_cancel_number(order_id) && valid_order_id(cursor)
 }
 fn valid_client_oid(value: &str) -> bool {
     value.starts_with("tx-")
@@ -172,6 +200,35 @@ fn signed_get(
     if secrets.len() != 3 {
         return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
     }
+    let (headers, signature) = signed_headers(
+        server,
+        sampled,
+        secrets,
+        "GET",
+        path,
+        None,
+        endpoint == ProviderEndpoint::BitgetDemo,
+    )?;
+    response_json(
+        endpoint,
+        path,
+        headers,
+        Some(&signature),
+        secrets,
+        http,
+        current,
+    )
+}
+
+fn signed_headers(
+    server: u64,
+    sampled: Instant,
+    secrets: &[String],
+    method: &str,
+    path: &str,
+    body: Option<&Value>,
+    demo: bool,
+) -> Result<(HeaderMap, Zeroizing<String>)> {
     if sampled.elapsed() > Duration::from_secs(60) {
         return Err(TradeXError::new("CLOCK_SKEW"));
     }
@@ -180,8 +237,13 @@ fn signed_get(
         .filter(|value| valid_time(*value))
         .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?
         .to_string();
+    let body = body
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|_| invalid())?
+        .unwrap_or_default();
     let mut mac = Hmac::<Sha256>::new_from_slice(secrets[1].as_bytes()).map_err(|_| invalid())?;
-    mac.update(format!("{timestamp}GET{path}").as_bytes());
+    mac.update(format!("{timestamp}{method}{path}{body}").as_bytes());
     let signature = Zeroizing::new(STANDARD.encode(mac.finalize().into_bytes()));
     let mut headers = HeaderMap::new();
     for (name, value) in [
@@ -198,18 +260,187 @@ fn signed_get(
         "ACCESS-TIMESTAMP",
         HeaderValue::from_str(&timestamp).map_err(|_| invalid())?,
     );
-    if endpoint == ProviderEndpoint::BitgetDemo {
+    if demo {
         headers.insert("paptrading", HeaderValue::from_static("1"));
     }
-    response_json(
-        endpoint,
+    Ok((headers, signature))
+}
+
+pub(super) fn prepare_live_cancel_preflight(
+    account: &AccountConnection,
+    intent: &CancellationIntent,
+    secrets: &[String],
+    http: &impl ProviderHttp,
+) -> Result<String> {
+    let order_id = intent
+        .provider_order_id
+        .strip_prefix("normal:")
+        .filter(|value| valid_live_cancel_number(value))
+        .ok_or_else(|| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+    if account.provider_id != "bitget"
+        || account.environment != "LIVE"
+        || account.workspace_id != intent.workspace_id
+        || account.connection_id != intent.account_id
+        || intent.environment != ExecutionContext::BitgetLive
+        || secrets.len() != 3
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    crate::storage::validate_cancellation_snapshot(account, intent)?;
+    let data = account
+        .data
+        .as_ref()
+        .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+    let saved = data
+        .bitget_order_book
+        .as_ref()
+        .and_then(|book| {
+            book.orders
+                .iter()
+                .find(|order| order.kind == "NORMAL" && order.provider_order_id == order_id)
+        })
+        .ok_or_else(|| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+    let current = || true;
+    let (server, sampled) = server_clock(ProviderEndpoint::BitgetLive, secrets, http, &current)?;
+    let signed = |path: &str| {
+        signed_get(
+            ProviderEndpoint::BitgetLive,
+            secrets,
+            http,
+            &current,
+            server,
+            sampled,
+            path,
+        )
+    };
+    let identity = signed("/api/v2/spot/account/info")?;
+    if id(&identity, "userId")? != data.remote_account_id {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let rows = signed(&format!("/api/v2/spot/trade/orderInfo?orderId={order_id}"))?;
+    let rows = rows.as_array().ok_or_else(invalid)?;
+    if rows.len() != 1 {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    }
+    let row = &rows[0];
+    if id(row, "userId")? != data.remote_account_id {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let order = bitget_order(row, "normal", &data.remote_account_id, order_id.to_owned())?;
+    if text(row, "tpslType", 16)? != "normal"
+        || order.symbol != intent.symbol
+        || order.side != intent.side
+        || market::canonical_instrument_id("bitget", &order.symbol).as_deref()
+            != Some(intent.instrument_id.as_str())
+        || !matches!(
+            order.normalized_status.as_str(),
+            "OPEN" | "PARTIALLY_FILLED"
+        )
+    {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    }
+    if order.quantity.as_deref() != Some(intent.quantity.as_str())
+        || order.filled_quantity.as_deref() != Some(intent.filled_quantity.as_str())
+        || order.remaining_quantity.as_deref() != Some(intent.remaining_quantity.as_str())
+        || order.provider_status.to_ascii_uppercase() != intent.provider_status
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    if saved.symbol != order.symbol
+        || saved.side != order.side
+        || saved.quantity != order.quantity
+        || saved.notional != order.notional
+        || saved.filled_quantity != order.filled_quantity
+        || saved.filled_value != order.filled_value
+        || saved.remaining_quantity != order.remaining_quantity
+        || saved.currency != order.currency
+        || saved.provider_status != order.provider_status
+        || saved.normalized_status != order.normalized_status
+        || saved.created_at != order.created_at
+        || saved.updated_at != order.updated_at
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    Ok(intent.provider_status.clone())
+}
+
+pub(super) enum LiveCancelAcknowledgement {
+    Accepted,
+    Rejected(&'static str),
+    Unknown,
+}
+
+pub(super) fn send_live_cancel(
+    secrets: &[String],
+    symbol: &str,
+    order_id: &str,
+    http: &impl ProviderHttp,
+) -> Result<ProviderHttpResponse> {
+    if !valid_live_cancel_number(order_id) || !matches!(symbol, "BTCUSDT" | "ETHUSDT") {
+        return Err(invalid());
+    }
+    let current = || true;
+    let (server, sampled) = server_clock(ProviderEndpoint::BitgetLive, secrets, http, &current)?;
+    let path = "/api/v2/spot/trade/cancel-order";
+    let body = serde_json::json!({"symbol":symbol,"orderId":order_id});
+    let headers = live_signed_headers(server, sampled, secrets, "POST", path, Some(&body))?;
+    http.request(
+        ProviderEndpoint::BitgetLive,
+        ProviderHttpMethod::Post,
         path,
         headers,
-        Some(&signature),
-        secrets,
-        http,
-        current,
+        Some(&body),
     )
+}
+
+pub(super) fn live_cancel_acknowledgement(
+    response: &ProviderHttpResponse,
+    secrets: &[String],
+    expected_order_id: &str,
+) -> LiveCancelAcknowledgement {
+    if response.body.len() as u64 > MAX_RESPONSE {
+        return LiveCancelAcknowledgement::Unknown;
+    }
+    let Ok(value) = serde_json::from_slice::<Value>(&response.body) else {
+        return LiveCancelAcknowledgement::Unknown;
+    };
+    if contains_secret(&value, secrets) {
+        return LiveCancelAcknowledgement::Unknown;
+    }
+    match value["code"].as_str() {
+        Some("00000") => {
+            if value["data"]["orderId"].as_str() == Some(expected_order_id) {
+                LiveCancelAcknowledgement::Accepted
+            } else {
+                LiveCancelAcknowledgement::Unknown
+            }
+        }
+        Some(code) => LiveCancelAcknowledgement::Rejected(match code {
+            "40001" | "40002" | "40003" | "40006" | "40009" | "40011" | "40012" | "40014"
+            | "40018" | "40025" | "40036" | "40037" | "40038" | "40040" | "40041" => {
+                "PROVIDER_AUTH_FAILED"
+            }
+            "40010" | "40022" | "40026" | "40027" => "PROVIDER_PERMISSION_BLOCKED",
+            "429" => "PROVIDER_RATE_LIMITED",
+            "40005" | "40008" | "40078" => "CLOCK_SKEW",
+            _ => "PROVIDER_ORDER_REJECTED",
+        }),
+        None => LiveCancelAcknowledgement::Unknown,
+    }
+}
+
+fn live_signed_headers(
+    server: u64,
+    sampled: Instant,
+    secrets: &[String],
+    method: &str,
+    path: &str,
+    body: Option<&Value>,
+) -> Result<HeaderMap> {
+    if secrets.len() != 3 {
+        return Err(TradeXError::new("CLOCK_SKEW"));
+    }
+    signed_headers(server, sampled, secrets, method, path, body, false).map(|(headers, _)| headers)
 }
 
 pub(super) fn read(
@@ -218,6 +449,7 @@ pub(super) fn read(
     http: &impl ProviderHttp,
     current: &impl Fn() -> bool,
     old: Option<&AccountData>,
+    exact_cancel_order_id: Option<&str>,
 ) -> Result<Observation> {
     let (server, sampled) = server_clock(endpoint, secrets, http, current)?;
     let signed = |path: &str| signed_get(endpoint, secrets, http, current, server, sampled, path);
@@ -297,7 +529,7 @@ pub(super) fn read(
     if !current() {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
-    let bitget_order_book = if endpoint == ProviderEndpoint::BitgetLive {
+    let mut bitget_order_book = if endpoint == ProviderEndpoint::BitgetLive {
         let mut history = Vec::new();
         for kind in ["normal", "tpsl"] {
             history.extend(history_orders(&signed, &identity, current, kind)?);
@@ -346,6 +578,57 @@ pub(super) fn read(
     } else {
         None
     };
+    let mut live_order_settlements = Vec::new();
+    if let Some(broker_order_id) = exact_cancel_order_id {
+        if endpoint != ProviderEndpoint::BitgetLive {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let order_id = broker_order_id
+            .strip_prefix("normal:")
+            .filter(|value| valid_order_id(value))
+            .ok_or_else(|| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+        let saved = old
+            .and_then(|data| data.bitget_order_book.as_ref())
+            .and_then(|book| {
+                book.orders
+                    .iter()
+                    .find(|order| order.kind == "NORMAL" && order.provider_order_id == order_id)
+            })
+            .ok_or_else(|| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+        let (exact_order, raw, observation, exact_fills) =
+            exact_live_cancel_order(&signed, &identity, broker_order_id, &saved.symbol, current)?;
+        if exact_order.symbol != saved.symbol {
+            return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+        }
+        let book = bitget_order_book
+            .as_mut()
+            .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+        if book.orders.iter().any(|order| {
+            order.kind == "NORMAL"
+                && order.provider_order_id == exact_order.provider_order_id
+                && order.symbol != exact_order.symbol
+        }) {
+            return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+        }
+        book.orders.retain(|order| {
+            order.kind != "NORMAL" || order.provider_order_id != exact_order.provider_order_id
+        });
+        book.orders.push(exact_order.clone());
+        book.fills.retain(|fill| fill.provider_order_id != order_id);
+        book.fills.extend(exact_fills);
+        book.fills
+            .sort_by(|left, right| right.observed_at.cmp(&left.observed_at));
+        book.fills.truncate(2_000);
+        let exact_open_order = open_order(&exact_order, &raw)?;
+        orders.retain(|order| order.broker_order_id != broker_order_id);
+        if matches!(
+            exact_order.normalized_status.as_str(),
+            "OPEN" | "PARTIALLY_FILLED"
+        ) {
+            orders.push(exact_open_order);
+        }
+        live_order_settlements.push(observation);
+    }
     let assets = signed("/api/v2/spot/account/assets?assetType=all")?;
     let assets = assets.as_array().ok_or_else(invalid)?;
     if assets.len() > 10_000 {
@@ -414,11 +697,220 @@ pub(super) fn read(
             ],
             limitations,
         },
-        live_order_settlements: Vec::new(),
+        live_order_settlements,
     })
 }
+
+fn exact_live_cancel_order(
+    signed: &impl Fn(&str) -> Result<Value>,
+    identity: &str,
+    broker_order_id: &str,
+    expected_symbol: &str,
+    current: &impl Fn() -> bool,
+) -> Result<(
+    BitgetSpotOrder,
+    Value,
+    LiveOrderObservation,
+    Vec<BitgetSpotFill>,
+)> {
+    let order_id = broker_order_id
+        .strip_prefix("normal:")
+        .filter(|value| valid_live_cancel_number(value))
+        .ok_or_else(|| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+    let rows = signed(&format!("/api/v2/spot/trade/orderInfo?orderId={order_id}"))?;
+    let rows = rows.as_array().ok_or_else(invalid)?;
+    if rows.len() != 1 {
+        return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
+    }
+    let raw = rows[0].clone();
+    if id(&raw, "userId")? != identity {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    if id(&raw, "orderId")? != order_id
+        || text(&raw, "tpslType", 16)? != "normal"
+        || identifier(&raw, "symbol")? != expected_symbol
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let order = bitget_order(&raw, "normal", identity, order_id.to_owned())?;
+    let (trade_facts, exact_fills, fees) =
+        exact_live_order_fills(signed, identity, &order, current)?;
+    let filled_quantity = order
+        .filled_quantity
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+    let filled_value = order
+        .filled_value
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+    let provider_observed_at =
+        timestamp(&raw, "uTime")?.ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+    let disposition = match order.normalized_status.as_str() {
+        "OPEN" | "PARTIALLY_FILLED" => LiveOrderDisposition::Working,
+        "FILLED" | "CANCELED" | "REJECTED" => LiveOrderDisposition::Terminal,
+        _ => LiveOrderDisposition::Unknown,
+    };
+    let observation = LiveOrderObservation {
+        provider_order_id: broker_order_id.into(),
+        raw_status: order.provider_status.clone(),
+        disposition,
+        order_quantity: order.quantity.clone(),
+        filled_quantity: Some(filled_quantity.into()),
+        remaining_quantity: order.remaining_quantity.clone(),
+        filled_value: Some(filled_value.into()),
+        fees: Some(fees),
+        trade_facts_complete: true,
+        trade_facts,
+        provider_observed_at: Some(provider_observed_at),
+        source: "bitget.live.exact-order".into(),
+    };
+    Ok((order, raw, observation, exact_fills))
+}
+
+fn exact_live_order_fills(
+    signed: &impl Fn(&str) -> Result<Value>,
+    identity: &str,
+    order: &BitgetSpotOrder,
+    current: &impl Fn() -> bool,
+) -> Result<(
+    Vec<LiveOrderTradeFact>,
+    Vec<BitgetSpotFill>,
+    Vec<LiveOrderFee>,
+)> {
+    const MAX_PAGES: usize = 20;
+    let mut cursor: Option<String> = None;
+    let mut seen = HashSet::new();
+    let mut facts = Vec::new();
+    let mut fills = Vec::new();
+    let mut fee_totals = HashMap::<String, String>::new();
+    for page_number in 0..MAX_PAGES {
+        if !current() {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let path = cursor.as_ref().map_or_else(
+            || {
+                format!(
+                    "/api/v2/spot/trade/fills?limit=100&orderId={}",
+                    order.provider_order_id
+                )
+            },
+            |cursor| {
+                format!(
+                    "/api/v2/spot/trade/fills?limit=100&orderId={}&idLessThan={cursor}",
+                    order.provider_order_id
+                )
+            },
+        );
+        let page = signed(&path)?;
+        let rows = page.as_array().ok_or_else(invalid)?;
+        if rows.len() > 100 || facts.len() + rows.len() > MAX_PAGES * 100 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let mut minimum: Option<String> = None;
+        let mut prior: Option<String> = None;
+        for row in rows {
+            let trade_id = id(row, "tradeId")?;
+            let provider_order_id = id(row, "orderId")?;
+            let symbol = identifier(row, "symbol")?;
+            if id(row, "userId")? != identity {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+            }
+            if provider_order_id != order.provider_order_id
+                || symbol != order.symbol
+                || text(row, "side", 4)?.to_ascii_uppercase() != order.side
+                || cursor
+                    .as_ref()
+                    .is_some_and(|value| !older(&trade_id, value))
+                || prior.as_ref().is_some_and(|value| !older(&trade_id, value))
+                || !seen.insert(trade_id.clone())
+            {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            if minimum.as_ref().is_none_or(|value| older(&trade_id, value)) {
+                minimum = Some(trade_id.clone());
+            }
+            prior = Some(trade_id.clone());
+            let quantity = positive(&row["size"])?;
+            let value = positive(&row["amount"])?;
+            let fees = live_fee_detail(row)?;
+            let executed_at = timestamp(row, "cTime")?
+                .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+            let observed_at = timestamp(row, "uTime")?.unwrap_or_else(|| executed_at.clone());
+            for fee in &fees {
+                let total = fee_totals
+                    .entry(fee.asset.clone())
+                    .or_insert_with(|| "0".into());
+                *total = crate::portfolio::decimal_add(total, &fee.amount)?;
+            }
+            facts.push(LiveOrderTradeFact {
+                provider_trade_id: trade_id.clone(),
+                quantity: quantity.clone(),
+                value: value.clone(),
+                fees: fees.clone(),
+                provider_executed_at: Some(executed_at.clone()),
+            });
+            fills.push(BitgetSpotFill {
+                provider_trade_id: trade_id,
+                provider_order_id,
+                symbol,
+                side: order.side.clone(),
+                price: Some(positive(&row["priceAvg"])?),
+                quantity,
+                value: Some(value),
+                currency: order.currency.clone(),
+                observed_at,
+                provider_executed_at: Some(executed_at),
+                fees: Some(fees),
+            });
+        }
+        if rows.len() < 100 {
+            let mut quantity_total = "0".to_owned();
+            let mut value_total = "0".to_owned();
+            for fact in &facts {
+                quantity_total = crate::portfolio::decimal_add(&quantity_total, &fact.quantity)?;
+                value_total = crate::portfolio::decimal_add(&value_total, &fact.value)?;
+            }
+            if order.filled_quantity.as_deref() != Some(quantity_total.as_str())
+                || order.filled_value.as_deref() != Some(value_total.as_str())
+            {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            let fees = fee_totals
+                .into_iter()
+                .map(|(asset, amount)| LiveOrderFee { asset, amount })
+                .collect();
+            return Ok((facts, fills, fees));
+        }
+        if page_number + 1 == MAX_PAGES {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        let next = minimum.ok_or_else(invalid)?;
+        if cursor.as_ref().is_some_and(|value| !older(&next, value)) {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        cursor = Some(next);
+        std::thread::sleep(Duration::from_millis(105));
+    }
+    Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"))
+}
+
+fn live_fee_detail(fill: &Value) -> Result<Vec<LiveOrderFee>> {
+    let detail = fill.get("feeDetail").ok_or_else(invalid)?;
+    let asset = identifier(detail, "feeCoin")?;
+    let amount = crate::provider_io::decimal(&Value::String(text(detail, "totalFee", 128)?))?;
+    let amount = amount.strip_prefix('-').unwrap_or(&amount).to_owned();
+    Ok(vec![LiveOrderFee { asset, amount }])
+}
+
 fn permissions(account: &Value) -> Result<PermissionReview> {
-    let mut p = PermissionReview::default();
+    let mut p = PermissionReview {
+        detected: vec![
+            "account.read".into(),
+            "positions.read".into(),
+            "orders.read".into(),
+        ],
+        ..Default::default()
+    };
     let mut complete = true;
     match account.get("authorities") {
         None | Some(Value::Null) => complete = false,
@@ -825,8 +1317,9 @@ fn fills(
                 return Err(invalid());
             }
             let symbol = identifier(row, "symbol")?;
+            let provider_executed_at = timestamp(row, "cTime")?;
             let observed_at = timestamp(row, "uTime")?
-                .or(timestamp(row, "cTime")?)
+                .or(provider_executed_at.clone())
                 .unwrap_or(crate::storage::timestamp()?);
             result.push(BitgetSpotFill {
                 provider_trade_id: trade_id,
@@ -838,6 +1331,8 @@ fn fills(
                 value: optional_decimal(row, "amount")?,
                 currency: currencies.get(&(order_id, symbol)).cloned(),
                 observed_at,
+                provider_executed_at,
+                fees: row.get("feeDetail").and_then(|_| live_fee_detail(row).ok()),
             });
         }
         if rows.len() < 100 {
@@ -875,6 +1370,62 @@ mod tests {
         };
         let result = fills(&signed, "9007199254740993", &currencies, &|| true).unwrap();
         assert_eq!(result[0].currency.as_deref(), Some("USDT"));
+    }
+
+    #[test]
+    fn exact_live_fills_require_complete_order_matched_fees_and_totals() {
+        let order = BitgetSpotOrder {
+            provider_order_id: "200".into(),
+            kind: "NORMAL".into(),
+            symbol: "BTCUSDT".into(),
+            side: "BUY".into(),
+            quantity: Some("0.0002".into()),
+            notional: None,
+            filled_quantity: Some("0.0002".into()),
+            filled_value: Some("14.000025".into()),
+            remaining_quantity: Some("0".into()),
+            currency: Some("USDT".into()),
+            provider_status: "filled".into(),
+            normalized_status: "FILLED".into(),
+            origin: "external".into(),
+            created_at: None,
+            updated_at: None,
+        };
+        let signed = |path: &str| {
+            assert_eq!(path, "/api/v2/spot/trade/fills?limit=100&orderId=200");
+            Ok(serde_json::json!([{
+                "userId":"9007199254740993", "orderId":"200", "tradeId":"300",
+                "symbol":"BTCUSDT", "side":"buy", "priceAvg":"70000.125",
+                "size":"0.0002", "amount":"14.000025",
+                "feeDetail":{"feeCoin":"BTC","totalFee":"-0.0000007"},
+                "cTime":"1788849500", "uTime":"1788849600"
+            }]))
+        };
+        let (facts, fills, fees) =
+            exact_live_order_fills(&signed, "9007199254740993", &order, &|| true).unwrap();
+        assert_eq!(facts[0].provider_trade_id, "300");
+        assert_eq!(facts[0].fees[0].asset, "BTC");
+        assert_eq!(facts[0].fees[0].amount, "0.0000007");
+        assert_eq!(
+            fills[0].provider_executed_at.as_deref(),
+            Some("2026-09-08T06:38:20Z")
+        );
+        assert_eq!(fees[0].amount, "0.0000007");
+
+        let incomplete = |_: &str| {
+            Ok(serde_json::json!([{
+                "userId":"9007199254740993", "orderId":"201", "tradeId":"301",
+                "symbol":"BTCUSDT", "side":"buy", "priceAvg":"70000.125",
+                "size":"0.0002", "amount":"14.000025",
+                "cTime":"1788849500"
+            }]))
+        };
+        assert_eq!(
+            exact_live_order_fills(&incomplete, "9007199254740993", &order, &|| true)
+                .unwrap_err()
+                .code,
+            "PROVIDER_DATA_INCOMPLETE"
+        );
     }
 }
 
@@ -932,40 +1483,18 @@ fn demo_signed_headers(
     path: &str,
     body: Option<&Value>,
 ) -> Result<(HeaderMap, Zeroizing<String>)> {
-    if secrets.len() != 3 || clock.sampled_at.elapsed() > Duration::from_secs(60) {
+    if secrets.len() != 3 {
         return Err(TradeXError::new("CLOCK_SKEW"));
     }
-    let timestamp = clock
-        .server_time
-        .checked_add(clock.sampled_at.elapsed().as_millis() as u64)
-        .filter(|value| valid_time(*value))
-        .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?
-        .to_string();
-    let body = body
-        .map(serde_json::to_string)
-        .transpose()
-        .map_err(|_| invalid())?
-        .unwrap_or_default();
-    let mut mac = Hmac::<Sha256>::new_from_slice(secrets[1].as_bytes()).map_err(|_| invalid())?;
-    mac.update(format!("{timestamp}{method}{path}{body}").as_bytes());
-    let signature = Zeroizing::new(STANDARD.encode(mac.finalize().into_bytes()));
-    let mut headers = HeaderMap::new();
-    for (name, value) in [
-        ("ACCESS-KEY", secrets[0].as_str()),
-        ("ACCESS-PASSPHRASE", secrets[2].as_str()),
-        ("ACCESS-SIGN", signature.as_str()),
-    ] {
-        let mut header =
-            HeaderValue::from_str(value).map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
-        header.set_sensitive(true);
-        headers.insert(name, header);
-    }
-    headers.insert(
-        "ACCESS-TIMESTAMP",
-        HeaderValue::from_str(&timestamp).map_err(|_| invalid())?,
-    );
-    headers.insert("paptrading", HeaderValue::from_static("1"));
-    Ok((headers, signature))
+    signed_headers(
+        clock.server_time,
+        clock.sampled_at,
+        secrets,
+        method,
+        path,
+        body,
+        true,
+    )
 }
 
 fn demo_get(

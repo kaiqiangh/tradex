@@ -307,7 +307,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
     );
     drop(control);
     let future = rusqlite::Connection::open(path).unwrap();
-    future.pragma_update(None, "user_version", 31).unwrap();
+    future.pragma_update(None, "user_version", 32).unwrap();
     let mut control = ControlPlane::new(directory.path().to_path_buf());
     assert_eq!(
         command(&mut control, "workspace.open", json!({}))["error"]["code"],
@@ -317,6 +317,79 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
         future
             .pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
             .unwrap(),
-        31
+        32
     );
+}
+
+#[test]
+fn schema_30_migrates_execution_attempt_history_without_losing_foreign_keys() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().to_path_buf());
+    let opened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    drop(control);
+
+    let database_path = directory.path().join("workspace.sqlite3");
+    let database = rusqlite::Connection::open(&database_path).unwrap();
+    database
+        .execute_batch(
+            "PRAGMA foreign_keys=OFF;
+            CREATE TABLE execution_attempts_v30 (
+                attempt_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                approval_id TEXT NOT NULL REFERENCES financial_approvals(approval_id),
+                account_id TEXT NOT NULL REFERENCES accounts(connection_id),
+                operation TEXT NOT NULL CHECK(operation IN ('PLACE_ORDER','CANCEL')),
+                intent_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                state TEXT NOT NULL CHECK(state IN ('RESERVED','INVALIDATED','SUBMITTING','ACCEPTED','REJECTED','UNKNOWN_RECONCILING','CANCEL_PENDING')),
+                sequence INTEGER NOT NULL CHECK(sequence > 0),
+                projection TEXT NOT NULL,
+                UNIQUE(workspace_id,approval_id),
+                UNIQUE(workspace_id,idempotency_key),
+                UNIQUE(workspace_id,operation,intent_id)
+            );
+            INSERT INTO execution_attempts_v30 SELECT * FROM execution_attempts;
+            DROP TABLE execution_attempts;
+            ALTER TABLE execution_attempts_v30 RENAME TO execution_attempts;
+            CREATE INDEX execution_attempts_account_state ON execution_attempts(account_id,state);
+            PRAGMA user_version=30;
+            PRAGMA foreign_keys=ON;",
+        )
+        .unwrap();
+    drop(database);
+
+    let mut migrated = ControlPlane::new(directory.path().to_path_buf());
+    let reopened = command(&mut migrated, "workspace.open", json!({}));
+    assert_eq!(reopened["ok"], true, "{reopened}");
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 31);
+    drop(migrated);
+
+    let database = rusqlite::Connection::open(database_path).unwrap();
+    let mut foreign_key_check = database.prepare("PRAGMA foreign_key_check").unwrap();
+    let violations = foreign_key_check
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert!(
+        violations.is_empty(),
+        "foreign key violations: {violations:?}"
+    );
+    let table_sql: String = database
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='execution_attempts'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(!table_sql.contains("UNIQUE(workspace_id,operation,intent_id)"));
+    let place_index_sql: String = database
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type='index' AND name='execution_attempts_one_place_per_intent'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(place_index_sql.contains("WHERE operation='PLACE_ORDER'"));
 }

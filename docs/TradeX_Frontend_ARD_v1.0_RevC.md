@@ -676,6 +676,16 @@ Accounts lists saved Binance Spot Live CANCEL approvals and restores each consum
 
 A fill racing the DELETE becomes the latest saved order fact while the cancellation attempt remains `CANCEL_PENDING`; acknowledgement never means cancellation completed. The linked PLACE must match the same account, exact numeric Binance order ID, and canonical symbol/instrument from its saved proposal; external or merely similar orders are never linked. Use status/alert semantics, keyboard-operable review and refresh controls, and responsive 390/768/1280 px layouts. Do not poll automatically or expose cancel-all or Testnet fallback controls.
 
+### 13.20 Bitget Classic Spot Live cancellation history and fill race (S26.4 #106)
+
+Accounts lists Bitget Classic Spot Live CANCEL approvals at account scope, including consumed attempts after the order leaves the open-order projection, and reloads them after navigation or workspace reopen. Show the saved acknowledgement separately from the latest exact-order observation and its exact S26.1 PLACE settlement.
+
+The user refreshes and reviews the ordinary `normal` Spot order, approves the immutable CANCEL intent, then separately prepares and sends it through the isolated Order Gateway. Refresh uses the captured account, consumed approval, exact `normal:{orderId}`, and current account state version. It is read-only; allow it for a connected account, or an online `REVIEW_REQUIRED` account only while authentication and saved credentials remain valid. Show raw status, normalized disposition, exact base/filled/remaining quantity and cumulative quote value, trade IDs, fee assets/amounts when complete, source, provider time, and TradeX observation time. Display Bitget's signed `totalFee` as a non-negative fee cost. Missing or incomplete evidence remains unavailable and conservative capacity stays held.
+
+The cancellation attempt remains `CANCEL_PENDING` after acknowledgement and after a fill race; only exact terminal provider evidence updates the order and linked settlement. External or similar orders never link. Use accessible status/errors, keyboard-operable review and refresh controls, and responsive 390/768/1280 px layouts. Do not poll automatically or expose Demo/Testnet, batch-cancel, or cancel-replace controls.
+
+If a saved attempt is `INVALIDATED` with `STOPPED_BEFORE_DISPATCH`, keep it in history and let the user refresh and review that same exact order again. An attempt with any possible provider dispatch stays in reconciliation and cannot be retried.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

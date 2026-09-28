@@ -348,7 +348,7 @@ pub struct IpcSchema {
     pub cancellation_approval_history_query: CancellationApprovalHistoryQuery,
     pub cancellation_approval_history: CancellationApprovalHistory,
     pub live_order_refresh_request: LiveOrderRefreshRequest,
-    pub trading212_live_order_observation: Trading212LiveOrderObservation,
+    pub trading212_live_order_observation: LiveOrderObservation,
     pub cancellation_approval_rejection: CancellationApprovalRejection,
     pub trading212_demo_order_attempt: Trading212DemoOrderAttempt,
     pub trading212_demo_order_submit: Trading212DemoOrderSubmit,
@@ -449,7 +449,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 30))]
+    #[schemars(range(min = 1, max = 31))]
     pub storage_schema_version: u32,
 }
 
@@ -3343,7 +3343,7 @@ pub enum ExecutionReservationStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Trading212LiveOrderObservation {
+pub struct LiveOrderObservation {
     #[schemars(length(min = 1, max = 128))]
     pub provider_order_id: String,
     #[schemars(length(min = 1, max = 64))]
@@ -3397,9 +3397,11 @@ pub struct ExecutionAttempt {
     #[schemars(length(min = 1, max = 64))]
     pub provider_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trading212_live_order_observation: Option<Trading212LiveOrderObservation>,
+    pub trading212_live_order_observation: Option<LiveOrderObservation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binance_live_order_observation: Option<Trading212LiveOrderObservation>,
+    pub binance_live_order_observation: Option<LiveOrderObservation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bitget_live_order_observation: Option<LiveOrderObservation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub error_code: Option<String>,

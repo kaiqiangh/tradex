@@ -676,6 +676,16 @@ Accounts 按账户列出已保存的 Binance Spot Live CANCEL approval，并在�
 
 DELETE 期间发生的成交成为最新保存的订单事实，而撤单 attempt 仍保持 `CANCEL_PENDING`；acknowledgement 永不表示撤单完成。PLACE 关联必须匹配同一账户、准确的 Binance 数字订单 ID，以及已保存 proposal 中的规范 symbol/instrument；外部订单或仅相似的订单绝不关联。使用 status/alert 语义、键盘可操作的审阅和刷新控件，并验证 390/768/1280 px 布局。不自动轮询，也不提供撤销全部或 Testnet 回退控件。
 
+### 13.20 Bitget Classic Spot Live 撤单历史与成交竞态（S26.4 #106）
+
+Accounts 按账户列出 Bitget Classic Spot Live CANCEL approval，包括订单离开开放订单投影后的已消费 attempt，并在导航或重新打开 workspace 后重新读取。将已保存 acknowledgement 与最新准确订单观测及其准确关联的 S26.1 PLACE settlement 分开展示。
+
+用户先刷新并审阅普通 `normal` Spot 订单，批准不可变 CANCEL intent，然后通过隔离的 Order Gateway 单独准备并发送。刷新使用捕获的账户、已消费 approval、准确 `normal:{orderId}` 和当前账户状态版本。这是只读操作；账户已连接时可用；状态为 `REVIEW_REQUIRED` 时，只有认证和已保存凭据仍有效才可读取。显示原始状态、归一 disposition、准确 base/已成交/剩余 quantity 与累计 quote value、完整时的 trade ID 和手续费资产/金额、来源、provider 时间与 TradeX 观测时间。Bitget 有符号 `totalFee` 以非负手续费成本显示。证据缺失或不完整时继续标为不可用，并保守保留容量。
+
+收到 acknowledgement 后以及成交竞态发生后，撤单 attempt 都保持 `CANCEL_PENDING`；只有准确的 provider 终态证据才能更新订单和关联 settlement。外部或相似订单绝不关联。提供可访问的状态/错误提示、键盘可操作的审阅与刷新控件，并验证 390/768/1280 px 布局。不自动轮询，也不显示 Demo/Testnet、批量撤单或撤单替换控件。
+
+已保存 attempt 若为 `INVALIDATED` 且 `STOPPED_BEFORE_DISPATCH`，应保留在历史中，并允许用户再次刷新和审阅同一准确订单。任何可能已派发到 provider 的 attempt 都必须继续对账，不能重试。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

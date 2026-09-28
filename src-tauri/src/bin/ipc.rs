@@ -1307,8 +1307,61 @@ fn dispatch_fake_live_execution(
                             .as_ref()
                             .map(|data| data.remote_account_id.clone())
                             .ok_or_else(|| "PROVIDER_REVIEW_REQUIRED".to_owned())?;
+                        let bitget_order = if package.account.provider_id == "bitget"
+                            && package.attempt.operation == tradex::protocol::FinancialOperation::Cancel
+                        {
+                            let broker_order_id = package
+                                .attempt
+                                .broker_order_id
+                                .as_deref()
+                                .and_then(|value| value.strip_prefix("normal:"))
+                                .ok_or_else(|| "ORDER_CHANGED_REVIEW_AGAIN".to_owned())?;
+                            let data = package.account.data.as_ref().unwrap();
+                            let order = data
+                                .bitget_order_book
+                                .as_ref()
+                                .and_then(|book| book.orders.iter().find(|order| {
+                                    order.kind == "NORMAL" && order.provider_order_id == broker_order_id
+                                }))
+                                .ok_or_else(|| "ORDER_CHANGED_REVIEW_AGAIN".to_owned())?;
+                            let open = data.open_orders.iter().find(|row| {
+                                row.broker_order_id == package.attempt.broker_order_id.as_deref().unwrap_or_default()
+                            });
+                            let timestamp_ms = |value: Option<&str>| {
+                                value.and_then(|value| {
+                                    time::OffsetDateTime::parse(
+                                        value,
+                                        &time::format_description::well_known::Rfc3339,
+                                    )
+                                    .ok()
+                                })
+                                .map(|value| (value.unix_timestamp_nanos() / 1_000_000).to_string())
+                            };
+                            Some(json!({
+                                "userId":remote_account_id,
+                                "orderId":order.provider_order_id,
+                                "symbol":order.symbol,
+                                "size":order.quantity.as_deref().or(order.notional.as_deref()).unwrap_or("0"),
+                                "orderType":if order.notional.is_some() { "market" } else { "limit" },
+                                "side":order.side.to_ascii_lowercase(),
+                                "status":order.provider_status,
+                                "tpslType":"normal",
+                                "priceAvg":open.and_then(|row| row.limit_price.as_deref()).unwrap_or("1"),
+                                "baseVolume":order.filled_quantity.as_deref().unwrap_or("0"),
+                                "quoteVolume":order.filled_value.as_deref().unwrap_or("0"),
+                                "quoteCoin":order.currency,
+                                "cTime":timestamp_ms(order.created_at.as_deref()),
+                                "uTime":timestamp_ms(order.updated_at.as_deref())
+                                    .unwrap_or_else(|| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis().to_string())
+                            }))
+                        } else {
+                            None
+                        };
                         drop(control);
                         provider.set_remote_account_id(remote_account_id);
+                        if let Some(order) = bitget_order {
+                            provider.set_bitget_order(order);
+                        }
                         package.local_test_base_url = Some(provider.base_url().to_owned());
                         Ok(package)
                     }

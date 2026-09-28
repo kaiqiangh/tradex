@@ -20,6 +20,8 @@ S25.1 #97 Trading 212 Live UNKNOWN 对账切片已完成本地实现、双语契
 
 S26.2 #104 Trading 212 Live 撤单历史与成交竞态已完成本地实现、双语契约和 synthetic Rust-backed 浏览器验证，证据见 [验收记录](s26-2-trading212-live-cancel-evidence.md)。批准记录与 `CANCEL_PENDING` attempt 在准确订单成交后仍可恢复；最新 `FILLED` 观测将订单移出开放订单列表，刷新不重发 DELETE。未访问真实提供方；点击式原型未修改。
 
+S26.4 #106 Bitget Classic Spot Live 撤单与成交竞态已通过本地实现、双语契约、全量自动检查及串行 Standards/Spec 复审：只对准确普通订单发一次 Gateway POST，确认后维持 `CANCEL_PENDING`；准确刷新将竞态成交交由 S26.1 结算。当前浏览器代理对本地桥接 POST 返回 403，尚未完成 Accounts 历史交互、键盘与窄屏验收，因此 #106 保持 OPEN；进度和验证边界见[记录](s26-4-bitget-live-cancel-evidence.md)。使用合成凭据与 loopback fake provider，未访问真实提供方；点击式原型仍为 FAILED，未修改。
+
 S25.3 #99 Bitget Spot Live UNKNOWN PLACE 对账已完成本地实现、双语契约、Rust 持久化/outbox 负例与 Rust-backed 浏览器验证，证据见 [S25.3 #99 验收](s25-bitget-live-reconciliation-evidence.md)。精确查询只使用普通 Live 签名 GET；账户或 side 不匹配、空/畸形响应、认证和传输失败均保持未知并冻结容量。使用合成凭据，未访问真实提供方；点击式原型未修改。
 
 S25.4 #100 Live Manual Resolution 已在收窄范围内完成并通过全量检查及串行 Standards/Spec 复审。新鲜准确的 Binance/Bitget 候选仅可确认为已提交；未决情况只允许 Keep，reservation 保持 active。[验收证据](s25-4-live-manual-resolution-evidence.md)；未调用真实 provider 或下单。
@@ -60,6 +62,7 @@ S25.5 研究票 #101 已关闭。Trading 212、Binance Spot 和 Bitget Classic S
 - [S24 #95 独立 Gateway 验收](s24-live-order-gateway-evidence.md)：真实子进程认证、单次 grant、PLACE/CANCEL 精确派发、SUBMITTING 持久化边界、未知结果不重放、合成 secret 脱敏和浏览器验收；没有真实 provider 写入。
 - [S25.1 #97 Trading 212 Live 未知提交对账验收](s25-trading212-live-reconciliation-evidence.md)：五分钟 trusted-time 查询边界、SQLite evidence/outbox、候选订单和空结果语义、timeout freeze、Keep Reconciling 审计决策、公开 IPC、窄屏及隔离浏览器证据。
 - [S26.2 #104 Trading 212 Live 撤单与成交竞态验收](s26-2-trading212-live-cancel-evidence.md)：账户级撤单历史、预检状态绑定、单次准确 DELETE、`CANCEL_PENDING` 与后续准确 `FILLED` 观测、无重放及本地隔离浏览器证据。
+- [S26.4 #106 Bitget Classic Spot Live 撤单与成交竞态验证记录](s26-4-bitget-live-cancel-evidence.md)：精确 signed POST、pending/unknown 不重放、订单范围成交/手续费证据、单事务 S26.1 settlement、capacity 和重开恢复；浏览器 Accounts 交互验收仍待完成。
 - [S25.3 #99 Bitget Spot Live 未知提交对账验收](s25-bitget-live-reconciliation-evidence.md)：准确 `clientOid` 查询、账户/intent/空/格式/认证/传输负例、SQLite evidence/outbox 重放与重开、共享 UI、1280/768/390 px 和零 provider 写入。
 - [S25.4 #100 Live Manual Resolution 验收](s25-4-live-manual-resolution-evidence.md)：仅允许新鲜准确 Binance/Bitget 候选确认已提交，Keep-only 保持未知 attempt 与冻结 reservation；记录串行 Standards/Spec 复审及全量检查。
 - [S25.5 #101 Live PLACE 未提交证明研究](s25-live-absence-proof-research.md)：三家当前 Live 提供方的官方 endpoint、查询范围/保留、超时和负响应语义；没有查询空结果的有界未接收保证，明确区分 Binance 直接 `-2010` 拒单证据与查询缺失。
