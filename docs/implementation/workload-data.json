@@ -1,32 +1,32 @@
 {
- "generated": "2026-09-27 12:02 +0100",
- "commit": "c888648",
+ "generated": "2026-09-28 18:40 +0100",
+ "commit": "a921ce2",
  "branch": "dev",
- "ahead": 6,
+ "ahead": 3,
  "req_total": 203,
  "req_status": {
-  "IMPLEMENTED_UNVERIFIED": 61,
-  "NOT_STARTED": 90,
-  "IN_PROGRESS": 29,
-  "VERIFIED": 20,
+  "IMPLEMENTED_UNVERIFIED": 62,
+  "NOT_STARTED": 76,
+  "IN_PROGRESS": 39,
+  "VERIFIED": 23,
   "DEFERRED": 3
  },
  "surf_total": 83,
  "surf_status": {
   "VERIFIED": 1,
-  "IN_PROGRESS": 11,
+  "IN_PROGRESS": 12,
   "IMPLEMENTED_UNVERIFIED": 39,
-  "NOT_STARTED": 32
+  "NOT_STARTED": 31
  },
- "issue_total": 95,
+ "issue_total": 106,
  "issue_open": 4,
  "open_issues": [
   1,
   56,
-  94,
-  95
+  102,
+  106
  ],
- "slice_closed": 22,
+ "slice_closed": 24,
  "slice_inprog": 2,
  "slices": [
   {
@@ -131,13 +131,13 @@
    "issues_closed": 4,
    "issues_open": 0,
    "total": 21,
-   "not_started": 6,
+   "not_started": 5,
    "in_progress": 8,
    "hold": 7,
-   "verified": 0,
+   "verified": 1,
    "deferred": 0,
-   "open": 14,
-   "done": 0,
+   "open": 13,
+   "done": 1,
    "phase": "P2"
   },
   {
@@ -194,8 +194,8 @@
    "issues_closed": 3,
    "issues_open": 0,
    "total": 9,
-   "not_started": 2,
-   "in_progress": 0,
+   "not_started": 0,
+   "in_progress": 2,
    "hold": 7,
    "verified": 0,
    "deferred": 0,
@@ -502,8 +502,8 @@
    "issues_closed": 5,
    "issues_open": 0,
    "total": 35,
-   "not_started": 31,
-   "in_progress": 3,
+   "not_started": 25,
+   "in_progress": 9,
    "hold": 1,
    "verified": 0,
    "deferred": 0,
@@ -526,59 +526,72 @@
    "issues_closed": 6,
    "issues_open": 0,
    "total": 15,
-   "not_started": 5,
-   "in_progress": 4,
+   "not_started": 2,
+   "in_progress": 6,
    "hold": 3,
-   "verified": 3,
+   "verified": 4,
    "deferred": 0,
-   "open": 9,
-   "done": 3,
+   "open": 8,
+   "done": 4,
    "phase": "P5"
   },
   {
    "id": "S24",
    "title": "经认证的独立 Gateway 派发执行",
-   "state": "IN_PROGRESS",
+   "state": "CLOSED",
    "issues": [
     94,
     95
    ],
-   "issues_closed": 0,
-   "issues_open": 2,
+   "issues_closed": 2,
+   "issues_open": 0,
    "total": 18,
-   "not_started": 11,
-   "in_progress": 6,
+   "not_started": 1,
+   "in_progress": 13,
    "hold": 1,
-   "verified": 0,
+   "verified": 3,
    "deferred": 0,
-   "open": 17,
-   "done": 0,
+   "open": 14,
+   "done": 3,
    "phase": "P5"
   },
   {
    "id": "S25",
    "title": "对账未知提交并核验人工处置证据",
-   "state": "NOT_STARTED",
-   "issues": [],
-   "issues_closed": 0,
+   "state": "CLOSED",
+   "issues": [
+    96,
+    97,
+    98,
+    99,
+    100,
+    101
+   ],
+   "issues_closed": 6,
    "issues_open": 0,
    "total": 19,
-   "not_started": 19,
-   "in_progress": 0,
-   "hold": 0,
+   "not_started": 14,
+   "in_progress": 4,
+   "hold": 1,
    "verified": 0,
    "deferred": 0,
-   "open": 19,
+   "open": 18,
    "done": 0,
    "phase": "P5"
   },
   {
    "id": "S26",
    "title": "刷新并审批撤单与处理成交竞态",
-   "state": "NOT_STARTED",
-   "issues": [],
-   "issues_closed": 0,
-   "issues_open": 0,
+   "state": "IN_PROGRESS",
+   "issues": [
+    102,
+    103,
+    104,
+    105,
+    106
+   ],
+   "issues_closed": 3,
+   "issues_open": 2,
    "total": 4,
    "not_started": 4,
    "in_progress": 0,
@@ -597,8 +610,8 @@
    "issues_closed": 0,
    "issues_open": 0,
    "total": 19,
-   "not_started": 15,
-   "in_progress": 4,
+   "not_started": 14,
+   "in_progress": 5,
    "hold": 0,
    "verified": 0,
    "deferred": 0,
@@ -733,8 +746,8 @@
    "issues_closed": 0,
    "issues_open": 0,
    "total": 3,
-   "not_started": 2,
-   "in_progress": 1,
+   "not_started": 0,
+   "in_progress": 3,
    "hold": 0,
    "verified": 0,
    "deferred": 0,
@@ -765,14 +778,14 @@
    "slice_inprog": 0
   },
   {
-   "not_started": 17,
-   "in_progress": 4,
+   "not_started": 14,
+   "in_progress": 6,
    "hold": 46,
-   "verified": 0,
+   "verified": 1,
    "deferred": 0,
    "total": 67,
-   "open": 21,
-   "done": 0,
+   "open": 20,
+   "done": 1,
    "code": "P2",
    "name": "Agent 与研究",
    "range": "S04–S12",
@@ -833,14 +846,14 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 48,
-   "in_progress": 5,
-   "hold": 1,
-   "verified": 3,
+   "not_started": 37,
+   "in_progress": 13,
+   "hold": 2,
+   "verified": 5,
    "deferred": 0,
    "total": 57,
-   "open": 53,
-   "done": 3,
+   "open": 50,
+   "done": 5,
    "code": "P5",
    "name": "风控与实盘",
    "range": "S21–S30",
@@ -856,7 +869,7 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 3,
+   "slice_closed": 5,
    "slice_inprog": 1
   },
   {
@@ -921,14 +934,14 @@
    "slice_inprog": 0
   },
   {
-   "not_started": 17,
-   "in_progress": 4,
+   "not_started": 14,
+   "in_progress": 6,
    "hold": 46,
-   "verified": 0,
+   "verified": 1,
    "deferred": 0,
    "total": 67,
-   "open": 21,
-   "done": 0,
+   "open": 20,
+   "done": 1,
    "code": "P2",
    "name": "Agent 与研究",
    "range": "S04–S12",
@@ -989,14 +1002,14 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 48,
-   "in_progress": 5,
-   "hold": 1,
-   "verified": 3,
+   "not_started": 37,
+   "in_progress": 13,
+   "hold": 2,
+   "verified": 5,
    "deferred": 0,
    "total": 57,
-   "open": 53,
-   "done": 3,
+   "open": 50,
+   "done": 5,
    "code": "P5",
    "name": "风控与实盘",
    "range": "S21–S30",
@@ -1012,7 +1025,7 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 3,
+   "slice_closed": 5,
    "slice_inprog": 1
   },
   {
@@ -1145,14 +1158,14 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 60,
-   "in_progress": 13,
-   "hold": 9,
-   "verified": 3,
+   "not_started": 48,
+   "in_progress": 21,
+   "hold": 10,
+   "verified": 6,
    "deferred": 0,
    "total": 85,
-   "open": 73,
-   "done": 3,
+   "open": 69,
+   "done": 6,
    "code": "P5",
    "name": "风控与实盘",
    "range": "S21–S30",
@@ -1168,12 +1181,12 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 3,
+   "slice_closed": 5,
    "slice_inprog": 1
   },
   {
-   "not_started": 19,
-   "in_progress": 6,
+   "not_started": 17,
+   "in_progress": 8,
    "hold": 0,
    "verified": 1,
    "deferred": 0,
@@ -1215,32 +1228,32 @@
   {
    "id": "FR",
    "name": "功能需求",
-   "not_started": 26,
+   "not_started": 24,
    "in_progress": 10,
    "hold": 33,
-   "verified": 9,
+   "verified": 11,
    "deferred": 3,
    "total": 81,
-   "open": 36,
-   "done": 12
+   "open": 34,
+   "done": 14
   },
   {
    "id": "AC",
    "name": "验收准则",
-   "not_started": 34,
-   "in_progress": 10,
-   "hold": 14,
+   "not_started": 29,
+   "in_progress": 14,
+   "hold": 15,
    "verified": 9,
    "deferred": 0,
    "total": 67,
-   "open": 44,
+   "open": 43,
    "done": 9
   },
   {
    "id": "NFR",
    "name": "非功能需求",
-   "not_started": 15,
-   "in_progress": 2,
+   "not_started": 11,
+   "in_progress": 6,
    "hold": 2,
    "verified": 0,
    "deferred": 0,
@@ -1251,14 +1264,14 @@
   {
    "id": "SEC",
    "name": "安全",
-   "not_started": 4,
+   "not_started": 3,
    "in_progress": 4,
    "hold": 1,
-   "verified": 0,
+   "verified": 1,
    "deferred": 0,
    "total": 9,
-   "open": 8,
-   "done": 0
+   "open": 7,
+   "done": 1
   },
   {
    "id": "DATA",
@@ -1275,8 +1288,8 @@
   {
    "id": "OPS",
    "name": "运维",
-   "not_started": 7,
-   "in_progress": 0,
+   "not_started": 5,
+   "in_progress": 2,
    "hold": 1,
    "verified": 1,
    "deferred": 0,
@@ -1300,9 +1313,9 @@
  "owners": [
   {
    "id": "kaiqiangh",
-   "total": 81,
+   "total": 92,
    "open": 3,
-   "closed": 78
+   "closed": 89
   },
   {
    "id": "unassigned",
@@ -1554,8 +1567,8 @@
     "QA-12",
     "QA-13"
    ],
-   "not_started": 8,
-   "in_progress": 1,
+   "not_started": 7,
+   "in_progress": 2,
    "hold": 4,
    "verified": 0,
    "deferred": 0,
@@ -1628,6 +1641,16 @@
    "req": "Implement TradeX typed domain tools"
   },
   {
+   "id": "FR-007",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S01",
+    "S05",
+    "S24"
+   ],
+   "req": "Separate trusted control plane from agent zone"
+  },
+  {
    "id": "FR-009",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
@@ -1692,6 +1715,15 @@
    "req": "Implement pre-approval validation"
   },
   {
+   "id": "FR-023",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S23",
+    "S25"
+   ],
+   "req": "Implement account-scoped atomic execution reservations"
+  },
+  {
    "id": "FR-024",
    "status": "NOT_STARTED",
    "slices": [
@@ -1706,6 +1738,15 @@
     "S22"
    ],
    "req": "Implement account-scoped live arming/disarming + global disable-all"
+  },
+  {
+   "id": "FR-029",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S12",
+    "S25"
+   ],
+   "req": "Implement local execution audit trail"
   },
   {
    "id": "FR-031",
@@ -1783,6 +1824,15 @@
    "req": "Implement context/account/model pickers"
   },
   {
+   "id": "FR-050",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S25"
+   ],
+   "req": "Implement explicit Risk Rejected / Broker Rejected / Approval Expired UI states"
+  },
+  {
    "id": "FR-052",
    "status": "NOT_STARTED",
    "slices": [
@@ -1847,6 +1897,15 @@
     "S20"
    ],
    "req": "Implement complete Demo/Testnet order lifecycle variants for Trading 212, Binance, and Bitget"
+  },
+  {
+   "id": "FR-061",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S25"
+   ],
+   "req": "Implement complete normalized order-state UI mapping including `RESERVED`"
   },
   {
    "id": "FR-062",
@@ -1919,6 +1978,14 @@
     "S04"
    ],
    "req": "Persist immutable per-turn mode/account/execution/model/provider/context snapshots"
+  },
+  {
+   "id": "FR-076",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Implement evidence-based Manual Resolution for `UNKNOWN_RECONCILING`; no blind reservation release"
   },
   {
    "id": "FR-077",
@@ -1996,6 +2063,26 @@
    "req": "User can execute supported Demo/Testnet order workflows on Trading 212, Binance, and Bitget where available, with explicit environment labels through acknowledgement/fill state."
   },
   {
+   "id": "AC-011",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S22",
+    "S23",
+    "S24"
+   ],
+   "req": "A live order cannot be submitted without a valid TradeX financial approval."
+  },
+  {
+   "id": "AC-012",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S22",
+    "S23",
+    "S24"
+   ],
+   "req": "A generic Codex approval cannot authorize live financial execution."
+  },
+  {
    "id": "AC-013",
    "status": "NOT_STARTED",
    "slices": [
@@ -2005,6 +2092,26 @@
    "req": "Changing instrument, side, quantity, account, order type, price, or time-in-force invalidates prior approval."
   },
   {
+   "id": "AC-015",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S08",
+    "S22",
+    "S24"
+   ],
+   "req": "A stale market snapshot prevents execution until refreshed."
+  },
+  {
+   "id": "AC-016",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S08",
+    "S22",
+    "S24"
+   ],
+   "req": "Risk state is revalidated immediately before submission."
+  },
+  {
    "id": "AC-018",
    "status": "NOT_STARTED",
    "slices": [
@@ -2012,6 +2119,48 @@
     "S21"
    ],
    "req": "Agent cannot modify risk policy."
+  },
+  {
+   "id": "AC-019",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05",
+    "S24"
+   ],
+   "req": "Agent cannot access the privileged Order Gateway directly."
+  },
+  {
+   "id": "AC-021",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Broker acknowledgement is never displayed as a fill unless broker state confirms fill."
+  },
+  {
+   "id": "AC-022",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Ambiguous submission moves to `UNKNOWN_RECONCILING`."
+  },
+  {
+   "id": "AC-023",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "TradeX never blindly retries a non-idempotent provider order POST after ambiguous timeout."
+  },
+  {
+   "id": "AC-026",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S12",
+    "S25"
+   ],
+   "req": "Every live order has a durable chain from proposal → risk evaluation → approval → reservation → execution attempt → provider state."
   },
   {
    "id": "AC-027",
@@ -2055,6 +2204,15 @@
     "S22"
    ],
    "req": "The instrument, account, side, quantity, and order type displayed during order monitoring are the same immutable transaction approved by the user."
+  },
+  {
+   "id": "AC-034",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S25"
+   ],
+   "req": "The UI represents deterministic `RISK_REJECTED`, broker `REJECTED`, approval `EXPIRED`, and `UNKNOWN_RECONCILING` states without implying successful execution."
   },
   {
    "id": "AC-035",
@@ -2183,6 +2341,14 @@
    "req": "Every started turn persists an immutable snapshot of Agent Mode, execution context, selected account, capability level, model/provider, and attached context references/hashes."
   },
   {
+   "id": "AC-061",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S25"
+   ],
+   "req": "An ambiguous live submission that exceeds the automatic reconciliation window keeps its reservation frozen and exposes only the evidence-based Manual Resolution options in §23; no generic release action restores live readiness."
+  },
+  {
    "id": "AC-063",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
@@ -2206,6 +2372,14 @@
     "S09"
    ],
    "req": "Cross-account valuation involving stablecoins/FX shows source/path/timestamps/freshness and a quality/depeg state; unreliable conversion cannot silently drive live risk calculations."
+  },
+  {
+   "id": "NFR-007",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S25"
+   ],
+   "req": "Silent assumption of ambiguous broker state"
   },
   {
    "id": "NFR-009",
@@ -2244,6 +2418,34 @@
     "S12"
    ],
    "req": "Turn/provider provenance is complete for every agent turn"
+  },
+  {
+   "id": "NFR-018",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "slices": [
+    "S08",
+    "S22",
+    "S24"
+   ],
+   "req": "Live freshness/TTL checks use synchronized time semantics and fail closed on unacceptable clock uncertainty"
+  },
+  {
+   "id": "NFR-019",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Ambiguous submissions cannot be locally released into a healthy/live-ready state without authoritative/evidence-based resolution"
+  },
+  {
+   "id": "SEC-001",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S02",
+    "S05",
+    "S24"
+   ],
+   "req": "Model cannot access raw broker secrets or OS-keychain values."
   },
   {
    "id": "SEC-003",
@@ -2290,6 +2492,16 @@
     "S14"
    ],
    "req": "All model inference traffic has exactly one exit: the local CLIProxyAPI endpoint (127.0.0.1:8317). TradeX, Codex, and the strategy sandbox must not connect to any external LLM endpoint directly."
+  },
+  {
+   "id": "SEC-008",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S02",
+    "S03",
+    "S24"
+   ],
+   "req": "The CLIProxyAPI sidecar holds only model credentials (ChatGPT OAuth, rendered DeepSeek key); it must never hold or receive broker credentials, keychain broker items, or Order Gateway capabilities."
   },
   {
    "id": "SEC-009",
@@ -2369,6 +2581,30 @@
    "req": "FX/stablecoin normalized valuation persists source/path/timestamps/freshness and quality/depeg state."
   },
   {
+   "id": "OPS-001",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Broker/exchange state is authoritative for live positions, orders, and fills."
+  },
+  {
+   "id": "OPS-002",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S25"
+   ],
+   "req": "Ambiguous non-idempotent submissions are reconciled before any retry."
+  },
+  {
+   "id": "OPS-008",
+   "status": "IN_PROGRESS",
+   "slices": [
+    "S25"
+   ],
+   "req": "An `UNKNOWN_RECONCILING` reservation remains frozen after automated timeout and may only be resolved through audited Manual Resolution."
+  },
+  {
    "id": "OPS-009",
    "status": "IMPLEMENTED_UNVERIFIED",
    "slices": [
@@ -2410,6 +2646,14 @@
     "S04"
    ],
    "req": "Cross-provider model fallback is visibly disclosed before/when it occurs and is not enabled by default."
+  },
+  {
+   "id": "UX-010",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Manual Resolution never presents an unsafe generic “release reservation and continue” action."
   }
  ],
  "orphans_real": [
@@ -2438,6 +2682,15 @@
    "req": "Implement pre-approval validation"
   },
   {
+   "id": "FR-023",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S23",
+    "S25"
+   ],
+   "req": "Implement account-scoped atomic execution reservations"
+  },
+  {
    "id": "FR-024",
    "status": "NOT_STARTED",
    "slices": [
@@ -2454,6 +2707,15 @@
    "req": "Implement account-scoped live arming/disarming + global disable-all"
   },
   {
+   "id": "FR-029",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S12",
+    "S25"
+   ],
+   "req": "Implement local execution audit trail"
+  },
+  {
    "id": "FR-032",
    "status": "NOT_STARTED",
    "slices": [
@@ -2468,6 +2730,15 @@
     "S14"
    ],
    "req": "Implement strategy versioning"
+  },
+  {
+   "id": "FR-050",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S25"
+   ],
+   "req": "Implement explicit Risk Rejected / Broker Rejected / Approval Expired UI states"
   },
   {
    "id": "FR-052",
@@ -2492,6 +2763,23 @@
     "S22"
    ],
    "req": "Implement complete live-approval market snapshot provenance"
+  },
+  {
+   "id": "FR-061",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S25"
+   ],
+   "req": "Implement complete normalized order-state UI mapping including `RESERVED`"
+  },
+  {
+   "id": "FR-076",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Implement evidence-based Manual Resolution for `UNKNOWN_RECONCILING`; no blind reservation release"
   },
   {
    "id": "FR-080",
@@ -2545,6 +2833,48 @@
    "req": "Agent cannot modify risk policy."
   },
   {
+   "id": "AC-019",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S05",
+    "S24"
+   ],
+   "req": "Agent cannot access the privileged Order Gateway directly."
+  },
+  {
+   "id": "AC-021",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Broker acknowledgement is never displayed as a fill unless broker state confirms fill."
+  },
+  {
+   "id": "AC-022",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Ambiguous submission moves to `UNKNOWN_RECONCILING`."
+  },
+  {
+   "id": "AC-023",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "TradeX never blindly retries a non-idempotent provider order POST after ambiguous timeout."
+  },
+  {
+   "id": "AC-026",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S12",
+    "S25"
+   ],
+   "req": "Every live order has a durable chain from proposal → risk evaluation → approval → reservation → execution attempt → provider state."
+  },
+  {
    "id": "AC-027",
    "status": "NOT_STARTED",
    "slices": [
@@ -2568,6 +2898,15 @@
     "S22"
    ],
    "req": "The instrument, account, side, quantity, and order type displayed during order monitoring are the same immutable transaction approved by the user."
+  },
+  {
+   "id": "AC-034",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S22",
+    "S25"
+   ],
+   "req": "The UI represents deterministic `RISK_REJECTED`, broker `REJECTED`, approval `EXPIRED`, and `UNKNOWN_RECONCILING` states without implying successful execution."
   },
   {
    "id": "AC-035",
@@ -2631,6 +2970,14 @@
    "req": "Turn/provider provenance is complete for every agent turn"
   },
   {
+   "id": "NFR-019",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Ambiguous submissions cannot be locally released into a healthy/live-ready state without authoritative/evidence-based resolution"
+  },
+  {
    "id": "SEC-003",
    "status": "NOT_STARTED",
    "slices": [
@@ -2657,6 +3004,14 @@
    "req": "Live approvals are account/action/proposal-bound, short-lived, and single-use."
   },
   {
+   "id": "OPS-001",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Broker/exchange state is authoritative for live positions, orders, and fills."
+  },
+  {
    "id": "UX-003",
    "status": "NOT_STARTED",
    "slices": [
@@ -2664,9 +3019,17 @@
     "S22"
    ],
    "req": "Live approval displays immutable order identity and market-data provenance."
+  },
+  {
+   "id": "UX-010",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S25"
+   ],
+   "req": "Manual Resolution never presents an unsafe generic “release reservation and continue” action."
   }
  ],
- "orphans_held": 69,
+ "orphans_held": 81,
  "matrix": {
   "S01": {
    "not_started": 0,
@@ -2701,10 +3064,10 @@
    "total": 18
   },
   "S05": {
-   "not_started": 6,
+   "not_started": 5,
    "in_progress": 8,
    "hold": 7,
-   "verified": 0,
+   "verified": 1,
    "deferred": 0,
    "total": 21
   },
@@ -2725,8 +3088,8 @@
    "total": 9
   },
   "S08": {
-   "not_started": 2,
-   "in_progress": 0,
+   "not_started": 0,
+   "in_progress": 2,
    "hold": 7,
    "verified": 0,
    "deferred": 0,
@@ -2837,33 +3200,33 @@
    "total": 11
   },
   "S22": {
-   "not_started": 31,
-   "in_progress": 3,
+   "not_started": 25,
+   "in_progress": 9,
    "hold": 1,
    "verified": 0,
    "deferred": 0,
    "total": 35
   },
   "S23": {
-   "not_started": 5,
-   "in_progress": 4,
+   "not_started": 2,
+   "in_progress": 6,
    "hold": 3,
-   "verified": 3,
+   "verified": 4,
    "deferred": 0,
    "total": 15
   },
   "S24": {
-   "not_started": 11,
-   "in_progress": 6,
+   "not_started": 1,
+   "in_progress": 13,
    "hold": 1,
-   "verified": 0,
+   "verified": 3,
    "deferred": 0,
    "total": 18
   },
   "S25": {
-   "not_started": 19,
-   "in_progress": 0,
-   "hold": 0,
+   "not_started": 14,
+   "in_progress": 4,
+   "hold": 1,
    "verified": 0,
    "deferred": 0,
    "total": 19
@@ -2877,8 +3240,8 @@
    "total": 4
   },
   "S27": {
-   "not_started": 15,
-   "in_progress": 4,
+   "not_started": 14,
+   "in_progress": 5,
    "hold": 0,
    "verified": 0,
    "deferred": 0,
@@ -2941,8 +3304,8 @@
    "total": 4
   },
   "S35": {
-   "not_started": 2,
-   "in_progress": 1,
+   "not_started": 0,
+   "in_progress": 3,
    "hold": 0,
    "verified": 0,
    "deferred": 0,
