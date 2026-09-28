@@ -36,7 +36,7 @@ S25.2 #98 为 Binance Spot Live 增加相同的只读证据路径。它会核验
 
 S25.3 #99 将共享只读证据路径扩展到 Bitget Classic Spot Live。它核验已保存远端账户及准确持久化的 `clientOid`；账户/意图不匹配、空或格式错误的响应、认证失败和传输失败均保持不确定并冻结容量。[本地验收证据](../implementation/s25-bitget-live-reconciliation-evidence_zh.md)。验证仅使用合成凭据和本地 fixture；未发出真实 provider 请求或写入，点击式原型未修改。父 issue #96 仍开放，跟踪剩余 Manual Resolution 切片和完整 S25 验证。
 
-S25.4 #100 已在收窄范围内于已审查的 `dev@f67463d` 关闭：新鲜且准确的 Binance/Bitget Live 候选可以确认为已提交；不确定证据仍只能 Keep，reservation 保持 active。[本地验收证据](../implementation/s25-4-live-manual-resolution-evidence_zh.md)记录了串行 Standards/Spec 复审与全量检查通过，以及[结案评论](https://github.com/kaiqiangh/tradex/issues/100#issuecomment-5863195499)。Rust-backed UI 流程使用合成 fixture；未调用真实 provider 或写入，点击式原型未修改。S25 父项 #96 仍开放；后续研究 #101 将确定是否有 provider 能提供充分的未提交证明，再决定是否单独规划 reservation 释放实现。
+S25.4 #100 已在收窄范围内于已审查的 `dev@f67463d` 关闭：新鲜且准确的 Binance/Bitget Live 候选可以确认为已提交；不确定证据仍只能 Keep，reservation 保持 active。[本地验收证据](../implementation/s25-4-live-manual-resolution-evidence_zh.md)记录了串行 Standards/Spec 复审与全量检查通过，以及[结案评论](https://github.com/kaiqiangh/tradex/issues/100#issuecomment-5863195499)。Rust-backed UI 流程使用合成 fixture；未调用真实 provider 或写入，点击式原型未修改。S25.5 研究 #101 已关闭：Trading 212、Binance Spot 与 Bitget Classic Spot 的官方文档均未规定有时限的订单可见性保证，不能以准确查询为空证明订单未被接收；未决 attempt 因此继续只允许 Keep 并冻结 reservation。Binance 直接返回且耐久绑定到单次 PLACE 的 `-2010 NEW_ORDER_REJECTED` 属于独立的提供方拒单证据，不使 `-2013`、超时或查询无结果变为确定结论。[研究记录](../implementation/s25-live-absence-proof-research.md)与[结案 issue](https://github.com/kaiqiangh/tradex/issues/101)。S25 父项 #96 仍开放，等待父项收口。
 
 ## 术语和同步规则
 
