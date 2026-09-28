@@ -1,13 +1,13 @@
 # S25.4 Live 人工处置验证证据
 
-评估日期：2026-09-28。状态：**收窄范围内验收完成；Standards 与 Spec 已串行复审通过；#100 已关闭。父项 #96 与研究票 #101 仍开放。**
+评估日期：2026-09-28。状态：**收窄范围内验收完成；Standards 与 Spec 已串行复审通过；#100 和 #101 已关闭。父项 #96 等待 S25 最终验收。**
 
 ## 已实现边界
 
 - Binance Spot Live 和 Bitget Spot Live 只有在最新证据新鲜（30 秒）、完整、绑定当前账户观测，且准确查询 attempt 已持久化的 client-order ID 并恰好返回一条记录时，才开放 `CONFIRMED_SUBMITTED`。记录还必须匹配已保存的 attempt、账户、不可变 proposal、标的、方向、订单类型、支持的数量及可信提交时间窗口。
 - 后端在 SQLite immediate transaction 中再次校验这些条件，将观察到的 provider order ID/status 关联到 attempt，并与人工决策及两个 outbox event 一起写入。PLACE reservation 仍保持 active；不会推断或合成 fill。UI 会刷新账户健康状态，账户仍为 `DISARMED`。
 - Trading 212 相似订单候选，以及空、不完整、延迟、过期、不匹配或不支持的证据，都只开放 `KEEP_RECONCILING`。Keep 或关闭界面都会保留 `UNKNOWN_RECONCILING` 与 active reservation。
-- 当前不开放 `CONFIRMED_NOT_SUBMITTED` 或 reservation 释放：现有 provider 路径均不能提供所需的充分未提交证明，空查询仍是不确定结果。收窄后的 #100 只覆盖有证据支持的 `CONFIRMED_SUBMITTED` 与 `KEEP_RECONCILING`；后续研究 #101 将先判断是否存在安全的未提交规则，再决定是否规格化释放路径。
+- 当前不开放 `CONFIRMED_NOT_SUBMITTED` 或 reservation 释放：受支持的 provider 路径均不能提供所需的充分未提交证明，空查询仍是不确定结果。收窄后的 #100 只覆盖有证据支持的 `CONFIRMED_SUBMITTED` 与 `KEEP_RECONCILING`；研究 #101 已关闭，未发现 provider 发布的有界缺席规则。未来如 provider 契约新增专属缺席规则，须另行制定证据与实现范围。
 
 ## 验证结果
 
@@ -24,4 +24,4 @@
 
 ## S25 父范围的后续工作
 
-provider-specific 充分未提交保证尚未解决，由研究 issue #101 跟进。在该研究建立具体 provider 规则前，S25 不得开放 `CONFIRMED_NOT_SUBMITTED`，也不得根据空查询释放容量。后续任何释放实现仍须覆盖审计与 reservation 的原子、最多一次提交，以及所有受支持 provider 的版本冲突/fill 竞态。
+研究 issue #101 未发现当前 Live 接口存在 provider 发布的有界充分缺席保证。因此 S25 不开放 `CONFIRMED_NOT_SUBMITTED`，也不根据查询缺失释放容量。若未来 provider 契约增加此类规则，后续实现仍须保证审计与 reservation 原子、最多一次提交，并覆盖受支持 provider 的版本冲突/fill 竞态。

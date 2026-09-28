@@ -1,13 +1,13 @@
 # S25.4 Live Manual Resolution Evidence
 
-Assessment date: 2026-09-28. Status: **Narrowed acceptance complete; Standards and Spec reviews passed serially; issue #100 closed. Parent #96 and research #101 remain open.**
+Assessment date: 2026-09-28. Status: **Narrowed acceptance complete; Standards and Spec reviews passed serially; issues #100 and #101 closed. Parent #96 is open for final S25 acceptance.**
 
 ## Implemented boundary
 
 - Binance Spot Live and Bitget Spot Live can expose `CONFIRMED_SUBMITTED` only when the latest evidence is fresh (30 seconds), complete, bound to the current account observation, and contains exactly one result from the attempt's persisted client-order-ID query. The result must match the saved attempt, account, immutable proposal, instrument, side, order type, supported quantity, and trusted submission window.
 - The backend repeats these checks in an immediate SQLite transaction, links the observed provider order ID and status to the attempt, and appends the manual decision with both outbox events. The PLACE reservation remains active; no fill is inferred. The UI refreshes account health and the account remains `DISARMED`.
 - Trading 212 similar-order candidates, empty results, and incomplete, delayed, stale, mismatched, or unsupported evidence expose only `KEEP_RECONCILING`. Keeping or dismissing preserves `UNKNOWN_RECONCILING` and the active reservation.
-- `CONFIRMED_NOT_SUBMITTED` and reservation release are deliberately unavailable: no supported provider path currently supplies the required sufficient-absence proof. Empty queries remain inconclusive. The narrowed #100 scope covers only evidence-backed `CONFIRMED_SUBMITTED` and `KEEP_RECONCILING`; follow-up research #101 tracks whether a safe absence rule exists before any release path is specified.
+- `CONFIRMED_NOT_SUBMITTED` and reservation release are deliberately unavailable: no supported provider path supplies the required sufficient-absence proof. Empty queries remain inconclusive. The narrowed #100 scope covers only evidence-backed `CONFIRMED_SUBMITTED` and `KEEP_RECONCILING`; research #101 closed after finding no provider-published bounded absence rule. Any future provider-specific absence behavior requires separate evidence and implementation scope.
 
 ## Verification
 
@@ -24,4 +24,4 @@ The narrowed #100 acceptance is satisfied: exact fresh Binance/Bitget order evid
 
 ## Deferred from the parent S25 scope
 
-Provider-specific sufficient-absence guarantees remain unresolved and are tracked by research issue #101. Until that research establishes a provider rule, S25 must not expose `CONFIRMED_NOT_SUBMITTED` or release capacity based on an empty query. Any later release implementation still needs atomic exactly-once audit/reservation behavior and stale-version/fill-race coverage across the supported providers.
+Research issue #101 found no provider-published bounded sufficient-absence guarantee for the current Live interfaces. S25 therefore does not expose `CONFIRMED_NOT_SUBMITTED` or release capacity based on query absence. If a future provider contract adds such a rule, a separate implementation must still provide atomic exactly-once audit/reservation behavior and stale-version/fill-race coverage.
