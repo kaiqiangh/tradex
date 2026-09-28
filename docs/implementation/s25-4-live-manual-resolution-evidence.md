@@ -1,6 +1,6 @@
 # S25.4 Live Manual Resolution Evidence
 
-Assessment date: 2026-09-28. Status: **Complete within the narrowed S25.4 scope; parent issue #96 remains open.**
+Assessment date: 2026-09-28. Status: **Implementation acceptance verified within the narrowed scope; serial review and issue #100 resolution remain in progress.**
 
 ## Implemented boundary
 
