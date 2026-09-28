@@ -13912,6 +13912,26 @@ mod live_approval_tests {
                 .unwrap()
                 .starts_with("sha256:")
         );
+        let stale_evidence_state_version = refreshed["data"]["ledger"]["stateVersion"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let repeated_job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let repeated_outcome = repeated_job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &http,
+            || control.provider_job_current(&repeated_job),
+        );
+        let repeated_refresh = control.complete_provider(&repeated_job, repeated_outcome);
+        assert_eq!(repeated_refresh["ok"], true, "{repeated_refresh}");
+        assert_ne!(
+            repeated_refresh["data"]["ledger"]["stateVersion"],
+            stale_evidence_state_version
+        );
 
         let now = control.time.status(&workspace_id).unwrap();
         let now_ms = OffsetDateTime::parse(&now.wall_clock, &Rfc3339)
@@ -13930,21 +13950,65 @@ mod live_approval_tests {
             authorization["data"]["allowedDecisions"],
             json!(["CONFIRMED_SUBMITTED", "KEEP_RECONCILING"])
         );
-        let latest = authorization["data"]["ledger"]["evidence"][0].clone();
-        let resolved = dispatch_main(
+        let latest = authorization["data"]["ledger"]["evidence"]
+            .as_array()
+            .unwrap()
+            .last()
+            .unwrap()
+            .clone();
+        let evidence_state_version = authorization["data"]["ledger"]["stateVersion"]
+            .as_str()
+            .unwrap();
+        let mut resolution_payload = json!({
+            "workspaceId":query["workspaceId"],
+            "executionAttemptId":query["executionAttemptId"],
+            "accountId":query["accountId"],
+            "decision":"CONFIRMED_SUBMITTED",
+            "evidenceIds":[latest["evidenceId"]],
+            "brokerOrderId":"987654321",
+            "expectedAttemptStateVersion":preparation.attempt.state_version,
+            "expectedEvidenceStateVersion":evidence_state_version,
+        });
+        resolution_payload["expectedAttemptStateVersion"] = "stale-attempt-version".into();
+        let stale_attempt = dispatch_main(
             &mut control,
             "trade.manual_resolution",
-            json!({
-                "workspaceId":query["workspaceId"],
-                "executionAttemptId":query["executionAttemptId"],
-                "accountId":query["accountId"],
-                "decision":"CONFIRMED_SUBMITTED",
-                "evidenceIds":[latest["evidenceId"]],
-                "brokerOrderId":"987654321",
-                "expectedAttemptStateVersion":preparation.attempt.state_version,
-                "expectedEvidenceStateVersion":authorization["data"]["ledger"]["stateVersion"],
-            }),
+            resolution_payload.clone(),
         );
+        assert_eq!(
+            stale_attempt["ok"], false,
+            "confirmed submission with a stale attempt version must fail: {stale_attempt}"
+        );
+        assert_eq!(stale_attempt["error"]["code"], "STATE_VERSION_CONFLICT");
+        resolution_payload["expectedAttemptStateVersion"] =
+            preparation.attempt.state_version.clone().into();
+        resolution_payload["expectedEvidenceStateVersion"] = stale_evidence_state_version.into();
+        let stale_evidence = dispatch_main(
+            &mut control,
+            "trade.manual_resolution",
+            resolution_payload.clone(),
+        );
+        assert_eq!(
+            stale_evidence["ok"], false,
+            "confirmed submission with a stale evidence version must fail: {stale_evidence}"
+        );
+        assert_eq!(stale_evidence["error"]["code"], "STATE_VERSION_CONFLICT");
+        let unresolved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &attempt_id)
+            .unwrap();
+        assert_eq!(
+            unresolved.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+        assert_eq!(
+            unresolved.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        resolution_payload["expectedEvidenceStateVersion"] = evidence_state_version.into();
+        let resolved = dispatch_main(&mut control, "trade.manual_resolution", resolution_payload);
         assert_eq!(resolved["ok"], true, "{resolved}");
         assert_eq!(resolved["data"]["allowedDecisions"], json!([]));
         assert_eq!(
@@ -14021,7 +14085,7 @@ mod live_approval_tests {
             ledger.manual_resolutions[0].decision,
             protocol::ManualResolutionDecision::ConfirmedSubmitted
         );
-        assert_eq!(ledger.evidence.len(), 1);
+        assert_eq!(ledger.evidence.len(), 2);
     }
 
     #[test]
