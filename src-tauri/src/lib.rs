@@ -13625,7 +13625,7 @@ mod live_approval_tests {
         workspace_id: &str,
         proposal: &Value,
         review: &Value,
-    ) -> (String, AccountConnection) {
+    ) -> (String, AccountConnection, String) {
         assert_eq!(proposal["fields"]["environment"], "BINANCE_LIVE");
         let approval = dispatch_main(
             control,
@@ -13726,6 +13726,15 @@ mod live_approval_tests {
         control
             .begin_live_execution_submission(&grant.grant_id, "resolution-gateway")
             .unwrap();
+        let stale_attempt_state_version = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(workspace_id, &attempt_id)
+            .unwrap()
+            .attempt
+            .state_version
+            .clone();
         assert_eq!(
             control
                 .complete_live_execution_submission(
@@ -13748,7 +13757,7 @@ mod live_approval_tests {
             .unwrap()
             .account(proposal["fields"]["accountId"].as_str().unwrap())
             .unwrap();
-        (attempt_id, account)
+        (attempt_id, account, stale_attempt_state_version)
     }
 
     struct BinanceLiveResolutionHttp {
@@ -13830,7 +13839,7 @@ mod live_approval_tests {
     fn binance_live_confirmed_submission_links_exact_order_and_keeps_capacity() {
         let (folder, mut control, workspace_id, _, proposal, review) =
             reviewed_live_fixture_with_numeric_binance_id(true);
-        let (attempt_id, account) =
+        let (attempt_id, account, stale_attempt_state_version) =
             make_unknown_binance_live_attempt(&mut control, &workspace_id, &proposal, &review);
         let preparation = control
             .store
@@ -13969,7 +13978,7 @@ mod live_approval_tests {
             "expectedAttemptStateVersion":preparation.attempt.state_version,
             "expectedEvidenceStateVersion":evidence_state_version,
         });
-        resolution_payload["expectedAttemptStateVersion"] = "stale-attempt-version".into();
+        resolution_payload["expectedAttemptStateVersion"] = stale_attempt_state_version.into();
         let stale_attempt = dispatch_main(
             &mut control,
             "trade.manual_resolution",
@@ -14092,7 +14101,7 @@ mod live_approval_tests {
     fn binance_live_unknown_reconciliation_queries_exact_attempt_identity_read_only() {
         let (_folder, mut control, workspace_id, _, proposal, review) =
             reviewed_live_fixture_with_numeric_binance_id(true);
-        let (attempt_id, account) =
+        let (attempt_id, account, _) =
             make_unknown_binance_live_attempt(&mut control, &workspace_id, &proposal, &review);
         let http = BinanceLiveResolutionHttp {
             remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
