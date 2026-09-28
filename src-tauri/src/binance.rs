@@ -1924,6 +1924,15 @@ pub(crate) fn query_live_reconciliation_candidate(
     let order_type = text(&order, "type", 32)?;
     let status = text(&order, "status", 32)?;
     let quantity = decimal(&Value::String(text(&order, "origQty", 64)?))?;
+    let quote_quantity = (proposal.fields.quantity.r#type == OrderQuantityType::Quote)
+        .then(|| decimal(&Value::String(text(&order, "origQuoteOrderQty", 64)?)))
+        .transpose()?;
+    let limit_price = (order_type == "LIMIT")
+        .then(|| decimal(&Value::String(text(&order, "price", 64)?)))
+        .transpose()?;
+    let time_in_force = (order_type == "LIMIT")
+        .then(|| text(&order, "timeInForce", 3))
+        .transpose()?;
     let order_id = numeric_id(&order, "orderId")?;
     let submitted_ms = order["time"]
         .as_u64()
@@ -1963,29 +1972,27 @@ pub(crate) fn query_live_reconciliation_candidate(
             decimal_cmp(&quantity, &requested_quantity)? == std::cmp::Ordering::Equal
         }
         OrderQuantityType::Quote => {
-            let quote_quantity = decimal(&Value::String(text(&order, "origQuoteOrderQty", 64)?))?;
-            decimal_cmp(&quote_quantity, &requested_quantity)? == std::cmp::Ordering::Equal
+            decimal_cmp(
+                quote_quantity.as_deref().ok_or_else(invalid)?,
+                &requested_quantity,
+            )? == std::cmp::Ordering::Equal
         }
     };
-    let limit_fields_match = proposal.fields.order_type != OrderType::Limit
-        || (decimal_cmp(
-            &decimal(&Value::String(text(&order, "price", 64)?))?,
-            &decimal(&Value::String(
-                proposal
-                    .fields
-                    .limit_price
-                    .as_deref()
-                    .ok_or_else(invalid)?
-                    .into(),
-            ))?,
+    let limit_fields_match = if proposal.fields.order_type == OrderType::Limit {
+        decimal_cmp(
+            limit_price.as_deref().ok_or_else(invalid)?,
+            proposal.fields.limit_price.as_deref().ok_or_else(invalid)?,
         )? == std::cmp::Ordering::Equal
-            && text(&order, "timeInForce", 3)?
-                == match proposal.fields.time_in_force {
+            && time_in_force.as_deref()
+                == Some(match proposal.fields.time_in_force {
                     TimeInForce::Gtc => "GTC",
                     TimeInForce::Ioc => "IOC",
                     TimeInForce::Fok => "FOK",
                     TimeInForce::Day => return Err(invalid()),
-                });
+                })
+    } else {
+        true
+    };
     if client_order_id != provider_client_order_id
         || provider_symbol != symbol
         || side != expected_side
@@ -2015,6 +2022,11 @@ pub(crate) fn query_live_reconciliation_candidate(
         provider_status: status,
         order_type,
         quantity: Some(quantity),
+        quote_quantity,
+        limit_price,
+        time_in_force,
+        force: None,
+        tpsl_type: None,
         submitted_at: Some(submitted_at),
         provider_client_id: Some(client_order_id),
     }))

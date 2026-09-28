@@ -10545,6 +10545,22 @@
     "ProviderOrderCandidate": {
       "type": "object",
       "properties": {
+        "force": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "limitPrice": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
         "orderType": {
           "type": "string",
           "maxLength": 32,
@@ -10581,6 +10597,14 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "quoteQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
         "side": {
           "$ref": "#/$defs/OrderSide"
         },
@@ -10590,6 +10614,22 @@
             "null"
           ],
           "maxLength": 64,
+          "minLength": 1
+        },
+        "timeInForce": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "tpslType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
           "minLength": 1
         }
       },

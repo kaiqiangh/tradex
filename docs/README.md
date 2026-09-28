@@ -34,6 +34,8 @@ S25.2 #98 adds the same query-only evidence path for Binance Spot Live. It verif
 
 S25.3 #99 extends the shared query-only evidence path to Bitget Classic Spot Live. It verifies the saved remote account and exact persisted `clientOid`, and keeps account/intent mismatches, empty or malformed responses, authentication failures, and transport failures inconclusive with capacity frozen. [Local evidence](./implementation/s25-bitget-live-reconciliation-evidence.md). Verification used synthetic credentials and local fixtures only; no real provider requests or writes were made, and the clickable prototype is unchanged. Parent issue #96 remains open for the remaining Manual Resolution slices and full S25 verification.
 
+S25.4 #100 adds evidence-gated Confirm submitted for fresh exact Binance/Bitget Live candidates while inconclusive evidence remains Keep-only and reservations stay active. [Local evidence](./implementation/s25-4-live-manual-resolution-evidence.md). Local Rust-backed UI flows and checks passed with synthetic fixtures; no real provider calls or writes were made, and the clickable prototype is unchanged. Issue #100 remains open for provider-specific absence proof, atomic exactly-once reservation release, and stale-version/fill-race acceptance.
+
 ## Chinese synchronized set
 
 [Chinese index](./zh/README.md) links all six English/Chinese document pairs: PRD, UI Spec, frontend/backend ARDs, Coverage Matrix, and QA Report. [Chinese prototype guide](./prototype/README_zh.md) accompanies the same fixture.

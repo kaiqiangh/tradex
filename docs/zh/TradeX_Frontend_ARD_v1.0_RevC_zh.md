@@ -650,17 +650,17 @@ Order Drafts 仅对绑定已连接 Binance `TESTNET` 账户的不可变 `BINANCE
 
 TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户详情显示 `Private stream unavailable · REST reconciliation`；`privateStream` 保持 `NOT_CONFIGURED`，且仅通过用户显式连接或 REST 刷新读取更新观测。
 
-### 13.17 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98、S25.3 #99）
+### 13.17 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98、S25.3 #99、S25.4 #100）
 
 Order Drafts 针对准确的 Trading 212、Binance 或 Bitget Live `UNKNOWN_RECONCILING` PLACE attempt 加载已保存的对账证据；只有后端时间可信且五分钟窗口未关闭时，才通过 `trade.resolution_evidence.refresh` 刷新。有界 provider 查询至少间隔 11 秒，每次请求只前进一个历史 cursor 页。导航或重新打开 workspace 后恢复 ledger；时钟不可信会暂停 provider 刷新，但已保存观测仍须可见。超时后只显示后端授权的操作。新鲜且准确的 Binance/Bitget client-order-ID 匹配可提供 Confirm submitted，并预览其证据和预留影响；提交后关联观察到的券商 ID/status，容量仍保持 active，且不代表成交。Trading 212 相似订单及不确定/过期证据只能 Keep；Keep、关闭或导航均保留未知 attempt 和 active reservation。账户保持 DISARMED，直至用户显式执行 Arm。
 
 对于 Binance Spot Live，使用相同的 evidence IPC 和面板，展示 Binance provider、已保存账户/attempt、查询范围、provider order/client ID、状态及可信窗口。只查询普通 Live 账户身份及 attempt 已保存的 `providerClientOrderId`（`tx-{去掉连字符的 execution-attempt UUID}`）指定的准确订单（`origClientOrderId`）。只有 client ID、symbol、side、type、base 或 quote quantity 和窗口时间均准确匹配后，provider row 才是候选；LIMIT 订单还必须匹配 limit price 和 time-in-force。Binance `-2013` 及格式错误、不完整、不匹配、未认证、限流或失败的读取都保持 `INCONCLUSIVE`；不能处置 attempt 或释放 reservation。
 
-对于 Bitget Classic Spot Live，复用相同的 evidence IPC 和面板，显示已保存 Live 账户及远端 `userId`、attempt、查询范围、返回的 Bitget order ID/clientOid/status 和可信窗口。只通过普通 Classic Spot `orderInfo` GET 查询已保存的准确 `clientOid`（`tx-{去掉连字符的 execution_attempt_id}`）。仅当账户、clientOid、symbol、side、order type、size 和时间完全匹配时才列为候选；LIMIT 订单还须匹配 price/force 且 `tpslType=normal`。空、无关、不完整、格式错误、延迟、未认证、限流或失败读取均保持不确定，不能证明不存在。明确区分 provider 订单观测与成交证据；沿用共享超时、冻结 reservation、仅 KEEP_RECONCILING 行为。不得开放 Live 写入或 Demo/Testnet 回退。
+对于 Bitget Classic Spot Live，复用相同的 evidence IPC 和面板，显示已保存 Live 账户及远端 `userId`、attempt、查询范围、返回的 Bitget order ID/clientOid/status 和可信窗口。只通过普通 Classic Spot `orderInfo` GET 查询已保存的准确 `clientOid`（`tx-{去掉连字符的 execution_attempt_id}`）。仅当账户、clientOid、symbol、side、order type、size 和时间完全匹配时才列为候选；LIMIT 订单还须匹配 price/force 且 `tpslType=normal`。空、无关、不完整、格式错误、延迟、未认证、限流或失败读取均保持不确定，不能证明不存在。明确区分 provider 订单观测与成交证据；沿用共享超时和冻结 reservation。S25.4 下，新鲜且准确的候选可提供 Confirm submitted；不确定证据仍只能 Keep。不得开放 Live 写入或 Demo/Testnet 回退。
 
-可信窗口过期后，显示后端授权的 Keep Reconciling 操作。通过 `trade.manual_resolution` 提交当前 attempt/证据版本和已保存 evidence ID；刷新或重新打开后显示已保存决策。此操作保持 attempt 与 reservation 冻结，不会重启 provider 查询。本 provider 切片不得显示确认已提交、确认未提交、释放或重发操作。
+可信窗口过期后，通过 `trade.manual_resolution` 和当前 attempt/证据版本、已保存 evidence ID 提交后端授权的操作。不确定或不支持的证据只能使用 Keep Reconciling；它保持 attempt 与 reservation 冻结，不会重启 provider 查询。新鲜且准确的 Binance/Bitget 候选可提供 Confirm submitted；它会关联观察到的券商 ID/status、保持容量 active，且不代表成交。刷新或重新打开后显示已保存决策。本 provider 切片不得显示确认未提交、释放或重发操作。
 
-展示已保存的账户/attempt 身份、可信窗口、最近查询、覆盖范围和查询范围、分页/完成状态、候选 provider ID/status、不确定/错误状态及后续动作。候选订单不得标成已关联的 TradeX 订单或提交证明。空结果或不完整结果必须明确表示无法证明不存在。窗口超时后显示账户 DISARMED/STALE，继续展示未知 attempt 和 active reservation，并且只显示后端授权的 Keep Reconciling 操作及其已保存审计记录；该操作不会重启 provider 查询。验证键盘操作及 390/768/1280 px 布局。此界面没有确认解决、provider 写入、重试或释放 reservation 的操作。
+展示已保存的账户/attempt 身份、可信窗口、最近查询、覆盖范围和查询范围、分页/完成状态、候选 provider ID/status、不确定/错误状态及后续动作。候选订单不得标成已关联的 TradeX 订单或提交证明。空结果或不完整结果必须明确表示无法证明不存在。窗口超时后显示账户 DISARMED/STALE，继续展示未知 attempt 和 active reservation；只显示后端授权的操作：不确定证据使用 Keep Reconciling，新鲜且准确的 Binance/Bitget 候选使用 Confirm submitted，并显示已保存审计记录；两者均不会重启 provider 查询。验证键盘操作及 390/768/1280 px 布局。此界面没有确认未提交、provider 写入、重试或释放 reservation 的操作。
 
 ## 14. Live Execution UI 架构
 

@@ -1213,17 +1213,26 @@ pub(super) fn query_live_reconciliation_candidate(
     .map_err(|_| invalid())?;
     let quantity_matches =
         provider_io::decimal_cmp(&quantity, &intent.size)? == std::cmp::Ordering::Equal;
+    let limit_price = (intent.order_type == "limit")
+        .then(|| positive(&row["price"]))
+        .transpose()?;
+    let force = (intent.order_type == "limit")
+        .then(|| text(row, "force", 16))
+        .transpose()?;
+    let tpsl_type = text(row, "tpslType", 16)?;
     let limit_fields_match = intent.order_type != "limit"
-        || (provider_io::decimal_cmp(&positive(&row["price"])?, intent.price.as_deref().unwrap())?
-            == std::cmp::Ordering::Equal
-            && text(row, "force", 16)? == intent.force.unwrap());
+        || (provider_io::decimal_cmp(
+            limit_price.as_deref().ok_or_else(invalid)?,
+            intent.price.as_deref().ok_or_else(invalid)?,
+        )? == std::cmp::Ordering::Equal
+            && force.as_deref() == intent.force);
     if account_id != remote_account_id
         || provider_symbol != intent.symbol
         || client_oid != provider_client_order_id
         || side != intent.side
         || order_type != intent.order_type
         || normalized_status(&status) == "UNKNOWN"
-        || row["tpslType"] != "normal"
+        || tpsl_type != "normal"
         || !quantity_matches
         || !limit_fields_match
         || submitted < window_started
@@ -1238,6 +1247,11 @@ pub(super) fn query_live_reconciliation_candidate(
         provider_status: status,
         order_type,
         quantity: Some(quantity),
+        quote_quantity: None,
+        limit_price,
+        time_in_force: None,
+        force,
+        tpsl_type: Some(tpsl_type),
         submitted_at: Some(submitted_at),
         provider_client_id: Some(client_oid),
     }))

@@ -3080,14 +3080,19 @@ export interface ResolutionEvidence {
  * via the `definition` "ProviderOrderCandidate".
  */
 export interface ProviderOrderCandidate {
+  force?: string | null;
+  limitPrice?: string | null;
   orderType: string;
   providerClientId?: string | null;
   providerOrderId: string;
   providerStatus: string;
   providerSymbol: string;
   quantity?: string | null;
+  quoteQuantity?: string | null;
   side: OrderSide;
   submittedAt?: string | null;
+  timeInForce?: string | null;
+  tpslType?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

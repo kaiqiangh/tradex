@@ -1840,6 +1840,11 @@ impl ProviderJob {
                     provider_status: order.provider_status,
                     order_type: order.order_type,
                     quantity: order.quantity,
+                    quote_quantity: None,
+                    limit_price: None,
+                    time_in_force: None,
+                    force: None,
+                    tpsl_type: None,
                     submitted_at: Some(order.submitted_at),
                     provider_client_id: None,
                 })

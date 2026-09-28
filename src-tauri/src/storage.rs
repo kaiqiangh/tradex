@@ -142,6 +142,9 @@ fn confirmed_submitted_candidate<'a>(
     {
         return None;
     }
+    if !candidate_matches_proposal_terms(candidate, &proposal.fields, provider_id) {
+        return None;
+    }
     let instrument = market::instruments()
         .into_iter()
         .find(|item| item.instrument_id == proposal.fields.instrument_id)?;
@@ -152,11 +155,6 @@ fn confirmed_submitted_candidate<'a>(
         .provider_symbol
         .as_str();
     if candidate.provider_symbol != expected_symbol {
-        return None;
-    }
-    if proposal.fields.quantity.r#type == crate::protocol::OrderQuantityType::Base
-        && candidate.quantity.as_deref() != Some(proposal.fields.quantity.value.as_str())
-    {
         return None;
     }
     let start = OffsetDateTime::parse(&ledger.automatic_window_started_at, &Rfc3339).ok()?;
@@ -172,6 +170,58 @@ fn confirmed_submitted_candidate<'a>(
         return None;
     }
     Some(candidate)
+}
+
+fn candidate_matches_proposal_terms(
+    candidate: &crate::protocol::ProviderOrderCandidate,
+    fields: &crate::protocol::OrderDraftFields,
+    provider_id: &str,
+) -> bool {
+    let decimal_matches = |observed: Option<&str>, expected: &str| {
+        observed.is_some_and(|observed| {
+            crate::provider_io::decimal_cmp(observed, expected)
+                .is_ok_and(|order| order == std::cmp::Ordering::Equal)
+        })
+    };
+    let quantity_matches = match (provider_id, fields.quantity.r#type) {
+        (_, crate::protocol::OrderQuantityType::Base)
+        | ("bitget", crate::protocol::OrderQuantityType::Quote) => {
+            decimal_matches(candidate.quantity.as_deref(), &fields.quantity.value)
+        }
+        ("binance", crate::protocol::OrderQuantityType::Quote) => {
+            decimal_matches(candidate.quote_quantity.as_deref(), &fields.quantity.value)
+        }
+        _ => false,
+    };
+    if !quantity_matches
+        || (provider_id == "bitget" && candidate.tpsl_type.as_deref() != Some("normal"))
+    {
+        return false;
+    }
+    if fields.order_type != crate::protocol::OrderType::Limit {
+        return true;
+    }
+    let Some(limit_price) = fields.limit_price.as_deref() else {
+        return false;
+    };
+    if !decimal_matches(candidate.limit_price.as_deref(), limit_price) {
+        return false;
+    }
+    match (provider_id, fields.time_in_force) {
+        ("binance", crate::protocol::TimeInForce::Gtc) => {
+            candidate.time_in_force.as_deref() == Some("GTC")
+        }
+        ("binance", crate::protocol::TimeInForce::Ioc) => {
+            candidate.time_in_force.as_deref() == Some("IOC")
+        }
+        ("binance", crate::protocol::TimeInForce::Fok) => {
+            candidate.time_in_force.as_deref() == Some("FOK")
+        }
+        ("bitget", crate::protocol::TimeInForce::Gtc) => candidate.force.as_deref() == Some("gtc"),
+        ("bitget", crate::protocol::TimeInForce::Ioc) => candidate.force.as_deref() == Some("ioc"),
+        ("bitget", crate::protocol::TimeInForce::Fok) => candidate.force.as_deref() == Some("fok"),
+        _ => false,
+    }
 }
 
 pub struct Store {
@@ -15247,4 +15297,138 @@ pub(crate) fn timestamp() -> Result<String> {
     OffsetDateTime::now_utc()
         .format(&Rfc3339)
         .map_err(storage_error)
+}
+
+#[cfg(test)]
+mod confirmed_candidate_tests {
+    use super::candidate_matches_proposal_terms;
+    use crate::protocol::{
+        ExecutionContext, OrderDraftFields, OrderQuantity, OrderQuantityType, OrderSide, OrderType,
+        ProviderOrderCandidate, TimeInForce,
+    };
+
+    fn fields(
+        environment: ExecutionContext,
+        quantity_type: OrderQuantityType,
+        quantity: &str,
+        order_type: OrderType,
+        limit_price: Option<&str>,
+        time_in_force: TimeInForce,
+    ) -> OrderDraftFields {
+        OrderDraftFields {
+            account_id: Some("account-1".into()),
+            venue: "SPOT".into(),
+            environment,
+            instrument_id: "BTC-USD".into(),
+            side: OrderSide::Buy,
+            order_type,
+            quantity: OrderQuantity {
+                r#type: quantity_type,
+                value: quantity.into(),
+            },
+            limit_price: limit_price.map(str::to_owned),
+            maximum_spend: None,
+            time_in_force,
+            client_label: None,
+        }
+    }
+
+    fn candidate() -> ProviderOrderCandidate {
+        ProviderOrderCandidate {
+            provider_order_id: "order-1".into(),
+            provider_symbol: "BTCUSDT".into(),
+            side: OrderSide::Buy,
+            provider_status: "NEW".into(),
+            order_type: "LIMIT".into(),
+            quantity: Some("0.01".into()),
+            quote_quantity: None,
+            limit_price: Some("50000".into()),
+            time_in_force: None,
+            force: None,
+            tpsl_type: None,
+            submitted_at: Some("2026-09-28T12:00:00Z".into()),
+            provider_client_id: Some("client-1".into()),
+        }
+    }
+
+    #[test]
+    fn confirmed_candidate_rechecks_binance_quote_quantity_and_limit_terms() {
+        let quote_market = fields(
+            ExecutionContext::BinanceLive,
+            OrderQuantityType::Quote,
+            "500",
+            OrderType::Market,
+            None,
+            TimeInForce::Day,
+        );
+        let mut observed = candidate();
+        observed.order_type = "MARKET".into();
+        observed.quote_quantity = Some("500.00".into());
+        assert!(candidate_matches_proposal_terms(
+            &observed,
+            &quote_market,
+            "binance"
+        ));
+        observed.quote_quantity = Some("499".into());
+        assert!(!candidate_matches_proposal_terms(
+            &observed,
+            &quote_market,
+            "binance"
+        ));
+
+        let limit = fields(
+            ExecutionContext::BinanceLive,
+            OrderQuantityType::Base,
+            "0.01",
+            OrderType::Limit,
+            Some("50000"),
+            TimeInForce::Gtc,
+        );
+        observed = candidate();
+        observed.time_in_force = Some("GTC".into());
+        assert!(candidate_matches_proposal_terms(
+            &observed, &limit, "binance"
+        ));
+        observed.limit_price = Some("50001".into());
+        assert!(!candidate_matches_proposal_terms(
+            &observed, &limit, "binance"
+        ));
+        observed.limit_price = Some("50000".into());
+        observed.time_in_force = Some("IOC".into());
+        assert!(!candidate_matches_proposal_terms(
+            &observed, &limit, "binance"
+        ));
+    }
+
+    #[test]
+    fn confirmed_candidate_rechecks_bitget_limit_force_and_tpsl_type() {
+        let limit = fields(
+            ExecutionContext::BitgetLive,
+            OrderQuantityType::Base,
+            "0.01",
+            OrderType::Limit,
+            Some("50000"),
+            TimeInForce::Gtc,
+        );
+        let mut observed = candidate();
+        observed.force = Some("gtc".into());
+        observed.tpsl_type = Some("normal".into());
+        assert!(candidate_matches_proposal_terms(
+            &observed, &limit, "bitget"
+        ));
+        observed.force = Some("ioc".into());
+        assert!(!candidate_matches_proposal_terms(
+            &observed, &limit, "bitget"
+        ));
+        observed.force = Some("gtc".into());
+        observed.tpsl_type = Some("profit_loss".into());
+        assert!(!candidate_matches_proposal_terms(
+            &observed, &limit, "bitget"
+        ));
+        observed.tpsl_type = Some("normal".into());
+        observed.limit_price = Some("50001".into());
+        assert!(!candidate_matches_proposal_terms(
+            &observed, &limit, "bitget"
+        ));
+    }
 }
