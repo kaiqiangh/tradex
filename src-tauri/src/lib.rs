@@ -1526,6 +1526,10 @@ fn live_reconciliation_provider(environment: &protocol::ExecutionContext) -> Opt
     }
 }
 
+fn is_supported_live_provider(provider_id: &str) -> bool {
+    matches!(provider_id, "trading212" | "binance" | "bitget")
+}
+
 fn expected_live_provider_client_order_id(
     attempt: &protocol::ExecutionAttempt,
 ) -> Result<Option<String>> {
@@ -2514,10 +2518,7 @@ impl ControlPlane {
             .into_iter()
             .filter(|account| {
                 account.environment == "LIVE"
-                    && matches!(
-                        account.provider_id.as_str(),
-                        "trading212" | "binance" | "bitget"
-                    )
+                    && is_supported_live_provider(&account.provider_id)
                     && account.connection_state == ConnectionState::Connected
             })
             .map(|account| account.connection_id)
@@ -2580,10 +2581,7 @@ impl ControlPlane {
         let account = self.store.as_ref().unwrap().account(connection_id)?;
         if account.workspace_id != workspace_id
             || account.environment != "LIVE"
-            || !matches!(
-                account.provider_id.as_str(),
-                "trading212" | "binance" | "bitget"
-            )
+            || !is_supported_live_provider(&account.provider_id)
             || account.connection_state != ConnectionState::Connected
         {
             return Ok(None);
