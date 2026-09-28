@@ -36,7 +36,7 @@ S25.2 #98 为 Binance Spot Live 增加相同的只读证据路径。它会核验
 
 S25.3 #99 将共享只读证据路径扩展到 Bitget Classic Spot Live。它核验已保存远端账户及准确持久化的 `clientOid`；账户/意图不匹配、空或格式错误的响应、认证失败和传输失败均保持不确定并冻结容量。[本地验收证据](../implementation/s25-bitget-live-reconciliation-evidence_zh.md)。验证仅使用合成凭据和本地 fixture；未发出真实 provider 请求或写入，点击式原型未修改。父 issue #96 仍开放，跟踪剩余 Manual Resolution 切片和完整 S25 验证。
 
-S25.4 #100 为新鲜且准确的 Binance/Bitget Live 候选增加基于证据的 Confirm submitted；不确定证据仍只能 Keep，reservation 保持 active。[本地验收证据](../implementation/s25-4-live-manual-resolution-evidence_zh.md)。本地 Rust-backed UI 流程和检查使用合成 fixture 通过；未调用真实 provider 或写入，点击式原型未修改。Issue #100 仍开放，等待 provider-specific 不存在证明、原子且仅一次的 reservation 释放，以及 stale-version/fill-race 验收。
+S25.4 #100 在收窄后的范围内完成：新鲜且准确的 Binance/Bitget Live 候选可以确认为已提交；不确定证据仍只能 Keep，reservation 保持 active。[本地验收证据](../implementation/s25-4-live-manual-resolution-evidence_zh.md)。本地 Rust-backed UI 流程和检查使用合成 fixture 通过；未调用真实 provider 或写入，点击式原型未修改。S25 父项 #96 仍开放；后续研究 #101 将确定是否有 provider 能提供充分的未提交证明，再决定是否单独规划 reservation 释放实现。
 
 ## 术语和同步规则
 
