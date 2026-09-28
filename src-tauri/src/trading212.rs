@@ -210,5 +210,5 @@ pub(super) fn observe(account: Value, positions: Value, orders: Value) -> Result
             "Manual refresh reads summary and pending orders at a limit of one request per five seconds per account (positions: one per second). A quota error requires a later manual retry.".into(),
             "TradeX execution, reconciliation and effective available funds are not configured. Successful reads do not grant trading authority.".into(),
         ],
-    }, permissions })
+    }, permissions, live_order_settlements: Vec::new() })
 }

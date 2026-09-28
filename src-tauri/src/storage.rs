@@ -39,10 +39,11 @@ use crate::protocol::{
     ExecutionDispatchGrant, ExecutionDispatchGrantStatus, ExecutionPreparation,
     ExecutionPreparationRejection, ExecutionReservation, ExecutionReservationStatus,
     FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
-    LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder, LocalPaperState,
-    MAX_SEQUENCE, ManualResolutionDecision, ManualResolutionRecord, OpenWorkspace, OrderDraft,
-    OrderDraftFields, OrderDraftLibrary, OrderDraftSave, OrderDraftSummary, OrderProposal,
-    OrderProposalConsumption, OrderProposalGenerate, OrderProposalHistoryEntry,
+    LiveOrderDisposition, LiveOrderFee, LiveOrderSettlement, LiveOrderSettlementStatus,
+    LiveOrderTradeFact, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder,
+    LocalPaperState, MAX_SEQUENCE, ManualResolutionDecision, ManualResolutionRecord, OpenWorkspace,
+    OrderDraft, OrderDraftFields, OrderDraftLibrary, OrderDraftSave, OrderDraftSummary,
+    OrderProposal, OrderProposalConsumption, OrderProposalGenerate, OrderProposalHistoryEntry,
     OrderProposalHistoryEvent, OrderProposalLibrary, OrderProposalRefresh,
     OrderProposalRefreshResult, OrderProposalRefreshStatus, OrderProposalStatus,
     OrderProposalSummary, OrderType, PaperOrderCancel, PaperOrderResult, PaperOrderSubmit,
@@ -60,7 +61,7 @@ use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 29;
+pub(crate) const SCHEMA_VERSION: u32 = 30;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -899,6 +900,26 @@ impl Store {
                 CREATE INDEX resolution_evidence_workspace_attempt ON resolution_evidence(workspace_id,attempt_id);
                 PRAGMA user_version=29;").map_err(storage_error)?;
             }
+            if version < 30 {
+                tx.execute_batch("CREATE TABLE live_order_settlements (
+                    workspace_id TEXT NOT NULL REFERENCES workspace(workspace_id),
+                    attempt_id TEXT NOT NULL UNIQUE REFERENCES execution_attempts(attempt_id),
+                    account_id TEXT NOT NULL REFERENCES accounts(connection_id),
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,attempt_id)
+                );
+                CREATE INDEX live_order_settlements_account_order ON live_order_settlements(workspace_id,account_id);
+                CREATE TABLE live_order_trade_facts (
+                    workspace_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    provider_trade_id TEXT NOT NULL,
+                    projection TEXT NOT NULL,
+                    PRIMARY KEY(workspace_id,attempt_id,provider_trade_id),
+                    FOREIGN KEY(workspace_id,attempt_id) REFERENCES live_order_settlements(workspace_id,attempt_id)
+                );
+                PRAGMA user_version=30;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         let integrity: String = connection
@@ -1562,8 +1583,13 @@ impl Store {
                     }
                     "execution-reservation" => !matches!(
                         event.event_type.as_str(),
-                        "trade.reservation.created" | "trade.reservation.released"
+                        "trade.reservation.created"
+                            | "trade.reservation.adjusted"
+                            | "trade.reservation.released"
                     ),
+                    "live-order-settlement" => {
+                        event.event_type != "trade.live_order.settlement.changed"
+                    }
                     "execution-attempt" => event.event_type != "trade.execution.attempt.changed",
                     "resolution-evidence" => {
                         event.event_type != "trade.resolution_evidence.changed"
@@ -2615,6 +2641,22 @@ impl Store {
                 last_sequence: u64::try_from(sequence).map_err(storage_error)?,
             });
         }
+        if kind == "live-order-settlement" {
+            let workspace_id = self.workspace_id()?;
+            let settlement = live_settlement_for_attempt(&self.connection, &workspace_id, id)?
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+            let sequence = settlement
+                .state_version
+                .strip_prefix(&format!("live-order-settlement:{id}:"))
+                .and_then(|sequence| sequence.parse::<u64>().ok())
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::LiveOrderSettlement(Box::new(settlement)),
+                last_sequence: sequence,
+            });
+        }
         if kind == "execution-preparation" {
             let workspace_id = self.workspace_id()?;
             let (sequence, audit_id, digest, projection): (i64, String, String, String) = self
@@ -3409,6 +3451,12 @@ impl Store {
         Ok(Some(ExecutionPreparation {
             attempt: Box::new(attempt),
             reservation: reservation.map(Box::new),
+            live_order_settlement: live_settlement_for_attempt(
+                &self.connection,
+                workspace_id,
+                &attempt_id,
+            )?
+            .map(Box::new),
         }))
     }
 
@@ -3468,6 +3516,12 @@ impl Store {
         Ok(ExecutionPreparation {
             attempt: Box::new(attempt),
             reservation: reservation.map(Box::new),
+            live_order_settlement: live_settlement_for_attempt(
+                &self.connection,
+                workspace_id,
+                attempt_id,
+            )?
+            .map(Box::new),
         })
     }
 
@@ -4212,9 +4266,12 @@ impl Store {
         }
         let reservation =
             load_execution_reservation_for_attempt(&tx, &workspace_id, &attempt.attempt_id)?;
+        let live_order_settlement =
+            live_settlement_for_attempt(&tx, &workspace_id, &attempt.attempt_id)?;
         tx.commit().map_err(storage_error)?;
         Ok((
             ExecutionPreparation {
+                live_order_settlement: live_order_settlement.map(Box::new),
                 attempt: Box::new(attempt),
                 reservation: reservation.map(Box::new),
             },
@@ -4498,11 +4555,14 @@ impl Store {
             }
             let reservation =
                 load_execution_reservation_for_attempt(&tx, &workspace_id, &attempt_id)?;
+            let live_order_settlement =
+                live_settlement_for_attempt(&tx, &workspace_id, &attempt_id)?;
             tx.commit().map_err(storage_error)?;
             return Ok((
                 ExecutionPreparation {
                     attempt: Box::new(saved),
                     reservation: reservation.map(Box::new),
+                    live_order_settlement: live_order_settlement.map(Box::new),
                 },
                 Vec::new(),
             ));
@@ -4922,6 +4982,7 @@ impl Store {
             ExecutionPreparation {
                 attempt: Box::new(saved_attempt),
                 reservation: Some(Box::new(saved_reservation)),
+                live_order_settlement: None,
             },
             vec![
                 approval_event,
@@ -4985,6 +5046,7 @@ impl Store {
                 ExecutionPreparation {
                     attempt: Box::new(saved),
                     reservation: None,
+                    live_order_settlement: None,
                 },
                 Vec::new(),
             ));
@@ -5196,6 +5258,7 @@ impl Store {
             ExecutionPreparation {
                 attempt: Box::new(saved_attempt),
                 reservation: None,
+                live_order_settlement: None,
             },
             vec![approval_event, attempt_event],
         ))
@@ -6239,6 +6302,40 @@ impl Store {
             return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
         }
         let events = save_account_tx(&tx, account, previous + 1, &timestamp()?)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(events)
+    }
+
+    pub fn save_account_with_live_order_settlements(
+        &mut self,
+        account: AccountConnection,
+        observations: Vec<crate::provider_io::LiveOrderObservation>,
+    ) -> Result<Vec<DomainEvent>> {
+        let now = timestamp()?;
+        let observed_account = account.clone();
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let previous: i64 = tx
+            .query_row(
+                "SELECT COALESCE((SELECT sequence FROM accounts WHERE connection_id=?1),0)",
+                [&account.connection_id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if previous < 0 || previous >= MAX_SEQUENCE as i64 {
+            return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
+        }
+        let mut events = save_account_tx(&tx, account, previous + 1, &now)?;
+        for observation in observations {
+            events.extend(settle_live_order_observation_tx(
+                &tx,
+                &observed_account,
+                observation,
+                &now,
+            )?);
+        }
         tx.commit().map_err(storage_error)?;
         Ok(events)
     }
@@ -12969,8 +13066,11 @@ fn write_execution_reservation_tx(
     if reservation.amount.is_empty()
         || reservation.capacity_key.is_empty()
         || reservation.unit.is_empty()
-        || crate::provider_io::decimal_cmp(&reservation.amount, "0")? != std::cmp::Ordering::Greater
     {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let amount = normalize_order_decimal(&reservation.amount, "reservationAmount")?;
+    if amount != reservation.amount {
         return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
     }
     let previous: Option<(i64, String, String)> = tx
@@ -12982,9 +13082,15 @@ fn write_execution_reservation_tx(
         .optional()
         .map_err(storage_error)?;
     match (&previous, reservation.status) {
-        (None, ExecutionReservationStatus::Active) => {}
-        (Some((_, previous_status, projection)), ExecutionReservationStatus::Released)
-            if previous_status == "ACTIVE" =>
+        (None, ExecutionReservationStatus::Active)
+            if crate::provider_io::decimal_cmp(&reservation.amount, "0")?
+                == std::cmp::Ordering::Greater => {}
+        (Some((_, previous_status, projection)), status)
+            if previous_status == "ACTIVE"
+                && matches!(
+                    status,
+                    ExecutionReservationStatus::Active | ExecutionReservationStatus::Released
+                ) =>
         {
             let active: ExecutionReservation = serde_json::from_str(projection)
                 .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
@@ -12994,9 +13100,13 @@ fn write_execution_reservation_tx(
                 || active.account_id != reservation.account_id
                 || active.attempt_id != reservation.attempt_id
                 || active.proposal_id != reservation.proposal_id
-                || active.amount != reservation.amount
+                || crate::provider_io::decimal_cmp(&reservation.amount, &active.amount)?
+                    == std::cmp::Ordering::Greater
                 || active.unit != reservation.unit
                 || active.capacity_key != reservation.capacity_key
+                || active.proposal_hash != reservation.proposal_hash
+                || active.instrument_id != reservation.instrument_id
+                || active.side != reservation.side
             {
                 return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
             }
@@ -13046,13 +13156,17 @@ fn write_execution_reservation_tx(
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
     }
+    let event_type = match (&previous, reservation.status) {
+        (None, ExecutionReservationStatus::Active) => "trade.reservation.created",
+        (Some(_), ExecutionReservationStatus::Active) => "trade.reservation.adjusted",
+        (Some(_), ExecutionReservationStatus::Released) => "trade.reservation.released",
+        (None, ExecutionReservationStatus::Released) => {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+    };
     let event = DomainEvent {
         event_id: Uuid::new_v4().to_string(),
-        event_type: match reservation.status {
-            ExecutionReservationStatus::Active => "trade.reservation.created",
-            ExecutionReservationStatus::Released => "trade.reservation.released",
-        }
-        .into(),
+        event_type: event_type.into(),
         schema_version: 1,
         occurred_at: occurred_at.into(),
         aggregate_type: "execution-reservation".into(),
@@ -13121,6 +13235,9 @@ fn write_execution_attempt_tx(
             ) | (
                 ExecutionAttemptState::UnknownReconciling,
                 ExecutionAttemptState::Accepted
+            ) | (
+                ExecutionAttemptState::Accepted,
+                ExecutionAttemptState::Accepted
             )
         );
         let mut comparable_previous = previous_attempt.clone();
@@ -13180,6 +13297,21 @@ fn write_execution_attempt_tx(
                 comparable_previous.broker_order_id = attempt.broker_order_id.clone();
                 comparable_previous.provider_status = attempt.provider_status.clone();
                 comparable_previous.error_code = attempt.error_code.clone();
+            }
+            (ExecutionAttemptState::Accepted, ExecutionAttemptState::Accepted) => {
+                if previous_attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+                    || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+                    || previous_attempt.broker_order_id != attempt.broker_order_id
+                    || previous_attempt.provider_status.is_none()
+                    || !attempt
+                        .provider_status
+                        .as_deref()
+                        .is_some_and(|status| valid_order_text(status, 64))
+                    || previous_attempt.error_code != attempt.error_code
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                comparable_previous.provider_status = attempt.provider_status.clone();
             }
             _ => {}
         }
@@ -13848,6 +13980,611 @@ fn save_account_tx(
     )
     .map_err(storage_error)?;
     events.push(event);
+    Ok(events)
+}
+
+fn live_context_for_provider(provider_id: &str) -> Option<ExecutionContext> {
+    match provider_id {
+        "trading212" => Some(ExecutionContext::Trading212Live),
+        "binance" => Some(ExecutionContext::BinanceLive),
+        "bitget" => Some(ExecutionContext::BitgetLive),
+        _ => None,
+    }
+}
+
+fn normalize_live_fees(fees: &[LiveOrderFee]) -> Result<Vec<LiveOrderFee>> {
+    let mut totals = std::collections::BTreeMap::<String, String>::new();
+    for fee in fees {
+        let asset = fee.asset.to_ascii_uppercase();
+        if asset.is_empty()
+            || asset.len() > 16
+            || !asset
+                .bytes()
+                .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let amount = normalize_order_decimal(&fee.amount, "feeAmount")?;
+        let total = totals.entry(asset).or_insert_with(|| "0".into());
+        *total = crate::portfolio::decimal_add(total, &amount)?;
+    }
+    Ok(totals
+        .into_iter()
+        .map(|(asset, amount)| LiveOrderFee { asset, amount })
+        .collect())
+}
+
+fn normalize_live_trade_facts(facts: &[LiveOrderTradeFact]) -> Result<Vec<LiveOrderTradeFact>> {
+    if facts.len() > 2_000 {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    let mut unique = std::collections::BTreeMap::<String, LiveOrderTradeFact>::new();
+    for fact in facts {
+        if !valid_order_text(&fact.provider_trade_id, 128) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let quantity = normalize_order_decimal(&fact.quantity, "fillQuantity")?;
+        let value = normalize_order_decimal(&fact.value, "fillValue")?;
+        if crate::provider_io::decimal_cmp(&quantity, "0")? != std::cmp::Ordering::Greater
+            || crate::provider_io::decimal_cmp(&value, "0")? != std::cmp::Ordering::Greater
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let normalized = LiveOrderTradeFact {
+            provider_trade_id: fact.provider_trade_id.clone(),
+            quantity,
+            value,
+            fees: normalize_live_fees(&fact.fees)?,
+        };
+        if unique
+            .insert(normalized.provider_trade_id.clone(), normalized.clone())
+            .is_some_and(|previous| previous != normalized)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+    }
+    Ok(unique.into_values().collect())
+}
+
+fn live_trade_fact_state_tx(
+    tx: &Transaction<'_>,
+    workspace_id: &str,
+    attempt_id: &str,
+    incoming: &[LiveOrderTradeFact],
+    complete: bool,
+) -> Result<(u32, Vec<LiveOrderTradeFact>, Option<&'static str>)> {
+    let existing_count: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM live_order_trade_facts WHERE workspace_id=?1 AND attempt_id=?2",
+            params![workspace_id, attempt_id],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    if !(0..=2_000).contains(&existing_count) {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let mut new_facts = Vec::new();
+    for fact in incoming {
+        let previous: Option<String> = tx
+            .query_row(
+                "SELECT projection FROM live_order_trade_facts WHERE workspace_id=?1 AND attempt_id=?2 AND provider_trade_id=?3",
+                params![workspace_id, attempt_id, fact.provider_trade_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        match previous {
+            Some(projection) => {
+                let previous: LiveOrderTradeFact = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if previous != *fact {
+                    return Ok((
+                        existing_count as u32,
+                        Vec::new(),
+                        Some("PROVIDER_TRADE_CONFLICT"),
+                    ));
+                }
+            }
+            None => new_facts.push(fact.clone()),
+        }
+    }
+    let count = existing_count
+        .checked_add(new_facts.len() as i64)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if count > 2_000 {
+        return Ok((
+            existing_count as u32,
+            Vec::new(),
+            Some("PROVIDER_TRADE_LIMIT_EXCEEDED"),
+        ));
+    }
+    if complete && count != incoming.len() as i64 {
+        return Ok((
+            existing_count as u32,
+            Vec::new(),
+            Some("FILL_EVIDENCE_INCOMPLETE"),
+        ));
+    }
+    Ok((count as u32, new_facts, None))
+}
+
+fn live_trade_totals_match(
+    facts: &[LiveOrderTradeFact],
+    quantity: &str,
+    value: &str,
+    fees: &[LiveOrderFee],
+) -> Result<bool> {
+    let mut quantity_total = "0".to_owned();
+    let mut value_total = "0".to_owned();
+    let mut fee_totals = std::collections::BTreeMap::<String, String>::new();
+    for fact in facts {
+        quantity_total = crate::portfolio::decimal_add(&quantity_total, &fact.quantity)?;
+        value_total = crate::portfolio::decimal_add(&value_total, &fact.value)?;
+        for fee in &fact.fees {
+            let total = fee_totals
+                .entry(fee.asset.clone())
+                .or_insert_with(|| "0".into());
+            *total = crate::portfolio::decimal_add(total, &fee.amount)?;
+        }
+    }
+    Ok(quantity_total == quantity
+        && value_total == value
+        && normalize_live_fees(
+            &fee_totals
+                .into_iter()
+                .map(|(asset, amount)| LiveOrderFee { asset, amount })
+                .collect::<Vec<_>>(),
+        )? == fees)
+}
+
+fn live_settlement_for_attempt(
+    connection: &Connection,
+    workspace_id: &str,
+    attempt_id: &str,
+) -> Result<Option<LiveOrderSettlement>> {
+    let row: Option<(i64, String)> = connection
+        .query_row(
+            "SELECT sequence,projection FROM live_order_settlements WHERE workspace_id=?1 AND attempt_id=?2",
+            params![workspace_id, attempt_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some((sequence, projection)) = row else {
+        return Ok(None);
+    };
+    let settlement: LiveOrderSettlement = serde_json::from_str(&projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if sequence < 1
+        || settlement.workspace_id != workspace_id
+        || settlement.attempt_id != attempt_id
+        || settlement.state_version != format!("live-order-settlement:{attempt_id}:{sequence}")
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(Some(settlement))
+}
+
+fn write_live_order_settlement_tx(
+    tx: &Transaction<'_>,
+    mut settlement: LiveOrderSettlement,
+    occurred_at: &str,
+) -> Result<DomainEvent> {
+    let previous: Option<i64> = tx
+        .query_row(
+            "SELECT sequence FROM live_order_settlements WHERE workspace_id=?1 AND attempt_id=?2",
+            params![settlement.workspace_id, settlement.attempt_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let sequence = previous
+        .unwrap_or(0)
+        .checked_add(1)
+        .filter(|sequence| *sequence <= MAX_SEQUENCE as i64)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    settlement.state_version =
+        format!("live-order-settlement:{}:{sequence}", settlement.attempt_id);
+    let projection = serde_json::to_string(&settlement).map_err(storage_error)?;
+    if previous.is_some() {
+        tx.execute(
+            "UPDATE live_order_settlements SET account_id=?1,sequence=?2,projection=?3 WHERE workspace_id=?4 AND attempt_id=?5",
+            params![settlement.account_id, sequence, projection, settlement.workspace_id, settlement.attempt_id],
+        )
+        .map_err(storage_error)?;
+    } else {
+        tx.execute(
+            "INSERT INTO live_order_settlements(workspace_id,attempt_id,account_id,sequence,projection) VALUES(?1,?2,?3,?4,?5)",
+            params![settlement.workspace_id, settlement.attempt_id, settlement.account_id, sequence, projection],
+        )
+        .map_err(storage_error)?;
+    }
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: "trade.live_order.settlement.changed".into(),
+        schema_version: 1,
+        occurred_at: occurred_at.into(),
+        aggregate_type: "live-order-settlement".into(),
+        aggregate_id: settlement.attempt_id.clone(),
+        sequence: sequence as u64,
+        payload: DomainProjection::LiveOrderSettlement(Box::new(settlement)),
+    };
+    tx.execute(
+        "INSERT INTO outbox VALUES('live-order-settlement',?1,?2,?3,?4)",
+        params![
+            event.aggregate_id,
+            sequence,
+            event.event_id,
+            serde_json::to_string(&event).map_err(storage_error)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(event)
+}
+
+fn find_live_place_attempt_tx(
+    tx: &Transaction<'_>,
+    account: &AccountConnection,
+    provider_order_id: &str,
+) -> Result<Option<ExecutionAttempt>> {
+    let Some(expected_environment) = live_context_for_provider(&account.provider_id) else {
+        return Ok(None);
+    };
+    if account.environment != "LIVE" || !valid_order_text(provider_order_id, 128) {
+        return Ok(None);
+    }
+    let attempts = {
+        let mut statement = tx
+            .prepare("SELECT attempt_id FROM execution_attempts WHERE workspace_id=?1 AND account_id=?2 AND operation='PLACE_ORDER' AND state='ACCEPTED' ORDER BY attempt_id")
+            .map_err(storage_error)?;
+        statement
+            .query_map(
+                params![account.workspace_id, account.connection_id],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?
+    };
+    let mut matching = None;
+    for attempt_id in attempts {
+        let Some(attempt) = load_execution_attempt(tx, &account.workspace_id, &attempt_id)? else {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        };
+        if attempt.operation == crate::protocol::FinancialOperation::PlaceOrder
+            && attempt.state == ExecutionAttemptState::Accepted
+            && attempt.environment == expected_environment
+            && attempt.account_id == account.connection_id
+            && attempt.broker_order_id.as_deref() == Some(provider_order_id)
+        {
+            if matching.is_some() {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            matching = Some(attempt);
+        }
+    }
+    Ok(matching)
+}
+
+fn settle_live_order_observation_tx(
+    tx: &Transaction<'_>,
+    account: &AccountConnection,
+    observation: crate::provider_io::LiveOrderObservation,
+    occurred_at: &str,
+) -> Result<Vec<DomainEvent>> {
+    let Some(attempt) = find_live_place_attempt_tx(tx, account, &observation.provider_order_id)?
+    else {
+        return Ok(Vec::new());
+    };
+    let reservation_id = attempt
+        .reservation_id
+        .as_deref()
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    let Some(mut reservation) =
+        load_execution_reservation_for_attempt(tx, &account.workspace_id, &attempt.attempt_id)?
+    else {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    };
+    if reservation.reservation_id != reservation_id
+        || reservation.workspace_id != account.workspace_id
+        || reservation.account_id != account.connection_id
+        || reservation.attempt_id != attempt.attempt_id
+        || reservation.proposal_id != attempt.intent_id
+        || reservation.status == ExecutionReservationStatus::Released
+            && live_settlement_for_attempt(tx, &account.workspace_id, &attempt.attempt_id)?
+                .is_none()
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let previous = live_settlement_for_attempt(tx, &account.workspace_id, &attempt.attempt_id)?;
+    if previous.as_ref().is_some_and(|saved| {
+        saved.reservation_id != reservation.reservation_id
+            || saved.provider_order_id != observation.provider_order_id
+            || saved.remaining_commitment != reservation.amount
+    }) {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+
+    let normalize = |value: Option<&str>, field: &str| {
+        value.and_then(|value| normalize_order_decimal(value, field).ok())
+    };
+    let incoming_quantity = normalize(observation.filled_quantity.as_deref(), "filledQuantity");
+    let incoming_value = normalize(observation.filled_value.as_deref(), "filledValue");
+    let incoming_fees = observation
+        .fees
+        .as_deref()
+        .and_then(|fees| normalize_live_fees(fees).ok());
+    let incoming_facts = normalize_live_trade_facts(&observation.trade_facts).ok();
+    let provider_time = observation
+        .provider_observed_at
+        .as_deref()
+        .filter(|value| valid_provider_time(value))
+        .map(str::to_owned);
+    let provider_status = observation
+        .raw_status
+        .is_ascii()
+        .then_some(observation.raw_status.as_str())
+        .filter(|status| valid_order_text(status, 64))
+        .map(str::to_owned);
+    if let (Some(previous_time), Some(incoming_time)) = (
+        previous
+            .as_ref()
+            .and_then(|saved| saved.provider_observed_at.as_deref()),
+        provider_time.as_deref(),
+    ) {
+        let previous_time = OffsetDateTime::parse(previous_time, &Rfc3339)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        let incoming_time = OffsetDateTime::parse(incoming_time, &Rfc3339)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if incoming_time < previous_time {
+            return Ok(Vec::new());
+        }
+    }
+    if previous
+        .as_ref()
+        .is_some_and(|saved| saved.status == LiveOrderSettlementStatus::Settled)
+    {
+        let saved = previous.as_ref().unwrap();
+        if provider_status.as_deref() == saved.provider_status.as_deref()
+            && observation.disposition == saved.disposition
+            && incoming_quantity.as_deref() == saved.filled_quantity.as_deref()
+            && incoming_value.as_deref() == saved.filled_value.as_deref()
+            && incoming_fees.as_ref() == saved.fees.as_ref()
+        {
+            return Ok(Vec::new());
+        }
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+
+    let mut next = previous.clone().unwrap_or_else(|| LiveOrderSettlement {
+        workspace_id: account.workspace_id.clone(),
+        account_id: account.connection_id.clone(),
+        attempt_id: attempt.attempt_id.clone(),
+        reservation_id: reservation.reservation_id.clone(),
+        provider_order_id: observation.provider_order_id.clone(),
+        provider_status: None,
+        disposition: observation.disposition,
+        status: LiveOrderSettlementStatus::Incomplete,
+        filled_quantity: None,
+        filled_value: None,
+        fees: None,
+        fill_evidence_complete: false,
+        fees_complete: false,
+        trade_facts_complete: false,
+        provider_trade_count: 0,
+        source: "account.refresh".into(),
+        provider_observed_at: None,
+        observed_at: occurred_at.into(),
+        initial_commitment: reservation.amount.clone(),
+        remaining_commitment: reservation.amount.clone(),
+        unresolved_reason: None,
+        state_version: String::new(),
+    });
+    let initial_commitment = next.initial_commitment.clone();
+    let mut reason = None;
+    if provider_status.is_none() || provider_time.is_none() {
+        reason = Some("PROVIDER_EVIDENCE_INVALID");
+    }
+    if incoming_quantity.is_none() || incoming_value.is_none() {
+        reason.get_or_insert("FILL_EVIDENCE_INCOMPLETE");
+    }
+    if observation.fees.is_none() || incoming_fees.is_none() {
+        reason.get_or_insert("FEE_EVIDENCE_INCOMPLETE");
+    }
+    if observation.trade_facts_complete && incoming_facts.is_none() {
+        reason.get_or_insert("PROVIDER_EVIDENCE_INVALID");
+    }
+    if !observation.trade_facts_complete {
+        reason.get_or_insert("FILL_EVIDENCE_INCOMPLETE");
+    }
+    let (trade_count, new_facts, trade_reason) = if let Some(facts) = incoming_facts.as_deref() {
+        live_trade_fact_state_tx(
+            tx,
+            &account.workspace_id,
+            &attempt.attempt_id,
+            facts,
+            observation.trade_facts_complete,
+        )?
+    } else {
+        (
+            next.provider_trade_count,
+            Vec::new(),
+            Some("PROVIDER_EVIDENCE_INVALID"),
+        )
+    };
+    if let Some(trade_reason) = trade_reason {
+        reason.get_or_insert(trade_reason);
+    }
+
+    let mut decrease = false;
+    if let (Some(previous), Some(incoming)) = (
+        next.filled_quantity.as_deref(),
+        incoming_quantity.as_deref(),
+    ) {
+        decrease |=
+            crate::provider_io::decimal_cmp(incoming, previous)? == std::cmp::Ordering::Less;
+    }
+    if let (Some(previous), Some(incoming)) =
+        (next.filled_value.as_deref(), incoming_value.as_deref())
+    {
+        decrease |=
+            crate::provider_io::decimal_cmp(incoming, previous)? == std::cmp::Ordering::Less;
+    }
+    if let (Some(previous), Some(incoming)) = (next.fees.as_deref(), incoming_fees.as_deref()) {
+        for fee in previous {
+            let latest = incoming
+                .iter()
+                .find(|candidate| candidate.asset == fee.asset)
+                .map_or("0", |candidate| candidate.amount.as_str());
+            decrease |=
+                crate::provider_io::decimal_cmp(latest, &fee.amount)? == std::cmp::Ordering::Less;
+        }
+    }
+    if decrease {
+        reason.get_or_insert("CUMULATIVE_EVIDENCE_DECREASED");
+    }
+
+    let fills_are_monotonic = !decrease;
+    if fills_are_monotonic {
+        if let Some(quantity) = &incoming_quantity {
+            next.filled_quantity = Some(quantity.clone());
+        }
+        if let Some(value) = &incoming_value {
+            next.filled_value = Some(value.clone());
+        }
+        if let Some(fees) = &incoming_fees {
+            next.fees = Some(fees.clone());
+        }
+    }
+    next.provider_status = provider_status;
+    next.disposition = observation.disposition;
+    next.fill_evidence_complete = incoming_quantity.is_some() && incoming_value.is_some();
+    next.fees_complete = observation.fees.is_some() && incoming_fees.is_some();
+    next.trade_facts_complete = observation.trade_facts_complete && incoming_facts.is_some();
+    next.source = "account.refresh".into();
+    if provider_time.is_some() {
+        next.provider_observed_at = provider_time;
+    }
+
+    if reason.is_none() {
+        let facts = incoming_facts.as_deref().unwrap_or_default();
+        let quantity = incoming_quantity.as_deref().unwrap();
+        let value = incoming_value.as_deref().unwrap();
+        let fees = incoming_fees.as_deref().unwrap();
+        if !live_trade_totals_match(facts, quantity, value, fees)? {
+            reason = Some("FILL_EVIDENCE_CONFLICT");
+        }
+    }
+    let mut new_remaining = reservation.amount.clone();
+    if reason.is_none() {
+        let quantity = incoming_quantity.as_deref().unwrap();
+        let value = incoming_value.as_deref().unwrap();
+        let fees = incoming_fees.as_deref().unwrap();
+        let consumed = match reservation.side {
+            crate::protocol::OrderSide::Buy => {
+                let fee = fees
+                    .iter()
+                    .find(|fee| fee.asset.eq_ignore_ascii_case(&reservation.unit))
+                    .map_or("0", |fee| fee.amount.as_str());
+                crate::portfolio::decimal_add(value, fee)?
+            }
+            crate::protocol::OrderSide::Sell => {
+                let fee = fees
+                    .iter()
+                    .find(|fee| fee.asset.eq_ignore_ascii_case(&reservation.unit))
+                    .map_or("0", |fee| fee.amount.as_str());
+                crate::portfolio::decimal_add(quantity, fee)?
+            }
+        };
+        if crate::provider_io::decimal_cmp(&consumed, &initial_commitment)?
+            == std::cmp::Ordering::Greater
+        {
+            reason = Some("SETTLEMENT_EXCEEDS_COMMITMENT");
+        } else {
+            new_remaining = crate::provider_io::decimal_subtract(&initial_commitment, &consumed)?;
+            if crate::provider_io::decimal_cmp(&new_remaining, &reservation.amount)?
+                == std::cmp::Ordering::Greater
+            {
+                reason = Some("CUMULATIVE_EVIDENCE_DECREASED");
+                new_remaining = reservation.amount.clone();
+            }
+        }
+    }
+
+    if reason.is_none() && observation.disposition == LiveOrderDisposition::Unknown {
+        reason = Some("ORDER_STATUS_UNRESOLVED");
+    }
+    next.status = if reason.is_some() {
+        LiveOrderSettlementStatus::Incomplete
+    } else if observation.disposition == LiveOrderDisposition::Terminal {
+        LiveOrderSettlementStatus::Settled
+    } else {
+        LiveOrderSettlementStatus::Working
+    };
+    next.unresolved_reason = reason.map(str::to_owned);
+    next.initial_commitment = initial_commitment;
+    next.remaining_commitment = if next.status == LiveOrderSettlementStatus::Incomplete {
+        reservation.amount.clone()
+    } else {
+        new_remaining.clone()
+    };
+    next.observed_at = occurred_at.into();
+    next.provider_trade_count = trade_count;
+
+    let mut events = Vec::new();
+    let comparable_same = previous.as_ref().is_some_and(|saved| {
+        let mut candidate = next.clone();
+        candidate.state_version = saved.state_version.clone();
+        candidate.observed_at = saved.observed_at.clone();
+        candidate.provider_observed_at = saved.provider_observed_at.clone();
+        candidate == *saved
+    });
+    if comparable_same {
+        return Ok(events);
+    }
+    let settlement_event = write_live_order_settlement_tx(tx, next.clone(), occurred_at)?;
+    events.push(settlement_event);
+    if let Some(provider_status) = next.provider_status.as_deref()
+        && attempt.provider_status.as_deref() != Some(provider_status)
+    {
+        let mut updated_attempt = attempt.clone();
+        updated_attempt.provider_status = Some(provider_status.into());
+        let idempotency_key =
+            execution_attempt_idempotency_key(tx, &account.workspace_id, &updated_attempt)?;
+        events.push(write_execution_attempt_tx(
+            tx,
+            updated_attempt,
+            &idempotency_key,
+            occurred_at,
+        )?);
+    }
+    for fact in new_facts {
+        tx.execute(
+            "INSERT INTO live_order_trade_facts(workspace_id,attempt_id,provider_trade_id,projection) VALUES(?1,?2,?3,?4)",
+            params![
+                account.workspace_id,
+                attempt.attempt_id,
+                fact.provider_trade_id,
+                serde_json::to_string(&fact).map_err(storage_error)?
+            ],
+        )
+        .map_err(storage_error)?;
+    }
+    if next.status != LiveOrderSettlementStatus::Incomplete
+        && (reservation.amount != new_remaining
+            || (next.status == LiveOrderSettlementStatus::Settled
+                && reservation.status != ExecutionReservationStatus::Released))
+    {
+        reservation.amount = new_remaining;
+        if next.status == LiveOrderSettlementStatus::Settled {
+            reservation.status = ExecutionReservationStatus::Released;
+        }
+        events.push(write_execution_reservation_tx(
+            tx,
+            reservation,
+            occurred_at,
+        )?);
+    }
     Ok(events)
 }
 

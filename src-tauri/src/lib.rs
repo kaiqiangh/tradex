@@ -6655,7 +6655,15 @@ impl ControlPlane {
         None
     }
 
-    fn persist_account(&mut self, mut account: AccountConnection) -> Result<AccountConnection> {
+    fn persist_account(&mut self, account: AccountConnection) -> Result<AccountConnection> {
+        self.persist_account_with_live_order_settlements(account, Vec::new())
+    }
+
+    fn persist_account_with_live_order_settlements(
+        &mut self,
+        mut account: AccountConnection,
+        settlements: Vec<provider_io::LiveOrderObservation>,
+    ) -> Result<AccountConnection> {
         let previous = self
             .store
             .as_ref()
@@ -6679,11 +6687,12 @@ impl ControlPlane {
                 account.health.arming_reason = reason.into();
             }
         }
-        let events = self
-            .store
-            .as_mut()
-            .unwrap()
-            .save_account_with_events(account)?;
+        let store = self.store.as_mut().unwrap();
+        let events = if settlements.is_empty() {
+            store.save_account_with_events(account)?
+        } else {
+            store.save_account_with_live_order_settlements(account, settlements)?
+        };
         let saved = events
             .iter()
             .find_map(|event| match &event.payload {
@@ -10680,7 +10689,7 @@ impl ControlPlane {
             a.health.connection = "ONLINE".into();
             a.health.authentication = "VALID".into();
             a.health.reason = "Read-only account data loaded. Trading, private streams and reconciliation are not configured.".into();
-            self.persist_account(a)
+            self.persist_account_with_live_order_settlements(a, observed.live_order_settlements)
         })();
         match result {
             Ok(a) => {
@@ -12471,6 +12480,12 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute("DROP TABLE cancellation_intents", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE live_order_trade_facts", [])
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE live_order_settlements", [])
             .unwrap();
         migration_database
             .execute("DROP TABLE resolution_evidence", [])
@@ -15712,6 +15727,389 @@ mod live_approval_tests {
         )
     }
 
+    fn refresh_live_order_settlement(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account_id: &str,
+        settlement: provider_io::LiveOrderObservation,
+    ) -> Value {
+        let account = control.store.as_ref().unwrap().account(account_id).unwrap();
+        let job = control
+            .prepare_provider_for(
+                &request(
+                    "account.refresh",
+                    json!({
+                        "workspaceId": workspace_id,
+                        "connectionId": account_id,
+                        "expectedStateVersion": account.state_version,
+                    }),
+                ),
+                "main",
+            )
+            .unwrap()
+            .unwrap();
+        let result = control.complete_provider(
+            &job,
+            provider_io::ProviderOutcome {
+                observation: Some(provider_io::Observation {
+                    data: account.data.clone().unwrap(),
+                    permissions: account.permissions.clone(),
+                    live_order_settlements: vec![settlement],
+                }),
+                error: None,
+                credential: "CONFIGURED".into(),
+                trading212_demo_attempt: None,
+                trading212_demo_order_book: None,
+                alpaca_paper_attempt: None,
+                alpaca_paper_order_book: None,
+                binance_testnet_attempt: None,
+                binance_testnet_order_book: None,
+                bitget_demo_attempt: None,
+                resolution_evidence: None,
+            },
+        );
+        assert_eq!(result["ok"], true, "{result}");
+        result
+    }
+
+    #[test]
+    fn live_order_fill_settlement_reduces_capacity_and_releases_terminal_remainder_once() {
+        let (folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (approval, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "s26-live-fill-settlement",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let reservation_id = prepared["data"]["reservation"]["reservationId"]
+            .as_str()
+            .unwrap();
+        let original_amount = prepared["data"]["reservation"]["amount"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "s26-gateway")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "s26-gateway")
+            .unwrap();
+        control
+            .complete_live_execution_submission(
+                attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::Accepted,
+                    broker_order_id: Some("7000000000".into()),
+                    provider_status: Some("NEW".into()),
+                    error_code: None,
+                },
+            )
+            .unwrap();
+
+        let first_at = storage::timestamp().unwrap();
+        let partial = provider_io::LiveOrderObservation {
+            provider_order_id: "7000000000".into(),
+            raw_status: "PARTIALLY_FILLED".into(),
+            disposition: protocol::LiveOrderDisposition::Working,
+            filled_quantity: Some("1".into()),
+            filled_value: Some("100".into()),
+            fees: Some(vec![protocol::LiveOrderFee {
+                asset: "USD".into(),
+                amount: "0.25".into(),
+            }]),
+            trade_facts_complete: true,
+            trade_facts: vec![protocol::LiveOrderTradeFact {
+                provider_trade_id: "trade-1".into(),
+                quantity: "1".into(),
+                value: "100".into(),
+                fees: vec![protocol::LiveOrderFee {
+                    asset: "USD".into(),
+                    amount: "0.25".into(),
+                }],
+            }],
+            provider_observed_at: Some(first_at.clone()),
+        };
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            partial.clone(),
+        );
+        let after_partial = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            after_partial.reservation.as_ref().unwrap().amount,
+            crate::provider_io::decimal_subtract(&original_amount, "100.25").unwrap()
+        );
+        let partial_sequence = after_partial
+            .reservation
+            .as_ref()
+            .unwrap()
+            .state_version
+            .clone();
+
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            partial.clone(),
+        );
+        let duplicate = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            duplicate.reservation.as_ref().unwrap().state_version,
+            partial_sequence
+        );
+        assert_eq!(
+            duplicate.attempt.provider_status.as_deref(),
+            Some("PARTIALLY_FILLED")
+        );
+
+        let stale_at = (OffsetDateTime::parse(&first_at, &Rfc3339).unwrap()
+            - TimeDuration::seconds(1))
+        .format(&Rfc3339)
+        .unwrap();
+        let mut stale = partial.clone();
+        stale.raw_status = "NEW".into();
+        stale.filled_quantity = Some("0.5".into());
+        stale.filled_value = Some("50".into());
+        stale.fees = Some(vec![protocol::LiveOrderFee {
+            asset: "USD".into(),
+            amount: "0.12".into(),
+        }]);
+        stale.trade_facts_complete = false;
+        stale.trade_facts.clear();
+        stale.provider_observed_at = Some(stale_at);
+        refresh_live_order_settlement(&mut control, &workspace_id, &account.connection_id, stale);
+        let after_stale = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            after_stale.reservation.as_ref().unwrap().state_version,
+            partial_sequence
+        );
+        assert_eq!(
+            after_stale.attempt.provider_status.as_deref(),
+            Some("PARTIALLY_FILLED")
+        );
+
+        let incomplete_at = (OffsetDateTime::parse(&first_at, &Rfc3339).unwrap()
+            + TimeDuration::seconds(1))
+        .format(&Rfc3339)
+        .unwrap();
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            provider_io::LiveOrderObservation {
+                provider_order_id: "7000000000".into(),
+                raw_status: "CANCELED".into(),
+                disposition: protocol::LiveOrderDisposition::Terminal,
+                filled_quantity: Some("1".into()),
+                filled_value: Some("100".into()),
+                fees: None,
+                trade_facts_complete: false,
+                trade_facts: Vec::new(),
+                provider_observed_at: Some(incomplete_at),
+            },
+        );
+        let incomplete = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            incomplete.live_order_settlement.as_ref().unwrap().status,
+            protocol::LiveOrderSettlementStatus::Incomplete
+        );
+        assert_eq!(
+            incomplete
+                .live_order_settlement
+                .as_ref()
+                .unwrap()
+                .unresolved_reason
+                .as_deref(),
+            Some("FEE_EVIDENCE_INCOMPLETE")
+        );
+        assert!(
+            !incomplete
+                .live_order_settlement
+                .as_ref()
+                .unwrap()
+                .fees_complete
+        );
+        assert_eq!(
+            incomplete.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(
+            incomplete.reservation.as_ref().unwrap().amount,
+            crate::provider_io::decimal_subtract(&original_amount, "100.25").unwrap()
+        );
+
+        let terminal_at = (OffsetDateTime::parse(&first_at, &Rfc3339).unwrap()
+            + TimeDuration::seconds(2))
+        .format(&Rfc3339)
+        .unwrap();
+        let terminal_observation = provider_io::LiveOrderObservation {
+            provider_order_id: "7000000000".into(),
+            raw_status: "CANCELED".into(),
+            disposition: protocol::LiveOrderDisposition::Terminal,
+            filled_quantity: Some("1".into()),
+            filled_value: Some("100".into()),
+            fees: Some(vec![protocol::LiveOrderFee {
+                asset: "USD".into(),
+                amount: "0.25".into(),
+            }]),
+            trade_facts_complete: true,
+            trade_facts: vec![protocol::LiveOrderTradeFact {
+                provider_trade_id: "trade-1".into(),
+                quantity: "1".into(),
+                value: "100".into(),
+                fees: vec![protocol::LiveOrderFee {
+                    asset: "USD".into(),
+                    amount: "0.25".into(),
+                }],
+            }],
+            provider_observed_at: Some(terminal_at),
+        };
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            terminal_observation.clone(),
+        );
+        let terminal = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            terminal.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Released
+        );
+        assert_eq!(
+            terminal.reservation.as_ref().unwrap().amount,
+            crate::provider_io::decimal_subtract(&original_amount, "100.25").unwrap()
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .iter()
+                .all(|reservation| reservation.reservation_id != reservation_id)
+        );
+        let terminal_sequence = terminal
+            .live_order_settlement
+            .as_ref()
+            .unwrap()
+            .state_version
+            .clone();
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            terminal_observation,
+        );
+        let after_terminal_duplicate = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("execution-reservation", reservation_id)
+            .unwrap();
+        assert_eq!(after_terminal_duplicate.last_sequence, 3);
+        let settlement_snapshot = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("live-order-settlement", attempt_id)
+            .unwrap();
+        assert_eq!(settlement_snapshot.last_sequence, 3);
+        let terminal_again = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            terminal_again
+                .live_order_settlement
+                .as_ref()
+                .unwrap()
+                .state_version,
+            terminal_sequence
+        );
+        assert_eq!(
+            terminal_again.attempt.provider_status.as_deref(),
+            Some("CANCELED")
+        );
+
+        drop(control);
+        let mut reopened = ControlPlane::new(folder.path().to_path_buf());
+        let reopened_workspace = dispatch(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(reopened_workspace["ok"], true, "{reopened_workspace}");
+        let saved = dispatch_main(
+            &mut reopened,
+            "trade.execution.preparation.get",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        assert_eq!(
+            saved["data"]["preparation"]["liveOrderSettlement"]["status"],
+            "SETTLED"
+        );
+        assert_eq!(
+            saved["data"]["preparation"]["liveOrderSettlement"]["providerOrderId"],
+            "7000000000"
+        );
+    }
+
     fn add_capacity_account(
         control: &mut ControlPlane,
         workspace_id: &str,
@@ -18438,6 +18836,7 @@ mod cancellation_approval_tests {
             observation: Some(provider_io::Observation {
                 data: connection.data.clone().unwrap(),
                 permissions: connection.permissions.clone(),
+                live_order_settlements: Vec::new(),
             }),
             error: None,
             credential: "CONFIGURED".into(),
@@ -18628,6 +19027,7 @@ mod cancellation_approval_tests {
                 observation: Some(provider_io::Observation {
                     data: connection.data.clone().unwrap(),
                     permissions: connection.permissions.clone(),
+                    live_order_settlements: Vec::new(),
                 }),
                 error: None,
                 credential: "CONFIGURED".into(),
@@ -19031,6 +19431,7 @@ mod cancellation_approval_tests {
                 observation: Some(provider_io::Observation {
                     data: connection.data.clone().unwrap(),
                     permissions: connection.permissions.clone(),
+                    live_order_settlements: Vec::new(),
                 }),
                 error: None,
                 credential: "CONFIGURED".into(),

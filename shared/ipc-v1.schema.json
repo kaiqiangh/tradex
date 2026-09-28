@@ -6003,6 +6003,7 @@
             "financial-approval",
             "execution-attempt",
             "execution-reservation",
+            "live-order-settlement",
             "execution-preparation",
             "resolution-evidence",
             "order-proposal-consumption",
@@ -6038,10 +6039,12 @@
             "trade.approval.consumed",
             "trade.approval.rejected",
             "trade.reservation.created",
+            "trade.reservation.adjusted",
             "trade.reservation.released",
             "trade.execution.attempt.changed",
             "trade.execution.preparation.rejected",
             "trade.resolution_evidence.changed",
+            "trade.live_order.settlement.changed",
             "trade.proposal.consumed",
             "thread.created",
             "thread.updated",
@@ -6116,6 +6119,9 @@
         },
         {
           "$ref": "#/$defs/ExecutionReservation"
+        },
+        {
+          "$ref": "#/$defs/LiveOrderSettlement"
         },
         {
           "$ref": "#/$defs/ExecutionPreparationRejection"
@@ -6411,6 +6417,16 @@
       "properties": {
         "attempt": {
           "$ref": "#/$defs/ExecutionAttempt"
+        },
+        "liveOrderSettlement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LiveOrderSettlement"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "reservation": {
           "anyOf": [
@@ -7371,6 +7387,180 @@
         "canArm",
         "reasonCode",
         "reason"
+      ]
+    },
+    "LiveOrderDisposition": {
+      "type": "string",
+      "enum": [
+        "WORKING",
+        "TERMINAL",
+        "UNKNOWN"
+      ]
+    },
+    "LiveOrderFee": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "amount"
+      ]
+    },
+    "LiveOrderSettlement": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "disposition": {
+          "$ref": "#/$defs/LiveOrderDisposition"
+        },
+        "fees": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/LiveOrderFee"
+          }
+        },
+        "feesComplete": {
+          "type": "boolean"
+        },
+        "fillEvidenceComplete": {
+          "type": "boolean"
+        },
+        "filledQuantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "filledValue": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "initialCommitment": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerTradeCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100000,
+          "minimum": 0
+        },
+        "remainingCommitment": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reservationId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/LiveOrderSettlementStatus"
+        },
+        "tradeFactsComplete": {
+          "type": "boolean"
+        },
+        "unresolvedReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "attemptId",
+        "reservationId",
+        "providerOrderId",
+        "disposition",
+        "status",
+        "fillEvidenceComplete",
+        "feesComplete",
+        "tradeFactsComplete",
+        "providerTradeCount",
+        "source",
+        "observedAt",
+        "initialCommitment",
+        "remainingCommitment",
+        "stateVersion"
+      ]
+    },
+    "LiveOrderSettlementStatus": {
+      "type": "string",
+      "enum": [
+        "WORKING",
+        "INCOMPLETE",
+        "SETTLED"
       ]
     },
     "LocalPaperBalance": {
@@ -13451,6 +13641,7 @@
             "financial-approval",
             "execution-attempt",
             "execution-reservation",
+            "live-order-settlement",
             "execution-preparation",
             "resolution-evidence",
             "order-proposal-consumption",
@@ -14113,6 +14304,7 @@
             "financial-approval",
             "execution-attempt",
             "execution-reservation",
+            "live-order-settlement",
             "execution-preparation",
             "resolution-evidence",
             "order-proposal-consumption",
@@ -15969,7 +16161,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 29,
+          "maximum": 30,
           "minimum": 1
         },
         "workspaceId": {

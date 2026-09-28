@@ -1880,7 +1880,7 @@ interface TradeXError {
 | 显式批准 | trade.approve | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；后端重新校验完整审阅并创建短时 approval；不消费、不创建 reservation |
 | 准备并发送已批准的 Live PLACE | trade.execution.prepare | workspace_id、approval_id、expected_approval_state_version、idempotency_key、confirmed=true；后端重新读取并校验精确 proposal/账户/策略/报价/FX/容量/时钟证据，然后原子消费 proposal 与 approval，并创建一个 `RESERVED` attempt 和精确 reservation。提交后 Control Plane 在内部启动 Gateway；Gateway 获取当前一次性许可并在持久化 `SUBMITTING` 后发送唯一一次 provider POST。结果持久化为 `ACCEPTED`（不是成交）、`REJECTED` 或 `UNKNOWN_RECONCILING`。相同幂等键重放只返回已保存状态，不会再次 POST。容量拒绝不执行 provider mutation，且保留 proposal/approval。 |
 | 准备并发送已批准的 Live CANCEL | trade.execution.prepare | 使用相同 workspace/approval/version/idempotency/confirmed payload；后端校验带 CANCEL 标签的 approval、精确当前意图/订单/账户/策略/快照证据，然后原子消费 approval 并写入一个 `RESERVED` attempt，且 `reservation=null`。提交后 Control Plane 在内部启动 Gateway；持久化 `SUBMITTING` 先于唯一一次精确 provider DELETE。提供方确认只成为 `CANCEL_PENDING`，不表示 `CANCELLED`；明确拒绝与结果未知保持不同状态。不消费 proposal、不创建 PLACE reservation。同幂等键重放只读取已保存状态，不会再次 DELETE。 |
-| 恢复 Live execution preparation | trade.execution.preparation.get | workspace_id、approval_id；响应丢失或重启后返回耐久的 `ExecutionPreparation | null`（适用时含 PLACE reservation）与容量拒绝历史。只读，不发送 provider request。 |
+| 恢复 Live execution preparation | trade.execution.preparation.get | workspace_id、approval_id；响应丢失或重启后返回耐久的 `ExecutionPreparation | null`（适用时含 PLACE reservation 和已关联的成交/费用结算）与容量拒绝历史。只读，不发送 provider request。 |
 | 拒绝审批审阅 | trade.reject | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；记录 `USER_REJECTED`；不创建 approval 或执行券商操作 |
 | 读取审批历史 | trade.approval.list | workspace_id、proposal_id；返回已签发、已拒绝、已失效、已过期及后续已消费状态和脱敏审计原因 |
 | 准备撤单审阅 | trade.cancel_request | workspace_id、account_id、broker_order_id、expected_state_version、可选 previous_intent_id；Control Plane 执行认证后的 Live 只读请求并持久化观测，返回含不可变意图 ID/hash、精确剩余数量、snapshot_version/evidence、账户、RiskDecision、阻断原因和 review digest 的 CancellationReview。Arm 后只有当订单语义身份/状态/数量未变化时才复用同一意图。 |
@@ -1904,6 +1904,40 @@ interface ExecutionPrepareRequest {
 interface ExecutionPreparation {
   attempt: ExecutionAttempt; // RESERVED 或派发前 INVALIDATED
   reservation?: ExecutionReservation; // PLACE：ACTIVE 或 RELEASED
+  liveOrderSettlement?: LiveOrderSettlement; // 已观测的精确关联 provider 证据
+}
+type LiveOrderDisposition = 'WORKING' | 'TERMINAL' | 'UNKNOWN';
+type LiveOrderSettlementStatus = 'WORKING' | 'INCOMPLETE' | 'SETTLED';
+interface LiveOrderFee { asset: string; amount: string; }
+interface LiveOrderTradeFact {
+  providerTradeId: string;
+  quantity: string;
+  value: string;
+  fees: LiveOrderFee[];
+}
+interface LiveOrderSettlement {
+  workspaceId: string;
+  accountId: string;
+  attemptId: string;
+  reservationId: string;
+  providerOrderId: string;
+  providerStatus?: string;
+  disposition: LiveOrderDisposition;
+  status: LiveOrderSettlementStatus;
+  filledQuantity?: string;
+  filledValue?: string;
+  fees?: LiveOrderFee[];
+  fillEvidenceComplete: boolean;
+  feesComplete: boolean;
+  tradeFactsComplete: boolean;
+  providerTradeCount: number;
+  source: string;
+  providerObservedAt?: string;
+  observedAt: string;
+  initialCommitment: string;
+  remainingCommitment: string;
+  unresolvedReason?: string;
+  stateVersion: string;
 }
 interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
 interface ExecutionPreparationRejection {
@@ -1951,6 +1985,8 @@ interface CapacityRejectionContext {
   remediation?: CapacityRemediation;
 }
 ```
+
+结算只接受由 Control Plane 认证、并按 Live 账户、provider order ID、已接受的 PLACE attempt 和原始 reservation 精确匹配的观测；不得按相似 symbol、数量或时间关联外部订单。耐久 projection 保留原始 provider status、累计十进制成交数量/价值、费用金额及资产、trade ID、来源和观测时间。成交或费用证据缺失、格式错误、矛盾、递减、过期或不完整时，状态保持 `INCOMPLETE` 并保留上次的保守承诺额度。完整的非终态观测按累计 BUY 成交价值加预留币种费用，或累计 SELL 成交数量加基础资产费用，减少剩余占用。完整且权威的终态观测只释放一次未使用的剩余额度。attempt 状态、trade facts、结算与 reservation projection 及其 outbox events 在同一个 SQLite 事务中提交。重新打开查询只读取已保存证据，不会刷新 provider。
 
 #### 41.1.1 回测生命周期 payload（S15）
 
@@ -2868,7 +2904,9 @@ trade.approval.issued
 trade.approval.invalidated
 trade.approval.consumed
 trade.reservation.created
+trade.reservation.adjusted
 trade.reservation.released
+trade.live_order.settlement.changed
 trade.execution.attempt.changed
 trade.resolution_evidence.changed
 trade.order.state_changed

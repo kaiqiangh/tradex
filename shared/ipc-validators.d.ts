@@ -170,6 +170,10 @@ declare const validators: {
   InstrumentTradingStatus: (value: unknown) => boolean;
   ItemStatus: (value: unknown) => boolean;
   LiveArmingEligibility: (value: unknown) => boolean;
+  LiveOrderDisposition: (value: unknown) => boolean;
+  LiveOrderFee: (value: unknown) => boolean;
+  LiveOrderSettlement: (value: unknown) => boolean;
+  LiveOrderSettlementStatus: (value: unknown) => boolean;
   LocalPaperBalance: (value: unknown) => boolean;
   LocalPaperEvent: (value: unknown) => boolean;
   LocalPaperEventKind: (value: unknown) => boolean;

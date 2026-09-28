@@ -1511,6 +1511,19 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                   <LiveCapacitySummary capacity={visibleExecutionPreparation.reservation.capacityProjection} label="Capacity after TradeX reservation" />
                 </>}
                 {visibleExecutionPreparation.reservation?.status === 'RELEASED' && <span>Reservation released: {visibleExecutionPreparation.reservation.amount} {visibleExecutionPreparation.reservation.unit}. This capacity is no longer held by TradeX.</span>}
+                {visibleExecutionPreparation.liveOrderSettlement && <section className="notice" aria-label="Live order fill and fee evidence">
+                  <div className="section-heading"><div><h4>{visibleExecutionPreparation.liveOrderSettlement.status} · provider fill and fee evidence</h4><p className="muted">Saved by read-only account refresh; provider acknowledgement alone is not fill evidence.</p></div><button type="button" onClick={() => void savedExecutionPreparation.refetch()} disabled={savedExecutionPreparation.isFetching}>Reload evidence</button></div>
+                  <span>Order {visibleExecutionPreparation.liveOrderSettlement.providerOrderId} · raw status {visibleExecutionPreparation.liveOrderSettlement.providerStatus ?? 'Unavailable'} · {visibleExecutionPreparation.liveOrderSettlement.disposition}</span>
+                  <span>Cumulative fills {visibleExecutionPreparation.liveOrderSettlement.filledQuantity ?? 'Unavailable'} units · value {visibleExecutionPreparation.liveOrderSettlement.filledValue ?? 'Unavailable'}</span>
+                  <span>Fees {visibleExecutionPreparation.liveOrderSettlement.feesComplete
+                    ? (visibleExecutionPreparation.liveOrderSettlement.fees?.length
+                      ? visibleExecutionPreparation.liveOrderSettlement.fees.map(fee => `${fee.amount} ${fee.asset}`).join(', ')
+                      : '0 (provider confirmed none)')
+                    : 'Incomplete; no zero fee assumed'}</span>
+                  <span>Provider observed {visibleExecutionPreparation.liveOrderSettlement.providerObservedAt ? new Date(visibleExecutionPreparation.liveOrderSettlement.providerObservedAt).toLocaleString() : 'Unavailable'} · TradeX recorded {new Date(visibleExecutionPreparation.liveOrderSettlement.observedAt).toLocaleString()} · source {visibleExecutionPreparation.liveOrderSettlement.source}</span>
+                  <span>Remaining commitment {visibleExecutionPreparation.liveOrderSettlement.remainingCommitment} of {visibleExecutionPreparation.liveOrderSettlement.initialCommitment}</span>
+                  {visibleExecutionPreparation.liveOrderSettlement.unresolvedReason && <span role="status">Unresolved: {visibleExecutionPreparation.liveOrderSettlement.unresolvedReason}. Capacity remains held.</span>}
+                </section>}
                 <p role="status" aria-live="polite">{liveExecutionStatus(visibleExecutionPreparation.attempt)}</p>
                 {visibleExecutionPreparation.attempt.brokerOrderId && <span>Provider order ID {visibleExecutionPreparation.attempt.brokerOrderId}</span>}
                 {visibleExecutionPreparation.attempt.providerStatus && <span>Provider status {visibleExecutionPreparation.attempt.providerStatus}</span>}

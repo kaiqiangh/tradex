@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyEvent, fromAccountSnapshot, fromAlpacaPaperAttemptSnapshot, fromTrading212DemoAttemptSnapshot, fromTrading212DemoOrderBookSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
+import { applyEvent, fromAccountSnapshot, fromAlpacaPaperAttemptSnapshot, fromExecutionAttemptSnapshot, fromLiveOrderSettlementSnapshot, fromTrading212DemoAttemptSnapshot, fromTrading212DemoOrderBookSnapshot, fromModelSnapshot, fromSnapshot, fromThreadSnapshot, decode } from '../src/projection.ts';
 
 const workspace = {
   workspaceId: 'workspace-one', name: 'Equity research', baseCurrency: 'EUR', path: '/workspace',
@@ -144,6 +144,45 @@ test('account projection applies durable Live arming transitions', () => {
   assert.equal(next.snapshot.projection.health.arming, 'ARMED');
   assert.equal(next.snapshot.projection.health.armingReason, 'EXPLICIT_USER_ARM');
   assert.equal(applyEvent(next, structuredClone(event)), next);
+});
+
+test('Live settlement events preserve the exact attempt and reservation binding', () => {
+  const attempt = {
+    attemptId: 'attempt-one', workspaceId: 'workspace-one', approvalId: 'approval-one', operation: 'PLACE_ORDER',
+    intentId: 'proposal-one', intentHash: `sha256:${'c'.repeat(64)}`, proposalId: 'proposal-one', brokerOrderId: null,
+    providerClientOrderId: null, providerStatus: null, errorCode: null, dispatchDisposition: null,
+    accountId: 'live-account', environment: 'TRADING212_LIVE', policyVersion: 1, riskDecisionId: 'risk-one',
+    reviewDigest: `sha256:${'d'.repeat(64)}`, accountStateVersion: 'account-one:1', intentStateVersion: 'proposal-one:1',
+    reservationId: 'reservation-one', state: 'RESERVED', invalidationReason: null, createdAt: '2026-09-28T01:00:00Z',
+    dispatchStartedAt: null, stateVersion: 'execution-attempt:attempt-one:1',
+  } as const;
+  const attemptSnapshot = fromExecutionAttemptSnapshot({
+    aggregateType: 'execution-attempt', aggregateId: attempt.attemptId, projection: attempt, lastSequence: 1,
+  });
+  assert.equal(attemptSnapshot.snapshot.projection.reservationId, 'reservation-one');
+
+  const settlement = {
+    workspaceId: 'workspace-one', accountId: 'live-account', attemptId: 'attempt-one', reservationId: 'reservation-one',
+    providerOrderId: 'provider-order-one', providerStatus: 'PARTIALLY_FILLED', disposition: 'WORKING', status: 'WORKING',
+    filledQuantity: '1', filledValue: '100', fees: [{ asset: 'USD', amount: '0.25' }], fillEvidenceComplete: true,
+    feesComplete: true, tradeFactsComplete: true, providerTradeCount: 1, source: 'ACCOUNT_REFRESH',
+    providerObservedAt: '2026-09-28T01:00:00Z', observedAt: '2026-09-28T01:00:01Z', initialCommitment: '500',
+    remainingCommitment: '399.75', unresolvedReason: null, stateVersion: 'live-order-settlement:attempt-one:1',
+  } as const;
+  const initial = fromLiveOrderSettlementSnapshot({
+    aggregateType: 'live-order-settlement', aggregateId: settlement.attemptId, projection: settlement, lastSequence: 1,
+  });
+  const event = {
+    eventId: 'settlement-two', eventType: 'trade.live_order.settlement.changed' as const, schemaVersion: 1,
+    occurredAt: settlement.observedAt, aggregateType: 'live-order-settlement' as const,
+    aggregateId: settlement.attemptId, sequence: 2,
+    payload: { ...settlement, status: 'SETTLED' as const, stateVersion: 'live-order-settlement:attempt-one:2' },
+  };
+  const next = applyEvent(initial, event);
+  assert.equal(next.snapshot.projection.status, 'SETTLED');
+  assert.equal(applyEvent(next, structuredClone(event)), next);
+  assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, reservationId: 'other-reservation' } }));
+  assert.throws(() => applyEvent(initial, { ...event, eventType: 'trade.reservation.released' }));
 });
 
 test('Alpaca Paper attempts use their own aggregate identity and preserve order bindings', () => {

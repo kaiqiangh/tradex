@@ -1012,9 +1012,23 @@ pub struct ProviderJob {
     pub(crate) bitget_demo_proposal: Option<OrderProposal>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct LiveOrderObservation {
+    pub provider_order_id: String,
+    pub raw_status: String,
+    pub disposition: crate::protocol::LiveOrderDisposition,
+    pub filled_quantity: Option<String>,
+    pub filled_value: Option<String>,
+    pub fees: Option<Vec<crate::protocol::LiveOrderFee>>,
+    pub trade_facts_complete: bool,
+    pub trade_facts: Vec<crate::protocol::LiveOrderTradeFact>,
+    pub provider_observed_at: Option<String>,
+}
+
 pub(crate) struct Observation {
     pub data: AccountData,
     pub permissions: PermissionReview,
+    pub live_order_settlements: Vec<LiveOrderObservation>,
 }
 
 fn normalize_account_data(data: &mut AccountData, provider_id: &str) {
@@ -5210,6 +5224,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
             limitations,
         },
         permissions,
+        live_order_settlements: Vec::new(),
     })
 }
 

@@ -1880,7 +1880,7 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Explicitly approve | trade.approve | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; backend revalidates the exact review and creates a short-lived approval; no consumption or reservation |
 | Prepare and send approved Live PLACE | trade.execution.prepare | workspace_id, approval_id, expected_approval_state_version, idempotency_key, confirmed=true; backend rereads and revalidates exact proposal/account/policy/quote/FX/capacity/time evidence, then atomically consumes proposal and approval and creates one `RESERVED` attempt plus exact reservation. After commit the Control Plane starts the Gateway internally; the Gateway obtains a current one-use grant and revalidates immediately before durable `SUBMITTING`, which precedes the single provider POST. The result is persisted as `ACCEPTED` (not a fill), `REJECTED`, or `UNKNOWN_RECONCILING`. Same-key replay returns saved state and never sends another POST. A capacity refusal leaves proposal/approval available and performs no provider mutation. |
 | Prepare and send approved Live CANCEL | trade.execution.prepare | The same workspace/approval/version/idempotency/confirmed payload; backend revalidates the tagged CANCEL approval and exact current intent/order/account/policy/snapshot evidence, then atomically consumes the approval and writes one `RESERVED` attempt with `reservation=null`. The Control Plane starts the Gateway only after commit; durable `SUBMITTING` precedes the single exact provider DELETE. Provider acknowledgement becomes `CANCEL_PENDING`, never `CANCELLED`; definitive rejection and unknown result retain separate states. No proposal is consumed and no new PLACE reservation is created. Same-key replay reads saved state and never sends another DELETE. |
-| Recover Live execution preparation | trade.execution.preparation.get | workspace_id, approval_id; returns the durable `ExecutionPreparation | null` (a PLACE reservation when applicable) and capacity rejection history after a lost response or restart. Read-only; no provider request. |
+| Recover Live execution preparation | trade.execution.preparation.get | workspace_id, approval_id; returns the durable `ExecutionPreparation | null` (a PLACE reservation and linked fill/fee settlement when available) and capacity rejection history after a lost response or restart. Read-only; no provider request. |
 | Reject approval review | trade.reject | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; records `USER_REJECTED`; no approval or broker action |
 | Read approval history | trade.approval.list | workspace_id, proposal_id; returns issued, rejected, invalidated, expired, and later consumed states with sanitized audit reasons |
 | Prepare cancellation review | trade.cancel_request | workspace_id, account_id, broker_order_id, expected_state_version, optional previous_intent_id; Control Plane runs an authenticated Live read, persists the observation, and returns a CancellationReview with immutable intent ID/hash, exact remaining quantity, snapshot_version/evidence, account, risk decision, blockers, and review digest. Revalidation after Arm reuses the same intent only when its semantic order identity/state/quantities are unchanged. |
@@ -1904,6 +1904,40 @@ interface ExecutionPrepareRequest {
 interface ExecutionPreparation {
   attempt: ExecutionAttempt; // RESERVED or pre-dispatch INVALIDATED
   reservation?: ExecutionReservation; // PLACE: ACTIVE or RELEASED
+  liveOrderSettlement?: LiveOrderSettlement; // exact linked provider evidence, when observed
+}
+type LiveOrderDisposition = 'WORKING' | 'TERMINAL' | 'UNKNOWN';
+type LiveOrderSettlementStatus = 'WORKING' | 'INCOMPLETE' | 'SETTLED';
+interface LiveOrderFee { asset: string; amount: string; }
+interface LiveOrderTradeFact {
+  providerTradeId: string;
+  quantity: string;
+  value: string;
+  fees: LiveOrderFee[];
+}
+interface LiveOrderSettlement {
+  workspaceId: string;
+  accountId: string;
+  attemptId: string;
+  reservationId: string;
+  providerOrderId: string;
+  providerStatus?: string;
+  disposition: LiveOrderDisposition;
+  status: LiveOrderSettlementStatus;
+  filledQuantity?: string;
+  filledValue?: string;
+  fees?: LiveOrderFee[];
+  fillEvidenceComplete: boolean;
+  feesComplete: boolean;
+  tradeFactsComplete: boolean;
+  providerTradeCount: number;
+  source: string;
+  providerObservedAt?: string;
+  observedAt: string;
+  initialCommitment: string;
+  remainingCommitment: string;
+  unresolvedReason?: string;
+  stateVersion: string;
 }
 interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
 interface ExecutionPreparationRejection {
@@ -1951,6 +1985,8 @@ interface CapacityRejectionContext {
   remediation?: CapacityRemediation;
 }
 ```
+
+Settlement accepts only an authenticated Control Plane observation matched by exact Live account, provider order ID, accepted PLACE attempt, and original reservation; similar symbol, quantity, or time never links an external order. The durable projection preserves raw provider status, cumulative decimal fill/value, fee amounts and assets, trade IDs, source, and observation time. Missing, malformed, contradictory, decreasing, stale, or incomplete fill/fee evidence remains `INCOMPLETE` and retains the last conservative commitment. A complete nonterminal observation reduces the held remainder by cumulative BUY value plus reserve-currency fees, or cumulative SELL quantity plus base-asset fees. A complete authoritative terminal observation releases only the unused remainder once. Attempt status, trade facts, settlement and reservation projections, and their outbox events commit in one SQLite transaction. Reopening this query reads saved evidence only and never refreshes a provider.
 
 #### 41.1.1 Backtest lifecycle payloads (S15)
 
@@ -2868,7 +2904,9 @@ trade.approval.issued
 trade.approval.invalidated
 trade.approval.consumed
 trade.reservation.created
+trade.reservation.adjusted
 trade.reservation.released
+trade.live_order.settlement.changed
 trade.execution.attempt.changed
 trade.resolution_evidence.changed
 trade.order.state_changed

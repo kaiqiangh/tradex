@@ -3111,6 +3111,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
             limitations,
         },
         permissions,
+        live_order_settlements: Vec::new(),
     })
 }
 

@@ -315,6 +315,12 @@ fn schema_six_workspaces_migrate_watchlists_transactionally() {
         .execute("DROP TABLE cancellation_intents", [])
         .unwrap();
     connection
+        .execute("DROP TABLE live_order_trade_facts", [])
+        .unwrap();
+    connection
+        .execute("DROP TABLE live_order_settlements", [])
+        .unwrap();
+    connection
         .execute("DROP TABLE execution_reservations", [])
         .unwrap();
     connection
@@ -335,7 +341,7 @@ fn schema_six_workspaces_migrate_watchlists_transactionally() {
     let mut migrated = ControlPlane::new(path);
     let opened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(opened["ok"], true, "{opened}");
-    assert_eq!(opened["data"]["storageSchemaVersion"], 29);
+    assert_eq!(opened["data"]["storageSchemaVersion"], 30);
     let listed = command(
         &mut migrated,
         "watchlist.list",
@@ -412,6 +418,12 @@ fn schema_eight_workspaces_migrate_artifacts_table() {
         .execute("DROP TABLE cancellation_intents", [])
         .unwrap();
     connection
+        .execute("DROP TABLE live_order_trade_facts", [])
+        .unwrap();
+    connection
+        .execute("DROP TABLE live_order_settlements", [])
+        .unwrap();
+    connection
         .execute("DROP TABLE execution_reservations", [])
         .unwrap();
     connection
@@ -432,7 +444,7 @@ fn schema_eight_workspaces_migrate_artifacts_table() {
     let mut migrated = ControlPlane::new(path);
     let reopened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(reopened["ok"], true, "{reopened}");
-    assert_eq!(reopened["data"]["storageSchemaVersion"], 29);
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 30);
     let artifacts = command(
         &mut migrated,
         "artifact.list",

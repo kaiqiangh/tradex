@@ -130,7 +130,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -447,7 +447,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 29))]
+    #[schemars(range(min = 1, max = 30))]
     pub storage_schema_version: u32,
 }
 
@@ -3434,12 +3434,101 @@ pub struct ExecutionReservation {
     pub state_version: String,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LiveOrderDisposition {
+    Working,
+    Terminal,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LiveOrderSettlementStatus {
+    Working,
+    Incomplete,
+    Settled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveOrderFee {
+    #[schemars(length(min = 1, max = 16))]
+    pub asset: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub amount: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveOrderTradeFact {
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_trade_id: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub quantity: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub value: String,
+    #[schemars(length(max = 32))]
+    pub fees: Vec<LiveOrderFee>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LiveOrderSettlement {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub attempt_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub reservation_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_order_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_status: Option<String>,
+    pub disposition: LiveOrderDisposition,
+    pub status: LiveOrderSettlementStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub filled_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub filled_value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fees: Option<Vec<LiveOrderFee>>,
+    pub fill_evidence_complete: bool,
+    pub fees_complete: bool,
+    pub trade_facts_complete: bool,
+    #[schemars(range(max = 100_000))]
+    pub provider_trade_count: u32,
+    #[schemars(length(min = 1, max = 32))]
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_observed_at: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub initial_commitment: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub remaining_commitment: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub unresolved_reason: Option<String>,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExecutionPreparation {
     pub attempt: Box<ExecutionAttempt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reservation: Option<Box<ExecutionReservation>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_order_settlement: Option<Box<LiveOrderSettlement>>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -5135,6 +5224,7 @@ pub enum DomainProjection {
     ExecutionAttempt(Box<ExecutionAttempt>),
     ResolutionEvidence(Box<ResolutionEvidenceLedger>),
     ExecutionReservation(Box<ExecutionReservation>),
+    LiveOrderSettlement(Box<LiveOrderSettlement>),
     ExecutionPreparationRejection(Box<ExecutionPreparationRejection>),
     OrderProposalConsumption(Box<OrderProposalConsumption>),
     ApprovalRejection(Box<ApprovalRejection>),
@@ -5161,6 +5251,7 @@ impl DomainProjection {
             Self::ExecutionAttempt(a) => &a.attempt_id,
             Self::ResolutionEvidence(e) => &e.execution_attempt_id,
             Self::ExecutionReservation(r) => &r.reservation_id,
+            Self::LiveOrderSettlement(s) => &s.attempt_id,
             Self::ExecutionPreparationRejection(r) => &r.approval_id,
             Self::OrderProposalConsumption(p) => &p.proposal_id,
             Self::ApprovalRejection(a) => &a.proposal_id,
@@ -5186,6 +5277,7 @@ impl DomainProjection {
             Self::ExecutionAttempt(_) => "execution-attempt",
             Self::ResolutionEvidence(_) => "resolution-evidence",
             Self::ExecutionReservation(_) => "execution-reservation",
+            Self::LiveOrderSettlement(_) => "live-order-settlement",
             Self::ExecutionPreparationRejection(_) => "execution-preparation",
             Self::OrderProposalConsumption(_) => "order-proposal-consumption",
             Self::ApprovalRejection(_) => "approval-audit",
@@ -5206,12 +5298,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.resolution_evidence.changed", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.adjusted", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.resolution_evidence.changed", "trade.live_order.settlement.changed", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -5223,7 +5315,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,

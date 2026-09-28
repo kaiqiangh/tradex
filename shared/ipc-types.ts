@@ -391,6 +391,7 @@ export type DomainProjection =
   | ExecutionAttempt
   | ResolutionEvidenceLedger
   | ExecutionReservation
+  | LiveOrderSettlement
   | ExecutionPreparationRejection
   | OrderProposalConsumption
   | ApprovalRejection
@@ -477,6 +478,16 @@ export type ManualResolutionDecision = "CONFIRMED_NOT_SUBMITTED" | "CONFIRMED_SU
  * via the `definition` "ExecutionReservationStatus".
  */
 export type ExecutionReservationStatus = "ACTIVE" | "RELEASED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LiveOrderDisposition".
+ */
+export type LiveOrderDisposition = "WORKING" | "TERMINAL" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LiveOrderSettlementStatus".
+ */
+export type LiveOrderSettlementStatus = "WORKING" | "INCOMPLETE" | "SETTLED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ThreadStatus".
@@ -2695,6 +2706,7 @@ export interface DomainEvent {
     | "financial-approval"
     | "execution-attempt"
     | "execution-reservation"
+    | "live-order-settlement"
     | "execution-preparation"
     | "resolution-evidence"
     | "order-proposal-consumption"
@@ -2723,10 +2735,12 @@ export interface DomainEvent {
     | "trade.approval.consumed"
     | "trade.approval.rejected"
     | "trade.reservation.created"
+    | "trade.reservation.adjusted"
     | "trade.reservation.released"
     | "trade.execution.attempt.changed"
     | "trade.execution.preparation.rejected"
     | "trade.resolution_evidence.changed"
+    | "trade.live_order.settlement.changed"
     | "trade.proposal.consumed"
     | "thread.created"
     | "thread.updated"
@@ -3137,6 +3151,42 @@ export interface ExecutionReservation {
   workspaceCurrency: string;
   workspaceId: string;
   workspaceNotional?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LiveOrderSettlement".
+ */
+export interface LiveOrderSettlement {
+  accountId: string;
+  attemptId: string;
+  disposition: LiveOrderDisposition;
+  fees?: LiveOrderFee[] | null;
+  feesComplete: boolean;
+  fillEvidenceComplete: boolean;
+  filledQuantity?: string;
+  filledValue?: string;
+  initialCommitment: string;
+  observedAt: string;
+  providerObservedAt?: string | null;
+  providerOrderId: string;
+  providerStatus?: string | null;
+  providerTradeCount: number;
+  remainingCommitment: string;
+  reservationId: string;
+  source: string;
+  stateVersion: string;
+  status: LiveOrderSettlementStatus;
+  tradeFactsComplete: boolean;
+  unresolvedReason?: string | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "LiveOrderFee".
+ */
+export interface LiveOrderFee {
+  amount: string;
+  asset: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -3593,6 +3643,7 @@ export interface Trading212DemoRateLimits {
  */
 export interface ExecutionPreparation {
   attempt: ExecutionAttempt;
+  liveOrderSettlement?: LiveOrderSettlement | null;
   reservation?: ExecutionReservation | null;
 }
 /**
@@ -4143,6 +4194,7 @@ export interface Snapshot {
     | "financial-approval"
     | "execution-attempt"
     | "execution-reservation"
+    | "live-order-settlement"
     | "execution-preparation"
     | "resolution-evidence"
     | "order-proposal-consumption"
@@ -4215,6 +4267,7 @@ export interface SubscriptionAck {
     | "financial-approval"
     | "execution-attempt"
     | "execution-reservation"
+    | "live-order-settlement"
     | "execution-preparation"
     | "resolution-evidence"
     | "order-proposal-consumption"
