@@ -347,7 +347,7 @@ pub struct IpcSchema {
     pub cancellation_approval_action: CancellationApprovalAction,
     pub cancellation_approval_history_query: CancellationApprovalHistoryQuery,
     pub cancellation_approval_history: CancellationApprovalHistory,
-    pub trading212_live_order_refresh_request: Trading212LiveOrderRefreshRequest,
+    pub live_order_refresh_request: LiveOrderRefreshRequest,
     pub trading212_live_order_observation: Trading212LiveOrderObservation,
     pub cancellation_approval_rejection: CancellationApprovalRejection,
     pub trading212_demo_order_attempt: Trading212DemoOrderAttempt,
@@ -2889,7 +2889,7 @@ pub struct CancellationIntentRequest {
 
 #[derive(Clone, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Trading212LiveOrderRefreshRequest {
+pub struct LiveOrderRefreshRequest {
     #[schemars(length(min = 1, max = 128))]
     pub workspace_id: String,
     #[schemars(length(min = 1, max = 128))]
@@ -3399,6 +3399,8 @@ pub struct ExecutionAttempt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trading212_live_order_observation: Option<Trading212LiveOrderObservation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binance_live_order_observation: Option<Trading212LiveOrderObservation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub error_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3518,6 +3520,9 @@ pub struct LiveOrderTradeFact {
     pub value: String,
     #[schemars(length(max = 32))]
     pub fees: Vec<LiveOrderFee>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_executed_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -3546,6 +3551,9 @@ pub struct LiveOrderSettlement {
     pub filled_value: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fees: Option<Vec<LiveOrderFee>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(max = 2_000))]
+    pub trade_facts: Option<Vec<LiveOrderTradeFact>>,
     pub fill_evidence_complete: bool,
     pub fees_complete: bool,
     pub trade_facts_complete: bool,

@@ -165,13 +165,24 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
                 && values.get("orderId").is_none_or(|id| valid_order_id(id))
         }
         "/api/v3/myTrades" => {
-            endpoint == ProviderEndpoint::BinanceTestnet
+            (endpoint == ProviderEndpoint::BinanceTestnet
                 && keys
                     .iter()
                     .all(|key| matches!(*key, "symbol" | "limit" | "fromId"))
                 && matches!(values.get("symbol"), Some(&"BTCUSDT" | &"ETHUSDT"))
                 && values.get("limit") == Some(&"1000")
-                && values.get("fromId").is_none_or(|id| valid_order_id(id))
+                && values.get("fromId").is_none_or(|id| valid_order_id(id)))
+                || (endpoint == ProviderEndpoint::BinanceLive
+                    && keys
+                        .iter()
+                        .all(|key| matches!(*key, "symbol" | "orderId" | "fromId" | "limit"))
+                    && keys.len() >= 3
+                    && values
+                        .get("symbol")
+                        .is_some_and(|symbol| valid_binance_symbol(symbol))
+                    && values.get("orderId").is_some_and(|id| valid_order_id(id))
+                    && values.get("limit") == Some(&"1000")
+                    && values.get("fromId").is_none_or(|id| valid_order_id(id)))
         }
         "/api/v3/order" => {
             let symbol = values
@@ -297,6 +308,46 @@ pub(super) fn allows_cancel(path: &str) -> bool {
         })
 }
 
+pub(super) fn allows_live_cancel(path: &str) -> bool {
+    let Some((route, query)) = path.split_once('?') else {
+        return false;
+    };
+    if route != "/api/v3/order" {
+        return false;
+    }
+    let Some((unsigned, signature)) = query.split_once("&signature=") else {
+        return false;
+    };
+    let mut values = BTreeMap::new();
+    for pair in unsigned.split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            return false;
+        };
+        if values.insert(key, value).is_some() {
+            return false;
+        }
+    }
+    values.len() == 4
+        && values.contains_key("symbol")
+        && values.contains_key("orderId")
+        && values.get("recvWindow") == Some(&"5000")
+        && values.get("timestamp").is_some_and(|value| {
+            value.len() == 13
+                && value.bytes().all(|byte| byte.is_ascii_digit())
+                && value.parse::<u64>().is_ok_and(valid_time)
+        })
+        && values
+            .get("symbol")
+            .is_some_and(|value| valid_binance_symbol(value))
+        && values
+            .get("orderId")
+            .is_some_and(|value| valid_order_id(value))
+        && signature.len() == 64
+        && signature
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn valid_client_order_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 36
@@ -315,7 +366,7 @@ pub(super) fn live_client_order_id(attempt_id: &str) -> Result<String> {
     }
 }
 
-fn valid_order_id(value: &str) -> bool {
+pub(super) fn valid_order_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 20
         && value.bytes().all(|byte| byte.is_ascii_digit())
@@ -324,7 +375,7 @@ fn valid_order_id(value: &str) -> bool {
             .is_ok_and(|id| id > 0 && id <= i64::MAX as u64)
 }
 
-fn valid_binance_symbol(value: &str) -> bool {
+pub(super) fn valid_binance_symbol(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 32
         && value
@@ -360,7 +411,7 @@ fn signed_request(
     )
 }
 
-fn signed_request_for(
+pub(super) fn signed_request_for(
     endpoint: ProviderEndpoint,
     http: &impl ProviderHttp,
     method: ProviderHttpMethod,
@@ -409,7 +460,7 @@ fn server_time(http: &impl ProviderHttp, current: &impl Fn() -> bool) -> Result<
     server_time_for(ProviderEndpoint::BinanceTestnet, http, current)
 }
 
-fn server_time_for(
+pub(super) fn server_time_for(
     endpoint: ProviderEndpoint,
     http: &impl ProviderHttp,
     current: &impl Fn() -> bool,
@@ -491,7 +542,7 @@ fn retry_active(value: Option<&String>) -> bool {
         .is_some_and(|value| value > time::OffsetDateTime::now_utc())
 }
 
-fn provider_id(value: &Value, field: &str) -> Result<String> {
+pub(super) fn provider_id(value: &Value, field: &str) -> Result<String> {
     match &value[field] {
         Value::String(id) if valid_order_id(id) => Ok(id.clone()),
         Value::Number(number) => number
@@ -508,6 +559,122 @@ fn provider_time(value: &Value, field: &str) -> Result<u64> {
         .as_u64()
         .filter(|value| *value <= crate::protocol::MAX_SEQUENCE)
         .ok_or_else(invalid)
+}
+
+fn live_order_snapshot(
+    order: &Value,
+    trade_rows: Option<&[Value]>,
+    trade_facts_complete: bool,
+) -> Result<(
+    crate::providers::OpenOrder,
+    crate::provider_io::LiveOrderObservation,
+)> {
+    let symbol = text(order, "symbol", 32)?;
+    if !valid_binance_symbol(&symbol) {
+        return Err(invalid());
+    }
+    let numeric_order_id = provider_id(order, "orderId")?;
+    let provider_order_id = format!("{symbol}:{numeric_order_id}");
+    let side = text(order, "side", 8)?;
+    if !matches!(side.as_str(), "BUY" | "SELL") {
+        return Err(invalid());
+    }
+    let raw_status = text(order, "status", 64)?;
+    let quantity = optional_nonnegative_decimal(&order["origQty"])?;
+    let filled_quantity = Some(positive(&order["executedQty"])?);
+    let remaining_quantity = quantity
+        .as_deref()
+        .map(|quantity| {
+            crate::provider_io::decimal_subtract(
+                quantity,
+                filled_quantity.as_deref().unwrap_or("0"),
+            )
+        })
+        .transpose()?;
+    let filled_value = optional_nonnegative_decimal(&order["cummulativeQuoteQty"])?;
+    let disposition = match raw_status.as_str() {
+        "NEW" | "PENDING_NEW" | "PARTIALLY_FILLED" | "PENDING_CANCEL" => {
+            crate::protocol::LiveOrderDisposition::Working
+        }
+        "FILLED" | "CANCELED" | "REJECTED" | "EXPIRED" | "EXPIRED_IN_MATCH" => {
+            crate::protocol::LiveOrderDisposition::Terminal
+        }
+        _ => crate::protocol::LiveOrderDisposition::Unknown,
+    };
+    let provider_observed_at = provider_event_time(provider_time(order, "updateTime")?)?;
+    let mut trade_facts = Vec::new();
+    let mut fees_by_asset = std::collections::BTreeMap::<String, String>::new();
+    if let Some(rows) = trade_rows {
+        if rows.len() > 2_000 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        for row in rows {
+            let trade_symbol = text(row, "symbol", 32)?;
+            let trade_order_id = provider_id(row, "orderId")?;
+            if trade_symbol != symbol || trade_order_id != numeric_order_id {
+                return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+            }
+            let quantity = positive(&row["qty"])?;
+            let value = positive(&row["quoteQty"])?;
+            if quantity == "0" || value == "0" {
+                return Err(invalid());
+            }
+            let fee_asset = text(row, "commissionAsset", 16)?.to_ascii_uppercase();
+            let fee_amount = positive(&row["commission"])?;
+            let fees = vec![crate::protocol::LiveOrderFee {
+                asset: fee_asset.clone(),
+                amount: fee_amount.clone(),
+            }];
+            let total = fees_by_asset.entry(fee_asset).or_insert_with(|| "0".into());
+            *total = crate::portfolio::decimal_add(total, &fee_amount)?;
+            trade_facts.push(crate::protocol::LiveOrderTradeFact {
+                provider_trade_id: provider_id(row, "id")?,
+                quantity,
+                value,
+                fees,
+                provider_executed_at: Some(provider_event_time(provider_time(row, "time")?)?),
+            });
+        }
+    }
+    let order = crate::providers::OpenOrder {
+        broker_order_id: provider_order_id.clone(),
+        symbol,
+        instrument_id: None,
+        side,
+        quantity: quantity
+            .as_ref()
+            .filter(|value| value.as_str() != "0")
+            .cloned(),
+        notional: optional_nonnegative_decimal(&order["origQuoteOrderQty"])?
+            .filter(|value| value != "0"),
+        filled_quantity: filled_quantity.clone(),
+        filled_value: filled_value.clone(),
+        currency: None,
+        status: raw_status.clone(),
+        limit_price: optional_nonnegative_decimal(&order["price"])?.filter(|value| value != "0"),
+        kind: None,
+        trigger_price: None,
+    };
+    let observation = crate::provider_io::LiveOrderObservation {
+        provider_order_id,
+        raw_status,
+        disposition,
+        order_quantity: quantity,
+        filled_quantity,
+        remaining_quantity,
+        filled_value,
+        fees: trade_facts_complete.then(|| {
+            fees_by_asset
+                .into_iter()
+                .map(|(asset, amount)| crate::protocol::LiveOrderFee { asset, amount })
+                .collect()
+        }),
+        trade_facts_complete,
+        trade_facts,
+        provider_observed_at: Some(provider_observed_at),
+        source: "binance.live.exact-order".into(),
+    };
+    Ok((order, observation))
 }
 
 fn optional_nonnegative_decimal(value: &Value) -> Result<Option<String>> {
@@ -1715,7 +1882,7 @@ fn reconcile_action(
     }
 }
 
-fn response_value(response: ProviderHttpResponse, secrets: &[String]) -> Result<Value> {
+pub(super) fn response_value(response: ProviderHttpResponse, secrets: &[String]) -> Result<Value> {
     if response.body.len() as u64 > MAX_RESPONSE {
         return Err(invalid());
     }
@@ -2837,6 +3004,7 @@ pub(super) fn read(
     http: &impl ProviderHttp,
     current: &impl Fn() -> bool,
     old: Option<&AccountData>,
+    exact_order: Option<(&str, bool)>,
 ) -> Result<Observation> {
     let query = |path: &str, auth: HeaderMap| -> Result<Value> {
         if !current() {
@@ -2880,7 +3048,13 @@ pub(super) fn read(
             .checked_add(elapsed.as_millis() as u64)
             .filter(|n| valid_time(*n))
             .ok_or_else(time_error)?;
-        let params = format!("timestamp={timestamp}&recvWindow=5000");
+        let (route, route_params) = route.split_once('?').unwrap_or((route, ""));
+        let mut params = String::new();
+        if !route_params.is_empty() {
+            params.push_str(route_params);
+            params.push('&');
+        }
+        params.push_str(&format!("timestamp={timestamp}&recvWindow=5000"));
         let sig = Zeroizing::new(signature(&params, &secrets[1])?);
         let path = Zeroizing::new(format!("{route}?{params}&signature={}", *sig));
         query(&path, auth.clone())
@@ -2895,7 +3069,114 @@ pub(super) fn read(
     } else {
         None
     };
-    let result = observe(account, signed("/api/v3/openOrders")?, restrictions)?;
+    let mut result = observe(account, signed("/api/v3/openOrders")?, restrictions)?;
+    if let Some((provider_order_id, include_trade_evidence)) = exact_order {
+        if endpoint != ProviderEndpoint::BinanceLive {
+            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+        }
+        let Some((symbol, order_id)) = provider_order_id.split_once(':') else {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        };
+        if !valid_binance_symbol(symbol) || !valid_order_id(order_id) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let path = format!("/api/v3/order?symbol={symbol}&orderId={order_id}");
+        let order = signed(&path)?;
+        if order["symbol"].as_str() != Some(symbol) || provider_id(&order, "orderId")? != order_id {
+            return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+        }
+        let (trade_rows, trade_facts_complete) = if include_trade_evidence {
+            let mut rows = Vec::new();
+            let mut cursor: Option<String> = None;
+            let mut complete = true;
+            loop {
+                let mut trades_path =
+                    format!("/api/v3/myTrades?symbol={symbol}&orderId={order_id}&limit=1000");
+                if let Some(cursor) = cursor.as_deref() {
+                    trades_path.push_str(&format!("&fromId={cursor}"));
+                }
+                let page = match signed(&trades_path) {
+                    Ok(page) => page,
+                    Err(error) if error.code == "STATE_VERSION_CONFLICT" => return Err(error),
+                    Err(error)
+                        if matches!(
+                            error.code.as_str(),
+                            "PROVIDER_UNAVAILABLE"
+                                | "PROVIDER_RATE_LIMITED"
+                                | "PROVIDER_AUTH_FAILED"
+                        ) =>
+                    {
+                        complete = false;
+                        break;
+                    }
+                    Err(error) => return Err(error),
+                };
+                let page = page.as_array().ok_or_else(invalid)?;
+                if page.len() > 1000 {
+                    return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                }
+                if rows.len() + page.len() > 2_000 {
+                    complete = false;
+                    break;
+                }
+                if page.is_empty() {
+                    break;
+                }
+                let next_cursor =
+                    increment_id(&provider_id(page.last().ok_or_else(invalid)?, "id")?)?;
+                let page_len = page.len();
+                rows.extend(page.iter().cloned());
+                if page_len < 1000 {
+                    break;
+                }
+                cursor = Some(next_cursor);
+                if rows.len() == 2_000 {
+                    let mut probe =
+                        format!("/api/v3/myTrades?symbol={symbol}&orderId={order_id}&limit=1000");
+                    probe.push_str(&format!("&fromId={}", cursor.as_deref().unwrap()));
+                    match signed(&probe) {
+                        Ok(value) => {
+                            let page = value.as_array().ok_or_else(invalid)?;
+                            if !page.is_empty() {
+                                complete = false;
+                            }
+                        }
+                        Err(error) if error.code == "STATE_VERSION_CONFLICT" => return Err(error),
+                        Err(error)
+                            if matches!(
+                                error.code.as_str(),
+                                "PROVIDER_UNAVAILABLE"
+                                    | "PROVIDER_RATE_LIMITED"
+                                    | "PROVIDER_AUTH_FAILED"
+                            ) =>
+                        {
+                            complete = false;
+                        }
+                        Err(error) => return Err(error),
+                    }
+                    break;
+                }
+            }
+            (Some(rows), complete)
+        } else {
+            (None, false)
+        };
+        let (exact, settlement) =
+            live_order_snapshot(&order, trade_rows.as_deref(), trade_facts_complete)?;
+        result
+            .data
+            .open_orders
+            .retain(|saved| saved.broker_order_id != provider_order_id);
+        if !matches!(
+            exact.status.as_str(),
+            "FILLED" | "CANCELED" | "REJECTED" | "EXPIRED" | "EXPIRED_IN_MATCH"
+        ) {
+            result.data.open_orders.push(exact);
+        }
+        if include_trade_evidence {
+            result.live_order_settlements.push(settlement);
+        }
+    }
     if !current() {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
@@ -2907,6 +3188,42 @@ fn numeric_id(v: &Value, field: &str) -> Result<String> {
         .filter(|n| *n > 0 && *n <= i64::MAX as u64)
         .map(|n| n.to_string())
         .ok_or_else(invalid)
+}
+
+pub(super) fn validate_live_cancel_snapshot(
+    order: &Value,
+    intent: &CancellationIntent,
+) -> Result<String> {
+    let symbol = text(order, "symbol", 32)?;
+    let order_id = provider_id(order, "orderId")?;
+    let status = text(order, "status", 64)?;
+    let side = text(order, "side", 8)?;
+    let quantity = optional_nonnegative_decimal(&order["origQty"])?
+        .filter(|value| value != "0")
+        .ok_or_else(|| TradeXError::new("ORDER_NOT_CANCELLABLE"))?;
+    let filled_quantity = positive(&order["executedQty"])?;
+    let remaining_quantity = crate::provider_io::decimal_subtract(&quantity, &filled_quantity)
+        .map_err(|_| TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"))?;
+    let expected_order_id = format!("{symbol}:{order_id}");
+    let instrument_id = market::canonical_instrument_id("binance", &symbol);
+    let order_list_id = order["orderListId"].as_i64().ok_or_else(invalid)?;
+    provider_time(order, "updateTime")?;
+    if !matches!(status.as_str(), "NEW" | "PENDING_NEW" | "PARTIALLY_FILLED") || order_list_id != -1
+    {
+        return Err(TradeXError::new("ORDER_NOT_CANCELLABLE"));
+    }
+    if expected_order_id != intent.provider_order_id
+        || symbol != intent.symbol
+        || side != intent.side
+        || instrument_id.as_deref() != Some(intent.instrument_id.as_str())
+        || quantity != intent.quantity
+        || filled_quantity != intent.filled_quantity
+        || remaining_quantity != intent.remaining_quantity
+        || status != intent.provider_status
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    Ok(status)
 }
 const FLAGS: &[(&str, &str)] = &[
     ("enableReading", "read"),

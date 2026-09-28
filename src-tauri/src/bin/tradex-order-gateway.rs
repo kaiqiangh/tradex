@@ -129,17 +129,38 @@ fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io:
 
     #[cfg(target_os = "macos")]
     let prepared = {
-        let operation = match &package.intent {
-            GatewayDispatchIntent::Place(proposal) => PrivilegedLiveOperation::Place(proposal),
-            GatewayDispatchIntent::Cancel(intent) => PrivilegedLiveOperation::Cancel(intent),
-        };
-        tradex::provider_io::prepare_trading212_live_mutation(
-            &package.account,
-            &package.credential_reference,
-            operation,
-            &GatewayVault,
-            &http,
-        )
+        match &package.intent {
+            GatewayDispatchIntent::Place(proposal) => {
+                tradex::provider_io::prepare_trading212_live_mutation(
+                    &package.account,
+                    &package.credential_reference,
+                    PrivilegedLiveOperation::Place(proposal),
+                    &GatewayVault,
+                    &http,
+                )
+            }
+            GatewayDispatchIntent::Cancel(intent)
+                if package.account.provider_id == "trading212" =>
+            {
+                tradex::provider_io::prepare_trading212_live_mutation(
+                    &package.account,
+                    &package.credential_reference,
+                    PrivilegedLiveOperation::Cancel(intent),
+                    &GatewayVault,
+                    &http,
+                )
+            }
+            GatewayDispatchIntent::Cancel(intent) if package.account.provider_id == "binance" => {
+                tradex::provider_io::prepare_binance_live_cancel_mutation(
+                    &package.account,
+                    &package.credential_reference,
+                    intent,
+                    &GatewayVault,
+                    &http,
+                )
+            }
+            _ => Err(tradex::protocol::TradeXError::new("PROVIDER_UNSUPPORTED")),
+        }
     };
     #[cfg(not(target_os = "macos"))]
     let prepared: tradex::protocol::Result<tradex::provider_io::PreparedLiveMutation> =
@@ -211,7 +232,7 @@ impl CredentialVault for GatewayVault {
         ))
     }
     fn get(&self, reference: &str) -> tradex::protocol::Result<Credentials> {
-        if !reference.contains("/trading212/LIVE/") {
+        if !reference.contains("/trading212/LIVE/") && !reference.contains("/binance/LIVE/") {
             return Err(tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"));
         }
         Credentials::new(vec![

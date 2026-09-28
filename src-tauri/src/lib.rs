@@ -2458,6 +2458,7 @@ impl ControlPlane {
             }),
             provider_status: None,
             trading212_live_order_observation: None,
+            binance_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: account.connection_id.clone(),
@@ -6672,7 +6673,7 @@ impl ControlPlane {
         &mut self,
         mut account: AccountConnection,
         settlements: Vec<provider_io::LiveOrderObservation>,
-        trading212_order_observation: Option<(String, provider_io::LiveOrderObservation)>,
+        live_cancel_order_observation: Option<(String, provider_io::LiveOrderObservation)>,
     ) -> Result<AccountConnection> {
         let previous = self
             .store
@@ -6698,13 +6699,13 @@ impl ControlPlane {
             }
         }
         let store = self.store.as_mut().unwrap();
-        let events = if settlements.is_empty() && trading212_order_observation.is_none() {
+        let events = if settlements.is_empty() && live_cancel_order_observation.is_none() {
             store.save_account_with_events(account)?
         } else {
             store.save_account_with_live_order_settlements(
                 account,
                 settlements,
-                trading212_order_observation,
+                live_cancel_order_observation,
             )?
         };
         let saved = events
@@ -7877,6 +7878,7 @@ impl ControlPlane {
             provider_client_order_id,
             provider_status: None,
             trading212_live_order_observation: None,
+            binance_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: account.connection_id.clone(),
@@ -8041,6 +8043,7 @@ impl ControlPlane {
             provider_client_order_id: None,
             provider_status: None,
             trading212_live_order_observation: None,
+            binance_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: approval.account_id.clone(),
@@ -8206,7 +8209,7 @@ impl ControlPlane {
                 return self.prepare_cancellation_intent_refresh(request, consumer);
             }
             "trade.live_order.refresh" => {
-                return self.prepare_trading212_live_order_refresh(request, consumer);
+                return self.prepare_live_order_refresh(request, consumer);
             }
             "trading212.demo.orders.refresh" => {
                 return self.prepare_trading212_demo_order_book_refresh(request, consumer);
@@ -8625,7 +8628,7 @@ impl ControlPlane {
         )))
     }
 
-    fn prepare_trading212_live_order_refresh(
+    fn prepare_live_order_refresh(
         &mut self,
         request: CommandEnvelope,
         consumer: &str,
@@ -8633,11 +8636,8 @@ impl ControlPlane {
         if !provider_order_consumer_allowed(consumer) {
             return Err(TradeXError::new("IPC_ACCESS_DENIED"));
         }
-        let input: protocol::Trading212LiveOrderRefreshRequest = payload(request.payload)?;
+        let input: protocol::LiveOrderRefreshRequest = payload(request.payload)?;
         self.require_workspace(&input.workspace_id)?;
-        if !provider_io::valid_t212_order_id(&input.broker_order_id) {
-            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
-        }
         let now = self.time.status(&input.workspace_id)?.wall_clock;
         let history = self.store.as_mut().unwrap().cancellation_approval_history(
             &input.workspace_id,
@@ -8666,7 +8666,6 @@ impl ControlPlane {
         if approval.status != protocol::FinancialApprovalStatus::Consumed
             || approval.workspace_id != input.workspace_id
             || approval.account_id != input.account_id
-            || approval.environment != protocol::ExecutionContext::Trading212Live
             || approved_order_id != input.broker_order_id
         {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
@@ -8683,7 +8682,6 @@ impl ControlPlane {
             || attempt.intent_hash != intent_hash
             || attempt.approval_id != input.approval_id
             || attempt.account_id != input.account_id
-            || attempt.environment != protocol::ExecutionContext::Trading212Live
             || attempt.dispatch_disposition
                 != Some(protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
             || !matches!(
@@ -8704,7 +8702,19 @@ impl ControlPlane {
             &input.account_id,
             &input.expected_state_version,
         )?;
-        if account.provider_id != "trading212" || account.environment != "LIVE" {
+        let expected_environment = match account.provider_id.as_str() {
+            "trading212" => protocol::ExecutionContext::Trading212Live,
+            "binance" => protocol::ExecutionContext::BinanceLive,
+            _ => return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED")),
+        };
+        if account.environment != "LIVE"
+            || approval.environment != expected_environment
+            || attempt.environment != expected_environment
+            || !provider_io::valid_live_cancel_order_id(
+                &account.provider_id,
+                &input.broker_order_id,
+            )
+        {
             return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
         }
         let readable = account.connection_state == ConnectionState::Connected
@@ -8722,7 +8732,7 @@ impl ControlPlane {
         }
         Ok(Some(self.account_provider_refresh_job(
             account,
-            JobKind::Trading212LiveOrderRefresh {
+            JobKind::LiveOrderRefresh {
                 order_id: input.broker_order_id,
                 attempt_id: attempt.attempt_id.clone(),
             },
@@ -10752,12 +10762,11 @@ impl ControlPlane {
                 return self.persist_account(a);
             }
             if let Some(error) = outcome.error {
-                let exact_t212_read =
-                    matches!(&job.kind, JobKind::Trading212LiveOrderRefresh { .. })
-                        || (matches!(&job.kind, JobKind::CancellationIntentRefresh(_))
-                            && job.account.provider_id == "trading212"
-                            && job.account.environment == "LIVE");
-                if exact_t212_read {
+                let exact_live_order_read = matches!(&job.kind, JobKind::LiveOrderRefresh { .. })
+                    || (matches!(&job.kind, JobKind::CancellationIntentRefresh(_))
+                        && matches!(job.account.provider_id.as_str(), "trading212" | "binance")
+                        && job.account.environment == "LIVE");
+                if exact_live_order_read {
                     return Err(error);
                 }
                 if job.kind == JobKind::Connect {
@@ -10820,8 +10829,8 @@ impl ControlPlane {
                 self.persist_account(a)?;
                 return Err(TradeXError::new("PROVIDER_ALREADY_CONNECTED"));
             }
-            let trading212_order_observation = match &job.kind {
-                JobKind::Trading212LiveOrderRefresh {
+            let live_cancel_order_observation = match &job.kind {
+                JobKind::LiveOrderRefresh {
                     order_id,
                     attempt_id,
                 } => Some((
@@ -10852,7 +10861,7 @@ impl ControlPlane {
             self.persist_account_with_live_order_settlements(
                 a,
                 observed.live_order_settlements,
-                trading212_order_observation,
+                live_cancel_order_observation,
             )
         })();
         match result {
@@ -13282,7 +13291,7 @@ mod live_approval_tests {
         );
     }
 
-    fn live_proposal(
+    pub(super) fn live_proposal(
         control: &mut ControlPlane,
         workspace_id: &str,
         account: &AccountConnection,
@@ -13444,7 +13453,7 @@ mod live_approval_tests {
         )
     }
 
-    fn reviewed_live_fixture_with_numeric_binance_id(
+    pub(super) fn reviewed_live_fixture_with_numeric_binance_id(
         numeric_binance_account_id: bool,
     ) -> (
         tempfile::TempDir,
@@ -13488,7 +13497,7 @@ mod live_approval_tests {
         )
     }
 
-    fn approval_action(workspace_id: &str, proposal: &Value, review: &Value) -> Value {
+    pub(super) fn approval_action(workspace_id: &str, proposal: &Value, review: &Value) -> Value {
         json!({
             "workspaceId": workspace_id,
             "proposalId": proposal["proposalId"],
@@ -13499,7 +13508,7 @@ mod live_approval_tests {
         })
     }
 
-    fn issue_and_prepare_live_place(
+    pub(super) fn issue_and_prepare_live_place(
         control: &mut ControlPlane,
         workspace_id: &str,
         proposal: &Value,
@@ -13837,6 +13846,7 @@ mod live_approval_tests {
             ),
             provider_status: None,
             trading212_live_order_observation: None,
+            binance_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: account.connection_id.clone(),
@@ -14013,6 +14023,151 @@ mod live_approval_tests {
         ) -> Result<provider_io::ProviderHttpResponse> {
             self.response(endpoint, method, path)
         }
+    }
+
+    pub(super) fn confirm_unknown_binance_live_place(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        proposal: &Value,
+        review: &Value,
+        broker_order_id: &str,
+    ) -> (String, AccountConnection) {
+        let (attempt_id, account, _) =
+            make_unknown_binance_live_attempt(control, workspace_id, proposal, review);
+        let preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(workspace_id, &attempt_id)
+            .unwrap();
+        let started_at = OffsetDateTime::parse(
+            preparation.attempt.dispatch_started_at.as_deref().unwrap(),
+            &Rfc3339,
+        )
+        .unwrap();
+        let window_ends = started_at + TimeDuration::minutes(5);
+        let query_at = window_ends - TimeDuration::seconds(10);
+        let before = control.time.status(workspace_id).unwrap();
+        let before_ms = OffsetDateTime::parse(&before.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let query_ms = query_at.unix_timestamp_nanos() / 1_000_000;
+        control.time.set_test_time(
+            query_ms,
+            before.monotonic_ms + u64::try_from(query_ms - before_ms).unwrap(),
+        );
+        let client_order_id = provider_io::binance_live_client_order_id(&attempt_id).unwrap();
+        let http = BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 200,
+            order: json!({
+                "orderId":broker_order_id.parse::<u64>().unwrap(),
+                "symbol":"BTCUSDT",
+                "clientOrderId":client_order_id,
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"GTC",
+                "origQty":"0.01",
+                "origQuoteOrderQty":"0.00000000",
+                "price":"50000.00000000",
+                "status":"NEW",
+                "time":started_at.unix_timestamp_nanos() / 1_000_000,
+            }),
+            calls: std::cell::RefCell::new(Vec::new()),
+        };
+        let query = json!({
+            "workspaceId":workspace_id,
+            "executionAttemptId":attempt_id,
+            "accountId":account.connection_id,
+        });
+        let refresh = request(
+            "trade.resolution_evidence.refresh",
+            json!({
+                "workspaceId":query["workspaceId"],
+                "executionAttemptId":query["executionAttemptId"],
+                "accountId":query["accountId"],
+                "expectedAttemptStateVersion":preparation.attempt.state_version,
+            }),
+        );
+        let job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &http,
+            || control.provider_job_current(&job),
+        );
+        let refreshed = control.complete_provider(&job, outcome);
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        let latest = refreshed["data"]["ledger"]["evidence"][0].clone();
+        assert_eq!(
+            latest["candidateOrders"][0]["providerOrderId"],
+            broker_order_id
+        );
+
+        let now = control.time.status(workspace_id).unwrap();
+        let now_ms = OffsetDateTime::parse(&now.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let expired_ms =
+            (window_ends + TimeDuration::seconds(1)).unix_timestamp_nanos() / 1_000_000;
+        control.time.set_test_time(
+            expired_ms,
+            now.monotonic_ms + u64::try_from(expired_ms - now_ms).unwrap(),
+        );
+        let authorization = dispatch_main(control, "trade.resolution_evidence", query.clone());
+        assert_eq!(authorization["ok"], true, "{authorization}");
+        assert_eq!(
+            authorization["data"]["allowedDecisions"],
+            json!(["CONFIRMED_SUBMITTED", "KEEP_RECONCILING"])
+        );
+        let evidence_state_version = authorization["data"]["ledger"]["stateVersion"]
+            .as_str()
+            .unwrap();
+        let resolution = dispatch_main(
+            control,
+            "trade.manual_resolution",
+            json!({
+                "workspaceId":workspace_id,
+                "executionAttemptId":attempt_id,
+                "accountId":account.connection_id,
+                "decision":"CONFIRMED_SUBMITTED",
+                "evidenceIds":[latest["evidenceId"]],
+                "brokerOrderId":broker_order_id,
+                "expectedAttemptStateVersion":preparation.attempt.state_version,
+                "expectedEvidenceStateVersion":evidence_state_version,
+            }),
+        );
+        assert_eq!(resolution["ok"], true, "{resolution}");
+        let saved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(workspace_id, &attempt_id)
+            .unwrap();
+        assert_eq!(
+            saved.attempt.state,
+            protocol::ExecutionAttemptState::Accepted
+        );
+        assert_eq!(
+            saved.attempt.broker_order_id.as_deref(),
+            Some(broker_order_id)
+        );
+        assert_eq!(
+            saved.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        (attempt_id, account)
     }
 
     #[test]
@@ -15996,6 +16151,7 @@ mod live_approval_tests {
                     asset: "USD".into(),
                     amount: "0.25".into(),
                 }],
+                provider_executed_at: None,
             }],
             provider_observed_at: Some(first_at.clone()),
             source: "fixture.live.orders".into(),
@@ -16174,6 +16330,7 @@ mod live_approval_tests {
                     asset: "USD".into(),
                     amount: "0.25".into(),
                 }],
+                provider_executed_at: None,
             }],
             provider_observed_at: Some(terminal_at),
             source: "fixture.live.orders".into(),
@@ -19001,6 +19158,154 @@ mod cancellation_approval_tests {
         }
     }
 
+    #[derive(Default)]
+    struct SyntheticBinanceHttp {
+        calls: std::sync::Mutex<Vec<(provider_io::ProviderEndpoint, String, Option<String>)>>,
+        sync_count: std::sync::Mutex<usize>,
+    }
+
+    impl SyntheticBinanceHttp {
+        fn order(sync: usize) -> Value {
+            json!({
+                "symbol":"BTCUSDT",
+                "orderId":12345u64,
+                "orderListId":-1,
+                "side":"BUY",
+                "status":if sync == 1 { "PARTIALLY_FILLED" } else { "FILLED" },
+                "price":"50000",
+                "origQty":"0.01",
+                "origQuoteOrderQty":"0",
+                "executedQty":if sync == 1 { "0.005" } else { "0.01" },
+                "cummulativeQuoteQty":if sync == 1 { "250" } else { "500" },
+                "time":1788849500000u64,
+                "updateTime":1788849600000u64 + sync as u64 * 1000,
+            })
+        }
+
+        fn trades(sync: usize) -> Value {
+            let first = json!({
+                "id":111u64,
+                "orderId":12345u64,
+                "symbol":"BTCUSDT",
+                "price":"50000",
+                "qty":"0.005",
+                "quoteQty":"250",
+                "commission":"0.000005",
+                "commissionAsset":"BTC",
+                "time":1788849600000u64,
+            });
+            if sync == 1 {
+                json!([first])
+            } else {
+                json!([
+                    first,
+                    {
+                        "id":112u64,
+                        "orderId":12345u64,
+                        "symbol":"BTCUSDT",
+                        "price":"50000",
+                        "qty":"0.005",
+                        "quoteQty":"250",
+                        "commission":"0.00001",
+                        "commissionAsset":"BNB",
+                        "time":1788849601000u64,
+                    }
+                ])
+            }
+        }
+    }
+
+    impl provider_io::ProviderHttp for SyntheticBinanceHttp {
+        fn get(
+            &self,
+            endpoint: provider_io::ProviderEndpoint,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+        ) -> Result<Vec<u8>> {
+            use hmac::Mac;
+            if endpoint != provider_io::ProviderEndpoint::BinanceLive {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            let api_key = headers
+                .get("X-MBX-APIKEY")
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned);
+            if path != "/api/v3/time" {
+                if api_key.as_deref() != Some("synthetic-key") {
+                    return Err(TradeXError::new("PROVIDER_AUTH_FAILED"));
+                }
+                if !path.contains("&signature=") {
+                    return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+                }
+                let (_, query) = path
+                    .split_once('?')
+                    .ok_or_else(|| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                let (unsigned, signature) = query
+                    .split_once("&signature=")
+                    .ok_or_else(|| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                let mut mac =
+                    hmac::Hmac::<sha2::Sha256>::new_from_slice(b"synthetic-secret").unwrap();
+                mac.update(unsigned.as_bytes());
+                mac.verify_slice(&hex::decode(signature).unwrap())
+                    .map_err(|_| TradeXError::new("PROVIDER_AUTH_FAILED"))?;
+            } else if !headers.is_empty() {
+                return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            let route = path.split('?').next().unwrap_or(path);
+            let body = match route {
+                "/api/v3/time" => {
+                    let mut sync = self.sync_count.lock().unwrap();
+                    *sync += 1;
+                    json!({"serverTime":1788849600000u64})
+                }
+                "/api/v3/account" => json!({
+                    "accountType":"SPOT",
+                    "uid":9007199254740993u64,
+                    "canTrade":true,
+                    "canWithdraw":false,
+                    "canDeposit":true,
+                    "balances":[{"asset":"BTC","free":"1","locked":"0"}],
+                }),
+                "/sapi/v1/account/apiRestrictions" => json!({
+                    "enableReading":true,
+                    "enableWithdrawals":false,
+                    "enableInternalTransfer":false,
+                    "permitsUniversalTransfer":false,
+                    "enableMargin":false,
+                    "enableFutures":false,
+                    "enableVanillaOptions":false,
+                    "enablePortfolioMarginTrading":false,
+                    "enableFixApiTrade":false,
+                    "enableFixReadOnly":false,
+                    "enableSpotAndMarginTrading":true,
+                    "ipRestrict":true,
+                }),
+                "/api/v3/openOrders" => {
+                    let sync = *self.sync_count.lock().unwrap();
+                    if sync == 1 {
+                        json!([Self::order(sync)])
+                    } else {
+                        json!([])
+                    }
+                }
+                "/api/v3/order" => {
+                    let sync = *self.sync_count.lock().unwrap();
+                    Self::order(sync)
+                }
+                "/api/v3/myTrades" => {
+                    let sync = *self.sync_count.lock().unwrap();
+                    Self::trades(sync)
+                }
+                _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+            self.calls
+                .lock()
+                .unwrap()
+                .push((endpoint, path.into(), api_key));
+            serde_json::to_vec(&body).map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))
+        }
+    }
+
     fn envelope(command: &str, payload: Value) -> Value {
         json!({
             "requestId": format!("cancel-{command}"),
@@ -19222,7 +19527,52 @@ mod cancellation_approval_tests {
             http,
             || control.provider_job_current(&job),
         );
-        assert!(outcome.error.is_none(), "{:?}", outcome.error);
+        assert!(
+            outcome.error.is_none(),
+            "{:?}; calls={:?}",
+            outcome.error,
+            http.calls.lock().unwrap()
+        );
+        control.complete_provider(&job, outcome)
+    }
+
+    fn refresh_binance_live_order(
+        control: &mut ControlPlane,
+        workspace_id: &str,
+        account_id: &str,
+        approval_id: &str,
+        broker_order_id: &str,
+        http: &SyntheticBinanceHttp,
+    ) -> Value {
+        let account = control.store.as_ref().unwrap().account(account_id).unwrap();
+        let job = control
+            .prepare_provider_for(
+                &envelope(
+                    "trade.live_order.refresh",
+                    json!({
+                        "workspaceId":workspace_id,
+                        "accountId":account_id,
+                        "approvalId":approval_id,
+                        "brokerOrderId":broker_order_id,
+                        "expectedStateVersion":account.state_version,
+                    }),
+                ),
+                "main",
+            )
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &SyntheticCredentialVault,
+            |_| unreachable!("refresh does not capture credentials"),
+            http,
+            || control.provider_job_current(&job),
+        );
+        assert!(
+            outcome.error.is_none(),
+            "{:?}; calls={:?}",
+            outcome.error,
+            http.calls.lock().unwrap()
+        );
         control.complete_provider(&job, outcome)
     }
 
@@ -19397,6 +19747,301 @@ mod cancellation_approval_tests {
         assert_eq!(observation["filledValue"], "182.5");
         assert_eq!(observation["providerObservedAt"], Value::Null);
         assert_eq!(observation["source"], "trading212.live.order-history");
+        let history = dispatch_main(
+            &mut reopened,
+            "trade.cancel_approval.list",
+            json!({"workspaceId":workspace_id,"accountId":account.connection_id}),
+        );
+        assert_eq!(history["ok"], true, "{history}");
+        assert_eq!(history["data"]["approvals"][0]["approvalId"], approval_id);
+        assert_eq!(history["data"]["approvals"][0]["status"], "CONSUMED");
+    }
+
+    #[test]
+    fn binance_live_cancel_refresh_persists_partial_then_full_fill_across_reopen() {
+        let (folder, mut control, workspace_id, account, proposal, review) =
+            super::live_approval_tests::reviewed_live_fixture_with_numeric_binance_id(true);
+        let (place_attempt_id, _) = super::live_approval_tests::confirm_unknown_binance_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "12345",
+        );
+        let current_clock = control.time.status(&workspace_id).unwrap();
+        let actual_now_ms = OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000 + 10_000;
+        control.time.set_test_time(
+            actual_now_ms,
+            current_clock.monotonic_ms.saturating_add(10_000),
+        );
+        let time = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(time["data"]["confidence"], "TRUSTED", "{time}");
+        let place_preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &place_attempt_id)
+            .unwrap();
+        let place_approval_id = place_preparation.attempt.approval_id.clone();
+        let mut account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        account.last_successful_sync = Some(control.time.status(&workspace_id).unwrap().wall_clock);
+        account.health.reconciliation = "CURRENT".into();
+        account.data.as_mut().unwrap().open_orders.clear();
+        account
+            .data
+            .as_mut()
+            .unwrap()
+            .open_orders
+            .push(providers::OpenOrder {
+                broker_order_id: "BTCUSDT:12345".into(),
+                symbol: "BTCUSDT".into(),
+                instrument_id: Some("crypto:BTC/USDT:spot".into()),
+                side: "BUY".into(),
+                quantity: Some("0.01".into()),
+                notional: None,
+                filled_quantity: Some("0".into()),
+                filled_value: Some("0".into()),
+                currency: Some("USDT".into()),
+                status: "NEW".into(),
+                limit_price: Some("50000".into()),
+                kind: None,
+                trigger_price: None,
+            });
+        account.last_successful_sync = Some(control.time.status(&workspace_id).unwrap().wall_clock);
+        let account = control.persist_account(account).unwrap();
+        let broker_order_id = "BTCUSDT:12345";
+        let initial = request_review(&mut control, &workspace_id, &account, None, broker_order_id);
+        assert_eq!(initial["eligible"], false, "{initial}");
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":initial["account"]["stateVersion"],
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let armed_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let reviewed = request_review(
+            &mut control,
+            &workspace_id,
+            &armed_account,
+            Some(initial["intent"]["cancellationIntentId"].as_str().unwrap()),
+            broker_order_id,
+        );
+        assert_eq!(reviewed["eligible"], true, "{reviewed}");
+        let cancel_approval = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&reviewed),
+        );
+        assert_eq!(cancel_approval["ok"], true, "{cancel_approval}");
+        let approval_id = cancel_approval["data"]["approvalId"].as_str().unwrap();
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":approval_id,
+                "expectedApprovalStateVersion":cancel_approval["data"]["stateVersion"],
+                "idempotencyKey":"prepare-binance-live-cancel-fill-race",
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let now = control.time.status(&workspace_id).unwrap().wall_clock;
+        let review_digest = reviewed["reviewDigest"].as_str().unwrap().to_owned();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "synthetic-binance-refresh")
+            .unwrap();
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .begin_execution_submission(
+                &grant.grant_id,
+                "synthetic-binance-refresh",
+                &review_digest,
+                &now,
+            )
+            .unwrap();
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .complete_execution_submission(
+                attempt_id,
+                protocol::ExecutionAttemptState::CancelPending,
+                Some(broker_order_id),
+                Some("NEW"),
+                None,
+                &now,
+            )
+            .unwrap();
+
+        let http = SyntheticBinanceHttp::default();
+        let partial = refresh_binance_live_order(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            approval_id,
+            broker_order_id,
+            &http,
+        );
+        assert_eq!(partial["ok"], true, "{partial}");
+        let partial_observation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, approval_id)
+            .unwrap()
+            .unwrap()
+            .attempt
+            .binance_live_order_observation
+            .unwrap();
+        assert_eq!(partial_observation.provider_status, "PARTIALLY_FILLED");
+        assert_eq!(
+            partial_observation.filled_quantity.as_deref(),
+            Some("0.005")
+        );
+        assert_eq!(
+            partial_observation.remaining_quantity.as_deref(),
+            Some("0.005")
+        );
+        assert_eq!(partial_observation.filled_value.as_deref(), Some("250"));
+        assert_eq!(partial_observation.source, "binance.live.exact-order");
+        let partial_place = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &place_approval_id)
+            .unwrap()
+            .unwrap();
+        let partial_settlement = partial_place.live_order_settlement.unwrap();
+        assert_eq!(
+            partial_settlement.status,
+            protocol::LiveOrderSettlementStatus::Working
+        );
+        assert_eq!(partial_settlement.remaining_commitment, "250");
+        assert_eq!(partial_settlement.provider_trade_count, 1);
+        assert_eq!(
+            partial_place.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+
+        let full = refresh_binance_live_order(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            approval_id,
+            broker_order_id,
+            &http,
+        );
+        assert_eq!(full["ok"], true, "{full}");
+        let full_place = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &place_approval_id)
+            .unwrap()
+            .unwrap();
+        let full_settlement = full_place.live_order_settlement.unwrap();
+        assert_eq!(
+            full_settlement.status,
+            protocol::LiveOrderSettlementStatus::Settled
+        );
+        assert_eq!(full_settlement.filled_quantity.as_deref(), Some("0.01"));
+        assert_eq!(full_settlement.filled_value.as_deref(), Some("500"));
+        assert_eq!(full_settlement.provider_trade_count, 2);
+        let full_trade_facts = full_settlement.trade_facts.as_ref().unwrap();
+        assert_eq!(full_trade_facts.len(), 2);
+        assert_eq!(full_trade_facts[0].provider_trade_id, "111");
+        assert_eq!(full_trade_facts[0].fees[0].amount, "0.000005");
+        assert_eq!(full_trade_facts[0].fees[0].asset, "BTC");
+        assert_eq!(full_trade_facts[1].provider_trade_id, "112");
+        assert_eq!(full_trade_facts[1].fees[0].amount, "0.00001");
+        assert_eq!(full_trade_facts[1].fees[0].asset, "BNB");
+        let released = full_place.reservation.unwrap();
+        assert_eq!(released.amount, "0");
+        assert_eq!(
+            released.status,
+            protocol::ExecutionReservationStatus::Released
+        );
+        let linked_cancel = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, approval_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            linked_cancel.live_order_settlement.unwrap().attempt_id,
+            place_attempt_id
+        );
+        let calls = http.calls.lock().unwrap();
+        assert_eq!(calls.len(), 12);
+        assert!(
+            calls.iter().all(|(endpoint, _, _)| {
+                *endpoint == provider_io::ProviderEndpoint::BinanceLive
+            })
+        );
+        assert!(calls.iter().all(|(_, path, key)| {
+            if path == "/api/v3/time" {
+                key.is_none()
+            } else {
+                key.as_deref() == Some("synthetic-key") && path.contains("&signature=")
+            }
+        }));
+        assert!(calls.iter().all(|(_, path, _)| {
+            !path.contains("api.binance.com") && !path.contains("testnet")
+        }));
+        drop(calls);
+        drop(control);
+
+        let mut reopened = ControlPlane::new(folder.path().to_path_buf());
+        let opened = dispatch(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let preparation = dispatch_main(
+            &mut reopened,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":workspace_id,"approvalId":approval_id}),
+        );
+        assert_eq!(preparation["ok"], true, "{preparation}");
+        let observation =
+            &preparation["data"]["preparation"]["attempt"]["binanceLiveOrderObservation"];
+        assert_eq!(observation["providerOrderId"], broker_order_id);
+        assert_eq!(observation["providerStatus"], "FILLED");
+        assert_eq!(observation["disposition"], "TERMINAL");
+        assert_eq!(observation["orderQuantity"], "0.01");
+        assert_eq!(observation["filledQuantity"], "0.01");
+        assert_eq!(observation["remainingQuantity"], "0");
+        assert_eq!(observation["filledValue"], "500");
+        assert_eq!(observation["source"], "binance.live.exact-order");
+        let settlement = &preparation["data"]["preparation"]["liveOrderSettlement"];
+        assert_eq!(settlement["tradeFacts"].as_array().unwrap().len(), 2);
+        assert_eq!(settlement["tradeFacts"][0]["providerTradeId"], "111");
+        assert_eq!(settlement["tradeFacts"][0]["fees"][0]["amount"], "0.000005");
+        assert_eq!(settlement["tradeFacts"][0]["fees"][0]["asset"], "BTC");
+        assert_eq!(settlement["tradeFacts"][1]["providerTradeId"], "112");
+        assert_eq!(settlement["tradeFacts"][1]["fees"][0]["amount"], "0.00001");
+        assert_eq!(settlement["tradeFacts"][1]["fees"][0]["asset"], "BNB");
         let history = dispatch_main(
             &mut reopened,
             "trade.cancel_approval.list",

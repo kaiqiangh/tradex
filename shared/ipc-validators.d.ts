@@ -172,8 +172,10 @@ declare const validators: {
   LiveArmingEligibility: (value: unknown) => boolean;
   LiveOrderDisposition: (value: unknown) => boolean;
   LiveOrderFee: (value: unknown) => boolean;
+  LiveOrderRefreshRequest: (value: unknown) => boolean;
   LiveOrderSettlement: (value: unknown) => boolean;
   LiveOrderSettlementStatus: (value: unknown) => boolean;
+  LiveOrderTradeFact: (value: unknown) => boolean;
   LocalPaperBalance: (value: unknown) => boolean;
   LocalPaperEvent: (value: unknown) => boolean;
   LocalPaperEventKind: (value: unknown) => boolean;
@@ -388,7 +390,6 @@ declare const validators: {
   Trading212DemoOrderSubmit: (value: unknown) => boolean;
   Trading212DemoRateLimits: (value: unknown) => boolean;
   Trading212LiveOrderObservation: (value: unknown) => boolean;
-  Trading212LiveOrderRefreshRequest: (value: unknown) => boolean;
   TurnCancel: (value: unknown) => boolean;
   TurnRetry: (value: unknown) => boolean;
   TurnSnapshot: (value: unknown) => boolean;

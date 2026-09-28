@@ -370,6 +370,9 @@ impl ProviderEndpoint {
                     || self == Self::Trading212Demo && valid_t212_order_detail_path(path)
                     || self == Self::BinanceTestnet && binance::allows_cancel(path)
                     || (cfg!(feature = "order-gateway-runtime")
+                        && self == Self::BinanceLive
+                        && binance::allows_live_cancel(path))
+                    || (cfg!(feature = "order-gateway-runtime")
                         && self == Self::Trading212Live
                         && valid_t212_order_detail_path(path))
             }
@@ -387,6 +390,20 @@ pub(crate) fn valid_t212_order_id(value: &str) -> bool {
         && value.len() <= 20
         && value.bytes().all(|byte| byte.is_ascii_digit())
         && value.parse::<i64>().is_ok_and(|id| id > 0)
+}
+
+pub(crate) fn valid_live_cancel_order_id(provider_id: &str, value: &str) -> bool {
+    match provider_id {
+        "trading212" => valid_t212_order_id(value),
+        "binance" => value.split_once(':').is_some_and(|(symbol, id)| {
+            binance::valid_binance_symbol(symbol) && binance::valid_order_id(id)
+        }),
+        _ => false,
+    }
+}
+
+pub(crate) fn valid_binance_order_id(value: &str) -> bool {
+    binance::valid_order_id(value)
 }
 
 pub(crate) fn valid_t212_history_path(path: &str) -> bool {
@@ -531,6 +548,7 @@ pub struct LiveDispatchOutcome {
 }
 
 pub struct PreparedLiveMutation {
+    endpoint: ProviderEndpoint,
     path: String,
     method: ProviderHttpMethod,
     body: Option<Value>,
@@ -539,6 +557,7 @@ pub struct PreparedLiveMutation {
     expected_ticker: Option<String>,
     order_id: Option<String>,
     cancel_provider_status: Option<String>,
+    binance_live_cancel: Option<(String, String)>,
 }
 
 pub fn prepare_trading212_live_mutation(
@@ -660,6 +679,7 @@ pub fn prepare_trading212_live_mutation(
         None
     };
     Ok(PreparedLiveMutation {
+        endpoint: ProviderEndpoint::Trading212Live,
         path,
         method,
         body,
@@ -668,23 +688,146 @@ pub fn prepare_trading212_live_mutation(
         expected_ticker,
         order_id,
         cancel_provider_status,
+        binance_live_cancel: None,
+    })
+}
+
+pub fn prepare_binance_live_cancel_mutation(
+    account: &AccountConnection,
+    credential_reference: &str,
+    intent: &CancellationIntent,
+    vault: &impl CredentialVault,
+    http: &impl ProviderHttp,
+) -> Result<PreparedLiveMutation> {
+    if account.provider_id != "binance"
+        || account.environment != "LIVE"
+        || credential_reference != account.credential_ref()
+        || intent.workspace_id != account.workspace_id
+        || intent.account_id != account.connection_id
+        || intent.environment != ExecutionContext::BinanceLive
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    let Some((symbol, order_id)) = intent.provider_order_id.split_once(':') else {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    };
+    if !binance::valid_order_id(order_id)
+        || !binance::valid_binance_symbol(symbol)
+        || symbol != intent.symbol
+    {
+        return Err(TradeXError::new("ORDER_CHANGED_REVIEW_AGAIN"));
+    }
+    let expected_remote_id = account
+        .data
+        .as_ref()
+        .map(|data| data.remote_account_id.as_str())
+        .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
+    let credential = vault.get(credential_reference)?;
+    let secrets = credential.values()?;
+    if secrets.len() != 2 {
+        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+    }
+    let current = || true;
+    let (server_time, sampled) =
+        binance::server_time_for(ProviderEndpoint::BinanceLive, http, &current)?;
+    let identity = binance::signed_request_for(
+        ProviderEndpoint::BinanceLive,
+        http,
+        ProviderHttpMethod::Get,
+        "/api/v3/account",
+        &[],
+        &secrets,
+        server_time,
+        sampled,
+        &current,
+    )?;
+    if identity.status != 200 {
+        return Err(binance_live_order_read_error(identity.status, false));
+    }
+    let identity = binance::response_value(identity, &secrets)?;
+    if identity["accountType"].as_str() != Some("SPOT")
+        || identity["uid"]
+            .as_u64()
+            .map(|value| value.to_string())
+            .as_deref()
+            != Some(expected_remote_id)
+    {
+        return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
+    }
+    let order = binance::signed_request_for(
+        ProviderEndpoint::BinanceLive,
+        http,
+        ProviderHttpMethod::Get,
+        "/api/v3/order",
+        &[("symbol", symbol), ("orderId", order_id)],
+        &secrets,
+        server_time,
+        sampled,
+        &current,
+    )?;
+    if order.status != 200 {
+        return Err(binance_live_order_read_error(order.status, true));
+    }
+    let order = binance::response_value(order, &secrets)?;
+    let cancel_provider_status = binance::validate_live_cancel_snapshot(&order, intent)?;
+    Ok(PreparedLiveMutation {
+        endpoint: ProviderEndpoint::BinanceLive,
+        path: String::new(),
+        method: ProviderHttpMethod::Delete,
+        body: None,
+        headers: HeaderMap::new(),
+        secrets,
+        expected_ticker: None,
+        order_id: Some(intent.provider_order_id.clone()),
+        cancel_provider_status: Some(cancel_provider_status),
+        binance_live_cancel: Some((symbol.to_owned(), order_id.to_owned())),
+    })
+}
+
+fn binance_live_order_read_error(status: u16, exact_order: bool) -> TradeXError {
+    TradeXError::new(match status {
+        401 | 403 => "PROVIDER_AUTH_FAILED",
+        418 | 429 => "PROVIDER_RATE_LIMITED",
+        404 if exact_order => "ORDER_STATUS_UNKNOWN",
+        400..=499 => "PROVIDER_RESPONSE_INVALID",
+        _ => "PROVIDER_UNAVAILABLE",
     })
 }
 
 impl PreparedLiveMutation {
     pub fn send(self, http: &impl ProviderHttp) -> LiveDispatchOutcome {
-        let response = http.request(
-            ProviderEndpoint::Trading212Live,
-            self.method,
-            &self.path,
-            self.headers,
-            self.body.as_ref(),
-        );
+        let response = if let Some((symbol, order_id)) = self.binance_live_cancel.as_ref() {
+            let current = || true;
+            let (server_time, sampled) =
+                match binance::server_time_for(ProviderEndpoint::BinanceLive, http, &current) {
+                    Ok(time) => time,
+                    Err(_) => return unknown_live_dispatch(),
+                };
+            binance::signed_request_for(
+                ProviderEndpoint::BinanceLive,
+                http,
+                ProviderHttpMethod::Delete,
+                "/api/v3/order",
+                &[("symbol", symbol), ("orderId", order_id)],
+                &self.secrets,
+                server_time,
+                sampled,
+                &current,
+            )
+        } else {
+            http.request(
+                self.endpoint,
+                self.method,
+                &self.path,
+                self.headers,
+                self.body.as_ref(),
+            )
+        };
         let response = match response {
             Ok(response) => response,
             Err(_) => return unknown_live_dispatch(),
         };
-        if matches!(response.status, 400 | 401 | 403 | 429) {
+        if matches!(response.status, 400 | 401 | 403 | 418 | 429) {
             return LiveDispatchOutcome {
                 state: crate::protocol::ExecutionAttemptState::Rejected,
                 broker_order_id: self.order_id,
@@ -694,6 +837,7 @@ impl PreparedLiveMutation {
                         400 => "PROVIDER_ORDER_REJECTED",
                         401 => "PROVIDER_AUTH_FAILED",
                         403 => "PROVIDER_PERMISSION_BLOCKED",
+                        418 => "PROVIDER_RATE_LIMITED",
                         _ => "PROVIDER_RATE_LIMITED",
                     }
                     .into(),
@@ -702,6 +846,29 @@ impl PreparedLiveMutation {
         }
         if !(200..300).contains(&response.status) {
             return unknown_live_dispatch();
+        }
+        if let Some((symbol, numeric_order_id)) = self.binance_live_cancel.as_ref() {
+            let acknowledged = (|| -> Result<()> {
+                if response.body.len() as u64 > MAX_RESPONSE {
+                    return Err(invalid());
+                }
+                let value: Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
+                if contains_secret(&value, &self.secrets)
+                    || value["symbol"].as_str() != Some(symbol)
+                    || binance::provider_id(&value, "orderId")? != *numeric_order_id
+                    || value["orderListId"].as_i64() != Some(-1)
+                    || value
+                        .get("status")
+                        .and_then(Value::as_str)
+                        .is_none_or(|status| status.is_empty() || status.len() > 64)
+                {
+                    return Err(invalid());
+                }
+                Ok(())
+            })();
+            if acknowledged.is_err() {
+                return unknown_live_dispatch();
+            }
         }
         if let Some(order_id) = self.order_id {
             return LiveDispatchOutcome {
@@ -940,7 +1107,10 @@ impl BrokerHttp {
     }
 
     fn url(&self, endpoint: ProviderEndpoint, path: &str) -> String {
-        let base = if endpoint == ProviderEndpoint::Trading212Live {
+        let base = if matches!(
+            endpoint,
+            ProviderEndpoint::Trading212Live | ProviderEndpoint::BinanceLive
+        ) {
             self.local_test_base_url()
                 .unwrap_or_else(|| endpoint.base_url())
         } else {
@@ -1130,7 +1300,7 @@ pub(crate) enum JobKind {
     BitgetDemoSubmit,
     BitgetDemoReconcile,
     CancellationIntentRefresh(Box<crate::protocol::CancellationIntentRequest>),
-    Trading212LiveOrderRefresh {
+    LiveOrderRefresh {
         order_id: String,
         attempt_id: String,
     },
@@ -1345,12 +1515,26 @@ impl ProviderJob {
                 return Ok(observation);
             }
             if endpoint.is_binance() {
+                let exact_order = match &self.kind {
+                    JobKind::CancellationIntentRefresh(input)
+                        if endpoint == ProviderEndpoint::BinanceLive =>
+                    {
+                        Some((input.broker_order_id.as_str(), false))
+                    }
+                    JobKind::LiveOrderRefresh { order_id, .. }
+                        if endpoint == ProviderEndpoint::BinanceLive =>
+                    {
+                        Some((order_id.as_str(), true))
+                    }
+                    _ => None,
+                };
                 let mut observation = binance::read(
                     endpoint,
                     &values,
                     http,
                     &current,
                     self.account.data.as_ref(),
+                    exact_order,
                 )?;
                 normalize_account_data(&mut observation.data, &self.account.provider_id);
                 return Ok(observation);
@@ -1470,7 +1654,7 @@ impl ProviderJob {
                     JobKind::CancellationIntentRefresh(input) => {
                         Some(input.broker_order_id.as_str())
                     }
-                    JobKind::Trading212LiveOrderRefresh { order_id, .. } => Some(order_id.as_str()),
+                    JobKind::LiveOrderRefresh { order_id, .. } => Some(order_id.as_str()),
                     _ => None,
                 };
                 if endpoint == ProviderEndpoint::Trading212Live

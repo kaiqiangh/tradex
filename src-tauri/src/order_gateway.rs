@@ -78,7 +78,16 @@ impl GatewayDispatchPackage {
             || self.account.connection_id != attempt.account_id
             || self.account.state_version != attempt.account_state_version
             || self.account.environment != "LIVE"
-            || self.account.provider_id != "trading212"
+            || !matches!(
+                (
+                    self.account.provider_id.as_str(),
+                    attempt.environment.clone()
+                ),
+                (
+                    "trading212",
+                    crate::protocol::ExecutionContext::Trading212Live
+                ) | ("binance", crate::protocol::ExecutionContext::BinanceLive)
+            )
             || self.account.credential_ref() != self.credential_reference
             || self.account.connection_state != crate::providers::ConnectionState::Connected
         {
@@ -93,6 +102,8 @@ impl GatewayDispatchPackage {
                         == Some(attempt.account_id.as_str())
                     && proposal.fields.environment
                         == crate::protocol::ExecutionContext::Trading212Live
+                    && self.account.provider_id == "trading212"
+                    && attempt.environment == crate::protocol::ExecutionContext::Trading212Live
                     && proposal.status == crate::protocol::OrderProposalStatus::Consumed
                     && self.reservation.as_ref().is_some_and(|reservation| {
                         reservation.status == ExecutionReservationStatus::Active
@@ -106,7 +117,7 @@ impl GatewayDispatchPackage {
                     && intent.cancellation_intent_id == attempt.intent_id
                     && intent.intent_hash == attempt.intent_hash
                     && intent.account_id == attempt.account_id
-                    && intent.environment == crate::protocol::ExecutionContext::Trading212Live
+                    && intent.environment == attempt.environment
                     && Some(intent.provider_order_id.as_str())
                         == attempt.broker_order_id.as_deref()
                     && self.reservation.is_none() => {}

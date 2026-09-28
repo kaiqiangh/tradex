@@ -4194,8 +4194,7 @@ impl Store {
                     | ExecutionAttemptState::UnknownReconciling
                     | ExecutionAttemptState::CancelPending
             )
-            || provider_order_id
-                .is_some_and(|value| !crate::provider_io::valid_t212_order_id(value))
+            || provider_order_id.is_some_and(|value| !valid_order_text(value, 128))
             || provider_status.is_some_and(|value| !valid_order_text(value, 64))
             || error_code.is_some_and(|value| !valid_order_text(value, 128))
         {
@@ -4209,6 +4208,25 @@ impl Store {
             .map_err(storage_error)?;
         let mut attempt = load_execution_attempt(&tx, &workspace_id, attempt_id)?
             .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+        let provider_order_id_valid = provider_order_id.is_none_or(|value| {
+            match (attempt.environment.clone(), attempt.operation) {
+                (crate::protocol::ExecutionContext::Trading212Live, _) => {
+                    crate::provider_io::valid_t212_order_id(value)
+                }
+                (
+                    crate::protocol::ExecutionContext::BinanceLive,
+                    crate::protocol::FinancialOperation::PlaceOrder,
+                ) => crate::provider_io::valid_binance_order_id(value),
+                (
+                    crate::protocol::ExecutionContext::BinanceLive,
+                    crate::protocol::FinancialOperation::Cancel,
+                ) => crate::provider_io::valid_live_cancel_order_id("binance", value),
+                _ => crate::provider_io::valid_t212_order_id(value),
+            }
+        });
+        if !provider_order_id_valid {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
         if attempt.state != ExecutionAttemptState::Submitting
             || attempt.dispatch_disposition != Some(ExecutionDispatchDisposition::MayHaveSubmitted)
         {
@@ -6305,7 +6323,7 @@ impl Store {
         &mut self,
         account: AccountConnection,
         observations: Vec<crate::provider_io::LiveOrderObservation>,
-        trading212_order_observation: Option<(String, crate::provider_io::LiveOrderObservation)>,
+        live_cancel_order_observation: Option<(String, crate::provider_io::LiveOrderObservation)>,
     ) -> Result<Vec<DomainEvent>> {
         let now = timestamp()?;
         let observed_account = account.clone();
@@ -6332,8 +6350,8 @@ impl Store {
                 &now,
             )?);
         }
-        if let Some((attempt_id, observation)) = trading212_order_observation {
-            events.push(save_trading212_cancel_order_observation_tx(
+        if let Some((attempt_id, observation)) = live_cancel_order_observation {
+            events.push(save_live_cancel_order_observation_tx(
                 &tx,
                 &observed_account,
                 &attempt_id,
@@ -13253,13 +13271,36 @@ fn write_execution_attempt_tx(
             )
             && previous_attempt.operation == crate::protocol::FinancialOperation::Cancel
             && attempt.operation == crate::protocol::FinancialOperation::Cancel
-            && previous_attempt.environment == crate::protocol::ExecutionContext::Trading212Live
-            && attempt.environment == crate::protocol::ExecutionContext::Trading212Live
             && previous_attempt.dispatch_disposition
                 == Some(ExecutionDispatchDisposition::MayHaveSubmitted)
             && attempt.dispatch_disposition
                 == Some(ExecutionDispatchDisposition::MayHaveSubmitted)
-            && attempt.trading212_live_order_observation.is_some());
+            && previous_attempt.environment == attempt.environment
+            && match attempt.environment {
+                crate::protocol::ExecutionContext::Trading212Live => attempt
+                    .trading212_live_order_observation
+                    .as_ref()
+                    .is_some_and(|observation| {
+                        attempt.broker_order_id.as_deref()
+                            == Some(observation.provider_order_id.as_str())
+                            && previous_attempt
+                                .broker_order_id
+                                .as_deref()
+                                .is_none_or(|saved| saved == observation.provider_order_id)
+                    }),
+                crate::protocol::ExecutionContext::BinanceLive => attempt
+                    .binance_live_order_observation
+                    .as_ref()
+                    .is_some_and(|observation| {
+                        attempt.broker_order_id.as_deref()
+                            == Some(observation.provider_order_id.as_str())
+                            && previous_attempt
+                                .broker_order_id
+                                .as_deref()
+                                .is_none_or(|saved| saved == observation.provider_order_id)
+                    }),
+                _ => false,
+            });
         let mut comparable_previous = previous_attempt.clone();
         comparable_previous.state = attempt.state;
         comparable_previous.invalidation_reason = attempt.invalidation_reason.clone();
@@ -13267,6 +13308,14 @@ fn write_execution_attempt_tx(
         comparable_previous.state_version = attempt.state_version.clone();
         comparable_previous.trading212_live_order_observation =
             attempt.trading212_live_order_observation.clone();
+        comparable_previous.binance_live_order_observation =
+            attempt.binance_live_order_observation.clone();
+        if previous_attempt.state == attempt.state
+            && attempt.operation == crate::protocol::FinancialOperation::Cancel
+            && previous_attempt.broker_order_id.is_none()
+        {
+            comparable_previous.broker_order_id = attempt.broker_order_id.clone();
+        }
         match (previous_attempt.state, attempt.state) {
             (ExecutionAttemptState::Reserved, ExecutionAttemptState::Invalidated) => {
                 if attempt.dispatch_disposition
@@ -14057,6 +14106,17 @@ fn normalize_live_trade_facts(facts: &[LiveOrderTradeFact]) -> Result<Vec<LiveOr
             quantity,
             value,
             fees: normalize_live_fees(&fact.fees)?,
+            provider_executed_at: fact
+                .provider_executed_at
+                .as_deref()
+                .map(|value| {
+                    if valid_provider_time(value) {
+                        Ok(value.to_owned())
+                    } else {
+                        Err(TradeXError::new("IPC_PAYLOAD_INVALID"))
+                    }
+                })
+                .transpose()?,
         };
         if unique
             .insert(normalized.provider_trade_id.clone(), normalized.clone())
@@ -14175,7 +14235,7 @@ fn live_settlement_for_attempt(
     let Some((sequence, projection)) = row else {
         return Ok(None);
     };
-    let settlement: LiveOrderSettlement = serde_json::from_str(&projection)
+    let mut settlement: LiveOrderSettlement = serde_json::from_str(&projection)
         .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
     if sequence < 1
         || settlement.workspace_id != workspace_id
@@ -14184,7 +14244,43 @@ fn live_settlement_for_attempt(
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
+    settlement.trade_facts = Some(live_order_trade_facts_for_attempt(
+        connection,
+        workspace_id,
+        attempt_id,
+    )?);
     Ok(Some(settlement))
+}
+
+fn live_order_trade_facts_for_attempt(
+    connection: &Connection,
+    workspace_id: &str,
+    attempt_id: &str,
+) -> Result<Vec<LiveOrderTradeFact>> {
+    let mut statement = connection
+        .prepare(
+            "SELECT provider_trade_id,projection FROM live_order_trade_facts WHERE workspace_id=?1 AND attempt_id=?2 ORDER BY provider_trade_id LIMIT 2001",
+        )
+        .map_err(storage_error)?;
+    let rows = statement
+        .query_map(params![workspace_id, attempt_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(storage_error)?;
+    let mut facts = Vec::new();
+    for row in rows {
+        let (provider_trade_id, projection) = row.map_err(storage_error)?;
+        let fact: LiveOrderTradeFact = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if fact.provider_trade_id != provider_trade_id {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        facts.push(fact);
+    }
+    if facts.len() > 2_000 {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    Ok(facts)
 }
 
 fn live_settlement_for_execution_attempt(
@@ -14193,43 +14289,55 @@ fn live_settlement_for_execution_attempt(
     attempt: &ExecutionAttempt,
 ) -> Result<Option<LiveOrderSettlement>> {
     if attempt.operation != crate::protocol::FinancialOperation::Cancel
-        || attempt.environment != crate::protocol::ExecutionContext::Trading212Live
+        || !matches!(
+            attempt.environment,
+            crate::protocol::ExecutionContext::Trading212Live
+                | crate::protocol::ExecutionContext::BinanceLive
+        )
     {
         return live_settlement_for_attempt(connection, workspace_id, &attempt.attempt_id);
     }
-    let Some(provider_order_id) = attempt.broker_order_id.as_deref() else {
-        return Ok(None);
-    };
-    let place_attempts: Vec<String> = {
-        let mut statement = connection
-            .prepare("SELECT attempt_id FROM execution_attempts WHERE workspace_id=?1 AND account_id=?2 AND operation='PLACE_ORDER' AND json_extract(projection,'$.brokerOrderId')=?3 ORDER BY attempt_id LIMIT 2")
-            .map_err(storage_error)?;
-        statement
-            .query_map(
-                params![workspace_id, attempt.account_id, provider_order_id],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?
-            .collect::<std::result::Result<Vec<String>, _>>()
-            .map_err(storage_error)?
-    };
-    if place_attempts.len() > 1 {
+    let account_projection: Option<String> = connection
+        .query_row(
+            "SELECT projection FROM accounts WHERE connection_id=?1",
+            [&attempt.account_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let Some(account_projection) = account_projection else {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
-    }
-    let Some(place_attempt_id) = place_attempts.first() else {
+    };
+    let account: AccountConnection = serde_json::from_str(&account_projection)
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    account.validate_persisted(workspace_id)?;
+    let provider_order_id = match attempt.environment {
+        crate::protocol::ExecutionContext::Trading212Live => attempt
+            .trading212_live_order_observation
+            .as_ref()
+            .map(|observation| observation.provider_order_id.as_str())
+            .or(attempt.broker_order_id.as_deref()),
+        crate::protocol::ExecutionContext::BinanceLive => attempt
+            .binance_live_order_observation
+            .as_ref()
+            .map(|observation| observation.provider_order_id.as_str())
+            .or(attempt.broker_order_id.as_deref()),
+        _ => None,
+    };
+    let Some(provider_order_id) = provider_order_id else {
         return Ok(None);
     };
-    let place = load_execution_attempt(connection, workspace_id, place_attempt_id)?
-        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
-    if place.operation != crate::protocol::FinancialOperation::PlaceOrder
-        || place.state != ExecutionAttemptState::Accepted
-        || place.account_id != attempt.account_id
-        || place.environment != attempt.environment
-        || place.broker_order_id.as_deref() != Some(provider_order_id)
+    if attempt
+        .broker_order_id
+        .as_deref()
+        .is_some_and(|saved| saved != provider_order_id)
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
-    live_settlement_for_attempt(connection, workspace_id, place_attempt_id)
+    let Some(place) = find_live_place_attempt(connection, &account, provider_order_id)? else {
+        return Ok(None);
+    };
+    live_settlement_for_attempt(connection, workspace_id, &place.attempt_id)
 }
 
 fn write_live_order_settlement_tx(
@@ -14289,8 +14397,8 @@ fn write_live_order_settlement_tx(
     Ok(event)
 }
 
-fn find_live_place_attempt_tx(
-    tx: &Transaction<'_>,
+fn find_live_place_attempt(
+    connection: &Connection,
     account: &AccountConnection,
     provider_order_id: &str,
 ) -> Result<Option<ExecutionAttempt>> {
@@ -14300,8 +14408,22 @@ fn find_live_place_attempt_tx(
     if account.environment != "LIVE" || !valid_order_text(provider_order_id, 128) {
         return Ok(None);
     }
+    let binance_order = if account.provider_id == "binance" {
+        let Some((symbol, order_id)) = provider_order_id.split_once(':') else {
+            return Ok(None);
+        };
+        if !crate::provider_io::valid_live_cancel_order_id("binance", provider_order_id) {
+            return Ok(None);
+        }
+        let Some(instrument_id) = market::canonical_instrument_id("binance", symbol) else {
+            return Ok(None);
+        };
+        Some((symbol, order_id, instrument_id))
+    } else {
+        None
+    };
     let attempts = {
-        let mut statement = tx
+        let mut statement = connection
             .prepare("SELECT attempt_id FROM execution_attempts WHERE workspace_id=?1 AND account_id=?2 AND operation='PLACE_ORDER' AND state='ACCEPTED' ORDER BY attempt_id")
             .map_err(storage_error)?;
         statement
@@ -14315,15 +14437,67 @@ fn find_live_place_attempt_tx(
     };
     let mut matching = None;
     for attempt_id in attempts {
-        let Some(attempt) = load_execution_attempt(tx, &account.workspace_id, &attempt_id)? else {
+        let Some(attempt) = load_execution_attempt(connection, &account.workspace_id, &attempt_id)?
+        else {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         };
-        if attempt.operation == crate::protocol::FinancialOperation::PlaceOrder
-            && attempt.state == ExecutionAttemptState::Accepted
-            && attempt.environment == expected_environment
-            && attempt.account_id == account.connection_id
-            && attempt.broker_order_id.as_deref() == Some(provider_order_id)
+        if attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+            || attempt.state != ExecutionAttemptState::Accepted
+            || attempt.environment != expected_environment
+            || attempt.account_id != account.connection_id
         {
+            continue;
+        }
+        let order_matches = match (account.provider_id.as_str(), binance_order.as_ref()) {
+            ("trading212", _) => attempt.broker_order_id.as_deref() == Some(provider_order_id),
+            ("binance", Some((_symbol, order_id, instrument_id))) => {
+                if attempt.broker_order_id.as_deref() != Some(*order_id) {
+                    continue;
+                }
+                let Some(proposal_id) = attempt.proposal_id.as_deref() else {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                };
+                if attempt.intent_id != proposal_id {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                let proposal_row: Option<(String, String, i64, String, i64, String)> = connection
+                    .query_row(
+                        "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 AND proposal_id=?2",
+                        params![account.workspace_id, proposal_id],
+                        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+                    )
+                    .optional()
+                    .map_err(storage_error)?;
+                let Some((
+                    workspace_id,
+                    draft_id,
+                    draft_version,
+                    proposal_hash,
+                    sequence,
+                    projection,
+                )) = proposal_row
+                else {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                };
+                let proposal = decode_stored_order_proposal(
+                    &projection,
+                    proposal_id,
+                    &workspace_id,
+                    &draft_id,
+                    draft_version,
+                    &proposal_hash,
+                    sequence,
+                    &account.workspace_id,
+                )?;
+                attempt.broker_order_id.as_deref() == Some(*order_id)
+                    && proposal.fields.account_id.as_deref() == Some(account.connection_id.as_str())
+                    && proposal.fields.environment == ExecutionContext::BinanceLive
+                    && proposal.fields.venue == "BINANCE"
+                    && proposal.fields.instrument_id == *instrument_id
+            }
+            _ => false,
+        };
+        if order_matches {
             if matching.is_some() {
                 return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
             }
@@ -14333,7 +14507,7 @@ fn find_live_place_attempt_tx(
     Ok(matching)
 }
 
-fn save_trading212_cancel_order_observation_tx(
+fn save_live_cancel_order_observation_tx(
     tx: &Transaction<'_>,
     account: &AccountConnection,
     attempt_id: &str,
@@ -14342,11 +14516,15 @@ fn save_trading212_cancel_order_observation_tx(
 ) -> Result<DomainEvent> {
     let mut attempt = load_execution_attempt(tx, &account.workspace_id, attempt_id)?
         .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
-    if account.provider_id != "trading212"
-        || account.environment != "LIVE"
+    let expected_environment = match account.provider_id.as_str() {
+        "trading212" => crate::protocol::ExecutionContext::Trading212Live,
+        "binance" => crate::protocol::ExecutionContext::BinanceLive,
+        _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+    };
+    if account.environment != "LIVE"
         || attempt.operation != crate::protocol::FinancialOperation::Cancel
         || attempt.account_id != account.connection_id
-        || attempt.environment != crate::protocol::ExecutionContext::Trading212Live
+        || attempt.environment != expected_environment
         || attempt.dispatch_disposition
             != Some(crate::protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
         || !matches!(
@@ -14380,16 +14558,20 @@ fn save_trading212_cancel_order_observation_tx(
         || intent.account_id != account.connection_id
         || intent.intent_hash != attempt.intent_hash
         || intent.cancellation_intent_id != attempt.intent_id
-        || intent.environment != crate::protocol::ExecutionContext::Trading212Live
+        || intent.environment != expected_environment
         || intent.provider_order_id != observation.provider_order_id
     {
         return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
     }
-    if !matches!(
-        observation.source.as_str(),
-        "trading212.live.order-detail" | "trading212.live.order-history"
-    ) || !valid_order_text(&observation.raw_status, 64)
-    {
+    let expected_source = match account.provider_id.as_str() {
+        "trading212" => matches!(
+            observation.source.as_str(),
+            "trading212.live.order-detail" | "trading212.live.order-history"
+        ),
+        "binance" => observation.source == "binance.live.exact-order",
+        _ => false,
+    };
+    if !expected_source || !valid_order_text(&observation.raw_status, 64) {
         return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
     }
     let order_quantity = observation
@@ -14432,19 +14614,25 @@ fn save_trading212_cancel_order_observation_tx(
             }
         })
         .transpose()?;
-    attempt.trading212_live_order_observation =
-        Some(crate::protocol::Trading212LiveOrderObservation {
-            provider_order_id: observation.provider_order_id,
-            provider_status: observation.raw_status,
-            disposition: observation.disposition,
-            order_quantity,
-            filled_quantity,
-            remaining_quantity,
-            filled_value,
-            observed_at: occurred_at.into(),
-            provider_observed_at,
-            source: observation.source,
-        });
+    let provider_order_id = observation.provider_order_id.clone();
+    let saved_observation = crate::protocol::Trading212LiveOrderObservation {
+        provider_order_id,
+        provider_status: observation.raw_status,
+        disposition: observation.disposition,
+        order_quantity,
+        filled_quantity,
+        remaining_quantity,
+        filled_value,
+        observed_at: occurred_at.into(),
+        provider_observed_at,
+        source: observation.source,
+    };
+    attempt.broker_order_id = Some(saved_observation.provider_order_id.clone());
+    match account.provider_id.as_str() {
+        "trading212" => attempt.trading212_live_order_observation = Some(saved_observation),
+        "binance" => attempt.binance_live_order_observation = Some(saved_observation),
+        _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
+    }
     let key = execution_attempt_idempotency_key(tx, &account.workspace_id, &attempt)?;
     write_execution_attempt_tx(tx, attempt, &key, occurred_at)
 }
@@ -14455,7 +14643,7 @@ fn settle_live_order_observation_tx(
     observation: crate::provider_io::LiveOrderObservation,
     occurred_at: &str,
 ) -> Result<Vec<DomainEvent>> {
-    let Some(attempt) = find_live_place_attempt_tx(tx, account, &observation.provider_order_id)?
+    let Some(attempt) = find_live_place_attempt(tx, account, &observation.provider_order_id)?
     else {
         return Ok(Vec::new());
     };
@@ -14551,6 +14739,7 @@ fn settle_live_order_observation_tx(
         filled_quantity: None,
         filled_value: None,
         fees: None,
+        trade_facts: None,
         fill_evidence_complete: false,
         fees_complete: false,
         trade_facts_complete: false,
@@ -14713,6 +14902,13 @@ fn settle_live_order_observation_tx(
     };
     next.observed_at = occurred_at.into();
     next.provider_trade_count = trade_count;
+    let mut saved_trade_facts = previous
+        .as_ref()
+        .and_then(|saved| saved.trade_facts.clone())
+        .unwrap_or_default();
+    saved_trade_facts.extend(new_facts.iter().cloned());
+    saved_trade_facts.sort_by(|left, right| left.provider_trade_id.cmp(&right.provider_trade_id));
+    next.trade_facts = Some(saved_trade_facts);
 
     let mut events = Vec::new();
     let comparable_same = previous.as_ref().is_some_and(|saved| {

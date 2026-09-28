@@ -953,3 +953,11 @@ Order Drafts 可显式对已保存 proposal 求值或重新求值，并展示 ap
 Accounts 展示账户范围内已保存的 Trading 212 Live CANCEL 审批历史，包括准确订单不再开放后的已消费 attempt。每次进入时重新读取耐久 attempt，并将其 acknowledgement 与最新准确 provider 观测及按准确 provider order ID 关联的 S26.1 PLACE settlement 分开呈现。
 
 “刷新准确订单”是针对捕获的已消费 approval、账户与 provider order ID 的显式只读操作。显示 provider 原始状态与归一 disposition、准确可用的订单/成交/剩余数量和累计金额、来源、TradeX 观测时间、可选 provider 时间，以及关联结算的剩余容量/未解决原因。缺少 fee/trade facts 时继续显示不可用。账户已连接时允许刷新；若连接需复核，仅当在线、认证有效且凭据可用时允许；此例外不授予写入或 Arm 权限。DELETE 后竞态到达的成交成为最新订单观测，而撤单 attempt 仍保持 `CANCEL_PENDING`；acknowledgement 不表示撤单已完成。导航/重开后恢复相同事实。提供 accessible 状态/错误、键盘可操作刷新按钮，并检查 390/768/1280 px。不自动轮询。
+
+## 14.19 Binance Spot Live 撤单历史与成交竞态（S26.3 #105）
+
+Accounts 按账户列出 Binance Spot Live 撤单历史，并在导航或重新打开 workspace 后恢复每个已消费 attempt。保存的 provider acknowledgement、最新准确订单观测和准确关联的 S26.1 PLACE settlement 始终分开展示。
+
+“刷新准确订单”是针对捕获账户、已消费 CANCEL approval 和准确 `symbol:orderId` 的显式只读操作。重新核验普通 Spot Live 账户身份，然后只读取准确订单及其订单范围内的成交证据。显示 provider 原始状态、归一 disposition、准确数量/已成交/剩余数量、累计 quote value、完整时的 trade ID 与 commission 金额/资产、观测来源和时间，以及关联 settlement 完整性、未解决原因与剩余容量。成交/手续费证据缺失、格式错误或不完整时继续显示不可用，并保守保留容量。
+
+撤单流程保持显式：刷新并审阅准确当前订单、审批不可变 CANCEL intent，然后单独通过 Order Gateway prepare/send。Gateway 仅在 `SUBMITTING` 持久化后，为该准确 symbol 和数字订单 ID 签名并发送一次 DELETE；不使用撤销全部或 Testnet 路由。Provider acknowledgement 进入 `CANCEL_PENDING`，不进入 `CANCELLED`。DELETE 期间发生的成交更新准确订单及关联 PLACE settlement，而 CANCEL attempt 继续保持 `CANCEL_PENDING`。只有同一账户的数字订单 ID 和规范 instrument 均准确匹配时才关联 TradeX PLACE；外部订单或相似订单不关联。导航/重开后恢复保存事实。提供 accessible 状态/错误、键盘可操作控件，并检查 390/768/1280 px。不自动轮询。

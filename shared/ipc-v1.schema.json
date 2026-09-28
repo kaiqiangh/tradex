@@ -274,6 +274,9 @@
     "gatewayMutation": {
       "$ref": "#/$defs/GatewayMutation"
     },
+    "liveOrderRefreshRequest": {
+      "$ref": "#/$defs/LiveOrderRefreshRequest"
+    },
     "localPaperState": {
       "$ref": "#/$defs/LocalPaperState"
     },
@@ -487,9 +490,6 @@
     "trading212LiveOrderObservation": {
       "$ref": "#/$defs/Trading212LiveOrderObservation"
     },
-    "trading212LiveOrderRefreshRequest": {
-      "$ref": "#/$defs/Trading212LiveOrderRefreshRequest"
-    },
     "turnCancel": {
       "$ref": "#/$defs/TurnCancel"
     },
@@ -604,7 +604,7 @@
     "cancellationApprovalAction",
     "cancellationApprovalHistoryQuery",
     "cancellationApprovalHistory",
-    "trading212LiveOrderRefreshRequest",
+    "liveOrderRefreshRequest",
     "trading212LiveOrderObservation",
     "cancellationApprovalRejection",
     "trading212DemoOrderAttempt",
@@ -6243,6 +6243,16 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "binanceLiveOrderObservation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Trading212LiveOrderObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "brokerOrderId": {
           "type": [
             "string",
@@ -7439,6 +7449,44 @@
         "amount"
       ]
     },
+    "LiveOrderRefreshRequest": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "approvalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "brokerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "approvalId",
+        "brokerOrderId",
+        "expectedStateVersion"
+      ]
+    },
     "LiveOrderSettlement": {
       "type": "object",
       "properties": {
@@ -7540,6 +7588,16 @@
         "status": {
           "$ref": "#/$defs/LiveOrderSettlementStatus"
         },
+        "tradeFacts": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/LiveOrderTradeFact"
+          },
+          "maxItems": 2000
+        },
         "tradeFactsComplete": {
           "type": "boolean"
         },
@@ -7583,6 +7641,48 @@
         "WORKING",
         "INCOMPLETE",
         "SETTLED"
+      ]
+    },
+    "LiveOrderTradeFact": {
+      "type": "object",
+      "properties": {
+        "fees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LiveOrderFee"
+          },
+          "maxItems": 32
+        },
+        "providerExecutedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerTradeId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerTradeId",
+        "quantity",
+        "value",
+        "fees"
       ]
     },
     "LocalPaperBalance": {
@@ -15768,44 +15868,6 @@
         "disposition",
         "observedAt",
         "source"
-      ]
-    },
-    "Trading212LiveOrderRefreshRequest": {
-      "type": "object",
-      "properties": {
-        "accountId": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "approvalId": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "brokerOrderId": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        },
-        "expectedStateVersion": {
-          "type": "string",
-          "maxLength": 256,
-          "minLength": 1
-        },
-        "workspaceId": {
-          "type": "string",
-          "maxLength": 128,
-          "minLength": 1
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "workspaceId",
-        "accountId",
-        "approvalId",
-        "brokerOrderId",
-        "expectedStateVersion"
       ]
     },
     "TurnCancel": {

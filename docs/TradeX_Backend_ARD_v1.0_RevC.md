@@ -1887,7 +1887,7 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Approve cancellation | trade.cancel_approve | workspace_id, cancellation_intent_id, intent_hash, reviewed_risk_decision_id, review_digest, expected_state_version; revalidate current account/order/policy/arming/freshness and issue a tagged FinancialApproval with operation `CANCEL`, exact provider order ID and remaining quantity, snapshot_version/evidence, policy version, and 30-second TTL. This command never calls provider DELETE. |
 | Reject cancellation review | trade.cancel_reject | the same exact intent/hash, risk-decision ID, review digest, and expected snapshot version as the displayed review; records a durable `USER_REJECTED` audit and invalidates that intent. |
 | Read cancellation authorization history | trade.cancel_approval.list | workspace_id, account_id, optional broker_order_id; returns bounded sanitized intent invalidation, approval issuance/expiry/invalidation, and rejection history for the account or exact provider order. |
-| Refresh exact Trading 212 Live cancellation evidence | trade.live_order.refresh | workspace_id, account_id, approval_id, broker_order_id, expected_state_version; perform a read-only exact-order refresh for a consumed Trading 212 Live CANCEL approval and persist its order observation and any exact linked PLACE settlement |
+| Refresh exact Trading 212 or Binance Live cancellation evidence | trade.live_order.refresh | workspace_id, account_id, approval_id, broker_order_id, expected_state_version; perform a read-only exact-order refresh for a consumed supported Live CANCEL approval and persist its order observation and any exact linked PLACE settlement |
 | Inspect resolution evidence | trade.resolution_evidence | execution_attempt_id, account_id; return backend-owned evidence and allowed decisions |
 | Refresh Live reconciliation evidence | trade.resolution_evidence.refresh | workspace_id, execution_attempt_id, account_id, expected_attempt_state_version; run one bounded read-only provider query for a saved Trading 212, Binance Spot, or Bitget Spot Live unknown PLACE attempt |
 | Resolve ambiguity | trade.manual_resolution | §27.4 payload; decision/evidence validated again at commit |
@@ -1928,6 +1928,7 @@ interface LiveOrderSettlement {
   filledQuantity?: string;
   filledValue?: string;
   fees?: LiveOrderFee[];
+  tradeFacts?: LiveOrderTradeFact[]; // bounded persisted provider trade IDs and per-trade fees
   fillEvidenceComplete: boolean;
   feesComplete: boolean;
   tradeFactsComplete: boolean;
@@ -2889,6 +2890,16 @@ Successful empty, incomplete, delayed, unauthenticated, identity-mismatched, or 
 The adapter uses the saved credential for all reads and verifies `/api/v0/equity/account/summary` against the saved remote account ID. It reads the exact `/api/v0/equity/orders/{id}` detail; because Trading 212 detail is pending-only, HTTP 404 falls back to one bounded `/api/v0/equity/history/orders` page and accepts only the exact saved ID. The command sends only GETs and never changes cancellation state or retries a DELETE.
 
 Persist the validated raw provider status, normalized `WORKING`/`TERMINAL`/`UNKNOWN` disposition, exact available order/fill/remaining quantity and cumulative value, TradeX observation time, optional provider time, and source on the same CANCEL attempt. In the same SQLite transaction, pass exact order fill evidence through S26.1 settlement for the uniquely linked PLACE attempt. A later fill observation wins over stale pending-order data, but the CANCEL attempt remains `CANCEL_PENDING`; an acknowledgement is never presented as confirmed cancellation. Missing provider fee or trade facts remain unavailable, retain S26.1 completeness/unresolved state, and do not release capacity. Saved observations and the linked settlement are available through execution-preparation history after workspace reopen. No background polling is added.
+
+### 41.32 Binance Spot Live cancellation race and exact-order observation (S26.3 #105)
+
+`trade.live_order.refresh` uses the same `{workspaceId, accountId, approvalId, brokerOrderId, expectedStateVersion}` payload for a connected `binance` / `LIVE` Spot account. It requires the exact consumed CANCEL approval, saved account and composite `symbol:orderId`, and durable `REJECTED`, `UNKNOWN_RECONCILING`, or `CANCEL_PENDING` attempt with `MAY_HAVE_SUBMITTED` disposition. An online `REVIEW_REQUIRED` account may use this read-only refresh only while authentication and its saved credential remain valid. Identity changes, stale versions, malformed or incomplete provider evidence, and unsupported states fail closed; this exception adds no Arm, approval, or write authority.
+
+The Order Gateway rechecks the saved Spot account and exact saved order immediately before mutation. After durable `SUBMITTING`, it sends at most one signed `DELETE /api/v3/order` with the saved symbol and numeric order ID. It never calls cancel-all, cancel-replace, Testnet, or another mutation route. A successful acknowledgement becomes `CANCEL_PENDING`; definitive rejection and ambiguous response remain distinct, and neither is resent after restart.
+
+Refresh verifies the saved numeric Spot account ID and reads the exact `/api/v3/order?symbol={symbol}&orderId={id}`. For settlement evidence it reads only that order's bounded `/api/v3/myTrades?symbol={symbol}&orderId={id}` pages. Persist exact order status, cumulative executed/remaining quantity and quote value, each provider trade ID, commission amount/asset, source, and provider/TradeX observation times. Return at most 2,000 persisted trade facts in the settlement and execution-preparation history projections; the cancellation history shows each trade ID and its commission details. Bind a cancellation ID such as `BTCUSDT:12345` to an accepted PLACE only when the same account's numeric broker order ID, canonical symbol/instrument, and saved proposal agree; external or merely similar orders are not linked.
+
+In the same SQLite transaction, persist the CANCEL observation and pass the exact order/trade evidence to S26.1 settlement. A fill racing DELETE updates the latest provider facts while the CANCEL attempt remains `CANCEL_PENDING`. Working, unknown, or incomplete evidence retains the conservative remaining commitment; only complete authoritative terminal evidence settles cumulative fills/fees and releases the unused remainder once. Missing or inconsistent trades/fees never become zero. Execution-preparation history restores the observation and linked settlement after reopen. No background polling is added.
 
 ## 42. Backend-to-Frontend Event Surface
 

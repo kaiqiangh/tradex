@@ -668,6 +668,14 @@ Accounts lists saved Trading 212 Live cancellation approvals at account scope so
 
 “Refresh exact order” sends only `trade.live_order.refresh` for the captured account, consumed approval, exact provider order ID, and current account state version. It is an explicit read-only action; allow it while connected, or while connection review is required only if the account remains online with valid authentication and a usable credential. This read-only recovery does not make writes or arming eligible. Display raw status, normalized disposition, exact available quantity/fill/remaining/value, source, TradeX observation time, and provider time only when supplied. Show provider fees/trade facts as unavailable when absent and retain the linked settlement's completeness, unresolved reason, and remaining capacity. A racing fill is shown as the latest provider fact while the cancellation attempt stays `CANCEL_PENDING`; never label provider acknowledgement as cancellation confirmation. Use status/alert semantics, keyboard-operable refresh, and responsive 390/768/1280 px layouts. Do not poll automatically.
 
+### 13.19 Binance Spot Live cancellation history and fill race (S26.3 #105)
+
+Accounts lists saved Binance Spot Live CANCEL approvals and restores each consumed attempt after navigation or workspace reopen. Keep the saved acknowledgement separate from the latest exact order observation and its exact S26.1 PLACE settlement.
+
+“Refresh exact order” uses the existing `trade.live_order.refresh` command with the captured account, consumed approval, exact `symbol:orderId`, and current account state version. It is read-only and available only while the Binance Spot Live account is connected, or while it is online with valid authentication and usable credentials under `REVIEW_REQUIRED`. Show the raw Binance status, normalized disposition, exact order/filled/remaining quantity and cumulative quote value, provider trade IDs and commission assets/amounts when complete, source, TradeX observation time, optional provider time, and the linked settlement's completeness, unresolved reason, and remaining capacity. Missing or incomplete trade/fee evidence remains unavailable and conservative capacity stays held.
+
+A fill racing the DELETE becomes the latest saved order fact while the cancellation attempt remains `CANCEL_PENDING`; acknowledgement never means cancellation completed. The linked PLACE must match the same account, exact numeric Binance order ID, and canonical symbol/instrument from its saved proposal; external or merely similar orders are never linked. Use status/alert semantics, keyboard-operable review and refresh controls, and responsive 390/768/1280 px layouts. Do not poll automatically or expose cancel-all or Testnet fallback controls.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

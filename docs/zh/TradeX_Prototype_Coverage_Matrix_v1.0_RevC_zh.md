@@ -153,7 +153,7 @@ FAILED/PARTIAL 原型项修复后仍可能需要运行时验证。SOURCE_ONLY �
 | AC-030 | 选择 Trade 模式或 Live Execution Context 不布防实时执行。 | RUNTIME_PENDING | 按 PRD/ARD 验证真实进程、提供方或持久化行为；独立 fixture 不证明本项完成。 |
 | AC-031 | 在 DISARMED 状态下请求实时订单,需在展示交易审批前执行单独的显式 Arm 操作。 | RUNTIME_PENDING | 按 PRD/ARD 验证真实进程、提供方或持久化行为；独立 fixture 不证明本项完成。 |
 | AC-032 | 订单监控期间展示的标的、账户、方向、数量与订单类型,与用户批准的不可变交易一致。 | FAILED | 关联场景的实际观察与验收条件见 [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-07)；修复后重新验证，不以界面存在代替通过。 |
-| AC-033 | 未结实时订单唯有在券商状态刷新且经交易特定的用户审批后,方可进入取消流程;UI 呈现 `CANCEL_PENDING` 与 `CANCELLED`。 | FAILED | 关联场景的实际观察与验收条件见 [QA-01](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-01)；修复后重新验证，不以界面存在代替通过。 |
+| AC-033 | 未结实时订单唯有在券商状态刷新且经交易特定的用户审批后,方可进入取消流程;UI 呈现 `CANCEL_PENDING` 与 `CANCELLED`。 | FAILED | 本矩阵只记录可点击原型证据。Trading 212/Binance Live 的 runtime contract 和测试由 S26.2 #104、S26.3 #105 单独跟踪；这些实现不会修复原型。参见 [QA-01](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-01)，原型修复后需重新验证。 |
 | AC-034 | UI 呈现确定性的 `RISK_REJECTED`、券商 `REJECTED`、审批 `EXPIRED` 与 `UNKNOWN_RECONCILING` 状态,且不暗示执行成功。 | FAILED | 关联场景的实际观察与验收条件见 [QA-02](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-02)；修复后重新验证，不以界面存在代替通过。 |
 | AC-035 | 市价单审批展示预期支出、最大授权支出、买卖价差、报价年龄以及(在可用时)费用/滑点估计。 | RUNTIME_PENDING | 按 PRD/ARD 验证真实进程、提供方或持久化行为；独立 fixture 不证明本项完成。 |
 | AC-042 | 实时布防为账户作用域:布防 Trading 212 不会布防 Binance 或 Bitget;全局「全部禁用」撤防所有实时账户。 | FAILED | 关联场景的实际观察与验收条件见 [QA-05](./TradeX_Prototype_QA_Report_v1.0_RevC_zh.md#qa-05)；修复后重新验证，不以界面存在代替通过。 |

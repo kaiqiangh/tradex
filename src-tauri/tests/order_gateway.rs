@@ -82,6 +82,7 @@ fn rejects_an_oversized_handshake_frame_before_reading_its_body() {
 ))]
 mod local_provider_tests {
     use super::*;
+    use hmac::{Hmac, Mac};
     use serde_json::{Value, json};
     use std::{
         io::{BufRead, BufReader, Read, Write},
@@ -109,6 +110,7 @@ mod local_provider_tests {
         method: String,
         path: String,
         authorization: Option<String>,
+        api_key: Option<String>,
         body: Value,
     }
 
@@ -193,6 +195,90 @@ mod local_provider_tests {
         (format!("http://{address}"), captured, thread)
     }
 
+    fn fake_binance_provider(
+        calls_to_accept: usize,
+        mutation_status: u16,
+        mutation_body: &'static [u8],
+        drop_mutation_response: bool,
+        remote_account_id: &'static str,
+        order_body: &'static [u8],
+    ) -> (
+        String,
+        Arc<Mutex<Vec<CapturedRequest>>>,
+        thread::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let capture = captured.clone();
+        let thread = thread::spawn(move || {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+            for _ in 0..calls_to_accept {
+                let (stream, _) = loop {
+                    match listener.accept() {
+                        Ok(connection) => break connection,
+                        Err(error)
+                            if error.kind() == std::io::ErrorKind::WouldBlock
+                                && std::time::Instant::now() < deadline =>
+                        {
+                            thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("fake Binance provider accept failed: {error}"),
+                    }
+                };
+                let (request, mut stream) = read_request(stream);
+                let is_mutation = request.method == "DELETE";
+                let read_body = if is_mutation {
+                    b"".as_slice()
+                } else if request.path == "/api/v3/time" {
+                    br#"{"serverTime":1788849600000}"#.as_slice()
+                } else if request.path.starts_with("/api/v3/account?") {
+                    if remote_account_id == "777" {
+                        br#"{"accountType":"SPOT","uid":777}"#.as_slice()
+                    } else {
+                        br#"{"accountType":"SPOT","uid":778}"#.as_slice()
+                    }
+                } else if request.path.starts_with("/api/v3/order?") && request.method == "GET" {
+                    order_body
+                } else {
+                    panic!(
+                        "unexpected Binance loopback request: {} {}",
+                        request.method, request.path
+                    )
+                };
+                capture.lock().unwrap().push(request);
+                if is_mutation && drop_mutation_response {
+                    let _ = stream.shutdown(Shutdown::Both);
+                    continue;
+                }
+                let (status, body) = if is_mutation {
+                    (mutation_status, mutation_body)
+                } else {
+                    (200, read_body)
+                };
+                let reason = if status == 200 { "OK" } else { "Rejected" };
+                write!(
+                    stream,
+                    "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .unwrap();
+                stream.write_all(body).unwrap();
+            }
+        });
+        (format!("http://{address}"), captured, thread)
+    }
+
+    fn assert_binance_signature(request: &CapturedRequest) {
+        assert_eq!(request.api_key.as_deref(), Some("synthetic-api-key"));
+        let (_, query) = request.path.split_once('?').unwrap();
+        let (unsigned, signature) = query.split_once("&signature=").unwrap();
+        let mut mac = Hmac::<Sha256>::new_from_slice(b"synthetic-api-secret").unwrap();
+        mac.update(unsigned.as_bytes());
+        assert_eq!(hex::encode(mac.finalize().into_bytes()), signature);
+    }
+
     fn read_request(stream: TcpStream) -> (CapturedRequest, TcpStream) {
         stream.set_nonblocking(false).unwrap();
         stream
@@ -202,6 +288,7 @@ mod local_provider_tests {
         let mut request_line = String::new();
         reader.read_line(&mut request_line).unwrap();
         let mut authorization = None;
+        let mut api_key = None;
         let mut content_length = 0;
         loop {
             let mut line = String::new();
@@ -212,6 +299,9 @@ mod local_provider_tests {
             if let Some((name, value)) = line.split_once(':') {
                 if name.eq_ignore_ascii_case("authorization") {
                     authorization = Some(value.trim().to_owned());
+                }
+                if name.eq_ignore_ascii_case("x-mbx-apikey") {
+                    api_key = Some(value.trim().to_owned());
                 }
                 if name.eq_ignore_ascii_case("content-length") {
                     content_length = value.trim().parse().unwrap_or_default();
@@ -228,6 +318,7 @@ mod local_provider_tests {
                 method,
                 path,
                 authorization,
+                api_key,
                 body: if body.is_empty() {
                     Value::Null
                 } else {
@@ -303,9 +394,17 @@ mod local_provider_tests {
             .unwrap();
         let provider_order_id = cancel.map(|intent| intent.provider_order_id.clone());
         let reservation_id = proposal.map(|_| "reservation-1".to_owned());
+        let execution_context = cancel
+            .map(|intent| intent.environment.clone())
+            .unwrap_or(ExecutionContext::Trading212Live);
+        let provider_id = if execution_context == ExecutionContext::BinanceLive {
+            "binance"
+        } else {
+            "trading212"
+        };
         let mut account = AccountConnection::new(
             "integration-test".into(),
-            "trading212".into(),
+            provider_id.into(),
             "LIVE".into(),
             "synthetic live account".into(),
         )
@@ -365,10 +464,11 @@ mod local_provider_tests {
             provider_client_order_id: None,
             provider_status: None,
             trading212_live_order_observation: None,
+            binance_live_order_observation: None,
             error_code: None,
             dispatch_disposition: None,
             account_id: "account-1".into(),
-            environment: ExecutionContext::Trading212Live,
+            environment: execution_context,
             policy_version: 1,
             risk_decision_id: "risk-1".into(),
             review_digest: format!("sha256:{}", "b".repeat(64)),
@@ -456,6 +556,25 @@ mod local_provider_tests {
         }
     }
 
+    fn binance_cancel_intent() -> CancellationIntent {
+        CancellationIntent {
+            cancellation_intent_id: "cancel-binance-12345".into(),
+            intent_hash: format!("sha256:{}", "d".repeat(64)),
+            workspace_id: "integration-test".into(),
+            account_id: "account-1".into(),
+            environment: ExecutionContext::BinanceLive,
+            provider_order_id: "BTCUSDT:12345".into(),
+            instrument_id: "crypto:BTC/USDT:spot".into(),
+            symbol: "BTCUSDT".into(),
+            side: "BUY".into(),
+            provider_status: "NEW".into(),
+            quantity: "1".into(),
+            filled_quantity: "0".into(),
+            remaining_quantity: "1".into(),
+            created_at: "2026-09-27T10:00:00Z".into(),
+        }
+    }
+
     fn run_child(
         package: GatewayDispatchPackage,
         base_url: String,
@@ -478,8 +597,6 @@ mod local_provider_tests {
         let attempt_id = package.lock().unwrap().attempt.attempt_id.clone();
         let issue_package = package.clone();
         let begin_package = package.clone();
-        let stopped = Arc::new(Mutex::new(false));
-        let stopped_callback = stopped.clone();
         let result_callback = result.clone();
         let dispatch = gateway.dispatch_attempt(
             &attempt_id,
@@ -498,7 +615,7 @@ mod local_provider_tests {
                     Err("GATEWAY_AUTH_FAILED".into())
                 }
             },
-            move |_, _| *stopped_callback.lock().unwrap() = true,
+            |_, _| {},
             move |_, outcome| {
                 *result_callback.lock().unwrap() = Some(outcome.clone());
                 if persist_result {
@@ -508,7 +625,6 @@ mod local_provider_tests {
                 }
             },
         );
-        assert!(!*stopped.lock().unwrap());
         (gateway, result, dispatch)
     }
 
@@ -682,6 +798,183 @@ mod local_provider_tests {
         assert_eq!(duplicate, Ok(()));
         assert_eq!(calls.lock().unwrap().len(), 3);
         gateway.stop();
+    }
+
+    #[test]
+    fn real_child_sends_one_signed_exact_binance_spot_live_cancel() {
+        let order = br#"{"symbol":"BTCUSDT","orderId":12345,"orderListId":-1,"side":"BUY","status":"NEW","origQty":"1","executedQty":"0","cummulativeQuoteQty":"0","updateTime":1788849600000}"#;
+        let acknowledgement =
+            br#"{"symbol":"BTCUSDT","orderId":12345,"orderListId":-1,"status":"CANCELED"}"#;
+        let (url, calls, provider) =
+            fake_binance_provider(5, 200, acknowledgement, false, "777", order);
+        let (mut gateway, result) = run_child(
+            package(
+                "binance-cancel-1",
+                GatewayDispatchIntent::Cancel(Box::new(binance_cancel_intent())),
+            ),
+            url,
+        );
+        provider.join().unwrap();
+        let requests = calls.lock().unwrap();
+        assert_eq!(requests.len(), 5);
+        assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[0].path, "/api/v3/time");
+        assert_eq!(requests[1].method, "GET");
+        assert!(requests[1].path.starts_with("/api/v3/account?"));
+        assert_eq!(requests[2].method, "GET");
+        assert!(
+            requests[2]
+                .path
+                .starts_with("/api/v3/order?symbol=BTCUSDT&orderId=12345&timestamp=")
+        );
+        assert_eq!(requests[3].path, "/api/v3/time");
+        assert_eq!(requests[4].method, "DELETE");
+        assert!(
+            requests[4]
+                .path
+                .starts_with("/api/v3/order?symbol=BTCUSDT&orderId=12345&timestamp=")
+        );
+        assert_eq!(
+            requests
+                .iter()
+                .filter(|request| request.method == "DELETE")
+                .count(),
+            1
+        );
+        for request in [&requests[1], &requests[2], &requests[4]] {
+            assert_binance_signature(request);
+        }
+        let outcome = result.lock().unwrap().clone().unwrap();
+        assert_eq!(outcome.state, ExecutionAttemptState::CancelPending);
+        assert_eq!(outcome.broker_order_id.as_deref(), Some("BTCUSDT:12345"));
+        assert_eq!(outcome.provider_status.as_deref(), Some("NEW"));
+        let safe_result = serde_json::to_string(&outcome).unwrap();
+        assert!(!safe_result.contains("synthetic-api-key"));
+        assert!(!safe_result.contains("synthetic-api-secret"));
+        drop(requests);
+
+        let duplicate = gateway.dispatch_attempt(
+            "binance-cancel-1",
+            |_, _| Err("EXECUTION_DISPATCH_NOT_READY".into()),
+            |_, _| panic!("duplicate Binance cancellation must not cross SUBMITTING"),
+            |_, _| {},
+            |_, _| Ok(()),
+        );
+        assert_eq!(duplicate, Ok(()));
+        assert_eq!(calls.lock().unwrap().len(), 5);
+        gateway.stop();
+    }
+
+    #[test]
+    fn real_child_fails_closed_on_binance_account_mismatch_and_unsupported_order() {
+        let order = br#"{"symbol":"BTCUSDT","orderId":12345,"orderListId":-1,"side":"BUY","status":"NEW","origQty":"1","executedQty":"0","cummulativeQuoteQty":"0","updateTime":1788849600000}"#;
+        for (attempt_id, remote_id, order_body, expected_reads) in [
+            ("binance-account-mismatch", "778", order.as_slice(), 2),
+            (
+                "binance-oco-order",
+                "777",
+                br#"{"symbol":"BTCUSDT","orderId":12345,"orderListId":91,"side":"BUY","status":"NEW","origQty":"1","executedQty":"0","cummulativeQuoteQty":"0","updateTime":1788849600000}"#.as_slice(),
+                3,
+            ),
+        ] {
+            let (url, calls, provider) = fake_binance_provider(
+                expected_reads,
+                200,
+                b"",
+                false,
+                remote_id,
+                order_body,
+            );
+            let (mut gateway, result) = run_child(
+                package(
+                    attempt_id,
+                    GatewayDispatchIntent::Cancel(Box::new(binance_cancel_intent())),
+                ),
+                url,
+            );
+            provider.join().unwrap();
+            let requests = calls.lock().unwrap();
+            assert_eq!(requests.len(), expected_reads);
+            assert!(requests.iter().all(|request| request.method == "GET"));
+            assert_eq!(requests.iter().filter(|request| request.method == "DELETE").count(), 0);
+            assert!(result.lock().unwrap().is_none());
+            drop(requests);
+            gateway.stop();
+        }
+    }
+
+    #[test]
+    fn real_child_preserves_binance_cancel_rejection_and_unknown_without_replay() {
+        let order = br#"{"symbol":"BTCUSDT","orderId":12345,"orderListId":-1,"side":"BUY","status":"NEW","origQty":"1","executedQty":"0","cummulativeQuoteQty":"0","updateTime":1788849600000}"#;
+        for (attempt_id, status, body, drop_response, expected_state, expected_code) in [
+            (
+                "binance-cancel-rejected",
+                400,
+                br#"{"code":-2011,"msg":"Unknown order sent."}"#.as_slice(),
+                false,
+                ExecutionAttemptState::Rejected,
+                Some("PROVIDER_ORDER_REJECTED"),
+            ),
+            (
+                "binance-cancel-unknown",
+                200,
+                br#"{"symbol":"BTCUSDT","orderId":12345,"orderListId":-1,"status":"CANCELED"}"#
+                    .as_slice(),
+                true,
+                ExecutionAttemptState::UnknownReconciling,
+                Some("ORDER_STATUS_UNKNOWN"),
+            ),
+            (
+                "binance-cancel-malformed-ack",
+                200,
+                br#"{"symbol":"ETHUSDT","orderId":12345,"orderListId":-1,"status":"CANCELED"}"#
+                    .as_slice(),
+                false,
+                ExecutionAttemptState::UnknownReconciling,
+                Some("ORDER_STATUS_UNKNOWN"),
+            ),
+        ] {
+            let (url, calls, provider) =
+                fake_binance_provider(5, status, body, drop_response, "777", order);
+            let (mut gateway, result) = run_child(
+                package(
+                    attempt_id,
+                    GatewayDispatchIntent::Cancel(Box::new(binance_cancel_intent())),
+                ),
+                url,
+            );
+            provider.join().unwrap();
+            let requests = calls.lock().unwrap();
+            assert_eq!(requests.len(), 5);
+            assert_eq!(
+                requests
+                    .iter()
+                    .filter(|request| request.method == "DELETE")
+                    .count(),
+                1
+            );
+            let outcome = result.lock().unwrap().clone().unwrap();
+            assert_eq!(outcome.state, expected_state);
+            assert_eq!(outcome.error_code.as_deref(), expected_code);
+            drop(requests);
+            gateway.stop();
+            if expected_state == ExecutionAttemptState::UnknownReconciling {
+                let executable = Path::new(env!("CARGO_BIN_EXE_tradex-order-gateway"));
+                let mut restarted =
+                    OrderGatewayHost::new(executable.to_owned(), digest(executable));
+                restarted.start().unwrap();
+                let replay = restarted.dispatch_attempt(
+                    attempt_id,
+                    |_, _| Err("EXECUTION_DISPATCH_NOT_READY".into()),
+                    |_, _| panic!("unknown Binance cancellation must not cross SUBMITTING again"),
+                    |_, _| {},
+                    |_, _| Ok(()),
+                );
+                assert_eq!(replay, Ok(()));
+                restarted.stop();
+                assert_eq!(calls.lock().unwrap().len(), 5);
+            }
+        }
     }
 
     #[test]

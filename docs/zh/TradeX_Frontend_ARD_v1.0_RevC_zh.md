@@ -668,6 +668,14 @@ Accounts 在账户范围列出已保存的 Trading 212 Live 撤单审批，因�
 
 “刷新准确订单”只对捕获的账户、已消费 approval、准确 provider order ID 和当前账户状态版本发送 `trade.live_order.refresh`。这是显式只读操作；账户已连接时可用；连接需复核时，只有账户仍在线、认证有效且凭据可用时才可刷新。此只读恢复不使写入或 Arm 变为可用。显示原始状态、归一 disposition、准确可用的数量/成交/剩余/金额、来源、TradeX 观测时间，以及仅在提供时显示 provider 时间。若缺少 provider fee/trade facts，标为不可用并保留关联 settlement 的完整性、未解决原因和剩余容量。竞态成交应成为最新 provider 事实，同时撤单 attempt 继续保持 `CANCEL_PENDING`；不得将 provider acknowledgement 标成撤单已确认。使用 status/alert 语义、键盘可操作的刷新按钮，并验证 390/768/1280 px 布局；不自动轮询。
 
+### 13.19 Binance Spot Live 撤单历史与成交竞态（S26.3 #105）
+
+Accounts 按账户列出已保存的 Binance Spot Live CANCEL approval，并在导航或重新打开 workspace 后恢复每个已消费 attempt。将已保存 acknowledgement 与最新准确订单观测及其准确关联的 S26.1 PLACE settlement 分开展示。
+
+“刷新准确订单”使用现有 `trade.live_order.refresh` command，传入捕获的账户、已消费 approval、准确 `symbol:orderId` 和当前账户状态版本。这是只读操作；仅在 Binance Spot Live 账户已连接时可用；若状态为 `REVIEW_REQUIRED`，只有账户仍在线、认证有效且凭据可用时才可刷新。显示 Binance 原始状态、归一 disposition、准确订单/已成交/剩余数量与累计 quote value、完整时的 provider trade ID 及 commission 资产/金额、来源、TradeX 观测时间、可选 provider 时间，以及关联 settlement 的完整性、未解决原因和剩余容量。成交/手续费证据缺失或不完整时继续显示不可用，并保守保留容量。
+
+DELETE 期间发生的成交成为最新保存的订单事实，而撤单 attempt 仍保持 `CANCEL_PENDING`；acknowledgement 永不表示撤单完成。PLACE 关联必须匹配同一账户、准确的 Binance 数字订单 ID，以及已保存 proposal 中的规范 symbol/instrument；外部订单或仅相似的订单绝不关联。使用 status/alert 语义、键盘可操作的审阅和刷新控件，并验证 390/768/1280 px 布局。不自动轮询，也不提供撤销全部或 Testnet 回退控件。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

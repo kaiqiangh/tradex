@@ -32,6 +32,31 @@ fn ordinary_live_cancellation_review_has_read_routes_but_no_provider_write_route
     );
 }
 
+#[test]
+fn binance_live_delete_is_limited_to_one_exact_spot_order() {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let path = format!(
+        "/api/v3/order?symbol=BTCUSDT&orderId=123456&timestamp={timestamp}&recvWindow=5000&signature={}",
+        "0".repeat(64)
+    );
+    assert_eq!(
+        ProviderEndpoint::BinanceLive.allows_method(ProviderHttpMethod::Delete, &path),
+        cfg!(feature = "order-gateway-runtime")
+    );
+    assert!(!ProviderEndpoint::BinanceTestnet.allows_method(ProviderHttpMethod::Delete, &path));
+    for invalid in [
+        path.replace("/api/v3/order?", "/api/v3/openOrders?"),
+        path.replace("orderId=123456&", "orderId=123456&origClientOrderId=x&"),
+        path.replace("symbol=BTCUSDT", "symbol=BTCUSDT&symbol=ETHUSDT"),
+        path.replace("orderId=123456", "orderId=0"),
+    ] {
+        assert!(!ProviderEndpoint::BinanceLive.allows_method(ProviderHttpMethod::Delete, &invalid));
+    }
+}
+
 struct HttpsFixture {
     child: Child,
     directory: tempfile::TempDir,

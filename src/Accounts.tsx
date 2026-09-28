@@ -288,6 +288,7 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
 type CancelApproval = Extract<FinancialApproval, { operation: 'CANCEL' }>;
 
 function LiveCancellationAttemptHistory({ account, approval }: { account: AccountConnection; approval: CancelApproval }) {
+  const providerName = account.providerId === 'binance' ? 'Binance' : 'Trading 212';
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -313,26 +314,28 @@ function LiveCancellationAttemptHistory({ account, approval }: { account: Accoun
         brokerOrderId: approval.brokerOrderId,
         expectedStateVersion: account.stateVersion,
       });
-      if (next.connectionId !== account.connectionId || next.providerId !== 'trading212' || next.environment !== 'LIVE') {
+      if (next.connectionId !== account.connectionId || next.providerId !== account.providerId || next.environment !== 'LIVE') {
         throw new Error('IPC_IDENTITY_CONFLICT');
       }
       await queryClient.invalidateQueries({ queryKey: ['account', account.connectionId] });
       await queryClient.invalidateQueries({ queryKey: ['accounts', account.workspaceId] });
       await queryClient.invalidateQueries({ queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId] });
       await queryClient.invalidateQueries({ queryKey: ['cancel-execution-preparation', account.workspaceId, account.connectionId] });
-      setNotice('Exact Trading 212 order evidence refreshed. Provider acknowledgement is still not a cancellation confirmation.');
+      setNotice(`Exact ${providerName} order evidence refreshed. Provider acknowledgement is still not a cancellation confirmation.`);
     } catch (failure) { setError(explainError(failure)); }
     finally { setRefreshing(false); }
   };
   const preparation = saved.data?.preparation;
   const settlement = preparation?.liveOrderSettlement;
-  const orderObservation = preparation?.attempt.trading212LiveOrderObservation;
+  const orderObservation = account.providerId === 'binance'
+    ? preparation?.attempt.binanceLiveOrderObservation
+    : preparation?.attempt.trading212LiveOrderObservation;
   const accountReadable = account.connectionState === 'CONNECTED'
     || (account.connectionState === 'REVIEW_REQUIRED'
       && account.health.connection === 'ONLINE'
       && account.health.authentication === 'VALID');
-  return <article className="live-approval-record" aria-label="Saved Trading 212 Live cancellation attempt">
-    <strong>{approval.status} · Trading 212 Live cancellation</strong>
+  return <article className="live-approval-record" aria-label={`Saved ${providerName} Live cancellation attempt`}>
+    <strong>{approval.status} · {providerName} Live cancellation</strong>
     <span>Order {approval.brokerOrderId} · intent {approval.cancellationIntentId} · approval {approval.approvalId}</span>
     <span>Approved {time(approval.issuedAt)} · expires {time(approval.expiresAt)}{approval.consumedAt ? ` · consumed ${time(approval.consumedAt)}` : ''}</span>
     {saved.isPending && <p role="status">Loading the saved cancellation attempt…</p>}
@@ -343,14 +346,25 @@ function LiveCancellationAttemptHistory({ account, approval }: { account: Accoun
       {orderObservation && <>
         <span>Latest exact order: {orderObservation.providerStatus} · {orderObservation.disposition}</span>
         <span>Order quantity {orderObservation.orderQuantity ?? 'Unavailable'} · cumulative filled {orderObservation.filledQuantity ?? 'Unavailable'} · remaining quantity {orderObservation.remainingQuantity ?? 'Unavailable'}</span>
-        <span>Cumulative filled value {money(orderObservation.filledValue)} · fees unavailable in Trading 212 order evidence</span>
+        <span>Cumulative filled value {money(orderObservation.filledValue)} · {account.providerId === 'binance' ? 'provider trade fees are shown in the linked settlement when available' : 'fees unavailable in Trading 212 order evidence'}</span>
         <span>TradeX observation {time(orderObservation.observedAt)} · provider time {time(orderObservation.providerObservedAt)} · source {orderObservation.source}</span>
       </>}
       {settlement
         ? <>
           <span>Latest exact order: {settlement.providerStatus ?? 'Provider status unavailable'} · {settlement.disposition} · {settlement.status}</span>
           <span>Cumulative filled quantity {settlement.filledQuantity ?? 'Unavailable'} · value {settlement.filledValue ?? 'Unavailable'}</span>
-          <span>Fees {settlement.fees?.length ? settlement.fees.map(fee => `${fee.amount} ${fee.asset}`).join(', ') : 'Unavailable in Trading 212 order evidence'}</span>
+          <span>Fees {settlement.fees?.length ? settlement.fees.map(fee => `${fee.amount} ${fee.asset}`).join(', ') : account.providerId === 'binance' ? 'Unavailable in provider trade evidence' : 'Unavailable in Trading 212 order evidence'}</span>
+          {settlement.tradeFacts?.length
+            ? <details>
+              <summary>Provider trade details ({settlement.tradeFacts.length})</summary>
+              <ol className="live-trade-facts">
+                {settlement.tradeFacts.map(fact => <li key={fact.providerTradeId}>
+                  <span>Trade {fact.providerTradeId} · quantity {fact.quantity} · quote value {fact.value} · commission {fact.fees.length ? fact.fees.map(fee => `${fee.amount} ${fee.asset}`).join(', ') : 'None reported'}</span>
+                  {fact.providerExecutedAt && <span>Executed {time(fact.providerExecutedAt)}</span>}
+                </li>)}
+              </ol>
+            </details>
+            : <span>Provider trade details {settlement.tradeFactsComplete ? 'None reported' : 'Unavailable or incomplete'}</span>}
           <span>Capacity remaining {settlement.remainingCommitment} · unresolved {settlement.unresolvedReason ?? 'none'}</span>
           <span>Observation {time(settlement.observedAt)} · provider time {time(settlement.providerObservedAt)} · source {settlement.source}</span>
         </>
@@ -363,7 +377,8 @@ function LiveCancellationAttemptHistory({ account, approval }: { account: Accoun
   </article>;
 }
 
-function Trading212LiveCancellationHistory({ account }: { account: AccountConnection }) {
+function LiveCancellationHistory({ account }: { account: AccountConnection }) {
+  const providerName = account.providerId === 'binance' ? 'Binance' : 'Trading 212';
   const history = useQuery<CancellationApprovalHistory>({
     queryKey: ['cancel-approval-history', account.workspaceId, account.connectionId],
     queryFn: () => request('trade.cancel_approval.list', {
@@ -373,8 +388,8 @@ function Trading212LiveCancellationHistory({ account }: { account: AccountConnec
     refetchOnMount: 'always',
   });
   const approvals = history.data?.approvals.filter((approval): approval is CancelApproval => approval.operation === 'CANCEL') ?? [];
-  return <section aria-labelledby="t212-live-cancel-history-title">
-    <h3 id="t212-live-cancel-history-title">Trading 212 Live cancellation history</h3>
+  return <section aria-labelledby="live-cancel-history-title">
+    <h3 id="live-cancel-history-title">{providerName} Live cancellation history</h3>
     <p className="muted">Saved attempts and provider observations remain available after the order leaves the open-order list.</p>
     {history.isPending && <p role="status">Loading saved cancellation history…</p>}
     {history.error && <p role="alert">Unable to load saved cancellation history: {explainError(history.error)}</p>}
@@ -594,7 +609,7 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
       {(account.providerId !== 'bitget' || account.environment !== 'LIVE') && <><h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th>{supportsLiveCancelReview && <th>TradeX authorization</th>}</tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td>{supportsLiveCancelReview && <td>{row.instrumentId && row.quantity != null && row.filledQuantity != null ? <LiveCancellationAuthorization account={account} brokerOrderId={row.brokerOrderId} /> : 'Unavailable for cancellation review'}</td>}</tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}</>}
       <h3>Capabilities and limitations</h3><p>{account.data.capabilities.join(', ')}</p><ul>{account.data.limitations.map(text => <li key={text}>{text}</li>)}</ul>
     </>}
-    {account.providerId === 'trading212' && account.environment === 'LIVE' && <Trading212LiveCancellationHistory account={account} />}
+    {['trading212', 'binance'].includes(account.providerId) && account.environment === 'LIVE' && <LiveCancellationHistory account={account} />}
     <p className="muted">{localPaper ? 'Built-in TradeX simulation. No credential, provider connection or Live order exists for this account.' : 'Disconnect stops local access and removes the stored credential. It does not revoke the provider key or cancel external orders.'}</p>
     <dialog ref={deleteDialog} className="picker-dialog account-delete-dialog" aria-labelledby="account-delete-title" onCancel={event => { event.preventDefault(); if (!busy) setConfirmDelete(false); }}>
       <div className="picker-dialog-heading"><div><h2 id="account-delete-title">Delete local account?</h2><p className="muted">This permanently removes TradeX-local account details and account/order-book observations.</p></div></div>
