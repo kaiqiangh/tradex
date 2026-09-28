@@ -652,7 +652,7 @@ TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户详情�
 
 ### 13.17 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98、S25.3 #99）
 
-Order Drafts 针对准确的 Trading 212 Live `UNKNOWN_RECONCILING` PLACE attempt 加载已保存的对账证据；只有后端时间可信且五分钟窗口未关闭时，才通过 `trade.resolution_evidence.refresh` 刷新。有界 provider 查询至少间隔 11 秒，每次请求只前进一个历史 cursor 页。导航或重新打开 workspace 后恢复 ledger；时钟不可信会暂停 provider 刷新，但已保存观测仍须可见。
+Order Drafts 针对准确的 Trading 212、Binance 或 Bitget Live `UNKNOWN_RECONCILING` PLACE attempt 加载已保存的对账证据；只有后端时间可信且五分钟窗口未关闭时，才通过 `trade.resolution_evidence.refresh` 刷新。有界 provider 查询至少间隔 11 秒，每次请求只前进一个历史 cursor 页。导航或重新打开 workspace 后恢复 ledger；时钟不可信会暂停 provider 刷新，但已保存观测仍须可见。超时后只显示后端授权的操作。新鲜且准确的 Binance/Bitget client-order-ID 匹配可提供 Confirm submitted，并预览其证据和预留影响；提交后关联观察到的券商 ID/status，容量仍保持 active，且不代表成交。Trading 212 相似订单及不确定/过期证据只能 Keep；Keep、关闭或导航均保留未知 attempt 和 active reservation。账户保持 DISARMED，直至用户显式执行 Arm。
 
 对于 Binance Spot Live，使用相同的 evidence IPC 和面板，展示 Binance provider、已保存账户/attempt、查询范围、provider order/client ID、状态及可信窗口。只查询普通 Live 账户身份及 attempt 已保存的 `providerClientOrderId`（`tx-{去掉连字符的 execution-attempt UUID}`）指定的准确订单（`origClientOrderId`）。只有 client ID、symbol、side、type、base 或 quote quantity 和窗口时间均准确匹配后，provider row 才是候选；LIMIT 订单还必须匹配 limit price 和 time-in-force。Binance `-2013` 及格式错误、不完整、不匹配、未认证、限流或失败的读取都保持 `INCONCLUSIVE`；不能处置 attempt 或释放 reservation。
 

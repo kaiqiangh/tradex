@@ -77,7 +77,7 @@ export async function checkBinanceLiveReconciliationUI(tab, browser) {
     const proposal = await send('trade.proposal.get', {
       workspaceId, proposalId: proposals.proposals[0].proposalId,
     });
-    await ui.locator('.order-proposal-row').filter({ hasText: proposal.proposalId }).click();
+    await ui.locator('.order-proposal-row').filter({ hasText: proposal.proposalId }).press('Enter');
     const review = await send('trade.request_approval', { workspaceId, proposalId: proposal.proposalId });
     assert.equal(review.eligible, true, JSON.stringify(review));
     const approval = await send('trade.approve', {
@@ -103,7 +103,7 @@ export async function checkBinanceLiveReconciliationUI(tab, browser) {
 
     const evidence = ui.getByLabel('Live reconciliation evidence', { exact: true });
     await evidence.getByRole('heading', { name: 'Binance Live reconciliation evidence', exact: true }).waitFor({ state: 'visible' });
-    await evidence.getByText('Similar orders observed; candidates only', { exact: true }).waitFor({ state: 'visible' });
+    await evidence.getByText('Exact provider order identity observed; candidate only', { exact: true }).waitFor({ state: 'visible' });
     await evidence.getByText(`Provider client order ID ${providerClientOrderId}`, { exact: true }).waitFor({ state: 'visible' });
     await evidence.getByText('Exact-order lookup complete', { exact: true }).waitFor({ state: 'visible' });
     await evidence.getByText(/Candidate only · provider order 987654321/).waitFor({ state: 'visible' });
@@ -137,6 +137,52 @@ export async function checkBinanceLiveReconciliationUI(tab, browser) {
       assert.ok(size.documentScroll <= size.width, `Evidence view has no horizontal overflow at ${width}px: ${JSON.stringify(size)}`);
       assert.ok(size.panelScroll <= size.panelClient + 1, `Evidence panel has no local overflow at ${width}px: ${JSON.stringify(size)}`);
     }
+    const deadline = Date.parse(seeded.attempt.dispatchStartedAt) + 5 * 60_000;
+    const currentTime = await send('time.status', { workspaceId });
+    await send('time.fixture.advance', {
+      workspaceId,
+      elapsedMs: Math.max(1, deadline - 10_000 - Date.parse(currentTime.wallClock)),
+    });
+    await send('trade.resolution_evidence.refresh', {
+      workspaceId,
+      executionAttemptId: attemptId,
+      accountId: account.connectionId,
+      expectedAttemptStateVersion: preparation.preparation.attempt.stateVersion,
+    });
+    const evidenceTime = await send('time.status', { workspaceId });
+    await send('time.fixture.advance', {
+      workspaceId,
+      elapsedMs: Math.max(1, deadline + 1_000 - Date.parse(evidenceTime.wallClock)),
+    });
+    const expired = await send('trade.resolution_evidence', {
+      workspaceId, executionAttemptId: attemptId, accountId: account.connectionId,
+    });
+    assert.equal(JSON.stringify(expired.allowedDecisions), JSON.stringify(['CONFIRMED_SUBMITTED', 'KEEP_RECONCILING']));
+    const confirmSubmitted = evidence.getByRole('button', {
+      name: 'Confirm submitted order 987654321', exact: true,
+    });
+    const decisionDeadline = Date.now() + 20_000;
+    while (Date.now() < decisionDeadline && !(await confirmSubmitted.count())) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.equal(await confirmSubmitted.count(), 1, 'The exact backend-authorized order can be confirmed after expiry.');
+    await confirmSubmitted.press('Enter');
+    const resolutionNotice = ui.getByRole('status').filter({ hasText: 'Provider order 987654321 was linked as submitted.' });
+    const noticeDeadline = Date.now() + 20_000;
+    while (Date.now() < noticeDeadline && !(await resolutionNotice.count())) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.equal(await resolutionNotice.count(), 1, 'The UI reports the link, active reservation, and no inferred fill.');
+    const resolvedPreparation = await send('trade.execution.preparation.get', {
+      workspaceId, approvalId: approval.approvalId,
+    });
+    assert.equal(resolvedPreparation.preparation.attempt.state, 'ACCEPTED');
+    assert.equal(resolvedPreparation.preparation.attempt.brokerOrderId, '987654321');
+    assert.equal(resolvedPreparation.preparation.attempt.providerStatus, 'NEW');
+    assert.equal(resolvedPreparation.preparation.reservation.status, 'ACTIVE');
+    const resolvedAccount = await send('account.get', { workspaceId, connectionId: account.connectionId });
+    assert.equal(resolvedAccount.health.arming, 'DISARMED');
+    assert.equal((await send('binance.live.reconciliation.fixture.inspect', {})).providerOrderWrites, 0);
     const pageErrors = await tab.dev.logs({ levels: ['error'], limit: 20 });
     assert.equal(pageErrors.filter(log => !log.url?.startsWith('chrome-extension://') && !log.message.includes('chrome-extension://')).length, 0);
     return { attemptId, candidateClientOrderId: providerClientOrderId, providerOrderWrites: 0 };

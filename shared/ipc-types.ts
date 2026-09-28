@@ -3058,6 +3058,7 @@ export interface ResolutionEvidenceLedger {
  */
 export interface ResolutionEvidence {
   accountId: string;
+  accountObservationVersion?: string | null;
   /**
    * @maxItems 50
    */
@@ -3093,6 +3094,7 @@ export interface ProviderOrderCandidate {
  * via the `definition` "ManualResolutionRecord".
  */
 export interface ManualResolutionRecord {
+  brokerOrderId?: string | null;
   decision: ManualResolutionDecision;
   /**
    * @maxItems 128
@@ -3820,7 +3822,8 @@ export interface LocalPaperProfile {
  */
 export interface ManualResolutionRequest {
   accountId: string;
-  decision: "KEEP_RECONCILING";
+  brokerOrderId?: string | null;
+  decision: ManualResolutionDecision;
   /**
    * @maxItems 128
    */

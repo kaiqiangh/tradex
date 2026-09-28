@@ -8030,6 +8030,14 @@
     "ManualResolutionRecord": {
       "type": "object",
       "properties": {
+        "brokerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
         "decision": {
           "$ref": "#/$defs/ManualResolutionDecision"
         },
@@ -8073,9 +8081,16 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "brokerOrderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
         "decision": {
-          "$ref": "#/$defs/ManualResolutionDecision",
-          "const": "KEEP_RECONCILING"
+          "$ref": "#/$defs/ManualResolutionDecision"
         },
         "evidenceIds": {
           "type": "array",
@@ -11373,6 +11388,13 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "accountObservationVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
         },
         "candidateOrders": {
           "type": "array",

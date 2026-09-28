@@ -30,6 +30,7 @@ import type {
   BinanceTestnetOrderBook,
   BinanceTestnetOrderBookAction,
   BitgetDemoOrderAttempt,
+  ManualResolutionDecision,
   ResolutionEvidenceQueryResult,
   OrderQuantityType,
   OrderSide,
@@ -802,9 +803,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     } finally { setExecutionPrepareBusy(false); }
   };
 
-  const keepLiveReconciliation = async (
+  const resolveLiveReconciliation = async (
     attempt: NonNullable<typeof unknownLiveAttempt>,
     evidence: ResolutionEvidenceQueryResult,
+    decision: ManualResolutionDecision,
+    evidenceIds: string[],
+    brokerOrderId?: string,
   ) => {
     if (manualResolutionBusy) return;
     setManualResolutionBusy(true); setError(undefined); setNotice('');
@@ -813,13 +817,39 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         workspaceId,
         executionAttemptId: attempt.attemptId,
         accountId: attempt.accountId,
-        decision: 'KEEP_RECONCILING',
-        evidenceIds: evidence.ledger?.evidence.map(item => item.evidenceId) ?? [],
+        decision,
+        evidenceIds,
+        ...(brokerOrderId ? { brokerOrderId } : {}),
         expectedAttemptStateVersion: attempt.stateVersion,
         expectedEvidenceStateVersion: evidence.ledger?.stateVersion ?? null,
       });
-      await resolutionEvidence.refetch();
-      setNotice('Keep reconciling was recorded. The reservation remains frozen, and automatic provider checks stay paused after the five-minute window.');
+      if (decision === 'KEEP_RECONCILING') {
+        await resolutionEvidence.refetch();
+        setNotice('Keep reconciling was recorded. The reservation remains frozen, and automatic provider checks stay paused after the five-minute window.');
+      } else {
+        let healthResult = 'Account health refresh failed. It remains DISARMED; refresh the account before any later Arm action.';
+        try {
+          const account = await request('account.get', { workspaceId, connectionId: attempt.accountId });
+          if (account.providerId !== (attempt.environment === 'BINANCE_LIVE' ? 'binance' : 'bitget')
+            || account.environment !== 'LIVE') {
+            throw new Error('The saved Live account identity changed.');
+          }
+          const refreshed = await request('account.refresh', {
+            workspaceId,
+            connectionId: attempt.accountId,
+            expectedStateVersion: account.stateVersion,
+          });
+          healthResult = refreshed.health.arming === 'DISARMED'
+            ? 'Account health was refreshed and remains DISARMED.'
+            : `Account health was refreshed; arming state is ${refreshed.health.arming}.`;
+        } catch (cause) {
+          healthResult = `Account health refresh failed (${cause instanceof Error ? cause.message : 'unknown error'}). It remains DISARMED; refresh the account before any later Arm action.`;
+        }
+        await queryClient.invalidateQueries({ queryKey: ['execution-preparation', workspaceId] });
+        await queryClient.invalidateQueries({ queryKey: ['resolution-evidence', workspaceId, attempt.attemptId] });
+        await queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId, 'order-draft'] });
+        setNotice(`Provider order ${brokerOrderId} was linked as submitted. Its reservation remains active and no fill was inferred. ${healthResult}`);
+      }
     } catch (cause) {
       setError(cause);
       await resolutionEvidence.refetch();
@@ -1499,6 +1529,11 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                     const result: ResolutionEvidenceQueryResult = resolutionEvidence.data;
                     const latest = result.ledger?.evidence.at(-1);
                     const exactProviderLookup = ['binance', 'bitget'].includes(latest?.providerId ?? '');
+                    const submittedCandidate = result.allowedDecisions.some(decision => decision === 'CONFIRMED_SUBMITTED')
+                      && latest?.candidateOrders.length === 1
+                      && latest.candidateOrders[0].providerClientId === attempt.providerClientOrderId
+                      ? latest.candidateOrders[0]
+                      : undefined;
                     const manualResolution = result.ledger?.manualResolutions?.at(-1);
                     return <>
                       <dl className="proposal-fields approval-review-fields">
@@ -1518,6 +1553,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                         {candidate.providerClientId && <span>Provider client order ID {candidate.providerClientId}</span>}
                         <span>Provider order observation only; this is not fill evidence or an automatic resolution.</span>
                         <time dateTime={candidate.submittedAt ?? undefined}>{candidate.submittedAt ? new Date(candidate.submittedAt).toLocaleString() : 'Provider time unavailable'}</time>
+                        {candidate === submittedCandidate && latest && <div className="notice" role="group" aria-label="Confirm exact submitted provider order">
+                          <p>Confirming links this exact provider order to the attempt. The PLACE reservation remains active, no fill is created, and the account stays DISARMED.</p>
+                          <button type="button" onClick={() => void resolveLiveReconciliation(attempt, result, 'CONFIRMED_SUBMITTED', [latest.evidenceId], candidate.providerOrderId)} disabled={manualResolutionBusy}>
+                            {manualResolutionBusy ? 'Saving resolution…' : `Confirm submitted order ${candidate.providerOrderId}`}
+                          </button>
+                        </div>}
                       </article>)}
                       <p className={result.automaticWindowExpired ? 'error-text' : 'muted'} role="status" aria-live="polite">
                         {!result.timeTrusted
@@ -1530,7 +1571,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                       {result.timeTrusted && result.automaticWindowExpired
                         && result.allowedDecisions.some(decision => decision === 'KEEP_RECONCILING')
                         && !manualResolution
-                        && <button type="button" onClick={() => void keepLiveReconciliation(attempt, result)} disabled={manualResolutionBusy}>
+                        && <button type="button" onClick={() => void resolveLiveReconciliation(attempt, result, 'KEEP_RECONCILING', result.ledger?.evidence.map(item => item.evidenceId) ?? [])} disabled={manualResolutionBusy}>
                           {manualResolutionBusy ? 'Recording decision…' : 'Keep reconciling'}
                         </button>}
                     </>;

@@ -642,6 +642,37 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.equal(await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).count(), 0, 'An uncertain consumed approval exposes no resend action.');
     observed.push('An ambiguous provider outcome remains UNKNOWN_RECONCILING with active capacity after policy change and navigation; inconclusive evidence is accessible at 1280/768/390px and cannot be resent.');
 
+    const currentTime = await sendIntegrationCommand('time.status', { workspaceId });
+    const deadline = Date.parse(unknownPreparation.preparation.attempt.dispatchStartedAt) + 5 * 60_000;
+    await sendIntegrationCommand('time.fixture.advance', {
+      workspaceId,
+      elapsedMs: Math.max(1, deadline + 1_000 - Date.parse(currentTime.wallClock)),
+    });
+    const expiredEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
+      workspaceId,
+      executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
+      accountId: mountedAccount.connectionId,
+    });
+    assert.deepEqual(expiredEvidence.allowedDecisions, ['KEEP_RECONCILING'], 'Trading 212 has no confirmed-submission or absence decision.');
+    const keepReconciliation = evidencePanel.getByRole('button', { name: 'Keep reconciling', exact: true });
+    await keepReconciliation.waitFor({ state: 'visible' });
+    await keepReconciliation.press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Keep reconciling was recorded. The reservation remains frozen' }).waitFor({ state: 'visible' });
+    const keptEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
+      workspaceId,
+      executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
+      accountId: mountedAccount.connectionId,
+    });
+    assert.equal(keptEvidence.ledger.manualResolutions.at(-1).decision, 'KEEP_RECONCILING');
+    const keptPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: mountedApproval.approvalId,
+    });
+    assert.equal(keptPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
+    assert.equal(keptPreparation.preparation.reservation.status, 'ACTIVE');
+    assert.equal(await evidencePanel.getByRole('button', { name: /Confirm submitted order/ }).count(), 0);
+    assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST')).length, 2, 'Manual resolution does not replay provider writes.');
+    observed.push('After the Trading 212 timeout, only Keep is authorized; recording it preserves the attempt/reservation and sends no provider write.');
+
     const rejectedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
       workspaceId, providerId: 'trading212', label: `Rejected gateway fixture ${Date.now()}`,
     });

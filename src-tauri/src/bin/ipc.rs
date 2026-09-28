@@ -646,6 +646,40 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("time.fixture.advance") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let elapsed_ms = payload.get("elapsedMs").and_then(Value::as_u64);
+                let reply = match (workspace_id, elapsed_ms) {
+                    (Some(workspace_id), Some(elapsed_ms)) => match control.lock() {
+                        Ok(mut control) => {
+                            match control.advance_test_clock_fixture(workspace_id, elapsed_ms) {
+                                Ok(status) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                    "data":status
+                                }),
+                                Err(error) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                    "error":error
+                                }),
+                            }
+                        }
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if matches!(
                 command,
                 Some("binance.live.reconciliation.fixture.account.seed")
@@ -813,6 +847,25 @@ fn main() -> io::Result<()> {
                 let client_oid = payload.get("clientOid").and_then(Value::as_str);
                 let submitted_at = payload.get("submittedAt").and_then(Value::as_str);
                 let configured = match (scenario, client_oid, submitted_at) {
+                    (Some("EXACT"), Some(client_oid), Some(submitted_at)) => {
+                        http.bitget.set_order_info(Some(json!({
+                            "userId":"9007199254740993",
+                            "symbol":"BTCUSDT",
+                            "orderId":"987654321",
+                            "clientOid":client_oid,
+                            "price":"50000",
+                            "size":"0.01",
+                            "orderType":"limit",
+                            "side":"buy",
+                            "status":"live",
+                            "force":"gtc",
+                            "tpslType":"normal",
+                            "cTime":submitted_at
+                        })));
+                        http.bitget.set_order_info_error(None);
+                        http.bitget.set_order_info_transport_error(false);
+                        true
+                    }
                     (Some("EMPTY"), _, _) => {
                         http.bitget.set_order_info(None);
                         true

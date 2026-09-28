@@ -153,8 +153,30 @@ export async function checkBitgetLiveReconciliationUI(tab, browser) {
       assert.equal(JSON.stringify(latest.candidateOrders), '[]');
       assert.equal(await evidence.getByText(/Candidate only · provider order/).count(), 0);
     }
-    assert.equal((await send('bitget.live.reconciliation.fixture.inspect', {})).providerOrderWrites, 0);
-
+    await send('bitget.live.reconciliation.fixture.set_scenario', {
+      scenario: 'EXACT', clientOid, submittedAt: String(windowStarted),
+    });
+    const deadline = windowStarted + 5 * 60_000;
+    const currentTime = await send('time.status', { workspaceId });
+    await send('time.fixture.advance', {
+      workspaceId,
+      elapsedMs: Math.max(1, deadline - 10_000 - Date.parse(currentTime.wallClock)),
+    });
+    await send('trade.resolution_evidence.refresh', {
+      workspaceId,
+      executionAttemptId: attemptId,
+      accountId: account.connectionId,
+      expectedAttemptStateVersion: preparation.preparation.attempt.stateVersion,
+    });
+    const evidenceTime = await send('time.status', { workspaceId });
+    await send('time.fixture.advance', {
+      workspaceId,
+      elapsedMs: Math.max(1, deadline + 1_000 - Date.parse(evidenceTime.wallClock)),
+    });
+    const expired = await send('trade.resolution_evidence', {
+      workspaceId, executionAttemptId: attemptId, accountId: account.connectionId,
+    });
+    assert.equal(JSON.stringify(expired.allowedDecisions), JSON.stringify(['CONFIRMED_SUBMITTED', 'KEEP_RECONCILING']));
     for (const width of [1280, 768, 390]) {
       await viewport.set({ width, height: width === 390 ? 844 : 900 });
       const size = await tab.playwright.evaluate(() => {
@@ -175,6 +197,32 @@ export async function checkBitgetLiveReconciliationUI(tab, browser) {
       assert.ok(size.documentScroll <= size.width, `Evidence view has no horizontal overflow at ${width}px: ${JSON.stringify(size)}`);
       assert.ok(size.panelScroll <= size.panelClient + 1, `Evidence panel has no local overflow at ${width}px: ${JSON.stringify(size)}`);
     }
+    await viewport.set({ width: 1280, height: 900 });
+    const confirmSubmitted = evidence.getByRole('button', {
+      name: 'Confirm submitted order 987654321', exact: true,
+    });
+    const decisionDeadline = Date.now() + 20_000;
+    while (Date.now() < decisionDeadline && !(await confirmSubmitted.count())) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.equal(await confirmSubmitted.count(), 1, 'The exact backend-authorized order can be confirmed after expiry.');
+    await confirmSubmitted.press('Enter');
+    const resolutionNotice = ui.getByRole('status').filter({ hasText: 'Provider order 987654321 was linked as submitted.' });
+    const noticeDeadline = Date.now() + 20_000;
+    while (Date.now() < noticeDeadline && !(await resolutionNotice.count())) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.equal(await resolutionNotice.count(), 1, 'The UI reports the link, active reservation, and no inferred fill.');
+    const resolvedPreparation = await send('trade.execution.preparation.get', {
+      workspaceId, approvalId: approval.approvalId,
+    });
+    assert.equal(resolvedPreparation.preparation.attempt.state, 'ACCEPTED');
+    assert.equal(resolvedPreparation.preparation.attempt.brokerOrderId, '987654321');
+    assert.equal(resolvedPreparation.preparation.attempt.providerStatus, 'live');
+    assert.equal(resolvedPreparation.preparation.reservation.status, 'ACTIVE');
+    const resolvedAccount = await send('account.get', { workspaceId, connectionId: account.connectionId });
+    assert.equal(resolvedAccount.health.arming, 'DISARMED');
+    assert.equal((await send('bitget.live.reconciliation.fixture.inspect', {})).providerOrderWrites, 0);
     const pageErrors = await tab.dev.logs({ levels: ['error'], limit: 20 });
     assert.equal(pageErrors.filter(log => !log.url?.startsWith('chrome-extension://') && !log.message.includes('chrome-extension://')).length, 0);
     return { attemptId, candidateClientOid: clientOid, providerOrderWrites: 0 };

@@ -3067,10 +3067,12 @@ pub struct ManualResolutionRequest {
     pub execution_attempt_id: String,
     #[schemars(length(min = 1, max = 128))]
     pub account_id: String,
-    #[schemars(extend("const" = "KEEP_RECONCILING"))]
     pub decision: ManualResolutionDecision,
     #[schemars(length(max = 128))]
     pub evidence_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: Option<String>,
     #[schemars(length(min = 1, max = 256))]
     pub expected_attempt_state_version: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3127,6 +3129,9 @@ pub struct ResolutionEvidence {
     pub account_id: String,
     #[schemars(extend("enum" = ["trading212", "binance", "bitget"]))]
     pub provider_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
+    pub account_observation_version: Option<String>,
     #[schemars(length(min = 1, max = 64))]
     pub queried_at: String,
     #[schemars(length(min = 1, max = 512))]
@@ -3157,6 +3162,9 @@ pub struct ManualResolutionRecord {
     pub decision: ManualResolutionDecision,
     #[schemars(length(max = 128))]
     pub evidence_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: Option<String>,
     #[schemars(length(min = 1, max = 256))]
     pub expected_attempt_state_version: String,
     #[schemars(length(min = 1, max = 64))]

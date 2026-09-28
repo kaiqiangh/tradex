@@ -62,6 +62,117 @@ use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 const APPLICATION_ID: u32 = 0x54525831;
 pub(crate) const SCHEMA_VERSION: u32 = 29;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
+const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
+
+pub(crate) fn account_observation_version(account: &AccountConnection) -> Result<String> {
+    let bytes = serde_json::to_vec(&(
+        &account.provider_id,
+        &account.environment,
+        &account.data,
+        &account.last_successful_sync,
+    ))
+    .map_err(storage_error)?;
+    Ok(hash_bytes(&bytes))
+}
+
+fn confirmed_submitted_candidate<'a>(
+    attempt: &ExecutionAttempt,
+    proposal: &OrderProposal,
+    ledger: &'a ResolutionEvidenceLedger,
+    account_observation_version: &str,
+    now: &str,
+) -> Option<&'a crate::protocol::ProviderOrderCandidate> {
+    let provider_id = match attempt.environment {
+        ExecutionContext::BinanceLive => "binance",
+        ExecutionContext::BitgetLive => "bitget",
+        _ => return None,
+    };
+    if proposal.workspace_id != attempt.workspace_id
+        || proposal.proposal_id.as_str() != attempt.proposal_id.as_deref()?
+        || proposal.proposal_hash != attempt.intent_hash
+        || proposal.fields.account_id.as_deref() != Some(attempt.account_id.as_str())
+        || proposal.fields.environment != attempt.environment
+        || ledger.workspace_id != attempt.workspace_id
+        || ledger.execution_attempt_id != attempt.attempt_id
+        || ledger.account_id != attempt.account_id
+        || ledger.provider_id != provider_id
+        || ledger.attempt_state_version != attempt.state_version
+    {
+        return None;
+    }
+    let evidence = ledger.evidence.last()?;
+    let client_order_id = attempt.provider_client_order_id.as_deref()?;
+    let expected_client_order_id = match provider_id {
+        "binance" => crate::provider_io::binance_live_client_order_id(&attempt.attempt_id).ok()?,
+        "bitget" => crate::provider_io::bitget_live_client_order_id(&attempt.attempt_id).ok()?,
+        _ => return None,
+    };
+    let expected_route = match provider_id {
+        "binance" => format!("origClientOrderId={client_order_id}"),
+        "bitget" => format!("orderInfo?clientOid={client_order_id}"),
+        _ => return None,
+    };
+    if client_order_id != expected_client_order_id
+        || evidence.execution_attempt_id != attempt.attempt_id
+        || evidence.account_id != attempt.account_id
+        || evidence.provider_id != provider_id
+        || evidence.outcome != crate::protocol::ResolutionEvidenceOutcome::CandidatesFound
+        || evidence.error_code.is_some()
+        || !evidence.pagination_complete
+        || evidence.candidate_orders.len() != 1
+        || !evidence.query_scope.contains(&expected_route)
+        || evidence.account_observation_version.as_deref() != Some(account_observation_version)
+    {
+        return None;
+    }
+    let candidate = evidence.candidate_orders.first()?;
+    let order_type = match proposal.fields.order_type {
+        OrderType::Market => "market",
+        OrderType::Limit => "limit",
+    };
+    if candidate.provider_order_id.is_empty()
+        || candidate.provider_client_id.as_deref() != Some(client_order_id)
+        || candidate.side != proposal.fields.side
+        || !candidate.order_type.eq_ignore_ascii_case(order_type)
+        || candidate.quantity.as_deref().is_none_or(|quantity| {
+            crate::provider_io::decimal(&serde_json::Value::String(quantity.into())).is_err()
+        })
+        || candidate.provider_status.is_empty()
+        || !candidate.provider_status.is_ascii()
+    {
+        return None;
+    }
+    let instrument = market::instruments()
+        .into_iter()
+        .find(|item| item.instrument_id == proposal.fields.instrument_id)?;
+    let expected_symbol = instrument
+        .providers
+        .iter()
+        .find(|mapping| mapping.provider_id == provider_id)?
+        .provider_symbol
+        .as_str();
+    if candidate.provider_symbol != expected_symbol {
+        return None;
+    }
+    if proposal.fields.quantity.r#type == crate::protocol::OrderQuantityType::Base
+        && candidate.quantity.as_deref() != Some(proposal.fields.quantity.value.as_str())
+    {
+        return None;
+    }
+    let start = OffsetDateTime::parse(&ledger.automatic_window_started_at, &Rfc3339).ok()?;
+    let end = OffsetDateTime::parse(&ledger.automatic_window_ends_at, &Rfc3339).ok()?;
+    let submitted = OffsetDateTime::parse(candidate.submitted_at.as_deref()?, &Rfc3339).ok()?;
+    let queried = OffsetDateTime::parse(&evidence.queried_at, &Rfc3339).ok()?;
+    let now = OffsetDateTime::parse(now, &Rfc3339).ok()?;
+    if submitted < start
+        || submitted > end
+        || queried > now
+        || (now - queried).whole_milliseconds() > MANUAL_RESOLUTION_EVIDENCE_FRESH_MS
+    {
+        return None;
+    }
+    Some(candidate)
+}
 
 pub struct Store {
     connection: Connection,
@@ -3392,6 +3503,42 @@ impl Store {
         Ok(Some(ledger))
     }
 
+    pub(crate) fn confirmed_submitted_candidate_id(
+        &self,
+        workspace_id: &str,
+        attempt_id: &str,
+        account_id: &str,
+        now: &str,
+    ) -> Result<Option<String>> {
+        let preparation = self.execution_preparation_for_attempt(workspace_id, attempt_id)?;
+        if preparation.attempt.account_id != account_id
+            || preparation.attempt.state != ExecutionAttemptState::UnknownReconciling
+            || preparation
+                .reservation
+                .as_deref()
+                .is_none_or(|reservation| reservation.status != ExecutionReservationStatus::Active)
+        {
+            return Ok(None);
+        }
+        let Some(proposal_id) = preparation.attempt.proposal_id.as_deref() else {
+            return Ok(None);
+        };
+        let Some(ledger) = self.resolution_evidence_ledger(workspace_id, attempt_id)? else {
+            return Ok(None);
+        };
+        let proposal = self.order_proposal(proposal_id)?;
+        let account = self.account(account_id)?;
+        let observation_version = account_observation_version(&account)?;
+        Ok(confirmed_submitted_candidate(
+            &preparation.attempt,
+            &proposal,
+            &ledger,
+            &observation_version,
+            now,
+        )
+        .map(|candidate| candidate.provider_order_id.clone()))
+    }
+
     fn persist_resolution_evidence_ledger(
         tx: &Transaction<'_>,
         workspace_id: &str,
@@ -3474,12 +3621,14 @@ impl Store {
                 serde_json::from_str(&projection)
                     .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
             })?;
+        let observation_version = account_observation_version(&account)?;
         if attempt.state != ExecutionAttemptState::UnknownReconciling
             || attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
             || live_reconciliation_provider(&attempt.environment) != Some(provider_id)
             || attempt.account_id != account_id
             || account.provider_id != provider_id
             || account.environment != "LIVE"
+            || evidence.account_observation_version.as_deref() != Some(observation_version.as_str())
             || attempt.state_version != expected_attempt_state_version
             || attempt
                 .dispatch_started_at
@@ -3584,22 +3733,34 @@ impl Store {
         automatic_window_started_at: &str,
         automatic_window_ends_at: &str,
         resolution: ManualResolutionRecord,
-    ) -> Result<(ResolutionEvidenceLedger, DomainEvent)> {
+    ) -> Result<(ResolutionEvidenceLedger, Vec<DomainEvent>)> {
         if workspace_id != self.workspace_id()? {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
-        if resolution.decision != ManualResolutionDecision::KeepReconciling
-            || resolution.evidence_ids.len() > 128
+        if !matches!(
+            resolution.decision,
+            ManualResolutionDecision::KeepReconciling
+                | ManualResolutionDecision::ConfirmedSubmitted
+        ) || resolution.evidence_ids.len() > 128
             || resolution.resolution_id.is_empty()
             || resolution.expected_attempt_state_version != expected_attempt_state_version
+            || (resolution.decision == ManualResolutionDecision::KeepReconciling
+                && resolution.broker_order_id.is_some())
         {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let decision_at = OffsetDateTime::parse(&resolution.occurred_at, &Rfc3339)
+            .map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
+        let window_ends = OffsetDateTime::parse(automatic_window_ends_at, &Rfc3339)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if decision_at < window_ends {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        let attempt = load_execution_attempt(&tx, workspace_id, attempt_id)?
+        let mut attempt = load_execution_attempt(&tx, workspace_id, attempt_id)?
             .ok_or_else(|| TradeXError::new("ORDER_ATTEMPT_NOT_FOUND"))?;
         let reservation = load_execution_reservation_for_attempt(&tx, workspace_id, attempt_id)?
             .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
@@ -3696,6 +3857,62 @@ impl Store {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
         let occurred_at = resolution.occurred_at.clone();
+        let mut attempt_event = None;
+        if resolution.decision == ManualResolutionDecision::ConfirmedSubmitted {
+            let proposal_id = attempt
+                .proposal_id
+                .as_deref()
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let row: (String, String, i64, String, i64, String) = tx
+                .query_row(
+                    "SELECT workspace_id,draft_id,draft_version,proposal_hash,sequence,projection FROM order_proposals WHERE workspace_id=?1 AND proposal_id=?2",
+                    params![workspace_id, proposal_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+                )
+                .map_err(storage_error)?;
+            let stored = decode_stored_order_proposal(
+                &row.5,
+                proposal_id,
+                &row.0,
+                &row.1,
+                row.2,
+                &row.3,
+                row.4,
+                workspace_id,
+            )?;
+            let proposal = materialize_order_proposal(&tx, stored)?;
+            let current_observation_version = account_observation_version(&account)?;
+            let candidate = confirmed_submitted_candidate(
+                &attempt,
+                &proposal,
+                &ledger,
+                &current_observation_version,
+                &occurred_at,
+            )
+            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
+            if resolution.evidence_ids.len() != 1
+                || resolution.evidence_ids.first().map(String::as_str)
+                    != ledger
+                        .evidence
+                        .last()
+                        .map(|evidence| evidence.evidence_id.as_str())
+                || resolution.broker_order_id.as_deref()
+                    != Some(candidate.provider_order_id.as_str())
+            {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            attempt.state = ExecutionAttemptState::Accepted;
+            attempt.broker_order_id = Some(candidate.provider_order_id.clone());
+            attempt.provider_status = Some(candidate.provider_status.clone());
+            attempt.error_code = None;
+            let idempotency_key = execution_attempt_idempotency_key(&tx, workspace_id, &attempt)?;
+            attempt_event = Some(write_execution_attempt_tx(
+                &tx,
+                attempt,
+                &idempotency_key,
+                &occurred_at,
+            )?);
+        }
         ledger.manual_resolutions.push(resolution);
         let sequence = previous.as_ref().map_or(Ok(1), |(sequence, _)| {
             sequence
@@ -3706,7 +3923,7 @@ impl Store {
             return Err(TradeXError::new("WORKSPACE_OPEN_FAILED"));
         }
         ledger.state_version = format!("resolution-evidence:{attempt_id}:{sequence}");
-        let event = Self::persist_resolution_evidence_ledger(
+        let evidence_event = Self::persist_resolution_evidence_ledger(
             &tx,
             workspace_id,
             attempt_id,
@@ -3716,7 +3933,9 @@ impl Store {
             &occurred_at,
         )?;
         tx.commit().map_err(storage_error)?;
-        Ok((ledger, event))
+        let mut events = attempt_event.into_iter().collect::<Vec<_>>();
+        events.push(evidence_event);
+        Ok((ledger, events))
     }
 
     pub fn execution_dispatch_grant(&self, grant_id: &str) -> Result<ExecutionDispatchGrant> {
@@ -12849,6 +13068,9 @@ fn write_execution_attempt_tx(
             ) | (
                 ExecutionAttemptState::Submitting,
                 ExecutionAttemptState::CancelPending
+            ) | (
+                ExecutionAttemptState::UnknownReconciling,
+                ExecutionAttemptState::Accepted
             )
         );
         let mut comparable_previous = previous_attempt.clone();
@@ -12874,6 +13096,37 @@ fn write_execution_attempt_tx(
                 comparable_previous.dispatch_disposition = attempt.dispatch_disposition;
             }
             (ExecutionAttemptState::Submitting, _) => {
+                comparable_previous.broker_order_id = attempt.broker_order_id.clone();
+                comparable_previous.provider_status = attempt.provider_status.clone();
+                comparable_previous.error_code = attempt.error_code.clone();
+            }
+            (ExecutionAttemptState::UnknownReconciling, ExecutionAttemptState::Accepted) => {
+                if !matches!(
+                    previous_attempt.environment,
+                    ExecutionContext::BinanceLive | ExecutionContext::BitgetLive
+                ) || previous_attempt.provider_client_order_id
+                    != expected_live_provider_client_order_id(&previous_attempt)?
+                    || attempt.provider_client_order_id != previous_attempt.provider_client_order_id
+                    || previous_attempt.operation != crate::protocol::FinancialOperation::PlaceOrder
+                    || previous_attempt.dispatch_disposition
+                        != Some(ExecutionDispatchDisposition::MayHaveSubmitted)
+                    || previous_attempt.error_code.as_deref() != Some("ORDER_STATUS_UNKNOWN")
+                    || previous_attempt.broker_order_id.is_some()
+                    || previous_attempt.provider_status.is_some()
+                    || attempt.dispatch_disposition
+                        != Some(ExecutionDispatchDisposition::MayHaveSubmitted)
+                    || !attempt
+                        .broker_order_id
+                        .as_deref()
+                        .is_some_and(|id| valid_order_text(id, 128))
+                    || !attempt
+                        .provider_status
+                        .as_deref()
+                        .is_some_and(|status| valid_order_text(status, 32))
+                    || attempt.error_code.is_some()
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
                 comparable_previous.broker_order_id = attempt.broker_order_id.clone();
                 comparable_previous.provider_status = attempt.provider_status.clone();
                 comparable_previous.error_code = attempt.error_code.clone();

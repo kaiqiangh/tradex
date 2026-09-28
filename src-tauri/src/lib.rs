@@ -2240,6 +2240,16 @@ impl ControlPlane {
         Ok(())
     }
 
+    #[cfg(feature = "integration-test")]
+    pub fn advance_test_clock_fixture(
+        &mut self,
+        workspace_id: &str,
+        elapsed_ms: u64,
+    ) -> Result<protocol::TimeStatus> {
+        self.require_workspace(workspace_id)?;
+        self.time.advance_test_time(workspace_id, elapsed_ms)
+    }
+
     #[cfg(any(test, feature = "integration-test"))]
     pub fn seed_live_arming_fixture(
         &mut self,
@@ -3036,21 +3046,22 @@ impl ControlPlane {
                 }
                 let input: protocol::ManualResolutionRequest = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
-                if input.decision != protocol::ManualResolutionDecision::KeepReconciling {
-                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
-                }
                 let query = protocol::ResolutionEvidenceQuery {
                     workspace_id: input.workspace_id.clone(),
                     execution_attempt_id: input.execution_attempt_id.clone(),
                     account_id: input.account_id.clone(),
                 };
                 let authorization = self.resolution_evidence_query_result(&query)?;
-                if !authorization.time_trusted
-                    || !authorization.automatic_window_expired
-                    || authorization.allowed_decisions
-                        != [protocol::ManualResolutionDecision::KeepReconciling]
-                {
+                if !authorization.time_trusted || !authorization.automatic_window_expired {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                if !authorization.allowed_decisions.contains(&input.decision)
+                    || (input.decision == protocol::ManualResolutionDecision::KeepReconciling
+                        && input.broker_order_id.is_some())
+                    || (input.decision == protocol::ManualResolutionDecision::ConfirmedSubmitted
+                        && input.broker_order_id.is_none())
+                {
+                    return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
                 }
                 let time = self.time.status(&input.workspace_id)?;
                 if time.confidence != protocol::TimeConfidence::Trusted {
@@ -3061,10 +3072,12 @@ impl ControlPlane {
                     resolution_id: uuid::Uuid::new_v4().to_string(),
                     decision: input.decision,
                     evidence_ids: input.evidence_ids,
+                    broker_order_id: input.broker_order_id,
                     expected_attempt_state_version: input.expected_attempt_state_version.clone(),
                     occurred_at: time.wall_clock,
                 };
-                let (ledger, event) = self.store.as_mut().unwrap().append_manual_resolution(
+                let decision = resolution.decision;
+                let (ledger, events) = self.store.as_mut().unwrap().append_manual_resolution(
                     &input.workspace_id,
                     &input.execution_attempt_id,
                     &input.account_id,
@@ -3074,8 +3087,21 @@ impl ControlPlane {
                     &authorization.automatic_window_ends_at,
                     resolution,
                 )?;
-                self.publish(&event);
-                let result = self.resolution_evidence_query_result(&query)?;
+                for event in &events {
+                    self.publish(event);
+                }
+                let result = if decision == protocol::ManualResolutionDecision::ConfirmedSubmitted {
+                    protocol::ResolutionEvidenceQueryResult {
+                        ledger: Some(Box::new(ledger.clone())),
+                        automatic_window_started_at: authorization.automatic_window_started_at,
+                        automatic_window_ends_at: authorization.automatic_window_ends_at,
+                        automatic_window_expired: true,
+                        time_trusted: true,
+                        allowed_decisions: Vec::new(),
+                    }
+                } else {
+                    self.resolution_evidence_query_result(&query)?
+                };
                 Ok((json!(result), Some(ledger.state_version)))
             }
             "trade.reject" => {
@@ -8471,17 +8497,35 @@ impl ControlPlane {
         }) {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
+        let mut allowed_decisions = Vec::new();
+        if automatic_window_expired {
+            if ledger.is_some() {
+                if self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .confirmed_submitted_candidate_id(
+                        &input.workspace_id,
+                        &attempt.attempt_id,
+                        &attempt.account_id,
+                        &time.wall_clock,
+                    )?
+                    .is_some()
+                {
+                    allowed_decisions.push(protocol::ManualResolutionDecision::ConfirmedSubmitted);
+                }
+                allowed_decisions.push(protocol::ManualResolutionDecision::KeepReconciling);
+            } else {
+                allowed_decisions.push(protocol::ManualResolutionDecision::KeepReconciling);
+            }
+        }
         Ok(protocol::ResolutionEvidenceQueryResult {
             ledger: ledger.map(Box::new),
             automatic_window_started_at,
             automatic_window_ends_at,
             automatic_window_expired,
             time_trusted,
-            allowed_decisions: if automatic_window_expired {
-                vec![protocol::ManualResolutionDecision::KeepReconciling]
-            } else {
-                Vec::new()
-            },
+            allowed_decisions,
         })
     }
 
@@ -10149,7 +10193,7 @@ impl ControlPlane {
                     TradeXError::new("STATE_VERSION_CONFLICT"),
                 );
             }
-            let Some(evidence) = outcome.resolution_evidence else {
+            let Some(mut evidence) = outcome.resolution_evidence else {
                 return failure_reply(
                     job.request_id.clone(),
                     outcome
@@ -10157,6 +10201,11 @@ impl ControlPlane {
                         .unwrap_or_else(|| TradeXError::new("PROVIDER_RESPONSE_INVALID")),
                 );
             };
+            evidence.account_observation_version =
+                match storage::account_observation_version(&job.account) {
+                    Ok(version) => Some(version),
+                    Err(error) => return failure_reply(job.request_id.clone(), error),
+                };
             let (ledger, event) = match self.store.as_mut().unwrap().append_resolution_evidence(
                 &input.workspace_id,
                 &input.execution_attempt_id,
@@ -13778,6 +13827,204 @@ mod live_approval_tests {
     }
 
     #[test]
+    fn binance_live_confirmed_submission_links_exact_order_and_keeps_capacity() {
+        let (folder, mut control, workspace_id, _, proposal, review) =
+            reviewed_live_fixture_with_numeric_binance_id(true);
+        let (attempt_id, account) =
+            make_unknown_binance_live_attempt(&mut control, &workspace_id, &proposal, &review);
+        let preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &attempt_id)
+            .unwrap();
+        let started_at = OffsetDateTime::parse(
+            preparation.attempt.dispatch_started_at.as_deref().unwrap(),
+            &Rfc3339,
+        )
+        .unwrap();
+        let window_ends = started_at + TimeDuration::minutes(5);
+        let query_at = window_ends - TimeDuration::seconds(10);
+        let before = control.time.status(&workspace_id).unwrap();
+        let before_ms = OffsetDateTime::parse(&before.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let query_ms = query_at.unix_timestamp_nanos() / 1_000_000;
+        let elapsed = u64::try_from(query_ms - before_ms).unwrap();
+        control
+            .time
+            .set_test_time(query_ms, before.monotonic_ms + elapsed);
+
+        let client_order_id = provider_io::binance_live_client_order_id(&attempt_id).unwrap();
+        let http = BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 200,
+            order: json!({
+                "orderId":987654321,
+                "symbol":"BTCUSDT",
+                "clientOrderId":client_order_id,
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"GTC",
+                "origQty":"0.01",
+                "origQuoteOrderQty":"0.00000000",
+                "price":"50000.00000000",
+                "status":"NEW",
+                "time":started_at.unix_timestamp_nanos() / 1_000_000,
+            }),
+            calls: Default::default(),
+        };
+        let query = json!({
+            "workspaceId":workspace_id,
+            "executionAttemptId":attempt_id,
+            "accountId":account.connection_id,
+        });
+        let refresh = request(
+            "trade.resolution_evidence.refresh",
+            json!({
+                "workspaceId":query["workspaceId"],
+                "executionAttemptId":query["executionAttemptId"],
+                "accountId":query["accountId"],
+                "expectedAttemptStateVersion":preparation.attempt.state_version,
+            }),
+        );
+        let job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &http,
+            || control.provider_job_current(&job),
+        );
+        let refreshed = control.complete_provider(&job, outcome);
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        let evidence = &refreshed["data"]["ledger"]["evidence"][0];
+        assert_eq!(
+            evidence["candidateOrders"][0]["providerOrderId"],
+            "987654321"
+        );
+        assert!(
+            evidence["accountObservationVersion"]
+                .as_str()
+                .unwrap()
+                .starts_with("sha256:")
+        );
+
+        let now = control.time.status(&workspace_id).unwrap();
+        let now_ms = OffsetDateTime::parse(&now.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let expired_ms =
+            (window_ends + TimeDuration::seconds(1)).unix_timestamp_nanos() / 1_000_000;
+        let elapsed = u64::try_from(expired_ms - now_ms).unwrap();
+        control
+            .time
+            .set_test_time(expired_ms, now.monotonic_ms + elapsed);
+        let authorization = dispatch_main(&mut control, "trade.resolution_evidence", query.clone());
+        assert_eq!(authorization["ok"], true, "{authorization}");
+        assert_eq!(
+            authorization["data"]["allowedDecisions"],
+            json!(["CONFIRMED_SUBMITTED", "KEEP_RECONCILING"])
+        );
+        let latest = authorization["data"]["ledger"]["evidence"][0].clone();
+        let resolved = dispatch_main(
+            &mut control,
+            "trade.manual_resolution",
+            json!({
+                "workspaceId":query["workspaceId"],
+                "executionAttemptId":query["executionAttemptId"],
+                "accountId":query["accountId"],
+                "decision":"CONFIRMED_SUBMITTED",
+                "evidenceIds":[latest["evidenceId"]],
+                "brokerOrderId":"987654321",
+                "expectedAttemptStateVersion":preparation.attempt.state_version,
+                "expectedEvidenceStateVersion":authorization["data"]["ledger"]["stateVersion"],
+            }),
+        );
+        assert_eq!(resolved["ok"], true, "{resolved}");
+        assert_eq!(resolved["data"]["allowedDecisions"], json!([]));
+        assert_eq!(
+            resolved["data"]["ledger"]["manualResolutions"][0]["brokerOrderId"],
+            "987654321"
+        );
+        let saved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &attempt_id)
+            .unwrap();
+        assert_eq!(
+            saved.attempt.state,
+            protocol::ExecutionAttemptState::Accepted
+        );
+        assert_eq!(saved.attempt.broker_order_id.as_deref(), Some("987654321"));
+        assert_eq!(saved.attempt.provider_status.as_deref(), Some("NEW"));
+        assert_eq!(saved.attempt.error_code, None);
+        assert_eq!(
+            saved.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .account(&account.connection_id)
+                .unwrap()
+                .health
+                .arming,
+            "DISARMED"
+        );
+        assert!(
+            http.calls
+                .borrow()
+                .iter()
+                .all(|(_, method, _)| { *method == provider_io::ProviderHttpMethod::Get })
+        );
+
+        drop(control);
+        let mut reopened = ControlPlane::new(folder.path().to_path_buf());
+        assert_eq!(
+            dispatch_main(&mut reopened, "workspace.open", json!({}))["ok"],
+            true
+        );
+        let restored = reopened
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &attempt_id)
+            .unwrap();
+        assert_eq!(
+            restored.attempt.state,
+            protocol::ExecutionAttemptState::Accepted
+        );
+        assert_eq!(
+            restored.attempt.broker_order_id.as_deref(),
+            Some("987654321")
+        );
+        assert_eq!(
+            restored.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        let ledger = reopened
+            .store
+            .as_ref()
+            .unwrap()
+            .resolution_evidence_ledger(&workspace_id, &attempt_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            ledger.manual_resolutions[0].decision,
+            protocol::ManualResolutionDecision::ConfirmedSubmitted
+        );
+        assert_eq!(ledger.evidence.len(), 1);
+    }
+
+    #[test]
     fn binance_live_unknown_reconciliation_queries_exact_attempt_identity_read_only() {
         let (_folder, mut control, workspace_id, _, proposal, review) =
             reviewed_live_fixture_with_numeric_binance_id(true);
@@ -14244,6 +14491,86 @@ mod live_approval_tests {
                 assert_eq!(evidence["candidateOrders"], json!([]));
             }
         }
+
+        let window_ends =
+            OffsetDateTime::parse(&submitted_at, &Rfc3339).unwrap() + TimeDuration::minutes(5);
+        let query_at = window_ends - TimeDuration::seconds(10);
+        let before = control.time.status(&workspace_id).unwrap();
+        let before_ms = OffsetDateTime::parse(&before.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let query_ms = query_at.unix_timestamp_nanos() / 1_000_000;
+        let elapsed = u64::try_from(query_ms - before_ms).unwrap();
+        control
+            .time
+            .set_test_time(query_ms, before.monotonic_ms + elapsed);
+        *http.order.borrow_mut() = Some(json!({
+            "userId":"9007199254740993","symbol":"BTCUSDT","orderId":"987654321",
+            "clientOid":client_oid,"price":"50000","size":"0.01","orderType":"limit",
+            "side":"buy","status":"live","force":"gtc","tpslType":"normal",
+            "cTime":submitted_ms.to_string()
+        }));
+        *http.order_error_code.borrow_mut() = None;
+        http.order_transport_error.set(false);
+        let job = control
+            .prepare_provider_for(&refresh, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &BitgetResolutionVault,
+            |_| unreachable!(),
+            &http,
+            || control.provider_job_current(&job),
+        );
+        let exact = control.complete_provider(&job, outcome);
+        assert_eq!(exact["ok"], true, "{exact}");
+        assert_eq!(
+            exact["data"]["ledger"]["evidence"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["outcome"],
+            "CANDIDATES_FOUND"
+        );
+        let now = control.time.status(&workspace_id).unwrap();
+        let now_ms = OffsetDateTime::parse(&now.wall_clock, &Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let expired_ms =
+            (window_ends + TimeDuration::seconds(1)).unix_timestamp_nanos() / 1_000_000;
+        let elapsed = u64::try_from(expired_ms - now_ms).unwrap();
+        control
+            .time
+            .set_test_time(expired_ms, now.monotonic_ms + elapsed);
+        let authorization = dispatch_main(&mut control, "trade.resolution_evidence", query.clone());
+        assert_eq!(authorization["ok"], true, "{authorization}");
+        assert_eq!(
+            authorization["data"]["allowedDecisions"],
+            json!(["CONFIRMED_SUBMITTED", "KEEP_RECONCILING"])
+        );
+        let latest = authorization["data"]["ledger"]["evidence"]
+            .as_array()
+            .unwrap()
+            .last()
+            .unwrap();
+        let resolved = dispatch_main(
+            &mut control,
+            "trade.manual_resolution",
+            json!({
+                "workspaceId":query["workspaceId"],
+                "executionAttemptId":query["executionAttemptId"],
+                "accountId":query["accountId"],
+                "decision":"CONFIRMED_SUBMITTED",
+                "evidenceIds":[latest["evidenceId"]],
+                "brokerOrderId":"987654321",
+                "expectedAttemptStateVersion":attempt.state_version,
+                "expectedEvidenceStateVersion":authorization["data"]["ledger"]["stateVersion"],
+            }),
+        );
+        assert_eq!(resolved["ok"], true, "{resolved}");
+        assert_eq!(resolved["data"]["allowedDecisions"], json!([]));
         let preparation = control
             .store
             .as_ref()
@@ -14255,16 +14582,21 @@ mod live_approval_tests {
             .unwrap();
         assert_eq!(
             preparation.attempt.state,
-            protocol::ExecutionAttemptState::UnknownReconciling
+            protocol::ExecutionAttemptState::Accepted
         );
-        assert_eq!(preparation.attempt.broker_order_id, None);
+        assert_eq!(
+            preparation.attempt.broker_order_id.as_deref(),
+            Some("987654321")
+        );
+        assert_eq!(preparation.attempt.provider_status.as_deref(), Some("live"));
         assert_eq!(
             preparation.reservation.unwrap().status,
             protocol::ExecutionReservationStatus::Active
         );
         assert_eq!(http.writes.get(), 0);
         let calls = http.calls.borrow();
-        assert_eq!(calls.len(), scenario_count * 3);
+        let evidence_count = scenario_count + 1;
+        assert_eq!(calls.len(), evidence_count * 3);
         assert!(calls.iter().all(|(endpoint, method, path)| {
             *endpoint == provider_io::ProviderEndpoint::BitgetLive
                 && *method == provider_io::ProviderHttpMethod::Get
@@ -14295,10 +14627,10 @@ mod live_approval_tests {
                 &sink,
             )
             .unwrap();
-        assert_eq!(replay.replayed_count, scenario_count as u64);
+        assert_eq!(replay.replayed_count, evidence_count as u64 + 1);
         assert_eq!(
             *replayed_events.lock().unwrap(),
-            vec!["trade.resolution_evidence.changed".to_owned(); scenario_count]
+            vec!["trade.resolution_evidence.changed".to_owned(); evidence_count + 1]
         );
         reopen_store(&mut control);
         let ledger = control
@@ -14312,7 +14644,11 @@ mod live_approval_tests {
             .unwrap()
             .unwrap();
         assert_eq!(ledger.provider_id, "bitget");
-        assert_eq!(ledger.evidence.len(), scenario_count);
+        assert_eq!(ledger.evidence.len(), evidence_count);
+        assert_eq!(
+            ledger.manual_resolutions[0].decision,
+            protocol::ManualResolutionDecision::ConfirmedSubmitted
+        );
     }
 
     #[test]
@@ -17266,9 +17602,16 @@ mod live_approval_tests {
             &Rfc3339,
         )
         .unwrap();
+        let current_time = control.time.status(&workspace_id).unwrap();
+        let current = OffsetDateTime::parse(&current_time.wall_clock, &Rfc3339).unwrap();
+        let observed_age_ms = (current - observed).whole_milliseconds();
         control
             .time
-            .set_test_time(observed.unix_timestamp_nanos() / 1_000_000 + 31_000, 120);
+            .advance_test_time(
+                &workspace_id,
+                u64::try_from(31_000_i128.saturating_sub(observed_age_ms)).unwrap(),
+            )
+            .unwrap();
         let stale = dispatch_main(
             &mut control,
             "trade.request_approval",

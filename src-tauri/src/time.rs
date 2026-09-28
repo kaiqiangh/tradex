@@ -24,7 +24,7 @@ pub struct TimeService {
     reason: &'static str,
     needs_revalidation: bool,
     started: Instant,
-    #[cfg(test)]
+    #[cfg(any(test, feature = "integration-test"))]
     test_reading: Option<Reading>,
 }
 
@@ -39,7 +39,7 @@ impl Default for TimeService {
             reason: "Open a workspace and synchronize time before Live authority decisions.",
             needs_revalidation: true,
             started: Instant::now(),
-            #[cfg(test)]
+            #[cfg(any(test, feature = "integration-test"))]
             test_reading: None,
         }
     }
@@ -59,6 +59,10 @@ impl TimeService {
         self.reason =
             "Workspace opened or resumed; synchronize time before Live authority decisions.";
         self.needs_revalidation = true;
+        #[cfg(any(test, feature = "integration-test"))]
+        {
+            self.test_reading = None;
+        }
     }
 
     /// Resume hooks use the same fail-closed transition as workspace reopen.
@@ -85,13 +89,38 @@ impl TimeService {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "integration-test"))]
     pub(crate) fn set_test_time(&mut self, wall_ms: i128, monotonic_ms: u64) {
         self.test_reading = Some(Reading {
             wall_ms,
             monotonic_ms,
             provider_offset_ms: None,
         });
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
+    pub(crate) fn advance_test_time(
+        &mut self,
+        workspace_id: &str,
+        elapsed_ms: u64,
+    ) -> Result<TimeStatus> {
+        if !(1..=600_000).contains(&elapsed_ms) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let current = self.status(workspace_id)?;
+        let wall_ms = OffsetDateTime::parse(&current.wall_clock, &Rfc3339)
+            .map_err(|_| TradeXError::new("CLOCK_SKEW"))?
+            .unix_timestamp_nanos()
+            / 1_000_000;
+        let wall_ms = wall_ms
+            .checked_add(i128::from(elapsed_ms))
+            .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?;
+        let monotonic_ms = current
+            .monotonic_ms
+            .checked_add(elapsed_ms)
+            .ok_or_else(|| TradeXError::new("CLOCK_SKEW"))?;
+        self.set_test_time(wall_ms, monotonic_ms);
+        self.status(workspace_id)
     }
 
     fn ensure_workspace(&self, workspace_id: &str) -> Result<()> {
@@ -103,7 +132,7 @@ impl TimeService {
     }
 
     fn reading(&self) -> Reading {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "integration-test"))]
         if let Some(reading) = self.test_reading {
             return reading;
         }
