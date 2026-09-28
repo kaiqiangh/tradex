@@ -12,4 +12,4 @@ Issue #98 为已保存且处于 `UNKNOWN_RECONCILING` 的 Binance Spot Live PLAC
 - Provider 写入保护：隔离 fixture 报告 provider order POST 写入数为 0；Rust mock 另外验证对账请求仅使用 GET。未使用真实 Binance 凭据，也未请求真实 provider。
 - 原型边界：未修改 `docs/prototype/`；运行时 fixture 不证明点击式原型或 provider-hosted 账户行为通过。
 
-父 S25 issue #96 仍开放，用于跟踪其他 provider 及确认已提交/未提交的处置范围。
+后续 Bitget 对账和收窄后的人工处置记录在已关闭的 S25 父项 [#96](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675) 中。本证据仍仅覆盖 Binance Spot 对账。

@@ -6,7 +6,7 @@ Date: 2026-09-27. Branch: `dev`. Review base: `ad9e17fdfac4efe7cd71717e7bf5957c4
 
 This slice covers only a saved Trading 212 Live `PLACE` attempt and its exact account and immutable intent. The Control Plane owns provider identity, the five-minute trusted-time window, the read-only query, and the durable evidence ledger/outbox. The public renderer contract carries workspace, attempt, account, and attempt-state-version identities; it accepts no provider URL or credential. Reconciliation never retries or resends the order, and candidate orders are never auto-bound or treated as proof of absence.
 
-The parent S25 issue #96 remains open. Binance Live, Bitget Live, confirmed-submitted/not-submitted Manual Resolution, provider-hosted acceptance, and the clickable prototype remain outside this completed slice.
+The later Binance/Bitget reconciliation slices and narrowed Manual Resolution are recorded in the closed S25 parent [#96](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675). This evidence remains scoped to Trading 212 reconciliation; provider-hosted acceptance and the clickable prototype remain outside this local slice.
 
 ## Verification
 

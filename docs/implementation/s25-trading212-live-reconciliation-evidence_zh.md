@@ -6,7 +6,7 @@
 
 本切片仅覆盖已保存的 Trading 212 Live `PLACE` attempt、其准确账户及不可变意图。Control Plane 负责提供方身份、五分钟可信时间窗口、只读查询，以及持久化证据台账/outbox。公开 renderer 契约只传递 workspace、attempt、account 和 attempt 状态版本身份，不接受提供方 URL 或凭据。对账不会重试或重发订单；候选订单不会自动绑定，也不会被当作不存在订单的证明。
 
-父级 S25 issue #96 仍保持打开。Binance Live、Bitget Live、确认已提交/未提交等 Manual Resolution 决策、provider-hosted 验收和点击式原型不属于此已完成切片。
+后续 Binance/Bitget 对账切片和收窄后的人工处置记录在已关闭的 S25 父项 [#96](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675) 中。本证据仍仅覆盖 Trading 212 对账；provider-hosted 验收和点击式原型不属于此本地切片。
 
 ## 验证
 

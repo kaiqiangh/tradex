@@ -12,4 +12,4 @@ Issue #98 adds read-only reconciliation for a saved Binance Spot Live PLACE atte
 - Provider-write guard: the isolated fixture reports zero provider order POST writes, and the Rust mock verifies that reconciliation requests use GET only. No real Binance credentials or provider requests were used.
 - Prototype boundary: `docs/prototype/` was not changed; this runtime fixture does not certify the clickable prototype or provider-hosted account behavior.
 
-The parent S25 issue #96 remains open for the remaining provider and confirmed-submitted/not-submitted resolution scope.
+The later Bitget reconciliation and narrowed Manual Resolution are recorded in the closed S25 parent [#96](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675). This evidence remains scoped to Binance Spot reconciliation.

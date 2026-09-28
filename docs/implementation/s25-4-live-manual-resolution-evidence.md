@@ -1,6 +1,6 @@
 # S25.4 Live Manual Resolution Evidence
 
-Assessment date: 2026-09-28. Status: **Narrowed acceptance complete; Standards and Spec reviews passed serially; issues #100 and #101 closed. Parent #96 is open for final S25 acceptance.**
+Assessment date: 2026-09-28. Status: **Narrowed acceptance complete; Standards and Spec reviews passed serially; S25 parent [#96 closed after final acceptance](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675).**
 
 ## Implemented boundary
 

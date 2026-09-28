@@ -14,4 +14,4 @@ This slice extends the shared S25 evidence ledger and Order Drafts panel to save
 - Request boundary: the fixture verifies signed requests use `GET` on the ordinary Bitget Live endpoint, omit `paptrading`, and never use Demo/Testnet routes. No real credentials or provider requests were used.
 - Prototype boundary: `docs/prototype/` was not changed; this runtime fixture does not certify the clickable prototype or provider-hosted account behavior.
 
-The parent S25 issue #96 remains open for the remaining Manual Resolution slices and full S25 verification.
+The narrowed Manual Resolution and final S25 verification are recorded in the closed S25 parent [#96](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675). This evidence remains scoped to Bitget Spot reconciliation.

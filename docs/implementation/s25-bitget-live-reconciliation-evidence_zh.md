@@ -14,4 +14,4 @@
 - 请求边界：fixture 验证签名请求只对普通 Bitget Live endpoint 发送 `GET`、省略 `paptrading`，且不使用 Demo/Testnet 路由。未使用真实凭据或发出真实 provider 请求。
 - 原型边界：未修改 `docs/prototype/`；此运行时 fixture 不认证点击式原型或 provider-hosted 账户行为。
 
-父 S25 issue #96 仍开放，继续跟踪剩余 Manual Resolution 切片及完整 S25 验证。
+收窄后的人工处置和 S25 最终验收记录在已关闭的父项 [#96](https://github.com/kaiqiangh/tradex/issues/96#issuecomment-5863761675) 中。本证据仍仅覆盖 Bitget Spot 对账。
