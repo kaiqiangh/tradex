@@ -2769,7 +2769,7 @@ Live reads omit `paptrading: 1`, cannot fall back to Demo, and expose no submit/
 
 TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. Account/order observations update only through explicit signed REST connect/refresh requests; project `privateStream` as `NOT_CONFIGURED` and disclose `Private stream unavailable · REST reconciliation` in the account limitations.
 
-### 41.30 Live unknown PLACE reconciliation (S25.1 #97, S25.2 #98, S25.3 #99)
+### 41.30 Live unknown PLACE reconciliation (S25.1 #97, S25.2 #98, S25.3 #99, S25.4 #100)
 
 `ExecutionAttempt.dispatchStartedAt` records the trusted timestamp at the durable `SUBMITTING` boundary. Reconciliation uses that timestamp as the start of its five-minute automatic window; legacy attempts without it use the earlier `createdAt` cutoff. The window is evaluated only with trusted time. If time is untrusted, saved evidence remains readable while provider refresh and automatic expiry are paused.
 
@@ -2785,8 +2785,9 @@ interface ResolutionEvidenceRefresh extends ResolutionEvidenceQuery {
   expectedAttemptStateVersion: string;
 }
 interface ManualResolutionRequest extends ResolutionEvidenceQuery {
-  decision: 'KEEP_RECONCILING';
+  decision: 'KEEP_RECONCILING' | 'CONFIRMED_SUBMITTED';
   evidenceIds: string[];
+  brokerOrderId?: string | null;
   expectedAttemptStateVersion: string;
   expectedEvidenceStateVersion?: string | null;
 }
@@ -2811,6 +2812,7 @@ interface ResolutionEvidence {
   executionAttemptId: string;
   accountId: string;
   providerId: 'trading212' | 'binance' | 'bitget';
+  accountObservationVersion?: string | null;
   queriedAt: string;
   queryScope: string;
   coverageFrom?: string | null;

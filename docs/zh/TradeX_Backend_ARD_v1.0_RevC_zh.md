@@ -2769,7 +2769,7 @@ Live 读取省略 `paptrading: 1`，不得回退到 Demo，也不暴露提交、
 
 TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。账户/订单观测仅通过用户显式连接或 REST 刷新请求读取并更新；`privateStream` 投影为 `NOT_CONFIGURED`，并在账户限制中显示 `Private stream unavailable · REST reconciliation`。
 
-### 41.30 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98、S25.3 #99）
+### 41.30 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98、S25.3 #99、S25.4 #100）
 
 `ExecutionAttempt.dispatchStartedAt` 在持久化进入 `SUBMITTING` 边界时记录可信时间戳。对账以此作为五分钟自动窗口起点；缺少该字段的旧 attempt 保守使用更早的 `createdAt`。只有可信时间才能评估窗口。时钟不可信时仍可读取已保存证据，但暂停 provider 刷新和自动过期。
 
@@ -2785,8 +2785,9 @@ interface ResolutionEvidenceRefresh extends ResolutionEvidenceQuery {
   expectedAttemptStateVersion: string;
 }
 interface ManualResolutionRequest extends ResolutionEvidenceQuery {
-  decision: 'KEEP_RECONCILING';
+  decision: 'KEEP_RECONCILING' | 'CONFIRMED_SUBMITTED';
   evidenceIds: string[];
+  brokerOrderId?: string | null;
   expectedAttemptStateVersion: string;
   expectedEvidenceStateVersion?: string | null;
 }
@@ -2811,6 +2812,7 @@ interface ResolutionEvidence {
   executionAttemptId: string;
   accountId: string;
   providerId: 'trading212' | 'binance' | 'bitget';
+  accountObservationVersion?: string | null;
   queriedAt: string;
   queryScope: string;
   coverageFrom?: string | null;
