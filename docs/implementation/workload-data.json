@@ -1,32 +1,35 @@
 {
- "generated": "2026-09-28 18:40 +0100",
- "commit": "a921ce2",
+ "generated": "2026-09-29 17:10 +0100",
+ "commit": "4f3fe18",
  "branch": "dev",
  "ahead": 3,
  "req_total": 203,
  "req_status": {
-  "IMPLEMENTED_UNVERIFIED": 62,
-  "NOT_STARTED": 76,
-  "IN_PROGRESS": 39,
+  "IMPLEMENTED_UNVERIFIED": 63,
+  "NOT_STARTED": 68,
+  "IN_PROGRESS": 46,
   "VERIFIED": 23,
   "DEFERRED": 3
  },
  "surf_total": 83,
  "surf_status": {
   "VERIFIED": 1,
-  "IN_PROGRESS": 12,
+  "IN_PROGRESS": 14,
   "IMPLEMENTED_UNVERIFIED": 39,
-  "NOT_STARTED": 31
+  "NOT_STARTED": 29
  },
- "issue_total": 106,
- "issue_open": 4,
+ "issue_total": 111,
+ "issue_open": 7,
  "open_issues": [
   1,
   56,
-  102,
-  106
+  107,
+  108,
+  109,
+  110,
+  111
  ],
- "slice_closed": 24,
+ "slice_closed": 25,
  "slice_inprog": 2,
  "slices": [
   {
@@ -570,8 +573,8 @@
    "issues_closed": 6,
    "issues_open": 0,
    "total": 19,
-   "not_started": 14,
-   "in_progress": 4,
+   "not_started": 13,
+   "in_progress": 5,
    "hold": 1,
    "verified": 0,
    "deferred": 0,
@@ -582,7 +585,7 @@
   {
    "id": "S26",
    "title": "刷新并审批撤单与处理成交竞态",
-   "state": "IN_PROGRESS",
+   "state": "CLOSED",
    "issues": [
     102,
     103,
@@ -590,8 +593,8 @@
     105,
     106
    ],
-   "issues_closed": 3,
-   "issues_open": 2,
+   "issues_closed": 5,
+   "issues_open": 0,
    "total": 4,
    "not_started": 4,
    "in_progress": 0,
@@ -605,17 +608,23 @@
   {
    "id": "S27",
    "title": "恢复崩溃、休眠、断流并中断未派发工作",
-   "state": "NOT_STARTED",
-   "issues": [],
+   "state": "IN_PROGRESS",
+   "issues": [
+    107,
+    108,
+    109,
+    110,
+    111
+   ],
    "issues_closed": 0,
-   "issues_open": 0,
+   "issues_open": 5,
    "total": 19,
-   "not_started": 14,
-   "in_progress": 5,
-   "hold": 0,
+   "not_started": 6,
+   "in_progress": 12,
+   "hold": 1,
    "verified": 0,
    "deferred": 0,
-   "open": 19,
+   "open": 18,
    "done": 0,
    "phase": "P5"
   },
@@ -729,12 +738,12 @@
    "issues_closed": 0,
    "issues_open": 0,
    "total": 4,
-   "not_started": 4,
+   "not_started": 3,
    "in_progress": 0,
-   "hold": 0,
+   "hold": 1,
    "verified": 0,
    "deferred": 0,
-   "open": 4,
+   "open": 3,
    "done": 0,
    "phase": "P6"
   },
@@ -846,13 +855,13 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 37,
-   "in_progress": 13,
-   "hold": 2,
+   "not_started": 29,
+   "in_progress": 20,
+   "hold": 3,
    "verified": 5,
    "deferred": 0,
    "total": 57,
-   "open": 50,
+   "open": 49,
    "done": 5,
    "code": "P5",
    "name": "风控与实盘",
@@ -869,7 +878,7 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 5,
+   "slice_closed": 6,
    "slice_inprog": 1
   },
   {
@@ -1002,13 +1011,13 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 37,
-   "in_progress": 13,
-   "hold": 2,
+   "not_started": 29,
+   "in_progress": 20,
+   "hold": 3,
    "verified": 5,
    "deferred": 0,
    "total": 57,
-   "open": 50,
+   "open": 49,
    "done": 5,
    "code": "P5",
    "name": "风控与实盘",
@@ -1025,7 +1034,7 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 5,
+   "slice_closed": 6,
    "slice_inprog": 1
   },
   {
@@ -1158,8 +1167,8 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 48,
-   "in_progress": 21,
+   "not_started": 41,
+   "in_progress": 28,
    "hold": 10,
    "verified": 6,
    "deferred": 0,
@@ -1181,17 +1190,17 @@
     "S29",
     "S30"
    ],
-   "slice_closed": 5,
+   "slice_closed": 6,
    "slice_inprog": 1
   },
   {
-   "not_started": 17,
+   "not_started": 16,
    "in_progress": 8,
-   "hold": 0,
+   "hold": 1,
    "verified": 1,
    "deferred": 0,
    "total": 26,
-   "open": 25,
+   "open": 24,
    "done": 1,
    "code": "P6",
    "name": "平台化交付",
@@ -1228,8 +1237,8 @@
   {
    "id": "FR",
    "name": "功能需求",
-   "not_started": 24,
-   "in_progress": 10,
+   "not_started": 21,
+   "in_progress": 13,
    "hold": 33,
    "verified": 11,
    "deferred": 3,
@@ -1240,8 +1249,8 @@
   {
    "id": "AC",
    "name": "验收准则",
-   "not_started": 29,
-   "in_progress": 14,
+   "not_started": 27,
+   "in_progress": 16,
    "hold": 15,
    "verified": 9,
    "deferred": 0,
@@ -1252,13 +1261,13 @@
   {
    "id": "NFR",
    "name": "非功能需求",
-   "not_started": 11,
-   "in_progress": 6,
-   "hold": 2,
+   "not_started": 9,
+   "in_progress": 7,
+   "hold": 3,
    "verified": 0,
    "deferred": 0,
    "total": 19,
-   "open": 17,
+   "open": 16,
    "done": 0
   },
   {
@@ -1288,8 +1297,8 @@
   {
    "id": "OPS",
    "name": "运维",
-   "not_started": 5,
-   "in_progress": 2,
+   "not_started": 4,
+   "in_progress": 3,
    "hold": 1,
    "verified": 1,
    "deferred": 0,
@@ -1313,14 +1322,14 @@
  "owners": [
   {
    "id": "kaiqiangh",
-   "total": 92,
+   "total": 94,
    "open": 3,
-   "closed": 89
+   "closed": 91
   },
   {
    "id": "unassigned",
-   "total": 14,
-   "open": 1,
+   "total": 17,
+   "open": 4,
    "closed": 13
   }
  ],
@@ -1519,8 +1528,8 @@
     "J6",
     "J7"
    ],
-   "not_started": 5,
-   "in_progress": 1,
+   "not_started": 4,
+   "in_progress": 2,
    "hold": 1,
    "verified": 0,
    "deferred": 0,
@@ -1540,8 +1549,8 @@
     "K6",
     "K7"
    ],
-   "not_started": 4,
-   "in_progress": 1,
+   "not_started": 3,
+   "in_progress": 2,
    "hold": 2,
    "verified": 0,
    "deferred": 0,
@@ -1822,6 +1831,14 @@
     "S05"
    ],
    "req": "Implement context/account/model pickers"
+  },
+  {
+   "id": "FR-049",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S26"
+   ],
+   "req": "Implement live order cancellation approval lifecycle"
   },
   {
    "id": "FR-050",
@@ -2204,6 +2221,14 @@
     "S22"
    ],
    "req": "The instrument, account, side, quantity, and order type displayed during order monitoring are the same immutable transaction approved by the user."
+  },
+  {
+   "id": "AC-033",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S26"
+   ],
+   "req": "An open live order can enter cancellation flow only after broker state refresh and transaction-specific user approval; UI represents `CANCEL_PENDING` and `CANCELLED`."
   },
   {
    "id": "AC-034",
@@ -2732,6 +2757,14 @@
    "req": "Implement strategy versioning"
   },
   {
+   "id": "FR-049",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S26"
+   ],
+   "req": "Implement live order cancellation approval lifecycle"
+  },
+  {
    "id": "FR-050",
    "status": "NOT_STARTED",
    "slices": [
@@ -2898,6 +2931,14 @@
     "S22"
    ],
    "req": "The instrument, account, side, quantity, and order type displayed during order monitoring are the same immutable transaction approved by the user."
+  },
+  {
+   "id": "AC-033",
+   "status": "NOT_STARTED",
+   "slices": [
+    "S26"
+   ],
+   "req": "An open live order can enter cancellation flow only after broker state refresh and transaction-specific user approval; UI represents `CANCEL_PENDING` and `CANCELLED`."
   },
   {
    "id": "AC-034",
@@ -3224,8 +3265,8 @@
    "total": 18
   },
   "S25": {
-   "not_started": 14,
-   "in_progress": 4,
+   "not_started": 13,
+   "in_progress": 5,
    "hold": 1,
    "verified": 0,
    "deferred": 0,
@@ -3240,9 +3281,9 @@
    "total": 4
   },
   "S27": {
-   "not_started": 14,
-   "in_progress": 5,
-   "hold": 0,
+   "not_started": 6,
+   "in_progress": 12,
+   "hold": 1,
    "verified": 0,
    "deferred": 0,
    "total": 19
@@ -3296,9 +3337,9 @@
    "total": 8
   },
   "S34": {
-   "not_started": 4,
+   "not_started": 3,
    "in_progress": 0,
-   "hold": 0,
+   "hold": 1,
    "verified": 0,
    "deferred": 0,
    "total": 4
