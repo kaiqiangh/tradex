@@ -23,6 +23,12 @@ Trading 212 读取一页最多 50 行近期订单。Binance 对当前开放订�
 - 修复后的首次全量检查有两项 workspace 重开断言失败；分别单独重跑均通过，随后全量重跑也通过。
 - PASS：`git diff --check`。
 
-此前一次原生尝试使用临时 ad-hoc 签名 wrapper（`local.tradex.desktop`），并在 macOS `SecItemCopyMatching` 处阻塞，尚未到 provider HTTP。2026-09-29 第二次尝试使用普通 `npm run desktop` 开发应用（`target/debug/tradex`），并从 UI 重开 `/Users/kai/.tradex/workspaces/default`。macOS 要求输入 `com.tradex.broker.credentials` 的登录钥匙串密码；没有输入密码，也没有选择 Allow/Always Allow。进程采样显示启动 `ProviderJob` 正等待于 `NativeVault::get` → `get_generic_password` → `SecItemCopyMatching`。只读检查发现 Trading 212 Live 投影仍为序号 14，`lastSuccessfulSync` 仍是 `2026-09-23T23:06:33.624426Z`，健康状态为 STALE/BLOCKED；未观察到 provider socket 或已刷新的投影。socket 检查发生在打开工作区很久之后，不能测量 `<5 s` 目标，因此本次原生验收仍未验证。未改动 Keychain ACL 或凭据，也没有尝试订单写入。主机没有有效代码签名 identity 或匹配的已安装 app bundle，可信签名包的 Keychain 行为仍未验证。
+此前一次原生尝试使用临时 ad-hoc 签名 wrapper（`local.tradex.desktop`），并在 macOS `SecItemCopyMatching` 处阻塞，尚未到 provider HTTP。2026-09-29，普通 `npm run desktop` 开发应用（`target/debug/tradex`）重开 `/Users/kai/.tradex/workspaces/default` 时也先显示相同的 Keychain 等待；该次采样时，Trading 212 Live 投影仍为序号 14，`lastSuccessfulSync` 为 `2026-09-23T23:06:33.624426Z`，健康状态为 STALE/BLOCKED。
+
+稍后的只读检查发现该次投影已到序号 16，状态为 `FAILED / ERROR / STALE / DISARMED`，原因是通用 `PROVIDER_RESPONSE_INVALID`，且 `lastSuccessfulSync` 未变化。进程于 13:10:55 启动，工作区 WAL 最后修改时间为 13:40:21。没有逐请求时间戳或 endpoint 详情，因此这次延迟持久化的失败不能证明 provider 读取在 `<5 s` 内启动；它确认验证失败后保留了旧观测并继续 disarm Live。
+
+2026-09-29 的一次受控重启中，`target/debug/tradex` 于 14:11:58 启动。14:12:25 前，Trading 212 Live 行已到序号 17，状态为 `FAILED / UNCHECKED / STALE / DISARMED`，`lastSuccessfulSync` 仍是旧值；WAL 修改时间为 14:12:08。唯一观察到的 443 端口外连反向 DNS 指向 Google Cloud，进程采样显示 Alpaca stream，因此这不是 Trading 212 请求的证据。应用当时停留在 New Thread 页面，而不是已确认打开工作区的界面；没有测得 Trading 212 请求的启动时间。`<5 s` 原生验收仍未验证。
+
+Accounts 页面还确认：选择已保存的 `trading212 · LIVE` 连接后，表单显示“使用已存储的本地凭据”和“Use existing account”，不会要求重新输入 API key。本次界面检查没有触发手动刷新。未更改 Keychain ACL 或凭据，也未尝试订单写入。主机没有有效代码签名 identity 或匹配的已安装 app bundle，因此可信签名包的 Keychain 行为仍未验证。
 
 Standards review 通过且无可操作问题。Spec review 未发现其他差异，但保留原生 `<5 s` 启动耗时验收项。签名包生命周期和完整 S27/S33 验收仍未验证；#108 保持打开，等待可信原生启动验证。
