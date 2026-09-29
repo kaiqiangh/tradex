@@ -689,6 +689,7 @@ pub(super) fn read(
             balances,
             positions,
             open_orders: orders,
+            recent_orders: Vec::new(),
             bitget_order_book,
             capabilities: vec![
                 "account.read".into(),

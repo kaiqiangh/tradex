@@ -156,13 +156,20 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     match route {
         "/api/v3/account" | "/api/v3/openOrders" => keys.is_empty(),
         "/api/v3/allOrders" => {
-            endpoint == ProviderEndpoint::BinanceTestnet
-                && keys
-                    .iter()
-                    .all(|key| matches!(*key, "symbol" | "limit" | "orderId"))
-                && matches!(values.get("symbol"), Some(&"BTCUSDT" | &"ETHUSDT"))
-                && values.get("limit") == Some(&"1000")
-                && values.get("orderId").is_none_or(|id| valid_order_id(id))
+            (endpoint == ProviderEndpoint::BinanceLive
+                && keys.iter().all(|key| matches!(*key, "symbol" | "limit"))
+                && keys.len() == 2
+                && values
+                    .get("symbol")
+                    .is_some_and(|symbol| valid_binance_symbol(symbol))
+                && values.get("limit") == Some(&"1000"))
+                || (endpoint == ProviderEndpoint::BinanceTestnet
+                    && keys
+                        .iter()
+                        .all(|key| matches!(*key, "symbol" | "limit" | "orderId"))
+                    && matches!(values.get("symbol"), Some(&"BTCUSDT" | &"ETHUSDT"))
+                    && values.get("limit") == Some(&"1000")
+                    && values.get("orderId").is_none_or(|id| valid_order_id(id)))
         }
         "/api/v3/myTrades" => {
             (endpoint == ProviderEndpoint::BinanceTestnet
@@ -3070,6 +3077,46 @@ pub(super) fn read(
         None
     };
     let mut result = observe(account, signed("/api/v3/openOrders")?, restrictions)?;
+    if endpoint == ProviderEndpoint::BinanceLive && exact_order.is_none() {
+        let mut symbols = Vec::new();
+        let mut seen_symbols = HashSet::new();
+        for order in result
+            .data
+            .open_orders
+            .iter()
+            .chain(old.into_iter().flat_map(|data| data.recent_orders.iter()))
+        {
+            if valid_binance_symbol(&order.symbol) && seen_symbols.insert(order.symbol.clone()) {
+                symbols.push(order.symbol.clone());
+            }
+        }
+        // ponytail: history is limited to 10 locally observed symbols; add a persisted cursor if broader coverage is needed.
+        symbols.truncate(10);
+        let mut recent_orders = Vec::new();
+        let mut seen_orders = HashSet::new();
+        for symbol in &symbols {
+            let history = signed(&format!("/api/v3/allOrders?symbol={symbol}&limit=1000"))?;
+            let rows = history.as_array().ok_or_else(invalid)?;
+            if rows.len() > 1000 {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            for row in rows {
+                let order = recent_order(row, symbol)?;
+                if !seen_orders.insert(order.broker_order_id.clone()) {
+                    return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+                }
+                recent_orders.push(order);
+            }
+        }
+        result.data.recent_orders = recent_orders;
+        result.data.limitations.push(
+            "Recent order history is limited to one page for each of up to 10 locally observed symbols; Binance does not provide an account-wide order-history listing.".into(),
+        );
+    } else if endpoint == ProviderEndpoint::BinanceLive {
+        result.data.recent_orders = old
+            .map(|data| data.recent_orders.clone())
+            .unwrap_or_default();
+    }
     if let Some((provider_order_id, include_trade_evidence)) = exact_order {
         if endpoint != ProviderEndpoint::BinanceLive {
             return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
@@ -3306,6 +3353,47 @@ fn permissions(restrictions: Option<Value>) -> Result<PermissionReview> {
     }
     Ok(p)
 }
+fn recent_order(value: &Value, expected_symbol: &str) -> Result<OpenOrder> {
+    let symbol = identifier(value, "symbol")?;
+    let status = text(value, "status", 32)?;
+    let side = text(value, "side", 8)?;
+    if symbol != expected_symbol
+        || !matches!(side.as_str(), "BUY" | "SELL")
+        || !matches!(
+            status.as_str(),
+            "NEW"
+                | "PENDING_NEW"
+                | "PARTIALLY_FILLED"
+                | "FILLED"
+                | "CANCELED"
+                | "PENDING_CANCEL"
+                | "REJECTED"
+                | "EXPIRED"
+                | "EXPIRED_IN_MATCH"
+        )
+    {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    let quantity = positive(&value["origQty"])?;
+    let notional = positive(&value["origQuoteOrderQty"])?;
+    let limit_price = positive(&value["price"])?;
+    Ok(OpenOrder {
+        broker_order_id: format!("{symbol}:{}", numeric_id(value, "orderId")?),
+        symbol,
+        instrument_id: None,
+        side,
+        quantity: (quantity != "0").then_some(quantity),
+        notional: (notional != "0").then_some(notional),
+        filled_quantity: Some(positive(&value["executedQty"])?),
+        filled_value: Some(positive(&value["cummulativeQuoteQty"])?),
+        currency: None,
+        status,
+        limit_price: (limit_price != "0").then_some(limit_price),
+        kind: None,
+        trigger_price: None,
+    })
+}
+
 fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result<Observation> {
     if account["accountType"] != "SPOT" {
         return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
@@ -3419,6 +3507,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
             balances,
             positions,
             open_orders: orders,
+            recent_orders: Vec::new(),
             bitget_order_book: None,
             capabilities: vec![
                 "account.read".into(),
@@ -3582,6 +3671,34 @@ mod tests {
         ));
         assert!(!allows(ProviderEndpoint::BinanceTestnet, &restriction));
         assert!(allows(ProviderEndpoint::BinanceLive, &restriction));
+
+        let history = format!(
+            "/api/v3/allOrders?symbol=BTCUSDT&limit=1000&timestamp=1788849600000&recvWindow=5000&signature={}",
+            "a".repeat(64)
+        );
+        assert!(allows(ProviderEndpoint::BinanceLive, &history));
+        assert!(!allows(
+            ProviderEndpoint::BinanceTestnet,
+            &history.replace("BTCUSDT", "SOLUSDT")
+        ));
+        assert!(!allows(
+            ProviderEndpoint::BinanceLive,
+            &history.replace("limit=1000", "limit=1001")
+        ));
+    }
+
+    #[test]
+    fn live_recent_order_history_requires_the_requested_symbol_and_known_status() {
+        let row = json!({
+            "symbol":"BTCUSDT","orderId":9001,"side":"BUY","status":"FILLED",
+            "origQty":"0.25","origQuoteOrderQty":"0","executedQty":"0.25",
+            "cummulativeQuoteQty":"500","price":"2000"
+        });
+        let order = recent_order(&row, "BTCUSDT").unwrap();
+        assert_eq!(order.broker_order_id, "BTCUSDT:9001");
+        assert_eq!(order.filled_quantity.as_deref(), Some("0.25"));
+        assert_eq!(order.status, "FILLED");
+        assert!(recent_order(&row, "ETHUSDT").is_err());
     }
 
     #[test]

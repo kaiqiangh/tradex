@@ -57,7 +57,9 @@ use crate::protocol::{
     Trading212DemoOrderCancel, Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist,
     WatchlistItem, Watchlists, Workspace,
 };
-use crate::providers::{AccountConnection, AccountMutation, ConnectionState};
+use crate::providers::{
+    AccountConnection, AccountMutation, ConnectionState, LIVE_RECONCILIATION_PROVIDER_IDS,
+};
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
@@ -3559,12 +3561,18 @@ impl Store {
         }
         let rows = {
             let mut statement = self.connection.prepare(
-                "SELECT a.attempt_id,a.operation FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.state='UNKNOWN_RECONCILING' AND a.operation='PLACE_ORDER' AND c.provider_id IN ('trading212','binance','bitget') AND c.environment='LIVE' ORDER BY a.account_id,a.attempt_id LIMIT 10001",
+                "SELECT a.attempt_id,a.operation FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.state='UNKNOWN_RECONCILING' AND a.operation='PLACE_ORDER' AND c.provider_id IN (?2,?3,?4) AND c.environment='LIVE' ORDER BY a.account_id,a.attempt_id LIMIT 10001",
             ).map_err(storage_error)?;
             statement
-                .query_map([workspace_id], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })
+                .query_map(
+                    params![
+                        workspace_id,
+                        LIVE_RECONCILIATION_PROVIDER_IDS[0],
+                        LIVE_RECONCILIATION_PROVIDER_IDS[1],
+                        LIVE_RECONCILIATION_PROVIDER_IDS[2],
+                    ],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                )
                 .map_err(storage_error)?
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(storage_error)?
@@ -3600,6 +3608,29 @@ impl Store {
                 Ok(attempt)
             })
             .collect()
+    }
+
+    pub fn has_unknown_live_execution_attempt(
+        &self,
+        workspace_id: &str,
+        account_id: &str,
+    ) -> Result<bool> {
+        if workspace_id != self.workspace_id()? {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        self.connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM execution_attempts a JOIN accounts c ON c.connection_id=a.account_id WHERE a.workspace_id=?1 AND a.account_id=?2 AND a.state='UNKNOWN_RECONCILING' AND c.provider_id IN (?3,?4,?5) AND c.environment='LIVE')",
+                params![
+                    workspace_id,
+                    account_id,
+                    LIVE_RECONCILIATION_PROVIDER_IDS[0],
+                    LIVE_RECONCILIATION_PROVIDER_IDS[1],
+                    LIVE_RECONCILIATION_PROVIDER_IDS[2],
+                ],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)
     }
 
     pub fn resolution_evidence_ledger(

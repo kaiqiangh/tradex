@@ -861,6 +861,14 @@
             "$ref": "#/$defs/Position"
           }
         },
+        "recentOrders": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OpenOrder"
+          },
+          "maxItems": 10000
+        },
         "remoteAccountId": {
           "type": "string"
         }

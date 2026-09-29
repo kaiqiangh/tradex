@@ -686,6 +686,12 @@ The cancellation attempt remains `CANCEL_PENDING` after acknowledgement and afte
 
 If a saved attempt is `INVALIDATED` with `STOPPED_BEFORE_DISPATCH`, keep it in history and let the user refresh and review that same exact order again. An attempt with any possible provider dispatch stays in reconciliation and cannot be retried.
 
+### 13.21 Live startup recovery and recent-order presentation (S27.1 #108)
+
+After workspace open, restore each supported Live account's backend recovery state and visible health reason. Keep the last trusted account/open-order observations available while the refreshed status is stale or blocked. Trading 212 and Binance Live render the bounded `recentOrders` projection in a separate Recent orders section; never mix those rows into the open-order table or expose cancellation from recent-history rows. Bitget continues to show its existing bounded order/fill history.
+
+Startup refreshes all connected supported Live accounts without relying on the selected account. It automatically requests exact S25 evidence only for unresolved PLACE attempts; an unresolved CANCEL remains visible and requires the existing explicit exact-order refresh. Keep Arm unavailable until the backend reports current reconciliation and eligibility, and preserve the separate explicit Arm confirmation after recovery. Show provider/read/time failures and the backend reason; do not infer completion from an empty recent-history page or retry provider mutations.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

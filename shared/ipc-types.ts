@@ -1268,6 +1268,10 @@ export interface AccountData {
   limitations: string[];
   openOrders: OpenOrder[];
   positions: Position[];
+  /**
+   * @maxItems 10000
+   */
+  recentOrders?: OpenOrder[];
   remoteAccountId: string;
 }
 /**

@@ -22,7 +22,7 @@ use reqwest::{
 };
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::Read,
     sync::{Mutex, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -1023,6 +1023,29 @@ pub(crate) fn decimal_magnitude(value: &str) -> Result<String> {
     Ok(normalized.strip_prefix('-').unwrap_or(&normalized).into())
 }
 
+fn parse_t212_recent_orders(history: Value) -> Result<Vec<OpenOrder>> {
+    let items = history["items"].as_array().ok_or_else(invalid)?;
+    if items.len() > 50 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    match history.get("nextPagePath") {
+        Some(Value::Null) => (),
+        Some(Value::String(path)) if valid_t212_history_path(path) => (),
+        _ => return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE")),
+    }
+    let mut ids = HashSet::new();
+    items
+        .iter()
+        .map(|item| {
+            let order = trading212::open_order(item)?;
+            if !ids.insert(order.broker_order_id.clone()) {
+                return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+            }
+            Ok(order)
+        })
+        .collect()
+}
+
 fn read_trading212_live_order(
     order_id: &str,
     auth: &HeaderMap,
@@ -1439,6 +1462,9 @@ fn normalize_account_data(data: &mut AccountData, provider_id: &str) {
     for order in &mut data.open_orders {
         order.instrument_id = market::canonical_instrument_id(provider_id, &order.symbol);
     }
+    for order in &mut data.recent_orders {
+        order.instrument_id = market::canonical_instrument_id(provider_id, &order.symbol);
+    }
 }
 pub struct ProviderOutcome {
     pub(crate) observation: Option<Observation>,
@@ -1724,6 +1750,20 @@ impl ProviderJob {
                     query("/api/v0/equity/orders")?,
                     endpoint == ProviderEndpoint::Trading212Live,
                 )?;
+                if endpoint == ProviderEndpoint::Trading212Live {
+                    if matches!(&self.kind, JobKind::Connect | JobKind::Probe) {
+                        observation.data.recent_orders = parse_t212_recent_orders(query(
+                            "/api/v0/equity/history/orders?limit=50",
+                        )?)?;
+                    } else {
+                        observation.data.recent_orders = self
+                            .account
+                            .data
+                            .as_ref()
+                            .map(|data| data.recent_orders.clone())
+                            .unwrap_or_default();
+                    }
+                }
                 #[cfg(feature = "integration-test")]
                 if endpoint == ProviderEndpoint::Trading212Live
                     && std::env::var_os("TRADEX_S26_2_CANCEL_FIXTURE").is_some()
@@ -5309,7 +5349,8 @@ mod bitget_live_cancel_route_tests {
 mod trading212_demo_route_tests {
     use super::{
         ProviderEndpoint, ProviderHttpMethod, Trading212Endpoint, merge_trading212_orders,
-        parse_trading212_order, trading212_order_read_error, valid_t212_history_path,
+        parse_t212_recent_orders, parse_trading212_order, trading212_order_read_error,
+        valid_t212_history_path,
     };
     use crate::protocol::Trading212DemoCancelState;
     use serde_json::{Value, json};
@@ -5384,6 +5425,35 @@ mod trading212_demo_route_tests {
         assert!(valid_t212_history_path(
             "/api/v0/equity/history/orders?cursor=1760346100000&limit=50"
         ));
+    }
+
+    #[test]
+    fn t212_recent_history_is_bounded_and_rejects_duplicate_or_untrusted_pages() {
+        let order = json!({
+            "id":9001,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY",
+            "quantity":1,"filledQuantity":1,"filledValue":182.5,"currency":"USD",
+            "status":"FILLED"
+        });
+        let page = json!({"items":[order.clone()],"nextPagePath":"/api/v0/equity/history/orders?limit=50&cursor=123"});
+        let rows = parse_t212_recent_orders(page).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].broker_order_id, "9001");
+        assert_eq!(rows[0].status, "FILLED");
+
+        assert_eq!(
+            parse_t212_recent_orders(
+                json!({"items":[order.clone(),order.clone()],"nextPagePath":null})
+            )
+            .unwrap_err()
+            .code,
+            "PROVIDER_DATA_INCOMPLETE"
+        );
+        assert_eq!(
+            parse_t212_recent_orders(json!({"items":[],"nextPagePath":"https://evil.test"}))
+                .unwrap_err()
+                .code,
+            "PROVIDER_DATA_INCOMPLETE"
+        );
     }
 
     #[test]
@@ -5819,6 +5889,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
             }],
             positions,
             open_orders: orders,
+            recent_orders: Vec::new(),
             bitget_order_book: None,
             capabilities: permissions.detected.clone(),
             limitations,

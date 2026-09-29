@@ -45,8 +45,11 @@ struct Service(
     #[cfg(unix)] Arc<Mutex<OrderGatewayHost>>,
 );
 
-fn run_startup_provider_job(engine: &Arc<Mutex<ControlPlane>>, job: &ProviderJob) -> bool {
-    let outcome = job.run(
+fn read_startup_provider_job(
+    engine: &Arc<Mutex<ControlPlane>>,
+    job: &ProviderJob,
+) -> tradex::provider_io::ProviderOutcome {
+    job.run(
         &NativeVault,
         |_| Err(TradeXError::new("PROVIDER_NATIVE_ENTRY_REQUIRED")),
         &BrokerHttp::default(),
@@ -55,10 +58,7 @@ fn run_startup_provider_job(engine: &Arc<Mutex<ControlPlane>>, job: &ProviderJob
                 .lock()
                 .is_ok_and(|control| control.provider_job_current(job))
         },
-    );
-    engine
-        .lock()
-        .is_ok_and(|mut control| control.complete_provider(job, outcome)["ok"] == true)
+    )
 }
 
 fn start_startup_live_recovery(engine: Arc<Mutex<ControlPlane>>, workspace_id: String) {
@@ -83,7 +83,7 @@ fn start_startup_live_recovery(engine: Arc<Mutex<ControlPlane>>, workspace_id: S
             Err(_) => return,
         };
 
-        // P0 exact-attempt reconciliation runs before P1 account refresh.
+        let mut order_jobs = Vec::new();
         for input in &plan.unresolved_attempts {
             let job = match engine.lock() {
                 Ok(mut control) => match control.prepare_startup_live_order_reconciliation(input) {
@@ -99,11 +99,10 @@ fn start_startup_live_recovery(engine: Arc<Mutex<ControlPlane>>, workspace_id: S
                 },
                 Err(_) => return,
             };
-            if !run_startup_provider_job(&engine, &job) {
-                eprintln!("TradeX startup order reconciliation remains pending.");
-            }
+            order_jobs.push(job);
         }
 
+        let mut account_jobs = Vec::new();
         for connection_id in &plan.account_ids {
             let job = match engine.lock() {
                 Ok(mut control) => {
@@ -120,12 +119,72 @@ fn start_startup_live_recovery(engine: Arc<Mutex<ControlPlane>>, workspace_id: S
                 }
                 Err(_) => return,
             };
-            if !run_startup_provider_job(&engine, &job) {
+            account_jobs.push((connection_id.clone(), job));
+        }
+
+        // Dispatch exact-attempt P0 evidence reads before P1 account refreshes.
+        // Both read sets overlap, but P0 results are committed before P1 results.
+        let account_outcomes = std::thread::scope(|scope| {
+            let order_reads = order_jobs
+                .into_iter()
+                .map(|job| {
+                    let worker_engine = Arc::clone(&engine);
+                    scope.spawn(move || {
+                        let outcome = read_startup_provider_job(&worker_engine, &job);
+                        (job, outcome)
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            let account_reads = account_jobs
+                .into_iter()
+                .map(|(connection_id, job)| {
+                    let worker_engine = Arc::clone(&engine);
+                    scope.spawn(move || {
+                        let outcome = read_startup_provider_job(&worker_engine, &job);
+                        (connection_id, job, outcome)
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            for read in order_reads {
+                match read.join() {
+                    Ok((job, outcome)) => {
+                        let completed = engine.lock().is_ok_and(|mut control| {
+                            control.complete_provider(&job, outcome)["ok"] == true
+                        });
+                        if !completed {
+                            eprintln!("TradeX startup order reconciliation remains pending.");
+                        }
+                    }
+                    Err(_) => {
+                        eprintln!("TradeX startup order reconciliation worker failed.");
+                    }
+                }
+            }
+
+            account_reads
+                .into_iter()
+                .filter_map(|read| match read.join() {
+                    Ok(result) => Some(result),
+                    Err(_) => {
+                        eprintln!("TradeX startup account refresh worker failed.");
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        });
+
+        for (connection_id, job, outcome) in account_outcomes {
+            let refreshed = engine
+                .lock()
+                .is_ok_and(|mut control| control.complete_provider(&job, outcome)["ok"] == true);
+            if !refreshed {
                 continue;
             }
             if let Ok(mut control) = engine.lock()
                 && let Err(error) =
-                    control.finish_startup_live_reconciliation(&plan.workspace_id, connection_id)
+                    control.finish_startup_live_reconciliation(&plan.workspace_id, &connection_id)
             {
                 eprintln!("TradeX startup recovery remains blocked: {}", error.code);
             }

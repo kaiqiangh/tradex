@@ -686,6 +686,12 @@ Accounts 按账户列出 Bitget Classic Spot Live CANCEL approval，包括订单
 
 已保存 attempt 若为 `INVALIDATED` 且 `STOPPED_BEFORE_DISPATCH`，应保留在历史中，并允许用户再次刷新和审阅同一准确订单。任何可能已派发到 provider 的 attempt 都必须继续对账，不能重试。
 
+### 13.21 Live 启动恢复与近期订单展示（S27.1 #108）
+
+workspace 打开后，恢复每个受支持 Live 账户的后端恢复状态和可见 health reason。当刷新状态 stale 或 blocked 时，保留并显示最近一次可信账户/开放订单观测。Trading 212 和 Binance Live 在单独的 Recent orders 区域展示有界 `recentOrders` 投影；不得将这些行混入开放订单表，也不得从近期历史行提供撤单入口。Bitget 继续显示既有有界订单/成交历史。
+
+启动流程在不依赖当前选中账户的情况下刷新所有已连接且受支持的 Live 账户。它只会自动为未解决 PLACE attempt 请求准确 S25 evidence；未解决 CANCEL 保持可见，并要求用户显式触发已有准确订单刷新。只有后端报告 reconciliation 与 eligibility 均为 current 时才允许 Arm，并在恢复后保留单独的显式 Arm 确认。展示提供方读取、时间失败和后端 reason；不得根据空近期历史页面推断恢复完成，也不得重试提供方修改操作。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

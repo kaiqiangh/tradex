@@ -2,6 +2,12 @@ use crate::protocol::{LiveOrderFee, Result, TradeXError};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub(crate) const LIVE_RECONCILIATION_PROVIDER_IDS: [&str; 3] = ["trading212", "binance", "bitget"];
+
+pub(crate) fn supports_live_reconciliation(provider_id: &str) -> bool {
+    LIVE_RECONCILIATION_PROVIDER_IDS.contains(&provider_id)
+}
+
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProviderField {
@@ -314,6 +320,9 @@ pub struct AccountData {
     pub balances: Vec<Balance>,
     pub positions: Vec<Position>,
     pub open_orders: Vec<OpenOrder>,
+    #[serde(default)]
+    #[schemars(length(max = 10000))]
+    pub recent_orders: Vec<OpenOrder>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bitget_order_book: Option<BitgetSpotOrderBook>,
     pub capabilities: Vec<String>,

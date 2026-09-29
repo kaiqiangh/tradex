@@ -1526,10 +1526,6 @@ fn live_reconciliation_provider(environment: &protocol::ExecutionContext) -> Opt
     }
 }
 
-fn is_supported_live_provider(provider_id: &str) -> bool {
-    matches!(provider_id, "trading212" | "binance" | "bitget")
-}
-
 fn expected_live_provider_client_order_id(
     attempt: &protocol::ExecutionAttempt,
 ) -> Result<Option<String>> {
@@ -2518,7 +2514,7 @@ impl ControlPlane {
             .into_iter()
             .filter(|account| {
                 account.environment == "LIVE"
-                    && is_supported_live_provider(&account.provider_id)
+                    && providers::supports_live_reconciliation(&account.provider_id)
                     && account.connection_state == ConnectionState::Connected
             })
             .map(|account| account.connection_id)
@@ -2581,7 +2577,7 @@ impl ControlPlane {
         let account = self.store.as_ref().unwrap().account(connection_id)?;
         if account.workspace_id != workspace_id
             || account.environment != "LIVE"
-            || !is_supported_live_provider(&account.provider_id)
+            || !providers::supports_live_reconciliation(&account.provider_id)
             || account.connection_state != ConnectionState::Connected
         {
             return Ok(None);
@@ -2622,9 +2618,7 @@ impl ControlPlane {
             .store
             .as_ref()
             .unwrap()
-            .unknown_live_place_attempts(workspace_id)?
-            .iter()
-            .any(|attempt| attempt.account_id == connection_id);
+            .has_unknown_live_execution_attempt(workspace_id, connection_id)?;
         if !time_trusted || unresolved {
             account.health.reconciliation = "STALE".into();
             account.health.execution_eligibility = "BLOCKED".into();
@@ -2632,7 +2626,7 @@ impl ControlPlane {
             account.health.reason = if !time_trusted {
                 "Startup reconciliation is waiting for a trusted local clock. Live remains disarmed until time is validated.".into()
             } else {
-                "Startup account observations refreshed, but unresolved Live PLACE attempts remain. Exact order reconciliation is required before Live health can recover.".into()
+                "Startup account observations refreshed, but unresolved Live PLACE or CANCEL attempts remain. Exact order reconciliation is required before Live health can recover.".into()
             };
             self.persist_account(account)?;
             return Ok(false);
@@ -14400,8 +14394,24 @@ mod live_approval_tests {
                 ),
                 "/api/v3/account" => (
                     200,
-                    json!({"uid":self.remote_account_id.parse::<u64>().unwrap(),"accountType":"SPOT"}),
+                    json!({
+                        "uid":self.remote_account_id.parse::<u64>().unwrap(),
+                        "accountType":"SPOT","balances":[],
+                        "canTrade":true,"canWithdraw":false,"canDeposit":false
+                    }),
                 ),
+                "/sapi/v1/account/apiRestrictions" => (
+                    200,
+                    json!({
+                        "ipRestrict":true,"enableReading":true,"enableWithdrawals":false,
+                        "enableInternalTransfer":false,"permitsUniversalTransfer":false,
+                        "enableMargin":false,"enableFutures":false,"enableVanillaOptions":false,
+                        "enablePortfolioMarginTrading":false,"enableFixApiTrade":false,
+                        "enableFixReadOnly":false,"enableSpotAndMarginTrading":true
+                    }),
+                ),
+                "/api/v3/openOrders" => (200, json!([])),
+                "/api/v3/allOrders" => (200, json!([self.order.clone()])),
                 "/api/v3/order" if self.order_status == 400 => {
                     (400, json!({"code":-2013,"msg":"Order does not exist."}))
                 }
@@ -14843,6 +14853,85 @@ mod live_approval_tests {
             protocol::ManualResolutionDecision::ConfirmedSubmitted
         );
         assert_eq!(ledger.evidence.len(), 2);
+    }
+
+    #[test]
+    fn binance_live_account_refresh_restores_bounded_recent_order_history() {
+        let (_folder, mut control, workspace_id, account, _, _) =
+            reviewed_live_fixture_with_numeric_binance_id(true);
+        let mut prior = account;
+        prior.data.as_mut().unwrap().recent_orders = vec![OpenOrder {
+            broker_order_id: "BTCUSDT:1".into(),
+            symbol: "BTCUSDT".into(),
+            instrument_id: Some("crypto:BTC/USDT:spot".into()),
+            side: "BUY".into(),
+            quantity: Some("0.01".into()),
+            notional: None,
+            filled_quantity: Some("0".into()),
+            filled_value: None,
+            currency: None,
+            status: "CANCELED".into(),
+            limit_price: None,
+            kind: None,
+            trigger_price: None,
+        }];
+        let account = control.persist_account(prior).unwrap();
+        let http = BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 200,
+            order: json!({
+                "orderId":987654321,"symbol":"BTCUSDT","clientOrderId":"fixture-order",
+                "side":"BUY","type":"LIMIT","timeInForce":"GTC","origQty":"0.01",
+                "origQuoteOrderQty":"0","price":"50000","executedQty":"0.01",
+                "cummulativeQuoteQty":"500","status":"FILLED",
+                "time":OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000,
+            }),
+            calls: Default::default(),
+        };
+        let job = control
+            .prepare_provider_for(
+                &request(
+                    "account.refresh",
+                    json!({
+                        "workspaceId":workspace_id,
+                        "connectionId":account.connection_id,
+                        "expectedStateVersion":account.state_version,
+                    }),
+                ),
+                "main",
+            )
+            .unwrap()
+            .unwrap();
+        let outcome = job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &http,
+            || control.provider_job_current(&job),
+        );
+        assert!(outcome.error.is_none(), "{:?}", outcome.error);
+        assert_eq!(
+            outcome.observation.as_ref().unwrap().data.recent_orders[0].broker_order_id,
+            "BTCUSDT:987654321"
+        );
+        let refreshed = control.complete_provider(&job, outcome);
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        let persisted = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        assert_eq!(persisted.data.unwrap().recent_orders[0].status, "FILLED");
+        assert!(http.calls.borrow().iter().any(|(_, method, path)| {
+            *method == provider_io::ProviderHttpMethod::Get
+                && path.starts_with("/api/v3/allOrders?symbol=BTCUSDT&limit=1000&timestamp=")
+        }));
+        assert!(
+            http.calls
+                .borrow()
+                .iter()
+                .all(|(_, method, _)| { *method == provider_io::ProviderHttpMethod::Get })
+        );
     }
 
     #[test]
@@ -20042,6 +20131,46 @@ mod cancellation_approval_tests {
         (folder, control, workspace_id, account)
     }
 
+    #[test]
+    fn startup_probe_refresh_fetches_and_persists_t212_recent_live_history() {
+        let (_folder, mut control, workspace_id, account) = trading212_fixture();
+        let job = control
+            .prepare_startup_live_account_refresh(&workspace_id, &account.connection_id)
+            .unwrap()
+            .unwrap();
+        let http = SyntheticTrading212Http::default();
+        let outcome = job.run(
+            &SyntheticCredentialVault,
+            |_| Err(TradeXError::new("PROVIDER_NATIVE_ENTRY_REQUIRED")),
+            &http,
+            || control.provider_job_current(&job),
+        );
+
+        assert!(outcome.error.is_none());
+        assert!(
+            http.calls
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(_, path, _)| { path == "/api/v0/equity/history/orders?limit=50" })
+        );
+        let refreshed = control.complete_provider(&job, outcome);
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        assert_eq!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .account(&account.connection_id)
+                .unwrap()
+                .data
+                .unwrap()
+                .recent_orders[0]
+                .broker_order_id,
+            "123456"
+        );
+    }
+
     fn request_review(
         control: &mut ControlPlane,
         workspace_id: &str,
@@ -21476,6 +21605,118 @@ mod cancellation_approval_tests {
     }
 
     #[test]
+    fn startup_recovery_stays_blocked_for_an_unknown_live_cancel_attempt() {
+        let (_folder, mut control, workspace_id, account) = fixture();
+        let broker_order_id = "BTCUSDT:9007199254740995";
+        let initial = request_review(&mut control, &workspace_id, &account, None, broker_order_id);
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,
+                "connectionId":account.connection_id,
+                "expectedStateVersion":initial["account"]["stateVersion"],
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let armed_account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let reviewed = request_review(
+            &mut control,
+            &workspace_id,
+            &armed_account,
+            Some(initial["intent"]["cancellationIntentId"].as_str().unwrap()),
+            broker_order_id,
+        );
+        assert_eq!(reviewed["eligible"], true, "{reviewed}");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.cancel_approve",
+            approval_action(&reviewed),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId":workspace_id,
+                "approvalId":approval["data"]["approvalId"],
+                "expectedApprovalStateVersion":approval["data"]["stateVersion"],
+                "idempotencyKey":"startup-unknown-cancel",
+                "confirmed":true,
+            }),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "startup-cancel-gateway")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "startup-cancel-gateway")
+            .unwrap();
+        control
+            .complete_live_execution_submission(
+                attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::UnknownReconciling,
+                    broker_order_id: Some(broker_order_id.into()),
+                    provider_status: None,
+                    error_code: Some("ORDER_STATUS_UNKNOWN".into()),
+                },
+            )
+            .unwrap();
+
+        let path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .to_string_lossy()
+            .into_owned();
+        let reopened = dispatch(&mut control, "workspace.open", json!({"path":path}));
+        assert_eq!(reopened["ok"], true, "{reopened}");
+        let plan = control
+            .prepare_startup_live_recovery_plan()
+            .unwrap()
+            .unwrap();
+        assert!(
+            plan.unresolved_attempts.is_empty(),
+            "CANCEL is never replayed"
+        );
+        let mut refreshed = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        refreshed.health.connection = "ONLINE".into();
+        refreshed.health.authentication = "VALID".into();
+        refreshed.health.credential = "CONFIGURED".into();
+        refreshed.last_successful_sync = Some(storage::timestamp().unwrap());
+        control.persist_account(refreshed).unwrap();
+        assert!(
+            !control
+                .finish_startup_live_reconciliation(&workspace_id, &account.connection_id)
+                .unwrap()
+        );
+        let blocked = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        assert_eq!(blocked.health.reconciliation, "STALE");
+        assert_eq!(blocked.health.execution_eligibility, "BLOCKED");
+        assert_eq!(blocked.health.arming, "DISARMED");
+        assert!(blocked.health.reason.contains("CANCEL"));
+    }
+
+    #[test]
     fn trading212_sell_cancellation_normalizes_signed_filled_quantities() {
         let mut account = AccountConnection::new(
             "workspace".into(),
@@ -21506,6 +21747,7 @@ mod cancellation_approval_tests {
                 kind: None,
                 trigger_price: None,
             }],
+            recent_orders: vec![],
             bitget_order_book: None,
             capabilities: Vec::new(),
             limitations: Vec::new(),

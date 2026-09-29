@@ -2915,6 +2915,14 @@ Gateway CANCEL frame 只携带准确匹配的开放订单和对应的普通 Bitg
 
 真实 Gateway 子进程集成测试使用 loopback fake provider 验证准确签名序列化、仅一次 POST，以及拒绝、传输丢失或进程重启后的不重放。确定性测试无需调用真实 Bitget。
 
+### 41.34 Live 启动恢复与有界近期订单（S27.1 #108）
+
+打开 workspace 时先将已持久化的 Live health 重置为 stale/disarmed，建立新的本地 TimeService 基线，并为所有已连接的 Trading 212、Binance Spot 和 Bitget Spot Live 账户安排只读恢复；此过程不依赖 renderer 当前选中的账户。不同账户的刷新 provider 读取会并发派发，避免单个慢 provider 延迟其他账户开始读取。未知 PLACE attempt 的准确 S25 evidence 读取与账户读取重叠；先提交准确 evidence，再持久化刷新后的账户投影。启动流程不会查询或重放未知 CANCEL attempt；只要存在未知 PLACE 或 CANCEL，reconciliation 就保持 `STALE`、execution eligibility 保持 `BLOCKED`、arming 保持 `DISARMED`。未知 CANCEL 需要用户触发现有准确订单刷新。只有新鲜账户观测成功、本地时间可信且不存在未知 Live execution attempt，账户才能变为 `CURRENT`。Arm 始终是单独的显式操作。
+
+`AccountData.recentOrders` 是可选且 serde 默认初始化的 `OpenOrder[]` 投影，最多 10,000 行。它与 `openOrders` 分开，仅用于近期历史展示；不能作为当前开放订单、撤单资格、容量或结算的权威来源。Trading 212 Live 刷新读取一页 `/api/v0/equity/history/orders?limit=50` 并校验有界响应；启动期间不跟进已保存的下一页游标。Binance Spot Live 对当前开放订单及此前持久化近期订单中的最多 10 个 symbol，各读取一页带签名的 `/api/v3/allOrders?symbol={symbol}&limit=1000`。此路径没有 Binance 账户级订单历史查询，因此本地尚未观测过的 symbol 可能缺失。Bitget Live 继续使用既有有界 `bitgetOrderBook` 保存订单/成交历史，不增加重复的 `recentOrders` 数据流。提供方限制和读取失败必须可见；不完整刷新不会将保留的可信观测提升为当前状态。
+
+UI 对 Trading 212 和 Binance Live 将 `recentOrders` 与 `openOrders` 分开展示。近期历史行不会作为开放订单，也不会获得撤单入口。启动恢复不会 Arm 账户，也不会重放 PLACE/CANCEL；遇到时间不可信、身份校验读取失败/不完整或任何未解决 attempt 时，账户保持 stale 且 disarmed。五秒内启动读取是产品目标；打包原生应用的实际耗时须单独测量。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
