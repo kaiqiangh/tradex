@@ -4,8 +4,9 @@
 use block2::RcBlock;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{
-    NSApplicationDidResignActiveNotification, NSWorkspace,
-    NSWorkspaceSessionDidResignActiveNotification, NSWorkspaceWillSleepNotification,
+    NSApplicationDidBecomeActiveNotification, NSApplicationDidResignActiveNotification,
+    NSWorkspace, NSWorkspaceDidWakeNotification, NSWorkspaceSessionDidResignActiveNotification,
+    NSWorkspaceWillSleepNotification,
 };
 #[cfg(target_os = "macos")]
 use objc2_foundation::{NSNotification, NSNotificationCenter, NSNotificationName};
@@ -607,6 +608,98 @@ fn register_live_safety_observers(engine: Arc<Mutex<ControlPlane>>) {
     );
 }
 
+#[cfg(target_os = "macos")]
+fn recover_live_after_resume(
+    engine: Arc<Mutex<ControlPlane>>,
+    private_stream_supervisor: AlpacaPrivateStreamSupervisor,
+    binance_stream_supervisor: BinancePrivateStreamSupervisor,
+    last_trigger: Arc<Mutex<Option<std::time::Instant>>>,
+) {
+    if let Ok(mut previous) = last_trigger.lock() {
+        let now = std::time::Instant::now();
+        if previous
+            .as_ref()
+            .is_some_and(|last| now.duration_since(*last) < std::time::Duration::from_millis(500))
+        {
+            return;
+        }
+        *previous = Some(now);
+    } else {
+        return;
+    }
+
+    let workspace_id = match engine.lock() {
+        Ok(mut control) => match control.resume() {
+            Ok(workspace_id) => workspace_id,
+            Err(error) => {
+                eprintln!(
+                    "TradeX could not durably invalidate Live state after resume: {}",
+                    error.code
+                );
+                return;
+            }
+        },
+        Err(_) => return,
+    };
+    private_stream_supervisor.restart_all();
+    binance_stream_supervisor.restart_all();
+    mark_connected_accounts_degraded(&engine);
+    if let Some(workspace_id) = workspace_id {
+        start_startup_live_recovery(engine, workspace_id);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn register_live_recovery_observer(
+    center: &NSNotificationCenter,
+    name: &NSNotificationName,
+    engine: Arc<Mutex<ControlPlane>>,
+    private_stream_supervisor: AlpacaPrivateStreamSupervisor,
+    binance_stream_supervisor: BinancePrivateStreamSupervisor,
+    last_trigger: Arc<Mutex<Option<std::time::Instant>>>,
+) {
+    let observer = RcBlock::new(move |_notification: NonNull<NSNotification>| {
+        recover_live_after_resume(
+            engine.clone(),
+            private_stream_supervisor.clone(),
+            binance_stream_supervisor.clone(),
+            last_trigger.clone(),
+        );
+    });
+    let token = unsafe {
+        center.addObserverForName_object_queue_usingBlock(Some(name), None, None, &observer)
+    };
+    std::mem::forget(token);
+}
+
+#[cfg(target_os = "macos")]
+fn register_live_recovery_observers(
+    engine: Arc<Mutex<ControlPlane>>,
+    private_stream_supervisor: AlpacaPrivateStreamSupervisor,
+    binance_stream_supervisor: BinancePrivateStreamSupervisor,
+) {
+    let last_trigger = Arc::new(Mutex::new(None));
+    let workspace_center = NSWorkspace::sharedWorkspace().notificationCenter();
+    register_live_recovery_observer(
+        &workspace_center,
+        unsafe { NSWorkspaceDidWakeNotification },
+        engine.clone(),
+        private_stream_supervisor.clone(),
+        binance_stream_supervisor.clone(),
+        last_trigger.clone(),
+    );
+
+    let application_center = NSNotificationCenter::defaultCenter();
+    register_live_recovery_observer(
+        &application_center,
+        unsafe { NSApplicationDidBecomeActiveNotification },
+        engine,
+        private_stream_supervisor,
+        binance_stream_supervisor,
+        last_trigger,
+    );
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -645,6 +738,12 @@ fn main() {
             let private_stream_supervisor = AlpacaPrivateStreamSupervisor::new();
             #[cfg(target_os = "macos")]
             let binance_stream_supervisor = BinancePrivateStreamSupervisor::new();
+            #[cfg(target_os = "macos")]
+            register_live_recovery_observers(
+                engine.clone(),
+                private_stream_supervisor.clone(),
+                binance_stream_supervisor.clone(),
+            );
             #[cfg(target_os = "macos")]
             app.manage(Service(
                 engine.clone(),
@@ -750,25 +849,22 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("TradeX could not start its desktop shell")
         .run(|app, event| {
+            #[cfg(not(target_os = "macos"))]
             if matches!(event, tauri::RunEvent::Resumed)
                 && let Ok(mut engine) = app.state::<Service>().0.lock()
             {
-                if let Err(error) = engine.resume() {
-                    eprintln!(
-                        "TradeX could not durably disarm Live accounts after resume: {}",
-                        error.code
-                    );
+                match engine.resume() {
+                    Ok(Some(workspace_id)) => {
+                        start_startup_live_recovery(app.state::<Service>().0.clone(), workspace_id);
+                    }
+                    Ok(None) => (),
+                    Err(error) => {
+                        eprintln!(
+                            "TradeX could not durably invalidate Live state after resume: {}",
+                            error.code
+                        );
+                    }
                 }
-            }
-            #[cfg(target_os = "macos")]
-            if matches!(event, tauri::RunEvent::Resumed) {
-                app.state::<Service>().6.restart_all();
-            }
-            #[cfg(target_os = "macos")]
-            if matches!(event, tauri::RunEvent::Resumed) {
-                app.state::<Service>().7.restart_all();
-                let service = app.state::<Service>();
-                mark_connected_accounts_degraded(&service.0);
             }
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<Service>().2.stop_all();

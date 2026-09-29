@@ -1586,7 +1586,8 @@ On sleep/session lock:
 - on macOS, also disarm when the TradeX app gives up active status to another app;
 - persist runtime checkpoint where safe;
 - on resume, reinitialize TimeService confidence;
-- reconnect private streams;
+- reconnect private streams on system wake and when TradeX becomes active again;
+- stale connected Live account health and refresh provider state;
 - reconcile before new live execution.
 
 ### 37.3 Stream disconnect
@@ -2922,6 +2923,12 @@ Opening a workspace resets persisted Live health to stale/disarmed, establishes 
 `AccountData.recentOrders` is an optional, serde-defaulted `OpenOrder[]` projection bounded to 10,000 rows. It is distinct from `openOrders` and is for recent-history visibility only; it is not authoritative for current open orders, cancellation eligibility, capacity, or settlement. Trading 212 Live refresh reads one `/api/v0/equity/history/orders?limit=50` page and validates the bounded response; it does not follow a saved next-page cursor during startup. Binance Spot Live reads one signed `/api/v3/allOrders?symbol={symbol}&limit=1000` page for at most 10 symbols found in current open orders and the previously persisted recent-order projection. Binance has no account-wide order-history query in this path, so symbols not yet observed locally may be absent. Bitget Live retains its existing bounded order/fill history in `bitgetOrderBook`; no duplicate `recentOrders` feed is added. Provider limits and failures remain visible, and retained trusted observations are not promoted to current after an incomplete refresh.
 
 The UI renders `recentOrders` separately from `openOrders` for Trading 212 and Binance Live. Recent rows never appear as open orders or enable cancellation. Startup never arms an account or replays PLACE/CANCEL; it leaves the account stale and disarmed on untrusted time, failed/incomplete identity-bound reads, or any unresolved attempt. The five-second startup-read target remains a product target; native packaged-app timing must be measured separately.
+
+### 41.35 Live resume and return-to-active recovery (S27.2 #109)
+
+On macOS, `NSWorkspaceDidWakeNotification` and `NSApplicationDidBecomeActiveNotification` drive the resume transition; the desktop `RunEvent::Resumed` is not available on macOS. Returning after sleep or session loss disarms every Live account, resets TimeService confidence, and durably marks each connected Live account `STALE / UNVERIFIED / UNCHECKED / STALE / BLOCKED / DISARMED` before provider recovery begins. The selected renderer account never narrows this scope.
+
+The native service restarts its existing supported private-stream workers, revalidates TimeService, then dispatches the existing P0 exact-evidence reads for unknown PLACE attempts and P1 read-only account refreshes for every connected Trading 212, Binance Spot, and Bitget Spot Live account. Existing stream support remains limited to its declared Paper/Testnet environments; Live recovery uses the fixed provider REST adapters. A Live account returns to `CURRENT` only after fresh identity-bound provider data, trusted time, and no unresolved PLACE or CANCEL attempt. Provider failure, incomplete data, untrusted time, or unresolved execution leaves the durable account reason stale/blocked. Recovery invalidates prior account-bound approvals/dispatch preparation through the existing account projection path, never replays an order mutation, and always requires a fresh explicit Arm.
 
 ## 42. Backend-to-Frontend Event Surface
 

@@ -1586,7 +1586,8 @@ Sleep/session lock 时：
 - 在 macOS 上，TradeX 应用让出活动状态、切换至其他应用时，也执行撤防；
 - 安全时持久化 runtime checkpoint；
 - resume 后重新建立 TimeService confidence；
-- 重连 private streams；
+- 系统唤醒和 TradeX 重新成为活动应用时重连 private streams；
+- 将已连接 Live account health 标为 stale 并刷新 provider state；
 - 新 Live execution 前先 reconciliation。
 
 ### 37.3 Stream disconnect
@@ -2922,6 +2923,12 @@ Gateway CANCEL frame 只携带准确匹配的开放订单和对应的普通 Bitg
 `AccountData.recentOrders` 是可选且 serde 默认初始化的 `OpenOrder[]` 投影，最多 10,000 行。它与 `openOrders` 分开，仅用于近期历史展示；不能作为当前开放订单、撤单资格、容量或结算的权威来源。Trading 212 Live 刷新读取一页 `/api/v0/equity/history/orders?limit=50` 并校验有界响应；启动期间不跟进已保存的下一页游标。Binance Spot Live 对当前开放订单及此前持久化近期订单中的最多 10 个 symbol，各读取一页带签名的 `/api/v3/allOrders?symbol={symbol}&limit=1000`。此路径没有 Binance 账户级订单历史查询，因此本地尚未观测过的 symbol 可能缺失。Bitget Live 继续使用既有有界 `bitgetOrderBook` 保存订单/成交历史，不增加重复的 `recentOrders` 数据流。提供方限制和读取失败必须可见；不完整刷新不会将保留的可信观测提升为当前状态。
 
 UI 对 Trading 212 和 Binance Live 将 `recentOrders` 与 `openOrders` 分开展示。近期历史行不会作为开放订单，也不会获得撤单入口。启动恢复不会 Arm 账户，也不会重放 PLACE/CANCEL；遇到时间不可信、身份校验读取失败/不完整或任何未解决 attempt 时，账户保持 stale 且 disarmed。五秒内启动读取是产品目标；打包原生应用的实际耗时须单独测量。
+
+### 41.35 Live resume 与重新激活后的恢复（S27.2 #109）
+
+在 macOS 上，由 `NSWorkspaceDidWakeNotification` 和 `NSApplicationDidBecomeActiveNotification` 驱动 resume transition；桌面版 `RunEvent::Resumed` 在 macOS 不可用。系统休眠或 session loss 后恢复时，先 disarm 所有 Live account、重置 TimeService confidence，并在 provider recovery 开始前，将每个已连接 Live account 持久化为 `STALE / UNVERIFIED / UNCHECKED / STALE / BLOCKED / DISARMED`。renderer 当前选中的账户不会缩小此范围。
+
+原生服务会重启现有且受支持的 private-stream worker，然后重验证 TimeService，再通过已有路径派发未知 PLACE 的 P0 准确 evidence 读取，以及所有已连接 Trading 212、Binance Spot 和 Bitget Spot Live account 的 P1 只读账户刷新。现有 stream 支持范围仍限于各自声明的 Paper/Testnet 环境；Live 恢复使用固定 provider REST adapter。只有新鲜、绑定正确身份的 provider 数据已取得、时间可信且不存在未解决 PLACE 或 CANCEL attempt 时，Live account 才会恢复为 `CURRENT`。Provider failure、数据不完整、时间不可信或执行未解决时，持久化账户原因继续保持 stale/blocked。恢复通过既有账户投影路径使旧 account-bound approval/dispatch preparation 失效，不会重放订单 mutation，并始终要求用户重新显式 Arm。
 
 ## 42. Backend-to-Frontend Event Surface
 
