@@ -1,4 +1,5 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
+import { subscribeBrowserEvents } from './browserEvents.ts';
 import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountArmingMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, ApprovalAction, ApprovalReview, ApprovalReviewRequest, CancellationIntentRequest, CancellationReview, CancellationApprovalAction, CancellationApprovalHistoryQuery, CancellationApprovalHistory, LiveOrderRefreshRequest, FinancialApproval, FinancialApprovalHistory, FinancialApprovalHistoryQuery, ApprovalRejection, CancellationApprovalRejection, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
 import type { ExecutionPreparation, ExecutionPreparationQuery, ExecutionPreparationQueryResult, ExecutionPrepareRequest, ManualResolutionRequest, ResolutionEvidenceQuery, ResolutionEvidenceQueryResult, ResolutionEvidenceRefresh } from '../shared/ipc-types.ts';
@@ -414,22 +415,16 @@ export async function subscribe(payload: Subscribe, onEvent: (event: unknown) =>
     return () => { active = false; };
   }
   if (!browserIntegration) throw new Error('DESKTOP_REQUIRED');
-  const stream = new EventSource('/__integration/events');
+  let close = () => {};
   try {
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('IPC_TRANSPORT_UNAVAILABLE')), 5000);
-      stream.onopen = () => { clearTimeout(timeout); resolve(); };
-      stream.onerror = () => { clearTimeout(timeout); reject(new Error('IPC_TRANSPORT_UNAVAILABLE')); };
-    });
-    stream.onmessage = message => {
+    close = await subscribeBrowserEvents(data => {
       if (active) {
-        try { const event = decode<DomainEvent>('DomainEvent', JSON.parse(message.data)); if (event.aggregateType === payload.aggregateType && event.aggregateId === payload.aggregateId) onEvent(event); } catch (error) { onError(error); }
+        try { const event = decode<DomainEvent>('DomainEvent', JSON.parse(data)); if (event.aggregateType === payload.aggregateType && event.aggregateId === payload.aggregateId) onEvent(event); } catch (error) { onError(error); }
       }
-    };
-    stream.onerror = () => { if (active) { stream.close(); onError(new Error('IPC_TRANSPORT_UNAVAILABLE')); } };
+    }, error => { if (active) { active = false; onError(error); } });
     await request('domain.subscribe', payload);
-    return () => { active = false; stream.close(); };
-  } catch (error) { stream.close(); throw error; }
+    return () => { active = false; close(); };
+  } catch (error) { active = false; close(); throw error; }
 }
 
 export function explainError(error: unknown): string {
