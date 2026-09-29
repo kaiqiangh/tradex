@@ -15103,7 +15103,7 @@ mod live_approval_tests {
             reviewed_live_fixture_with_numeric_binance_id(true);
         let (attempt_id, account, _) =
             make_unknown_binance_live_attempt(&mut control, &workspace_id, &proposal, &review);
-        let http = BinanceLiveResolutionHttp {
+        let mut http = BinanceLiveResolutionHttp {
             remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
             order_status: 200,
             order: json!({
@@ -15195,8 +15195,65 @@ mod live_approval_tests {
             preparation.reservation.unwrap().status,
             protocol::ExecutionReservationStatus::Active
         );
+        http.order_status = 429;
+        let current_attempt = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(
+                query["workspaceId"].as_str().unwrap(),
+                query["executionAttemptId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .attempt;
+        let retry = request(
+            "trade.resolution_evidence.refresh",
+            json!({
+                "workspaceId":query["workspaceId"],
+                "executionAttemptId":query["executionAttemptId"],
+                "accountId":query["accountId"],
+                "expectedAttemptStateVersion":current_attempt.state_version,
+            }),
+        );
+        let rate_limit_job = control
+            .prepare_provider_for(&retry, "main")
+            .unwrap()
+            .unwrap();
+        let outcome = rate_limit_job.run(
+            &ResolutionVault,
+            |_| unreachable!(),
+            &http,
+            || control.provider_job_current(&rate_limit_job),
+        );
+        let limited = control.complete_provider(&rate_limit_job, outcome);
+        assert_eq!(limited["ok"], true, "{limited}");
+        assert_eq!(
+            limited["data"]["ledger"]["evidence"][1]["outcome"],
+            "INCONCLUSIVE"
+        );
+        assert_eq!(
+            limited["data"]["ledger"]["evidence"][1]["errorCode"],
+            "PROVIDER_RATE_LIMITED"
+        );
+        let unresolved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(
+                query["workspaceId"].as_str().unwrap(),
+                query["executionAttemptId"].as_str().unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            unresolved.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+        assert_eq!(
+            unresolved.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
         let calls = http.calls.borrow();
-        assert_eq!(calls.len(), 3, "{calls:?}");
+        assert_eq!(calls.len(), 6, "{calls:?}");
         assert!(calls.iter().all(|(endpoint, method, _)| {
             *endpoint == provider_io::ProviderEndpoint::BinanceLive
                 && *method == provider_io::ProviderHttpMethod::Get
@@ -15228,7 +15285,7 @@ mod live_approval_tests {
         );
         let reply = control.complete_provider(&job, outcome);
         assert_eq!(reply["ok"], true, "{reply}");
-        let evidence = &reply["data"]["ledger"]["evidence"][1];
+        let evidence = &reply["data"]["ledger"]["evidence"][2];
         assert_eq!(evidence["outcome"], "INCONCLUSIVE");
         assert_eq!(evidence["candidateOrders"], json!([]));
         assert_eq!(evidence["errorCode"], Value::Null);
@@ -15257,7 +15314,7 @@ mod live_approval_tests {
         );
         let reply = control.complete_provider(&job, outcome);
         assert_eq!(reply["ok"], true, "{reply}");
-        let evidence = &reply["data"]["ledger"]["evidence"][2];
+        let evidence = &reply["data"]["ledger"]["evidence"][3];
         assert_eq!(evidence["outcome"], "INCONCLUSIVE");
         assert_eq!(evidence["candidateOrders"], json!([]));
         assert_eq!(evidence["errorCode"], "PROVIDER_AUTH_FAILED");
@@ -15282,7 +15339,7 @@ mod live_approval_tests {
         );
         let reply = control.complete_provider(&job, outcome);
         assert_eq!(reply["ok"], true, "{reply}");
-        let evidence = &reply["data"]["ledger"]["evidence"][3];
+        let evidence = &reply["data"]["ledger"]["evidence"][4];
         assert_eq!(evidence["outcome"], "INCONCLUSIVE");
         assert_eq!(evidence["candidateOrders"], json!([]));
         assert_eq!(evidence["errorCode"], "PROVIDER_IDENTITY_CHANGED");

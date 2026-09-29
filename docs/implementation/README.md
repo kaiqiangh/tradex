@@ -33,6 +33,8 @@ S26 [Spec：刷新并审批 Live 撤单与成交竞态收敛](https://github.com
 S27.1 #108 已完成实现与隔离 Rust 验证：所有已连接的受支持 Live 账户在启动/重开后保持 DISARMED，未知 PLACE 先走 S25 精确证据读取，只有可信时钟、成功账户刷新且无未决未知提交时才恢复 `CURRENT`。[验收证据](s27-1-live-startup-recovery-evidence.md)。未访问真实 provider；原生启动 `< 5 s` 计时与 S27 其余切片仍待完成。
 
 S27.2 #109 已在 `dev@f9e81ca` 完成实现，Standards 与 Spec 按 `3ca4d54` 基线独立审查均 PASS。原生应用重新激活已验证；实际 OS 睡眠唤醒未执行，真实 Keychain provider refresh 因系统要求 `login` Keychain 密码而未完成。[双语验收证据](s27-2-live-resume-recovery-evidence.md)。
+S27.3 [优先调度并限制 Provider 工作队列](https://github.com/kaiqiangh/tradex/issues/110)已完成本地实现、双语契约与独立 Standards/Spec 复审；最终完整检查、21 项隔离 Gateway 子进程测试和桌面构建检查通过。[双语验收证据](s27-3-provider-scheduling-evidence.md)。真实 provider/原生账户恢复与 S33 验收不属于本票证据。
+
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。

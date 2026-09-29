@@ -1552,6 +1552,8 @@ P2 active market/context
 P3 research/history/background
 ```
 
+Native provider adapter 对每个 provider 最多允许 4 个并发 HTTP request；非 P0 工作最多使用 3 个并发槽，为 execution reconciliation 保留 1 个。等待队列最多容纳 32 个 request；P2/P3 合计最多占用 24 个等待槽，为 P0/P1 保留 8 个。调度按 priority 排序，同一 priority 内 FIFO。收到数字格式的 `Retry-After` 或 provider reset deadline 后，会在受影响账户冷却结束前延迟后续符合条件的请求；provider/IP 级限制（包括 Binance request-weight 限制与无账户的公共数据源）会延迟全部账户。某个账户冷却时，不阻塞其他账户符合条件的工作。队列溢出会在发送该 request 前返回可重试的 `PROVIDER_BACKPRESSURE`。等待 provider 不持有 Control Plane/SQLite 锁。串行 P0 专用 Order Gateway 在预检与提交期间持有主进程 scheduler permit，计入同一个最多 4 个并发请求的 provider 预算。它通过私有 channel 返回脱敏后的冷却秒数，使主进程请求遵守子进程收到的 429 响应；进入持久化 SUBMITTING 前会重新验证 dispatch eligibility。Gateway 忙碌时，准入立即返回可重试的背压结果，避免命令积压在 host mutex 后面。
+
 ### 36.2 Backpressure
 
 高流量 stream 经过 bounded channel：
@@ -1560,6 +1562,8 @@ P3 research/history/background
 - 可替代 quote/UI update 可以 coalesce；
 - 高频 market data 按 tier backpressure/sample；
 - provider 支持时保存 account stream sequence/checkpoint metadata。
+
+当前 quote refresh 是本地 Paper simulation；没有远程 quote/UI refresh producer 进入 provider adapter。未来 provider-backed feed 必须在 admission 前 coalesce 或 sample 可替代的 refresh。durable order/fill change 和精确 reconciliation request 绝不 coalesce。
 
 ### 36.3 Codex backpressure
 
@@ -2185,7 +2189,7 @@ Arm 对话框绑定 provider、用户标签、`LIVE` 环境、完整 TradeX `con
 
 连接/健康变更与 `account.health.changed` 事件在同一 SQLite 事务提交。`account` aggregate 使用 `connectionId`、独立连续序列及 AccountConnection projection。`domain.snapshot` / `domain.subscribe` 接受该 aggregate，复用 §41.2 的恢复及 replay-to-live 保证。同一 consumer 可订阅不同 aggregate；替换只作用于 consumer + aggregate。
 
-错误使用 PRD §51 类别与稳定 code：`PROVIDER_UNSUPPORTED`、`PROVIDER_NATIVE_ENTRY_REQUIRED`、`PROVIDER_ENTRY_CANCELLED`、`PROVIDER_ENTRY_BUSY`、`PROVIDER_ALREADY_CONNECTED`、`PROVIDER_AUTH_FAILED`、`PROVIDER_UNAVAILABLE`、`PROVIDER_RATE_LIMITED`、`CLOCK_SKEW`（`STATE_STALE`）、`ACCOUNT_DELETE_BLOCKED`（`STATE_STALE`）、`PROVIDER_RESPONSE_INVALID`、`PROVIDER_DATA_INCOMPLETE`、`PROVIDER_IDENTITY_CHANGED`、`PROVIDER_REVIEW_REQUIRED`、`PROVIDER_PERMISSION_BLOCKED`、`CREDENTIAL_UNAVAILABLE`、`CREDENTIAL_STORE_FAILED`、`CREDENTIAL_DELETE_FAILED`，以及既有 payload/state/storage 错误。不返回原始 provider body、带签名 URL、认证 header 或原生诊断；request correlation 不能替代连接/同意身份。
+错误使用 PRD §51 类别与稳定 code：`PROVIDER_UNSUPPORTED`、`PROVIDER_NATIVE_ENTRY_REQUIRED`、`PROVIDER_ENTRY_CANCELLED`、`PROVIDER_ENTRY_BUSY`、`PROVIDER_ALREADY_CONNECTED`、`PROVIDER_AUTH_FAILED`、`PROVIDER_UNAVAILABLE`、`PROVIDER_RATE_LIMITED`、`PROVIDER_BACKPRESSURE`（`RATE_LIMITED`）、`CLOCK_SKEW`（`STATE_STALE`）、`ACCOUNT_DELETE_BLOCKED`（`STATE_STALE`）、`PROVIDER_RESPONSE_INVALID`、`PROVIDER_DATA_INCOMPLETE`、`PROVIDER_IDENTITY_CHANGED`、`PROVIDER_REVIEW_REQUIRED`、`PROVIDER_PERMISSION_BLOCKED`、`CREDENTIAL_UNAVAILABLE`、`CREDENTIAL_STORE_FAILED`、`CREDENTIAL_DELETE_FAILED`，以及既有 payload/state/storage 错误。Provider 队列溢出会明确返回可重试结果，并发生在发送 provider 请求之前。不返回原始 provider body、带签名 URL、认证 header 或原生诊断；request correlation 不能替代连接/同意身份。
 
 Binance Spot 的余额 `available` / `reserved` 分别为原币 free / locked，`total` 为精确相加；非零余额形成未估值的现货持有量。订单身份包含 symbol 与 orderId，因为订单 ID 按交易对限定；缺失报价币种保持 unavailable。Testnet 密钥权限保持 UNVERIFIED，Live 使用独立密钥权限接口，账户 `canWithdraw` 不代表密钥提款权限。签名时间无效、采样过慢或服务端拒绝时间戳返回 `STATE_STALE / CLOCK_SKEW`；本次观察不更新。
 

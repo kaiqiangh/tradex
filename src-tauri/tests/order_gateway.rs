@@ -191,8 +191,9 @@ mod local_provider_tests {
                 let reason = if status == 200 { "OK" } else { "Rejected" };
                 write!(
                     stream,
-                    "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                    body.len()
+                    "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{}Connection: close\r\n\r\n",
+                    body.len(),
+                    if status == 429 { "Retry-After: 2\r\n" } else { "" }
                 )
                 .unwrap();
                 stream.write_all(body).unwrap();
@@ -571,6 +572,7 @@ mod local_provider_tests {
             buying_power: Some("1000".into()),
             balances: vec![],
             positions: vec![],
+            recent_orders: vec![],
             open_orders: if bitget_live {
                 vec![OpenOrder {
                     broker_order_id: "normal:12345".into(),
@@ -1197,7 +1199,17 @@ mod local_provider_tests {
                 url.clone(),
             );
             provider.join().unwrap();
-            assert_eq!(*stopped.lock().unwrap(), None);
+            assert_eq!(
+                *stopped.lock().unwrap(),
+                None,
+                "{suffix}: {:?}",
+                calls
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|request| (&request.method, &request.path))
+                    .collect::<Vec<_>>()
+            );
             let outcome = result.lock().unwrap().clone().unwrap();
             assert_eq!(outcome.state, expected_state, "{outcome:?}");
             assert_eq!(outcome.error_code.as_deref(), expected_error);
@@ -1423,6 +1435,35 @@ mod local_provider_tests {
         assert_eq!(
             outcome.error_code.as_deref(),
             Some("PROVIDER_ORDER_REJECTED")
+        );
+        gateway.stop();
+    }
+
+    #[test]
+    fn real_child_shares_429_cooldown_without_replaying_the_mutation() {
+        let (url, calls, provider) = fake_provider(2, 429, b"{}", false);
+        let (mut gateway, result) = run_child(
+            package(
+                "place-rate-limited",
+                GatewayDispatchIntent::Place(Box::new(proposal())),
+            ),
+            url,
+        );
+        provider.join().unwrap();
+        let requests = calls.lock().unwrap();
+        assert_eq!(
+            requests
+                .iter()
+                .filter(|request| request.method == "POST")
+                .count(),
+            1
+        );
+        let outcome = result.lock().unwrap().clone().unwrap();
+        assert_eq!(outcome.state, ExecutionAttemptState::Rejected);
+        assert_eq!(outcome.error_code.as_deref(), Some("PROVIDER_RATE_LIMITED"));
+        assert!(
+            tradex::provider_io::provider_retry_after_seconds("trading212", "account-1")
+                .is_some_and(|seconds| seconds >= 1)
         );
         gateway.stop();
     }

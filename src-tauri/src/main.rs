@@ -228,12 +228,15 @@ async fn control(
     let fallback = request.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || {
         #[cfg(unix)]
-        if request.get("command").and_then(Value::as_str) == Some("trade.execution.prepare")
-            && !order_gateway_host
-                .lock()
-                .is_ok_and(|mut host| host.is_running())
-        {
-            return failed(&request, "GATEWAY_UNAVAILABLE");
+        if request.get("command").and_then(Value::as_str) == Some("trade.execution.prepare") {
+            match OrderGatewayHost::try_acquire(&order_gateway_host) {
+                Ok(mut host) => {
+                    if !host.is_running() {
+                        return failed(&request, "GATEWAY_UNAVAILABLE");
+                    }
+                }
+                Err(code) => return failed(&request, code),
+            }
         }
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
             let job = match engine.lock() {
@@ -432,69 +435,81 @@ async fn control(
                             .as_str()
                             .unwrap_or_default()
                             .to_owned();
-                        let dispatch_result = order_gateway_host.lock().map(|mut host| {
-                            host.dispatch_attempt(
-                                &attempt_id,
-                                {
-                                    let engine = execution_engine.clone();
-                                    move |attempt_id, session_id| {
-                                        engine
-                                            .lock()
-                                            .map_err(|_| {
-                                                "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
-                                            })?
-                                            .live_dispatch_package(attempt_id, session_id)
-                                            .map_err(|error| error.code)
-                                    }
-                                },
-                                {
-                                    let engine = execution_engine.clone();
-                                    move |grant_id, session_id| {
-                                        engine
-                                            .lock()
-                                            .map_err(|_| {
-                                                "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
-                                            })?
-                                            .begin_live_execution_submission(grant_id, session_id)
-                                            .map(|_| ())
-                                            .map_err(|error| error.code)
-                                    }
-                                },
-                                {
-                                    let engine = execution_engine.clone();
-                                    move |attempt_id, code| {
-                                        if let Ok(mut engine) = engine.lock() {
-                                            let _ = engine.stop_live_dispatch_before_submission(
-                                                attempt_id, code,
-                                            );
+                        let dispatch_result = OrderGatewayHost::try_acquire(&order_gateway_host)
+                            .map(|mut host| {
+                                host.dispatch_attempt(
+                                    &attempt_id,
+                                    {
+                                        let engine = execution_engine.clone();
+                                        move |attempt_id, session_id| {
+                                            engine
+                                                .lock()
+                                                .map_err(|_| {
+                                                    "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
+                                                })?
+                                                .live_dispatch_package(attempt_id, session_id)
+                                                .map_err(|error| error.code)
                                         }
-                                    }
-                                },
-                                {
-                                    let engine = execution_engine.clone();
-                                    move |attempt_id, outcome| {
-                                        engine
-                                            .lock()
-                                            .map_err(|_| {
-                                                "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
-                                            })?
-                                            .complete_live_execution_submission(attempt_id, outcome)
-                                            .map(|_| ())
-                                            .map_err(|error| error.code)
-                                    }
-                                },
-                            )
-                        });
+                                    },
+                                    {
+                                        let engine = execution_engine.clone();
+                                        move |grant_id, session_id| {
+                                            engine
+                                                .lock()
+                                                .map_err(|_| {
+                                                    "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
+                                                })?
+                                                .begin_live_execution_submission(
+                                                    grant_id, session_id,
+                                                )
+                                                .map(|_| ())
+                                                .map_err(|error| error.code)
+                                        }
+                                    },
+                                    {
+                                        let engine = execution_engine.clone();
+                                        move |attempt_id, code| {
+                                            if let Ok(mut engine) = engine.lock() {
+                                                let _ = engine
+                                                    .stop_live_dispatch_before_submission(
+                                                        attempt_id, code,
+                                                    );
+                                            }
+                                        }
+                                    },
+                                    {
+                                        let engine = execution_engine.clone();
+                                        move |attempt_id, outcome| {
+                                            engine
+                                                .lock()
+                                                .map_err(|_| {
+                                                    "IPC_CONTROL_PLANE_UNAVAILABLE".to_owned()
+                                                })?
+                                                .complete_live_execution_submission(
+                                                    attempt_id, outcome,
+                                                )
+                                                .map(|_| ())
+                                                .map_err(|error| error.code)
+                                        }
+                                    },
+                                )
+                            });
                         let failed = !matches!(dispatch_result, Ok(Ok(())));
                         if failed {
-                            if let Ok(mut host) = order_gateway_host.lock() {
-                                host.stop();
-                            }
+                            let code = match dispatch_result {
+                                Err(code) => code,
+                                Ok(_) => {
+                                    if let Ok(mut host) =
+                                        OrderGatewayHost::try_acquire(&order_gateway_host)
+                                    {
+                                        host.stop();
+                                    }
+                                    "GATEWAY_PROCESS_FAILED"
+                                }
+                            };
                             if let Ok(mut engine) = execution_engine.lock() {
-                                let _ = engine.stop_live_dispatch_before_submission(
-                                    &attempt_id,
-                                    "GATEWAY_PROCESS_FAILED",
-                                );
+                                let _ =
+                                    engine.stop_live_dispatch_before_submission(&attempt_id, code);
                             }
                         }
                     }

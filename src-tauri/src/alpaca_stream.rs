@@ -442,7 +442,9 @@ fn connect_stream(
         .as_ref()
         .map(|data| data.remote_account_id.as_str())
         .ok_or_else(|| TradeXError::new("PROVIDER_REVIEW_REQUIRED"))?;
-    let http = BrokerHttp::default();
+    let broker_http = BrokerHttp::default();
+    let current = || !cancel.load(Ordering::Acquire);
+    let http = crate::provider_io::p1_provider_http(&broker_http, &current, &account.connection_id);
     let auth = alpaca_headers(&values)?;
     verify_alpaca_paper_account(&http, &auth, remote_account_id, &values)?;
     if cancel.load(Ordering::Acquire) {

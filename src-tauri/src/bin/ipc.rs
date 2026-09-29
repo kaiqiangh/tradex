@@ -1119,38 +1119,57 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
-            let result = match control.lock() {
-                Ok(mut control) => match control.prepare_provider_for(&request, "stdio") {
-                    Ok(Some(job)) => {
-                        let outcome = job.run(
-                            &vault,
-                            |definition| {
-                                if definition.provider_id == "bitget" {
-                                    fixtures::bitget::credentials()
-                                } else {
-                                    fixtures::credentials()
-                                }
-                            },
-                            &http,
-                            || control.provider_job_current(&job),
-                        );
-                        let reply = control.complete_provider(&job, outcome);
-                        if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, &vault) {
-                            control.record_credential_cleanup(&job, cleanup);
+            let prepared = match control.lock() {
+                Ok(mut control) => control.prepare_provider_for(&request, "stdio"),
+                Err(_) => Err(tradex::protocol::TradeXError::new(
+                    "IPC_CONTROL_PLANE_UNAVAILABLE",
+                )),
+            };
+            #[cfg(feature = "integration-test")]
+            let result = match prepared {
+                Ok(Some(job)) => {
+                    let outcome = job.run(
+                        &vault,
+                        |definition| {
+                            if definition.provider_id == "bitget" {
+                                fixtures::bitget::credentials()
+                            } else {
+                                fixtures::credentials()
+                            }
+                        },
+                        &http,
+                        || {
+                            control
+                                .lock()
+                                .is_ok_and(|control| control.provider_job_current(&job))
+                        },
+                    );
+                    match control.lock() {
+                        Ok(mut control) => {
+                            let reply = control.complete_provider(&job, outcome);
+                            if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, &vault) {
+                                control.record_credential_cleanup(&job, cleanup);
+                            }
+                            reply
                         }
-                        reply
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
                     }
-                    Ok(None) => {
+                }
+                Ok(None) => match control.lock() {
+                    Ok(mut control) => {
                         control.dispatch_with_events(request.clone(), "stdio", Some(sink.clone()))
                     }
-                    Err(error) => json!({
+                    Err(_) => json!({
                         "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                        "error":error
+                        "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
                     }),
                 },
-                Err(_) => json!({
+                Err(error) => json!({
                     "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                    "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                    "error":error
                 }),
             };
             #[cfg(not(feature = "integration-test"))]

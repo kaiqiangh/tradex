@@ -137,6 +137,14 @@ pub struct OrderGatewayHost {
 }
 
 impl OrderGatewayHost {
+    pub fn try_acquire(
+        host: &std::sync::Mutex<Self>,
+    ) -> Result<std::sync::MutexGuard<'_, Self>, &'static str> {
+        host.try_lock().map_err(|error| match error {
+            std::sync::TryLockError::WouldBlock => "PROVIDER_BACKPRESSURE",
+            std::sync::TryLockError::Poisoned(_) => "GATEWAY_UNAVAILABLE",
+        })
+    }
     pub fn new(executable: PathBuf, pinned_sha256: impl Into<String>) -> Self {
         Self {
             executable,
@@ -294,18 +302,47 @@ impl OrderGatewayHost {
             );
             return Err("GATEWAY_AUTH_FAILED");
         }
+        let provider = match package.account.provider_id.as_str() {
+            "trading212" => "trading212",
+            "binance" => "binance",
+            "bitget" => "bitget",
+            _ => return Err("GATEWAY_AUTH_FAILED"),
+        };
+        let account_id = package.account.connection_id.clone();
+        // Count the serialized child path in the parent's provider budget.
+        // Grant eligibility is checked again before durable SUBMITTING.
+        let _permit = match crate::provider_io::acquire_p0_provider_slot(provider, &account_id) {
+            Ok(permit) => permit,
+            Err(error) => {
+                let code = safe_gateway_error(&error.code);
+                stop_before_dispatch(attempt_id, code);
+                let _ = send_authenticated(channel, session, "deny", json!({"errorCode":code}));
+                return Ok(());
+            }
+        };
         let grant_id = package.grant.grant_id.clone();
         send_authenticated(channel, session, "grant", json!({"package":package}))?;
 
         let ready = read_authenticated(channel, session)?;
         if request_kind(&ready) == Some("pre_dispatch_failure") {
-            if exact_keys(&ready, &["kind", "attemptId", "grantId", "errorCode"]).is_err()
+            if exact_keys(
+                &ready,
+                &[
+                    "kind",
+                    "attemptId",
+                    "grantId",
+                    "errorCode",
+                    "retryAfterSeconds",
+                ],
+            )
+            .is_err()
                 || ready.get("attemptId").and_then(Value::as_str) != Some(attempt_id)
                 || ready.get("grantId").and_then(Value::as_str) != Some(grant_id.as_str())
             {
                 stop_before_dispatch(attempt_id, "GATEWAY_PROTOCOL_INVALID");
                 return Err("GATEWAY_PROTOCOL_INVALID");
             }
+            apply_gateway_cooldown(&ready, provider, &account_id)?;
             let code = ready
                 .get("errorCode")
                 .and_then(Value::as_str)
@@ -354,11 +391,19 @@ impl OrderGatewayHost {
             }
         };
         if request_kind(&outcome_request) != Some("mutation_result")
-            || exact_keys(&outcome_request, &["kind", "attemptId", "outcome"]).is_err()
+            || exact_keys(
+                &outcome_request,
+                &["kind", "attemptId", "outcome", "retryAfterSeconds"],
+            )
+            .is_err()
             || outcome_request.get("attemptId").and_then(Value::as_str) != Some(attempt_id)
         {
             let _ = complete_submission(attempt_id, &unknown);
             return Err("GATEWAY_PROTOCOL_INVALID");
+        }
+        if let Err(error) = apply_gateway_cooldown(&outcome_request, provider, &account_id) {
+            let _ = complete_submission(attempt_id, &unknown);
+            return Err(error);
         }
         let outcome: LiveDispatchOutcome = match serde_json::from_value(
             outcome_request
@@ -574,6 +619,84 @@ fn valid_identity(value: &str, max: usize) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
+fn apply_gateway_cooldown(
+    message: &Value,
+    provider: &'static str,
+    account_id: &str,
+) -> Result<(), &'static str> {
+    match message.get("retryAfterSeconds") {
+        Some(Value::Null) => Ok(()),
+        Some(value) => {
+            let seconds = value.as_u64().ok_or("GATEWAY_PROTOCOL_INVALID")?;
+            crate::provider_io::record_provider_retry_after(
+                provider,
+                if provider == "binance" {
+                    None
+                } else {
+                    Some(account_id)
+                },
+                Some(seconds),
+            );
+            Ok(())
+        }
+        None => Err("GATEWAY_PROTOCOL_INVALID"),
+    }
+}
+
+#[test]
+fn gateway_cooldown_is_validated_and_shared_with_parent_requests() {
+    assert_eq!(
+        apply_gateway_cooldown(
+            &json!({"retryAfterSeconds":"secret"}),
+            "gateway-cooldown-test",
+            "a"
+        ),
+        Err("GATEWAY_PROTOCOL_INVALID")
+    );
+    assert_eq!(
+        apply_gateway_cooldown(
+            &json!({"retryAfterSeconds":null}),
+            "gateway-cooldown-test",
+            "a"
+        ),
+        Ok(())
+    );
+    apply_gateway_cooldown(
+        &json!({"retryAfterSeconds":2}),
+        "gateway-cooldown-test",
+        "a",
+    )
+    .unwrap();
+    assert!(
+        crate::provider_io::provider_retry_after_seconds("gateway-cooldown-test", "a")
+            .is_some_and(|seconds| seconds >= 1)
+    );
+    assert_eq!(
+        crate::provider_io::provider_retry_after_seconds("gateway-cooldown-test", "b"),
+        None
+    );
+}
+
+#[test]
+fn busy_gateway_admission_returns_backpressure_without_waiting() {
+    let host = std::sync::Arc::new(std::sync::Mutex::new(OrderGatewayHost::new(
+        PathBuf::new(),
+        String::new(),
+    )));
+    let _occupied = host.lock().unwrap();
+    let waiting_host = std::sync::Arc::clone(&host);
+    let (tx, rx) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        tx.send(OrderGatewayHost::try_acquire(&waiting_host).err())
+            .unwrap();
+    });
+    assert_eq!(
+        rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Some("PROVIDER_BACKPRESSURE")
+    );
+    worker.join().unwrap();
+}
+
 fn safe_gateway_error(code: &str) -> &'static str {
     match code {
         "CREDENTIAL_UNAVAILABLE"
@@ -581,6 +704,7 @@ fn safe_gateway_error(code: &str) -> &'static str {
         | "PROVIDER_AUTH_FAILED"
         | "PROVIDER_PERMISSION_BLOCKED"
         | "PROVIDER_RATE_LIMITED"
+        | "PROVIDER_BACKPRESSURE"
         | "PROVIDER_REVIEW_REQUIRED"
         | "PROVIDER_IDENTITY_CHANGED"
         | "PROVIDER_UNSUPPORTED"
@@ -599,6 +723,7 @@ fn safe_gateway_error(code: &str) -> &'static str {
             "PROVIDER_AUTH_FAILED" => "PROVIDER_AUTH_FAILED",
             "PROVIDER_PERMISSION_BLOCKED" => "PROVIDER_PERMISSION_BLOCKED",
             "PROVIDER_RATE_LIMITED" => "PROVIDER_RATE_LIMITED",
+            "PROVIDER_BACKPRESSURE" => "PROVIDER_BACKPRESSURE",
             "PROVIDER_REVIEW_REQUIRED" => "PROVIDER_REVIEW_REQUIRED",
             "PROVIDER_IDENTITY_CHANGED" => "PROVIDER_IDENTITY_CHANGED",
             "PROVIDER_UNSUPPORTED" => "PROVIDER_UNSUPPORTED",

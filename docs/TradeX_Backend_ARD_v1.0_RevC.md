@@ -1552,6 +1552,8 @@ P2 active market/context
 P3 research/history/background
 ```
 
+The native provider adapter allows at most four active HTTP requests per provider; non-P0 work may use at most three, reserving one active slot for execution reconciliation. It bounds waiting work at 32 requests; P2/P3 work together may occupy at most 24 waiting slots, leaving eight for P0/P1. Requests run by priority and FIFO within a priority. A numeric `Retry-After` or provider reset deadline cools down the affected account before later eligible requests proceed; provider-wide/IP limits (including Binance request-weight limits and accountless public sources) delay all accounts. A cooled account does not block another account’s eligible work. Queue overflow returns retryable `PROVIDER_BACKPRESSURE` before sending that request. Provider waits happen outside the Control Plane/SQLite lock. The serialized P0-only Order Gateway holds a parent scheduler permit throughout preflight and submission, counting toward the same four-request provider budget. It returns sanitized cooldown seconds over its private channel so parent requests honor child 429 responses; dispatch eligibility is revalidated before durable SUBMITTING. Busy Gateway admission returns immediate retryable backpressure instead of accumulating commands behind its host mutex.
+
 ### 36.2 Backpressure
 
 High-volume streams pass through bounded channels. Policies:
@@ -1560,6 +1562,8 @@ High-volume streams pass through bounded channels. Policies:
 - coalesce replaceable quote/UI updates;
 - backpressure or sample high-frequency market data according to tier;
 - persist sequence/checkpoint metadata for account streams where provider permits.
+
+The current market quote refresh is local Paper simulation; no remote quote/UI refresh producer is routed through the provider adapter. A provider-backed feed must coalesce or sample replaceable refreshes at its producer before admission. Durable order/fill changes and exact reconciliation requests are never coalesced.
 
 ### 36.3 Codex backpressure
 
@@ -2185,7 +2189,7 @@ The control plane allocates the immutable connection and its private reference b
 
 Every accepted connection/health change and its `account.health.changed` event commit in one SQLite transaction. The `account` aggregate uses `connectionId`, its own contiguous sequence and an AccountConnection projection. `domain.snapshot` / `domain.subscribe` accept this aggregate with the same recovery and replay-to-live guarantees as §41.2. A consumer may subscribe to different aggregates; replacement is scoped to consumer + aggregate, not to all its subscriptions.
 
-Errors use PRD §51 categories with stable codes: `PROVIDER_UNSUPPORTED`, `PROVIDER_NATIVE_ENTRY_REQUIRED`, `PROVIDER_ENTRY_CANCELLED`, `PROVIDER_ENTRY_BUSY`, `PROVIDER_ALREADY_CONNECTED`, `PROVIDER_AUTH_FAILED`, `PROVIDER_UNAVAILABLE`, `PROVIDER_RATE_LIMITED`, `CLOCK_SKEW` (`STATE_STALE`), `ACCOUNT_DELETE_BLOCKED` (`STATE_STALE`), `PROVIDER_RESPONSE_INVALID`, `PROVIDER_DATA_INCOMPLETE`, `PROVIDER_IDENTITY_CHANGED`, `PROVIDER_REVIEW_REQUIRED`, `PROVIDER_PERMISSION_BLOCKED`, `CREDENTIAL_UNAVAILABLE`, `CREDENTIAL_STORE_FAILED`, `CREDENTIAL_DELETE_FAILED`, plus existing payload/state/storage errors. Provider bodies, URLs containing signatures, auth headers and native diagnostics are never returned. Request correlation never substitutes for connection or consent identity.
+Errors use PRD §51 categories with stable codes: `PROVIDER_UNSUPPORTED`, `PROVIDER_NATIVE_ENTRY_REQUIRED`, `PROVIDER_ENTRY_CANCELLED`, `PROVIDER_ENTRY_BUSY`, `PROVIDER_ALREADY_CONNECTED`, `PROVIDER_AUTH_FAILED`, `PROVIDER_UNAVAILABLE`, `PROVIDER_RATE_LIMITED`, `PROVIDER_BACKPRESSURE` (`RATE_LIMITED`), `CLOCK_SKEW` (`STATE_STALE`), `ACCOUNT_DELETE_BLOCKED` (`STATE_STALE`), `PROVIDER_RESPONSE_INVALID`, `PROVIDER_DATA_INCOMPLETE`, `PROVIDER_IDENTITY_CHANGED`, `PROVIDER_REVIEW_REQUIRED`, `PROVIDER_PERMISSION_BLOCKED`, `CREDENTIAL_UNAVAILABLE`, `CREDENTIAL_STORE_FAILED`, `CREDENTIAL_DELETE_FAILED`, plus existing payload/state/storage errors. Provider queue overflow is explicit, retryable, and occurs before the provider request is sent. Provider bodies, URLs containing signatures, auth headers and native diagnostics are never returned. Request correlation never substitutes for connection or consent identity.
 
 For Binance Spot, balance `available` / `reserved` mean native-asset free / locked; `total` is their exact sum. Nonzero totals form unpriced Spot holdings. Order identity includes symbol and orderId because IDs are symbol-scoped; missing quote currency remains unavailable. Testnet key scope stays UNVERIFIED; Live uses separate key introspection, never account `canWithdraw` as withdrawal authority. Invalid signing time, slow time sampling or provider timestamp rejection returns `STATE_STALE / CLOCK_SKEW` without updating the observation.
 

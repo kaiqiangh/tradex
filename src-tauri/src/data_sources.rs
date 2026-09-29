@@ -13,6 +13,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use crate::protocol::{
     DataSourceEntry, DataSourceProbeKind, DataSourceStatus, Result, TradeXError,
 };
+use crate::provider_io::{ProviderPriority, record_provider_retry_after, with_provider_slot};
 
 const SOURCE_REVIEWED_AT: &str = "2026-09-13";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -195,11 +196,28 @@ pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceE
         _ => return Err(TradeXError::new("DATA_SOURCE_UNKNOWN")),
     };
     for (label, url) in endpoints {
-        if let Err(reason) = fetch_public_endpoint(&client, source_id, label, url) {
-            source.status = DataSourceStatus::Unavailable;
-            source.availability_reason = reason;
-            return Ok(source);
-        }
+        let provider = if url.starts_with("https://data.sec.gov/") {
+            "sec"
+        } else {
+            "ecb"
+        };
+        let fetched = with_provider_slot(provider, ProviderPriority::P3, &|| true, || {
+            fetch_public_endpoint(&client, source_id, label, url)
+        });
+        let reason = match fetched {
+            Ok(Ok(())) => continue,
+            Ok(Err(reason)) => reason,
+            Err(error) if error.code == "PROVIDER_BACKPRESSURE" => {
+                "The provider work queue is full; this research probe was delayed. Retry after current provider work completes.".into()
+            }
+            Err(error) => format!(
+                "The provider is cooling down ({}); no response body was retained.",
+                error.code
+            ),
+        };
+        source.status = DataSourceStatus::Unavailable;
+        source.availability_reason = reason;
+        return Ok(source);
     }
     if source_id == "OD-004" {
         source.status = DataSourceStatus::BlockedExternal;
@@ -239,10 +257,24 @@ fn fetch_public_endpoint(
                 classify_probe_error(&error)
             )
         })?;
-    if !response.status().is_success() {
+    let status = response.status();
+    if status.as_u16() == 429 {
+        let provider = if url.starts_with("https://data.sec.gov/") {
+            "sec"
+        } else {
+            "ecb"
+        };
+        let retry_after = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok());
+        record_provider_retry_after(provider, None, retry_after);
+    }
+    if !status.is_success() {
         return Err(format!(
             "{label} endpoint returned HTTP {}; retry later. No response body was retained.",
-            response.status().as_u16()
+            status.as_u16()
         ));
     }
     if response

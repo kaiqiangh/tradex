@@ -5789,6 +5789,11 @@ impl TradeXError {
                 "retry_provider",
                 "Retry later",
             ),
+            "PROVIDER_BACKPRESSURE" => (
+                "The provider work queue is full. Retry after current work completes; this request was not sent to the provider.",
+                "retry_provider",
+                "Retry later",
+            ),
             "PROVIDER_UNAVAILABLE" => (
                 "The provider could not be reached. Saved observations are stale.",
                 "retry_provider",
@@ -6330,7 +6335,7 @@ impl TradeXError {
                 "POLICY_ERROR"
             } else if code.starts_with("PAPER_") {
                 "SIMULATION_ERROR"
-            } else if code == "PROVIDER_RATE_LIMITED" {
+            } else if matches!(code, "PROVIDER_RATE_LIMITED" | "PROVIDER_BACKPRESSURE") {
                 "RATE_LIMITED"
             } else if matches!(
                 code,
@@ -6415,6 +6420,7 @@ impl TradeXError {
                     | "CODEX_RUNTIME_START_FAILED"
                     | "CODEX_RUNTIME_TIMEOUT"
                     | "CODEX_RUNTIME_BACKPRESSURE"
+                    | "PROVIDER_BACKPRESSURE"
                     | "CODEX_PROCESS_EXITED"
                     | "CODEX_FRAME_INVALID"
                     | "CODEX_UPSTREAM_ERROR"

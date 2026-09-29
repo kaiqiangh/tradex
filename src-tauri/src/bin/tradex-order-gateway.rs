@@ -105,6 +105,7 @@ fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io:
             attempt_id,
             &package.grant.grant_id,
             "GATEWAY_AUTH_FAILED",
+            None,
         )?;
         return Ok(());
     }
@@ -126,6 +127,13 @@ fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io:
     };
     #[cfg(not(target_os = "macos"))]
     let http = BrokerHttp::default();
+    let broker_http = http;
+    let current = || true;
+    let http = tradex::provider_io::p0_provider_http(
+        &broker_http,
+        &current,
+        &package.account.connection_id,
+    );
 
     #[cfg(target_os = "macos")]
     let prepared = {
@@ -184,6 +192,10 @@ fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io:
                 attempt_id,
                 &package.grant.grant_id,
                 &error.code,
+                tradex::provider_io::provider_retry_after_seconds(
+                    &package.account.provider_id,
+                    &package.account.connection_id,
+                ),
             )?;
             return Ok(());
         }
@@ -215,7 +227,7 @@ fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io:
         channel,
         credential,
         "mutation_result",
-        json!({"attemptId":attempt_id,"outcome":outcome}),
+        json!({"attemptId":attempt_id,"outcome":outcome,"retryAfterSeconds":tradex::provider_io::provider_retry_after_seconds(&package.account.provider_id, &package.account.connection_id)}),
     )?;
     let result = read_authenticated(channel, credential)?;
     if !exact_keys(&result, &["kind", "attemptId"])
@@ -285,6 +297,7 @@ fn pre_dispatch_failure(
     attempt_id: &str,
     grant_id: &str,
     error_code: &str,
+    retry_after_seconds: Option<u64>,
 ) -> io::Result<()> {
     let code = if valid_identity(error_code, 128) {
         error_code
@@ -295,7 +308,7 @@ fn pre_dispatch_failure(
         channel,
         credential,
         "pre_dispatch_failure",
-        json!({"attemptId":attempt_id,"grantId":grant_id,"errorCode":code}),
+        json!({"attemptId":attempt_id,"grantId":grant_id,"errorCode":code,"retryAfterSeconds":retry_after_seconds}),
     )?;
     let response = read_authenticated(channel, credential)?;
     if !exact_keys(&response, &["kind", "state"])

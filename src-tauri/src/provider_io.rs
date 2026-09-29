@@ -24,8 +24,8 @@ use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     io::Read,
-    sync::{Mutex, OnceLock},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    sync::{Condvar, Mutex, OnceLock},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use zeroize::Zeroizing;
 
@@ -40,6 +40,7 @@ const MAX_RESPONSE: u64 = 2 * 1024 * 1024;
 const SERVICE: &str = "com.tradex.broker.credentials";
 static TRADING212_ENDPOINT_LIMITS: OnceLock<Mutex<HashMap<(String, &'static str), i64>>> =
     OnceLock::new();
+static PROVIDER_SCHEDULER: OnceLock<ProviderScheduler> = OnceLock::new();
 
 pub(crate) fn binance_live_client_order_id(attempt_id: &str) -> Result<String> {
     binance::live_client_order_id(attempt_id)
@@ -299,6 +300,15 @@ pub enum ProviderEndpoint {
     BitgetLive,
 }
 impl ProviderEndpoint {
+    fn scheduler_provider(self) -> &'static str {
+        match self {
+            Self::AlpacaPaper => "alpaca",
+            Self::Trading212Demo | Self::Trading212Live => "trading212",
+            Self::BinanceTestnet | Self::BinanceLive => "binance",
+            Self::BitgetDemo | Self::BitgetLive => "bitget",
+        }
+    }
+
     pub fn base_url(self) -> &'static str {
         match self {
             Self::AlpacaPaper => "https://paper-api.alpaca.markets",
@@ -493,6 +503,36 @@ fn rate_limit(headers: &HeaderMap) -> Option<ProviderRateLimit> {
     )
 }
 
+fn classify_get_response(
+    endpoint: ProviderEndpoint,
+    status: u16,
+    bytes: Vec<u8>,
+) -> Result<Vec<u8>> {
+    match status {
+        200 => (),
+        400 if endpoint.is_binance() || endpoint.is_bitget() => (),
+        401 | 403 => return Err(TradeXError::new("PROVIDER_AUTH_FAILED")),
+        418 | 429 => return Err(TradeXError::new("PROVIDER_RATE_LIMITED")),
+        _ => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
+    }
+    if status != 200 && endpoint.is_bitget() {
+        let value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+        return Err(bitget::business(value).err().unwrap_or_else(invalid));
+    }
+    if status != 200 {
+        let code = serde_json::from_slice::<Value>(&bytes)
+            .ok()
+            .and_then(|value| value["code"].as_i64());
+        return Err(TradeXError::new(match code {
+            Some(-1021) => "CLOCK_SKEW",
+            Some(-1022 | -2014 | -2015) => "PROVIDER_AUTH_FAILED",
+            Some(-1003 | -1015) => "PROVIDER_RATE_LIMITED",
+            _ => "PROVIDER_RESPONSE_INVALID",
+        }));
+    }
+    Ok(bytes)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProviderHttpMethod {
     Get,
@@ -514,6 +554,16 @@ pub struct ProviderRateLimit {
 
 pub trait ProviderHttp {
     fn get(&self, endpoint: ProviderEndpoint, path: &str, headers: HeaderMap) -> Result<Vec<u8>>;
+
+    fn get_response_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        path: &str,
+        headers: HeaderMap,
+    ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        self.get(endpoint, path, headers)
+            .map(|body| (ProviderHttpResponse { status: 200, body }, None))
+    }
 
     fn request(
         &self,
@@ -540,6 +590,470 @@ pub trait ProviderHttp {
     ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
         self.request(endpoint, method, path, headers, body)
             .map(|response| (response, None))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub(crate) enum ProviderPriority {
+    P0,
+    P1,
+    P2,
+    P3,
+}
+
+const PROVIDER_CONCURRENCY: usize = 4;
+const PROVIDER_QUEUE_LIMIT: usize = 32;
+const PROVIDER_LOW_QUEUE_LIMIT: usize = 24;
+const PROVIDER_WAIT_POLL: Duration = Duration::from_millis(100);
+
+#[derive(Clone)]
+struct ProviderWaiter {
+    ticket: u64,
+    priority: ProviderPriority,
+    account_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Default)]
+struct ProviderCooldown {
+    until: Option<Instant>,
+    unrepresentable: bool,
+}
+
+#[derive(Default)]
+struct ProviderQueue {
+    active: usize,
+    active_non_p0: usize,
+    next_ticket: u64,
+    waiters: Vec<ProviderWaiter>,
+    provider_cooldown: ProviderCooldown,
+    account_cooldowns: HashMap<String, ProviderCooldown>,
+}
+
+#[derive(Default)]
+struct ProviderSchedulerState {
+    providers: HashMap<&'static str, ProviderQueue>,
+}
+
+struct ProviderScheduler {
+    state: Mutex<ProviderSchedulerState>,
+    available: Condvar,
+    concurrency: usize,
+    queue_limit: usize,
+    low_queue_limit: usize,
+}
+
+impl ProviderScheduler {
+    fn with_limits(concurrency: usize, queue_limit: usize, low_queue_limit: usize) -> Self {
+        Self {
+            state: Mutex::new(ProviderSchedulerState::default()),
+            available: Condvar::new(),
+            concurrency: concurrency.max(1),
+            queue_limit,
+            low_queue_limit: low_queue_limit.min(queue_limit),
+        }
+    }
+
+    fn acquire(
+        &self,
+        provider: &'static str,
+        priority: ProviderPriority,
+        current: &dyn Fn() -> bool,
+    ) -> Result<ProviderPermit<'_>> {
+        self.acquire_for_account(provider, None, priority, current)
+    }
+
+    fn acquire_for_account(
+        &self,
+        provider: &'static str,
+        account_id: Option<&str>,
+        priority: ProviderPriority,
+        current: &dyn Fn() -> bool,
+    ) -> Result<ProviderPermit<'_>> {
+        if !current() {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+        let queue = state.providers.entry(provider).or_default();
+        let low_waiters = queue
+            .waiters
+            .iter()
+            .filter(|waiter| waiter.priority >= ProviderPriority::P2)
+            .count();
+        if queue.waiters.len() >= self.queue_limit
+            || (priority >= ProviderPriority::P2 && low_waiters >= self.low_queue_limit)
+        {
+            return Err(TradeXError::new("PROVIDER_BACKPRESSURE"));
+        }
+        let ticket = queue.next_ticket;
+        queue.next_ticket = queue.next_ticket.wrapping_add(1);
+        queue.waiters.push(ProviderWaiter {
+            ticket,
+            priority,
+            account_id: account_id.map(str::to_owned),
+        });
+
+        loop {
+            drop(state);
+            let is_current = current();
+            state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+            let queue = state
+                .providers
+                .get_mut(provider)
+                .expect("provider queue exists");
+            if !is_current {
+                queue.waiters.retain(|waiter| waiter.ticket != ticket);
+                self.available.notify_all();
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            }
+            if queue.provider_cooldown.unrepresentable
+                || account_id.is_some_and(|account_id| {
+                    queue
+                        .account_cooldowns
+                        .get(account_id)
+                        .is_some_and(|cooldown| cooldown.unrepresentable)
+                })
+            {
+                queue.waiters.retain(|waiter| waiter.ticket != ticket);
+                self.available.notify_all();
+                return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+            }
+            let now = Instant::now();
+            if queue
+                .provider_cooldown
+                .until
+                .is_some_and(|deadline| deadline <= now)
+            {
+                queue.provider_cooldown.until = None;
+            }
+            queue.account_cooldowns.retain(|_, cooldown| {
+                cooldown.unrepresentable || cooldown.until.is_some_and(|deadline| deadline > now)
+            });
+            let next = queue
+                .waiters
+                .iter()
+                .filter(|waiter| {
+                    !provider_cooldown_active(queue, waiter.account_id.as_deref(), now)
+                })
+                .min_by_key(|waiter| (waiter.priority, waiter.ticket))
+                .map(|waiter| waiter.ticket);
+            if next == Some(ticket)
+                && queue.active < self.concurrency
+                && (priority == ProviderPriority::P0
+                    || queue.active_non_p0 < self.concurrency.saturating_sub(1).max(1))
+                && !provider_cooldown_active(queue, account_id, now)
+            {
+                queue.waiters.retain(|waiter| waiter.ticket != ticket);
+                queue.active += 1;
+                if priority != ProviderPriority::P0 {
+                    queue.active_non_p0 += 1;
+                }
+                return Ok(ProviderPermit {
+                    scheduler: self,
+                    provider,
+                    priority,
+                });
+            }
+            let wait = queue
+                .provider_cooldown
+                .until
+                .into_iter()
+                .chain(
+                    account_id
+                        .and_then(|account_id| queue.account_cooldowns.get(account_id))
+                        .and_then(|cooldown| cooldown.until),
+                )
+                .max()
+                .map(|deadline| {
+                    deadline
+                        .saturating_duration_since(now)
+                        .min(PROVIDER_WAIT_POLL)
+                })
+                .unwrap_or(PROVIDER_WAIT_POLL);
+            let (next_state, _) = self
+                .available
+                .wait_timeout(state, wait)
+                .unwrap_or_else(|error| error.into_inner());
+            state = next_state;
+        }
+    }
+
+    fn delay_provider(&self, provider: &'static str, account_id: Option<&str>, delay: Duration) {
+        let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+        let queue = state.providers.entry(provider).or_default();
+        let cooldown = match account_id {
+            Some(account_id) => queue
+                .account_cooldowns
+                .entry(account_id.to_owned())
+                .or_default(),
+            None => &mut queue.provider_cooldown,
+        };
+        match Instant::now().checked_add(delay) {
+            Some(deadline) if !cooldown.unrepresentable => {
+                cooldown.until = Some(
+                    cooldown
+                        .until
+                        .map_or(deadline, |current| current.max(deadline)),
+                );
+            }
+            None => cooldown.unrepresentable = true,
+            _ => (),
+        }
+        self.available.notify_all();
+    }
+
+    #[cfg(test)]
+    fn queued(&self, provider: &'static str) -> usize {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .providers
+            .get(provider)
+            .map_or(0, |queue| queue.waiters.len())
+    }
+}
+
+fn provider_cooldown_active(queue: &ProviderQueue, account_id: Option<&str>, now: Instant) -> bool {
+    queue
+        .provider_cooldown
+        .until
+        .is_some_and(|deadline| deadline > now)
+        || queue.provider_cooldown.unrepresentable
+        || account_id
+            .and_then(|account_id| queue.account_cooldowns.get(account_id))
+            .is_some_and(|cooldown| {
+                cooldown.unrepresentable || cooldown.until.is_some_and(|deadline| deadline > now)
+            })
+}
+
+pub(crate) struct ProviderPermit<'a> {
+    scheduler: &'a ProviderScheduler,
+    provider: &'static str,
+    priority: ProviderPriority,
+}
+
+impl Drop for ProviderPermit<'_> {
+    fn drop(&mut self) {
+        let mut state = self
+            .scheduler
+            .state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if let Some(queue) = state.providers.get_mut(self.provider) {
+            queue.active = queue.active.saturating_sub(1);
+            if self.priority != ProviderPriority::P0 {
+                queue.active_non_p0 = queue.active_non_p0.saturating_sub(1);
+            }
+        }
+        self.scheduler.available.notify_all();
+    }
+}
+
+fn provider_scheduler() -> &'static ProviderScheduler {
+    PROVIDER_SCHEDULER.get_or_init(|| {
+        ProviderScheduler::with_limits(
+            PROVIDER_CONCURRENCY,
+            PROVIDER_QUEUE_LIMIT,
+            PROVIDER_LOW_QUEUE_LIMIT,
+        )
+    })
+}
+
+pub(crate) fn with_provider_slot<T>(
+    provider: &'static str,
+    priority: ProviderPriority,
+    current: &dyn Fn() -> bool,
+    operation: impl FnOnce() -> T,
+) -> Result<T> {
+    let _permit = provider_scheduler().acquire(provider, priority, current)?;
+    Ok(operation())
+}
+
+pub(crate) fn acquire_p0_provider_slot(
+    provider: &'static str,
+    account_id: &str,
+) -> Result<ProviderPermit<'static>> {
+    provider_scheduler().acquire_for_account(
+        provider,
+        Some(account_id),
+        ProviderPriority::P0,
+        &|| true,
+    )
+}
+
+// Only sanitized cooldown metadata crosses the internal Gateway channel.
+pub fn provider_retry_after_seconds(provider: &str, account_id: &str) -> Option<u64> {
+    let state = provider_scheduler()
+        .state
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let queue = state.providers.get(provider)?;
+    let cooldowns = [
+        Some(&queue.provider_cooldown),
+        queue.account_cooldowns.get(account_id),
+    ];
+    if cooldowns
+        .iter()
+        .flatten()
+        .any(|cooldown| cooldown.unrepresentable)
+    {
+        return Some(u64::MAX);
+    }
+    cooldowns
+        .iter()
+        .flatten()
+        .filter_map(|cooldown| cooldown.until)
+        .filter_map(|deadline| deadline.checked_duration_since(Instant::now()))
+        .map(|duration| {
+            duration
+                .as_secs()
+                .saturating_add(u64::from(duration.subsec_nanos() > 0))
+        })
+        .max()
+}
+
+pub(crate) fn record_provider_retry_after(
+    provider: &'static str,
+    account_id: Option<&str>,
+    retry_after_seconds: Option<u64>,
+) {
+    provider_scheduler().delay_provider(
+        provider,
+        account_id,
+        Duration::from_secs(retry_after_seconds.unwrap_or(1)),
+    );
+}
+
+fn record_provider_rate_limit(
+    endpoint: ProviderEndpoint,
+    account_id: Option<&str>,
+    rate_limit: Option<&ProviderRateLimit>,
+) {
+    let retry_after = rate_limit
+        .and_then(|limit| limit.retry_after_seconds)
+        .or_else(|| {
+            rate_limit
+                .and_then(|limit| limit.reset_at.as_deref())
+                .and_then(parsed_timestamp)
+                .map(|reset| reset.saturating_sub(unix_now()).max(1) as u64)
+        })
+        .unwrap_or(1);
+    provider_scheduler().delay_provider(
+        endpoint.scheduler_provider(),
+        if matches!(
+            endpoint,
+            ProviderEndpoint::BinanceLive | ProviderEndpoint::BinanceTestnet
+        ) {
+            None // Binance request-weight limits apply to the shared IP.
+        } else {
+            account_id
+        },
+        Duration::from_secs(retry_after),
+    );
+}
+
+struct PrioritizedProviderHttp<'a, H> {
+    inner: &'a H,
+    priority: ProviderPriority,
+    current: &'a dyn Fn() -> bool,
+    account_id: &'a str,
+}
+
+pub fn p0_provider_http<'a, H: ProviderHttp>(
+    inner: &'a H,
+    current: &'a dyn Fn() -> bool,
+    account_id: &'a str,
+) -> impl ProviderHttp + 'a {
+    prioritized_provider_http(inner, current, account_id, ProviderPriority::P0)
+}
+
+pub fn p1_provider_http<'a, H: ProviderHttp>(
+    inner: &'a H,
+    current: &'a dyn Fn() -> bool,
+    account_id: &'a str,
+) -> impl ProviderHttp + 'a {
+    prioritized_provider_http(inner, current, account_id, ProviderPriority::P1)
+}
+
+fn prioritized_provider_http<'a, H: ProviderHttp>(
+    inner: &'a H,
+    current: &'a dyn Fn() -> bool,
+    account_id: &'a str,
+    priority: ProviderPriority,
+) -> PrioritizedProviderHttp<'a, H> {
+    PrioritizedProviderHttp {
+        inner,
+        priority,
+        current,
+        account_id,
+    }
+}
+
+impl<H: ProviderHttp> ProviderHttp for PrioritizedProviderHttp<'_, H> {
+    fn get(&self, endpoint: ProviderEndpoint, path: &str, headers: HeaderMap) -> Result<Vec<u8>> {
+        let _permit = provider_scheduler().acquire_for_account(
+            endpoint.scheduler_provider(),
+            Some(self.account_id),
+            self.priority,
+            self.current,
+        )?;
+        let result = self
+            .inner
+            .get_response_with_rate_limit(endpoint, path, headers)
+            .and_then(|(response, limit)| {
+                if response.status == 429 {
+                    record_provider_rate_limit(endpoint, Some(self.account_id), limit.as_ref());
+                }
+                classify_get_response(endpoint, response.status, response.body)
+            });
+        if result
+            .as_ref()
+            .is_err_and(|error| error.code == "PROVIDER_RATE_LIMITED")
+        {
+            record_provider_rate_limit(endpoint, Some(self.account_id), None);
+        }
+        result
+    }
+
+    fn request(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<ProviderHttpResponse> {
+        self.request_with_rate_limit(endpoint, method, path, headers, body)
+            .map(|(response, _)| response)
+    }
+
+    fn request_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        let _permit = provider_scheduler().acquire_for_account(
+            endpoint.scheduler_provider(),
+            Some(self.account_id),
+            self.priority,
+            self.current,
+        )?;
+        let result = self
+            .inner
+            .request_with_rate_limit(endpoint, method, path, headers, body);
+        match &result {
+            Ok((response, limit)) if response.status == 429 => {
+                record_provider_rate_limit(endpoint, Some(self.account_id), limit.as_ref());
+            }
+            Err(error) if error.code == "PROVIDER_RATE_LIMITED" => {
+                record_provider_rate_limit(endpoint, Some(self.account_id), None);
+            }
+            _ => (),
+        }
+        result
     }
 }
 
@@ -1246,51 +1760,20 @@ impl Default for BrokerHttp {
 mod http_tests;
 
 impl ProviderHttp for BrokerHttp {
+    fn get_response_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        path: &str,
+        headers: HeaderMap,
+    ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        self.request_with_rate_limit(endpoint, ProviderHttpMethod::Get, path, headers, None)
+    }
+
     fn get(&self, endpoint: ProviderEndpoint, path: &str, headers: HeaderMap) -> Result<Vec<u8>> {
-        if !endpoint.allows(path) {
-            return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
-        }
-        let response = self
-            .client()?
-            .get(self.url(endpoint, path))
-            .headers(headers)
-            .send()
-            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        let status = response.status().as_u16();
-        match status {
-            200 => (),
-            400 if endpoint.is_binance() || endpoint.is_bitget() => (),
-            401 | 403 => return Err(TradeXError::new("PROVIDER_AUTH_FAILED")),
-            418 | 429 => return Err(TradeXError::new("PROVIDER_RATE_LIMITED")),
-            _ => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
-        }
-        if response.content_length().is_some_and(|n| n > MAX_RESPONSE) {
-            return Err(invalid());
-        }
-        let mut bytes = Vec::new();
-        response
-            .take(MAX_RESPONSE + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        if bytes.len() as u64 > MAX_RESPONSE {
-            return Err(invalid());
-        }
-        if status != 200 && endpoint.is_bitget() {
-            let value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
-            return Err(bitget::business(value).err().unwrap_or_else(invalid));
-        }
-        if status != 200 {
-            let code = serde_json::from_slice::<Value>(&bytes)
-                .ok()
-                .and_then(|v| v["code"].as_i64());
-            return Err(TradeXError::new(match code {
-                Some(-1021) => "CLOCK_SKEW",
-                Some(-1022 | -2014 | -2015) => "PROVIDER_AUTH_FAILED",
-                Some(-1003 | -1015) => "PROVIDER_RATE_LIMITED",
-                _ => "PROVIDER_RESPONSE_INVALID",
-            }));
-        }
-        Ok(bytes)
+        self.get_response_with_rate_limit(endpoint, path, headers)
+            .and_then(|(response, _)| {
+                classify_get_response(endpoint, response.status, response.body)
+            })
     }
 
     fn request(
@@ -1426,6 +1909,21 @@ pub(crate) enum JobKind {
     },
 }
 
+impl JobKind {
+    fn provider_priority(&self) -> ProviderPriority {
+        match self {
+            Self::Connect | Self::Probe | Self::AlpacaPaperOrderReview => ProviderPriority::P1,
+            Self::Trading212DemoOrderBookPending
+            | Self::AlpacaPaperOrderBookRefresh
+            | Self::BinanceTestnetOrderBookRefresh => ProviderPriority::P2,
+            Self::Trading212DemoOrderBookHistory | Self::Trading212DemoOrderBookDetail => {
+                ProviderPriority::P3
+            }
+            _ => ProviderPriority::P0,
+        }
+    }
+}
+
 pub struct ProviderJob {
     pub(crate) account: AccountConnection,
     pub(crate) kind: JobKind,
@@ -1531,39 +2029,45 @@ impl ProviderJob {
                 resolution_evidence: None,
             };
         }
+        let http = prioritized_provider_http(
+            http,
+            &current,
+            &self.account.connection_id,
+            self.kind.provider_priority(),
+        );
         if matches!(&self.kind, JobKind::LiveOrderReconcile { .. }) {
             return match self.account.provider_id.as_str() {
-                "binance" => self.run_binance_live_reconciliation(vault, http, current),
-                "bitget" => self.run_bitget_live_reconciliation(vault, http, current),
-                _ => self.run_trading212_live_reconciliation(vault, http, current),
+                "binance" => self.run_binance_live_reconciliation(vault, &http, &current),
+                "bitget" => self.run_bitget_live_reconciliation(vault, &http, &current),
+                _ => self.run_trading212_live_reconciliation(vault, &http, &current),
             };
         }
         if matches!(
             &self.kind,
             JobKind::AlpacaPaperSubmit | JobKind::AlpacaPaperReconcile
         ) {
-            return self.run_alpaca_paper_order(vault, http, current);
+            return self.run_alpaca_paper_order(vault, &http, &current);
         }
         if matches!(
             &self.kind,
             JobKind::BinanceTestnetSubmit | JobKind::BinanceTestnetReconcile
         ) {
-            return self.run_binance_testnet_order(vault, http, current);
+            return self.run_binance_testnet_order(vault, &http, &current);
         }
         if matches!(
             &self.kind,
             JobKind::BitgetDemoSubmit | JobKind::BitgetDemoReconcile
         ) {
-            return self.run_bitget_demo_order(vault, http, current);
+            return self.run_bitget_demo_order(vault, &http, &current);
         }
         if self.kind == JobKind::BinanceTestnetOrderBookRefresh {
-            return self.run_binance_testnet_order_book(vault, http, current);
+            return self.run_binance_testnet_order_book(vault, &http, &current);
         }
         if self.kind == JobKind::BinanceTestnetOrderCancel {
-            return self.run_binance_testnet_order_book(vault, http, current);
+            return self.run_binance_testnet_order_book(vault, &http, &current);
         }
         if self.kind == JobKind::Trading212DemoSubmit {
-            return self.run_trading212_demo_order(vault, http, current);
+            return self.run_trading212_demo_order(vault, &http, &current);
         }
         if matches!(
             &self.kind,
@@ -1572,7 +2076,7 @@ impl ProviderJob {
                 | JobKind::Trading212DemoOrderBookDetail
                 | JobKind::Trading212DemoOrderCancel
         ) {
-            return self.run_trading212_demo_order_operation(vault, http, current);
+            return self.run_trading212_demo_order_operation(vault, &http, &current);
         }
         if matches!(
             &self.kind,
@@ -1580,7 +2084,7 @@ impl ProviderJob {
                 | JobKind::AlpacaPaperOrderReview
                 | JobKind::AlpacaPaperOrderCancel
         ) {
-            return self.run_alpaca_paper_order_book(vault, http, current);
+            return self.run_alpaca_paper_order_book(vault, &http, &current);
         }
         let mut credential = "MISSING";
         let result = (|| -> Result<Observation> {
@@ -1634,7 +2138,7 @@ impl ProviderJob {
                 let mut observation = bitget::read(
                     endpoint,
                     &values,
-                    http,
+                    &http,
                     &current,
                     self.account.data.as_ref(),
                     exact_cancel_order_id,
@@ -1659,7 +2163,7 @@ impl ProviderJob {
                 let mut observation = binance::read(
                     endpoint,
                     &values,
-                    http,
+                    &http,
                     &current,
                     self.account.data.as_ref(),
                     exact_order,
@@ -1803,7 +2307,7 @@ impl ProviderJob {
                     && let Some(order_id) = target_order_id
                 {
                     let (order, source) =
-                        read_trading212_live_order(order_id, &auth, &values, http, &current)?;
+                        read_trading212_live_order(order_id, &auth, &values, &http, &current)?;
                     let exact = trading212::open_order(&order)?;
                     let terminal = matches!(
                         exact.status.as_str(),
@@ -6160,5 +6664,243 @@ mod alpaca_trade_update_tests {
         )
         .unwrap_err();
         assert_eq!(error.code, "PROVIDER_RESPONSE_INVALID");
+    }
+}
+
+#[cfg(test)]
+mod provider_scheduler_tests {
+    use super::{JobKind, ProviderPriority, ProviderScheduler};
+    use std::{
+        sync::{Arc, mpsc},
+        thread,
+        time::{Duration, Instant},
+    };
+
+    fn wait_until(mut ready: impl FnMut() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !ready() {
+            assert!(Instant::now() < deadline, "provider waiter did not queue");
+            thread::yield_now();
+        }
+    }
+
+    #[test]
+    fn provider_jobs_use_the_documented_priority_classes() {
+        assert_eq!(
+            JobKind::AlpacaPaperReconcile.provider_priority(),
+            ProviderPriority::P0
+        );
+        assert_eq!(JobKind::Probe.provider_priority(), ProviderPriority::P1);
+        assert_eq!(
+            JobKind::BinanceTestnetOrderBookRefresh.provider_priority(),
+            ProviderPriority::P2
+        );
+        assert_eq!(
+            JobKind::Trading212DemoOrderBookHistory.provider_priority(),
+            ProviderPriority::P3
+        );
+    }
+
+    #[test]
+    fn p0_bypasses_a_saturated_p3_queue_and_overflow_is_explicit() {
+        let scheduler = Arc::new(ProviderScheduler::with_limits(1, 2, 1));
+        let occupied = scheduler
+            .acquire("alpaca", ProviderPriority::P0, &|| true)
+            .unwrap();
+        let (order_tx, order_rx) = mpsc::channel();
+        let (p3_release_tx, p3_release_rx) = mpsc::channel();
+        let p3_scheduler = Arc::clone(&scheduler);
+        let p3 = thread::spawn(move || {
+            let _permit = p3_scheduler
+                .acquire("alpaca", ProviderPriority::P3, &|| true)
+                .unwrap();
+            order_tx.send("p3").unwrap();
+            p3_release_rx.recv().unwrap();
+        });
+        wait_until(|| scheduler.queued("alpaca") == 1);
+
+        let error = match scheduler.acquire("alpaca", ProviderPriority::P3, &|| true) {
+            Err(error) => error,
+            Ok(_) => panic!("the bounded low-priority queue accepted overflow"),
+        };
+        assert_eq!(error.code, "PROVIDER_BACKPRESSURE");
+        assert_eq!(error.category, "RATE_LIMITED");
+        assert!(error.retryable);
+
+        let (p0_tx, p0_rx) = mpsc::channel();
+        let (p0_release_tx, p0_release_rx) = mpsc::channel();
+        let p0_scheduler = Arc::clone(&scheduler);
+        let p0 = thread::spawn(move || {
+            let _permit = p0_scheduler
+                .acquire("alpaca", ProviderPriority::P0, &|| true)
+                .unwrap();
+            p0_tx.send(()).unwrap();
+            p0_release_rx.recv().unwrap();
+        });
+        wait_until(|| scheduler.queued("alpaca") == 2);
+        drop(occupied);
+
+        p0_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(
+            order_rx.try_recv().is_err(),
+            "P3 ran ahead of queued P0 work"
+        );
+        p0_release_tx.send(()).unwrap();
+        assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), "p3");
+        p3_release_tx.send(()).unwrap();
+        p0.join().unwrap();
+        p3.join().unwrap();
+    }
+
+    #[test]
+    fn p1_runs_before_queued_p2_and_p3_work() {
+        let scheduler = Arc::new(ProviderScheduler::with_limits(1, 4, 4));
+        let occupied = scheduler
+            .acquire("binance", ProviderPriority::P0, &|| true)
+            .unwrap();
+        let (order_tx, order_rx) = mpsc::channel();
+        let (p2_release_tx, p2_release_rx) = mpsc::channel();
+        let (p3_release_tx, p3_release_rx) = mpsc::channel();
+        let (p1_release_tx, p1_release_rx) = mpsc::channel();
+        let p2_scheduler = Arc::clone(&scheduler);
+        let p2_tx = order_tx.clone();
+        let p2 = thread::spawn(move || {
+            let _permit = p2_scheduler
+                .acquire("binance", ProviderPriority::P2, &|| true)
+                .unwrap();
+            p2_tx.send("p2").unwrap();
+            p2_release_rx.recv().unwrap();
+        });
+        wait_until(|| scheduler.queued("binance") == 1);
+        let p3_scheduler = Arc::clone(&scheduler);
+        let p3_tx = order_tx.clone();
+        let p3 = thread::spawn(move || {
+            let _permit = p3_scheduler
+                .acquire("binance", ProviderPriority::P3, &|| true)
+                .unwrap();
+            p3_tx.send("p3").unwrap();
+            p3_release_rx.recv().unwrap();
+        });
+        wait_until(|| scheduler.queued("binance") == 2);
+        let p1_scheduler = Arc::clone(&scheduler);
+        let p1 = thread::spawn(move || {
+            let _permit = p1_scheduler
+                .acquire("binance", ProviderPriority::P1, &|| true)
+                .unwrap();
+            order_tx.send("p1").unwrap();
+            p1_release_rx.recv().unwrap();
+        });
+        wait_until(|| scheduler.queued("binance") == 3);
+        drop(occupied);
+
+        assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), "p1");
+        p1_release_tx.send(()).unwrap();
+        assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), "p2");
+        p2_release_tx.send(()).unwrap();
+        assert_eq!(order_rx.recv_timeout(Duration::from_secs(2)).unwrap(), "p3");
+        p3_release_tx.send(()).unwrap();
+        p1.join().unwrap();
+        p2.join().unwrap();
+        p3.join().unwrap();
+    }
+
+    #[test]
+    fn p0_keeps_one_provider_slot_when_low_priority_work_is_active() {
+        let scheduler = Arc::new(ProviderScheduler::with_limits(2, 2, 1));
+        let active_p3 = scheduler
+            .acquire("trading212", ProviderPriority::P3, &|| true)
+            .unwrap();
+        let (p3_tx, p3_rx) = mpsc::channel();
+        let p3_scheduler = Arc::clone(&scheduler);
+        let p3 = thread::spawn(move || {
+            let _permit = p3_scheduler
+                .acquire("trading212", ProviderPriority::P3, &|| true)
+                .unwrap();
+            p3_tx.send(()).unwrap();
+        });
+        wait_until(|| scheduler.queued("trading212") == 1);
+
+        let p0 = scheduler
+            .acquire("trading212", ProviderPriority::P0, &|| true)
+            .unwrap();
+        assert_eq!(scheduler.queued("trading212"), 1);
+        drop(p0);
+        drop(active_p3);
+        p3_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        p3.join().unwrap();
+    }
+
+    #[test]
+    fn provider_concurrency_never_exceeds_its_limit() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let scheduler = Arc::new(ProviderScheduler::with_limits(2, 8, 8));
+        let active = Arc::new(AtomicUsize::new(0));
+        let maximum = Arc::new(AtomicUsize::new(0));
+        let workers = (0..8)
+            .map(|_| {
+                let scheduler = Arc::clone(&scheduler);
+                let active = Arc::clone(&active);
+                let maximum = Arc::clone(&maximum);
+                thread::spawn(move || {
+                    let _permit = scheduler
+                        .acquire("bitget", ProviderPriority::P0, &|| true)
+                        .unwrap();
+                    let current = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    maximum.fetch_max(current, Ordering::SeqCst);
+                    thread::sleep(Duration::from_millis(10));
+                    active.fetch_sub(1, Ordering::SeqCst);
+                })
+            })
+            .collect::<Vec<_>>();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        assert_eq!(maximum.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn provider_retry_after_delays_the_next_eligible_request() {
+        let scheduler = ProviderScheduler::with_limits(1, 2, 1);
+        scheduler.delay_provider("alpaca", None, Duration::from_millis(40));
+        let started = Instant::now();
+        let _permit = scheduler
+            .acquire("alpaca", ProviderPriority::P0, &|| true)
+            .unwrap();
+        assert!(started.elapsed() >= Duration::from_millis(30));
+    }
+
+    #[test]
+    fn cooled_account_does_not_block_another_accounts_eligible_work() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let scheduler = Arc::new(ProviderScheduler::with_limits(1, 2, 1));
+        scheduler.delay_provider("alpaca", Some("account-a"), Duration::from_secs(5));
+        let current = Arc::new(AtomicBool::new(true));
+        let waiting_scheduler = Arc::clone(&scheduler);
+        let waiting_current = Arc::clone(&current);
+        let waiter = thread::spawn(move || {
+            let result = waiting_scheduler.acquire_for_account(
+                "alpaca",
+                Some("account-a"),
+                ProviderPriority::P0,
+                &|| waiting_current.load(Ordering::Acquire),
+            );
+            assert_eq!(result.err().unwrap().code, "STATE_VERSION_CONFLICT");
+        });
+        wait_until(|| scheduler.queued("alpaca") == 1);
+        let (tx, rx) = mpsc::channel();
+        let eligible_scheduler = Arc::clone(&scheduler);
+        let eligible = thread::spawn(move || {
+            let _permit = eligible_scheduler
+                .acquire_for_account("alpaca", Some("account-b"), ProviderPriority::P1, &|| true)
+                .unwrap();
+            tx.send(()).unwrap();
+        });
+        let progressed = rx.recv_timeout(Duration::from_secs(1));
+        current.store(false, Ordering::Release);
+        waiter.join().unwrap();
+        eligible.join().unwrap();
+        progressed.unwrap();
     }
 }
