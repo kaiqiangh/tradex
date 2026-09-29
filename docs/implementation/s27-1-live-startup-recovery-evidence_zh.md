@@ -23,6 +23,6 @@ Trading 212 读取一页最多 50 行近期订单。Binance 对当前开放订�
 - 修复后的首次全量检查有两项 workspace 重开断言失败；分别单独重跑均通过，随后全量重跑也通过。
 - PASS：`git diff --check`。
 
-桌面 UI 成功恢复现有 default workspace，并显示 Trading 212 Live 为 stale/disarmed。Tauri 构建被放入临时 ad-hoc 签名 wrapper（`local.tradex.desktop`）；启动恢复和手动账户刷新都在 macOS `SecItemCopyMatching` 读取 Keychain 时阻塞，尚未到 provider HTTP。进程采样确认在等待 Keychain，且未观察到网络 socket 或 provider 请求，因此不能证明 `<5 s` 请求启动目标。主机没有有效代码签名 identity，也没有匹配的已安装 app bundle，无法验证可信签名包的 Keychain 行为。未改动 Keychain ACL 或凭据，也没有真实 provider 请求或订单写入。
+此前一次原生尝试使用临时 ad-hoc 签名 wrapper（`local.tradex.desktop`），并在 macOS `SecItemCopyMatching` 处阻塞，尚未到 provider HTTP。2026-09-29 第二次尝试使用普通 `npm run desktop` 开发应用（`target/debug/tradex`），并从 UI 重开 `/Users/kai/.tradex/workspaces/default`。macOS 要求输入 `com.tradex.broker.credentials` 的登录钥匙串密码；没有输入密码，也没有选择 Allow/Always Allow。进程采样显示启动 `ProviderJob` 正等待于 `NativeVault::get` → `get_generic_password` → `SecItemCopyMatching`。只读检查发现 Trading 212 Live 投影仍为序号 14，`lastSuccessfulSync` 仍是 `2026-09-23T23:06:33.624426Z`，健康状态为 STALE/BLOCKED；未观察到 provider socket 或已刷新的投影。socket 检查发生在打开工作区很久之后，不能测量 `<5 s` 目标，因此本次原生验收仍未验证。未改动 Keychain ACL 或凭据，也没有尝试订单写入。主机没有有效代码签名 identity 或匹配的已安装 app bundle，可信签名包的 Keychain 行为仍未验证。
 
 Standards review 通过且无可操作问题。Spec review 未发现其他差异，但保留原生 `<5 s` 启动耗时验收项。签名包生命周期和完整 S27/S33 验收仍未验证；#108 保持打开，等待可信原生启动验证。
