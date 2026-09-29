@@ -31,4 +31,6 @@ Trading 212 读取一页最多 50 行近期订单。Binance 对当前开放订�
 
 Accounts 页面还确认：选择已保存的 `trading212 · LIVE` 连接后，表单显示“使用已存储的本地凭据”和“Use existing account”，不会要求重新输入 API key。本次界面检查没有触发手动刷新。未更改 Keychain ACL 或凭据，也未尝试订单写入。主机没有有效代码签名 identity 或匹配的已安装 app bundle，因此可信签名包的 Keychain 行为仍未验证。
 
+后续于 `2026-09-29T13:38:48Z` 重开同一工作区时，Trading 212 行仍为 `FAILED`，序号 18。启动恢复计划只纳入 `CONNECTED` 账户，因此该失败账户被正确排除；这次重开没有覆盖 Trading 212 provider 读取。之后对已保存账户点击只读刷新，进程到达 `NativeVault::get` 后阻塞于 `SecItemCopyMatching`（`provider_io.rs:1597`）。macOS SecurityAgent 要求输入 `com.tradex.broker.credentials` 项对应的 `login` Keychain 密码。用户已授权“Always Allow”，我也点击了该按钮，但系统仍等待 Keychain 密码。没有输入密码或新 API key；账户序号仍为 18，没有观察到 Trading 212 socket 或 provider HTTP 请求。因此原生 `<5 s` 启动耗时仍未验证。
+
 Standards review 通过且无可操作问题。Spec review 未发现其他差异，但保留原生 `<5 s` 启动耗时验收项。签名包生命周期和完整 S27/S33 验收仍未验证；#108 保持打开，等待可信原生启动验证。
