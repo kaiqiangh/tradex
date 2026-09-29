@@ -1,12 +1,13 @@
 # S27.2 #109 Live resume recovery evidence
 
-Review baseline: `3ca4d54` (`S27.1 #108`). Verification date: 2026-09-29. Implementation is ready for Standards and Spec review.
+Review baseline: `3ca4d54` (`S27.1 #108`). Implementation commit: `f9e81ca`. Verification date: 2026-09-29. Standards and Spec reviews both PASS with no actionable findings.
 
 ## Delivered behavior
 
 - macOS system wake and TradeX becoming active again both enter the existing Live safety-recovery path. This replaces reliance on Tauri `RunEvent::Resumed`, which Tao documents as unsupported on macOS.
 - Resume disarms every Live account, resets TimeService confidence, and persists connected Live accounts as `STALE / UNVERIFIED / UNCHECKED / STALE / BLOCKED / DISARMED` before provider recovery begins.
 - Existing stream supervisors restart, then the existing startup recovery plan revalidates time, reads exact evidence for connected accounts' unknown PLACE attempts, and refreshes every connected supported Trading 212, Binance Spot, and Bitget Spot Live account. Account selection does not narrow recovery scope.
+- Consistent with Backend ARD §41.34, unknown CANCEL attempts remain stale/blocked until the existing user-triggered exact-order refresh resolves them; resume does not infer cancellation or add a second recovery route.
 - A Live account stays disarmed and cannot be armed while its post-resume account state is stale. Recovery never resubmits PLACE/CANCEL; account projection changes invalidate prior account-bound approvals and pre-dispatch preparation through the existing storage path.
 
 ## Verification
@@ -18,6 +19,7 @@ Review baseline: `3ca4d54` (`S27.1 #108`). Verification date: 2026-09-29. Implem
 - PASS: `RUST_TEST_THREADS=1 npm run check` completed schema validation, frontend typecheck/build, all 15 frontend unit tests, all 227 Rust core unit tests and workspace integration tests, and requirement traceability (203 requirements, 70 screens, 13 QA scenarios).
 - NOTE: An earlier default-parallel `npm run check` had two workspace-reopen test failures. Both exact tests passed in isolation, and the complete check passed with Rust tests serialized.
 - PASS: On the running native development app, returning to TradeX triggered `NSApplicationDidBecomeActiveNotification` and persisted the connected Trading 212 Live account to `SESSION_RESUMED / STALE / BLOCKED / DISARMED`; its prior successful observation remained unchanged.
+- PASS: Standards and Spec review of `3ca4d54..f9e81ca`; no actionable findings.
 - BLOCKED: The native read-only provider refresh stopped at macOS SecurityAgent, which requested the `login` Keychain password for `com.tradex.broker.credentials`. No password or replacement credential was entered. Native provider recovery completion is therefore unverified; no order write was attempted.
 - Not exercised: actual OS sleep/wake. The wake notification path compiled on Darwin; native app reactivation was exercised directly.
 
