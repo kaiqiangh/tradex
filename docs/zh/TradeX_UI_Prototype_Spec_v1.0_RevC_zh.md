@@ -1,7 +1,7 @@
 # TradeX 高保真原型 / UI 规范
 
 **版本:** 1.0 Final — Revision C(中文版)  
-**日期:** 2026-09-05\
+**日期:** 2026-09-24（S18 准确记录确认澄清）\
 **英文权威版:** `TradeX_UI_Prototype_Spec_v1.0_RevC.md`  
 **PRD:** `TradeX_PRD_v1.0_RevC_zh.md`  
 **原型实现:** `../prototype/index.html`、`../prototype/styles.css`、`../prototype/app.js`\
@@ -203,8 +203,8 @@ CLIProxyAPI → ChatGPT
   gpt-5.6-luna
 
 CLIProxyAPI → DeepSeek official API
-  deepseek-chat
-  deepseek-reasoner
+  deepseek-v4-flash · 普通模式
+  deepseek-v4-flash · 推理模式
 ```
 
 每行显示 provider health/availability;composer 同时显示下一 turn 的 provider path。
@@ -262,6 +262,8 @@ Permission:
 - `UNVERIFIED`:provider 无法 introspect。
 
 检测到 forbidden permission 时阻止 Live readiness。
+
+Live Arm 要求权限范围为 `VERIFIED`；确认 `UNVERIFIED` 范围不能启用 Arm。
 
 ### A4. LLM Providers (Model)
 
@@ -392,6 +394,8 @@ MVP watchlist 使用按需/粗粒度刷新,不暗示常驻 tick-level Warm subsc
 
 展示 provider、environment、health、equity/balance、Live arming、last sync。
 
+仅当 Trading 212 Demo 连接处于 `FAILED` 或 `DISCONNECTED` 且 credential health 为 `MISSING` 时，显示“删除本地账户”。明确确认框标出所选记录的准确 label、provider 与 environment，说明会永久删除 TradeX 本地账户详情及账户/订单簿观察，并说明不会联系 Trading 212、撤销 API key、撤销 provider order 或修改其他连接。Cancel/Escape 不改变任何数据。成功后刷新列表/上下文并播报完成；错误保持可见，焦点返回触发控件或 Account connections 标题。
+
 ### E2. Provider-specific Account Detail
 
 Local Paper、Alpaca Paper、T212 Demo/Live、Binance Testnet/Live、Bitget Demo/Live。
@@ -412,7 +416,7 @@ broker state、proposal/order identity、fill/remaining、reservation、cancel a
 
 ### F1. Account-scoped Live Arming
 
-Arm dialog 绑定单一 account:
+Arm dialog 绑定单一 account，并显示 provider、标签、`LIVE` 环境、完整 TradeX connection ID 和 provider account ID。安全资格缺失或被阻断时禁用 Arm 并显示后端 remediation reason。权限范围必须为 `VERIFIED`；确认 `UNVERIFIED` 范围不能启用 Arm。确认 Arm 不等于审批或提交订单。
 
 ```text
 Trading 212 Live · ARMED
@@ -420,22 +424,26 @@ Binance Live · DISARMED
 Bitget Live · DISARMED
 ```
 
-提供 per-account Arm/Disable + global Disable All。Restart/sleep/auth/reconciliation/risk weakening 仅对受影响账户 disarm。
+提供 per-account Arm/Disable + global Disable All。Restart/sleep/auth/reconciliation/risk weakening 仅对受影响账户 disarm。确认框可键盘操作，初始焦点在取消操作，Escape 关闭并恢复焦点。
 
 ### F2. Limit Order Approval — Trading 212 / AAPL
 
-展示 immutable proposal、proposal ID/hash、policy version、account/venue/environment、side/qty/type/limit/TIF、notional、`Available / Reserved / Effective Available`、完整 MarketSnapshot provenance(source/provider timestamp/TradeX received/venue/entitlement/age/freshness)、risk、Reject/Approve。
+展示 immutable proposal、proposal ID/hash、policy version、account/venue/environment、side/qty/type/limit/TIF、notional、`Available / Reserved / Effective Available`、完整 MarketSnapshot provenance(source/provider timestamp/TradeX received/venue/entitlement/age/freshness)、risk、Reject/Approve。Approve 只签发短时 approval，不预留容量或下单。
 
 ### F3. AAPL Submission / Monitoring
 
 ```text
 APPROVED
-→ RESERVED
-→ SUBMITTING
-→ ACCEPTED (not a fill)
-→ PARTIALLY_FILLED or FILLED
+→ 用户显式操作：Prepare PLACE
+→ RESERVED（TradeX reservation 已提交）
+→ 若停止在 SUBMITTING 前获胜，则 INVALIDATED + RELEASED
+→ SUBMITTING（provider request 可能已发送）
+→ ACCEPTED（provider 确认；不是成交）/ REJECTED / UNKNOWN_RECONCILING
+→ 只有 provider 成交证据才能进入 PARTIALLY_FILLED 或 FILLED
 → reconciliation
 ```
+
+Prepare 是唯一公开的 execution authority。`RESERVED` 提交后，Control Plane 在内部启动 Gateway。通过无障碍状态文本显示耐久的 `RESERVED`、`SUBMITTING`、`ACCEPTED`、`REJECTED` 或 `UNKNOWN_RECONCILING`；受理不等于成交，不确定提交不得重发。
 
 Identity 不变。
 
@@ -449,11 +457,11 @@ expected spend、maximum authorized、bid/ask/spread、provenance、fee/slippage
 
 ### F6. Approval Expired
 
-不可复用;未提交时释放 reservation。
+approval 不可复用。若 attempt 仍为 `RESERVED`，可信过期扫描会使其失效，并原子释放 active PLACE reservation。策略变更、账户撤防和 Disable All 若在 `SUBMITTING` 前获胜，也执行相同的停止规则。此时显示持久化的失效原因与已释放金额，并说明未发送 provider mutation；一旦 `SUBMITTING` 持久化，则显示 request 可能已发送并保留容量。相同幂等键重放会恢复已保存结果，不会创建新 attempt 或重发。
 
 ### F7. Risk Rejected
 
-确定性 `RISK_REJECTED`,Agent 不可 override。
+分别显示确定性的 `RISK_REJECTED` 与 `RISK_EVIDENCE_UNAVAILABLE`;两者都会阻止 Submit,且 Agent 不能 override。
 
 ### F8. Broker Rejected
 
@@ -479,16 +487,27 @@ refresh state → approval → `CANCEL_PENDING` → `CANCELLED` 或 fill race。
 
 ```text
 Thread A reserves €4,000
-Available = €10,000
-Reserved = €4,000
+Provider available = €10,000
+Provider committed = €0（已从 available 中扣除）
+TradeX reserved = €4,000
 Effective Available = €6,000
 Thread B requires €7,000
 → RISK_REJECTED · RESERVED_CAPACITY
+后端上下文：需求 €7,000；券商可用 €10,000；已有预留 €4,000；本次需求前的有效容量 €6,000；请降低需求，或等待早先预留完成对账或结束。
+证据需显示来源、新鲜度、观测时间和 account state version。证据陈旧或不可用时不展示金额字段。
 ```
 
 ### F12. Risk-policy Change Invalidation
 
-更新 policy → version increment → affected approval invalidated → old/new version + reason;若 weakening 同时 disarm account。
+保存 workspace-shared policy 会使所有绑定旧版本的待处理 proposal 失效。受影响账户集合来自已持久化的 workspace 绑定，不取决于当前选中的账户。
+
+- 递增 policy version，并记录作用范围、新旧版本和弱化分类；
+- 重新求值每个待处理 proposal，将其标记为失效，并保留 `POLICY_VERSION_STALE` decision 与原因；
+- 在键盘可访问的 `role="status"` / polite live region 中展示全部受影响账户、proposal 和失效原因；
+- 混合更新只要放宽任一字段就按弱化处理；仅收紧不算弱化；
+- 弱化时，在策略与失效事件同一事务中撤防全部受影响 Live 账户。
+
+策略版本变化后不得复用旧 decision 或 approval。
 
 ---
 
@@ -501,6 +520,7 @@ TradeX-managed simulation,显式 `LOCAL PAPER`,不是 provider truth。
 ### G2. Alpaca Paper
 
 proposal → provider paper acknowledgement → fill/update → account refresh。
+Order Drafts surface 还显示文字形式的私有流/reconciliation 健康状态和最近事件时间。`trade_updates` 会刷新已保存订单/成交；断流或未完成对账的订单簿继续明确标记为 stale。
 
 ### G3. Trading 212 Demo
 ### G4. Binance Testnet
@@ -560,6 +580,10 @@ Settings internal subnav 始终可达。
 LLM 展示 CLIProxyAPI state/version/OAuth/probe/models、DeepSeek key/probe/models、selected route、`Allow automatic fallback to DeepSeek`(默认 OFF)、LLM error remediation fixture。
 
 ### J2. Risk & Limits
+
+Settings 页面在入门流程的七项默认值上扩展完整 PRD §21 控制项：最大订单数量和持仓规模、分资产类别敞口、未平仓订单数、保留资金、允许/禁止的标的、交易场所和账户、环境约束、市价单滑点及价格偏离。金额和组合估值字段显示 workspace base currency；数量显示 canonical instrument base units；敞口/滑点/偏离显示百分比。未配置上限保持空白。
+
+标识列表每行填写一个 canonical instrument、venue 或 connection ID。空 allowed list 不增加 allow-list 限制；某标识同时存在于 allow/block 时以 block 为准。未选择 environment 不增加环境限制。当前支持的敞口类别为 `EQUITY` 和 `CRYPTO_SPOT`。启用市价单必须设置最大滑点。所有字段可用键盘操作并显示焦点，桌面、768 px 和 390 px 宽度均保持可读。
 
 ```text
 persist policy
@@ -627,7 +651,7 @@ TimeService/clock uncertainty → stale/reconciliation remediation;Live authorit
 
 统一 ErrorRecoveryPanel 映射:
 
-`AUTH_ERROR`、`PERMISSION_ERROR`、`RATE_LIMITED`、`NETWORK_ERROR`、`UNSUPPORTED_CAPABILITY`、`MARKET_CLOSED`、`INSTRUMENT_HALTED`、`INVALID_ORDER`、`INSUFFICIENT_FUNDS`、`RISK_REJECTED`、`SUBMISSION_REJECTED`、`SUBMISSION_AMBIGUOUS`、`STREAM_DISCONNECTED`、`STATE_STALE`、`RECONCILIATION_REQUIRED`、`MODEL_UNAVAILABLE`、`QUOTA_EXCEEDED`、`OAUTH_EXPIRED`、`INTERNAL_ERROR`。
+`AUTH_ERROR`、`PERMISSION_ERROR`、`RATE_LIMITED`、`NETWORK_ERROR`、`UNSUPPORTED_CAPABILITY`、`MARKET_CLOSED`、`INSTRUMENT_HALTED`、`INVALID_ORDER`、`INSUFFICIENT_FUNDS`、`RISK_REJECTED`、`RISK_EVIDENCE_UNAVAILABLE`、`SUBMISSION_REJECTED`、`SUBMISSION_AMBIGUOUS`、`STREAM_DISCONNECTED`、`STATE_STALE`、`RECONCILIATION_REQUIRED`、`MODEL_UNAVAILABLE`、`QUOTA_EXCEEDED`、`OAUTH_EXPIRED`、`INTERNAL_ERROR`。
 
 ---
 
@@ -638,6 +662,7 @@ TimeService/clock uncertainty → stale/reconciliation remediation;Live authorit
 | DRAFT | editable OrderDraft |
 | PROPOSED | immutable OrderProposalCard |
 | RISK_REJECTED | RiskRejectedPanel |
+| RISK_EVIDENCE_UNAVAILABLE | RiskDecisionPanel; submit 不产生订单副作用 |
 | NEEDS_APPROVAL | LiveApprovalModal |
 | APPROVED | timeline/audit event |
 | RESERVED | ReservationEvent + capacity detail |
@@ -686,7 +711,7 @@ TimeService/clock uncertainty → stale/reconciliation remediation;Live authorit
 
 # 8. Component Inventory
 
-与英文版一一对应:AppShell、Sidebar、SettingsSubnav、CompactMoreNav、ThreadHistory、TopBar、AgentModeBadge/Picker、ExecutionContextBadge、AccountLiveStateBadge、DisableAllLiveControl、LLMGatewayStatusBadge、ModelProviderPill、Composer、ContextPicker、AccountPicker、ModelPicker、TurnProvenancePanel、ContextPanel、PlanCard、ToolCard/ToolErrorCard、MarketSnapshotProvenance、MarketStatusBanner、CorporateActionPanel、FXProvenancePanel、ProviderCredentialSchemaForm、PermissionReviewPanel、AccountHealthPanel、OrderDraftEditor、OrderProposalCard、RiskCheckPanel、ReservationPanel、LiveArmModal、LiveApprovalModal、MarketOrderApprovalModal、ApprovalInvalidatedModal、RiskRejectedModal、ReservationConflictModal、ManualResolutionModal、OrderTimeline、CancellationApprovalModal、SimulatedOrderFlow、ErrorRecoveryPanel、StrategyEditor/Inspector、BacktestProgress/Metrics、ArtifactDetail/ProvenanceModal、WorkspaceImportModal、RecoveryPanel、SuccessToast/Modal。
+与英文版一一对应:AppShell、Sidebar、SettingsSubnav、CompactMoreNav、ThreadHistory、TopBar、AgentModeBadge/Picker、ExecutionContextBadge、AccountLiveStateBadge、DisableAllLiveControl、LLMGatewayStatusBadge、ModelProviderPill、Composer、ContextPicker、AccountPicker、ModelPicker、TurnProvenancePanel、ContextPanel、PlanCard、ToolCard/ToolErrorCard、MarketSnapshotProvenance、MarketStatusBanner、CorporateActionPanel、FXProvenancePanel、ProviderCredentialSchemaForm、PermissionReviewPanel、AccountHealthPanel、OrderDraftEditor、OrderProposalCard、RiskCheckPanel、RiskDecisionPanel、ReservationPanel、LiveArmModal、LiveApprovalModal、MarketOrderApprovalModal、ApprovalInvalidatedModal、RiskRejectedModal、ReservationConflictModal、ManualResolutionModal、OrderTimeline、CancellationApprovalModal、SimulatedOrderFlow、ErrorRecoveryPanel、StrategyEditor/Inspector、BacktestProgress/Metrics、ArtifactDetail/ProvenanceModal、WorkspaceImportModal、RecoveryPanel、SuccessToast/Modal。
 
 ---
 
@@ -757,7 +782,8 @@ Onboard
 → Trade + one Live account
 → arm exactly that account
 → live limit/market approval + full provenance
-→ RESERVED → SUBMITTING → ACCEPTED → fill
+→ RESERVED → SUBMITTING → ACCEPTED / REJECTED / UNKNOWN_RECONCILING
+→ provider fill evidence → PARTIALLY_FILLED / FILLED
 → reservation conflict
 → risk-policy invalidation
 → stale/expired/risk-rejected/rejected/ambiguous
@@ -805,11 +831,13 @@ Generate Proposal 将展示值冻结到新的 proposal ID/hash 及策略/快照�
 
 账户专属故障影响该账户，共享策略变更影响全部绑定账户。UI 当前选择不能限制系统级恢复范围。Disable All 阻止新传输并使未派发同意失效，不撤销已提交的券商订单。对可能已离开 TradeX 的尝试保留容量并对账。恢复或模型切换均不能自动 arming。
 
+审批后，用户需单独准备精确的 Live PLACE。重新打开 proposal 历史时，按 approval ID 读取耐久 preparation 和脱敏容量拒绝。attempt 处于 `RESERVED` 时刷新其持久化状态；策略变更、账户撤防/Disable All 或可信 approval TTL 到期可在派发前停止它，并原子使 attempt 失效、释放 active PLACE reservation。展示 `INVALIDATED` 原因和 `RELEASED` 金额；同幂等键重放仍为停止状态。容量拒绝保留 approval 与 proposal；重试必须由用户显式触发并使用新的幂等键。
+
 ## 14.4 过期与撤单继续流程（F6/F10）
 
 审批 TTL 过期按 PRD §45 条件释放。过期页面展示 proposal/账户、过期时间/原因、是否可能已经提交，以及后端返回的预留处置。Refresh 创建新 proposal 并要求审批；已提交/未知尝试进入订单活动/对账，不能进入替代订单。
 
-撤单流程：选择开放订单 → 刷新券商状态 → 保留不可变 CANCEL 意图 → 必要时 Arm 精确账户 → 刷新/重新校验撤单意图 → 撤单审批 → CANCEL_PENDING → 券商确认 CANCELLED 或成交竞态。审批显示提供方订单 ID、账户/环境、标的、已观察成交/剩余数量和时间戳。动作名为 Approve Cancellation，不能使用 Approve & Place。Reject/Back 退出同意且不产生修改。订单变化/成交使旧撤单意图失效，并解释新状态。
+撤单流程：选择开放订单 → 刷新券商状态 → 保留不可变 CANCEL 意图 → 必要时 Arm 精确账户 → 刷新/重新校验撤单意图 → Approve Cancellation → 在 TradeX 显式选择 `Prepare and send approved cancellation` → `RESERVED`（不新增 PLACE reservation）→ `SUBMITTING` → `CANCEL_PENDING` / `REJECTED` / `UNKNOWN_RECONCILING` → 券商确认终态或成交竞态。审批显示提供方订单 ID、账户/环境、标的、已观察成交/剩余数量和时间戳。按钮明确说明 Prepare 会启动发送流程，且导航/重启后展示已保存 attempt；provider 确认不代表撤单完成。Reject/Back 退出同意且不产生修改。订单变化/成交使旧撤单意图失效，并解释新状态。
 
 ## 14.5 未知提交与 Manual Resolution（F3/F9、K7）
 
@@ -818,6 +846,22 @@ UNKNOWN_RECONCILING 使用琥珀色待处理/不确定样式并明确标注文�
 布局顺序：订单/账户身份与未知状态横幅；已观察时间线和冻结预留；证据/对账面板与操作。面板展示最近查询时间、提供方来源、覆盖窗口、结果、错误和下一次对账动作。
 
 Manual Resolution 先加载后端持有的证据与允许的决策。Confirmed submitted 要求券商订单 ID 已验证且匹配账户/标的/操作。Confirmed not submitted 要求充分的提供方未提交证据，空查询或复选框不够。最终确认前展示证据摘要和预期预留影响。证据缺失/陈旧/冲突时禁用确认，并说明刷新方法。并发到达的成交使陈旧人工输入失效。Keep reconciling 或关闭对话框保留冻结预留。有效处置后展示健康重新校验进度，并保持 DISARMED，直至显式 arming。
+
+对于 Live PLACE 对账，按 attempt 已持久化 client-order ID 执行的准确、新鲜、完整 Binance/Bitget 查询可在超时后授权 Confirm submitted；提交时再次校验证据，关联观察到的 provider 订单但不捏造 fill，并保持 reservation active。Trading 212 相似订单候选不能授权确认。空、不完整、过期或不支持的证据只开放 Keep reconciling。实现 provider-specific 的充分未提交证明前，不开放 Confirmed not submitted。
+
+Trading 212 Demo 的明确提交确认是独立于 Live 审批的 provider 写入门槛。界面标识 `Trading 212 Demo · TRADING212_DEMO` 并展示不可变 Proposal 的准确字段；Market 还须显示 extended-hours 已关闭。只提供 `BASE` 数量型 Market-DAY 和 Limit-DAY/GTC。Acknowledgement 显示 provider order ID/status，并明确它不是成交。已知拒绝展示有限长度原因；超时或无法核验的响应显示 `UNKNOWN_RECONCILING`、禁用重试，并在重复激活时重读已保存 attempt。Trading 212 不返回 TradeX client-order identity，因此刷新发现的相似订单只能作为候选，不能自动绑定或解除冻结。Demo 出错时不得回退到 Live。
+
+### 14.5.1 Trading 212 Demo 订单簿读取（S18 #62）
+
+在 Order Drafts 中选择已连接的 `TRADING212_DEMO` 账户后加载其已保存观察。“Refresh pending orders”“Refresh known order details”和“Load order history”均为显式用户操作；每次历史操作只前进一个 provider 游标页。待处理订单与历史订单分组并分别标注。每张订单卡展示 provider ID、`TRADE_X` / `EXTERNAL` 来源、并列显示的原始 provider status 与归一化状态、类型/有效期、提交和观察时间、累计成交数量/金额及 provider 报告的币种（如有），以及可确定时的剩余数量。缺失字段显示为 unavailable；不得换算或推断币种，绝不捏造执行明细。只有已保存 provider identity 完全匹配时才关联 TradeX attempt。
+
+尚未同步、加载、空、当前、stale/degraded 和限流状态均使用清晰文字，并显示最近成功读取及 endpoint 下次重试时间。读取不完整时保留最后可信订单并说明错误。读取进行中或所选账户断开时禁用刷新操作。仅已保存待处理订单显示详情刷新；provider 确认终态后须移除该操作。使用原生 button/select、可见焦点、status/alert 语义、可换行的订单事实，并验证 390/768px 布局。本区域不自动轮询、不增加私有流，也不提供写入/撤单控件。
+
+### 14.5.2 Trading 212 Demo 撤单复核（S18 #63）
+
+只有在 Demo 账户当前且已连接、订单仍待处理、最新原始状态为 `CONFIRMED`、`NEW` 或 `PARTIALLY_FILLED`，并且没有正在提交/等待确认的撤单时，订单卡才显示“复核撤单”。激活后先刷新该准确订单详情，再显示用户确认。对话框列出 `Trading 212 Demo · TRADING212_DEMO`、捕获的账户标签与远端账户 ID、完整 provider order ID、标的/方向、原始和归一状态、精确已成交/剩余数量、可用时的成交金额/币种及观察时间，并说明 provider acknowledgement 不等于撤单已确认。
+
+对话框使用 `aria-modal`，使应用 shell inert，初始焦点落在“继续检查”，并限制 Tab/Shift+Tab 焦点循环；Escape 或“继续检查”仅关闭、不发送请求，并恢复焦点。只有独立的“确认撤单请求”控件才会针对捕获的 connection、订单和订单簿版本发送一次请求。已接受或结果未知的请求保持可见的 pending，并提供准确订单详情刷新；在 provider 证据允许新的决定前隐藏再次撤单操作。包括接受撤单后的竞态在内，provider 确认的成交仍可见并优先于本地 pending 状态。验证 768 px 与 390 px 的键盘操作和溢出。本节 §14.5.2 是独立写入复核流程；§14.5.1 保持只读。
 
 ## 14.6 Screener 复核与结果流程（C2/C3）
 
@@ -856,4 +900,74 @@ Onboarding Ready 要求至少一个已验证可用路由。关闭错误框不恢
 
 ## 14.10 验收证据
 
-QA Report 的 QA-01–QA-12 是本章细化要求的最低回归集合。通过必须依赖实际动作/状态断言，包括拒绝路径与中断路径。截图只证明布局，接口或状态标签只证明存在。运行时集成、提供方真实状态、持久化和辅助技术检查保留独立门槛。既有 FR/AC ID 保持稳定，两种语言必须记录相同用例状态。
+QA Report 的 QA-01–QA-13 是本章细化要求的最低回归集合。通过必须依赖实际动作/状态断言，包括拒绝路径与中断路径。截图只证明布局，接口或状态标签只证明存在。运行时集成、提供方真实状态、持久化和辅助技术检查保留独立门槛。两种语言必须记录相同用例状态。
+
+## 14.11 Trading 212 Demo 本地账户删除（S18 #66）
+
+Accounts 详情页仅在所选 `trading212` / `DEMO` 记录满足 connection state=`FAILED` 或 `DISCONNECTED` 且 credential health=`MISSING` 时提供“删除本地账户”。打开原生 accessible confirmation dialog，通过完整 connection ID、账户 label、provider 和 environment 明确标识捕获的准确记录，并说明会永久删除 TradeX 本地账户详情与账户/订单簿观察。明确说明不会向 Trading 212 发请求、不会撤销 provider key 或取消 provider order，也不改变其他任何账户。初始焦点位于 Cancel；dialog 限制键盘焦点，Escape/Cancel 不发送 command。失败时显示后端拒绝/存储结果且保持可操作；成功后播报完成、刷新列表/上下文、移除已删除详情，并将焦点还给触发控件或 Account connections 标题。验证 390 px 与 768 px 布局。
+
+该 UI 仅调用版本 1 的 `account.delete`，携带 workspace、准确 connection ID 与预期 state version。不发送 Keychain 引用，也不调用 provider I/O。后端独立检查删除资格与未解决金融活动；`ACKNOWLEDGED` attempt 在其准确关联订单获得持久化且已识别的终态观察、`pending: false` 前仍属未解决。点击原型证据必须与运行时集成证据分开。
+
+## 14.12 Binance Spot Testnet 提交与恢复（S19 #68）
+
+对 `BINANCE_TESTNET` Proposal，使用明确的 Binance Spot Testnet 确认框，展示捕获的账户 label、完整 connection ID 与远端账户 ID，以及准确不可变 Proposal/hash、instrument、方向、数量类型/数值、订单类型、有效期、限价、maximum spend 和 venue。确认后重新验证同一已连接的 `TESTNET` identity 与 Proposal。身份或 Proposal 已变化时返回审阅；界面绝不转到 Live。
+
+提交后区分 `SUBMITTING`、`ACKNOWLEDGED`、`UNKNOWN_RECONCILING` 和 `REJECTED`。Acknowledgement 表示 provider 接受，不是 fill。重复激活和重新打开都读取已保存 attempt，不能再发第二个 POST。未知结果保持冻结并禁用重提，只允许显式查询其已保存 client order ID；查无结果时仍保持 unknown。不支持的订单形式或 provider filter 必须明确说明，不能强行映射/舍入 Proposal。对话框遵循 §14.9 的键盘/焦点契约。在 390、768、1280 px 检查账户 identity、状态和控件；原型 fixture 证据与 provider runtime 证据分开。
+
+### 14.13 Binance Spot Testnet 实时订单簿更新（S19 #70）
+
+在 Order Drafts 中选择已连接的 `BINANCE_TESTNET` 账户后，显示已保存订单、成交、余额，以及可读的私有流/REST reconciliation 状态和最近事件时间。Stream 更新通过账户健康 event 刷新已保存订单视图；尚未同步、加载、当前、stale、degraded 和需要 reconciliation 状态均使用无障碍状态文案。断流/恢复期间保留最后可信观察；未知 provider 状态可见且不视为终态。保留手动读取控件和既有仅主 Trade 的边界。不增加流控件或金融权限。使用 Rust-backed 集成 fixture 验证键盘操作和 390/768/1280 px 布局；可点击原型不作为 provider 证据。
+
+### 14.14 Binance Spot Testnet 准确订单撤销复核（S19 #71）
+
+仅在已连接的 Binance Spot Testnet 账户中，对 symbol 为 `BTCUSDT` 或 `ETHUSDT`、原始 provider 状态为 `NEW` 或 `PARTIALLY_FILLED`、剩余数量已知、有效且严格大于零、没有现存撤销状态且不超过 60 秒的 `CURRENT` 订单观察提供“复核撤销”。剩余数量缺失、无效或为零时保持复核不可用。无障碍确认框明确显示 Binance Spot Testnet、账户 label/远端 ID、完整 provider order ID、symbol、方向、原始状态、准确已成交/剩余数量及观察时间。说明 TradeX 会在确认后、provider 写入前重新核验账户及准确订单；provider acknowledgement 不证明撤销完成。
+
+激活“复核撤销”时，先执行现有的准确订单 Detail 刷新。仅当返回订单簿为 `CURRENT`，且该准确订单对当前 connection 和远端账户仍可撤销时，才打开确认框。用户明确确认后，后端会在 provider 写入前再次核验账户及准确订单。
+
+复核本身只读。Escape/继续复核不会发送 command，并在关闭后恢复焦点。用户明确确认后才发送捕获的 connection/book version、准确订单身份、新生成的幂等 UUID 和 `confirmed: true`；若 provider 订单已变化，要求重新复核且不发送 DELETE。使用独立无障碍文字区分 `SUBMITTING`、已确认 provider 终态，以及结果不明的 `PENDING`。保留与撤销竞态的成交。不增加 Live、Agent、撤销全部、Local Paper 或通用撤销控件。使用 Rust-backed integration fixture 验证键盘操作和 390、768、1280 px 布局；fixture 不等于 provider-hosted Testnet 证据。
+
+### 14.15 Bitget Spot Live 账户订单与成交（S20 #75）
+
+所选普通 Bitget Classic Spot `LIVE` 账户详情在资产余额旁显示当前订单、近期普通单/TPSL/计划单历史和近期成交。仅在用户显式刷新账户后读取，不进行 provider 轮询。区域标注 `Bitget Spot Live · READ ONLY · DISARMED`。保留完整 provider ID 与准确十进制字符串。仅当 origin 关联到持久化 TradeX identity 时显示 `TRADEX`，否则显示 `external`；并保留原始/归一状态、累计基础币成交数量与计价币金额、仅在可确定时显示剩余数量、provider 时间及 TradeX 观测新鲜度。
+
+展示 `CURRENT`、`STALE` 或 `DEGRADED`，以及最后一次成功观测时间。不完整、重复、畸形、超限、失败或限流响应都保留上一份可信快照，并显示脱敏状态/重试信息；不能把空结果伪装为成功。宽表格可内部滚动且可用键盘访问。在 390、768、1280 px 验证账户详情。不得创建/使用 Demo 账户、不得在 Live 请求上附加 Demo 的 `paptrading: 1` header、不得跨环境回退，也不得暴露任何 Live 写操作。若不存在普通 Live connection，fixture 验证与待完成的真实 provider 读取必须分开记录。
+
+TradeX 不为 Bitget Classic Spot v2 connection 维护私有流。显示 `Private stream unavailable · REST reconciliation`，将流健康状态保持为 `NOT_CONFIGURED`，并且仅通过用户显式连接或 REST 刷新读取更新账户/订单观测。
+
+### 14.16 RiskDecision 求值与历史（S21 #81）
+
+Order Drafts 可显式对已保存 proposal 求值或重新求值，并展示 append-only decision history。显示 `ALLOWED`、`REJECTED` 或 `UNAVAILABLE`、绑定的 proposal hash、准确账户/环境、策略版本、逐项结果/原因及输入摘要。Renderer 只发送 workspace/proposal identity。`RISK_REJECTED` 与 `RISK_EVIDENCE_UNAVAILABLE` 分别显示；任一 submit 错误后刷新并显示已持久化 decision，说明未产生 order attempt/provider 或 simulator 订单副作用。`ALLOWED` 不等于审批、Arm、预留或发送权限。保持键盘可访问，并验证 390、768、1280 px 布局。普通 Bitget `LIVE` 明确只读；不创建/使用 Demo，也不显示 Live 写控件。
+
+## 14.17 Live 未知 PLACE 对账（S25.1 #97、S25.2 #98、S25.3 #99、S25.4 #100）
+
+对于已保存的 Trading 212 Live `UNKNOWN_RECONCILING` PLACE attempt，展示准确账户和 attempt、可信五分钟窗口、最近查询时间/范围、覆盖范围、结果、分页、候选、错误及后端下一步。刷新只能执行只读查询，每次读取一页有界历史；窗口过期或可信时间不可用时停止刷新。重新打开后恢复已持久化观测。
+
+对于 Trading 212，精确 ticker/side/quantity/time 匹配只能列为候选；绝不自动关联，也不能把空页说成不存在的证明。空、不完整、延迟、失败、未认证或身份不匹配的读取均明确保持不确定。窗口超时后账户变为 DISARMED/STALE，attempt 仍为 `UNKNOWN_RECONCILING` 且 PLACE reservation 保持 active。Trading 212、不确定或不支持的证据显示 Keep Reconciling；新鲜且准确的 Binance/Bitget 候选可按下文 provider 检查额外提供 Confirm submitted。持久化选定的决策；两种操作都不会重启 provider 查询。不得展示确认未提交、重发、provider 写入或释放控件。在真实界面验证键盘导航及 390/768/1280 px 布局；原型 fixture 证据不能证明 runtime 验收通过。
+
+对于 Binance Spot Live，在同一证据面板中标明 provider、已保存账户/attempt、只读账户身份及准确 client-order 查询范围，并展示 Binance 返回的订单 ID、client order ID、状态和可信查询窗口。使用 attempt 已保存的 `providerClientOrderId`（`tx-{去掉连字符的 execution-attempt UUID}`）作为查询参数 `origClientOrderId`；仅当响应 client ID、symbol、side、order type、准确的 base 或 quote quantity 和时间均与已保存 proposal/窗口一致，才列为候选；LIMIT 订单还必须匹配 limit price 和 time-in-force。Binance `-2013`、身份缺失/格式错误/不匹配、覆盖不完整、认证、限流及传输失败都保持不确定；它们不能证明未提交或释放容量。新鲜且准确的候选可提供 Confirm submitted；不确定证据仍只能 Keep。Binance 路径没有 POST、DELETE、重试或 Testnet 回退。
+
+对于 Bitget Classic Spot Live，在同一证据面板中标明已保存 Live 账户和远端 `userId`、attempt、准确的 `orderInfo?clientOid=...` 只读查询范围、返回的 Bitget 订单 ID/clientOid/status 及可信查询窗口。只有 clientOid、账户、symbol、side、order type、size 和时间完全匹配，且 LIMIT 订单同时匹配 price/force 并满足 `tpslType=normal` 时，才显示为候选。候选是券商订单观测，不是成交证据或自动处置。空、无关、不完整、延迟、格式错误、认证、限流或传输结果均保持不确定，不能证明未提交或释放容量。新鲜且准确的候选可提供 Confirm submitted；不确定证据仍只能 Keep。Bitget 路径没有 POST、DELETE、重试、`paptrading` header 或 Demo/Testnet 回退。
+
+## 14.18 Trading 212 Live 撤单历史与成交竞态（S26.2 #104）
+
+Accounts 展示账户范围内已保存的 Trading 212 Live CANCEL 审批历史，包括准确订单不再开放后的已消费 attempt。每次进入时重新读取耐久 attempt，并将其 acknowledgement 与最新准确 provider 观测及按准确 provider order ID 关联的 S26.1 PLACE settlement 分开呈现。
+
+“刷新准确订单”是针对捕获的已消费 approval、账户与 provider order ID 的显式只读操作。显示 provider 原始状态与归一 disposition、准确可用的订单/成交/剩余数量和累计金额、来源、TradeX 观测时间、可选 provider 时间，以及关联结算的剩余容量/未解决原因。缺少 fee/trade facts 时继续显示不可用。账户已连接时允许刷新；若连接需复核，仅当在线、认证有效且凭据可用时允许；此例外不授予写入或 Arm 权限。DELETE 后竞态到达的成交成为最新订单观测，而撤单 attempt 仍保持 `CANCEL_PENDING`；acknowledgement 不表示撤单已完成。导航/重开后恢复相同事实。提供 accessible 状态/错误、键盘可操作刷新按钮，并检查 390/768/1280 px。不自动轮询。
+
+## 14.19 Binance Spot Live 撤单历史与成交竞态（S26.3 #105）
+
+Accounts 按账户列出 Binance Spot Live 撤单历史，并在导航或重新打开 workspace 后恢复每个已消费 attempt。保存的 provider acknowledgement、最新准确订单观测和准确关联的 S26.1 PLACE settlement 始终分开展示。
+
+“刷新准确订单”是针对捕获账户、已消费 CANCEL approval 和准确 `symbol:orderId` 的显式只读操作。重新核验普通 Spot Live 账户身份，然后只读取准确订单及其订单范围内的成交证据。显示 provider 原始状态、归一 disposition、准确数量/已成交/剩余数量、累计 quote value、完整时的 trade ID 与 commission 金额/资产、观测来源和时间，以及关联 settlement 完整性、未解决原因与剩余容量。成交/手续费证据缺失、格式错误或不完整时继续显示不可用，并保守保留容量。
+
+撤单流程保持显式：刷新并审阅准确当前订单、审批不可变 CANCEL intent，然后单独通过 Order Gateway prepare/send。Gateway 仅在 `SUBMITTING` 持久化后，为该准确 symbol 和数字订单 ID 签名并发送一次 DELETE；不使用撤销全部或 Testnet 路由。Provider acknowledgement 进入 `CANCEL_PENDING`，不进入 `CANCELLED`。DELETE 期间发生的成交更新准确订单及关联 PLACE settlement，而 CANCEL attempt 继续保持 `CANCEL_PENDING`。只有同一账户的数字订单 ID 和规范 instrument 均准确匹配时才关联 TradeX PLACE；外部订单或相似订单不关联。导航/重开后恢复保存事实。提供 accessible 状态/错误、键盘可操作控件，并检查 390/768/1280 px。不自动轮询。
+
+## 14.20 Bitget Classic Spot Live 撤单历史与成交竞态（S26.4 #106）
+
+Accounts 按账户列出已保存的 Bitget Classic Spot Live CANCEL approval，包括订单离开开放订单列表后的已消费 attempt。导航或重新打开 workspace 后仍能恢复，并将 provider acknowledgement、最新准确订单观测与 S26.1 PLACE settlement 作为彼此独立的已保存事实。
+
+撤单保持显式步骤：刷新并审阅准确的普通 `normal` Spot 订单，批准其不可变 CANCEL intent，然后通过隔离的 Order Gateway 单独准备并发送。Gateway 在修改前重新核验已连接的 Live 账户与准确订单，耐久写入 `SUBMITTING` 后，仅发送一次签名 `POST /api/v2/spot/trade/cancel-order`，请求体只含已保存的 `symbol` 和数字 `orderId`。成功 acknowledgement 只表示 `CANCEL_PENDING`，绝不表示 `CANCELLED`；拒绝、结果模糊、超时、重启或响应丢失均不会自动重发。不可使用 Demo/Testnet、批量撤单或撤单替换路由。
+
+如果派发前准确证据发生变化，且已保存 attempt 为 `INVALIDATED` / `STOPPED_BEFORE_DISPATCH`，应保留该 attempt 历史，并允许对同一准确订单重新刷新和审阅。可能已到达 provider 的 attempt 必须继续对账，不得重试。
+
+“刷新准确订单”是针对捕获账户、已消费 approval 和准确 `normal:{orderId}` 的显式只读操作。显示 Bitget 原始状态、归一 disposition、准确订单/成交/剩余 base quantity 与累计 quote value、完整时的 trade ID 和手续费金额/资产、来源，以及 provider/TradeX 观测时间。Bitget 有符号 `totalFee` 余额变化以非负手续费成本显示。竞态成交会更新已保存观测及关联的 S26.1 settlement，而 CANCEL attempt 继续保持 `CANCEL_PENDING`。不完整、陈旧、冲突或缺少手续费/成交证据时继续标为不可用，并保守保留容量。外部或仅相似的订单绝不关联。使用可访问的状态/错误提示、键盘可操作的审阅与刷新控件，并验证 390/768/1280 px 布局。不自动轮询。

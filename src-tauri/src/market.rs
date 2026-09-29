@@ -1,0 +1,1332 @@
+use crate::protocol::TimeConfidence;
+use crate::protocol::{
+    AdjustmentStatus, AssetClass, CorporateAction, DataSourceEntry, DataSourceStatus, Instrument,
+    InstrumentProviderMapping, MarketCatalog, MarketCatalogQuery, MarketDataStatus, MarketDetail,
+    MarketGetQuery, MarketSession, MarketState, MarketTier, Result, TimeStatus, TradeXError,
+};
+#[cfg(test)]
+use crate::protocol::{MarketEntitlement, MarketFreshness};
+use duckdb::Connection;
+use std::path::Path;
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+
+#[cfg(test)]
+const MAX_HISTORY_ROWS: usize = 100_000;
+
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HistoricalBar {
+    pub instrument_id: String,
+    pub interval_start: String,
+    pub open: String,
+    pub high: String,
+    pub low: String,
+    pub close: String,
+    pub volume: String,
+    pub source: String,
+    pub venue: Option<String>,
+    pub provider_timestamp: String,
+    pub received_timestamp: String,
+    pub entitlement: MarketEntitlement,
+    pub freshness: MarketFreshness,
+}
+
+pub(crate) fn ensure_history(path: &Path) -> Result<()> {
+    let database = path.join("market.duckdb");
+    if database
+        .symlink_metadata()
+        .is_ok_and(|metadata| metadata.file_type().is_symlink())
+    {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    let connection =
+        Connection::open(&database).map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    connection
+        .execute_batch(
+            "CREATE TABLE IF NOT EXISTS ohlcv_1m (
+                instrument_id VARCHAR NOT NULL,
+                interval_start VARCHAR NOT NULL,
+                open VARCHAR NOT NULL,
+                high VARCHAR NOT NULL,
+                low VARCHAR NOT NULL,
+                close VARCHAR NOT NULL,
+                volume VARCHAR NOT NULL,
+                source VARCHAR NOT NULL,
+                venue VARCHAR,
+                provider_timestamp VARCHAR NOT NULL,
+                received_timestamp VARCHAR NOT NULL,
+                entitlement VARCHAR NOT NULL,
+                freshness VARCHAR NOT NULL,
+                PRIMARY KEY (instrument_id, interval_start, source)
+            );",
+        )
+        .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))
+}
+
+#[cfg(test)]
+pub(crate) fn insert_history(
+    path: &Path,
+    bar: &HistoricalBar,
+    source: Option<&DataSourceEntry>,
+) -> Result<()> {
+    validate_bar(bar)?;
+    if !history_source_matches_instrument(&bar.instrument_id, &bar.source)
+        || matches!(bar.entitlement, MarketEntitlement::Realtime)
+    {
+        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE"));
+    }
+    if source
+        .filter(|entry| {
+            entry.source_id == bar.source && entry.status == DataSourceStatus::Available
+        })
+        .is_none()
+    {
+        return Err(TradeXError::new("MARKET_HISTORY_UNAVAILABLE"));
+    }
+    ensure_history(path)?;
+    let database = path.join("market.duckdb");
+    let connection =
+        Connection::open(&database).map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    let count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM ohlcv_1m", [], |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if count < 0 || count as usize >= MAX_HISTORY_ROWS {
+        return Err(TradeXError::new("MARKET_HISTORY_LIMIT"));
+    }
+    connection
+        .execute(
+            "INSERT OR REPLACE INTO ohlcv_1m (instrument_id, interval_start, open, high, low, close, volume, source, venue, provider_timestamp, received_timestamp, entitlement, freshness) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            duckdb::params![
+                &bar.instrument_id,
+                &bar.interval_start,
+                &bar.open,
+                &bar.high,
+                &bar.low,
+                &bar.close,
+                &bar.volume,
+                &bar.source,
+                &bar.venue,
+                &bar.provider_timestamp,
+                &bar.received_timestamp,
+                serde_json::to_string(&bar.entitlement).map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?.trim_matches('"'),
+                serde_json::to_string(&bar.freshness).map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?.trim_matches('"'),
+            ],
+        )
+        .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn history_count(path: &Path) -> Result<u64> {
+    ensure_history(path)?;
+    let connection = Connection::open(path.join("market.duckdb"))
+        .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    let count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM ohlcv_1m", [], |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    u64::try_from(count).map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+}
+
+#[cfg(test)]
+fn validate_bar(bar: &HistoricalBar) -> Result<()> {
+    if !validate_instrument_id(&bar.instrument_id)
+        || !instruments()
+            .iter()
+            .any(|instrument| instrument.instrument_id == bar.instrument_id)
+        || !valid_timestamp(&bar.interval_start, true)
+        || !valid_timestamp(&bar.provider_timestamp, false)
+        || !valid_timestamp(&bar.received_timestamp, false)
+        || !matches!(bar.source.as_str(), "OD-001" | "OD-002")
+        || bar
+            .venue
+            .as_deref()
+            .is_some_and(|venue| !valid_identifier(venue, 32))
+        || [&bar.open, &bar.high, &bar.low, &bar.close, &bar.volume]
+            .iter()
+            .any(|value| !valid_decimal(value))
+    {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn history_source_matches_instrument(instrument_id: &str, source_id: &str) -> bool {
+    instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == instrument_id)
+        .is_some_and(|instrument| {
+            matches!(instrument.asset_class, AssetClass::Equity)
+                && matches!(source_id, "OD-001" | "OD-002")
+        })
+}
+
+fn valid_text(value: &str, max_len: usize) -> bool {
+    !value.is_empty() && value.len() <= max_len && !value.chars().any(char::is_control)
+}
+
+#[cfg(test)]
+fn valid_identifier(value: &str, max_len: usize) -> bool {
+    valid_text(value, max_len)
+        && value.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || b"._-".contains(&byte)
+        })
+}
+
+#[cfg(test)]
+fn valid_timestamp(value: &str, minute_boundary: bool) -> bool {
+    if !valid_text(value, 64) {
+        return false;
+    }
+    let Ok(timestamp) = OffsetDateTime::parse(value, &Rfc3339) else {
+        return false;
+    };
+    !minute_boundary || (timestamp.second() == 0 && timestamp.nanosecond() == 0)
+}
+
+#[cfg(test)]
+fn valid_decimal(value: &str) -> bool {
+    let Ok(normalized) = crate::provider_io::decimal(&serde_json::Value::String(value.into()))
+    else {
+        return false;
+    };
+    !normalized.starts_with('-')
+}
+
+pub fn instruments() -> Vec<Instrument> {
+    vec![
+        Instrument {
+            instrument_id: "equity:US:AAPL".into(),
+            asset_class: AssetClass::Equity,
+            symbol: "AAPL".into(),
+            base: None,
+            quote: None,
+            exchange: Some("XNAS".into()),
+            currency: "USD".into(),
+            display_name: "Apple Inc.".into(),
+            providers: vec![
+                InstrumentProviderMapping {
+                    provider_id: "alpaca".into(),
+                    provider_symbol: "AAPL".into(),
+                },
+                InstrumentProviderMapping {
+                    provider_id: "trading212".into(),
+                    provider_symbol: "AAPL_US_EQ".into(),
+                },
+            ],
+        },
+        Instrument {
+            instrument_id: "equity:US:MSFT".into(),
+            asset_class: AssetClass::Equity,
+            symbol: "MSFT".into(),
+            base: None,
+            quote: None,
+            exchange: Some("XNAS".into()),
+            currency: "USD".into(),
+            display_name: "Microsoft Corporation".into(),
+            providers: vec![
+                InstrumentProviderMapping {
+                    provider_id: "alpaca".into(),
+                    provider_symbol: "MSFT".into(),
+                },
+                InstrumentProviderMapping {
+                    provider_id: "trading212".into(),
+                    provider_symbol: "MSFT_US_EQ".into(),
+                },
+            ],
+        },
+        Instrument {
+            instrument_id: "crypto:BTC/USDT:spot".into(),
+            asset_class: AssetClass::CryptoSpot,
+            symbol: "BTC/USDT".into(),
+            base: Some("BTC".into()),
+            quote: Some("USDT".into()),
+            exchange: None,
+            currency: "USDT".into(),
+            display_name: "Bitcoin / Tether spot".into(),
+            providers: vec![
+                InstrumentProviderMapping {
+                    provider_id: "binance".into(),
+                    provider_symbol: "BTCUSDT".into(),
+                },
+                InstrumentProviderMapping {
+                    provider_id: "bitget".into(),
+                    provider_symbol: "BTCUSDT".into(),
+                },
+            ],
+        },
+        Instrument {
+            instrument_id: "crypto:ETH/USDT:spot".into(),
+            asset_class: AssetClass::CryptoSpot,
+            symbol: "ETH/USDT".into(),
+            base: Some("ETH".into()),
+            quote: Some("USDT".into()),
+            exchange: None,
+            currency: "USDT".into(),
+            display_name: "Ethereum / Tether spot".into(),
+            providers: vec![
+                InstrumentProviderMapping {
+                    provider_id: "binance".into(),
+                    provider_symbol: "ETHUSDT".into(),
+                },
+                InstrumentProviderMapping {
+                    provider_id: "bitget".into(),
+                    provider_symbol: "ETHUSDT".into(),
+                },
+            ],
+        },
+    ]
+}
+
+/// Resolves a provider symbol at the adapter boundary. Unknown mappings remain `None`; the
+/// portfolio emits the explicit `UNAVAILABLE` asset sentinel in that case.
+pub fn canonical_instrument_id(provider_id: &str, provider_symbol: &str) -> Option<String> {
+    instruments().into_iter().find_map(|instrument| {
+        instrument
+            .providers
+            .iter()
+            .any(|mapping| {
+                mapping.provider_id == provider_id && mapping.provider_symbol == provider_symbol
+            })
+            .then_some(instrument.instrument_id)
+    })
+}
+
+pub fn validate_instrument_id(id: &str) -> bool {
+    if id.len() > 128 || id.chars().any(char::is_control) {
+        return false;
+    }
+    let Some(rest) = id.strip_prefix("equity:US:") else {
+        let Some(pair) = id.strip_prefix("crypto:") else {
+            return false;
+        };
+        let Some(pair) = pair.strip_suffix(":spot") else {
+            return false;
+        };
+        let mut parts = pair.split('/');
+        return parts.next().is_some_and(valid_token)
+            && parts.next().is_some_and(valid_token)
+            && parts.next().is_none();
+    };
+    !rest.is_empty()
+        && rest.len() <= 32
+        && rest
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '.' || c == '-')
+}
+
+fn valid_token(token: &str) -> bool {
+    !token.is_empty()
+        && token.len() <= 16
+        && token
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '.' || c == '-')
+}
+
+fn source_for_tier(tier: &MarketTier) -> &'static str {
+    match tier {
+        MarketTier::Cold => "OD-002",
+        MarketTier::Census | MarketTier::Warm | MarketTier::Hot => "OD-001",
+    }
+}
+
+pub fn source_id_for_instrument(instrument_id: &str, tier: &MarketTier) -> Option<&'static str> {
+    if instrument_id.starts_with("equity:US:") {
+        Some(source_for_tier(tier))
+    } else {
+        None
+    }
+}
+
+fn source_status(
+    source: Option<&DataSourceEntry>,
+    available_reason: &str,
+    missing_reason: String,
+) -> (MarketDataStatus, String) {
+    let Some(source) = source else {
+        return (MarketDataStatus::Unavailable, missing_reason);
+    };
+    match source.status {
+        DataSourceStatus::Available => (MarketDataStatus::Unavailable, available_reason.into()),
+        DataSourceStatus::BlockedExternal => (
+            MarketDataStatus::BlockedExternal,
+            source.availability_reason.clone(),
+        ),
+        DataSourceStatus::Unavailable => (
+            MarketDataStatus::Unavailable,
+            source.availability_reason.clone(),
+        ),
+        DataSourceStatus::Unverified => (
+            MarketDataStatus::Unverified,
+            source.availability_reason.clone(),
+        ),
+    }
+}
+
+fn source_gate(
+    source: Option<&DataSourceEntry>,
+    source_id: Option<&str>,
+) -> (MarketDataStatus, String) {
+    let Some(source_id) = source_id else {
+        return source_status(
+            None,
+            "",
+            "No crypto market-data source is selected in the S06 authorization catalog.".into(),
+        );
+    };
+    source_status(
+        source,
+        &format!(
+            "Market adapter for {source_id} is not configured in this build; no quote was returned."
+        ),
+        format!("Market source {source_id} is not present in the S06 authorization catalog."),
+    )
+}
+
+fn market_status_from_source(
+    source: Option<&DataSourceEntry>,
+) -> (Option<String>, MarketDataStatus, String) {
+    let Some(source) = source else {
+        return (
+            None,
+            MarketDataStatus::Unavailable,
+            "The calendar and corporate-action source is not selected in the S06 authorization catalog.".into(),
+        );
+    };
+    let source_id = Some(source.source_id.clone());
+    let (status, reason) = source_status(
+        Some(source),
+        "The calendar adapter is not configured in this build; no market session was inferred.",
+        "The calendar and corporate-action source is not selected in the S06 authorization catalog."
+            .into(),
+    );
+    (source_id, status, reason)
+}
+
+fn market_state_from_observation(
+    instrument: &Instrument,
+    calendar_source: Option<&DataSourceEntry>,
+    time_status: &TimeStatus,
+    observation: Option<&MarketState>,
+) -> Result<(MarketState, AdjustmentStatus)> {
+    let is_equity = matches!(instrument.asset_class, AssetClass::Equity);
+    let (source_id, source_status, reason) = if is_equity {
+        market_status_from_source(calendar_source)
+    } else {
+        (
+            None,
+            MarketDataStatus::Unavailable,
+            "No crypto venue-state source is selected in the S06 authorization catalog.".into(),
+        )
+    };
+    let venue = instrument
+        .exchange
+        .clone()
+        .unwrap_or_else(|| "UNSELECTED".into());
+    let adjustment_status = if is_equity {
+        AdjustmentStatus::Unavailable
+    } else {
+        AdjustmentStatus::Unknown
+    };
+    let default = (
+        MarketState {
+            session: MarketSession::Unknown,
+            venue,
+            source_id,
+            source_status,
+            next_open: None,
+            next_close: None,
+            calendar_version: None,
+            provider_time: None,
+            observed_at: time_status.observed_at.clone(),
+            time_confidence: time_status.confidence,
+            reason,
+        },
+        adjustment_status,
+    );
+    let Some(observation) = observation else {
+        return Ok(default);
+    };
+    validate_market_state_observation(instrument, calendar_source, observation)?;
+    let mut observed = observation.clone();
+    observed.observed_at = time_status.observed_at.clone();
+    observed.time_confidence = time_status.confidence;
+    Ok((observed, default.1))
+}
+
+fn validate_market_state_observation(
+    instrument: &Instrument,
+    calendar_source: Option<&DataSourceEntry>,
+    state: &MarketState,
+) -> Result<()> {
+    if !valid_text(&state.venue, 32)
+        || !valid_text(&state.observed_at, 64)
+        || OffsetDateTime::parse(&state.observed_at, &Rfc3339).is_err()
+        || !valid_text(&state.reason, 512)
+        || state.next_open.as_deref().is_some_and(|value| {
+            !valid_text(value, 64) || OffsetDateTime::parse(value, &Rfc3339).is_err()
+        })
+        || state.next_close.as_deref().is_some_and(|value| {
+            !valid_text(value, 64) || OffsetDateTime::parse(value, &Rfc3339).is_err()
+        })
+        || state
+            .calendar_version
+            .as_deref()
+            .is_some_and(|value| !valid_text(value, 64))
+        || state.provider_time.as_deref().is_some_and(|value| {
+            !valid_text(value, 64) || OffsetDateTime::parse(value, &Rfc3339).is_err()
+        })
+        || !matches!(
+            state.source_status,
+            MarketDataStatus::Available | MarketDataStatus::Unverified
+        )
+    {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    if matches!(instrument.asset_class, AssetClass::Equity) {
+        if state.source_id.as_deref() != calendar_source.map(|source| source.source_id.as_str()) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        if let Some(source) = calendar_source {
+            if source.status != DataSourceStatus::Available {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+            if state.source_status != MarketDataStatus::Available {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        } else if state.source_status != MarketDataStatus::Unverified {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+    } else if state.source_id.is_some() || state.source_status != MarketDataStatus::Unverified {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+fn fixture_state(
+    instrument: &Instrument,
+) -> Option<(MarketState, Vec<CorporateAction>, AdjustmentStatus)> {
+    let (session, venue, reason) = match instrument.instrument_id.as_str() {
+        "equity:US:AAPL" => (
+            MarketSession::Open,
+            "XNAS",
+            "S08 synthetic regular-session fixture; not a live calendar observation.",
+        ),
+        "equity:US:MSFT" => (
+            MarketSession::Closed,
+            "XNAS",
+            "S08 synthetic holiday-session fixture; not a live calendar observation.",
+        ),
+        "crypto:BTC/USDT:spot" => (
+            MarketSession::Maintenance,
+            "BINANCE",
+            "S08 synthetic venue-maintenance fixture; not a live venue observation.",
+        ),
+        "crypto:ETH/USDT:spot" => (
+            MarketSession::Degraded,
+            "BINANCE",
+            "S08 synthetic degraded-service fixture; not a live venue observation.",
+        ),
+        _ => return None,
+    };
+    let state = MarketState {
+        session,
+        venue: venue.into(),
+        source_id: None,
+        source_status: MarketDataStatus::Unverified,
+        next_open: Some("2026-09-15T13:30:00Z".into()),
+        next_close: Some("2026-09-15T20:00:00Z".into()),
+        calendar_version: Some("s08-fixture-v1".into()),
+        provider_time: Some("2026-09-14T00:00:00Z".into()),
+        observed_at: "2026-09-14T00:00:00Z".into(),
+        time_confidence: TimeConfidence::Trusted,
+        reason: reason.into(),
+    };
+    let actions = if instrument.asset_class == AssetClass::Equity {
+        vec![
+            CorporateAction {
+                action_id: "s08-aapl-split".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::Split,
+                effective_at: "2020-08-31T00:00:00Z".into(),
+                announced_at: Some("2020-07-30T00:00:00Z".into()),
+                source_id: None,
+                description: "Synthetic split contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+            CorporateAction {
+                action_id: "s08-aapl-dividend".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::Dividend,
+                effective_at: "2021-01-01T00:00:00Z".into(),
+                announced_at: Some("2020-12-01T00:00:00Z".into()),
+                source_id: None,
+                description: "Synthetic dividend contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+            CorporateAction {
+                action_id: "s08-aapl-symbol".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::SymbolChange,
+                effective_at: "2022-01-01T00:00:00Z".into(),
+                announced_at: Some("2021-12-01T00:00:00Z".into()),
+                source_id: None,
+                description: "Synthetic symbol-change contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+            CorporateAction {
+                action_id: "s08-aapl-delist".into(),
+                instrument_id: instrument.instrument_id.clone(),
+                action_type: crate::protocol::CorporateActionType::Delisting,
+                effective_at: "2024-01-01T00:00:00Z".into(),
+                announced_at: None,
+                source_id: None,
+                description: "Synthetic delisting contract fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+        ]
+    } else {
+        Vec::new()
+    };
+    Some((state, actions, AdjustmentStatus::Unknown))
+}
+
+fn market_state_from_fixture(
+    instrument: &Instrument,
+    time_status: &TimeStatus,
+) -> Result<(MarketState, Vec<CorporateAction>, AdjustmentStatus)> {
+    let Some((state, actions, adjustment_status)) = fixture_state(instrument) else {
+        return Err(TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"));
+    };
+    validate_market_state_observation(instrument, None, &state)?;
+    let (mut state, actions) = (
+        state,
+        canonical_corporate_actions(&instrument.instrument_id, actions)?,
+    );
+    state.observed_at = time_status.observed_at.clone();
+    state.time_confidence = time_status.confidence;
+    Ok((state, actions, adjustment_status))
+}
+
+fn validate_corporate_actions(instrument_id: &str, actions: &[CorporateAction]) -> Result<()> {
+    if actions.len() > 16 {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    let mut action_ids = std::collections::HashSet::with_capacity(actions.len());
+    for action in actions {
+        if action.instrument_id != instrument_id
+            || !validate_instrument_id(&action.instrument_id)
+            || !valid_text(&action.action_id, 128)
+            || !action_ids.insert(action.action_id.as_str())
+            || !valid_text(&action.effective_at, 64)
+            || OffsetDateTime::parse(&action.effective_at, &Rfc3339).is_err()
+            || action.announced_at.as_deref().is_some_and(|value| {
+                !valid_text(value, 64) || OffsetDateTime::parse(value, &Rfc3339).is_err()
+            })
+            || action
+                .source_id
+                .as_deref()
+                .is_some_and(|value| !valid_text(value, 32))
+            || !valid_text(&action.description, 256)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+    }
+    Ok(())
+}
+
+fn canonical_corporate_actions(
+    instrument_id: &str,
+    mut actions: Vec<CorporateAction>,
+) -> Result<Vec<CorporateAction>> {
+    validate_corporate_actions(instrument_id, &actions)?;
+    actions.sort_by(|left, right| {
+        left.effective_at
+            .cmp(&right.effective_at)
+            .then_with(|| left.action_id.cmp(&right.action_id))
+    });
+    Ok(actions)
+}
+
+/// Shared fail-closed seam for future approval, risk, and dispatch consumers.
+pub fn market_execution_eligibility(
+    time_service: &crate::time::TimeService,
+    state: &MarketState,
+    adjustment_status: AdjustmentStatus,
+) -> Result<()> {
+    time_service.require_trusted()?;
+    match state.session {
+        MarketSession::Closed => Err(TradeXError::new("MARKET_CLOSED")),
+        MarketSession::Halted => Err(TradeXError::new("INSTRUMENT_HALTED")),
+        MarketSession::Open | MarketSession::ExtendedHours
+            if matches!(state.source_status, MarketDataStatus::Available)
+                && matches!(
+                    adjustment_status,
+                    AdjustmentStatus::Adjusted | AdjustmentStatus::Unadjusted
+                ) =>
+        {
+            Ok(())
+        }
+        MarketSession::Maintenance
+        | MarketSession::Suspended
+        | MarketSession::Degraded
+        | MarketSession::Unknown
+        | MarketSession::Open
+        | MarketSession::ExtendedHours => Err(TradeXError::new("MARKET_CLOSED")),
+    }
+}
+
+pub fn catalog(input: &MarketCatalogQuery, sources: &[DataSourceEntry]) -> Result<MarketCatalog> {
+    validate_query(&input.workspace_id, &input.query)?;
+    let query = input.query.trim().to_ascii_lowercase();
+    let instruments: Vec<Instrument> = instruments()
+        .into_iter()
+        .filter(|instrument| {
+            query.is_empty()
+                || instrument
+                    .instrument_id
+                    .to_ascii_lowercase()
+                    .contains(&query)
+                || instrument.symbol.to_ascii_lowercase().contains(&query)
+                || instrument
+                    .display_name
+                    .to_ascii_lowercase()
+                    .contains(&query)
+        })
+        .collect();
+    let source_id = instruments.first().and_then(|instrument| {
+        let candidate = source_id_for_instrument(&instrument.instrument_id, &input.tier);
+        candidate.filter(|source_id| {
+            instruments.iter().all(|item| {
+                source_id_for_instrument(&item.instrument_id, &input.tier) == Some(*source_id)
+            })
+        })
+    });
+    let (status, availability_reason) = match source_id {
+        Some(source_id) => {
+            let source = sources.iter().find(|entry| entry.source_id == source_id);
+            source_gate(source, Some(source_id))
+        }
+        None if instruments
+            .iter()
+            .any(|instrument| matches!(instrument.asset_class, AssetClass::CryptoSpot)) =>
+        {
+            (
+                MarketDataStatus::Unavailable,
+                "Market source is not selected for the returned crypto instruments.".into(),
+            )
+        }
+        None => (
+            MarketDataStatus::Unavailable,
+            "No canonical instruments match this search.".into(),
+        ),
+    };
+    Ok(MarketCatalog {
+        workspace_id: input.workspace_id.clone(),
+        query: input.query.trim().into(),
+        tier: input.tier.clone(),
+        source_id: source_id.map(str::to_owned),
+        status,
+        availability_reason,
+        instruments,
+    })
+}
+
+pub fn detail(
+    input: &MarketGetQuery,
+    source: Option<&DataSourceEntry>,
+    calendar_source: Option<&DataSourceEntry>,
+    time_status: &TimeStatus,
+) -> Result<MarketDetail> {
+    detail_with_fixture(input, source, calendar_source, time_status, false)
+}
+
+pub fn detail_with_fixture(
+    input: &MarketGetQuery,
+    source: Option<&DataSourceEntry>,
+    calendar_source: Option<&DataSourceEntry>,
+    time_status: &TimeStatus,
+    fixture: bool,
+) -> Result<MarketDetail> {
+    if !valid_text(&input.workspace_id, 128) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    if !validate_instrument_id(&input.instrument_id) {
+        return Err(TradeXError::new("MARKET_INSTRUMENT_INVALID"));
+    }
+    let instrument = instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == input.instrument_id)
+        .ok_or_else(|| TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"))?;
+    let source_id = source_id_for_instrument(&input.instrument_id, &input.tier);
+    let source = source.filter(|entry| Some(entry.source_id.as_str()) == source_id);
+    let (status, availability_reason) = source_gate(source, source_id);
+    let (market_state, corporate_actions, adjustment_status) = if fixture {
+        market_state_from_fixture(&instrument, time_status)?
+    } else {
+        let (market_state, adjustment_status) =
+            market_state_from_observation(&instrument, calendar_source, time_status, None)?;
+        (
+            market_state,
+            canonical_corporate_actions(&input.instrument_id, Vec::new())?,
+            adjustment_status,
+        )
+    };
+    Ok(MarketDetail {
+        workspace_id: input.workspace_id.clone(),
+        instrument,
+        tier: input.tier.clone(),
+        source_id: source_id.map(str::to_owned),
+        status,
+        availability_reason,
+        instrument_state: None,
+        snapshot: None,
+        market_state,
+        corporate_actions,
+        adjustment_status,
+    })
+}
+
+#[cfg(any(test, feature = "integration-test"))]
+pub(crate) fn live_approval_fixture_detail(
+    input: &MarketGetQuery,
+    provider_id: &str,
+    venue: &str,
+    observed_at: &str,
+    quote_timestamp: &str,
+) -> Result<MarketDetail> {
+    use crate::protocol::{
+        InstrumentTradingObservation, InstrumentTradingStatus, MarketDataStatus, MarketEntitlement,
+        MarketFreshness, MarketSession, MarketSnapshot, MarketSnapshotProvenance, TimeConfidence,
+    };
+
+    let mut detail = detail_with_fixture(
+        input,
+        None,
+        None,
+        &TimeStatus {
+            workspace_id: input.workspace_id.clone(),
+            confidence: TimeConfidence::Trusted,
+            wall_clock: observed_at.into(),
+            monotonic_ms: 0,
+            provider_offset_ms: None,
+            observed_at: observed_at.into(),
+            reason: "Synthetic approval fixture".into(),
+            remediation: crate::protocol::Remediation {
+                id: "none".into(),
+                label: "No action required".into(),
+            },
+        },
+        true,
+    )?;
+    let mapping = detail
+        .instrument
+        .providers
+        .iter()
+        .find(|mapping| mapping.provider_id == provider_id)
+        .ok_or_else(|| TradeXError::new("ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"))?;
+    const SOURCE: &str = "SYNTHETIC_INTEGRATION_FIXTURE";
+    detail.status = MarketDataStatus::Available;
+    detail.availability_reason = format!("Synthetic provider approval fixture · {SOURCE}.");
+    detail.source_id = Some(provider_id.into());
+    detail.instrument_state = Some(InstrumentTradingObservation {
+        provider_id: provider_id.into(),
+        provider_symbol: mapping.provider_symbol.clone(),
+        venue: venue.into(),
+        status: InstrumentTradingStatus::Tradable,
+        observed_at: observed_at.into(),
+        source: SOURCE.into(),
+    });
+    detail.snapshot = Some(MarketSnapshot {
+        instrument_id: detail.instrument.instrument_id.clone(),
+        provenance: MarketSnapshotProvenance {
+            market_snapshot_id: "synthetic-live-approval-v1".into(),
+            source: SOURCE.into(),
+            venue: Some(venue.into()),
+            provider_timestamp: quote_timestamp.into(),
+            received_timestamp: quote_timestamp.into(),
+            entitlement: MarketEntitlement::Realtime,
+            freshness: MarketFreshness::Healthy,
+        },
+        last_price: Some("50000".into()),
+        bid: Some("49999".into()),
+        ask: Some("50001".into()),
+    });
+    detail.market_state = crate::protocol::MarketState {
+        session: MarketSession::Open,
+        venue: venue.into(),
+        source_id: Some(provider_id.into()),
+        source_status: MarketDataStatus::Available,
+        next_open: None,
+        next_close: None,
+        calendar_version: Some("synthetic-live-approval-v1".into()),
+        provider_time: Some(quote_timestamp.into()),
+        observed_at: observed_at.into(),
+        time_confidence: TimeConfidence::Trusted,
+        reason: format!("Synthetic provider market fixture · {SOURCE}."),
+    };
+    detail.adjustment_status = AdjustmentStatus::Unadjusted;
+    Ok(detail)
+}
+
+fn validate_query(workspace_id: &str, query: &str) -> Result<()> {
+    if !valid_text(workspace_id, 128) || query.len() > 120 || query.chars().any(char::is_control) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::{CorporateActionType, DataSourceProbeKind, DataSourceStatus};
+    use tempfile::tempdir;
+
+    fn blocked_source(id: &str) -> DataSourceEntry {
+        DataSourceEntry {
+            source_id: id.into(),
+            provider: "Test".into(),
+            capabilities: vec!["market".into()],
+            coverage: "test".into(),
+            latency: "test".into(),
+            entitlement: "test".into(),
+            retention: "test".into(),
+            redistribution: "test".into(),
+            commercial_use: "test".into(),
+            jurisdictions: "test".into(),
+            official_url: "https://example.com".into(),
+            terms_url: "https://example.com/terms".into(),
+            reviewed_at: "2026-09-14".into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::CredentialedMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "entitlement required".into(),
+        }
+    }
+
+    fn available_source(id: &str) -> DataSourceEntry {
+        let mut source = blocked_source(id);
+        source.status = DataSourceStatus::Available;
+        source.configured = true;
+        source.availability_reason = "fixture source".into();
+        source
+    }
+
+    fn fixture_time_status() -> TimeStatus {
+        TimeStatus {
+            workspace_id: "w".into(),
+            confidence: TimeConfidence::Trusted,
+            wall_clock: "2026-09-14T00:00:00Z".into(),
+            monotonic_ms: 1,
+            provider_offset_ms: None,
+            observed_at: "2026-09-14T00:00:00Z".into(),
+            reason: "fixture".into(),
+            remediation: crate::protocol::Remediation {
+                id: "none".into(),
+                label: "No action required".into(),
+            },
+        }
+    }
+
+    #[test]
+    fn canonical_catalog_is_searchable_and_blocked_source_is_explicit() {
+        let input = MarketCatalogQuery {
+            workspace_id: "w".into(),
+            query: "aapl".into(),
+            tier: MarketTier::Hot,
+        };
+        let catalog = catalog(&input, &[blocked_source("OD-001")]).unwrap();
+        assert_eq!(catalog.instruments.len(), 1);
+        assert_eq!(catalog.instruments[0].instrument_id, "equity:US:AAPL");
+        assert_eq!(catalog.status, MarketDataStatus::BlockedExternal);
+    }
+
+    #[test]
+    fn blocked_calendar_keeps_market_state_unknown_and_gate_fail_closed() {
+        let input = MarketGetQuery {
+            workspace_id: "w".into(),
+            instrument_id: "equity:US:AAPL".into(),
+            tier: MarketTier::Hot,
+        };
+        let market_source = blocked_source("OD-001");
+        let calendar_source = blocked_source("OD-005");
+        let time_status = fixture_time_status();
+        let detail = detail(
+            &input,
+            Some(&market_source),
+            Some(&calendar_source),
+            &time_status,
+        )
+        .unwrap();
+        assert_eq!(detail.market_state.session, MarketSession::Unknown);
+        assert_eq!(
+            detail.market_state.source_status,
+            MarketDataStatus::BlockedExternal
+        );
+        assert_eq!(detail.market_state.source_id.as_deref(), Some("OD-005"));
+        assert_eq!(detail.adjustment_status, AdjustmentStatus::Unavailable);
+        assert!(detail.corporate_actions.is_empty());
+
+        let mut bypass = detail.market_state.clone();
+        bypass.session = MarketSession::Open;
+        bypass.source_status = MarketDataStatus::Available;
+        assert_eq!(
+            market_state_from_observation(
+                &detail.instrument,
+                Some(&calendar_source),
+                &time_status,
+                Some(&bypass),
+            )
+            .unwrap_err()
+            .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+
+        let mut time = crate::time::TimeService::new();
+        time.reset("w");
+        assert_eq!(
+            market_execution_eligibility(
+                &time,
+                &detail.market_state,
+                AdjustmentStatus::Unavailable,
+            )
+            .unwrap_err()
+            .code,
+            "CLOCK_SKEW"
+        );
+        time.revalidate("w").unwrap();
+        let mut closed = detail.market_state.clone();
+        closed.session = MarketSession::Closed;
+        assert_eq!(
+            market_execution_eligibility(&time, &closed, AdjustmentStatus::Unavailable)
+                .unwrap_err()
+                .code,
+            "MARKET_CLOSED"
+        );
+        let mut halted = closed.clone();
+        halted.session = MarketSession::Halted;
+        assert_eq!(
+            market_execution_eligibility(&time, &halted, AdjustmentStatus::Unavailable)
+                .unwrap_err()
+                .code,
+            "INSTRUMENT_HALTED"
+        );
+    }
+
+    #[test]
+    fn fixture_seam_covers_equity_and_crypto_sessions() {
+        let equity = instruments()
+            .into_iter()
+            .find(|instrument| instrument.instrument_id == "equity:US:AAPL")
+            .unwrap();
+        let crypto = instruments()
+            .into_iter()
+            .find(|instrument| instrument.instrument_id == "crypto:BTC/USDT:spot")
+            .unwrap();
+        let calendar_source = available_source("OD-005");
+        let time_status = fixture_time_status();
+        for (session, reason) in [
+            (MarketSession::Open, "regular fixture"),
+            (MarketSession::Closed, "holiday fixture"),
+            (MarketSession::Closed, "half-day fixture"),
+            (MarketSession::ExtendedHours, "extended fixture"),
+            (MarketSession::Halted, "halt fixture"),
+        ] {
+            let fixture = MarketState {
+                session,
+                venue: "XNAS".into(),
+                source_id: Some("OD-005".into()),
+                source_status: MarketDataStatus::Available,
+                next_open: Some("2026-09-15T13:30:00Z".into()),
+                next_close: Some("2026-09-15T20:00:00Z".into()),
+                calendar_version: Some("fixture-v1".into()),
+                provider_time: Some("2026-09-14T00:00:00Z".into()),
+                observed_at: "2026-09-14T00:00:00Z".into(),
+                time_confidence: TimeConfidence::Stale,
+                reason: reason.into(),
+            };
+            let (state, adjustment) = market_state_from_observation(
+                &equity,
+                Some(&calendar_source),
+                &time_status,
+                Some(&fixture),
+            )
+            .unwrap();
+            assert_eq!(state.session, session);
+            assert_eq!(state.observed_at, time_status.observed_at);
+            assert_eq!(state.time_confidence, TimeConfidence::Trusted);
+            assert_eq!(adjustment, AdjustmentStatus::Unavailable);
+        }
+
+        for session in [
+            MarketSession::Maintenance,
+            MarketSession::Suspended,
+            MarketSession::Degraded,
+        ] {
+            let fixture = MarketState {
+                session,
+                venue: "BINANCE".into(),
+                source_id: None,
+                source_status: MarketDataStatus::Unverified,
+                next_open: None,
+                next_close: None,
+                calendar_version: None,
+                provider_time: Some("2026-09-14T00:00:00Z".into()),
+                observed_at: "2026-09-14T00:00:00Z".into(),
+                time_confidence: TimeConfidence::Trusted,
+                reason: "crypto venue fixture".into(),
+            };
+            let (state, adjustment) =
+                market_state_from_observation(&crypto, None, &time_status, Some(&fixture)).unwrap();
+            assert_eq!(state.session, session);
+            assert_eq!(adjustment, AdjustmentStatus::Unknown);
+        }
+    }
+
+    #[test]
+    fn integration_fixture_detail_exposes_actions_without_live_authority() {
+        let input = MarketGetQuery {
+            workspace_id: "w".into(),
+            instrument_id: "equity:US:AAPL".into(),
+            tier: MarketTier::Hot,
+        };
+        let source = blocked_source("OD-001");
+        let time_status = fixture_time_status();
+        let detail = detail_with_fixture(
+            &input,
+            Some(&source),
+            Some(&blocked_source("OD-005")),
+            &time_status,
+            true,
+        )
+        .unwrap();
+        assert_eq!(detail.status, MarketDataStatus::BlockedExternal);
+        assert_eq!(
+            detail.market_state.source_status,
+            MarketDataStatus::Unverified
+        );
+        assert_eq!(detail.market_state.session, MarketSession::Open);
+        assert_eq!(detail.corporate_actions.len(), 4);
+        assert!(
+            detail
+                .corporate_actions
+                .iter()
+                .all(|action| action.adjustment_status == AdjustmentStatus::Unknown)
+        );
+    }
+
+    #[test]
+    fn eligibility_requires_authoritative_source_and_adjustment() {
+        let mut time = crate::time::TimeService::new();
+        time.reset("w");
+        time.revalidate("w").unwrap();
+        let mut state = MarketState {
+            session: MarketSession::Open,
+            venue: "XNAS".into(),
+            source_id: Some("OD-005".into()),
+            source_status: MarketDataStatus::Unverified,
+            next_open: None,
+            next_close: None,
+            calendar_version: None,
+            provider_time: None,
+            observed_at: "2026-09-14T00:00:00Z".into(),
+            time_confidence: TimeConfidence::Trusted,
+            reason: "fixture".into(),
+        };
+        assert_eq!(
+            market_execution_eligibility(&time, &state, AdjustmentStatus::Adjusted)
+                .unwrap_err()
+                .code,
+            "MARKET_CLOSED"
+        );
+        state.source_status = MarketDataStatus::Available;
+        assert_eq!(
+            market_execution_eligibility(&time, &state, AdjustmentStatus::Unknown)
+                .unwrap_err()
+                .code,
+            "MARKET_CLOSED"
+        );
+        assert!(market_execution_eligibility(&time, &state, AdjustmentStatus::Unadjusted).is_ok());
+    }
+
+    #[test]
+    fn corporate_actions_are_duplicate_safe_and_timestamp_bounded() {
+        let action = CorporateAction {
+            action_id: "aapl-split-2020".into(),
+            instrument_id: "equity:US:AAPL".into(),
+            action_type: CorporateActionType::Split,
+            effective_at: "2020-08-31T00:00:00Z".into(),
+            announced_at: Some("2020-07-30T00:00:00Z".into()),
+            source_id: Some("OD-005".into()),
+            description: "Four-for-one split".into(),
+            adjustment_status: AdjustmentStatus::Adjusted,
+        };
+        validate_corporate_actions("equity:US:AAPL", std::slice::from_ref(&action)).unwrap();
+        assert_eq!(
+            validate_corporate_actions("equity:US:AAPL", &[action.clone(), action])
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+        let mut malformed = CorporateAction {
+            effective_at: "not-a-timestamp".into(),
+            ..CorporateAction {
+                action_id: "aapl-dividend".into(),
+                instrument_id: "equity:US:AAPL".into(),
+                action_type: CorporateActionType::Dividend,
+                effective_at: "2020-08-31T00:00:00Z".into(),
+                announced_at: None,
+                source_id: Some("OD-005".into()),
+                description: "Dividend".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            }
+        };
+        assert_eq!(
+            validate_corporate_actions("equity:US:AAPL", &[malformed.clone()])
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+        malformed.effective_at = "2020-08-31T00:00:00Z".into();
+        malformed.description = "Dividend\nwith control".into();
+        assert_eq!(
+            validate_corporate_actions("equity:US:AAPL", &[malformed])
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+
+        let actions = vec![
+            CorporateAction {
+                action_id: "aapl-delist".into(),
+                instrument_id: "equity:US:AAPL".into(),
+                action_type: CorporateActionType::Delisting,
+                effective_at: "2024-01-01T00:00:00Z".into(),
+                announced_at: None,
+                source_id: Some("OD-005".into()),
+                description: "Delisting fixture".into(),
+                adjustment_status: AdjustmentStatus::Unknown,
+            },
+            CorporateAction {
+                action_id: "aapl-symbol".into(),
+                instrument_id: "equity:US:AAPL".into(),
+                action_type: CorporateActionType::SymbolChange,
+                effective_at: "2022-01-01T00:00:00Z".into(),
+                announced_at: Some("2021-12-01T00:00:00Z".into()),
+                source_id: Some("OD-005".into()),
+                description: "Symbol fixture".into(),
+                adjustment_status: AdjustmentStatus::Unadjusted,
+            },
+            CorporateAction {
+                action_id: "aapl-dividend".into(),
+                instrument_id: "equity:US:AAPL".into(),
+                action_type: CorporateActionType::Dividend,
+                effective_at: "2021-01-01T00:00:00Z".into(),
+                announced_at: Some("2020-12-01T00:00:00Z".into()),
+                source_id: Some("OD-005".into()),
+                description: "Dividend fixture".into(),
+                adjustment_status: AdjustmentStatus::Adjusted,
+            },
+        ];
+        let canonical = canonical_corporate_actions("equity:US:AAPL", actions).unwrap();
+        assert_eq!(canonical.len(), 3);
+        assert_eq!(canonical[0].action_type, CorporateActionType::Dividend);
+        assert_eq!(canonical[1].action_type, CorporateActionType::SymbolChange);
+        assert_eq!(canonical[2].action_type, CorporateActionType::Delisting);
+    }
+
+    #[test]
+    fn duckdb_history_is_separate_and_reopens() {
+        let dir = tempdir().unwrap();
+        ensure_history(dir.path()).unwrap();
+        let blocked = blocked_source("OD-002");
+        assert_eq!(
+            insert_history(dir.path(), &history_bar(), Some(&blocked))
+                .unwrap_err()
+                .code,
+            "MARKET_HISTORY_UNAVAILABLE"
+        );
+        assert_eq!(history_count(dir.path()).unwrap(), 0);
+        let mut available = blocked_source("OD-002");
+        available.status = DataSourceStatus::Available;
+        available.configured = true;
+        insert_history(dir.path(), &history_bar(), Some(&available)).unwrap();
+        assert_eq!(history_count(dir.path()).unwrap(), 1);
+        assert!(dir.path().join("market.duckdb").exists());
+    }
+
+    #[test]
+    fn history_rejects_invalid_decimal_timestamp_and_venue() {
+        let dir = tempdir().unwrap();
+        let mut source = blocked_source("OD-002");
+        source.status = DataSourceStatus::Available;
+        let mut bar = history_bar();
+        bar.open = "1e3".into();
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+        bar = history_bar();
+        bar.interval_start = "2026-09-14T00:00:30Z".into();
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+        bar = history_bar();
+        bar.venue = Some("XNAS\n".into());
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "IPC_PAYLOAD_INVALID"
+        );
+    }
+
+    #[test]
+    fn history_rejects_crypto_and_realtime_entitlement() {
+        let dir = tempdir().unwrap();
+        let mut source = blocked_source("OD-002");
+        source.status = DataSourceStatus::Available;
+        let mut bar = history_bar();
+        bar.instrument_id = "crypto:BTC/USDT:spot".into();
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "MARKET_HISTORY_UNAVAILABLE"
+        );
+        let mut bar = history_bar();
+        bar.entitlement = MarketEntitlement::Realtime;
+        assert_eq!(
+            insert_history(dir.path(), &bar, Some(&source))
+                .unwrap_err()
+                .code,
+            "MARKET_HISTORY_UNAVAILABLE"
+        );
+    }
+
+    fn history_bar() -> HistoricalBar {
+        HistoricalBar {
+            instrument_id: "equity:US:AAPL".into(),
+            interval_start: "2026-09-14T00:00:00Z".into(),
+            open: "1.00".into(),
+            high: "2.00".into(),
+            low: "0.50".into(),
+            close: "1.50".into(),
+            volume: "10".into(),
+            source: "OD-002".into(),
+            venue: Some("XNAS".into()),
+            provider_timestamp: "2026-09-14T00:00:00Z".into(),
+            received_timestamp: "2026-09-14T00:00:01Z".into(),
+            entitlement: MarketEntitlement::Delayed,
+            freshness: MarketFreshness::Healthy,
+        }
+    }
+}

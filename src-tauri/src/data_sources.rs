@@ -1,0 +1,697 @@
+use std::{
+    collections::VecDeque,
+    io::Read,
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant},
+};
+
+use reqwest::blocking::Client;
+use reqwest::redirect::Policy;
+use serde_json::Value;
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+
+use crate::protocol::{
+    DataSourceEntry, DataSourceProbeKind, DataSourceStatus, Result, TradeXError,
+};
+use crate::provider_io::{ProviderPriority, record_provider_retry_after, with_provider_slot};
+
+const SOURCE_REVIEWED_AT: &str = "2026-09-13";
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_RESPONSE_BYTES: usize = 1_048_576;
+const USER_AGENT: &str = "TradeX-local-research/0.1 (local workspace)";
+const SEC_CIK: &str = "0000320193";
+const SEC_SUBMISSIONS_URL: &str = "https://data.sec.gov/submissions/CIK0000320193.json";
+const SEC_XBRL_COMPANY_CONCEPT_URL: &str =
+    "https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/Revenues.json";
+const ECB_EXR_URL: &str = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?format=csvdata&lastNObservations=1";
+const SEC_RATE_WINDOW: Duration = Duration::from_secs(1);
+const SEC_RATE_LIMIT: usize = 10;
+static SEC_REQUESTS: OnceLock<Mutex<VecDeque<Instant>>> = OnceLock::new();
+
+pub fn entries() -> Vec<DataSourceEntry> {
+    vec![
+        DataSourceEntry {
+            source_id: "OD-001".into(),
+            provider: "Alpaca Market Data API".into(),
+            capabilities: vec!["US equity realtime market data".into()],
+            coverage: "US stocks and ETFs; Basic plan is IEX realtime and SIP delayed; full venue coverage depends on entitlement.".into(),
+            latency: "Realtime or delayed according to the selected Alpaca plan; no default entitlement.".into(),
+            entitlement: "Alpaca market-data API key and plan entitlement; broker account connection is not sufficient.".into(),
+            retention: "Plan and local retention terms must be reviewed before caching or export.".into(),
+            redistribution: "No redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED — review the current Alpaca agreement for the intended use.".into(),
+            jurisdictions: "US equities; market and customer jurisdiction restrictions apply.".into(),
+            official_url: "https://docs.alpaca.markets/us/v1.1/docs/about-market-data-api".into(),
+            terms_url: "https://alpaca.markets/legal".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::CredentialedMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Market-data entitlement is not configured or verified in TradeX.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-002".into(),
+            provider: "Alpaca Market Data API".into(),
+            capabilities: vec!["US equity historical data".into()],
+            coverage: "Historical bars, quotes and trades subject to plan history, adjustment and rate limits.".into(),
+            latency: "Historical endpoint; latest window and history depth depend on entitlement.".into(),
+            entitlement: "Alpaca market-data API key and historical-data plan entitlement.".into(),
+            retention: "Persisted OHLCV must retain source, provider timestamp and plan/terms metadata.".into(),
+            redistribution: "No redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED — review the current Alpaca agreement for the intended use.".into(),
+            jurisdictions: "US equities; source coverage is not a global exchange archive.".into(),
+            official_url: "https://docs.alpaca.markets/us/v1.1/docs/about-market-data-api".into(),
+            terms_url: "https://alpaca.markets/legal".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::CredentialedMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Historical-data entitlement and usable range are not configured or verified.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-003".into(),
+            provider: "SEC EDGAR data.sec.gov".into(),
+            capabilities: vec!["Fundamentals and XBRL facts".into()],
+            coverage: "SEC submissions and the Apple XBRL Company Concept endpoint for supported forms and facts.".into(),
+            latency: "SEC publication and processing time; not a realtime market feed.".into(),
+            entitlement: "Public API; every automated request needs an identifying User-Agent.".into(),
+            retention: "Keep source URL, form/period and fetched timestamp with stored facts.".into(),
+            redistribution: "Public access does not grant TradeX redistribution or commercial rights.".into(),
+            commercial_use: "UNVERIFIED — follow SEC policy and review intended redistribution.".into(),
+            jurisdictions: "US SEC filings; non-US issuers/forms may have different coverage.".into(),
+            official_url: "https://www.sec.gov/search-filings/edgar-application-programming-interfaces".into(),
+            terms_url: "https://www.sec.gov/about/developer-resources".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::PublicMetadata,
+            status: DataSourceStatus::Unverified,
+            configured: true,
+            verified_at: None,
+            availability_reason: "Public endpoint has not been probed in this workspace.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-004".into(),
+            provider: "SEC EDGAR filings; general news provider unresolved".into(),
+            capabilities: vec!["Filings".into(), "News (unresolved)".into()],
+            coverage: "SEC filings are source-specific; no licensed general-news feed has been selected.".into(),
+            latency: "Filing publication and processing timing follows SEC feeds; general news is unavailable.".into(),
+            entitlement: "SEC public endpoint with User-Agent; licensed news entitlement still required.".into(),
+            retention: "Filings retain accession/source metadata; no news content is cached.".into(),
+            redistribution: "No general-news redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED for filings; BLOCKED_EXTERNAL for news.".into(),
+            jurisdictions: "SEC filing coverage only; news jurisdiction remains unselected.".into(),
+            official_url: "https://www.sec.gov/search-filings/edgar-application-programming-interfaces".into(),
+            terms_url: "https://www.sec.gov/about/developer-resources".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::PublicMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Filings can be probed, but a licensed general-news provider is not selected; the combined OD gate remains blocked.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-005".into(),
+            provider: "Alpaca Market Calendar and Corporate Actions".into(),
+            capabilities: vec!["US equity sessions and corporate actions".into()],
+            coverage: "Supported MIC calendars, early closes, splits, dividends and symbol/name actions; halts and full cross-market adjustment require S08.".into(),
+            latency: "Provider calendar and action update timing; stale data blocks equity Live.".into(),
+            entitlement: "Alpaca API key and applicable market-data/account entitlement.".into(),
+            retention: "Persist event type, effective date, source and provider timestamp.".into(),
+            redistribution: "No redistribution or commercial-use grant is assumed.".into(),
+            commercial_use: "UNVERIFIED — review the current Alpaca agreement.".into(),
+            jurisdictions: "Supported US market identifiers only until S08 adds cross-market sources.".into(),
+            official_url: "https://docs.alpaca.markets/us/reference/calendar-2".into(),
+            terms_url: "https://alpaca.markets/legal".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::CredentialedMetadata,
+            status: DataSourceStatus::BlockedExternal,
+            configured: false,
+            verified_at: None,
+            availability_reason: "Calendar and corporate-action credentials/coverage are not configured or freshly verified.".into(),
+        },
+        DataSourceEntry {
+            source_id: "OD-006".into(),
+            provider: "ECB Data Portal EXR / SDMX".into(),
+            capabilities: vec!["Daily informational FX reference rates".into()],
+            coverage: "Daily reference rates for 30 currencies quoted against EUR on working days.".into(),
+            latency: "Published around 16:00 CET on working days; not transaction-grade intraday FX.".into(),
+            entitlement: "Public SDMX REST endpoint; source disclosure travels with every value.".into(),
+            retention: "Keep dataflow/series key, observation date, source URL and fetched timestamp.".into(),
+            redistribution: "Use remains subject to ECB portal terms; information-only disclosure is mandatory.".into(),
+            commercial_use: "UNVERIFIED — reference-rate information is not a transaction quote.".into(),
+            jurisdictions: "EUR-denominated reference series; stablecoin parity is outside source coverage.".into(),
+            official_url: "https://data.ecb.europa.eu/key-figures/ecb-interest-rates-and-exchange-rates/exchange-rates".into(),
+            terms_url: "https://data.ecb.europa.eu/help/getting-data-web-services-sdmx-0".into(),
+            reviewed_at: SOURCE_REVIEWED_AT.into(),
+            checked_at: None,
+            observed_at: None,
+            probe_kind: DataSourceProbeKind::PublicMetadata,
+            status: DataSourceStatus::Unverified,
+            configured: true,
+            verified_at: None,
+            availability_reason: "Public EXR endpoint has not been probed in this workspace.".into(),
+        },
+    ]
+}
+
+pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceEntry> {
+    if source.source_id != source_id {
+        return Err(TradeXError::new("DATA_SOURCE_UNKNOWN"));
+    }
+    if source.probe_kind == DataSourceProbeKind::CredentialedMetadata {
+        let checked_at = now()?;
+        source.checked_at = Some(checked_at.clone());
+        source.observed_at = Some(checked_at);
+        source.status = DataSourceStatus::BlockedExternal;
+        source.availability_reason = "A user-managed provider entitlement is required; TradeX did not read or infer credentials.".into();
+        return Ok(source);
+    }
+    let observed_at = now()?;
+    source.observed_at = Some(observed_at.clone());
+    source.checked_at = Some(observed_at);
+    let client = Client::builder()
+        .https_only(true)
+        .redirect(Policy::none())
+        .timeout(REQUEST_TIMEOUT)
+        .build()
+        .map_err(|_| TradeXError::new("DATA_SOURCE_PROBE_FAILED"))?;
+    let endpoints: &[(&str, &str)] = match source_id {
+        "OD-003" => &[
+            ("SEC submissions", SEC_SUBMISSIONS_URL),
+            ("SEC XBRL Company Concept", SEC_XBRL_COMPANY_CONCEPT_URL),
+        ],
+        "OD-004" => &[("SEC filings", SEC_SUBMISSIONS_URL)],
+        "OD-006" => &[("ECB EXR", ECB_EXR_URL)],
+        _ => return Err(TradeXError::new("DATA_SOURCE_UNKNOWN")),
+    };
+    for (label, url) in endpoints {
+        let provider = if url.starts_with("https://data.sec.gov/") {
+            "sec"
+        } else {
+            "ecb"
+        };
+        let fetched = with_provider_slot(provider, ProviderPriority::P3, &|| true, || {
+            fetch_public_endpoint(&client, source_id, label, url)
+        });
+        let reason = match fetched {
+            Ok(Ok(())) => continue,
+            Ok(Err(reason)) => reason,
+            Err(error) if error.code == "PROVIDER_BACKPRESSURE" => {
+                "The provider work queue is full; this research probe was delayed. Retry after current provider work completes.".into()
+            }
+            Err(error) => format!(
+                "The provider is cooling down ({}); no response body was retained.",
+                error.code
+            ),
+        };
+        source.status = DataSourceStatus::Unavailable;
+        source.availability_reason = reason;
+        return Ok(source);
+    }
+    if source_id == "OD-004" {
+        source.status = DataSourceStatus::BlockedExternal;
+        source.availability_reason =
+            "SEC filings endpoint responded with the expected shape; a licensed general-news provider is still not selected."
+                .into();
+    } else {
+        source.status = DataSourceStatus::Available;
+        source.verified_at = source.observed_at.clone();
+        source.availability_reason =
+            "Public endpoints and response shapes verified; coverage, freshness and use restrictions still apply."
+                .into();
+    }
+    Ok(source)
+}
+
+fn fetch_public_endpoint(
+    client: &Client,
+    source_id: &str,
+    label: &str,
+    url: &str,
+) -> std::result::Result<(), String> {
+    if url.starts_with("https://data.sec.gov/") && !allow_sec_request() {
+        return Err(
+            "SEC fair-access request limit reached; retry later. No response body was retained."
+                .into(),
+        );
+    }
+    let response = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, USER_AGENT)
+        .header(reqwest::header::ACCEPT, "application/json, text/csv")
+        .send()
+        .map_err(|error| {
+            format!(
+                "{label} probe failed ({}). No response body was retained.",
+                classify_probe_error(&error)
+            )
+        })?;
+    let status = response.status();
+    if status.as_u16() == 429 {
+        let provider = if url.starts_with("https://data.sec.gov/") {
+            "sec"
+        } else {
+            "ecb"
+        };
+        let retry_after = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok());
+        record_provider_retry_after(provider, None, retry_after);
+    }
+    if !status.is_success() {
+        return Err(format!(
+            "{label} endpoint returned HTTP {}; retry later. No response body was retained.",
+            status.as_u16()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
+    {
+        return Err(format!(
+            "{label} response exceeded the bounded probe size; no response body was retained."
+        ));
+    }
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    let mut body = Vec::new();
+    response
+        .take((MAX_RESPONSE_BYTES as u64).saturating_add(1))
+        .read_to_end(&mut body)
+        .map_err(|_| {
+            format!("{label} response could not be read. No response body was retained.")
+        })?;
+    if body.len() > MAX_RESPONSE_BYTES {
+        return Err(format!(
+            "{label} response exceeded the bounded probe size; no response body was retained."
+        ));
+    }
+    if !validate_public_payload(source_id, label, &content_type, &body) {
+        return Err(format!(
+            "{label} response did not match the expected bounded protocol shape; no response body was retained."
+        ));
+    }
+    Ok(())
+}
+
+fn validate_public_payload(
+    source_id: &str,
+    endpoint: &str,
+    content_type: &str,
+    body: &[u8],
+) -> bool {
+    match (source_id, endpoint) {
+        ("OD-003", "SEC submissions") | ("OD-004", "SEC filings") => {
+            content_type
+                .to_ascii_lowercase()
+                .contains("application/json")
+                && serde_json::from_slice::<Value>(body).is_ok_and(|value| {
+                    let Some(cik) = value.get("cik").and_then(Value::as_str) else {
+                        return false;
+                    };
+                    let Some(filings) = value.get("filings").and_then(Value::as_object) else {
+                        return false;
+                    };
+                    let Some(recent) = filings.get("recent").and_then(Value::as_object) else {
+                        return false;
+                    };
+                    let Some(accessions) = recent.get("accessionNumber") else {
+                        return false;
+                    };
+                    let Some(forms) = recent.get("form") else {
+                        return false;
+                    };
+                    let Some(filing_dates) = recent.get("filingDate") else {
+                        return false;
+                    };
+                    cik == SEC_CIK
+                        && cik.bytes().all(|byte| byte.is_ascii_digit())
+                        && valid_string_array(accessions)
+                        && valid_string_array(forms)
+                        && valid_date_array(filing_dates)
+                        && accessions.as_array().is_some_and(|rows| {
+                            forms
+                                .as_array()
+                                .is_some_and(|forms| forms.len() == rows.len())
+                                && filing_dates
+                                    .as_array()
+                                    .is_some_and(|dates| dates.len() == rows.len())
+                        })
+                })
+        }
+        ("OD-003", "SEC XBRL Company Concept") => {
+            content_type
+                .to_ascii_lowercase()
+                .contains("application/json")
+                && serde_json::from_slice::<Value>(body).is_ok_and(|value| {
+                    value.get("cik").and_then(Value::as_u64) == Some(320_193)
+                        && value.get("taxonomy").and_then(Value::as_str) == Some("us-gaap")
+                        && value.get("tag").and_then(Value::as_str) == Some("Revenues")
+                        && value.get("entityName").and_then(Value::as_str) == Some("Apple Inc.")
+                        && value
+                            .get("units")
+                            .and_then(Value::as_object)
+                            .is_some_and(|units| {
+                                units
+                                    .get("USD")
+                                    .and_then(Value::as_array)
+                                    .is_some_and(|rows| {
+                                        !rows.is_empty()
+                                            && rows.iter().all(|row| {
+                                                let Some(row) = row.as_object() else {
+                                                    return false;
+                                                };
+                                                let accession = row
+                                                    .get("accn")
+                                                    .and_then(Value::as_str)
+                                                    .is_some_and(|value| !value.is_empty());
+                                                let value = row
+                                                    .get("val")
+                                                    .and_then(Value::as_f64)
+                                                    .is_some_and(f64::is_finite);
+                                                accession && value
+                                            })
+                                    })
+                            })
+                })
+        }
+        ("OD-006", "ECB EXR") => {
+            if !content_type.to_ascii_lowercase().contains("text/csv") {
+                return false;
+            }
+            let Ok(text) = std::str::from_utf8(body) else {
+                return false;
+            };
+            let mut lines = text.lines().filter(|line| !line.trim().is_empty());
+            let Some(header) = lines.next().and_then(parse_csv_line) else {
+                return false;
+            };
+            let Some(key_index) = header.iter().position(|field| field == "KEY") else {
+                return false;
+            };
+            let Some(freq_index) = header.iter().position(|field| field == "FREQ") else {
+                return false;
+            };
+            let Some(currency_index) = header.iter().position(|field| field == "CURRENCY") else {
+                return false;
+            };
+            let Some(time_index) = header.iter().position(|field| field == "TIME_PERIOD") else {
+                return false;
+            };
+            let Some(value_index) = header.iter().position(|field| field == "OBS_VALUE") else {
+                return false;
+            };
+            let required_len = [
+                key_index,
+                freq_index,
+                currency_index,
+                time_index,
+                value_index,
+            ]
+            .into_iter()
+            .max()
+            .map_or(0, |index| index + 1);
+            let Some(rows) = lines
+                .map(parse_csv_line)
+                .collect::<Option<Vec<Vec<String>>>>()
+            else {
+                return false;
+            };
+            !rows.is_empty()
+                && rows.iter().all(|columns| {
+                    columns.len() == header.len()
+                        && columns.len() >= required_len
+                        && columns[key_index] == "EXR.D.USD.EUR.SP00.A"
+                        && columns[freq_index] == "D"
+                        && columns[currency_index] == "USD"
+                        && valid_iso_date(&columns[time_index])
+                        && columns[value_index]
+                            .parse::<f64>()
+                            .is_ok_and(f64::is_finite)
+                })
+        }
+        _ => false,
+    }
+}
+
+fn parse_csv_line(line: &str) -> Option<Vec<String>> {
+    let mut fields = Vec::new();
+    let mut field = String::new();
+    let mut quoted = false;
+    let mut chars = line.chars().peekable();
+    while let Some(character) = chars.next() {
+        match character {
+            '"' if quoted && chars.peek() == Some(&'"') => {
+                field.push('"');
+                chars.next();
+            }
+            '"' => quoted = !quoted,
+            ',' if !quoted => {
+                fields.push(field.trim().to_owned());
+                field.clear();
+            }
+            _ => field.push(character),
+        }
+    }
+    if quoted {
+        return None;
+    }
+    fields.push(field.trim().to_owned());
+    Some(fields)
+}
+
+fn allow_sec_request() -> bool {
+    let requests = SEC_REQUESTS.get_or_init(|| Mutex::new(VecDeque::new()));
+    let Ok(mut requests) = requests.lock() else {
+        return false;
+    };
+    allow_request_at(&mut requests, Instant::now())
+}
+
+fn allow_request_at(requests: &mut VecDeque<Instant>, now: Instant) -> bool {
+    while requests
+        .front()
+        .is_some_and(|started| now.duration_since(*started) >= SEC_RATE_WINDOW)
+    {
+        requests.pop_front();
+    }
+    if requests.len() >= SEC_RATE_LIMIT {
+        return false;
+    }
+    requests.push_back(now);
+    true
+}
+
+fn valid_iso_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if !(bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit()))
+    {
+        return false;
+    }
+    let year = value[0..4].parse::<u32>().ok();
+    let month = value[5..7].parse::<u32>().ok();
+    let day = value[8..10].parse::<u32>().ok();
+    let (Some(year), Some(month), Some(day)) = (year, month, day) else {
+        return false;
+    };
+    let leap = year % 400 == 0 || (year % 4 == 0 && year % 100 != 0);
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    day >= 1 && day <= days_in_month
+}
+
+fn valid_string_array(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| {
+        !rows.is_empty()
+            && rows
+                .iter()
+                .all(|row| row.as_str().is_some_and(|value| !value.is_empty()))
+    })
+}
+
+fn valid_date_array(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| {
+        !rows.is_empty()
+            && rows
+                .iter()
+                .all(|row| row.as_str().is_some_and(valid_iso_date))
+    })
+}
+
+fn classify_probe_error(error: &reqwest::Error) -> &'static str {
+    if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connection unavailable"
+    } else {
+        "request error"
+    }
+}
+
+fn now() -> Result<String> {
+    OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .map_err(|_| TradeXError::new("DATA_SOURCE_PROBE_FAILED"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn policy_covers_each_open_decision_without_secrets() {
+        let sources = entries();
+        assert_eq!(sources.len(), 6);
+        assert_eq!(
+            sources
+                .iter()
+                .map(|source| source.source_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["OD-001", "OD-002", "OD-003", "OD-004", "OD-005", "OD-006"]
+        );
+        let encoded = serde_json::to_string(&sources).unwrap();
+        assert!(!encoded.contains("secret"));
+        assert!(!encoded.contains("api_key"));
+        assert!(!encoded.contains("apikey"));
+    }
+
+    #[test]
+    fn credentialed_probe_stays_blocked_without_reading_credentials() {
+        let source = entries()
+            .into_iter()
+            .find(|item| item.source_id == "OD-001")
+            .unwrap();
+        let result = probe("OD-001", source).unwrap();
+        assert_eq!(result.status, DataSourceStatus::BlockedExternal);
+        assert!(result.observed_at.is_some());
+        assert_ne!(result.checked_at.as_deref(), Some(SOURCE_REVIEWED_AT));
+        assert!(!result.availability_reason.contains("key"));
+    }
+
+    #[test]
+    fn public_probe_requires_all_sec_endpoint_shapes() {
+        assert!(validate_public_payload(
+            "OD-003",
+            "SEC submissions",
+            "application/json",
+            br#"{"cik":"0000320193","filings":{"recent":{"accessionNumber":["0000320193-24-000001"],"form":["10-K"],"filingDate":["2024-01-01"]},"files":[]}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC submissions",
+            "application/json",
+            br#"{"cik":"0000320193"}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC submissions",
+            "application/json",
+            br#"{"cik":null,"filings":{"recent":{}}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC submissions",
+            "application/json",
+            br#"{"cik":"0000002969","filings":{"recent":{"accessionNumber":["0000002969-24-000001"],"form":["10-K"],"filingDate":["2024-01-01"]}}}"#
+        ));
+        assert!(validate_public_payload(
+            "OD-003",
+            "SEC XBRL Company Concept",
+            "application/json",
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Apple Inc.","units":{"USD":[{"accn":"0000320193-24-000001","val":1}]}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Company Concept",
+            "application/json",
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Apple Inc.","units":{"USD":[]}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Company Concept",
+            "application/json",
+            br#"{"cik":999,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Other","units":{"USD":[{"accn":"x","val":1}]}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Company Concept",
+            "application/json",
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Assets","entityName":"Apple Inc.","units":{"USD":[{"accn":"x","val":1}]}}"#
+        ));
+        assert!(!validate_public_payload(
+            "OD-003",
+            "SEC XBRL Company Concept",
+            "application/json",
+            br#"{"cik":320193,"taxonomy":"us-gaap","tag":"Revenues","entityName":"Apple Inc.","units":{"USD":[{"accn":"x","val":1},null]}}"#
+        ));
+        assert!(validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
+            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nEXR.D.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\n"
+        ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
+            b"KEY,FREQ,CURRENCY\nD.USD.EUR.SP00.A,D,USD\n"
+        ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
+            b"KEY,TIME_PERIOD,OBS_VALUE\nD.USD.EUR.SP00.A,not-a-date,NaN\n"
+        ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
+            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nEXR.GBP.EUR.SP00.A,D,GBP,2026-09-13,1.2\n"
+        ));
+        assert!(!validate_public_payload(
+            "OD-006",
+            "ECB EXR",
+            "text/csv",
+            b"KEY,FREQ,CURRENCY,TIME_PERIOD,OBS_VALUE\nEXR.D.USD.EUR.SP00.A,D,USD,2026-09-13,1.1\nEXR.D.USD.EUR.SP00.A,D,USD,not-a-date,1.2\n"
+        ));
+    }
+
+    #[test]
+    fn sec_rate_limit_rejects_the_eleventh_request_in_a_window() {
+        let now = Instant::now();
+        let mut requests = VecDeque::new();
+        for _ in 0..SEC_RATE_LIMIT {
+            requests.push_back(now);
+        }
+        assert!(!allow_request_at(&mut requests, now));
+        assert!(allow_request_at(&mut requests, now + SEC_RATE_WINDOW));
+    }
+}

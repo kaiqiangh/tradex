@@ -23,6 +23,7 @@
 | 1.0 RevB | 2026-09-04 | LLM 网关架构重构:模型接入限定为两个来源——本地 CLIProxyAPI(ChatGPT 订阅 OAuth → GPT-5.6)与 DeepSeek 官方 API key——统一经由单一本地 OpenAI 兼容端点(§16、§26.3、§27、§58、§64);OD-009/OD-015 转为已决议(§72);安全增补 SEC-007/SEC-008 与 Model-credential zone(§17、§62.2);审批/预留时序加固(§15、§18、§21.3、§22、§23、§45、§46、§47);MVP 存储画像简化(§32、§54);适配器合并(§24);LLM 错误分类(§51);FR-068–FR-073 与 AC-055–AC-058(§61、§69);隐私披露(§56);JTBD/范围/成功标准更新(§8、§68、§73)。 |
 | 1.0 RevC | 2026-09-04 | 产品状态模型与原型统一:将 Agent Mode 与 Execution Context 分离(§12–§15);新增每轮不可变上下文/模型快照、OrderDraft→OrderProposal 语义、兼容矩阵、账户级布防、基于证据的对账人工处置、提供方权限安全门、时间/FX 溯源与更细粒度能力描述;跨提供方 LLM 自动回退默认关闭并改为显式 opt-in/默认手动(§16、§26.3、§51、§56);统一 DuckDB/Parquet 与市场数据分层语义(§32、§54、§63);强化 FR/AC/NFR/SEC/DATA/OPS/UX 追溯、Phase 0 门槛、成功指标与开放决策治理;同步英文/中文 PRD、UI Spec、Coverage Matrix、QA Report 与独立原型。 |
 | 1.0 RevC 澄清 | 2026-09-05 | 按提交状态限定过期/预留释放，明确全局 disarm 范围与撤单身份，补充 Gateway/IPC 契约引用，校正证据等级并同步双语；原型代码未变。 |
+| 1.0 RevC S18 本地账户删除增补 | 2026-09-24 | 新增 FR-081 / AC-067：经确认、原子地删除符合条件且无本地凭据的 Trading 212 Demo 账户；确认框显示完整 connection ID 以区分同名记录，并保护 Live、其他连接、提供方状态及终态金融审计历史。 |
 
 ## 目录
 
@@ -955,12 +956,13 @@ ARMED
 
 武装一个实盘账户不会武装任何其他实盘账户。
 
-在账户处于 ARMED 期间,实盘执行仍保持交易特定且受审批网关控制。
+在账户处于 ARMED 期间,实盘执行仍保持交易特定且受审批网关控制。Live Arm 必须要求凭据权限范围已验证；对 `UNVERIFIED` 范围的确认只允许完成连接审核，不会使账户满足 Live Arm 资格。
 
 TradeX 会在以下情况后自动将受影响的实盘账户恢复为 `DISARMED`:
 
 - 应用重启;
 - OS 休眠或会话锁定;
+- 在 macOS 上，TradeX 应用将激活状态交给其他应用；这项保守措施也会在普通应用切换时撤防，并覆盖已测试的锁屏切换;
 - 凭据变更;
 - 账户健康度下降(单一触发来源,涵盖:提供商重连的认证失败、对账失败、预审批 / 预执行检查失败、不健康的券商状态);
 - 风险策略削弱;
@@ -991,7 +993,7 @@ TradeX 使用 **Codex App Server / Codex Harness** 作为主要智能体运行�
 模型推理严格限制为两个来源,统一经由单一本地 OpenAI-compatible 端点:
 
 1. **CLIProxyAPI**(本地网关,固定版本):ChatGPT 订阅 OAuth(`--codex-login`)→ GPT-5.6 系列;
-2. **DeepSeek 官方 API**:`deepseek-chat` / `deepseek-reasoner`,作为 CLIProxyAPI 上游,密钥由 OS keychain 注入。
+2. **DeepSeek 官方 API**:`deepseek-v4-flash`，显式选择普通模式（`thinking.type: disabled`）或推理模式（`thinking.type: enabled`）,作为 CLIProxyAPI 上游,密钥由 OS keychain 注入。
 
 v1.0 不允许其他模型 provider。所有模型流量终止于 `127.0.0.1:8317`;TradeX、Codex、策略代码或研究工具都不得直接连接外部 LLM 端点(SEC-007)。
 
@@ -1001,7 +1003,7 @@ TradeX Desktop (React/Tauri)
       ▼
 Codex App Server ─── model_provider ───► CLIProxyAPI (127.0.0.1:8317)
       │                                  ├─ ChatGPT OAuth → GPT-5.6
-      │                                  └─ DeepSeek official API → deepseek-*
+      │                                  └─ DeepSeek official API → deepseek-v4-flash
       │
       └──────── TradeX Control Plane
                  Risk / Approval / Reservations / Order Gateway / Reconciliation
@@ -1272,19 +1274,27 @@ Risk checks
 
 保存风险策略必须被视为安全相关事件。
 
-对受影响的实盘账户:
+TradeX 在每个 workspace 使用一个共享 `RiskPolicy`。作用范围由该 workspace 中所有已持久化、绑定到该策略的账户确定；当前选中的 UI 账户不会缩小作用范围。
+
+对 workspace 策略范围内的所有账户:
 
 ```text
 Save risk policy
-→ invalidate pending live approvals that could be affected
-→ re-evaluate pending proposals
-→ if policy is weakened: DISARM account
+→ invalidate pending proposals and approvals bound to the previous policy version
+→ re-evaluate pending proposals and record the stale policy-version result
+→ if any part of the change weakens policy: DISARM every affected Live account
 → persist audit event
 ```
 
-当先前已审批的交易因策略变更而失效时,UI 必须明确提示。
+受影响集合来自已持久化的 workspace 绑定，不取决于当前选中的 UI 账户。混合变更中只要有一个字段放宽，就按策略弱化处理；仅收紧的变更不算弱化。UI 必须明确显示新旧策略版本、所有受影响账户与待处理 proposal，以及每项失效原因。策略版本变化后，不得复用此前的 decision 或未来可能存在的 approval。
 
-同一账户的策略保存与审批消费通过按账户的单写者路径串行化,从而消除"保存 vs 消费"竞争:在审批签发与消费之间落地的保存,会被 `PRE_EXECUTION_CHECK` 处的策略版本检查捕获。
+策略保存必须在一个事务中提交 workspace 策略、所有受影响 Live 账户的撤防、待处理 proposal 失效事件和旧版本拒绝 decision。审批消费必须在 `PRE_EXECUTION_CHECK` 使用相同的当前策略版本判定；绑定旧版本的 approval 不具备资格。保存与消费及 reservation 的串行化由 S23 事务边界完成。
+
+## 21.4 风险求值与证据
+
+可信 Control Plane 使用当前策略与证据求值不可变 OrderProposal。每条结果为 `ALLOWED`、`REJECTED` 或 `UNAVAILABLE`,并绑定 workspace、proposal ID/hash、准确账户/环境、策略版本、求值时间、输入摘要及逐项检查结果。每次求值都会追加不可变决策与事件;重新求值不修改 proposal,也不覆盖既有决策。
+
+策略拒绝优先。如果没有检查拒绝,但必需证据缺失、过期或不可信,结果为 `UNAVAILABLE`。缺失证据不得变成空组合、零活动或假定币种平价。Submit 命令必须在可信边界重新求值;结果为 `REJECTED` 或 `UNAVAILABLE` 时不得产生 provider/simulator 订单副作用。Renderer 与 Agent 不能提供求值输入或覆盖结果。`ALLOWED` 仅代表策略求值通过,不授予审批、账户 Arm、预留或发送订单的权限。普通 Bitget Live 账户映射到 `LIVE` 策略环境,在后续金融权限门禁实现前保持只读。
 
 ---
 
@@ -1549,7 +1559,7 @@ Select provider/environment
 - 环境选择器;
 - 其他提供方要求的非机密元数据。
 
-UI 不得假设每个提供方都采用相同的 `API Key + Secret` 形态。
+UI 不得假设每个提供方都采用相同的 `API Key + Secret` 形态。提供方模式还须声明字段敏感性、验证、环境适用范围、帮助文字，以及权限是必需、可选还是禁止。
 
 连接 UX 必须明确展示 TradeX 不需要也未实现:
 
@@ -1560,6 +1570,13 @@ UI 不得假设每个提供方都采用相同的 `API Key + Secret` 形态。
 - 杠杆管理。
 
 对支持 IP 允许列表的提供方,UX 应建议启用。
+
+权限安全检查：
+
+- 检测到提现/转账/托管权限时，TradeX Live 连接必须阻止执行就绪，直到这些权限被移除；
+- 保证金/杠杆管理权限不在范围内，须显示阻塞或不支持能力警告；
+- 提供方无法暴露权限探测时，将权限范围标为 `UNVERIFIED`，要求用户显式确认以完成连接审核，在 Account Health 中持续显示限制，并阻止 Live Arm；
+- 连接测试只持久化非机密能力/权限 metadata 及 Keychain 引用。
 
 ## 26.2 提供方专属账户详情
 
@@ -2241,7 +2258,7 @@ UNKNOWN_RECONCILING
 
 | 触发条件与已知执行状态 | 权威状态转换 | 预留处置 |
 |---|---|---|
-| 审批过期/失效，且确认任何传输均未开始；包括在派发前被原子停止的 `RESERVED` 工作 | Approval Authority 使同意失效；未提交 proposal 可带原因进入 `EXPIRED` | 原子释放已有预留；没有预留时不得伪造释放事件 |
+| 审批过期或授权依据变化（共享风险策略变更、账户撤防或 Disable All），且任何传输均未开始；包括派发前被原子停止的 `RESERVED` 工作 | 使未派发的 attempt 失效并保留 approval/proposal 审计历史；已消费的 approval 保持已消费，不能重放为派发授权 | 原子释放任何 active PLACE reservation 并只产生一次释放事件；CANCEL attempt 不新增 reservation，没有 reservation 时不得伪造释放事件 |
 | 已进入 `SUBMITTING` 后本地审批过期，或传输结果不确定 | 仅使审批记录过期；保留已观察订单状态或 `UNKNOWN_RECONCILING` | 保持容量冻结，直至权威对账 |
 | 券商确认订单终态为过期、撤销、拒绝或成交 | Adapter/reconciliation 应用券商状态与累计成交 | 计入成交/费用后，仅释放未使用部分，且只释放一次 |
 | 自动对账超时，或用户关闭 Manual Resolution | 保持 `UNKNOWN_RECONCILING`；账户仍 unhealthy/DISARMED | 不释放 |
@@ -2442,6 +2459,7 @@ UI 应使用一个可复用的错误/状态组件族，配以类别特定的修�
 - `MARKET_CLOSED` / `INSTRUMENT_HALTED` → 阻止不支持的执行并显示市场状态；
 - `INSUFFICIENT_FUNDS` → 显示可用与所需容量（含预留）；
 - `STATE_STALE` / `RECONCILIATION_REQUIRED` → 在刷新前禁用 Live 执行；
+- `ACCOUNT_DELETE_BLOCKED`（`STATE_STALE`）→ 重新加载所选账户，并先解决其凭据或金融活动，再进行本地移除；
 - `SUBMISSION_AMBIGUOUS` → 转入 `UNKNOWN_RECONCILING`，不盲目重试；
 - `MODEL_UNAVAILABLE` → 暂停 agent 回合并附 sidecar 修复指引（§16.3）；审批/执行/对账不受影响；
 - `QUOTA_EXCEEDED` → 显示配额状态；提供冷却后重试和显式切换至 DeepSeek；只有用户已开启时才允许自动回退；
@@ -2861,6 +2879,7 @@ graph TD
 | FR-078 | Live readiness 前阻断/审查危险 provider 权限(withdrawal/transfer/custody/margin/leverage) | P0 |
 | FR-079 | 实现 FX/stablecoin 估值溯源与 depeg/quality 处理 | P1 |
 | FR-080 | 实现可编辑 OrderDraft → 不可变 OrderProposal 的重新生成语义 | P0 |
+| FR-081 | 实现对符合条件的 Trading 212 Demo 账户及订单簿观察进行确认后的永久本地删除 | P0 |
 
 需求重叠说明(用于可追溯性,ID 保持稳定):
 
@@ -3309,6 +3328,9 @@ Demo 与 live 账户表示为独立的连接。
 
 **AC-051**
 提供方连接 UI 由提供方凭证/能力 schema 渲染,不假设每个提供方使用相同的凭证字段。
+
+**AC-067**
+只有没有本地凭据且处于 `FAILED` 或 `DISCONNECTED` 状态的 `trading212` / `DEMO` 连接，才可在用户明确确认并通过完整 connection ID、label、provider 和 environment 识别准确记录后永久删除。确认说明提供方密钥、提供方订单及其他所有连接均不受影响。后端重新检查活动 workspace、身份、状态版本、凭据健康、未完成订单、待审批 proposal 与未解决 attempt，然后在同一事务中删除账户 projection、账户观察及 Demo 订单簿观察。`SUBMITTING` 和 `UNKNOWN_RECONCILING` attempt 仍未解决；`ACKNOWLEDGED` attempt 只有在其准确关联订单已持久化为已识别终态且 `pending: false` 后，才视为删除前已解决。保留终态 proposal/attempt 审计历史。取消不产生变更；成功后刷新列表/上下文并播报完成；焦点返回触发控件或逻辑替代位置；失败时目标数据保持完整。
 
 ---
 

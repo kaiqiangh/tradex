@@ -1,0 +1,994 @@
+#[path = "bitget_fixtures.rs"]
+pub mod bitget;
+use serde_json::{Value, json};
+use std::{
+    cell::{Cell, RefCell},
+    collections::{HashMap, HashSet},
+};
+#[cfg(feature = "integration-test")]
+use tradex::protocol::BinanceTestnetOrderBook;
+use tradex::{
+    protocol::{Result, TradeXError},
+    provider_io::{
+        CredentialVault, Credentials, ProviderEndpoint, ProviderHttp, ProviderHttpMethod,
+        ProviderHttpResponse, ProviderRateLimit,
+    },
+};
+pub const KEY: &str = "S02-FAKE-KEY-594791453";
+pub const SECRET: &str = "S02-FAKE-SECRET-704556921";
+
+#[derive(Default)]
+pub struct Vault {
+    pub present: RefCell<HashSet<String>>,
+    pub fail_remove: Cell<bool>,
+}
+impl CredentialVault for Vault {
+    fn put(&self, reference: &str, _: &Credentials) -> Result<()> {
+        self.present.borrow_mut().insert(reference.into());
+        Ok(())
+    }
+    fn get(&self, reference: &str) -> Result<Credentials> {
+        if !self.present.borrow().contains(reference) {
+            return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+        }
+        if reference.split('/').nth(1) == Some("bitget") {
+            bitget::credentials()
+        } else {
+            credentials()
+        }
+    }
+    fn remove(&self, reference: &str) -> Result<()> {
+        if self.fail_remove.get() {
+            return Err(TradeXError::new("CREDENTIAL_DELETE_FAILED"));
+        }
+        self.present.borrow_mut().remove(reference);
+        Ok(())
+    }
+}
+pub fn credentials() -> Result<Credentials> {
+    Credentials::new(vec![KEY.into(), SECRET.into()])
+}
+
+pub struct Http {
+    pub fail: Cell<bool>,
+    pub identity: String,
+    pub calls: RefCell<Vec<String>>,
+    pub bitget: bitget::Http,
+    pub alpaca_posts: RefCell<Vec<Value>>,
+    pub alpaca_order: RefCell<Option<Value>>,
+    pub alpaca_order_history: RefCell<Vec<Value>>,
+    pub alpaca_fills: RefCell<Vec<Value>>,
+    pub alpaca_repeat_order_cursor: Cell<bool>,
+    pub alpaca_delete_calls: RefCell<Vec<String>>,
+    pub alpaca_delete_status: Cell<Option<u16>>,
+    pub alpaca_delete_confirms_cancel: Cell<bool>,
+    pub alpaca_delete_order_status: RefCell<Option<String>>,
+    pub alpaca_lookup_misses: Cell<u32>,
+    pub alpaca_post_timeout: Cell<bool>,
+    pub alpaca_order_currency: RefCell<String>,
+    pub alpaca_asset: RefCell<Value>,
+    pub alpaca_position: RefCell<Option<Value>>,
+    pub alpaca_post_status: Cell<Option<u16>>,
+    pub alpaca_post_error_body: RefCell<Option<Vec<u8>>>,
+    pub trading212_posts: RefCell<Vec<(String, Value)>>,
+    pub trading212_post_status: Cell<Option<u16>>,
+    pub trading212_post_timeout: Cell<bool>,
+    pub trading212_post_response_body: RefCell<Option<Vec<u8>>>,
+    pub trading212_delete_calls: RefCell<Vec<String>>,
+    pub trading212_delete_status: Cell<Option<u16>>,
+    pub trading212_delete_timeout: Cell<bool>,
+    pub trading212_identity: Cell<u64>,
+    pub trading212_order_list: RefCell<Option<Vec<Value>>>,
+    pub trading212_order_details: RefCell<HashMap<String, Value>>,
+    pub trading212_history_pages: RefCell<HashMap<String, Value>>,
+    pub trading212_rate_limit: RefCell<Option<ProviderRateLimit>>,
+    pub binance_posts: RefCell<Vec<String>>,
+    pub binance_post_timeout: Cell<bool>,
+    pub binance_post_status: Cell<Option<u16>>,
+    pub binance_post_response_body: RefCell<Option<Vec<u8>>>,
+    pub binance_order_by_client_id: RefCell<Option<Value>>,
+    pub binance_open_orders: RefCell<Option<Vec<Value>>>,
+    pub binance_order_history: RefCell<HashMap<String, Vec<Value>>>,
+    pub binance_trade_history: RefCell<HashMap<String, Vec<Value>>>,
+    pub binance_read_statuses: RefCell<HashMap<String, u16>>,
+    pub binance_cancel_calls: RefCell<Vec<String>>,
+    pub binance_cancel_timeout: Cell<bool>,
+    pub binance_cancel_status: Cell<Option<u16>>,
+    pub binance_retry_after_seconds: Cell<Option<u64>>,
+    pub binance_uid: Cell<u64>,
+    pub binance_hide_order_lookup: Cell<bool>,
+    pub binance_exchange_info: RefCell<Option<Value>>,
+    pub binance_reference_price: RefCell<Option<Value>>,
+    pub binance_reference_price_status: Cell<Option<u16>>,
+}
+impl Default for Http {
+    fn default() -> Self {
+        Self {
+            fail: Cell::new(false),
+            identity: "81161e77-bafd-44bb-b2a0-60b9055e3cd4".into(),
+            calls: RefCell::new(vec![]),
+            bitget: bitget::Http::default(),
+            alpaca_posts: RefCell::new(vec![]),
+            alpaca_order: RefCell::new(None),
+            alpaca_order_history: RefCell::new(vec![]),
+            alpaca_fills: RefCell::new(vec![]),
+            alpaca_repeat_order_cursor: Cell::new(false),
+            alpaca_delete_calls: RefCell::new(vec![]),
+            alpaca_delete_status: Cell::new(None),
+            alpaca_delete_confirms_cancel: Cell::new(false),
+            alpaca_delete_order_status: RefCell::new(None),
+            alpaca_lookup_misses: Cell::new(0),
+            alpaca_post_timeout: Cell::new(false),
+            alpaca_order_currency: RefCell::new("USD".into()),
+            alpaca_asset: RefCell::new(json!({
+                "id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e15b",
+                "class":"us_equity","exchange":"NASDAQ","symbol":"AAPL",
+                "status":"active","tradable":true,"fractionable":true
+            })),
+            alpaca_position: RefCell::new(Some(json!({
+                "asset_id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e15b",
+                "symbol":"AAPL","asset_class":"us_equity","side":"long",
+                "qty":"10","qty_available":"10"
+            }))),
+            alpaca_post_status: Cell::new(None),
+            alpaca_post_error_body: RefCell::new(None),
+            trading212_posts: RefCell::new(vec![]),
+            trading212_post_status: Cell::new(None),
+            trading212_post_timeout: Cell::new(false),
+            trading212_post_response_body: RefCell::new(None),
+            trading212_delete_calls: RefCell::new(vec![]),
+            trading212_delete_status: Cell::new(None),
+            trading212_delete_timeout: Cell::new(false),
+            trading212_identity: Cell::new(9007199254740993),
+            trading212_order_list: RefCell::new(None),
+            trading212_order_details: RefCell::new(HashMap::from([(
+                "9007199254740996".into(),
+                default_trading212_order(),
+            )])),
+            trading212_history_pages: RefCell::new(HashMap::new()),
+            trading212_rate_limit: RefCell::new(None),
+            binance_posts: RefCell::new(vec![]),
+            binance_post_timeout: Cell::new(false),
+            binance_post_status: Cell::new(None),
+            binance_post_response_body: RefCell::new(None),
+            binance_order_by_client_id: RefCell::new(None),
+            binance_open_orders: RefCell::new(None),
+            binance_order_history: RefCell::new(HashMap::new()),
+            binance_trade_history: RefCell::new(HashMap::new()),
+            binance_read_statuses: RefCell::new(HashMap::new()),
+            binance_cancel_calls: RefCell::new(vec![]),
+            binance_cancel_timeout: Cell::new(false),
+            binance_cancel_status: Cell::new(None),
+            binance_retry_after_seconds: Cell::new(None),
+            binance_uid: Cell::new(9007199254740993),
+            binance_hide_order_lookup: Cell::new(false),
+            binance_exchange_info: RefCell::new(None),
+            binance_reference_price: RefCell::new(None),
+            binance_reference_price_status: Cell::new(None),
+        }
+    }
+}
+
+impl Http {
+    #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
+    pub fn seed_trading212_live_cancel_order(&self) {
+        let order_id = "9007199254740996";
+        let order = |status: &str, filled_quantity: f64, filled_value: f64| {
+            json!({
+                "id":9007199254740996u64,
+                "ticker":"MSFT_US_EQ",
+                "strategy":"QUANTITY",
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"DAY",
+                "status":status,
+                "currency":"GBP",
+                "quantity":1,
+                "filledQuantity":filled_quantity,
+                "filledValue":filled_value,
+                "limitPrice":130,
+                "createdAt":"2026-09-28T08:00:00Z"
+            })
+        };
+        let partial = order("PARTIALLY_FILLED", 0.25, 32.5);
+        *self.trading212_order_list.borrow_mut() = Some(vec![partial.clone()]);
+        self.trading212_order_details
+            .borrow_mut()
+            .insert(order_id.into(), partial);
+    }
+
+    #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
+    pub fn fill_trading212_live_cancel_race(&self) {
+        self.trading212_order_details.borrow_mut().insert(
+            "9007199254740996".into(),
+            json!({
+                "id":9007199254740996u64,
+                "ticker":"MSFT_US_EQ",
+                "strategy":"QUANTITY",
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"DAY",
+                "status":"FILLED",
+                "currency":"GBP",
+                "quantity":1,
+                "filledQuantity":1,
+                "filledValue":130,
+                "limitPrice":130,
+                "createdAt":"2026-09-28T08:00:00Z"
+            }),
+        );
+    }
+
+    #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
+    pub fn mirror_binance_private_stream_book(&self, book: &BinanceTestnetOrderBook) {
+        let order = |row: &tradex::protocol::BinanceTestnetOrder| {
+            json!({
+                "symbol": row.symbol,
+                "orderId": row.provider_order_id,
+                "clientOrderId": row.client_order_id,
+                "side": row.side,
+                "type": row.order_type,
+                "timeInForce": row.time_in_force,
+                "status": row.provider_status,
+                "price": row.price.as_deref().unwrap_or("0"),
+                "origQty": row.quantity.as_deref().unwrap_or("0"),
+                "origQuoteOrderQty": row.quote_quantity.as_deref().unwrap_or("0"),
+                "executedQty": row.filled_quantity,
+                "cummulativeQuoteQty": row.filled_quote_quantity.as_deref().unwrap_or("0"),
+                "time": row.submitted_at_ms,
+                "updateTime": row.provider_updated_at_ms
+            })
+        };
+        let fill = |row: &tradex::protocol::BinanceTestnetFill| {
+            json!({
+                "id": row.trade_id,
+                "orderId": row.provider_order_id,
+                "symbol": row.symbol,
+                "isBuyer": row.side == "BUY",
+                "price": row.price,
+                "qty": row.quantity,
+                "quoteQty": row.quote_quantity,
+                "commission": row.commission,
+                "commissionAsset": row.commission_asset,
+                "time": row.executed_at_ms
+            })
+        };
+        *self.binance_open_orders.borrow_mut() = Some(
+            book.orders
+                .iter()
+                .filter(|row| row.pending)
+                .map(&order)
+                .collect(),
+        );
+        let mut orders = self.binance_order_history.borrow_mut();
+        let mut trades = self.binance_trade_history.borrow_mut();
+        for symbol in ["BTCUSDT", "ETHUSDT"] {
+            orders.insert(
+                symbol.into(),
+                book.orders
+                    .iter()
+                    .filter(|row| row.symbol == symbol)
+                    .map(&order)
+                    .collect(),
+            );
+            trades.insert(
+                symbol.into(),
+                book.fills
+                    .iter()
+                    .filter(|row| row.symbol == symbol)
+                    .map(&fill)
+                    .collect(),
+            );
+        }
+    }
+}
+
+fn default_trading212_order_list() -> Vec<Value> {
+    vec![default_trading212_order()]
+}
+
+pub fn default_binance_open_orders() -> Vec<Value> {
+    vec![
+        json!({"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc","side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"NEW","price":"100.2","origQty":"0.1","origQuoteOrderQty":"0","executedQty":"0","cummulativeQuoteQty":"0","time":1788849500000u64,"updateTime":1788849500000u64}),
+        json!({"symbol":"ODDCOINUSDT","orderId":9007199254740996u64,"clientOrderId":"fixture-open-odd","side":"SELL","type":"LIMIT","timeInForce":"GTC","status":"PARTIALLY_FILLED","price":"2","origQty":"0.5","origQuoteOrderQty":"0","executedQty":"0.1","cummulativeQuoteQty":"0.2","time":1788849501000u64,"updateTime":1788849501000u64}),
+    ]
+}
+
+fn default_trading212_order() -> Value {
+    json!({"id":9007199254740996u64,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","type":"LIMIT","timeInForce":"DAY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23,"createdAt":"2026-09-20T12:00:00Z"})
+}
+
+impl ProviderHttp for Http {
+    fn request(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<ProviderHttpResponse> {
+        if matches!(
+            endpoint,
+            ProviderEndpoint::BitgetDemo | ProviderEndpoint::BitgetLive
+        ) {
+            return self.bitget.request(endpoint, method, path, headers, body);
+        }
+        if endpoint == ProviderEndpoint::Trading212Demo {
+            assert_eq!(
+                headers["Authorization"],
+                "Basic UzAyLUZBS0UtS0VZLTU5NDc5MTQ1MzpTMDItRkFLRS1TRUNSRVQtNzA0NTU2OTIx"
+            );
+            assert!(headers["Authorization"].is_sensitive());
+            assert_eq!(headers.len(), 1);
+            return match (method, path, body) {
+                (ProviderHttpMethod::Get, path, None) => {
+                    let status = if path
+                        .strip_prefix("/api/v0/equity/orders/")
+                        .is_some_and(|id| !self.trading212_order_details.borrow().contains_key(id))
+                    {
+                        404
+                    } else {
+                        200
+                    };
+                    self.get(endpoint, path, headers)
+                        .map(|body| ProviderHttpResponse { status, body })
+                }
+                (ProviderHttpMethod::Post, path, Some(request))
+                    if matches!(
+                        path,
+                        "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
+                    ) =>
+                {
+                    self.calls
+                        .borrow_mut()
+                        .push(format!("{}{path}", endpoint.base_url()));
+                    self.trading212_posts
+                        .borrow_mut()
+                        .push((path.to_owned(), request.clone()));
+                    if self.trading212_post_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    if let Some(status) = self.trading212_post_status.get() {
+                        return Ok(ProviderHttpResponse {
+                            status,
+                            body: br#"{"message":"synthetic rejection"}"#.to_vec(),
+                        });
+                    }
+                    if let Some(body) = self.trading212_post_response_body.borrow_mut().take() {
+                        return Ok(ProviderHttpResponse { status: 200, body });
+                    }
+                    let raw_quantity = request["quantity"].to_string();
+                    let side = if raw_quantity.starts_with('-') {
+                        "SELL"
+                    } else {
+                        "BUY"
+                    };
+                    let quantity = raw_quantity.trim_start_matches('-');
+                    let quantity: Value = serde_json::from_str(quantity).unwrap();
+                    let order_type = if path.ends_with("/limit") {
+                        "LIMIT"
+                    } else {
+                        "MARKET"
+                    };
+                    let mut response = json!({
+                        "id":9007199254740995u64,
+                        "ticker":request["ticker"],
+                        "quantity":quantity,
+                        "side":side,
+                        "type":order_type,
+                        "strategy":"QUANTITY",
+                        "status":"NEW",
+                        "currency":"GBP",
+                        "timeInForce":if order_type == "MARKET" { "DAY" } else { request["timeValidity"].as_str().unwrap() },
+                        "extendedHours":false
+                    });
+                    if let Some(limit_price) = request.get("limitPrice") {
+                        response["limitPrice"] = limit_price.clone();
+                    }
+                    let mut observed = response.clone();
+                    observed["status"] = json!("PARTIALLY_FILLED");
+                    observed["filledQuantity"] = json!(0.25);
+                    observed["filledValue"] = json!(33.125);
+                    observed["createdAt"] = json!("2026-09-23T10:00:00Z");
+                    self.trading212_order_details
+                        .borrow_mut()
+                        .insert("9007199254740995".into(), observed.clone());
+                    *self.trading212_order_list.borrow_mut() = Some(vec![observed]);
+                    Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&response).unwrap(),
+                    })
+                }
+                (ProviderHttpMethod::Delete, path, None)
+                    if path
+                        .strip_prefix("/api/v0/equity/orders/")
+                        .is_some_and(|id| {
+                            !id.is_empty()
+                                && id.bytes().all(|byte| byte.is_ascii_digit())
+                                && id.parse::<i64>().is_ok_and(|id| id > 0)
+                        }) =>
+                {
+                    self.calls
+                        .borrow_mut()
+                        .push(format!("{}{path}", endpoint.base_url()));
+                    self.trading212_delete_calls
+                        .borrow_mut()
+                        .push(path.to_owned());
+                    if self.trading212_delete_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    Ok(ProviderHttpResponse {
+                        status: self.trading212_delete_status.get().unwrap_or(200),
+                        body: Vec::new(),
+                    })
+                }
+                _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+        }
+        if endpoint != ProviderEndpoint::AlpacaPaper {
+            if endpoint == ProviderEndpoint::BinanceTestnet {
+                if method == ProviderHttpMethod::Get
+                    && matches!(
+                        path,
+                        "/api/v3/referencePrice?symbol=BTCUSDT"
+                            | "/api/v3/referencePrice?symbol=ETHUSDT"
+                    )
+                {
+                    assert!(headers.is_empty());
+                    self.calls
+                        .borrow_mut()
+                        .push(format!("{}{path}", endpoint.base_url()));
+                    let body = self
+                        .binance_reference_price
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(|| json!({
+                            "symbol": if path.ends_with("ETHUSDT") { "ETHUSDT" } else { "BTCUSDT" },
+                            "referencePrice": null,
+                            "timestamp": 1788849600000u64
+                        }));
+                    return Ok(ProviderHttpResponse {
+                        status: self.binance_reference_price_status.get().unwrap_or(200),
+                        body: serde_json::to_vec(&body).unwrap(),
+                    });
+                }
+                if method == ProviderHttpMethod::Get && path.starts_with("/api/v3/exchangeInfo?") {
+                    assert!(headers.is_empty());
+                    return Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(
+                            &self
+                                .binance_exchange_info
+                                .borrow()
+                                .clone()
+                                .unwrap_or_else(default_binance_exchange_info),
+                        )
+                        .unwrap(),
+                    });
+                }
+                if method == ProviderHttpMethod::Post && path.starts_with("/api/v3/order?") {
+                    let _ = self.get(endpoint, path, headers)?;
+                    self.binance_posts.borrow_mut().push(path.to_owned());
+                    if let Some(status) = self.binance_post_status.get() {
+                        return Ok(ProviderHttpResponse {
+                            status,
+                            body: self
+                                .binance_post_response_body
+                                .borrow_mut()
+                                .take()
+                                .unwrap_or_else(|| {
+                                    br#"{"code":-1013,"msg":"synthetic rejection"}"#.to_vec()
+                                }),
+                        });
+                    }
+                    if let Some(body) = self.binance_post_response_body.borrow_mut().take() {
+                        return Ok(ProviderHttpResponse { status: 200, body });
+                    }
+                    let client_order_id = path
+                        .split('&')
+                        .find_map(|pair| pair.strip_prefix("newClientOrderId="))
+                        .unwrap_or("tradex-fixture-order");
+                    let value = |key: &str| {
+                        path.split('&')
+                            .find_map(|pair| pair.strip_prefix(&format!("{key}=")))
+                            .unwrap_or("")
+                    };
+                    let response = json!({
+                        "symbol":"BTCUSDT","orderId":"9007199254740997",
+                        "clientOrderId":client_order_id,"transactTime":1788849600000u64,
+                        "price":if value("price").is_empty() { "0.00000000" } else { value("price") },
+                        "origQty":if value("quantity").is_empty() { "0.00000000" } else { value("quantity") },
+                        "origQuoteOrderQty":if value("quoteOrderQty").is_empty() { "0.00000000" } else { value("quoteOrderQty") },
+                        "executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000",
+                        "status":"NEW","timeInForce":if value("timeInForce").is_empty() { "GTC" } else { value("timeInForce") },
+                        "type":value("type"),"side":value("side"),"workingTime":1788849600000u64,
+                        "selfTradePreventionMode":"NONE"
+                    });
+                    *self.binance_order_by_client_id.borrow_mut() = Some(response.clone());
+                    if self.binance_post_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    return Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&response).unwrap(),
+                    });
+                }
+                if method == ProviderHttpMethod::Delete && path.starts_with("/api/v3/order?") {
+                    let _ = self.get(endpoint, path, headers)?;
+                    self.binance_cancel_calls.borrow_mut().push(path.to_owned());
+                    if self.binance_cancel_timeout.get() {
+                        return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+                    }
+                    if let Some(status) = self.binance_cancel_status.get() {
+                        return Ok(ProviderHttpResponse {
+                            status,
+                            body: br#"{"code":-2011,"msg":"synthetic cancel rejection"}"#.to_vec(),
+                        });
+                    }
+                    let param = |name: &str| {
+                        path.split_once('?')
+                            .into_iter()
+                            .flat_map(|(_, query)| query.split('&'))
+                            .find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+                    };
+                    let symbol = param("symbol").unwrap_or_default();
+                    let order_id = param("orderId").unwrap_or_default();
+                    let client_cancel_id = param("newClientOrderId").unwrap_or_default();
+                    let mut orders = self
+                        .binance_open_orders
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(default_binance_open_orders);
+                    let Some(index) = orders.iter().position(|order| {
+                        order["symbol"] == symbol
+                            && (order["orderId"].as_str() == Some(order_id)
+                                || order["orderId"]
+                                    .as_u64()
+                                    .is_some_and(|id| id.to_string() == order_id))
+                    }) else {
+                        return Ok(ProviderHttpResponse {
+                            status: 400,
+                            body: br#"{"code":-2011,"msg":"unknown order"}"#.to_vec(),
+                        });
+                    };
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis()
+                        .try_into()
+                        .unwrap_or(u64::MAX);
+                    let mut provider_order = orders[index].clone();
+                    provider_order["status"] = "CANCELED".into();
+                    provider_order["updateTime"] = provider_order["updateTime"]
+                        .as_u64()
+                        .unwrap_or(0)
+                        .max(now_ms)
+                        .saturating_add(1)
+                        .into();
+                    let mut acknowledgement = provider_order.clone();
+                    acknowledgement["origClientOrderId"] = provider_order["clientOrderId"].clone();
+                    acknowledgement["clientOrderId"] = client_cancel_id.into();
+                    acknowledgement["transactTime"] = now_ms.saturating_add(1).into();
+                    orders[index] = provider_order.clone();
+                    *self.binance_open_orders.borrow_mut() = Some(orders);
+                    if let Some(history) = self.binance_order_history.borrow_mut().get_mut(symbol)
+                        && let Some(order) = history.iter_mut().find(|order| {
+                            order["orderId"].as_str() == Some(order_id)
+                                || order["orderId"]
+                                    .as_u64()
+                                    .is_some_and(|id| id.to_string() == order_id)
+                        })
+                    {
+                        *order = provider_order;
+                    }
+                    return Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&acknowledgement).unwrap(),
+                    });
+                }
+                return match (method, body) {
+                    (ProviderHttpMethod::Get, None) => {
+                        let body = self.get(endpoint, path, headers)?;
+                        let route = path.split('?').next().unwrap_or(path);
+                        let status = self
+                            .binance_read_statuses
+                            .borrow()
+                            .get(route)
+                            .copied()
+                            .unwrap_or(200);
+                        Ok(ProviderHttpResponse { status, body })
+                    }
+                    _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+                };
+            }
+            return match (method, body) {
+                (ProviderHttpMethod::Get, None) => self
+                    .get(endpoint, path, headers)
+                    .map(|body| ProviderHttpResponse { status: 200, body }),
+                _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+            };
+        }
+        assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+        assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+        assert!(headers["APCA-API-KEY-ID"].is_sensitive());
+        assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+        assert!(!headers.contains_key("Authorization"));
+        self.calls
+            .borrow_mut()
+            .push(format!("{}{path}", endpoint.base_url()));
+        match (method, path, body) {
+            (ProviderHttpMethod::Get, "/v2/account", None) => {
+                let body = self.get(endpoint, path, headers)?;
+                let mut account: Value = serde_json::from_slice(&body).unwrap();
+                account["currency"] = self.alpaca_order_currency.borrow().clone().into();
+                Ok(ProviderHttpResponse {
+                    status: 200,
+                    body: serde_json::to_vec(&account).unwrap(),
+                })
+            }
+            (ProviderHttpMethod::Get, "/v2/assets/AAPL", None) => Ok(ProviderHttpResponse {
+                status: 200,
+                body: serde_json::to_vec(&self.alpaca_asset.borrow().clone()).unwrap(),
+            }),
+            (ProviderHttpMethod::Get, "/v2/positions/AAPL", None) => {
+                match self.alpaca_position.borrow().clone() {
+                    Some(position) => Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&position).unwrap(),
+                    }),
+                    None => Ok(ProviderHttpResponse {
+                        status: 404,
+                        body: Vec::new(),
+                    }),
+                }
+            }
+            (ProviderHttpMethod::Get, path, None)
+                if path == "/v2/orders?status=all&limit=100&direction=desc&nested=false"
+                    || path.starts_with("/v2/orders?status=all&limit=100&direction=desc&nested=false&before_order_id=") =>
+            {
+                let mut orders = self.alpaca_order_history.borrow().clone();
+                if let Some(order) = self.alpaca_order.borrow().clone()
+                    && !orders.iter().any(|item| item["id"] == order["id"])
+                {
+                    orders.push(order);
+                }
+                orders.sort_by(|left, right| right["submitted_at"].as_str().cmp(&left["submitted_at"].as_str()));
+                let start = path
+                    .split_once("before_order_id=")
+                    .and_then(|(_, cursor)| {
+                        if self.alpaca_repeat_order_cursor.get() {
+                            Some(0)
+                        } else {
+                            orders.iter().position(|order| order["id"] == cursor).map(|index| index + 1)
+                        }
+                    })
+                    .unwrap_or(0);
+                let values = orders.into_iter().skip(start).take(100).collect::<Vec<_>>();
+                Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&values).unwrap() })
+            }
+            (ProviderHttpMethod::Get, path, None) if path.starts_with("/v2/orders/") => {
+                let order_id = path.trim_start_matches("/v2/orders/");
+                let order = self.alpaca_order_history.borrow().iter().find(|order| order["id"] == order_id).cloned()
+                    .or_else(|| self.alpaca_order.borrow().clone().filter(|order| order["id"] == order_id));
+                match order {
+                    Some(order) => Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&order).unwrap() }),
+                    None => Ok(ProviderHttpResponse { status: 404, body: Vec::new() }),
+                }
+            }
+            (ProviderHttpMethod::Get, path, None)
+                if path == "/v2/account/activities/FILL?page_size=100&direction=desc"
+                    || path.starts_with("/v2/account/activities/FILL?page_size=100&direction=desc&page_token=") =>
+            {
+                let fills = self.alpaca_fills.borrow().clone();
+                let start = path
+                    .split_once("page_token=")
+                    .and_then(|(_, cursor)| fills.iter().position(|fill| fill["id"] == cursor).map(|index| index + 1))
+                    .unwrap_or(0);
+                let values = fills.into_iter().skip(start).take(100).collect::<Vec<_>>();
+                Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&values).unwrap() })
+            }
+            (ProviderHttpMethod::Get, path, None)
+                if path.starts_with("/v2/orders:by_client_order_id?client_order_id=") =>
+            {
+                if self.alpaca_lookup_misses.get() > 0 {
+                    self.alpaca_lookup_misses
+                        .set(self.alpaca_lookup_misses.get() - 1);
+                    return Ok(ProviderHttpResponse {
+                        status: 404,
+                        body: Vec::new(),
+                    });
+                }
+                match self.alpaca_order.borrow().clone() {
+                    Some(order) => Ok(ProviderHttpResponse {
+                        status: 200,
+                        body: serde_json::to_vec(&order).unwrap(),
+                    }),
+                    None => Ok(ProviderHttpResponse {
+                        status: 404,
+                        body: Vec::new(),
+                    }),
+                }
+            }
+            (ProviderHttpMethod::Post, "/v2/orders", Some(request)) => {
+                self.alpaca_posts.borrow_mut().push(request.clone());
+                if let Some(status) = self.alpaca_post_status.get() {
+                    return Ok(ProviderHttpResponse {
+                        status,
+                        body: self.alpaca_post_error_body.borrow().clone().unwrap_or_default(),
+                    });
+                }
+                let order = json!({
+                    "id":"18c65e3e-feb0-4576-99e2-36e6f047d84d",
+                    "asset_id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e15b",
+                    "client_order_id":request["client_order_id"],
+                    "symbol":request["symbol"],
+                    "asset_class":"us_equity","side":request["side"],
+                    "type":request["type"],"time_in_force":request["time_in_force"],
+                    "qty":request.get("qty"),"notional":request.get("notional"),
+                    "limit_price":request.get("limit_price"),"status":"accepted",
+                    "filled_qty":"0","submitted_at":"2026-09-23T10:00:00Z","created_at":"2026-09-23T10:00:00Z"
+                });
+                *self.alpaca_order.borrow_mut() = Some(order);
+                if self.alpaca_post_timeout.get() {
+                    Err(TradeXError::new("PROVIDER_UNAVAILABLE"))
+                } else {
+                    Ok(ProviderHttpResponse {
+                        status: 201,
+                        body: serde_json::to_vec(self.alpaca_order.borrow().as_ref().unwrap())
+                            .unwrap(),
+                    })
+                }
+            }
+            (ProviderHttpMethod::Delete, path, None) if path.starts_with("/v2/orders/") => {
+                let order_id = path.trim_start_matches("/v2/orders/").to_owned();
+                self.alpaca_delete_calls.borrow_mut().push(order_id.clone());
+                let status = self.alpaca_delete_status.get().unwrap_or(204);
+                if status == 204 && (self.alpaca_delete_confirms_cancel.get() || self.alpaca_delete_order_status.borrow().is_some()) {
+                    let provider_status = self.alpaca_delete_order_status.borrow().clone().unwrap_or_else(|| "canceled".into());
+                    if let Some(order) = self.alpaca_order.borrow_mut().as_mut().filter(|order| order["id"] == order_id) {
+                        order["status"] = provider_status.clone().into();
+                        if provider_status == "filled" {
+                            order["filled_qty"] = order["qty"].clone();
+                        }
+                    }
+                    if let Some(order) = self.alpaca_order_history.borrow_mut().iter_mut().find(|order| order["id"] == order_id) {
+                        order["status"] = provider_status.clone().into();
+                        if provider_status == "filled" {
+                            order["filled_qty"] = order["qty"].clone();
+                        }
+                    }
+                }
+                Ok(ProviderHttpResponse { status, body: Vec::new() })
+            }
+            _ => Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+        }
+    }
+
+    fn request_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        let response = self.request(endpoint, method, path, headers, body)?;
+        let rate_limit = if endpoint == ProviderEndpoint::BinanceTestnet
+            && matches!(response.status, 418 | 429)
+        {
+            self.binance_retry_after_seconds
+                .take()
+                .map(|retry_after_seconds| ProviderRateLimit {
+                    retry_after_seconds: Some(retry_after_seconds),
+                    ..ProviderRateLimit::default()
+                })
+        } else if endpoint == ProviderEndpoint::Trading212Demo {
+            self.trading212_rate_limit.borrow_mut().take()
+        } else {
+            None
+        };
+        Ok((response, rate_limit))
+    }
+
+    fn get(
+        &self,
+        endpoint: tradex::provider_io::ProviderEndpoint,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+    ) -> Result<Vec<u8>> {
+        if matches!(
+            endpoint,
+            tradex::provider_io::ProviderEndpoint::BitgetDemo
+                | tradex::provider_io::ProviderEndpoint::BitgetLive
+        ) {
+            return self.bitget.get(endpoint, path, headers);
+        }
+        if matches!(
+            endpoint,
+            tradex::provider_io::ProviderEndpoint::BinanceTestnet
+                | tradex::provider_io::ProviderEndpoint::BinanceLive
+        ) {
+            self.calls
+                .borrow_mut()
+                .push(format!("{}{path}", endpoint.base_url()));
+            if path == "/api/v3/time" {
+                assert!(headers.is_empty());
+                return Ok(br#"{"serverTime":1788849600000}"#.to_vec());
+            }
+            if path == "/api/v3/exchangeInfo?symbol=BTCUSDT" {
+                assert!(headers.is_empty());
+                return serde_json::to_vec(
+                    &self
+                        .binance_exchange_info
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(default_binance_exchange_info),
+                )
+                .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            if matches!(
+                path,
+                "/api/v3/ticker/price?symbol=BTCUSDT" | "/api/v3/avgPrice?symbol=BTCUSDT"
+            ) {
+                assert!(headers.is_empty());
+                return Ok(br#"{"symbol":"BTCUSDT","price":"100","mins":5}"#.to_vec());
+            }
+            assert_eq!(headers["X-MBX-APIKEY"], KEY);
+            assert!(headers["X-MBX-APIKEY"].is_sensitive());
+            assert_eq!(headers.len(), 1);
+            let (route, query) = path.split_once('?').unwrap();
+            let (params, sig) = query.split_once("&signature=").unwrap();
+            use hmac::Mac;
+            let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(SECRET.as_bytes()).unwrap();
+            mac.update(params.as_bytes());
+            mac.verify_slice(&hex::decode(sig).unwrap()).unwrap();
+            let timestamp = params
+                .split('&')
+                .find_map(|pair| pair.strip_prefix("timestamp="))
+                .unwrap()
+                .parse::<u64>()
+                .unwrap();
+            assert!((1788849600000..1788849660000).contains(&timestamp));
+            let param = |name: &str| {
+                params
+                    .split('&')
+                    .find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+            };
+            if self.fail.get() {
+                return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+            }
+            return Ok(serde_json::to_vec(&match route {
+                "/api/v3/account"=>json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]}),
+                "/api/v3/openOrders"=>json!(self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders)),
+                "/api/v3/allOrders" => {
+                    let symbol = param("symbol").unwrap_or_default();
+                    let cursor = param("orderId").and_then(|value| value.parse::<u64>().ok()).unwrap_or(0);
+                    let limit = param("limit").and_then(|value| value.parse::<usize>().ok()).unwrap_or(1000);
+                    Value::Array(self.binance_order_history.borrow().get(symbol).cloned().unwrap_or_default().into_iter()
+                        .filter(|row| row["orderId"].as_str().and_then(|id| id.parse::<u64>().ok()).or_else(|| row["orderId"].as_u64()).is_some_and(|id| id >= cursor))
+                        .take(limit).collect::<Vec<_>>())
+                },
+                "/api/v3/myTrades" => {
+                    let symbol = param("symbol").unwrap_or_default();
+                    let cursor = param("fromId").and_then(|value| value.parse::<u64>().ok()).unwrap_or(0);
+                    let limit = param("limit").and_then(|value| value.parse::<usize>().ok()).unwrap_or(1000);
+                    Value::Array(self.binance_trade_history.borrow().get(symbol).cloned().unwrap_or_default().into_iter()
+                        .filter(|row| row["id"].as_str().and_then(|id| id.parse::<u64>().ok()).or_else(|| row["id"].as_u64()).is_some_and(|id| id >= cursor))
+                        .take(limit).collect::<Vec<_>>())
+                },
+                "/api/v3/order" => {
+                    if let Some(lookup) = param("origClientOrderId") {
+                        self.binance_order_by_client_id.borrow().clone()
+                            .filter(|order| !self.binance_hide_order_lookup.get() && Some(lookup) == order["clientOrderId"].as_str())
+                            .unwrap_or(Value::Null)
+                    } else {
+                        let symbol = param("symbol").unwrap_or_default();
+                        let order_id = param("orderId").unwrap_or_default();
+                        let open_orders = self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders);
+                        self.binance_order_history.borrow().get(symbol).into_iter().flatten()
+                            .chain(open_orders.iter())
+                            .find(|order| order["symbol"] == symbol && (order["orderId"].as_str() == Some(order_id) || order["orderId"].as_u64().is_some_and(|id| id.to_string() == order_id)))
+                            .cloned().unwrap_or(Value::Null)
+                    }
+                },
+                "/sapi/v1/account/apiRestrictions"=>{
+                    assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
+                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":true,"enableWithdrawals":false,"enableInternalTransfer":false,"enableMargin":false,"enableFutures":false,"permitsUniversalTransfer":false,"enableVanillaOptions":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":false})
+                },
+                _=>panic!("Unexpected Binance operation"),
+            }).unwrap());
+        }
+        if endpoint != tradex::provider_io::ProviderEndpoint::AlpacaPaper {
+            assert_eq!(
+                headers["Authorization"],
+                "Basic UzAyLUZBS0UtS0VZLTU5NDc5MTQ1MzpTMDItRkFLRS1TRUNSRVQtNzA0NTU2OTIx"
+            );
+            assert!(headers["Authorization"].is_sensitive());
+            assert!(!headers.contains_key("APCA-API-KEY-ID"));
+            self.calls
+                .borrow_mut()
+                .push(format!("{}{path}", endpoint.base_url()));
+            if self.fail.get() {
+                return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+            }
+            if path == "/api/v0/equity/orders" {
+                let rows = self
+                    .trading212_order_list
+                    .borrow()
+                    .clone()
+                    .unwrap_or_else(default_trading212_order_list);
+                return serde_json::to_vec(&rows)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            if path.starts_with("/api/v0/equity/orders/") {
+                let id = path.trim_start_matches("/api/v0/equity/orders/");
+                let order = self
+                    .trading212_order_details
+                    .borrow()
+                    .get(id)
+                    .cloned()
+                    .ok_or_else(|| TradeXError::new("ORDER_STATUS_UNKNOWN"))?;
+                return serde_json::to_vec(&order)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            if path.starts_with("/api/v0/equity/history/orders?") {
+                let page = self
+                    .trading212_history_pages
+                    .borrow()
+                    .get(path)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        serde_json::from_str(
+                            r#"{"items":[{"fill":{"id":1},"order":{
+                        "id":8001,"ticker":"MSFT_US_EQ","side":"SELL","type":"MARKET",
+                        "timeInForce":"DAY","strategy":"QUANTITY","quantity":-2,
+                        "filledQuantity":-2,"filledValue":201.234567890123456789,"currency":"GBP",
+                        "status":"FILLED","createdAt":"2026-09-22T12:00:00Z"
+                        }
+                    }],"nextPagePath":null}"#,
+                        )
+                        .unwrap()
+                    });
+                return serde_json::to_vec(&page)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+            }
+            return Ok(match path {
+                "/api/v0/equity/account/summary" => {
+                    let mut summary: Value = serde_json::from_slice(br#"{"id":9007199254740993,"currency":"GBP","cash":{"availableToTrade":1000.1234567890123456789,"reservedForOrders":20.50,"inPies":3.2},"totalValue":1300.25}"#).unwrap();
+                    summary["id"] = json!(self.trading212_identity.get());
+                    serde_json::to_vec(&summary).unwrap()
+                }
+                "/api/v0/equity/positions" => br#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#.to_vec(),
+                "/api/v0/equity/orders" => br#"[{"id":9007199254740995,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23}]"#.to_vec(),
+                _ => panic!("Unexpected Trading 212 operation"),
+            });
+        }
+        assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+        assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+        assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+        self.calls.borrow_mut().push(path.into());
+        if self.fail.get() {
+            return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+        }
+        let response = match path {
+            "/v2/account" => {
+                json!({"id":self.identity,"currency":"USD","status":"ACTIVE","cash":"001000.2500","equity":"1200.5500","buying_power":"1100.9876543210123456789","account_blocked":false,"trading_blocked":false,"trade_suspended_by_user":false,"shorting_enabled":true})
+            }
+            "/v2/positions" => {
+                json!([{"symbol":"AAPL","qty":"1.2500","market_value":"200.3000","avg_entry_price":"150.0"}])
+            }
+            "/v2/orders?status=open&limit=500&direction=asc&nested=false" => {
+                json!([{"id":"e9124a88-3e5e-45d0-a08f-2b21a8665a91","symbol":"MSFT","side":"buy","qty":null,"notional":"10.5000","filled_qty":"0","status":"new","limit_price":null}])
+            }
+            _ => panic!("Unexpected provider operation"),
+        };
+        Ok(serde_json::to_vec(&response).unwrap())
+    }
+}
+
+pub fn default_binance_exchange_info() -> Value {
+    json!({"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","filters":[{"filterType":"PRICE_FILTER","minPrice":"0.01","maxPrice":"1000000","tickSize":"0.01"},{"filterType":"LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"MARKET_LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"NOTIONAL","minNotional":"5","maxNotional":"0","applyMinToMarket":true,"applyMaxToMarket":false,"avgPriceMins":5}]}]})
+}

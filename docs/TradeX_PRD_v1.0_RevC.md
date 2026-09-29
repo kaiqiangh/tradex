@@ -21,6 +21,7 @@ This clarification preserves v1.0 scope and FR/AC identifiers. UI Spec §14 refi
 | 1.0 RevB | 2026-09-04 | LLM gateway re-architecture: model access restricted to two sources — local CLIProxyAPI (ChatGPT subscription OAuth → GPT-5.6) and DeepSeek official API key — routed through a single local OpenAI-compatible endpoint (§16, §26.3, §27, §58, §64); OD-009/OD-015 resolved (§72); security additions SEC-007/SEC-008 and Model-credential zone (§17, §62.2); approval/reservation timing hardening (§15, §18, §21.3, §22, §23, §45, §46, §47); MVP storage profile simplification (§32, §54); adapter consolidation (§24); LLM error taxonomy (§51); FR-068–FR-073 and AC-055–AC-058 (§61, §69); privacy disclosure (§56); JTBD/scope/success-criteria updates (§8, §68, §73). |
 | 1.0 RevC | 2026-09-04 | Product-state consolidation and prototype alignment: separated Agent Mode from Execution Context (§12–§15); added per-turn immutable context/model snapshots, OrderDraft→OrderProposal semantics, compatibility rules, account-scoped arming, evidence-based reconciliation resolution, provider-permission safety gates, time/FX provenance, and provider capability dimensions; made cross-provider LLM fallback explicit opt-in/manual by default (§16, §26.3, §51, §56); reconciled DuckDB/Parquet and market-data-tier semantics (§32, §54, §63); strengthened FR/AC/NFR/SEC/DATA/OPS/UX traceability and Phase 0 gates; added measurable product success criteria and open-decision ownership/defaults; synchronized UI Spec, Coverage Matrix, QA Report, English/Chinese documentation, and the standalone prototype. |
 | 1.0 RevC clarification | 2026-09-05 | Guarded expiry/reservation release, global disarm scope, cancellation identity, Gateway/IPC contract references, corrected evidence grades, and bilingual synchronization; prototype code unchanged. |
+| 1.0 RevC S18 account-deletion addendum | 2026-09-24 | Added FR-081 / AC-067 for confirmed, atomic, TradeX-local deletion of eligible credential-free Trading 212 Demo accounts; confirmation includes the full connection ID to distinguish duplicate labels. Live, other connections, provider state, and terminal financial audit history remain protected. |
 
 ## Table of Contents
 
@@ -950,12 +951,13 @@ live proposals may proceed to transaction-specific approval
 
 Arming one live account does not arm any other live account.
 
-Live execution remains transaction-specific and approval-gated while an account is ARMED.
+Live execution remains transaction-specific and approval-gated while an account is ARMED. Live arming requires verified credential-permission scope; acknowledging an `UNVERIFIED` scope permits completing connection review only and does not make the account eligible for Live arming.
 
 TradeX automatically returns the affected live account to `DISARMED` after:
 
 - application restart;
 - OS sleep or session lock;
+- on macOS, the TradeX app giving up active status to another app; this deliberately also disarms on ordinary app switches and covers the tested transition to the lock screen;
 - credential change;
 - account health degradation (single trigger source covering: authentication failure with provider reconnection, reconciliation failure, failed pre-approval/pre-execution checks, unhealthy broker state);
 - risk-policy weakening;
@@ -986,7 +988,7 @@ TradeX uses **Codex App Server / Codex Harness** as the primary agent runtime (p
 Model inference is restricted to exactly two sources, routed through one local OpenAI-compatible endpoint:
 
 1. **CLIProxyAPI** (local gateway, pinned version): ChatGPT subscription OAuth (`--codex-login`) → GPT-5.6 series;
-2. **DeepSeek official API**: `deepseek-chat` / `deepseek-reasoner`, configured as a CLIProxyAPI upstream with the key injected from the OS keychain.
+2. **DeepSeek official API**: `deepseek-v4-flash` with explicit non-thinking (`thinking.type: disabled`) or thinking (`thinking.type: enabled`) mode, configured as a CLIProxyAPI upstream with the key injected from the OS keychain.
 
 No other model provider is permitted in v1.0. All model traffic terminates at `127.0.0.1:8317`; direct external LLM connections from TradeX, Codex, strategy code, or research tools are prohibited (SEC-007).
 
@@ -996,7 +998,7 @@ TradeX Desktop (React/Tauri)
       ▼
 Codex App Server ─── model_provider ───► CLIProxyAPI (127.0.0.1:8317)
       │                                  ├─ ChatGPT OAuth → GPT-5.6
-      │                                  └─ DeepSeek official API → deepseek-*
+      │                                  └─ DeepSeek official API → deepseek-v4-flash
       │
       └──────── TradeX Control Plane
                  Risk / Approval / Reservations / Order Gateway / Reconciliation
@@ -1267,21 +1269,27 @@ The following are not user-bypassable policy preferences:
 
 ## 21.3 Risk-policy Change Behavior
 
-A risk-policy save must be treated as a security-relevant event.
+A risk-policy save is a security-relevant workspace event. Its scope is every persisted account bound to the workspace-shared `RiskPolicy`, regardless of selected UI account.
 
-For the affected live account:
+For all accounts in the workspace policy scope:
 
 ```text
 Save risk policy
-→ invalidate pending live approvals that could be affected
-→ re-evaluate pending proposals
-→ if policy is weakened: DISARM account
+→ invalidate pending proposals and approvals bound to the previous policy version
+→ re-evaluate pending proposals and record the stale policy-version result
+→ if any part of the change weakens policy: DISARM every affected Live account
 → persist audit event
 ```
 
-The UI must explicitly state when a previously approved transaction is no longer valid because policy changed.
+The affected set comes from persisted workspace bindings, never the currently selected UI account. A mixed update counts as weakening when any field relaxes; a tightening-only update does not. The UI must explicitly show the old/new policy versions, every affected account and pending proposal, and each invalidation reason. No prior decision or future approval may be reused after a policy-version change.
 
-Policy saves and approval consumption for the same account are serialized through a per-account single-writer path, eliminating save-vs-consume races: a save that lands between approval issuance and consumption is caught by the policy-version check at `PRE_EXECUTION_CHECK`.
+Policy save commits the workspace policy, all affected Live disarms, pending-proposal invalidations, and stale-version decisions atomically. Approval consumption must use the same current-policy-version predicate at `PRE_EXECUTION_CHECK`; an approval bound to an older version is ineligible. Save-vs-consume and reservation serialization are completed by the S23 transaction boundary.
+
+## 21.4 Risk Evaluation and Evidence
+
+The trusted Control Plane evaluates an immutable OrderProposal against the current policy and evidence. Each result is `ALLOWED`, `REJECTED`, or `UNAVAILABLE`, and binds the workspace, proposal ID/hash, exact account/environment, policy version, evaluation time, input digests, and per-check outcomes. Every evaluation appends an immutable decision and event; reevaluation never changes the proposal or replaces earlier decisions.
+
+A policy rejection takes precedence. If no check rejects but required evidence is missing, stale, or untrusted, the result is `UNAVAILABLE`. Missing evidence never becomes an empty portfolio, zero activity, or assumed currency parity. Submit commands must re-evaluate at the trusted boundary and produce no provider/simulator order side effect when the result is `REJECTED` or `UNAVAILABLE`; the renderer and agent cannot provide inputs or override the result. `ALLOWED` is only a policy result and does not grant approval, account arming, reservation, or order-send authority. Ordinary Bitget Live account identity maps to `LIVE` policy while remaining read-only until later financial authority gates exist.
 
 ---
 
@@ -1568,7 +1576,7 @@ Permission safety gate:
 
 - detected withdrawal/transfer/custody permissions are **forbidden** for a TradeX live connection and block execution readiness until removed;
 - margin/leverage-management permissions are out of scope and surface a blocking or unsupported-capability warning;
-- where a provider cannot expose permission introspection, TradeX labels permission scope `UNVERIFIED`, requires explicit user acknowledgement, and keeps the limitation visible in Account Health;
+- where a provider cannot expose permission introspection, TradeX labels permission scope `UNVERIFIED`, requires explicit user acknowledgement to complete connection review, keeps the limitation visible in Account Health, and blocks Live arming;
 - connection tests persist only non-secret capability/permission metadata plus keychain references.
 
 ## 26.2 Provider-specific Account Detail
@@ -2254,7 +2262,7 @@ Approval expiry and broker order expiry are distinct events. An expired approval
 
 | Trigger and known execution state | Authoritative transition | Reservation disposition |
 |---|---|---|
-| Approval expires/is invalidated before any transmission can have begun, including `RESERVED` work atomically stopped before dispatch | Approval Authority invalidates consent; the unsubmitted proposal may end as `EXPIRED` with a reason | Release any existing reservation atomically; no reservation means no fabricated release |
+| Approval expires or its authority changes (shared risk-policy change, account disarm, or Disable All) before any transmission can have begun, including `RESERVED` work atomically stopped before dispatch | Invalidate the undispatched attempt and preserve approval/proposal audit history; a consumed approval remains consumed and cannot be replayed as dispatch authority | Atomically release any active PLACE reservation and emit one release event; a CANCEL attempt has no new reservation, and no reservation means no fabricated release |
 | Local approval expires after `SUBMITTING`, or transmission outcome is uncertain | Expire the approval record only; keep the observed order state or `UNKNOWN_RECONCILING` | Keep capacity frozen until authoritative reconciliation |
 | Broker confirms terminal order expiry, cancellation, rejection, or fill | Adapter/reconciliation applies the broker state and cumulative fills | Account for fills/fees and release only the unused remainder, exactly once |
 | Automatic reconciliation times out or the user closes Manual Resolution | Keep `UNKNOWN_RECONCILING`; account remains unhealthy/DISARMED | No release |
@@ -2455,6 +2463,7 @@ Minimum remediation examples:
 - `MARKET_CLOSED` / `INSTRUMENT_HALTED` → block unsupported execution and show market state;
 - `INSUFFICIENT_FUNDS` → show available vs required capacity including reservations;
 - `STATE_STALE` / `RECONCILIATION_REQUIRED` → disable live execution until refreshed;
+- `ACCOUNT_DELETE_BLOCKED` (`STATE_STALE`) → reload the selected account and resolve its credential or financial activity before local removal;
 - `SUBMISSION_AMBIGUOUS` → transition to `UNKNOWN_RECONCILING`, no blind retry;
 - `MODEL_UNAVAILABLE` → pause agent turns with sidecar remediation guidance (§16.3); approvals/execution/reconciliation unaffected;
 - `QUOTA_EXCEEDED` → show quota state; offer cooldown/retry and explicit switch to DeepSeek; optional automatic fallback only when the user enabled it;
@@ -2873,6 +2882,7 @@ graph TD
 | FR-078 | Block/review dangerous provider permissions (withdrawal/transfer/custody/margin/leverage) before live readiness | P0 |
 | FR-079 | Implement FX/stablecoin valuation provenance and depeg/quality handling | P1 |
 | FR-080 | Implement editable OrderDraft → immutable OrderProposal regeneration semantics | P0 |
+| FR-081 | Implement confirmed permanent local removal of eligible Trading 212 Demo account and order-book observations | P0 |
 
 Requirement-overlap notes (for traceability, IDs are kept stable):
 
@@ -3321,6 +3331,9 @@ Onboarding cannot reach Ready without at least one usable LLM provider; a sideca
 
 **AC-051**  
 Provider connection UI is rendered from provider credential/capability schema and does not assume every provider uses identical credential fields.
+
+**AC-067**
+Only a credential-free `trading212` / `DEMO` connection in `FAILED` or `DISCONNECTED` state can be permanently deleted after explicit confirmation naming the selected record by its full connection ID, label, provider, and environment. The confirmation says that provider keys, provider orders and every other connection are unchanged. The backend rechecks the active workspace, identity, state version, credential health, open orders, actionable proposals and unresolved attempts, then atomically removes the account projection plus its account and Demo order-book observations. `SUBMITTING` and `UNKNOWN_RECONCILING` attempts remain unresolved; an `ACKNOWLEDGED` attempt is resolved for deletion only after its exact linked order has a durable recognized terminal observation with `pending: false`. Terminal proposal/attempt audit history remains retained. Cancellation makes no change; success refreshes the list/context and announces completion; focus returns to the trigger or a logical fallback; failure leaves all target rows intact.
 
 ---
 

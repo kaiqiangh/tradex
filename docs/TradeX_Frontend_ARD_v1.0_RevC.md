@@ -1,6 +1,6 @@
 # TradeX Frontend Architecture Requirements & Design (ARD)
 
-**Contract clarification date:** 2026-09-05; prototype behavior is evidence only, subject to the QA Report defects and pending gates.
+**Contract clarification date:** 2026-09-05 (RevC); S18 account-deletion contract clarified 2026-09-24 to identify duplicate-label records by full connection ID. Prototype behavior is evidence only, subject to the QA Report defects and pending gates.
 
 **Version:** v1.0 Revision C (RevC)  
 **Status:** Engineering baseline  
@@ -157,6 +157,7 @@ Coordinates UI flows such as:
 - generate/refresh live proposal;
 - submit approval/rejection;
 - approve cancellation;
+- separately prepare the exact approved Live CANCEL and restore its saved `RESERVED` attempt without presenting it as provider cancellation;
 - resolve ambiguous submission;
 - configure provider/model;
 - import/restore workspace.
@@ -308,6 +309,50 @@ interface LiveAccountStatus {
 
 There is no workspace-wide `liveArmed: boolean`.
 
+### 7.6 Capability preflight
+
+```ts
+type CapabilityLevel = "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
+type ToolId = "public_market_read" | "account_read" | "historical_simulation" | "paper_demo_testnet_execution" | "live_order_proposal";
+
+interface CapabilityDecision {
+  level: CapabilityLevel;
+  allowedTools: ToolId[];
+  executionAllowed: boolean;
+  reason?: string;
+}
+```
+
+The composer may query `agent.capabilities` for pending state, but `turn.start` must receive the same inputs and recompute the decision at the trusted boundary. C5/C6 and unknown or disallowed tools remain unavailable.
+
+### 7.7 Context catalog and temporary picker state
+
+```ts
+interface ContextCatalogEntry {
+  contextRef: { kind: "account"; id: string; hash: string };
+  label: string;
+  providerId?: string;
+  environment?: string;
+  readOnly: boolean;
+  available: boolean;
+  availabilityReason?: string;
+}
+interface ContextCatalog {
+  entries: ContextCatalogEntry[];
+  emptyStates: { kind: "instrument" | "account" | "strategy" | "backtest" | "artifact"; availabilityReason: string }[];
+}
+```
+
+`context.catalog` is backend-owned and contains persisted account refs plus explicit empty states for future catalogs. The picker keeps a temporary pending list: Attach replaces it, Cancel leaves it unchanged, and removing a chip affects only the next Turn. A Live account in Ask/Research is labelled `LIVE · READ-ONLY`; Backtest retains it only as an optional read-only seed. The backend revalidates ref IDs and hashes when creating a Thread or starting a Turn. An omitted `attachedContexts` field on `turn.start` preserves saved Thread refs for compatibility, while an explicit empty array clears them; `null` is invalid.
+
+An available attached account context exposes read-only account tools for Ask, Research and Backtest; the separate Account picker remains required when Trade needs an execution account.
+
+### 7.8 Typed research registry and result preview
+
+The capability summary must render the separate `researchTools` data-plane registry. It contains only the read-only IDs `public_market_read`, `account_read`, and `historical_simulation`; financial authority IDs in `allowedTools` are not research tools. The Composer provides a selector for the authorized research tool and a focus selector (`GENERAL`, `EQUITY`, `CRYPTO_SPOT`), then may call `research.run` to show the typed state, conclusion, canonical instrument refs, findings, bounded scenarios, artifact refs, source/provider timestamps, freshness, quality, limitations and marker. For `CRYPTO_SPOT`, the card renders only typed Binance/Bitget venue rows with provenance, selected venue, spread/depth and quote age; missing data remains absent with a visible blocked/unavailable/degraded reason. Query text remains untrusted and is never rendered into the result payload.
+
+Before Send, the Composer may attach a `ResearchToolInvocation` and its `ResearchToolResult`. `turn.start` revalidates the pair at the trusted boundary; a missing or tampered pair is surfaced as `RESEARCH_RESULT_INVALID` and leaves the Thread unchanged. A valid result renders as a `research_result` timeline item and its complete bounded typed result is persisted with the item so reloads retain the evidence card; the marker is visible in the final Turn output. Preview state is ephemeral and is cleared when the selected tool, focus, mode, execution context, account or attached refs change. A Trade-mode card may show a disabled/read-only proposal entry; Ask and Research render no Trade CTA, and the card never calls an order, approval, arming, Gateway or live-risk command. Synthetic fixture rows are visibly labelled and do not establish provider facts.
+
 ---
 
 ## 8. Agent Mode × Execution Context UX State Machine
@@ -346,6 +391,7 @@ Use queries for backend-owned snapshots:
 - market/instrument snapshots;
 - provider/model health;
 - risk-policy summaries;
+- RiskDecision history keyed by workspace and proposal;
 - strategy/backtest metadata;
 - artifacts;
 - open orders and reconciliation views.
@@ -513,7 +559,17 @@ interface MarketSnapshotProvenance {
 
 Live approval views require the full provenance block when market data participates in authority decisions.
 
-### 13.3 FX/stablecoin provenance
+### 13.3 Trusted time health
+
+Settings / Account Health renders the workspace-scoped `time.status` result as a semantic status with wall-clock, monotonic reading, provider offset, observed timestamp, bounded reason, and a keyboard-accessible `time.revalidate` action whenever confidence is `CLOCK_UNCERTAIN` or `STALE`. The panel uses `role="status"` with `aria-live="polite"`, keeps focus visible, and preserves the same blocking reason at 768 px and 390 px. Renderer state cannot override the backend reading; Live eligibility remains unavailable until the Control Plane reports `TRUSTED`.
+
+### 13.4 Market session and corporate actions
+
+`MarketDetail` renders the backend-owned `marketState`, `corporateActions`, and `adjustmentStatus` beside the existing source/snapshot panel. Session text covers `OPEN`, `CLOSED`, `EXTENDED_HOURS`, `HALTED`, `MAINTENANCE`, `SUSPENDED`, `DEGRADED`, and `UNKNOWN`; venue, source status, next boundaries, calendar version, provider time, observed time, and `timeConfidence` remain visible. Missing or blocked OD-005 data stays `UNKNOWN`/`UNAVAILABLE`, and no fixture is presented as a live session or adjusted history.
+
+The panel uses semantic headings, a `role="status"`/`aria-live="polite"` announcement for session changes, visible focus, keyboard-reachable source remediation, and text labels in addition to color. `MARKET_CLOSED` and `INSTRUMENT_HALTED` are rendered as deterministic blocking states; the renderer never computes execution eligibility. Corporate-action rows are bounded and display action type, description, effective/announced time, source, and adjustment status.
+
+### 13.5 FX/stablecoin provenance
 
 Portfolio normalization surfaces:
 
@@ -526,7 +582,115 @@ Portfolio normalization surfaces:
 
 The frontend must not silently display USDT as USD-equivalent without the backend-provided conversion state.
 
+### 13.6 Local Paper surface (S16)
+
+The Local Paper account is rendered as `Local Paper · LOCAL_PAPER` and `TradeX simulation · TRADEX_SIMULATION`. The Accounts surface reads `paper.get`, shows deterministic scenario/quote state, cash, reserved cash, positions, open orders, fills and event history, and exposes only simulation actions. The Order Drafts surface submits the selected immutable Local Paper proposal through `paper.order.submit`; resting or partial orders use an explicit cancellation dialog before `paper.order.cancel`. `paper.quote.refresh` and `paper.scenario.set` are explicit Trade-surface actions and never an Agent action.
+
+The renderer treats the Local Paper projection as authoritative after reload/reopen. Loading, empty, error and retry states use status/alert semantics; submit/cancel dialogs use `role="dialog"`, `aria-modal`, an accessible name, keyboard Enter for the explicit action only, and focus restoration to the triggering proposal or Local Paper summary. Every simulation result keeps the textual `LOCAL`, `TRADEX_SIMULATION`, and `not provider truth` disclosure. Portfolio shows simulation provenance and `Live risk: Blocked`; no Local Paper control renders approval, arming, reservation, broker acknowledgement, or Live readiness.
+
+### 13.7 Alpaca Paper order submission (S17 #57)
+
+The Accounts surface renders Alpaca Paper buying power only from the provider observation, paired with its account currency; missing values display `Unavailable`. The Order Drafts surface shows the immutable `ALPACA_PAPER` Proposal and its bound account, environment, canonical instrument, side, quantity/notional, order type, time in force, and limit price before presenting an explicit Paper-only confirmation dialog. The user must confirm the exact reviewed Proposal; this path is separate from Local Paper simulation and Live approval.
+
+After submission, the renderer reads the durable attempt projection and distinguishes `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, and `REJECTED`. Acknowledgement is labeled as provider acceptance, never as fill evidence. Reload restores the saved attempt; an unknown attempt offers query-only reconciliation by its saved client order ID, while duplicate submission shows the existing attempt and cannot issue another POST. Errors retain their bounded remediation text. Loading and error states use status/alert semantics, the confirmation dialog restores focus, and the Paper account/order identity remains readable at 390, 768, and 1280 px. No Alpaca Paper control grants Live or Agent submission authority.
+
+### 13.8 Alpaca Paper order book and cancel review (S17 #58)
+
+The Order Drafts surface reads the persisted `alpaca-paper-order-book` for the selected Alpaca Paper account and offers an explicit refresh. It labels the `ALPACA_PAPER` environment, `TRADE_X` versus `EXTERNAL` origin, provider order status, filled/remaining quantity, provider time, TradeX observation time, and whether the last complete read is current, stale, degraded, or not yet available. Open orders, order history, and `FILL` activities remain separate lists; incomplete reads retain the last complete data and explain the degraded state.
+
+Cancel is available only for a currently open provider order. Before showing the confirmation dialog, the frontend asks the backend to re-read that exact order. The dialog identifies the account, Paper environment, provider order, instrument, filled quantity, and remaining quantity. Only an explicit confirmation invokes the typed cancel command. Provider acknowledgement is displayed as `CANCEL_PENDING`; the UI shows `CANCELLED` only after a later provider observation confirms a terminal state. Changed order identity/status requires a new review. Keyboard dismissal sends no request, and focus returns to the triggering order control. These controls never cancel Local Paper or Live orders.
+
+### 13.9 Alpaca Paper live updates and stream health (S17 #59)
+
+The Accounts surface shows the textual private-stream and reconciliation states plus the last successfully received trade-update time. The Order Drafts surface shows the same health beside the saved Paper order book, refreshes that book when the account aggregate reports a stream update, and identifies fill observations as `trade_updates` or REST `FILL` activity. Partial, full, rejected, cancelled, expired, and unknown provider statuses remain visibly distinct. Disconnects and incomplete reconciliation use stale/degraded text and retain the last saved orders/fills; they never present them as current. Health does not grant Local Paper, Live, Agent, approval, or arming capability.
+
+### 13.10 Trading 212 Demo order submission (S18 #61)
+
+The Order Drafts surface submits only the selected immutable `TRADING212_DEMO` Proposal through `trading212.demo.order.submit` after a separate confirmation that names the Demo environment and displays the exact instrument, side, quantity, order type, limit, and time in force. The supported choices are BASE-quantity Market-DAY and Limit-DAY/GTC; Market confirmation states extended hours are off. `trading212.demo.order.attempt.get` restores the saved attempt after reload. The UI distinguishes `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, and `REJECTED`; acknowledgement is never called a fill. Repeating a submit reads the saved attempt and cannot send a second POST. Unknown results disable retry and remain frozen because the provider exposes no TradeX client-order identity. All controls are primary Trade UI actions; neither Agent nor Live can enter this path.
+
+### 13.11 Trading 212 Demo order book (S18 #62)
+
+Order Drafts lets the user select a connected Trading 212 Demo account and reads its saved book on selection/reload. Explicit controls refresh pending orders, refresh the details of an exact saved pending order, or load one bounded page of history at a time. The panel labels `TRADING212_DEMO`, provider order ID, `TRADE_X` versus `EXTERNAL` origin, raw and normalized provider status, order type/time-in-force, submitted/observed time, exact cumulative fill quantity/value, and remaining quantity when determinable. A saved TradeX attempt appears only when its recorded provider order ID exactly matches; similar orders are never linked. Missing provider values remain `Unavailable`.
+
+The UI distinguishes never-synced, loading, empty, current, stale/degraded, and rate-limited reads, shows the last successful read and endpoint retry time, and retains saved observations after an incomplete read. History controls expose page count/completion and cannot trigger automatic polling. Pending-order detail is offered only while the saved observation says the order is pending; a terminal detail response removes that action. Lists and controls remain readable by keyboard and at narrow widths. Cumulative filled value is shown with the provider-reported currency when available; the UI never converts or infers a unit. No fill rows are synthesized, and no stream or Live/Agent action is added.
+
+### 13.12 Trading 212 Demo order cancellation (S18 #63)
+
+On a current pending Demo order with an allowlisted provider status, “Review cancellation” first refreshes that exact order detail. Open the confirmation only when the returned book and exact order are current, still pending/cancelable, and belong to the selected Demo connection and remote account. The dialog names the captured account/environment and full provider order ID, shows raw and normalized status, exact filled and remaining quantities, filled value/currency when available, and observation time. Its copy says provider acceptance is not cancellation. Keep reviewing or Escape dismisses without a write; keyboard focus starts on the safe dismissal control, remains trapped in the dialog, and returns to the trigger or logical fallback. Confirmation sends one `trading212.demo.orders.cancel` request for the captured connection and book version.
+
+After a 200 acknowledgement, show the order as cancellation pending and keep the provider's raw status; timeout or unknown outcomes also remain pending/unknown and cannot be resubmitted. Keep exact-order detail refresh available for reconciliation, hide another cancel control, and let later provider facts win a partial/full-fill race. Only a provider-terminal state displays the final outcome. Show the cancel endpoint retry time with the other per-account gates. These actions are Demo-only and are unavailable on stale, disconnected, unknown, or terminal orders; layout and keyboard behavior are checked at 390/768 px.
+
+### 13.13 Trading 212 Demo local account deletion (S18 #66)
+
+Accounts offers “Delete local account” only when the selected Trading 212 Demo connection is FAILED or DISCONNECTED and credential health is MISSING. The native confirmation identifies the captured record by its full connection ID, account label, provider, and environment; names the TradeX-local account and account/order-book observations that will be removed; and says provider keys/orders and every other connection are unchanged. Cancel/Escape is read-only. Confirmation calls only `account.delete`; backend eligibility remains authoritative. An `ACKNOWLEDGED` attempt stays unresolved until its exact linked order has a durable recognized terminal observation with `pending: false`. On success invalidate account list/detail/context, remove the selected detail, announce completion, and return focus to the trigger or `Account connections`. On stale state, an unresolved guard, or storage failure, display an accessible error and retain the account view for recovery. Existing saved-connection selection and secure new-account entry remain available.
+
 ---
+
+### 13.14 Binance Spot Testnet Proposal submission and recovery (S19 #68)
+
+Order Drafts offers submission only for an immutable `BINANCE_TESTNET` Proposal bound to a connected Binance `TESTNET` account. Before confirmation, capture the exact connection ID, label and remote account ID and show them with the Proposal hash, instrument/venue, side, quantity type/value, order type, time in force, limit and maximum spend. Re-read the Proposal and account after confirmation; if the Proposal changed or the captured Testnet account identity no longer matches, stop and ask the user to review again. Only the main Trade UI can call the typed Testnet submit command.
+
+The saved attempt is loaded on selection/reopen. The UI distinguishes `SUBMITTING`, `ACKNOWLEDGED`, `UNKNOWN_RECONCILING`, and `REJECTED`; acknowledgement means accepted by Binance and is never displayed as a fill. Duplicate submit reads the saved attempt and cannot issue another POST. `UNKNOWN_RECONCILING` disables resubmit and offers only an explicit query by the saved `clientOrderId`; an absent query leaves the attempt unknown. Loading/error/reload states use status/alert semantics. The confirmation traps focus, supports safe dismissal with Escape/Keep reviewing, and restores focus. Test the identity and state labels at 390, 768, and 1280 px. No Binance Live or Agent write control is exposed.
+
+### 13.15 Binance Spot Testnet private updates and recovery (S19 #70)
+
+On the selected connected `BINANCE_TESTNET` account, Order Drafts displays the saved order book and the account's textual private-stream/reconciliation health plus last event time. `executionReport` updates refresh the saved order query through the existing account aggregate event. Valid account-position updates replace only changed assets; stale/degraded/reconciling states retain the last trusted rows. A delta-only balance event or unknown event keeps reconciliation visibly required until fixed-route REST reads succeed. Unknown order statuses remain visible and nonterminal. The surface adds no user-data stream controls, Live or Local Paper path, or authority. Preserve the explicit manual pending/history/detail read controls and verify keyboard access and 390/768/1280 px layouts.
+
+### 13.15.1 Binance Spot Testnet exact-order cancellation (S19 #71)
+
+Show “Review cancellation” only for a connected `BINANCE_TESTNET` account and a saved `CURRENT` observation of an exact `BTCUSDT` / `ETHUSDT` order in `NEW` or `PARTIALLY_FILLED` state with a known, valid, strictly positive remaining quantity, observed within 60 seconds and not already cancelling. Activating it first refreshes that exact-order Detail. Open the review only when the returned book is `CURRENT` and the exact order remains cancelable for the selected connection and remote account. Show the account/order identity, status, filled and remaining quantities, and observation time. If remaining quantity is unavailable, invalid, or zero, keep review unavailable. After confirmation, the backend independently checks the captured account/book versions, remote account identity and freshness, then re-reads the exact account and order before writing. Any changed order requires a new review; a terminal order is recorded without a DELETE.
+
+Send only the typed `binance.testnet.orders.cancel` command from the main Trade UI. Render `SUBMITTING` and `PENDING` distinctly; acceptance is not cancellation, and an ambiguous result stays pending with no repeat request. A later exact-order read or private-stream event determines terminal status and preserves racing fills. No Live, cancel-all, Agent, or Order Gateway control is exposed.
+
+### 13.16 Bitget Spot Live account orders and fills (#75)
+
+The Accounts detail for a selected `bitget` / `LIVE` connection shows its provider balances and, after an explicit refresh, the saved current and recent historical order/fill observations. Label the section `READ ONLY · DISARMED`. The order table shows provider order ID, `TRADEX` only for a persisted TradeX identity (otherwise `external`), symbol/kind, side, exact quantity or notional, cumulative filled base/quote amounts, remaining quantity only when known, raw/normalized provider status, and provider times. Recent fills remain separately identifiable by provider trade and order IDs. Missing values render as unavailable.
+
+Show the TradeX observation time and `CURRENT`, `STALE` (older than five minutes), or `DEGRADED` freshness. A failed read retains the last saved order book and account balances while account health exposes the sanitized failure/rate-limit status and retry state. There is no automatic provider polling. Wide order/fill/balance tables remain keyboard-scrollable, and the account detail is checked at 390, 768, and 1280 px. No Bitget Demo fallback or Live write action is available.
+
+TradeX does not maintain a private stream for its Bitget Classic Spot v2 connection. The account detail states `Private stream unavailable · REST reconciliation`; `privateStream` remains `NOT_CONFIGURED`, and observations update only through explicit connection or REST refresh reads.
+
+### 13.17 Live unknown PLACE reconciliation (S25.1 #97, S25.2 #98, S25.3 #99, S25.4 #100)
+
+Order Drafts loads saved reconciliation evidence for an exact `UNKNOWN_RECONCILING` Trading 212, Binance, or Bitget Live PLACE attempt and refreshes it through `trade.resolution_evidence.refresh` only while backend time is trusted and the five-minute window is open. The bounded provider reads are spaced by at least 11 seconds and advance one history cursor page per request. Restore the ledger after navigation or workspace reopen; an untrusted clock pauses provider refresh but does not hide saved observations. After timeout, render only backend-authorized actions. A fresh exact Binance/Bitget client-order-ID match may offer Confirm submitted with its evidence and reservation effect preview; submitting it links the observed broker ID/status, keeps capacity active, and never implies a fill. Trading 212 similar orders and inconclusive/stale evidence remain Keep-only; Keep, dismissal, and navigation preserve the unknown attempt and active reservation. Keep the account DISARMED until an explicit arm flow.
+
+For Binance Spot Live, use the same evidence IPC and panel, displaying the Binance provider, saved account/attempt, query scope, provider order/client IDs, status, and trusted window. Query only the ordinary Live account identity and the exact order identified by the attempt's saved `providerClientOrderId` (`tx-{execution_attempt_id without hyphens}`) as `origClientOrderId`. A provider row is a candidate only after exact client ID, symbol, side, type, base or quote quantity, and window-time checks; LIMIT rows must also match limit price and time-in-force. Binance `-2013` and malformed, incomplete, mismatched, unauthenticated, rate-limited, or failed reads remain `INCONCLUSIVE`; no result resolves the attempt or releases its reservation.
+
+For Bitget Classic Spot Live, use the same evidence IPC and panel. Identify the saved Live account and remote `userId`, attempt, query scope, returned Bitget order ID/clientOid/status, and trusted window. Query only the saved `clientOid` (`tx-{execution_attempt_id without hyphens}`) through the ordinary Classic Spot `orderInfo` GET. A row is a candidate only after exact account, clientOid, symbol, side, order type, size, and timestamp checks; LIMIT rows also match price/force and must have `tpslType=normal`. Empty, unrelated, incomplete, malformed, delayed, unauthenticated, rate-limited, or failed reads remain inconclusive and never prove absence. Show provider order observation as distinct from fill evidence; preserve the shared timeout and frozen reservation. A fresh exact candidate may offer Confirm submitted under S25.4; inconclusive evidence remains Keep-only. Never expose a Live write or Demo/Testnet fallback.
+
+After trusted expiry, show backend-authorized actions through `trade.manual_resolution` with current attempt/evidence versions and saved evidence IDs. Inconclusive or unsupported evidence offers Keep reconciling, which keeps the attempt and reservation frozen and does not restart provider reads. A fresh exact Binance/Bitget candidate may offer Confirm submitted; it links the observed broker ID/status, keeps capacity active, and does not imply a fill. Show the persisted decision after refresh or reopen. Do not show confirmed-not-submitted, release, or resend actions for this provider slice.
+
+Show the saved account/attempt identity, trusted window, last query, coverage and query scope, pagination/completion, candidate provider IDs/statuses, inconclusive/error states, and next action. A candidate is never labeled a linked TradeX order or proof of submission. Empty or incomplete results explicitly say absence is not proven. At timeout, show the account as DISARMED/STALE and keep the unknown attempt and active reservation visible. Show only backend-authorized actions: Keep Reconciling for inconclusive evidence or Confirm submitted for a fresh exact Binance/Bitget candidate, each with its persisted audit record; neither action restarts provider reads. Verify keyboard operation and 390/768/1280 px layouts. No confirmed-not-submitted resolution, provider write, retry, or reservation release is available from this surface.
+
+### 13.18 Trading 212 Live cancellation history and fill race (S26.2 #104)
+
+Accounts lists saved Trading 212 Live cancellation approvals at account scope so consumed attempts remain visible after their orders leave the open-order projection. Reload the approval list and each consumed approval's execution preparation after navigation or workspace reopen. Show the saved attempt/acknowledgement separately from the latest exact provider observation and any S26.1 settlement linked by the exact provider order ID.
+
+“Refresh exact order” sends only `trade.live_order.refresh` for the captured account, consumed approval, exact provider order ID, and current account state version. It is an explicit read-only action; allow it while connected, or while connection review is required only if the account remains online with valid authentication and a usable credential. This read-only recovery does not make writes or arming eligible. Display raw status, normalized disposition, exact available quantity/fill/remaining/value, source, TradeX observation time, and provider time only when supplied. Show provider fees/trade facts as unavailable when absent and retain the linked settlement's completeness, unresolved reason, and remaining capacity. A racing fill is shown as the latest provider fact while the cancellation attempt stays `CANCEL_PENDING`; never label provider acknowledgement as cancellation confirmation. Use status/alert semantics, keyboard-operable refresh, and responsive 390/768/1280 px layouts. Do not poll automatically.
+
+### 13.19 Binance Spot Live cancellation history and fill race (S26.3 #105)
+
+Accounts lists saved Binance Spot Live CANCEL approvals and restores each consumed attempt after navigation or workspace reopen. Keep the saved acknowledgement separate from the latest exact order observation and its exact S26.1 PLACE settlement.
+
+“Refresh exact order” uses the existing `trade.live_order.refresh` command with the captured account, consumed approval, exact `symbol:orderId`, and current account state version. It is read-only and available only while the Binance Spot Live account is connected, or while it is online with valid authentication and usable credentials under `REVIEW_REQUIRED`. Show the raw Binance status, normalized disposition, exact order/filled/remaining quantity and cumulative quote value, provider trade IDs and commission assets/amounts when complete, source, TradeX observation time, optional provider time, and the linked settlement's completeness, unresolved reason, and remaining capacity. Missing or incomplete trade/fee evidence remains unavailable and conservative capacity stays held.
+
+A fill racing the DELETE becomes the latest saved order fact while the cancellation attempt remains `CANCEL_PENDING`; acknowledgement never means cancellation completed. The linked PLACE must match the same account, exact numeric Binance order ID, and canonical symbol/instrument from its saved proposal; external or merely similar orders are never linked. Use status/alert semantics, keyboard-operable review and refresh controls, and responsive 390/768/1280 px layouts. Do not poll automatically or expose cancel-all or Testnet fallback controls.
+
+### 13.20 Bitget Classic Spot Live cancellation history and fill race (S26.4 #106)
+
+Accounts lists Bitget Classic Spot Live CANCEL approvals at account scope, including consumed attempts after the order leaves the open-order projection, and reloads them after navigation or workspace reopen. Show the saved acknowledgement separately from the latest exact-order observation and its exact S26.1 PLACE settlement.
+
+The user refreshes and reviews the ordinary `normal` Spot order, approves the immutable CANCEL intent, then separately prepares and sends it through the isolated Order Gateway. Refresh uses the captured account, consumed approval, exact `normal:{orderId}`, and current account state version. It is read-only; allow it for a connected account, or an online `REVIEW_REQUIRED` account only while authentication and saved credentials remain valid. Show raw status, normalized disposition, exact base/filled/remaining quantity and cumulative quote value, trade IDs, fee assets/amounts when complete, source, provider time, and TradeX observation time. Display Bitget's signed `totalFee` as a non-negative fee cost. Missing or incomplete evidence remains unavailable and conservative capacity stays held.
+
+The cancellation attempt remains `CANCEL_PENDING` after acknowledgement and after a fill race; only exact terminal provider evidence updates the order and linked settlement. External or similar orders never link. Use accessible status/errors, keyboard-operable review and refresh controls, and responsive 390/768/1280 px layouts. Do not poll automatically or expose Demo/Testnet, batch-cancel, or cancel-replace controls.
+
+If a saved attempt is `INVALIDATED` with `STOPPED_BEFORE_DISPATCH`, keep it in history and let the user refresh and review that same exact order again. An attempt with any possible provider dispatch stays in reconciliation and cannot be retried.
+
+### 13.21 Live startup recovery and recent-order presentation (S27.1 #108)
+
+After workspace open, restore each supported Live account's backend recovery state and visible health reason. Keep the last trusted account/open-order observations available while the refreshed status is stale or blocked. Trading 212 and Binance Live render the bounded `recentOrders` projection in a separate Recent orders section; never mix those rows into the open-order table or expose cancellation from recent-history rows. Bitget continues to show its existing bounded order/fill history.
+
+Startup refreshes all connected supported Live accounts without relying on the selected account. It automatically requests exact S25 evidence only for unresolved PLACE attempts; an unresolved CANCEL remains visible and requires the existing explicit exact-order refresh. Keep Arm unavailable until the backend reports current reconciliation and eligibility, and preserve the separate explicit Arm confirmation after recovery. Show provider/read/time failures and the backend reason; do not infer completion from an empty recent-history page or retry provider mutations.
 
 ## 14. Live Execution UI Architecture
 
@@ -577,6 +741,8 @@ select exact live account
 
 Global Disable All invokes one backend action and then renders the returned per-account states.
 
+The confirmation dialog names the provider, account label, `LIVE` environment, complete TradeX connection ID and observed provider account ID. Arm remains disabled when current eligibility is missing or blocked and displays the backend remediation reason; permission scope must be `VERIFIED`, even when an `UNVERIFIED` scope was acknowledged during connection review. `Disable Live` affects only the selected connection; `Disable All Live Execution` always targets every Live connection in the workspace. Keep reviewing/Escape cancel without mutation, initial focus goes to Keep reviewing, and closing restores focus to the trigger or account heading. The app reports throttled trusted pointer, keyboard and touch input through `account.activity`; background polling does not extend the inactivity deadline.
+
 ### 14.5 Approval modal
 
 Mandatory content:
@@ -593,9 +759,11 @@ Mandatory content:
 
 `Enter` must never activate approval by default.
 
+Approving issues only the short-lived single-use approval. The separate explicit `Prepare and send approved PLACE` action invokes `trade.execution.prepare`, the sole public user-authority entry point. Disclose that it first commits `RESERVED`, then starts the isolated Order Gateway internally; only a later durable `SUBMITTING` boundary can begin the provider request. Show the backend's current attempt and exact reservation amount/unit, provider available and committed capacity, TradeX reserved capacity, effective available capacity, evidence source/freshness/account-state version. While `RESERVED`, refresh its durable projection; if a policy change, disarm/Disable All, or trusted TTL expiry wins before `SUBMITTING`, show `INVALIDATED`/`STOPPED_BEFORE_DISPATCH`, the backend reason, and exact `RELEASED` amount, and say no provider mutation was sent. Once `SUBMITTING` is durable, state that the request may have been sent and keep capacity held until authoritative resolution. Render `ACCEPTED` as provider acceptance only, never a fill; render `REJECTED` and `UNKNOWN_RECONCILING` distinctly, and disable resend for either consumed approval/attempt. Provider commitments already excluded from a provider-reported available balance are explanatory only and must not be deducted again. Read preparation and sanitized capacity-rejection history by approval ID when opening proposal history so a lost response or restart restores saved state. A `RISK_REJECTED · RESERVED_CAPACITY` failure shows the backend reason, capacity source/limit, requested amount, existing reservations, effective capacity before the request, and remediation. Stale or unavailable evidence is labeled as such and must not display old amounts as current. Do not refetch an `ALLOWED` RiskDecision as though it caused the rejection. A confirmed capacity refusal leaves approval and proposal available; any deliberate retry uses a fresh idempotency key. Use accessible status text for every persisted transition and verify keyboard focus plus 390/768/1280 px layouts.
+
 ### 14.6 Reservation conflict
 
-If a proposal fails due to reduced effective capacity, render the backend reason and reservation context. Do not recompute the financial answer in the browser.
+If a proposal fails due to reduced effective capacity, render the backend reason, reservation context, observation time, and remediation. Do not recompute the financial answer in the browser. Re-read the backend projection after account or reservation updates; invalidate a review bound to an older account-state version.
 
 ### 14.7 Ambiguous submission
 
@@ -620,6 +788,14 @@ Render explicit order-state cases; an unrecognized or UNKNOWN_RECONCILING value 
 Buttons reflect backend eligibility for the exact operation. Re-evaluate on account, mode, market, clock, permission, policy, proposal, and reservation changes. Disable All awaits a result identifying disarmed accounts and stopped/possibly-submitted attempts; it does not optimistically erase a reservation or imply a broker cancellation. UI Spec §14 supplies the required interaction and accessibility cases.
 
 ---
+
+### 14.10 RiskDecision review and history (S21 #81)
+
+Order Drafts queries immutable RiskDecision history by workspace/proposal and offers an explicit evaluate/reevaluate action. The renderer sends only those identities; the Control Plane owns policy, account, evidence, checks, and persistence. Render `ALLOWED`, `REJECTED`, and `UNAVAILABLE` distinctly with the proposal hash, exact account/environment, policy version, input digests, and check reasons. A failed submit refreshes the query so the persisted blocking decision is visible. Neither an `ALLOWED` result nor its UI state grants approval, arming, reservation, or send authority. `RISK_EVIDENCE_UNAVAILABLE` is a canonical error separate from `RISK_REJECTED`. Ordinary Bitget `LIVE` remains read-only.
+
+### 14.11 Workspace risk-policy change summary (S21 #82)
+
+Settings → Risk & Limits renders `RiskPolicyState.lastChange` after a policy save and when the risk projection is restored. The `role="status"` polite live region states scope, old/new versions, whether any relaxation occurred, and the count of affected persisted accounts and pending proposals. Keyboard-operable details expose every account identity/environment and each invalidated proposal with its policy-version reason. The renderer never derives the affected set from the currently selected account; the backend remains authoritative for invalidation and disarm.
 
 ## 15. Provider and Model Configuration UI
 
@@ -691,6 +867,7 @@ INSTRUMENT_HALTED
 INVALID_ORDER
 INSUFFICIENT_FUNDS
 RISK_REJECTED
+RISK_EVIDENCE_UNAVAILABLE
 SUBMISSION_REJECTED
 SUBMISSION_AMBIGUOUS
 STREAM_DISCONNECTED

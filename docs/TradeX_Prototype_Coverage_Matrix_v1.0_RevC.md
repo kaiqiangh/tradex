@@ -1,11 +1,11 @@
 # TradeX Prototype Coverage Matrix — v1.0 RevC
 
-**Revision date:** 2026-09-05\
+**Revision date:** 2026-09-23\
 **Status:** Evidence re-baselined; prototype handoff NOT PASS\
 **Authority:** [PRD](./TradeX_PRD_v1.0_RevC.md), [UI Spec](./TradeX_UI_Prototype_Spec_v1.0_RevC.md), [Frontend ARD](./TradeX_Frontend_ARD_v1.0_RevC.md), [Backend ARD](./TradeX_Backend_ARD_v1.0_RevC.md)\
 **Prototype:** [docs/prototype](./prototype/README.md) at reviewed source main@6c4b267
 
-All 80 FR and 66 AC identifiers remain traceable. Their presence is structural coverage, not functional acceptance. The 2026-09-05 audit replaces earlier unqualified Covered/Directly verifiable claims.
+All 81 FR and 67 AC identifiers remain traceable. Their presence is structural coverage, not functional acceptance. The 2026-09-05 evidence audit replaces earlier unqualified Covered/Directly verifiable claims; QA-13 records the later account-deletion prototype gap.
 
 | Status | Meaning |
 |---|---|
@@ -67,7 +67,7 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | FR-030 | Implement provider rate limiting | P0 | RUNTIME_PENDING | Validate real process, provider, or persistence behavior against the PRD/ARD; standalone fixtures do not establish completion. |
 | FR-031 | Implement local backtesting | P0 | PARTIAL | Observed gap and post-repair assertions: [QA-09](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-09). Re-verify behavior after repair; surface presence is not acceptance. |
 | FR-032 | Implement strategy sandbox | P0 | RUNTIME_PENDING | Validate real process, provider, or persistence behavior against the PRD/ARD; standalone fixtures do not establish completion. |
-| FR-033 | Implement paper/demo/testnet trading workflows | P0 | RUNTIME_PENDING | Validate real process, provider, or persistence behavior against the PRD/ARD; standalone fixtures do not establish completion. |
+| FR-033 | Implement paper/demo/testnet trading workflows | P0 | IMPLEMENTED_UNVERIFIED | S16 Local Paper implementation evidence: `docs/implementation/s16-local-paper-isolation-evidence.md`; provider lifecycles S17–S20 and S33 regression remain pending. |
 | FR-034 | Implement deterministic error taxonomy and UI mapping | P1 | SOURCE_ONLY | Source-presence record only; complete interaction verification pending. Prior observation: Canonical error categories map to visible recovery panels. |
 | FR-035 | Implement natural-language screener | P1 | FAILED | Observed gap and post-repair assertions: [QA-08](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-08). Re-verify behavior after repair; surface presence is not acceptance. |
 | FR-036 | Implement artifacts | P1 | PARTIAL | Observed gap and post-repair assertions: [QA-06](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-06). Re-verify behavior after repair; surface presence is not acceptance. |
@@ -93,7 +93,7 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | FR-056 | Implement Ask mode with no execution capability | P0 | SOURCE_ONLY | Source-presence record only; complete interaction verification pending. Prior observation: Ask is a first-class Agent Mode and shows read-only/no-execution messaging. |
 | FR-057 | Implement complete live-approval market snapshot provenance | P0 | SOURCE_ONLY | Source-presence record only; complete interaction verification pending. Prior observation: Live approval renders complete market snapshot provenance and freshness. |
 | FR-058 | Implement risk-policy-change approval invalidation lifecycle | P0 | FAILED | Observed gap and post-repair assertions: [QA-05](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-05). Re-verify behavior after repair; surface presence is not acceptance. |
-| FR-059 | Implement reservation-conflict UI/reasoning surface | P0 | SOURCE_ONLY | Source-presence record only; complete interaction verification pending. Prior observation: Reservation conflict shows reserved/effective capacity and deterministic rejection reasoning. |
+| FR-059 | Implement reservation-conflict UI/reasoning surface | P0 | SOURCE_ONLY | Source-presence record only; complete prototype interaction verification pending. The S23 application implementation and runtime evidence are tracked separately in `docs/implementation/requirements.csv` and `surfaces.csv`. |
 | FR-060 | Implement complete Demo/Testnet order lifecycle variants for Trading 212, Binance, and Bitget | P0 | SOURCE_ONLY | Source-presence record only; complete interaction verification pending. Prior observation: Trading 212 Demo, Binance Testnet and Bitget Demo use the same normalized non-live order lifecycle fixture. |
 | FR-061 | Implement complete normalized order-state UI mapping including `RESERVED` | P0 | FAILED | Observed gap and post-repair assertions: [QA-02](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-02). Re-verify behavior after repair; surface presence is not acceptance. |
 | FR-062 | Implement market-session / halt / corporate-action product surfaces | P1 | FAILED | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
@@ -115,6 +115,7 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | FR-078 | Block/review dangerous provider permissions (withdrawal/transfer/custody/margin/leverage) before live readiness | P0 | PARTIAL | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
 | FR-079 | Implement FX/stablecoin valuation provenance and depeg/quality handling | P1 | PARTIAL | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
 | FR-080 | Implement editable OrderDraft → immutable OrderProposal regeneration semantics | P0 | FAILED | Observed gap and post-repair assertions: [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-07). Re-verify behavior after repair; surface presence is not acceptance. |
+| FR-081 | Implement confirmed permanent local removal of eligible Trading 212 Demo account and order-book observations | P0 | FAILED | [QA-13](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-13): prototype has no permanent account-removal interaction; implementation evidence in #66 does not change prototype status. |
 
 ## 3. Acceptance-criterion traceability
 
@@ -152,7 +153,7 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | AC-030 | Selecting Trade mode or a Live execution context does not arm live execution. | RUNTIME_PENDING | Validate real process, provider, or persistence behavior against the PRD/ARD; standalone fixtures do not establish completion. |
 | AC-031 | Requesting a live order while DISARMED requires a separate explicit Arm action before transaction approval is shown. | RUNTIME_PENDING | Validate real process, provider, or persistence behavior against the PRD/ARD; standalone fixtures do not establish completion. |
 | AC-032 | The instrument, account, side, quantity, and order type displayed during order monitoring are the same immutable transaction approved by the user. | FAILED | Observed gap and post-repair assertions: [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-07). Re-verify behavior after repair; surface presence is not acceptance. |
-| AC-033 | An open live order can enter cancellation flow only after broker state refresh and transaction-specific user approval; UI represents `CANCEL_PENDING` and `CANCELLED`. | FAILED | Observed gap and post-repair assertions: [QA-01](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-01). Re-verify behavior after repair; surface presence is not acceptance. |
+| AC-033 | An open live order can enter cancellation flow only after broker state refresh and transaction-specific user approval; UI represents `CANCEL_PENDING` and `CANCELLED`. | FAILED | This matrix records clickable-prototype evidence only. Runtime contracts and tests for Trading 212/Binance/Bitget Live are tracked separately by S26.2 #104, S26.3 #105, and S26.4 #106; they do not repair the prototype. See [QA-01](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-01) and re-verify after prototype repair. |
 | AC-034 | The UI represents deterministic `RISK_REJECTED`, broker `REJECTED`, approval `EXPIRED`, and `UNKNOWN_RECONCILING` states without implying successful execution. | FAILED | Observed gap and post-repair assertions: [QA-02](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-02). Re-verify behavior after repair; surface presence is not acceptance. |
 | AC-035 | Market-order approval displays expected spend, maximum authorized spend, bid/ask/spread, quote age, and fees/slippage estimate where available. | RUNTIME_PENDING | Validate real process, provider, or persistence behavior against the PRD/ARD; standalone fixtures do not establish completion. |
 | AC-042 | Live arming is account-scoped: arming Trading 212 does not arm Binance or Bitget; global Disable All disarms all live accounts. | FAILED | Observed gap and post-repair assertions: [QA-05](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-05). Re-verify behavior after repair; surface presence is not acceptance. |
@@ -183,9 +184,10 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | AC-061 | An ambiguous live submission that exceeds the automatic reconciliation window keeps its reservation frozen and exposes only the evidence-based Manual Resolution options in §23; no generic release action restores live readiness. | FAILED | Observed gap and post-repair assertions: [QA-03](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-03). Re-verify behavior after repair; surface presence is not acceptance. |
 | AC-062 | Detected withdrawal/transfer/custody permission on a live broker credential blocks execution readiness until removed; permission scope that cannot be inspected is labeled `UNVERIFIED` and remains visible. | PARTIAL | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
 | AC-063 | Quote age, approval expiry, and reconciliation timers fail closed for live authority decisions when TimeService reports unacceptable clock uncertainty. | FAILED | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
-| AC-064 | Local Paper is explicitly identified as TradeX simulation and cannot be confused with provider-hosted Paper/Demo/Testnet or Live execution. | SOURCE_ONLY | Source-presence record only; complete interaction verification pending. Prior observation: Corresponding UI/state is present in the RevC prototype and UI Spec; broker, persistence, or process-runtime semantics remain implementation-stage acceptance where noted. |
+| AC-064 | Local Paper is explicitly identified as TradeX simulation and cannot be confused with provider-hosted Paper/Demo/Testnet or Live execution. | IMPLEMENTED_UNVERIFIED | S16 implementation evidence: `docs/implementation/s16-local-paper-isolation-evidence.md` covers explicit LOCAL/TRADEX_SIMULATION identity, persistence/isolation, tamper rejection, and browser/Rust checks; S33 full regression remains pending. |
 | AC-065 | Editing a generated order creates a new immutable `OrderProposal` identity and invalidates any approval tied to the prior proposal. | FAILED | Observed gap and post-repair assertions: [QA-07](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-07). Re-verify behavior after repair; surface presence is not acceptance. |
 | AC-066 | Cross-account valuation involving stablecoins/FX shows source/path/timestamps/freshness and a quality/depeg state; unreliable conversion cannot silently drive live risk calculations. | PARTIAL | Observed gap and post-repair assertions: [QA-04](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-04). Re-verify behavior after repair; surface presence is not acceptance. |
+| AC-067 | Confirmed eligible Demo account removal is local-only, atomic, guarded against active financial work, isolated from other accounts, and accessible. | FAILED | [QA-13](./TradeX_Prototype_QA_Report_v1.0_RevC.md#qa-13): no prototype confirmation, negative paths, or removal behavior; S18 #66 runtime tests are separate evidence. |
 
 
 ## 4. Screen coverage overview
@@ -198,7 +200,7 @@ A FAILED/PARTIAL prototype row can also require runtime validation after repair.
 | D | Watchlists | SOURCE_ONLY | Source presence only |
 | E | Accounts / portfolio / readiness | PARTIAL | QA-04, QA-05 |
 | F | Live approval / cancellation / resolution | FAILED | QA-01–QA-07 |
-| G | Non-live execution variants | SOURCE_ONLY | Source presence only |
+| G | Non-live execution variants | IMPLEMENTED_UNVERIFIED | S16 Local Paper implementation evidence: `docs/implementation/s16-local-paper-isolation-evidence.md`; provider variants and S33 full regression remain pending. |
 | H | Strategies / backtest | PARTIAL | QA-09 |
 | I | Artifacts / provenance | FAILED | QA-06 |
 | J | Settings / model recovery / narrow actions | PARTIAL | QA-10, QA-12 |

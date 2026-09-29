@@ -1,0 +1,64 @@
+[package]
+name = "tradex"
+version = "0.1.0"
+edition = "2024"
+default-run = "tradex"
+
+[lib]
+name = "tradex"
+
+[features]
+default = []
+integration-test = []
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:objc2", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:block2"]
+custom-protocol = ["tauri/custom-protocol"]
+order-gateway-runtime = []
+
+[[bin]]
+name = "tradex"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[[bin]]
+name = "tradex-ipc"
+path = "src/bin/ipc.rs"
+
+[[bin]]
+name = "strategy-worker"
+path = "src/bin/strategy-worker.rs"
+
+[[bin]]
+name = "tradex-order-gateway"
+path = "src/bin/tradex-order-gateway.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.151", features = ["arbitrary_precision"] }
+base64 = "=0.22.1"
+hmac = "=0.12.1"
+sha2 = "=0.10.9"
+hex = "=0.4.3"
+libc = "=0.2.189"
+uuid = { version = "=1.26.0", features = ["v4"] }
+time = { version = "=0.3.55", features = ["formatting", "parsing"] }
+schemars = "=1.2.2"
+tauri = { version = "=2.11.5", optional = true, features = [] }
+tauri-plugin-dialog = { version = "=2.7.3", optional = true }
+reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "native-tls-no-alpn"] }
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake", "native-tls"] }
+zeroize = "=1.9.0"
+duckdb = { version = "=1.10505.0", features = ["bundled"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "=3.7.0"
+objc2 = { version = "=0.6.4", optional = true }
+objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSAccessibilityProtocols", "NSAlert", "NSApplication", "NSButton", "NSControl", "NSEvent", "NSResponder", "NSSecureTextField", "NSTextField", "NSView", "NSWindow", "NSWorkspace"] }
+objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSGeometry", "NSObject", "NSNotification", "NSDistributedNotificationCenter", "NSOperation", "NSString", "block2"] }
+block2 = { version = "=0.6.2", optional = true }
+
+[dev-dependencies]
+tempfile = "=3.27.0"

@@ -1,0 +1,96 @@
+"""Disposable loopback CONNECT/TLS fixture. Never loads real credentials or trust stores."""
+from pathlib import Path
+import socket
+import ssl
+import subprocess
+import sys
+import time
+
+mode, directory = sys.argv[1], Path(sys.argv[2])
+host = sys.argv[3]
+assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com", "api.binance.com", "testnet.binance.vision", "api.bitget.com"}
+path = "/v2/account" if host == "paper-api.alpaca.markets" else "/api/v0/equity/account/summary"
+method = "GET"
+if mode == "order":
+    assert host == "paper-api.alpaca.markets"
+    path, method = "/v2/orders", "POST"
+if mode == "cancel":
+    assert host == "paper-api.alpaca.markets"
+    path, method = "/v2/orders/18c65e3e-feb0-4576-99e2-36e6f047d84d", "DELETE"
+if host in {"api.binance.com", "testnet.binance.vision"}:
+    path = "/api/v3/time"
+if host == "api.bitget.com":
+    path = "/api/v2/public/time"
+key, cert = directory / "key.pem", directory / "cert.pem"
+subprocess.run([
+    "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+    "-subj", f"/CN={host}", "-addext", f"subjectAltName=DNS:{host}",
+    "-addext", "extendedKeyUsage=serverAuth",
+    "-keyout", str(key), "-out", str(cert),
+], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain(cert, key)
+
+
+def headers(connection):
+    data = b""
+    while b"\r\n\r\n" not in data:
+        part = connection.recv(4096)
+        if not part or len(data) + len(part) > 16384:
+            raise ValueError("Incomplete or oversized test request")
+        data += part
+    boundary = data.index(b"\r\n\r\n") + 4
+    content_length = next(
+        (int(line.split(b":", 1)[1]) for line in data[:boundary].split(b"\r\n") if line.lower().startswith(b"content-length:")),
+        0,
+    )
+    expected = boundary + content_length
+    while len(data) < expected:
+        part = connection.recv(4096)
+        if not part or len(data) + len(part) > 16384:
+            raise ValueError("Incomplete or oversized test request")
+        data += part
+    return data[:expected]
+
+
+with socket.socket() as listener:
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    print(listener.getsockname()[1], flush=True)
+    count = 0
+    while True:
+        raw, _ = listener.accept()
+        raw.settimeout(20)
+        try:
+            assert headers(raw).split(b"\r\n", 1)[0] == f"CONNECT {host}:443 HTTP/1.1".encode()
+            raw.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+            with context.wrap_socket(raw, server_side=True) as connection:
+                request = headers(connection)
+                assert request.split(b"\r\n", 1)[0] == f"{method} {path} HTTP/1.1".encode()
+                assert b"apca-api-key-id: synthetic-network-test" in request.lower()
+                count += 1
+                (directory / "requests").write_text(str(count))
+                if mode == "timeout":
+                    time.sleep(20)
+                elif mode == "large":
+                    connection.sendall(b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n" + b"x" * (2 * 1024 * 1024 + 1))
+                elif mode == "order":
+                    assert b"client_order_id" in request
+                    body = b'{"id":"18c65e3e-feb0-4576-99e2-36e6f047d84d"}'
+                    connection.sendall(b"HTTP/1.1 201 Created\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
+                elif mode == "cancel":
+                    connection.sendall(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+                elif mode.startswith("bitget-"):
+                    code = {"bitget-clock": "40008", "bitget-passphrase": "40012", "bitget-demo": "40081", "bitget-false-success": "00000"}[mode]
+                    body = ('{"code":"' + code + '","msg":"untrusted diagnostic"}').encode()
+                    connection.sendall(b"HTTP/1.1 400 Bad Request\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
+                elif mode in {"clock", "signature", "banned"}:
+                    status = b"418 Banned" if mode == "banned" else b"400 Bad Request"
+                    body = b'{"code":-1021,"msg":"untrusted diagnostic"}' if mode == "clock" else b'{"code":-1022,"msg":"untrusted diagnostic"}'
+                    connection.sendall(b"HTTP/1.1 " + status + b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
+                else:
+                    status = {"redirect": b"302 Found", "auth": b"401 Unauthorized", "rate": b"429 Too Many Requests", "ok": b"200 OK"}[mode]
+                    location = b"Location: https://paper-api.alpaca.markets/v2/account\r\n" if mode == "redirect" else b""
+                    connection.sendall(b"HTTP/1.1 " + status + b"\r\n" + location + b"Content-Length: 2\r\nConnection: close\r\n\r\n{}")
+        except (ConnectionError, ssl.SSLError, TimeoutError):
+            raw.close()
