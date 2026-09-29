@@ -37,6 +37,8 @@ S27.3 [优先调度并限制 Provider 工作队列](https://github.com/kaiqiangh
 
 S27.4 [验证模型故障不阻塞可信 Live 控制面](https://github.com/kaiqiangh/tradex/issues/111)已补充模型故障矩阵、可信路径精确撤单、负载下 P0 对账、账户级 auth/stream 隔离、resume/reopen 与不自动 Arm 验证，并修复集成浏览器 SSE 连接耗尽问题。最终检查与 390/768/1280px 浏览器验证通过；基于 `495fc745` 的串行独立 Standards/Spec 审查均 PASS，无可执行发现。[双语验收证据](s27-4-model-failure-isolation-evidence.md)。S27 父级与 S33 门禁仍单独验收。
 
+S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 User Stories，并同步 14 条需求证据；四张实现子票已关闭，父项保持 OPEN。当前原生开发程序已启动，但 Provider 凭据 worker 仍在 `SecItemCopyMatching`，尚未完成本次恢复；实际 OS 睡眠唤醒及 Provider 完成记录等待用户本机认证/操作。未进行 Arm 或 broker 写操作，未将 S27 需求提升为 VERIFIED；该门禁未完成时不开始 S28。
+
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
