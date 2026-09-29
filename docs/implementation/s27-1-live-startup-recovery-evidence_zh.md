@@ -1,6 +1,6 @@
 # S27.1 #108 Live 启动恢复证据
 
-日期：2026-09-29。分支：`dev`。审查基线：`8d007f5b02fe557d17847ea074e3ece7a13e484a`。
+日期：2026-09-29。分支：`dev`。审查基线：`4f3fe18`。
 
 ## 实现范围
 
@@ -33,4 +33,11 @@ Accounts 页面还确认：选择已保存的 `trading212 · LIVE` 连接后，�
 
 后续于 `2026-09-29T13:38:48Z` 重开同一工作区时，Trading 212 行仍为 `FAILED`，序号 18。启动恢复计划只纳入 `CONNECTED` 账户，因此该失败账户被正确排除；这次重开没有覆盖 Trading 212 provider 读取。之后对已保存账户点击只读刷新，进程到达 `NativeVault::get` 后阻塞于 `SecItemCopyMatching`（`provider_io.rs:1597`）。macOS SecurityAgent 要求输入 `com.tradex.broker.credentials` 项对应的 `login` Keychain 密码。用户已授权“Always Allow”，我也点击了该按钮，但系统仍等待 Keychain 密码。没有输入密码或新 API key；账户序号仍为 18，没有观察到 Trading 212 socket 或 provider HTTP 请求。因此原生 `<5 s` 启动耗时仍未验证。
 
-Standards review 通过且无可操作问题。Spec review 未发现其他差异，但保留原生 `<5 s` 启动耗时验收项。签名包生命周期和完整 S27/S33 验收仍未验证；#108 保持打开，等待可信原生启动验证。
+## 2026-09-29 原生开发版重开验证
+
+- PASS：通过普通 `npm run desktop` 重启并重开 `/Users/kai/.tradex/workspaces/default`。工作区 `last_opened_at` 为 `2026-09-29T17:35:17.113204Z`；Trading 212 Live 账户先于刷新写入 `STALE / BLOCKED / DISARMED`（`17:35:17.110664Z`），保留旧的成功观测。
+- PASS：只读 provider 账户/订单历史读取于 `17:35:17.790510Z` 完成，账户于 `17:35:17.795093Z` 恢复为 `CURRENT`，距工作区重开约 `0.682 秒`。持久化投影包含 3 个持仓、0 个开放订单和 6 条近期订单；执行资格仍为 `BLOCKED`，账户保持 `DISARMED`。
+- PASS：重开后的原生 Accounts 页面恢复了 Trading 212 Live 账户、恢复原因/状态、账户与持仓投影、空的开放订单列表及 6 条近期订单。界面显示 `ONLINE`、`VALID`、`CURRENT`、`DISARMED`、`BLOCKED`。没有触发 Arm 或任何订单操作。
+- 此原生工作区只有一个已连接的受支持 Live 账户（Trading 212）；Binance/Bitget 和未知 attempt 分支由上文 Rust 测试覆盖。签名包 Keychain 生命周期与 S33 属于独立门禁。
+
+Standards review 通过且无可操作问题。Spec review 未发现其他差异。上述原生开发版重开已验证本票的 `<5 s` 恢复验收；签名包生命周期和完整 S27/S33 验收仍未验证，分别由后续门禁负责。

@@ -14122,10 +14122,11 @@ mod live_approval_tests {
                 }
                 "/api/v0/equity/history/orders" => json!({
                     "items":[{
-                        "id":9001,"ticker":"AAPL_US_EQ","side":"BUY",
-                        "type":"MARKET","timeInForce":"DAY","strategy":"QUANTITY",
-                        "quantity":1,"filledQuantity":0,"filledValue":0,"currency":"USD",
-                        "status":"NEW","createdAt":self.order_created_at
+                        "fill":{"id":1,"quantity":0,"type":"TRADE"},
+                        "order":{"id":9001,"ticker":"AAPL_US_EQ","side":"BUY",
+                            "type":"MARKET","timeInForce":"DAY","strategy":"QUANTITY",
+                            "quantity":1,"filledQuantity":0,"filledValue":0,"currency":"USD",
+                            "status":"NEW","createdAt":self.order_created_at}
                     }],
                     "nextPagePath":"/api/v0/equity/history/orders?limit=50&cursor=123&ticker=AAPL_US_EQ"
                 }),
@@ -19621,7 +19622,7 @@ mod cancellation_approval_tests {
             match path {
                 "/api/v0/equity/account/summary" => br#"{"id":9007199254740993,"currency":"GBP","cash":{"availableToTrade":1000,"reservedForOrders":0},"totalValue":1000}"#.to_vec(),
                 "/api/v0/equity/positions" | "/api/v0/equity/orders" => b"[]".to_vec(),
-                "/api/v0/equity/history/orders?limit=50" => br#"{"items":[{"id":123456,"ticker":"AAPL_US_EQ","side":"BUY","type":"LIMIT","timeInForce":"DAY","strategy":"QUANTITY","quantity":1,"filledQuantity":1,"filledValue":182.5,"status":"FILLED","createdAt":"2026-09-28T11:00:00Z"}],"nextPagePath":null}"#.to_vec(),
+                "/api/v0/equity/history/orders?limit=50" => br#"{"items":[{"fill":{"id":7,"filledAt":"2026-09-28T11:00:00Z","price":182.5,"quantity":1,"tradingMethod":"TOTV","type":"TRADE"},"order":{"id":123456,"ticker":"AAPL_US_EQ","side":"BUY","type":"LIMIT","timeInForce":"DAY","strategy":"QUANTITY","quantity":1,"filledQuantity":1,"filledValue":182.5,"status":"FILLED","createdAt":"2026-09-28T11:00:00Z"}}],"nextPagePath":null}"#.to_vec(),
                 _ => panic!("unexpected synthetic Trading 212 path: {path}"),
             }
         }

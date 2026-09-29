@@ -857,7 +857,7 @@ fn trading212_demo_order_book_reads_are_scoped_bounded_and_event_persisted() {
     .unwrap();
     http.trading212_history_pages.borrow_mut().insert(
         "/api/v0/equity/history/orders?limit=50".into(),
-        json!({"items":[history_order],"nextPagePath":"/api/v0/equity/history/orders?limit=50&cursor=123"}),
+        json!({"items":[{"fill":{"id":1},"order":history_order}],"nextPagePath":"/api/v0/equity/history/orders?limit=50&cursor=123"}),
     );
     let next_history_order: Value = serde_json::from_str(
         r#"{
@@ -870,7 +870,7 @@ fn trading212_demo_order_book_reads_are_scoped_bounded_and_event_persisted() {
     .unwrap();
     http.trading212_history_pages.borrow_mut().insert(
         "/api/v0/equity/history/orders?limit=50&cursor=123".into(),
-        json!({"items":[next_history_order],"nextPagePath":null}),
+        json!({"items":[{"fill":{"id":2},"order":next_history_order}],"nextPagePath":null}),
     );
     let history = execute_main(&mut cp, refresh("HISTORY", None), &vault, &http);
     assert_eq!(history["ok"], true, "{history}");

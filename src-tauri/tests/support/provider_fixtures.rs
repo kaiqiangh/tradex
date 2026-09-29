@@ -942,11 +942,12 @@ impl ProviderHttp for Http {
                     .cloned()
                     .unwrap_or_else(|| {
                         serde_json::from_str(
-                            r#"{"items":[{
+                            r#"{"items":[{"fill":{"id":1},"order":{
                         "id":8001,"ticker":"MSFT_US_EQ","side":"SELL","type":"MARKET",
                         "timeInForce":"DAY","strategy":"QUANTITY","quantity":-2,
                         "filledQuantity":-2,"filledValue":201.234567890123456789,"currency":"GBP",
                         "status":"FILLED","createdAt":"2026-09-22T12:00:00Z"
+                        }
                     }],"nextPagePath":null}"#,
                         )
                         .unwrap()

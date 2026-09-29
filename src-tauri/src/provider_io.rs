@@ -22,7 +22,7 @@ use reqwest::{
 };
 use serde_json::{Value, json};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     io::Read,
     sync::{Mutex, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -1033,17 +1033,34 @@ fn parse_t212_recent_orders(history: Value) -> Result<Vec<OpenOrder>> {
         Some(Value::String(path)) if valid_t212_history_path(path) => (),
         _ => return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE")),
     }
-    let mut ids = HashSet::new();
-    items
+    t212_history_unique_orders(items)?
         .iter()
-        .map(|item| {
-            let order = trading212::open_order(item)?;
-            if !ids.insert(order.broker_order_id.clone()) {
+        .map(|order| trading212::open_order(order))
+        .collect()
+}
+
+fn t212_history_order(item: &Value) -> Result<&Value> {
+    item.get("order")
+        .filter(|value| value.is_object())
+        .ok_or_else(invalid)
+}
+
+fn t212_history_unique_orders(items: &[Value]) -> Result<Vec<&Value>> {
+    let mut indexes = HashMap::new();
+    let mut orders = Vec::with_capacity(items.len());
+    for item in items {
+        let order = t212_history_order(item)?;
+        let id = trading212::order_id(order)?;
+        if let Some(index) = indexes.get(&id).copied() {
+            if orders[index] != order {
                 return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
             }
-            Ok(order)
-        })
-        .collect()
+            continue;
+        }
+        indexes.insert(id, orders.len());
+        orders.push(order);
+    }
+    Ok(orders)
 }
 
 fn read_trading212_live_order(
@@ -1094,8 +1111,8 @@ fn read_trading212_live_order(
             if items.len() > 50 {
                 return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
             }
-            let mut exact = items
-                .iter()
+            let mut exact = t212_history_unique_orders(items)?
+                .into_iter()
                 .filter(|item| trading212::order_id(item).is_ok_and(|id| id == order_id));
             let Some(order) = exact.next() else {
                 return Err(TradeXError::new("ORDER_STATUS_UNKNOWN"));
@@ -2306,7 +2323,7 @@ impl ProviderJob {
             if items.len() > 50 {
                 return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
             }
-            for row in items {
+            for row in t212_history_unique_orders(items)? {
                 rows.push(parse_trading212_order(row, queried_at, false)?);
             }
             let next_page_path = match history.get("nextPagePath") {
@@ -2783,7 +2800,7 @@ impl ProviderJob {
                     let mut seen = std::collections::HashSet::new();
                     let mut parsed = Vec::with_capacity(rows.len());
                     for row in rows {
-                        let order = parse_trading212_order(row, &now, false)?;
+                        let order = parse_trading212_order(t212_history_order(row)?, &now, false)?;
                         if !seen.insert(order.provider_order_id.clone()) {
                             return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
                         }
@@ -5428,24 +5445,38 @@ mod trading212_demo_route_tests {
     }
 
     #[test]
-    fn t212_recent_history_is_bounded_and_rejects_duplicate_or_untrusted_pages() {
+    fn t212_recent_history_parses_official_order_fill_rows_and_rejects_conflicts() {
         let order = json!({
-            "id":9001,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY",
+            "id":9001,"instrument":{"ticker":"AAPL_US_EQ"},"side":"BUY","strategy":"QUANTITY",
             "quantity":1,"filledQuantity":1,"filledValue":182.5,"currency":"USD",
             "status":"FILLED"
         });
-        let page = json!({"items":[order.clone()],"nextPagePath":"/api/v0/equity/history/orders?limit=50&cursor=123"});
+        let row = |fill_id| {
+            json!({
+                "fill": {"id":fill_id,"filledAt":"2026-09-29T10:00:00Z","price":182.5,
+                    "quantity":1,"tradingMethod":"TOTV","type":"TRADE"},
+                "order":order.clone()
+            })
+        };
+        let page = json!({
+            "items":[row(1),row(2)],
+            "nextPagePath":"/api/v0/equity/history/orders?limit=50&cursor=123"
+        });
         let rows = parse_t212_recent_orders(page).unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].broker_order_id, "9001");
         assert_eq!(rows[0].status, "FILLED");
 
+        let conflicting = json!({
+            "items":[row(1), {"fill":{"id":2}, "order":{
+                "id":9001,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY",
+                "quantity":2,"filledQuantity":1,"filledValue":182.5,"currency":"USD",
+                "status":"PARTIALLY_FILLED"
+            }}],
+            "nextPagePath":null
+        });
         assert_eq!(
-            parse_t212_recent_orders(
-                json!({"items":[order.clone(),order.clone()],"nextPagePath":null})
-            )
-            .unwrap_err()
-            .code,
+            parse_t212_recent_orders(conflicting).unwrap_err().code,
             "PROVIDER_DATA_INCOMPLETE"
         );
         assert_eq!(
@@ -5453,6 +5484,12 @@ mod trading212_demo_route_tests {
                 .unwrap_err()
                 .code,
             "PROVIDER_DATA_INCOMPLETE"
+        );
+        assert_eq!(
+            parse_t212_recent_orders(json!({"items":[order],"nextPagePath":null}))
+                .unwrap_err()
+                .code,
+            "PROVIDER_RESPONSE_INVALID"
         );
     }
 
