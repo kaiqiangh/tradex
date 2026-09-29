@@ -376,6 +376,38 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("model.gateway.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let seeded = (|| {
+                    let workspace_id = payload
+                        .get("workspaceId")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+                    let status = serde_json::from_value(
+                        payload.get("status").cloned().unwrap_or(Value::Null),
+                    )
+                    .map_err(|_| tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID"))?;
+                    control
+                        .lock()
+                        .map_err(|_| {
+                            tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        })?
+                        .seed_browser_model_gateway(workspace_id, status)
+                })();
+                let reply = match seeded {
+                    Ok(()) => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"seeded":true}})
+                    }
+                    Err(error) => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("workspace.ready.fixture") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);

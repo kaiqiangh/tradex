@@ -800,7 +800,7 @@ mod live_arming_tests {
     }
 
     #[test]
-    fn live_provider_auth_failure_disarms_only_the_affected_account() {
+    fn s27_model_outage_keeps_auth_and_stream_failures_account_scoped() {
         let folder = tempfile::tempdir().unwrap();
         let mut control = ControlPlane::new(folder.path().to_path_buf());
         let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
@@ -813,6 +813,9 @@ mod live_arming_tests {
             control
                 .seed_live_arming_fixture(&workspace, "binance", "Unrelated healthy account")
                 .unwrap(),
+            control
+                .seed_live_arming_fixture(&workspace, "bitget", "Healthy after both failures")
+                .unwrap(),
         ];
         dispatch(
             &mut control,
@@ -822,6 +825,8 @@ mod live_arming_tests {
         for account in &accounts {
             arm_live_account(&mut control, &workspace, account);
         }
+
+        super::live_approval_tests::s27_stop_model(&mut control, &workspace);
 
         let affected = stored_account(&control, &accounts[0].connection_id);
         let job = control
@@ -864,6 +869,23 @@ mod live_arming_tests {
         let unaffected = stored_account(&control, &accounts[1].connection_id);
         assert_eq!(unaffected.health.arming, "ARMED");
         assert_eq!(unaffected.health.reconciliation, "CURRENT");
+        let failed_before_stream = serde_json::to_value(&failed).unwrap();
+        let mut stream_failed = unaffected;
+        stream_failed.health.private_stream = "DEGRADED".into();
+        stream_failed.health.reconciliation = "STALE".into();
+        let stream_failed = control.persist_account(stream_failed).unwrap();
+        assert_eq!(stream_failed.health.arming, "DISARMED");
+        assert_eq!(
+            stream_failed.health.arming_reason,
+            "ACCOUNT_HEALTH_DEGRADED"
+        );
+        assert_eq!(
+            serde_json::to_value(stored_account(&control, &accounts[0].connection_id)).unwrap(),
+            failed_before_stream
+        );
+        let healthy = stored_account(&control, &accounts[2].connection_id);
+        assert_eq!(healthy.health.arming, "ARMED");
+        assert_eq!(healthy.health.reconciliation, "CURRENT");
     }
 
     #[test]
@@ -9359,6 +9381,30 @@ impl ControlPlane {
     }
 
     #[cfg(feature = "integration-test")]
+    pub fn seed_browser_model_gateway(
+        &mut self,
+        workspace_id: &str,
+        status: gateway::GatewayStatus,
+    ) -> Result<()> {
+        self.require_workspace(workspace_id)?;
+        let error_code = match status {
+            gateway::GatewayStatus::Stopped => Some("MODEL_UNAVAILABLE"),
+            gateway::GatewayStatus::Unauthorized => Some("GATEWAY_UNAUTHORIZED"),
+            gateway::GatewayStatus::PortConflict => Some("GATEWAY_PORT_CONFLICT"),
+            gateway::GatewayStatus::Running => None,
+            _ => return Err(TradeXError::new("IPC_PAYLOAD_INVALID")),
+        };
+        // Disposable browser fixture: no sidecar is launched or stopped.
+        let mut state = self.store.as_ref().unwrap().gateway()?;
+        state.status = status;
+        state.model_available = error_code.is_none();
+        state.error_code = error_code.map(str::to_owned);
+        let event = self.store.as_mut().unwrap().save_gateway(state)?;
+        self.publish(&event);
+        Ok(())
+    }
+
+    #[cfg(feature = "integration-test")]
     pub fn seed_browser_workspace_ready(&mut self, workspace_id: &str) -> Result<()> {
         self.require_workspace(workspace_id)?;
         {
@@ -13753,6 +13799,8 @@ mod live_approval_tests {
     use super::*;
     use std::sync::{Arc, Barrier, Mutex, mpsc};
 
+    include!("../tests/support/s27_model_recovery.rs");
+
     fn request(command: &str, payload: Value) -> Value {
         json!({
             "requestId": format!("live-approval-{command}"),
@@ -13963,9 +14011,11 @@ mod live_approval_tests {
         control
             .time
             .set_test_time(created_at.unix_timestamp_nanos() / 1_000_000 + 10, 110);
+        let time = control.time.status(workspace_id).unwrap();
         assert_eq!(
-            control.time.status(workspace_id).unwrap().confidence,
-            protocol::TimeConfidence::Trusted
+            time.confidence,
+            protocol::TimeConfidence::Trusted,
+            "{time:?}"
         );
         proposal["data"].clone()
     }
@@ -22179,9 +22229,10 @@ mod cancellation_approval_tests {
     }
 
     #[test]
-    fn cancel_preparation_consumes_only_approval_and_replays_without_reservation() {
-        let (_folder, mut control, workspace_id, account) = fixture();
-        let broker_order_id = "BTCUSDT:9007199254740995";
+    fn s27_model_outage_allows_exact_cancel_preparation_without_reservation() {
+        let (_folder, mut control, workspace_id, account) = trading212_fixture();
+        super::live_approval_tests::s27_stop_model(&mut control, &workspace_id);
+        let broker_order_id = "123456";
         let initial = request_review(&mut control, &workspace_id, &account, None, broker_order_id);
         let armed = dispatch_main(
             &mut control,
@@ -22313,6 +22364,10 @@ mod cancellation_approval_tests {
         assert_eq!(
             *deliveries.lock().unwrap(),
             ["trade.execution.attempt.changed".to_owned()]
+        );
+        super::live_approval_tests::s27_send_exact_cancellation(
+            &mut control,
+            attempt["attemptId"].as_str().unwrap(),
         );
     }
 

@@ -35,6 +35,8 @@ S27.1 #108 已完成实现与隔离 Rust 验证：所有已连接的受支持 Li
 S27.2 #109 已在 `dev@f9e81ca` 完成实现，Standards 与 Spec 按 `3ca4d54` 基线独立审查均 PASS。原生应用重新激活已验证；实际 OS 睡眠唤醒未执行，真实 Keychain provider refresh 因系统要求 `login` Keychain 密码而未完成。[双语验收证据](s27-2-live-resume-recovery-evidence.md)。
 S27.3 [优先调度并限制 Provider 工作队列](https://github.com/kaiqiangh/tradex/issues/110)已完成本地实现、双语契约与独立 Standards/Spec 复审；最终完整检查、21 项隔离 Gateway 子进程测试和桌面构建检查通过。[双语验收证据](s27-3-provider-scheduling-evidence.md)。真实 provider/原生账户恢复与 S33 验收不属于本票证据。
 
+S27.4 [验证模型故障不阻塞可信 Live 控制面](https://github.com/kaiqiangh/tradex/issues/111)已补充模型故障矩阵、可信路径精确撤单、负载下 P0 对账、账户级 auth/stream 隔离、resume/reopen 与不自动 Arm 验证，并修复集成浏览器 SSE 连接耗尽问题。最终检查与 390/768/1280px 浏览器验证通过；基于 `495fc745` 的串行独立 Standards/Spec 审查均 PASS，无可执行发现。[双语验收证据](s27-4-model-failure-isolation-evidence.md)。S27 父级与 S33 门禁仍单独验收。
+
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
 - [已阅读文件清单](sources.csv)：基线文件路径、行数、SHA-256。哈希只固定阅读来源，不证明行为通过。
