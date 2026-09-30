@@ -851,6 +851,8 @@ pub(crate) fn live_approval_fixture_detail(
         last_price: Some("50000".into()),
         bid: Some("49999".into()),
         ask: Some("50001".into()),
+        bid_size: Some("1".into()),
+        ask_size: Some("1".into()),
     });
     detail.market_state = crate::protocol::MarketState {
         session: MarketSession::Open,

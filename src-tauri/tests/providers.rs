@@ -1771,9 +1771,10 @@ fn trading212_demo_refuses_to_submit_after_remote_account_identity_changes() {
 
 #[test]
 fn trading212_demo_rejects_unsupported_order_fields_before_persisting_or_sending() {
-    for (quantity_type, time_in_force, expected_error) in [
-        ("BASE", "GTC", "ORDER_CAPABILITY_UNSUPPORTED"),
-        ("QUOTE", "DAY", "ORDER_PROPOSAL_NOT_ELIGIBLE"),
+    for (quantity_type, time_in_force, maximum, expected_error) in [
+        ("BASE", "GTC", None, "ORDER_CAPABILITY_UNSUPPORTED"),
+        ("QUOTE", "DAY", None, "ORDER_PROPOSAL_NOT_ELIGIBLE"),
+        ("BASE", "DAY", Some("200"), "ORDER_PROPOSAL_NOT_ELIGIBLE"),
     ] {
         let folder = tempfile::tempdir().unwrap();
         let mut cp = ControlPlane::new(folder.path().to_path_buf());
@@ -1782,7 +1783,7 @@ fn trading212_demo_rejects_unsupported_order_fields_before_persisting_or_sending
         let vault = Vault::default();
         let http = Http::default();
         let account = connected_trading212(&mut cp, &vault, &http, &workspace);
-        let proposal = trading212_demo_proposal(
+        let mut proposal = trading212_demo_proposal(
             &mut cp,
             &workspace,
             &account,
@@ -1791,6 +1792,28 @@ fn trading212_demo_rejects_unsupported_order_fields_before_persisting_or_sending
             json!({"type":quantity_type,"value":"1"}),
             time_in_force,
         );
+        if let Some(maximum) = maximum {
+            let mut fields = proposal["fields"].clone();
+            fields["maximumSpend"] = maximum.into();
+            let saved = command(
+                &mut cp,
+                "trade.save_draft",
+                json!({"workspaceId":workspace,"fields":fields}),
+            );
+            assert_eq!(saved["ok"], true, "{saved}");
+            let generated = command(
+                &mut cp,
+                "trade.generate_proposal",
+                json!({"workspaceId":workspace,"draftId":saved["data"]["draftId"],"expectedDraftVersion":1}),
+            );
+            assert_eq!(generated["ok"], true, "{generated}");
+            proposal = command(
+                &mut cp,
+                "trade.proposal.get",
+                json!({"workspaceId":workspace,"proposalId":generated["data"]["proposalId"]}),
+            )["data"]
+                .clone();
+        }
         let error = match cp.prepare_provider_for(
             &trading212_submit_request(&workspace, &account, &proposal, "t212-unsupported"),
             "main",

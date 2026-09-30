@@ -1901,6 +1901,12 @@ pub struct MarketSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 64))]
     pub ask: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub bid_size: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub ask_size: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

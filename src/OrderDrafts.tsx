@@ -1784,6 +1784,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <div><dt>Client label</dt><dd>{approvalReview.proposal.fields.clientLabel ?? '—'}</dd></div>
         <div><dt>Review expires</dt><dd>30 seconds after approval; reviewed {new Date(approvalReview.reviewedAt).toLocaleString()}</dd></div>
       </dl>
+      {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
       <section aria-labelledby="approval-quote-title"><h3 id="approval-quote-title">Quote provenance</h3>
         {approvalReview.market.snapshot ? <dl className="proposal-fields approval-review-fields">
@@ -1792,9 +1793,10 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
           <div><dt>Received / venue</dt><dd>{approvalReview.market.snapshot.provenance.receivedTimestamp} · {approvalReview.market.snapshot.provenance.venue ?? 'Unavailable'}</dd></div>
           <div><dt>Entitlement / freshness</dt><dd>{approvalReview.market.snapshot.provenance.entitlement} · {approvalReview.market.snapshot.provenance.freshness}</dd></div>
           <div><dt>Bid / ask / spread</dt><dd>{approvalReview.market.snapshot.bid ?? 'Unavailable'} / {approvalReview.market.snapshot.ask ?? 'Unavailable'} / {approvalReview.spread ?? 'Unavailable'}</dd></div>
+          <div><dt>Displayed bid / ask size</dt><dd>{approvalReview.market.snapshot.bidSize ?? 'Unavailable'} / {approvalReview.market.snapshot.askSize ?? 'Unavailable'} BASE</dd></div>
           <div><dt>Quote age</dt><dd>{approvalReview.quoteAgeMs == null ? 'Unavailable' : `${approvalReview.quoteAgeMs} ms`}</dd></div>
           <div><dt>Estimated fees</dt><dd>{approvalReview.estimatedFees ? `${approvalReview.estimatedFees.amount} ${approvalReview.estimatedFees.currency}` : 'Unavailable'}</dd></div>
-          <div><dt>Estimated slippage</dt><dd>{approvalReview.estimatedSlippagePercent == null ? 'Unavailable' : `${approvalReview.estimatedSlippagePercent}%`}</dd></div>
+          <div><dt>Estimated slippage</dt><dd>{approvalReview.estimatedSlippagePercent == null ? 'Unavailable' : `Approximately ${approvalReview.estimatedSlippagePercent}% against the quote midpoint; displayed depth only, no fill guarantee.`}</dd></div>
           <div><dt>Instrument status</dt><dd>{approvalReview.market.instrumentState?.status ?? 'Unavailable'} · {approvalReview.market.instrumentState?.source ?? 'No provider observation'}</dd></div>
         </dl> : <p className="error-text">No current quote is available. Approval is blocked.</p>}
       </section>

@@ -5217,9 +5217,21 @@ fn trading212_order_request(
     ) || fields.environment != environment
         || fields.account_id.as_deref() != Some(connection_id)
         || fields.quantity.r#type != OrderQuantityType::Base
-        || fields.maximum_spend.is_some()
+        || (fields.maximum_spend.is_some()
+            && (environment != ExecutionContext::Trading212Live
+                || fields.order_type != OrderType::Market))
     {
         return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
+    }
+    if environment == ExecutionContext::Trading212Live && fields.order_type == OrderType::Market {
+        let maximum = fields
+            .maximum_spend
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"))?;
+        let maximum = decimal(&Value::String(maximum.clone()))?;
+        if decimal_cmp(&maximum, "0")? != std::cmp::Ordering::Greater {
+            return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+        }
     }
     let instrument = market::instruments()
         .into_iter()

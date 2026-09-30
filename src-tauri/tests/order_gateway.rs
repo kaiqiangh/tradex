@@ -476,7 +476,7 @@ mod local_provider_tests {
                     value: "1".into(),
                 },
                 limit_price: None,
-                maximum_spend: None,
+                maximum_spend: Some("200".into()),
                 time_in_force: TimeInForce::Day,
                 client_label: None,
             },
@@ -937,12 +937,17 @@ mod local_provider_tests {
             br#"{"id":901,"ticker":"AAPL_US_EQ","status":"NEW"}"#,
             false,
         );
-        let (mut gateway, result) = run_child(
+        let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
             package(
                 "place-1",
                 GatewayDispatchIntent::Place(Box::new(proposal())),
             ),
             url,
+        );
+        assert_eq!(
+            *stopped.lock().unwrap(),
+            None,
+            "approved bounded market intent must pass pre-dispatch"
         );
         provider.join().unwrap();
         let requests = calls.lock().unwrap();
@@ -994,6 +999,88 @@ mod local_provider_tests {
         assert_eq!(duplicate, Ok(()));
         assert_eq!(calls.lock().unwrap().len(), 2);
         gateway.stop();
+    }
+
+    #[test]
+    fn real_child_rejects_unbounded_or_invalid_live_market_intents_before_provider_io() {
+        for maximum in [None, Some("0"), Some("-1"), Some("NaN"), Some("1e3")] {
+            let mut intent = proposal();
+            intent.fields.maximum_spend = maximum.map(str::to_owned);
+            let (url, calls, provider) = fake_provider(0, 200, b"{}", false);
+            let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
+                package(
+                    "invalid-market-bound",
+                    GatewayDispatchIntent::Place(Box::new(intent)),
+                ),
+                url,
+            );
+            provider.join().unwrap();
+            assert!(stopped.lock().unwrap().is_some(), "{maximum:?}");
+            assert!(result.lock().unwrap().is_none(), "{maximum:?}");
+            assert!(calls.lock().unwrap().is_empty(), "{maximum:?}");
+            gateway.stop();
+        }
+    }
+
+    #[test]
+    fn real_child_preserves_exact_live_sell_and_limit_request_fields() {
+        for (order_type, tif, maximum, expected_path, expected_body) in [
+            (
+                OrderType::Market,
+                TimeInForce::Day,
+                Some("200"),
+                "/api/v0/equity/orders/market",
+                json!({"ticker":"AAPL_US_EQ","quantity":-0.125,"extendedHours":false}),
+            ),
+            (
+                OrderType::Limit,
+                TimeInForce::Day,
+                None,
+                "/api/v0/equity/orders/limit",
+                json!({"ticker":"AAPL_US_EQ","quantity":-0.125,"limitPrice":180.125,"timeValidity":"DAY"}),
+            ),
+            (
+                OrderType::Limit,
+                TimeInForce::Gtc,
+                None,
+                "/api/v0/equity/orders/limit",
+                json!({"ticker":"AAPL_US_EQ","quantity":-0.125,"limitPrice":180.125,"timeValidity":"GOOD_TILL_CANCEL"}),
+            ),
+        ] {
+            let mut intent = proposal();
+            intent.fields.side = OrderSide::Sell;
+            intent.fields.quantity.value = "0.125".into();
+            intent.fields.order_type = order_type;
+            intent.fields.time_in_force = tif;
+            intent.fields.maximum_spend = maximum.map(str::to_owned);
+            intent.fields.limit_price = (order_type == OrderType::Limit).then(|| "180.125".into());
+            let (url, calls, provider) = fake_provider(
+                2,
+                200,
+                br#"{"id":901,"ticker":"AAPL_US_EQ","status":"NEW"}"#,
+                false,
+            );
+            let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
+                package(
+                    "exact-live-sell",
+                    GatewayDispatchIntent::Place(Box::new(intent)),
+                ),
+                url,
+            );
+            assert_eq!(*stopped.lock().unwrap(), None);
+            provider.join().unwrap();
+            let requests = calls.lock().unwrap();
+            assert_eq!(requests.len(), 2);
+            assert_eq!(requests[1].method, "POST");
+            assert_eq!(requests[1].path, expected_path);
+            assert_eq!(requests[1].body, expected_body);
+            assert_eq!(
+                result.lock().unwrap().as_ref().unwrap().state,
+                ExecutionAttemptState::Accepted
+            );
+            drop(requests);
+            gateway.stop();
+        }
     }
 
     #[test]

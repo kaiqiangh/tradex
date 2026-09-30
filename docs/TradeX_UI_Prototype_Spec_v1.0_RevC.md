@@ -1104,6 +1104,10 @@ The draft editor exposes account/environment, instrument, side, quantity semanti
 
 Generate Proposal freezes the displayed values into a new proposal ID/hash and policy/snapshot references. The approval summary is read-only. Edit returns to a draft, invalidates the prior proposal's approval, and requires Generate Proposal plus new consent; Refresh after stale market data or policy change also creates a new identity. Keep the old proposal and invalidation reason inspectable. A fixture may use clearly labelled synthetic revision IDs/hashes, but changed revisions must differ; production uses backend canonical serialization.
 
+For Trading 212 Live Market approval, show the positive immutable `maximumSpend` and explain beside it that the amount bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit. Expected spend/proceeds and provider acceptance remain separate from the authorized amount and actual fills (S28 #114).
+
+Quote provenance also displays exact BASE bid/ask depth. Slippage uses the contemporaneous quote midpoint and is explicitly an approximate displayed-depth estimate with no fill guarantee; missing trusted depth or quantity beyond the relevant side’s depth disables approval. Material depth and price changes both invalidate reviewed consent (S28 #114).
+
 ## 14.3 Eligibility, arming, and Disable All (F1–F4, J2/J5, K1/K2/K6)
 
 | Action | Required state | Visible blocked behavior |

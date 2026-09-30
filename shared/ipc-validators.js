@@ -15886,7 +15886,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!(key0 === "ask" || key0 === "bid" || key0 === "instrumentId" || key0 === "lastPrice" || key0 === "provenance")) {
+					for (const key0 in data) if (!(key0 === "ask" || key0 === "askSize" || key0 === "bid" || key0 === "bidSize" || key0 === "instrumentId" || key0 === "lastPrice" || key0 === "provenance")) {
 						validate59.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -15935,15 +15935,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							var valid0 = _errs2 === errors;
 						} else var valid0 = true;
 						if (valid0) {
-							if (data.bid !== void 0) {
-								let data1 = data.bid;
+							if (data.askSize !== void 0) {
+								let data1 = data.askSize;
 								const _errs4 = errors;
 								if (errors === _errs4) {
 									if (typeof data1 === "string") {
 										if (func1(data1) > 64) {
 											validate59.errors = [{
-												instancePath: instancePath + "/bid",
-												schemaPath: "#/properties/bid/maxLength",
+												instancePath: instancePath + "/askSize",
+												schemaPath: "#/properties/askSize/maxLength",
 												keyword: "maxLength",
 												params: { limit: 64 },
 												message: "must NOT have more than 64 characters"
@@ -15951,8 +15951,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										} else if (func1(data1) < 1) {
 											validate59.errors = [{
-												instancePath: instancePath + "/bid",
-												schemaPath: "#/properties/bid/minLength",
+												instancePath: instancePath + "/askSize",
+												schemaPath: "#/properties/askSize/minLength",
 												keyword: "minLength",
 												params: { limit: 1 },
 												message: "must NOT have fewer than 1 characters"
@@ -15961,8 +15961,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 									} else {
 										validate59.errors = [{
-											instancePath: instancePath + "/bid",
-											schemaPath: "#/properties/bid/type",
+											instancePath: instancePath + "/askSize",
+											schemaPath: "#/properties/askSize/type",
 											keyword: "type",
 											params: { type: "string" },
 											message: "must be string"
@@ -15973,24 +15973,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								var valid0 = _errs4 === errors;
 							} else var valid0 = true;
 							if (valid0) {
-								if (data.instrumentId !== void 0) {
-									let data2 = data.instrumentId;
+								if (data.bid !== void 0) {
+									let data2 = data.bid;
 									const _errs6 = errors;
 									if (errors === _errs6) {
 										if (typeof data2 === "string") {
-											if (func1(data2) > 128) {
+											if (func1(data2) > 64) {
 												validate59.errors = [{
-													instancePath: instancePath + "/instrumentId",
-													schemaPath: "#/properties/instrumentId/maxLength",
+													instancePath: instancePath + "/bid",
+													schemaPath: "#/properties/bid/maxLength",
 													keyword: "maxLength",
-													params: { limit: 128 },
-													message: "must NOT have more than 128 characters"
+													params: { limit: 64 },
+													message: "must NOT have more than 64 characters"
 												}];
 												return false;
 											} else if (func1(data2) < 1) {
 												validate59.errors = [{
-													instancePath: instancePath + "/instrumentId",
-													schemaPath: "#/properties/instrumentId/minLength",
+													instancePath: instancePath + "/bid",
+													schemaPath: "#/properties/bid/minLength",
 													keyword: "minLength",
 													params: { limit: 1 },
 													message: "must NOT have fewer than 1 characters"
@@ -15999,8 +15999,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}
 										} else {
 											validate59.errors = [{
-												instancePath: instancePath + "/instrumentId",
-												schemaPath: "#/properties/instrumentId/type",
+												instancePath: instancePath + "/bid",
+												schemaPath: "#/properties/bid/type",
 												keyword: "type",
 												params: { type: "string" },
 												message: "must be string"
@@ -16011,15 +16011,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									var valid0 = _errs6 === errors;
 								} else var valid0 = true;
 								if (valid0) {
-									if (data.lastPrice !== void 0) {
-										let data3 = data.lastPrice;
+									if (data.bidSize !== void 0) {
+										let data3 = data.bidSize;
 										const _errs8 = errors;
 										if (errors === _errs8) {
 											if (typeof data3 === "string") {
 												if (func1(data3) > 64) {
 													validate59.errors = [{
-														instancePath: instancePath + "/lastPrice",
-														schemaPath: "#/properties/lastPrice/maxLength",
+														instancePath: instancePath + "/bidSize",
+														schemaPath: "#/properties/bidSize/maxLength",
 														keyword: "maxLength",
 														params: { limit: 64 },
 														message: "must NOT have more than 64 characters"
@@ -16027,8 +16027,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												} else if (func1(data3) < 1) {
 													validate59.errors = [{
-														instancePath: instancePath + "/lastPrice",
-														schemaPath: "#/properties/lastPrice/minLength",
+														instancePath: instancePath + "/bidSize",
+														schemaPath: "#/properties/bidSize/minLength",
 														keyword: "minLength",
 														params: { limit: 1 },
 														message: "must NOT have fewer than 1 characters"
@@ -16037,8 +16037,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 											} else {
 												validate59.errors = [{
-													instancePath: instancePath + "/lastPrice",
-													schemaPath: "#/properties/lastPrice/type",
+													instancePath: instancePath + "/bidSize",
+													schemaPath: "#/properties/bidSize/type",
 													keyword: "type",
 													params: { type: "string" },
 													message: "must be string"
@@ -16049,20 +16049,98 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										var valid0 = _errs8 === errors;
 									} else var valid0 = true;
 									if (valid0) {
-										if (data.provenance !== void 0) {
+										if (data.instrumentId !== void 0) {
+											let data4 = data.instrumentId;
 											const _errs10 = errors;
-											if (!validate60(data.provenance, {
-												instancePath: instancePath + "/provenance",
-												parentData: data,
-												parentDataProperty: "provenance",
-												rootData,
-												dynamicAnchors
-											})) {
-												vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
-												errors = vErrors.length;
+											if (errors === _errs10) {
+												if (typeof data4 === "string") {
+													if (func1(data4) > 128) {
+														validate59.errors = [{
+															instancePath: instancePath + "/instrumentId",
+															schemaPath: "#/properties/instrumentId/maxLength",
+															keyword: "maxLength",
+															params: { limit: 128 },
+															message: "must NOT have more than 128 characters"
+														}];
+														return false;
+													} else if (func1(data4) < 1) {
+														validate59.errors = [{
+															instancePath: instancePath + "/instrumentId",
+															schemaPath: "#/properties/instrumentId/minLength",
+															keyword: "minLength",
+															params: { limit: 1 },
+															message: "must NOT have fewer than 1 characters"
+														}];
+														return false;
+													}
+												} else {
+													validate59.errors = [{
+														instancePath: instancePath + "/instrumentId",
+														schemaPath: "#/properties/instrumentId/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
 											}
 											var valid0 = _errs10 === errors;
 										} else var valid0 = true;
+										if (valid0) {
+											if (data.lastPrice !== void 0) {
+												let data5 = data.lastPrice;
+												const _errs12 = errors;
+												if (errors === _errs12) {
+													if (typeof data5 === "string") {
+														if (func1(data5) > 64) {
+															validate59.errors = [{
+																instancePath: instancePath + "/lastPrice",
+																schemaPath: "#/properties/lastPrice/maxLength",
+																keyword: "maxLength",
+																params: { limit: 64 },
+																message: "must NOT have more than 64 characters"
+															}];
+															return false;
+														} else if (func1(data5) < 1) {
+															validate59.errors = [{
+																instancePath: instancePath + "/lastPrice",
+																schemaPath: "#/properties/lastPrice/minLength",
+																keyword: "minLength",
+																params: { limit: 1 },
+																message: "must NOT have fewer than 1 characters"
+															}];
+															return false;
+														}
+													} else {
+														validate59.errors = [{
+															instancePath: instancePath + "/lastPrice",
+															schemaPath: "#/properties/lastPrice/type",
+															keyword: "type",
+															params: { type: "string" },
+															message: "must be string"
+														}];
+														return false;
+													}
+												}
+												var valid0 = _errs12 === errors;
+											} else var valid0 = true;
+											if (valid0) {
+												if (data.provenance !== void 0) {
+													const _errs14 = errors;
+													if (!validate60(data.provenance, {
+														instancePath: instancePath + "/provenance",
+														parentData: data,
+														parentDataProperty: "provenance",
+														rootData,
+														dynamicAnchors
+													})) {
+														vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
+														errors = vErrors.length;
+													}
+													var valid0 = _errs14 === errors;
+												} else var valid0 = true;
+											}
+										}
 									}
 								}
 							}
@@ -106727,7 +106805,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 					return false;
 				} else {
 					const _errs1 = errors;
-					for (const key0 in data) if (!(key0 === "ask" || key0 === "bid" || key0 === "instrumentId" || key0 === "lastPrice" || key0 === "provenance")) {
+					for (const key0 in data) if (!(key0 === "ask" || key0 === "askSize" || key0 === "bid" || key0 === "bidSize" || key0 === "instrumentId" || key0 === "lastPrice" || key0 === "provenance")) {
 						validate808.errors = [{
 							instancePath,
 							schemaPath: "#/additionalProperties",
@@ -106776,15 +106854,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 							var valid0 = _errs2 === errors;
 						} else var valid0 = true;
 						if (valid0) {
-							if (data.bid !== void 0) {
-								let data1 = data.bid;
+							if (data.askSize !== void 0) {
+								let data1 = data.askSize;
 								const _errs4 = errors;
 								if (errors === _errs4) {
 									if (typeof data1 === "string") {
 										if (func1(data1) > 64) {
 											validate808.errors = [{
-												instancePath: instancePath + "/bid",
-												schemaPath: "#/properties/bid/maxLength",
+												instancePath: instancePath + "/askSize",
+												schemaPath: "#/properties/askSize/maxLength",
 												keyword: "maxLength",
 												params: { limit: 64 },
 												message: "must NOT have more than 64 characters"
@@ -106792,8 +106870,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											return false;
 										} else if (func1(data1) < 1) {
 											validate808.errors = [{
-												instancePath: instancePath + "/bid",
-												schemaPath: "#/properties/bid/minLength",
+												instancePath: instancePath + "/askSize",
+												schemaPath: "#/properties/askSize/minLength",
 												keyword: "minLength",
 												params: { limit: 1 },
 												message: "must NOT have fewer than 1 characters"
@@ -106802,8 +106880,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										}
 									} else {
 										validate808.errors = [{
-											instancePath: instancePath + "/bid",
-											schemaPath: "#/properties/bid/type",
+											instancePath: instancePath + "/askSize",
+											schemaPath: "#/properties/askSize/type",
 											keyword: "type",
 											params: { type: "string" },
 											message: "must be string"
@@ -106814,24 +106892,24 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								var valid0 = _errs4 === errors;
 							} else var valid0 = true;
 							if (valid0) {
-								if (data.instrumentId !== void 0) {
-									let data2 = data.instrumentId;
+								if (data.bid !== void 0) {
+									let data2 = data.bid;
 									const _errs6 = errors;
 									if (errors === _errs6) {
 										if (typeof data2 === "string") {
-											if (func1(data2) > 128) {
+											if (func1(data2) > 64) {
 												validate808.errors = [{
-													instancePath: instancePath + "/instrumentId",
-													schemaPath: "#/properties/instrumentId/maxLength",
+													instancePath: instancePath + "/bid",
+													schemaPath: "#/properties/bid/maxLength",
 													keyword: "maxLength",
-													params: { limit: 128 },
-													message: "must NOT have more than 128 characters"
+													params: { limit: 64 },
+													message: "must NOT have more than 64 characters"
 												}];
 												return false;
 											} else if (func1(data2) < 1) {
 												validate808.errors = [{
-													instancePath: instancePath + "/instrumentId",
-													schemaPath: "#/properties/instrumentId/minLength",
+													instancePath: instancePath + "/bid",
+													schemaPath: "#/properties/bid/minLength",
 													keyword: "minLength",
 													params: { limit: 1 },
 													message: "must NOT have fewer than 1 characters"
@@ -106840,8 +106918,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 											}
 										} else {
 											validate808.errors = [{
-												instancePath: instancePath + "/instrumentId",
-												schemaPath: "#/properties/instrumentId/type",
+												instancePath: instancePath + "/bid",
+												schemaPath: "#/properties/bid/type",
 												keyword: "type",
 												params: { type: "string" },
 												message: "must be string"
@@ -106852,15 +106930,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									var valid0 = _errs6 === errors;
 								} else var valid0 = true;
 								if (valid0) {
-									if (data.lastPrice !== void 0) {
-										let data3 = data.lastPrice;
+									if (data.bidSize !== void 0) {
+										let data3 = data.bidSize;
 										const _errs8 = errors;
 										if (errors === _errs8) {
 											if (typeof data3 === "string") {
 												if (func1(data3) > 64) {
 													validate808.errors = [{
-														instancePath: instancePath + "/lastPrice",
-														schemaPath: "#/properties/lastPrice/maxLength",
+														instancePath: instancePath + "/bidSize",
+														schemaPath: "#/properties/bidSize/maxLength",
 														keyword: "maxLength",
 														params: { limit: 64 },
 														message: "must NOT have more than 64 characters"
@@ -106868,8 +106946,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 													return false;
 												} else if (func1(data3) < 1) {
 													validate808.errors = [{
-														instancePath: instancePath + "/lastPrice",
-														schemaPath: "#/properties/lastPrice/minLength",
+														instancePath: instancePath + "/bidSize",
+														schemaPath: "#/properties/bidSize/minLength",
 														keyword: "minLength",
 														params: { limit: 1 },
 														message: "must NOT have fewer than 1 characters"
@@ -106878,8 +106956,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 												}
 											} else {
 												validate808.errors = [{
-													instancePath: instancePath + "/lastPrice",
-													schemaPath: "#/properties/lastPrice/type",
+													instancePath: instancePath + "/bidSize",
+													schemaPath: "#/properties/bidSize/type",
 													keyword: "type",
 													params: { type: "string" },
 													message: "must be string"
@@ -106890,20 +106968,98 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 										var valid0 = _errs8 === errors;
 									} else var valid0 = true;
 									if (valid0) {
-										if (data.provenance !== void 0) {
+										if (data.instrumentId !== void 0) {
+											let data4 = data.instrumentId;
 											const _errs10 = errors;
-											if (!validate60(data.provenance, {
-												instancePath: instancePath + "/provenance",
-												parentData: data,
-												parentDataProperty: "provenance",
-												rootData,
-												dynamicAnchors
-											})) {
-												vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
-												errors = vErrors.length;
+											if (errors === _errs10) {
+												if (typeof data4 === "string") {
+													if (func1(data4) > 128) {
+														validate808.errors = [{
+															instancePath: instancePath + "/instrumentId",
+															schemaPath: "#/properties/instrumentId/maxLength",
+															keyword: "maxLength",
+															params: { limit: 128 },
+															message: "must NOT have more than 128 characters"
+														}];
+														return false;
+													} else if (func1(data4) < 1) {
+														validate808.errors = [{
+															instancePath: instancePath + "/instrumentId",
+															schemaPath: "#/properties/instrumentId/minLength",
+															keyword: "minLength",
+															params: { limit: 1 },
+															message: "must NOT have fewer than 1 characters"
+														}];
+														return false;
+													}
+												} else {
+													validate808.errors = [{
+														instancePath: instancePath + "/instrumentId",
+														schemaPath: "#/properties/instrumentId/type",
+														keyword: "type",
+														params: { type: "string" },
+														message: "must be string"
+													}];
+													return false;
+												}
 											}
 											var valid0 = _errs10 === errors;
 										} else var valid0 = true;
+										if (valid0) {
+											if (data.lastPrice !== void 0) {
+												let data5 = data.lastPrice;
+												const _errs12 = errors;
+												if (errors === _errs12) {
+													if (typeof data5 === "string") {
+														if (func1(data5) > 64) {
+															validate808.errors = [{
+																instancePath: instancePath + "/lastPrice",
+																schemaPath: "#/properties/lastPrice/maxLength",
+																keyword: "maxLength",
+																params: { limit: 64 },
+																message: "must NOT have more than 64 characters"
+															}];
+															return false;
+														} else if (func1(data5) < 1) {
+															validate808.errors = [{
+																instancePath: instancePath + "/lastPrice",
+																schemaPath: "#/properties/lastPrice/minLength",
+																keyword: "minLength",
+																params: { limit: 1 },
+																message: "must NOT have fewer than 1 characters"
+															}];
+															return false;
+														}
+													} else {
+														validate808.errors = [{
+															instancePath: instancePath + "/lastPrice",
+															schemaPath: "#/properties/lastPrice/type",
+															keyword: "type",
+															params: { type: "string" },
+															message: "must be string"
+														}];
+														return false;
+													}
+												}
+												var valid0 = _errs12 === errors;
+											} else var valid0 = true;
+											if (valid0) {
+												if (data.provenance !== void 0) {
+													const _errs14 = errors;
+													if (!validate60(data.provenance, {
+														instancePath: instancePath + "/provenance",
+														parentData: data,
+														parentDataProperty: "provenance",
+														rootData,
+														dynamicAnchors
+													})) {
+														vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
+														errors = vErrors.length;
+													}
+													var valid0 = _errs14 === errors;
+												} else var valid0 = true;
+											}
+										}
 									}
 								}
 							}

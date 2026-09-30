@@ -819,6 +819,10 @@ Coverage Matrix 区分原型证据与运行时要求；QA Report 保存实际观
 
 Generate Proposal 将展示值冻结到新的 proposal ID/hash 及策略/快照引用。审批摘要只读。Edit 返回草稿，使前一 proposal 的审批失效，必须重新 Generate Proposal 并取得同意；行情陈旧或策略变化后的 Refresh 也生成新身份。旧 proposal 和失效原因保留可查。原型可使用明确标注的模拟版本 ID/hash，但不同修订必须不同；生产实现使用后端规范序列化。
 
+Trading 212 Live Market 审批须显示不可变的正数 `maximumSpend`，并在金额旁说明它约束 TradeX 的审批和容量预留。Trading 212 不会将其作为市价成交价格或金额上限执行。预期支出/收入与提供方接受状态仍须分别区别于授权金额和实际成交（S28 #114）。
+
+报价溯源同时显示精确 BASE bid/ask 深度。滑点以同一报价中点为基准，明确标为显示深度内的近似估算且不保证成交；缺少受信深度或数量超过相应方向深度时审批禁用。深度和价格变化均使原审阅同意失效（S28 #114）。
+
 ## 14.3 可执行性、Arming 与 Disable All（F1–F4、J2/J5、K1/K2/K6）
 
 | 操作 | 必需状态 | 阻断时的可见行为 |

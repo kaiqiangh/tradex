@@ -2520,6 +2520,7 @@ interface MarketSnapshotProvenance {
 interface MarketSnapshot {
   instrumentId: string; provenance: MarketSnapshotProvenance;
   lastPrice?: string; bid?: string; ask?: string;
+  bidSize?: string; askSize?: string; // exact BASE units, from the quote producer
 }
 interface MarketCatalog {
   workspaceId: string; query: string; tier: MarketTier; sourceId?: string;
@@ -2933,6 +2934,14 @@ The UI renders `recentOrders` separately from `openOrders` for Trading 212 and B
 On macOS, `NSWorkspaceDidWakeNotification` and `NSApplicationDidBecomeActiveNotification` drive the resume transition; the desktop `RunEvent::Resumed` is not available on macOS. Returning after sleep or session loss disarms every Live account, resets TimeService confidence, and durably marks each connected Live account `STALE / UNVERIFIED / UNCHECKED / STALE / BLOCKED / DISARMED` before provider recovery begins. The selected renderer account never narrows this scope.
 
 The native service restarts its existing supported private-stream workers, revalidates TimeService, then dispatches the existing P0 exact-evidence reads for unknown PLACE attempts and P1 read-only account refreshes for every connected Trading 212, Binance Spot, and Bitget Spot Live account. Existing stream support remains limited to its declared Paper/Testnet environments; Live recovery uses the fixed provider REST adapters. A Live account returns to `CURRENT` only after fresh identity-bound provider data, trusted time, and no unresolved PLACE or CANCEL attempt. Provider failure, incomplete data, untrusted time, or unresolved execution leaves the durable account reason stale/blocked. Recovery invalidates prior account-bound approvals/dispatch preparation through the existing account projection path, never replays an order mutation, and always requires a fresh explicit Arm.
+
+### 41.36 Trading 212 Live market authorization bound (S28 #114)
+
+For an immutable `TRADING212_LIVE` Market-DAY Proposal with BASE quantity, `maximumSpend` is required as a positive canonical decimal local authorization bound. It remains bound to the Proposal/approval and conservative capacity reservation through the existing trusted checks. The privileged adapter validates this field before credential/provider I/O; absent, nonpositive or malformed bounds cannot reach submission. Trading 212 does not expose a broker-enforced spend or execution-price ceiling for this request: do not present the local bound as such a guarantee.
+
+The fixed Live Market request contains only the exact provider ticker, signed numeric quantity (negative for Sell), and `extendedHours: false`; `maximumSpend` is not sent as an unsupported broker field. BASE Limit-DAY/GTC retains exact limit price and `DAY`/`GOOD_TILL_CANCEL`, without a market bound. Demo rejects `maximumSpend` as before. Existing permission, policy, quote/provenance, trusted-time, session/tradability, FX, approval, reservation and authenticated Gateway guards remain authoritative. Synthetic tests cannot satisfy ordinary native readiness or real-money acceptance.
+
+`MarketSnapshot` may carry optional exact BASE `bidSize`/`askSize` from its quote producer, sharing the prices’ instrument, venue, source, timestamps and entitlement. BUY uses ask/askSize; SELL uses bid/bidSize, and the entire BASE quantity must fit the complete displayed depth on its side. Untrusted source/time, missing, nonpositive, malformed, crossed, mismatched instrument/venue or insufficient-depth evidence is unavailable; no deeper price is inferred. The reference is the contemporaneous bid/ask midpoint: adverse top-price distance is `100 × (ask − bid) / (ask + bid)` percent. Risk compares the configured limit by exact decimal cross multiplication, never using the rounded display quotient for authorization. The review percentage is an indicative displayed-depth estimate, not a broker fill guarantee. Prices, depth and provenance are revalidated through existing proposal/account/provider bindings and digests at approval, atomic Prepare and dispatch; changed depth invalidates consent. Ordinary desktop remains blocked without a production quote producer; synthetic depth comes only from test/integration producers and never implies OD-001 credentials or entitlement.
 
 ## 42. Backend-to-Frontend Event Surface
 

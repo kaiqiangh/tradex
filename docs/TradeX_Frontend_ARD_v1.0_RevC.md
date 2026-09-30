@@ -692,6 +692,12 @@ After workspace open, restore each supported Live account's backend recovery sta
 
 Startup refreshes all connected supported Live accounts without relying on the selected account. It automatically requests exact S25 evidence only for unresolved PLACE attempts; an unresolved CANCEL remains visible and requires the existing explicit exact-order refresh. Keep Arm unavailable until the backend reports current reconciliation and eligibility, and preserve the separate explicit Arm confirmation after recovery. Show provider/read/time failures and the backend reason; do not infer completion from an empty recent-history page or retry provider mutations.
 
+### 13.22 Trading 212 Live market approval bound (S28 #114)
+
+The immutable Market approval review displays its positive `maximumSpend` as the maximum authorized value and retains it in the backend capacity preview. Beside that amount, explain that it bounds TradeX approval and reserved capacity; Trading 212 does not enforce it as a market execution price or value limit. Keep expected spend/proceeds distinct, show full account/proposal/quote provenance, and preserve separate explicit approval and Prepare actions. A provider acknowledgement remains acceptance, never a fill.
+
+Display bid/ask depth in BASE units. Label slippage as an approximate quote-midpoint estimate limited to displayed depth, with no fill guarantee. Missing trusted depth or quantity beyond that depth remains unavailable and approval stays disabled.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

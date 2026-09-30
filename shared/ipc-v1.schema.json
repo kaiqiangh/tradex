@@ -8754,7 +8754,17 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "askSize": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
         "bid": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bidSize": {
           "type": "string",
           "maxLength": 64,
           "minLength": 1

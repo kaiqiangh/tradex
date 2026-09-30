@@ -692,6 +692,12 @@ workspace 打开后，恢复每个受支持 Live 账户的后端恢复状态和�
 
 启动流程在不依赖当前选中账户的情况下刷新所有已连接且受支持的 Live 账户。它只会自动为未解决 PLACE attempt 请求准确 S25 evidence；未解决 CANCEL 保持可见，并要求用户显式触发已有准确订单刷新。只有后端报告 reconciliation 与 eligibility 均为 current 时才允许 Arm，并在恢复后保留单独的显式 Arm 确认。展示提供方读取、时间失败和后端 reason；不得根据空近期历史页面推断恢复完成，也不得重试提供方修改操作。
 
+### 13.22 Trading 212 Live 市价审批额度（S28 #114）
+
+不可变的 Market 审批审阅将正数 `maximumSpend` 显示为最高授权金额，并在后端容量预览中保留它。在金额旁说明：它约束 TradeX 的审批与容量预留；Trading 212 不会将其作为市价成交价格或金额上限执行。将预期支出/收入分开展示，显示完整的账户、proposal 和行情溯源，并保留独立、显式的审批及 Prepare 操作。提供方 acknowledgement 仍仅表示接受，不能代表成交。
+
+同时展示 bid/ask 的 BASE 显示深度；滑点标明相对于报价中点、仅覆盖显示深度的近似估算，不保证成交。无受信深度或数量超过深度时保留 unavailable，审批继续禁用。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

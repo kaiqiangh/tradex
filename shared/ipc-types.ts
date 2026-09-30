@@ -1710,7 +1710,9 @@ export interface MarketState {
  */
 export interface MarketSnapshot {
   ask?: string;
+  askSize?: string;
   bid?: string;
+  bidSize?: string;
   instrumentId: string;
   lastPrice?: string;
   provenance: MarketSnapshotProvenance;

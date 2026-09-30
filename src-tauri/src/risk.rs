@@ -1851,10 +1851,25 @@ pub(crate) fn evaluate(
             RiskDecisionReasonCode::MarketOrderDisabled,
         )
     } else {
-        (
-            RiskCheckOutcome::Unavailable,
-            RiskDecisionReasonCode::ExecutionQuoteUnavailable,
-        )
+        match market_order_slippage(proposal, market, time_status, stale_quote_threshold).and_then(
+            |(numerator, denominator)| {
+                crate::provider_io::decimal_cmp(
+                    &numerator,
+                    &crate::portfolio::decimal_mul(slippage_limit.unwrap(), &denominator).ok()?,
+                )
+                .ok()
+            },
+        ) {
+            Some(Ordering::Greater) => (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::LimitExceeded,
+            ),
+            Some(_) => (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit),
+            None => (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::ExecutionQuoteUnavailable,
+            ),
+        }
     };
     push!(
         RiskCheckId::MarketOrderSlippage,
@@ -1866,6 +1881,10 @@ pub(crate) fn evaluate(
             "Market orders are disabled by policy."
         } else if local_simulation && market_order {
             "The local simulator validates its quote and slippage at submission."
+        } else if reason == RiskDecisionReasonCode::WithinLimit {
+            "The displayed-depth slippage estimate is within the configured limit."
+        } else if reason == RiskDecisionReasonCode::LimitExceeded {
+            "The displayed-depth slippage estimate exceeds the configured limit."
         } else {
             "Market-order slippage is not applicable to this proposal."
         },
@@ -2225,6 +2244,70 @@ fn price_deviation(limit_price: &str, last_price: &str) -> Option<String> {
         "100",
     )
     .ok()
+}
+
+/// Exact numerator/denominator for adverse top price versus the current midpoint.
+/// Missing or insufficient displayed depth is unavailable; no deeper fill is inferred.
+pub(crate) fn market_order_slippage(
+    proposal: &crate::protocol::OrderProposal,
+    market: Option<&crate::protocol::MarketDetail>,
+    time_status: &crate::protocol::TimeStatus,
+    maximum_age_seconds: u64,
+) -> Option<(String, String)> {
+    use crate::protocol::{OrderQuantityType, OrderSide, OrderType};
+    use std::cmp::Ordering;
+    if proposal.fields.order_type != OrderType::Market
+        || proposal.fields.quantity.r#type != OrderQuantityType::Base
+        || market_freshness(market, time_status, maximum_age_seconds).0 != RiskCheckOutcome::Pass
+    {
+        return None;
+    }
+    let market = market?;
+    let snapshot = market.snapshot.as_ref()?;
+    for (value, maximum) in [
+        (snapshot.provenance.market_snapshot_id.as_str(), 128),
+        (snapshot.provenance.source.as_str(), 32),
+    ] {
+        if value.trim().is_empty() || value.len() > maximum || value.chars().any(char::is_control) {
+            return None;
+        }
+    }
+    if market.workspace_id != proposal.workspace_id
+        || market.instrument.instrument_id != proposal.fields.instrument_id
+        || snapshot.instrument_id != proposal.fields.instrument_id
+        || snapshot.provenance.venue.as_deref() != Some(proposal.fields.venue.as_str())
+    {
+        return None;
+    }
+    let bid = snapshot.bid.as_deref()?;
+    let ask = snapshot.ask.as_deref()?;
+    let size = match proposal.fields.side {
+        OrderSide::Buy => snapshot.ask_size.as_deref()?,
+        OrderSide::Sell => snapshot.bid_size.as_deref()?,
+    };
+    let quantity = proposal.fields.quantity.value.as_str();
+    for value in [bid, ask, size, quantity] {
+        if value.len() > 64
+            || crate::provider_io::decimal_cmp(
+                &crate::provider_io::decimal(&Value::String(value.into())).ok()?,
+                "0",
+            )
+            .ok()?
+                != Ordering::Greater
+        {
+            return None;
+        }
+    }
+    if crate::provider_io::decimal_cmp(bid, ask).ok()? == Ordering::Greater
+        || crate::provider_io::decimal_cmp(quantity, size).ok()? == Ordering::Greater
+    {
+        return None;
+    }
+    let spread = crate::provider_io::decimal_subtract(ask, bid).ok()?;
+    Some((
+        crate::portfolio::decimal_mul("100", &spread).ok()?,
+        crate::portfolio::decimal_add(ask, bid).ok()?,
+    ))
 }
 
 fn market_freshness(

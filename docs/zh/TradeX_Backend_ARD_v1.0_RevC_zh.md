@@ -2520,6 +2520,7 @@ interface MarketSnapshotProvenance {
 interface MarketSnapshot {
   instrumentId: string; provenance: MarketSnapshotProvenance;
   lastPrice?: string; bid?: string; ask?: string;
+  bidSize?: string; askSize?: string; // exact BASE units, from the quote producer
 }
 interface MarketCatalog {
   workspaceId: string; query: string; tier: MarketTier; sourceId?: string;
@@ -2933,6 +2934,14 @@ UI 对 Trading 212 和 Binance Live 将 `recentOrders` 与 `openOrders` 分开�
 在 macOS 上，由 `NSWorkspaceDidWakeNotification` 和 `NSApplicationDidBecomeActiveNotification` 驱动 resume transition；桌面版 `RunEvent::Resumed` 在 macOS 不可用。系统休眠或 session loss 后恢复时，先 disarm 所有 Live account、重置 TimeService confidence，并在 provider recovery 开始前，将每个已连接 Live account 持久化为 `STALE / UNVERIFIED / UNCHECKED / STALE / BLOCKED / DISARMED`。renderer 当前选中的账户不会缩小此范围。
 
 原生服务会重启现有且受支持的 private-stream worker，然后重验证 TimeService，再通过已有路径派发未知 PLACE 的 P0 准确 evidence 读取，以及所有已连接 Trading 212、Binance Spot 和 Bitget Spot Live account 的 P1 只读账户刷新。现有 stream 支持范围仍限于各自声明的 Paper/Testnet 环境；Live 恢复使用固定 provider REST adapter。只有新鲜、绑定正确身份的 provider 数据已取得、时间可信且不存在未解决 PLACE 或 CANCEL attempt 时，Live account 才会恢复为 `CURRENT`。Provider failure、数据不完整、时间不可信或执行未解决时，持久化账户原因继续保持 stale/blocked。恢复通过既有账户投影路径使旧 account-bound approval/dispatch preparation 失效，不会重放订单 mutation，并始终要求用户重新显式 Arm。
+
+### 41.36 Trading 212 Live 市价授权上限（S28 #114）
+
+对于 BASE 数量的不可变 `TRADING212_LIVE` Market-DAY Proposal，`maximumSpend` 必须是正的规范十进制本地授权上限。它通过现有可信检查持续绑定 Proposal/审批与保守的容量预留。特权 adapter 在读取凭据/Provider I/O 前校验该字段；缺失、非正数或格式错误的上限不能进入提交。Trading 212 的该请求不提供 broker 强制执行的支出或成交价上限；不得把本地上限展示为此类保证。
+
+固定 Live Market 请求只包含精确的 provider ticker、有符号数值数量（Sell 为负数）与 `extendedHours: false`；不把 `maximumSpend` 作为不受支持的 broker 字段发送。BASE Limit-DAY/GTC 保留精确限价及 `DAY`/`GOOD_TILL_CANCEL`，不使用市价上限。Demo 按原契约拒绝 `maximumSpend`。权限、政策、报价/溯源、可信时间、时段/可交易性、FX、审批、预留和认证 Gateway 的既有门禁继续保持权威。合成测试不能满足普通原生版就绪门禁或真实资金验收。
+
+`MarketSnapshot` 可携带可选的精确 BASE `bidSize`/`askSize`，由报价 producer 提供，与价格共用标的、venue、来源、时间戳及 entitlement。BUY 使用 ask/askSize，SELL 使用 bid/bidSize；全部 BASE 数量须不超过对应方向的完整显示深度。来源/时间不受信、字段缺失、非正数、格式错误、交叉报价、标的/venue 不匹配或数量超过深度均为 unavailable，不推断更深档位。估算基准是同一报价的 bid/ask 中点，逆向价格距离百分比为 `100 × (ask − bid) / (ask + bid)`；风险使用精确十进制交叉相乘比较配置上限，不用舍入后的商授权。审阅百分比只是显示深度内的近似估算，不保证券商成交。价格、深度和溯源通过既有 proposal/账户/provider 绑定及 digest 在审批、原子 Prepare、dispatch 重新校验；深度变化使原同意失效。普通桌面缺少生产报价 producer 时仍阻止执行；合成深度只能来自 test/integration producer，不能推断 OD-001 的凭据或 entitlement。
 
 ## 42. Backend-to-Frontend Event Surface
 

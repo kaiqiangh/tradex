@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
 let commandEndpoint = 'http://127.0.0.1:1420/__integration/command';
 
@@ -115,14 +116,13 @@ export async function checkLiveApprovalUI(tab, browser) {
     const dialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
     await dialog.waitFor({ state: 'visible' });
     const reviewText = await dialog.innerText();
-    for (const expected of ['TRADING212_LIVE', account.label, 'equity:US:AAPL', 'BUY', '0.01 BASE', 'MARKET · No limit · GTC', 'Expected spend\n500.01', 'Maximum authorized spend\n500', 'Backend capacity preview', 'Provider available\n1000 USD', 'Provider committed\n0 USD', 'TradeX reserved\n0 USD', 'Effective available\n1000 USD', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nUnavailable']) {
+    for (const expected of ['TRADING212_LIVE', account.label, 'equity:US:AAPL', 'BUY', '0.01 BASE', 'MARKET · No limit · GTC', 'Expected spend\n500.01', 'Maximum authorized spend\n500', 'Backend capacity preview', 'Provider available\n1000 USD', 'Provider committed\n0 USD', 'TradeX reserved\n0 USD', 'Effective available\n1000 USD', 'SYNTHETIC_INTEGRATION_FIXTURE', '49999 / 50001 / 2', 'TRADABLE', 'Estimated fees\nUnavailable', 'Estimated slippage\nApproximately 0.002% against the quote midpoint']) {
       assert.ok(reviewText.includes(expected), `Approval review includes ${expected}: ${reviewText}`);
     }
     await ui.getByRole('alert').filter({ hasText: 'MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED' }).waitFor({ state: 'visible' });
-    await ui.getByRole('alert').filter({ hasText: 'MarketOrderSlippage' }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).isEnabled(), false);
     const marketHistory = await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: marketProposal.proposalId });
-    assert.equal(marketHistory.approvals.length, 0, 'Unavailable size-aware slippage keeps market approval absent');
+    assert.equal(marketHistory.approvals.length, 0, 'Insufficient maximum and unsupported Market GTC keep approval absent');
     assert.match(reviewText, /Quote age\n\d+ ms/);
     await expectFocus(ui, 'Reject this review');
     await viewport.set({ width: 768, height: 900 });
@@ -143,7 +143,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     await dialog.waitFor({ state: 'hidden' });
     await viewport.set({ width: 1280, height: 900 });
     await expectFocus(ui, 'Review Live approval');
-    observed.push('Market BUY review shows backend available/committed/reserved/effective capacity with quote provenance; unavailable size-aware slippage blocks approval, and the review fits at 1280/768/390px.');
+    observed.push('Market BUY review shows backend capacity, quote provenance and displayed-depth slippage; insufficient maximum and unsupported Market GTC block approval, and the review fits at 1280/768/390px.');
 
     const armedAccount = (await sendIntegrationCommand('account.list', { workspaceId })).accounts.find(item => item.connectionId === account.connectionId);
     assert.ok(armedAccount);
@@ -642,37 +642,6 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.equal(await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).count(), 0, 'An uncertain consumed approval exposes no resend action.');
     observed.push('An ambiguous provider outcome remains UNKNOWN_RECONCILING with active capacity after policy change and navigation; inconclusive evidence is accessible at 1280/768/390px and cannot be resent.');
 
-    const currentTime = await sendIntegrationCommand('time.status', { workspaceId });
-    const deadline = Date.parse(unknownPreparation.preparation.attempt.dispatchStartedAt) + 5 * 60_000;
-    await sendIntegrationCommand('time.fixture.advance', {
-      workspaceId,
-      elapsedMs: Math.max(1, deadline + 1_000 - Date.parse(currentTime.wallClock)),
-    });
-    const expiredEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
-      workspaceId,
-      executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
-      accountId: mountedAccount.connectionId,
-    });
-    assert.deepEqual(expiredEvidence.allowedDecisions, ['KEEP_RECONCILING'], 'Trading 212 has no confirmed-submission or absence decision.');
-    const keepReconciliation = evidencePanel.getByRole('button', { name: 'Keep reconciling', exact: true });
-    await keepReconciliation.waitFor({ state: 'visible' });
-    await keepReconciliation.press('Enter');
-    await ui.getByRole('status').filter({ hasText: 'Keep reconciling was recorded. The reservation remains frozen' }).waitFor({ state: 'visible' });
-    const keptEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
-      workspaceId,
-      executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
-      accountId: mountedAccount.connectionId,
-    });
-    assert.equal(keptEvidence.ledger.manualResolutions.at(-1).decision, 'KEEP_RECONCILING');
-    const keptPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
-      workspaceId, approvalId: mountedApproval.approvalId,
-    });
-    assert.equal(keptPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
-    assert.equal(keptPreparation.preparation.reservation.status, 'ACTIVE');
-    assert.equal(await evidencePanel.getByRole('button', { name: /Confirm submitted order/ }).count(), 0);
-    assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST')).length, 2, 'Manual resolution does not replay provider writes.');
-    observed.push('After the Trading 212 timeout, only Keep is authorized; recording it preserves the attempt/reservation and sends no provider write.');
-
     const rejectedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
       workspaceId, providerId: 'trading212', label: `Rejected gateway fixture ${Date.now()}`,
     });
@@ -726,8 +695,163 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.equal(await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).count(), 0, 'A rejected consumed approval exposes no resend action.');
     observed.push('A definitive provider rejection is persisted, releases only its reservation, displays accurate status, and cannot be resent.');
 
+    const currentTime = await sendIntegrationCommand('time.status', { workspaceId });
+    const deadline = Date.parse(unknownPreparation.preparation.attempt.dispatchStartedAt) + 5 * 60_000;
+    await sendIntegrationCommand('time.fixture.advance', {
+      workspaceId,
+      elapsedMs: Math.max(1, deadline + 1_000 - Date.parse(currentTime.wallClock)),
+    });
+    const expiredEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
+      workspaceId,
+      executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
+      accountId: mountedAccount.connectionId,
+    });
+    assert.deepEqual([...expiredEvidence.allowedDecisions], ['KEEP_RECONCILING'], 'Trading 212 has no confirmed-submission or absence decision.');
+    await navigation.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Accounts', exact: true }).waitFor({ state: 'visible' });
+    await navigation.getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await selectDraft(ui, workspaceId, mountedProposal.draftId, '0.001');
+    await ui.locator('.order-proposal-row').filter({ hasText: unknownPreparation.preparation.attempt.intentId }).press('Enter');
+    const keepReconciliation = evidencePanel.getByRole('button', { name: 'Keep reconciling', exact: true });
+    await keepReconciliation.waitFor({ state: 'visible' });
+    await keepReconciliation.press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Keep reconciling was recorded. The reservation remains frozen' }).waitFor({ state: 'visible' });
+    const keptEvidence = await sendIntegrationCommand('trade.resolution_evidence', {
+      workspaceId,
+      executionAttemptId: unknownPreparation.preparation.attempt.attemptId,
+      accountId: mountedAccount.connectionId,
+    });
+    assert.equal(keptEvidence.ledger.manualResolutions.at(-1).decision, 'KEEP_RECONCILING');
+    const keptPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: mountedApproval.approvalId,
+    });
+    assert.equal(keptPreparation.preparation.attempt.state, 'UNKNOWN_RECONCILING');
+    assert.equal(keptPreparation.preparation.reservation.status, 'ACTIVE');
+    assert.equal(await evidencePanel.getByRole('button', { name: /Confirm submitted order/ }).count(), 0);
+    assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST')).length, 3, 'Manual resolution does not replay provider writes.');
+    observed.push('After the Trading 212 timeout, only Keep is authorized; recording it preserves the attempt/reservation and sends no provider write.');
+
     const pageErrors = await tab.dev.logs({ levels: ['error'], limit: 20 });
     assert.equal(pageErrors.filter(log => !log.url?.startsWith('chrome-extension://') && !log.message.includes('chrome-extension://')).length, 0);
     return observed;
   } finally { await viewport.reset(); }
+}
+
+export async function checkTrading212BoundedMarketUI(tab, browser) {
+  const ui = tab.playwright;
+  commandEndpoint = new URL('/__integration/command', await tab.url()).toString();
+  const viewport = await browser.capabilities.get('viewport');
+  const initialPosts = (await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(r => r.method === 'POST').length;
+  try {
+    await viewport.set({ width: 1280, height: 900 });
+    const bootstrap = await sendIntegrationCommand('workspace.open', {});
+    const workspaceName = 'S28 bounded Trading 212 market';
+    const workspacePath = join(dirname(bootstrap.path), `s28-${randomUUID()}`);
+    const workspace = await sendIntegrationCommand('workspace.open', { name: workspaceName, baseCurrency: 'USD', path: workspacePath });
+    await sendIntegrationCommand('workspace.ready.fixture', { workspaceId: workspace.workspaceId });
+    if (!(await ui.getByRole('heading', { name: 'Create local workspace', exact: true }).isVisible())) {
+      await ui.getByRole('button', { name: 'Workspace', exact: true }).press('Enter');
+    }
+    await ui.getByRole('textbox', { name: 'Workspace name', exact: true }).fill(workspaceName);
+    await ui.getByRole('combobox', { name: 'Base currency', exact: true }).selectOption('USD');
+    await ui.getByLabel('Local storage', { exact: true }).fill(workspacePath);
+    await ui.getByRole('button', { name: 'Open workspace', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Ready', exact: true }).waitFor({ state: 'visible' });
+    const workspaceId = workspace.workspaceId;
+    const risk = await sendIntegrationCommand('risk.get_policy', { workspaceId });
+    await sendIntegrationCommand('risk.save_policy', { workspaceId, expectedStateVersion: risk.stateVersion,
+      policy: { ...risk.policy, marketOrdersEnabled: true, maxMarketOrderSlippagePercent: '5', staleQuoteThresholdSeconds: 120, maxSingleInstrumentExposurePercent: null } });
+    const account = await sendIntegrationCommand('account.arming.fixture.seed', { workspaceId, providerId: 'trading212', label: 'S28 synthetic account' });
+    await sendIntegrationCommand('time.revalidate', { workspaceId });
+    await sendIntegrationCommand('account.arm', { workspaceId, connectionId: account.connectionId, expectedStateVersion: account.stateVersion, confirmed: true });
+    const draft = await sendIntegrationCommand('trade.save_draft', { workspaceId, fields: {
+      accountId: account.connectionId, venue: 'XNAS', environment: 'TRADING212_LIVE', instrumentId: 'equity:US:AAPL',
+      side: 'BUY', orderType: 'MARKET', quantity: { type: 'BASE', value: '0.001' }, maximumSpend: '50', timeInForce: 'DAY',
+    } });
+    const blockedProposal = await sendIntegrationCommand('trade.generate_proposal', { workspaceId, draftId: draft.draftId, expectedDraftVersion: draft.draftVersion });
+    await ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).first().getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
+    await ui.locator('.order-proposal-row').filter({ hasText: blockedProposal.proposalId }).press('Enter');
+    await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
+    const dialog = ui.getByRole('dialog', { name: 'Review Live approval', exact: true });
+    await dialog.waitFor({ state: 'visible' });
+    for (const width of [390, 768, 1280]) {
+      await viewport.set({ width, height: 900 });
+      await dialog.getByRole('alert').filter({ hasText: 'MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED' }).waitFor({ state: 'visible' });
+      const blockedText = await dialog.innerText();
+      assert.match(blockedText, /Expected spend\s+50\.001/);
+      assert.match(blockedText, /Maximum authorized spend\s+50 USD/);
+      assert.equal(await dialog.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).isEnabled(), false);
+      const bounds = await dialog.evaluate(e => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth }; });
+      assert.ok(bounds.left >= 0 && bounds.right <= bounds.width && bounds.scroll <= bounds.width, `${width}px blocked review fits without horizontal overflow`);
+      assert.equal((await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: blockedProposal.proposalId })).approvals.length, 0);
+      assert.equal((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(r => r.method === 'POST').length, initialPosts);
+    }
+    const observations = new DatabaseSync(join(workspacePath, 'workspace.sqlite3'), { readOnly: true });
+    try {
+      assert.equal(observations.prepare('SELECT COUNT(*) AS count FROM execution_attempts').get().count, 0, 'Blocked review creates no durable execution attempt');
+    } finally { observations.close(); }
+    await dialog.press('Escape');
+    await dialog.waitFor({ state: 'hidden' });
+    await ui.getByRole('textbox', { name: 'Maximum spend (optional)', exact: true }).fill('51');
+    await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'Draft saved at version 2.' }).waitFor({ state: 'visible' });
+    await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+    await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
+    const proposal = (await sendIntegrationCommand('trade.proposal.list', { workspaceId })).proposals.find(p => p.proposalId !== blockedProposal.proposalId);
+    assert.ok(proposal, 'UI remediation generates a new immutable proposal');
+    const immutable = await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: proposal.proposalId });
+    assert.equal(immutable.fields.maximumSpend, '51');
+    assert.equal((await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: blockedProposal.proposalId })).fields.maximumSpend, '50', 'Remediation does not rewrite the blocked immutable intent');
+    await ui.locator('.order-proposal-row').filter({ hasText: proposal.proposalId }).press('Enter');
+    await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
+    await dialog.waitFor({ state: 'visible' });
+    await dialog.getByRole('status').filter({ hasText: 'Current checks pass. Approval still requires your explicit action.' }).waitFor({ state: 'visible' });
+    assert.match(await dialog.innerText(), /Approximately 0\.002% against the quote midpoint/);
+    assert.match(await dialog.innerText(), /Maximum authorized spend\s+51 USD/);
+    assert.ok((await dialog.innerText()).includes('Trading 212 does not enforce it as a market execution price or value limit.'));
+    for (const identity of [account.connectionId, account.data.remoteAccountId, immutable.proposalId, immutable.proposalHash, 'synthetic-live-approval-v1', 'SYNTHETIC_INTEGRATION_FIXTURE']) {
+      assert.ok(identity && (await dialog.innerText()).includes(identity), `Review retains exact identity ${identity}`);
+    }
+    assert.equal((await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: proposal.proposalId })).approvals.length, 0, 'Review alone grants no approval');
+    for (const width of [390, 768, 1280]) {
+      await viewport.set({ width, height: 900 });
+      assert.equal(await ui.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${width}px has no horizontal overflow`);
+      assert.ok((await dialog.innerText()).includes('51'), `${width}px retains the authorized maximum`);
+    }
+    assert.equal((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(r => r.method === 'POST').length, initialPosts);
+    await dialog.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).press('Enter');
+    assert.equal((await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: proposal.proposalId })).approvals.length, 0, 'Enter does not grant eligible approval');
+    await dialog.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).press('Space');
+    await dialog.waitFor({ state: 'hidden' });
+    await sendIntegrationCommand('live.gateway.fixture.set_result', { workspaceId, scenario: 'ACCEPTED' });
+    await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).press('Enter');
+    await ui.getByText(/ACCEPTED · TradeX execution attempt/).waitFor({ state: 'visible' });
+    await ui.getByLabel('TradeX execution preparation', { exact: true }).getByRole('status').filter({ hasText: 'The provider accepted the order. This is not a fill.' }).waitFor({ state: 'visible' });
+    const approval = (await sendIntegrationCommand('trade.approval.list', { workspaceId, proposalId: proposal.proposalId })).approvals[0];
+    assert.equal(approval.status, 'CONSUMED');
+    const prepared = (await sendIntegrationCommand('trade.execution.preparation.get', { workspaceId, approvalId: approval.approvalId })).preparation;
+    assert.equal(prepared.attempt.state, 'ACCEPTED');
+    assert.equal(prepared.attempt.brokerOrderId, '901');
+    assert.equal(prepared.reservation.status, 'ACTIVE');
+    assert.equal(prepared.reservation.amount, '51');
+    const consumed = await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: proposal.proposalId });
+    assert.equal(consumed.status, 'CONSUMED');
+    assert.equal(consumed.fields.maximumSpend, '51');
+    assert.equal((await sendIntegrationCommand('trade.proposal.get', { workspaceId, proposalId: proposal.proposalId })).fields.maximumSpend, '51');
+    await sendIntegrationCommand('workspace.open', { path: workspacePath });
+    const reopened = (await sendIntegrationCommand('trade.execution.preparation.get', { workspaceId, approvalId: approval.approvalId })).preparation;
+    assert.equal(reopened.attempt.attemptId, prepared.attempt.attemptId);
+    assert.equal(reopened.attempt.state, 'ACCEPTED');
+    assert.equal(reopened.reservation.status, 'ACTIVE');
+    const posts = (await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(r => r.method === 'POST').slice(initialPosts);
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].path, '/api/v0/equity/orders/market');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(posts[0].body)), { ticker: 'AAPL_US_EQ', quantity: 0.001, extendedHours: false });
+    return ['S28 Market maximum50 below expected50.001 blocks approval at390/768/1280px with readable reason and zero approvals/attempts/POSTs; UI remediation saves version2 maximum51 and generates a new immutable proposal while retaining the old maximum50 intent.',
+      'S28 public Market DAY approval used trusted synthetic displayed depth and 0.002% midpoint slippage, reserved maximumSpend=51 and sent one exact real-child fake-provider Market POST; reopen retained ACCEPTED and active capacity without replay; ACCEPTED is not a fill; Enter never approves; 390/768/1280px Market reviews passed.'];
+  } finally {
+    await viewport.reset();
+  }
 }

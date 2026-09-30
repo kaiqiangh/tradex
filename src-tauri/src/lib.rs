@@ -2371,6 +2371,8 @@ pub struct ControlPlane {
     pending_live_disarm: Option<(String, bool)>,
     #[cfg(test)]
     live_approval_fixture_enabled: bool,
+    #[cfg(test)]
+    live_approval_fixture_snapshot: Option<protocol::MarketSnapshot>,
 }
 
 impl ControlPlane {
@@ -2387,6 +2389,8 @@ impl ControlPlane {
             pending_live_disarm: None,
             #[cfg(test)]
             live_approval_fixture_enabled: false,
+            #[cfg(test)]
+            live_approval_fixture_snapshot: None,
         }
     }
 
@@ -7472,13 +7476,22 @@ impl ControlPlane {
                 })
             {
                 let account = account.ok_or_else(|| TradeXError::new("ACCOUNT_NOT_FOUND"))?;
-                return market::live_approval_fixture_detail(
+                let detail = market::live_approval_fixture_detail(
                     &input,
                     &account.provider_id,
                     &proposal.fields.venue,
                     &self.time.status(&proposal.workspace_id)?.wall_clock,
                     &proposal.created_at,
-                );
+                )?;
+                #[cfg(test)]
+                let detail = {
+                    let mut detail = detail;
+                    if let Some(snapshot) = &self.live_approval_fixture_snapshot {
+                        detail.snapshot = Some(snapshot.clone());
+                    }
+                    detail
+                };
+                return Ok(detail);
             }
         }
         #[cfg(not(any(test, feature = "integration-test")))]
@@ -8148,6 +8161,19 @@ impl ControlPlane {
             .ok()
         });
         let decision_for_review = bound.clone();
+        let estimated_slippage_percent = risk::market_order_slippage(
+            proposal,
+            market.as_ref(),
+            &time_status,
+            policy
+                .as_ref()
+                .map_or(risk::DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS, |policy| {
+                    policy.policy.stale_quote_threshold_seconds
+                }),
+        )
+        .and_then(|(numerator, denominator)| {
+            crate::portfolio::decimal_div(&numerator, &denominator).ok()
+        });
         let review_digest = approval_review_digest(
             proposal,
             account.as_ref(),
@@ -8172,9 +8198,9 @@ impl ControlPlane {
             expected_spend,
             maximum_authorized_spend,
             spread,
-            // No trusted Live fee or size-aware slippage estimator is available yet.
+            // No trusted Live fee estimator is available yet.
             estimated_fees: None,
-            estimated_slippage_percent: None,
+            estimated_slippage_percent,
             capacity_projection,
             reviewed_at: time_status.wall_clock,
         })
@@ -19317,6 +19343,275 @@ mod live_approval_tests {
                 .len(),
             2
         );
+    }
+
+    fn reviewed_trading212_market_fixture(
+        maximum: &str,
+    ) -> (tempfile::TempDir, ControlPlane, String, Value, Value) {
+        let (folder, mut control, workspace_id, account, _, _) = reviewed_live_capacity_fixture();
+        let policy = dispatch(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let mut updated = policy["data"]["policy"].clone();
+        updated["marketOrdersEnabled"] = true.into();
+        updated["maxMarketOrderSlippagePercent"] = maximum.into();
+        let saved = dispatch(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,"expectedStateVersion":policy["data"]["stateVersion"],"policy":updated,
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        let draft = dispatch(
+            &mut control,
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":{
+                "accountId":account.connection_id,"venue":"XNAS","environment":"TRADING212_LIVE",
+                "instrumentId":"equity:US:AAPL","side":"BUY","orderType":"MARKET",
+                "quantity":{"type":"BASE","value":"0.001"},"maximumSpend":"51","timeInForce":"DAY",
+            }}),
+        );
+        assert_eq!(draft["ok"], true, "{draft}");
+        let proposal = dispatch(
+            &mut control,
+            "trade.generate_proposal",
+            json!({
+                "workspaceId":workspace_id,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1,
+            }),
+        );
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        control.time.set_test_time(
+            OffsetDateTime::parse(proposal["data"]["createdAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap()
+                .unix_timestamp_nanos()
+                / 1_000_000
+                + 10,
+            130,
+        );
+        let current = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,"connectionId":account.connection_id,
+                "expectedStateVersion":current.state_version,"confirmed":true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId":workspace_id,"proposalId":proposal["data"]["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["estimatedSlippagePercent"], "0.002");
+        assert_eq!(review["data"]["expectedSpend"], "50.001");
+        (
+            folder,
+            control,
+            workspace_id,
+            proposal["data"].clone(),
+            review["data"].clone(),
+        )
+    }
+
+    #[test]
+    fn bounded_trading212_market_approval_reserves_its_exact_maximum() {
+        let (_folder, mut control, workspace_id, proposal, review) =
+            reviewed_trading212_market_fixture("5");
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "s28-bounded-market",
+        );
+        assert_eq!(prepared["data"]["reservation"]["amount"], "51");
+        assert_eq!(prepared["data"]["reservation"]["status"], "ACTIVE");
+    }
+
+    #[test]
+    fn market_approval_rejects_invalid_depth_and_changed_quote_consent() {
+        for (field, value) in [
+            ("askSize", Value::Null),
+            ("askSize", json!("0")),
+            ("askSize", json!("-1")),
+            ("askSize", json!("NaN")),
+            ("askSize", json!("0.0009")),
+            ("bid", json!("0")),
+            ("ask", json!("49998")),
+            ("instrumentId", json!("equity:US:MSFT")),
+            ("source", json!("")),
+            ("marketSnapshotId", json!("")),
+            ("venue", json!("XNYS")),
+        ] {
+            let (_folder, mut control, workspace_id, proposal, review) =
+                reviewed_trading212_market_fixture("5");
+            let mut snapshot = review["market"]["snapshot"].clone();
+            if matches!(field, "source" | "marketSnapshotId" | "venue") {
+                snapshot["provenance"][field] = value;
+            } else {
+                snapshot[field] = value;
+            }
+            control.live_approval_fixture_snapshot =
+                Some(serde_json::from_value(snapshot).unwrap());
+            let current = dispatch_main(
+                &mut control,
+                "trade.request_approval",
+                json!({
+                    "workspaceId":workspace_id,"proposalId":proposal["proposalId"],
+                }),
+            );
+            assert_eq!(current["ok"], true, "{current}");
+            assert_eq!(current["data"]["eligible"], false, "{current}");
+            assert_eq!(current["data"]["estimatedSlippagePercent"], Value::Null);
+            let issued = dispatch_main(
+                &mut control,
+                "trade.approve",
+                approval_action(&workspace_id, &proposal, &review),
+            );
+            assert_eq!(issued["ok"], false, "{issued}");
+            assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+        }
+        let (_folder, mut control, workspace_id, proposal, review) =
+            reviewed_trading212_market_fixture("5");
+        let mut snapshot = review["market"]["snapshot"].clone();
+        snapshot["askSize"] = "2".into();
+        control.live_approval_fixture_snapshot = Some(serde_json::from_value(snapshot).unwrap());
+        let issued = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(
+            issued["ok"], false,
+            "An otherwise sufficient changed depth must invalidate consent: {issued}"
+        );
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+    }
+
+    #[test]
+    fn market_quote_depth_is_revalidated_at_preparation_and_dispatch() {
+        for at_dispatch in [false, true] {
+            let (_folder, mut control, workspace_id, proposal, review) =
+                reviewed_trading212_market_fixture("5");
+            let approved = dispatch_main(
+                &mut control,
+                "trade.approve",
+                approval_action(&workspace_id, &proposal, &review),
+            );
+            assert_eq!(approved["ok"], true, "{approved}");
+            let prepare =
+                prepare_payload(&workspace_id, &approved["data"], "s28-depth-revalidation");
+            let prepared = if at_dispatch {
+                let result =
+                    dispatch_main(&mut control, "trade.execution.prepare", prepare.clone());
+                assert_eq!(result["ok"], true, "{result}");
+                Some(result)
+            } else {
+                None
+            };
+            let mut snapshot = review["market"]["snapshot"].clone();
+            snapshot["askSize"] = "2".into();
+            control.live_approval_fixture_snapshot =
+                Some(serde_json::from_value(snapshot).unwrap());
+            if let Some(prepared) = prepared {
+                assert!(
+                    control
+                        .issue_live_dispatch_grant(
+                            prepared["data"]["attempt"]["attemptId"].as_str().unwrap(),
+                            "s28-gateway",
+                        )
+                        .is_err(),
+                    "Changed depth must never authorize dispatch"
+                );
+            } else {
+                let result = dispatch_main(&mut control, "trade.execution.prepare", prepare);
+                assert_eq!(result["ok"], false, "{result}");
+                let current = dispatch_main(
+                    &mut control,
+                    "trade.execution.preparation.get",
+                    json!({
+                        "workspaceId":workspace_id,"approvalId":approved["data"]["approvalId"],
+                    }),
+                );
+                assert_eq!(current["ok"], true, "{current}");
+                assert_eq!(current["data"]["preparation"], Value::Null);
+            }
+        }
+    }
+
+    #[test]
+    fn market_slippage_compares_the_exact_policy_boundary_and_side_depth() {
+        for (maximum, outcome) in [("0.002", "PASS"), ("0.00199999", "REJECT")] {
+            let (_folder, _control, _workspace_id, _proposal, review) =
+                reviewed_trading212_market_fixture(maximum);
+            assert_eq!(review["eligible"], outcome == "PASS", "{review}");
+            let check = review["riskDecision"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "MARKET_ORDER_SLIPPAGE")
+                .unwrap();
+            assert_eq!(check["outcome"], outcome, "{review}");
+        }
+        for (side, outcome) in [("BUY", "PASS"), ("SELL", "UNAVAILABLE")] {
+            let (_folder, mut control, workspace_id, proposal, review) =
+                reviewed_trading212_market_fixture("5");
+            let mut fields = proposal["fields"].clone();
+            fields["side"] = side.into();
+            let draft = dispatch(
+                &mut control,
+                "trade.save_draft",
+                json!({"workspaceId":workspace_id,"fields":fields}),
+            );
+            assert_eq!(draft["ok"], true, "{draft}");
+            let changed = dispatch(
+                &mut control,
+                "trade.generate_proposal",
+                json!({
+                    "workspaceId":workspace_id,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1,
+                }),
+            );
+            assert_eq!(changed["ok"], true, "{changed}");
+            control.time.set_test_time(
+                OffsetDateTime::parse(changed["data"]["createdAt"].as_str().unwrap(), &Rfc3339)
+                    .unwrap()
+                    .unix_timestamp_nanos()
+                    / 1_000_000
+                    + 10,
+                150,
+            );
+            let mut snapshot = review["market"]["snapshot"].clone();
+            snapshot["bidSize"] = Value::Null;
+            control.live_approval_fixture_snapshot =
+                Some(serde_json::from_value(snapshot).unwrap());
+            let current = dispatch_main(
+                &mut control,
+                "trade.request_approval",
+                json!({
+                    "workspaceId":workspace_id,"proposalId":changed["data"]["proposalId"],
+                }),
+            );
+            assert_eq!(current["ok"], true, "{current}");
+            let check = current["data"]["riskDecision"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "MARKET_ORDER_SLIPPAGE")
+                .unwrap();
+            assert_eq!(check["outcome"], outcome, "{current}");
+        }
     }
 
     #[test]
