@@ -28,4 +28,3 @@ test rejects_a_gateway_with_an_incompatible_protocol_version ... ok
 test rejects_an_oversized_handshake_frame_before_reading_its_body ... ok
 
 test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 127.93s
-
