@@ -37,7 +37,7 @@ S27.3 [优先调度并限制 Provider 工作队列](https://github.com/kaiqiangh
 
 S27.4 [验证模型故障不阻塞可信 Live 控制面](https://github.com/kaiqiangh/tradex/issues/111)已补充模型故障矩阵、可信路径精确撤单、负载下 P0 对账、账户级 auth/stream 隔离、resume/reopen 与不自动 Arm 验证，并修复集成浏览器 SSE 连接耗尽问题。最终检查与 390/768/1280px 浏览器验证通过；基于 `495fc745` 的串行独立 Standards/Spec 审查均 PASS，无可执行发现。[双语验收证据](s27-4-model-failure-isolation-evidence.md)。S27 父级与 S33 门禁仍单独验收。
 
-S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 User Stories，并同步 14 条需求证据；四张实现子票已关闭，父项保持 OPEN。2026-09-30 原生 T212 已完成新鲜 Provider 观察与 CURRENT 对账，凭据等待已解除。用户报告睡眠唤醒后，约 08:15 UTC 及 08:19 UTC 的系统电源日志仍无当天 Sleep/Wake/DarkWake 事件，已有 caffeinate 仍持有睡眠断言；物理生命周期门禁继续待验证。未进行 Arm 或 broker 写操作，未将 S27 需求提升为 VERIFIED；该门禁未完成时不开始 S28。
+S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 User Stories，并同步 14 条需求证据；四张实现子票已关闭，父项保持 OPEN。2026-09-30 原生 T212 已完成新鲜 Provider 观察与 CURRENT 对账，凭据等待已解除。实际 OS Sleep/Wake 尚无系统事件证据；用户随后明确要求跳过本次验证并继续 S28，记录为 SKIPPED_BY_USER / 未验证，仅解除本次串行调度门禁，整张 map 验收前须复核。未进行 Arm 或 broker 写操作，未将 S27 需求提升为 VERIFIED。
 
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
@@ -151,7 +151,7 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 
 | 决策 | 当前处理 | 必须取得的证据/后续动作 |
 |---|---|---|
-| OD-001 实时美股 | 尚未选择；不能宣称 Live equity ready | S06 比较官方数据权限、市场覆盖、许可/保留与价格；用户授权所需订阅，S07/S28 验证真实 snapshot entitlement。 |
+| OD-001 实时美股 | S06 已选择 Alpaca Market Data API；尚未配置/验证 entitlement 与生产 producer，不能宣称 Live equity ready | S06 比较官方数据权限、市场覆盖、许可/保留与价格；用户授权所需订阅，S07/S28 验证真实 snapshot entitlement。 |
 | OD-002 历史数据 | 受影响 backtest 不可用 | S06 验证可下载范围、调整/时区/缺口与许可；S15 验证真实可复现数据。 |
 | OD-003 基本面、OD-004 新闻/filings | 源专属工具缺数时 disabled | S06 选择合法官方来源与接口；S10 真实调用，不能用 fixture 结果冒充研究。 |
 | OD-005 日历/公司行为 | 相关股票 Live blocked | S06/S08 覆盖 holiday/half-day/halt/split/dividend/symbol/delist 与更新频率。 |
@@ -180,6 +180,8 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 每个非平凡 parser/状态分支/金融与安全路径保留能失败的行为检查。使用 Rust 自带 test、已需的 UI 测试工具和真实临时 DB；不为简单样式编辑单独制造镜像测试。完整测试在每项收尾运行一次；有新增修改/失败才重复扩大验证。
 
 ## 6. 完成判定与交接
+
+当前 S28 进度见 [Trading 212 Live 证据](s28-trading212-live-evidence.md) / [中文](s28-trading212-live-evidence_zh.md)：共享市价额度请求修正、显示深度滑点估算与公开 Market 审批/预留/单次假提供方派发已通过本地检查；普通桌面仍缺生产报价 producer 与已验证 entitlement。单张实现票已完成本地验收，Standards/Spec 串行复审均 PASS / 0 发现；实现提交 `b0fec527c892e3a99d760db94526fdaa785efd06`，全套检查、23 项 Gateway、2 项 Market UI、15 项共享审批 UI 与普通桌面构建通过。S28 父级保持 OPEN，不以 fixture 关闭真实权限/行情/交易 gate。
 
 需求表初始 `NOT_STARTED`；计划映射通过不是功能通过。每项验证后补 evidence 引用与 SHA，再更新为 `VERIFIED`。外部能力未证实使用 `BLOCKED_EXTERNAL`，已有代码无所需证据使用 `IMPLEMENTED_UNVERIFIED`；这两种状态都不能让总 map 关闭。
 

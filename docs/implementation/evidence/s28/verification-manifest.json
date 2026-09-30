@@ -1,0 +1,51 @@
+{
+  "reviewBaseline": "5f33334e8885e66afae542a239f23341821708a7",
+  "implementationCommit": "b0fec527c892e3a99d760db94526fdaa785efd06",
+  "sourceSha256": {
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "8fd2e90ddc5c207e1cf4a37dd67a78f50b06e5a2b1441018afde90b8d8c28d07",
+    "docs/TradeX_Frontend_ARD_v1.0_RevC.md": "85d294ae4e94c23cc87b91999b6fe2ae9ca780be8b87fb1843f9f319324a067a",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "7591f31c76c3b7f7950ad15dfaf249b02038e402f72711b1d2f9958c5966ea1e",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "3f485212e6b2c8cd12a372a60b0db09dcd9e3baa5c6430514e3944826a46d8ad",
+    "docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md": "7e38a2c950eebe69e638629c37f372a413b9c336ce5545472e8cf4da47590e5e",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "cdae18ad4acc3acd12da0000d098d17334cb053b6963f00f46a3066cf9290e81",
+    "shared/ipc-types.ts": "5b2cf095de7b56cf304b30d6b364c91ef4eee76d62e6b63547bdfed6c3cf6a5a",
+    "shared/ipc-v1.schema.json": "b81b8d44052871a182111ae89183cd001314a03cd8f032577c022fb9efc58573",
+    "shared/ipc-validators.js": "409952751a86707df877d18fe0ff825926dc993a99a10134dfd657663329b630",
+    "src-tauri/src/lib.rs": "3711eb5e0695e5eb682761a640e4baa2374c33be54383bec15fc1bdd83843440",
+    "src-tauri/src/market.rs": "1324e392d0979592c3650573722a877974bee60f489a24198b9aa3d0b28d22da",
+    "src-tauri/src/protocol.rs": "0680ba8f7772e28f9114c661785a54858bd2bde8345e6b13869c883019f790d6",
+    "src-tauri/src/provider_io.rs": "ff932ab258dbbbe15f2a50390f5b1f8297186ebf0986f93dc835819969df206f",
+    "src-tauri/src/risk.rs": "f2d0ae45fbdaba35d053a7a8c1aa1f920464c9d2f3be80406ae8936c174188ef",
+    "src-tauri/tests/order_gateway.rs": "29ac7c5cc9c19e42167bb59069e703f7a962afe0ea06d55eb364e86827b3797d",
+    "src-tauri/tests/providers.rs": "876a7781a94eef96d05cc9af086693c006a0c7df827325247383c3420af2274c",
+    "src/OrderDrafts.tsx": "ce84259950d46ffa83615c2394360abe8c428128216f5e9eff0c72e64baad7de",
+    "tests/live-approval-ui.mjs": "5c278730bb4ebe47c01021188efede045de43a6ed14b4419d9342e42a7227671"
+  },
+  "workingTreeReviewDiffSha256": "5d5c47e15b560b8d59a2a1efb9f8cf6ca48bfeef3b9d640a366111a85c4a5250",
+  "checks": {
+    "nodePassed": 16,
+    "rustPassed": 332,
+    "rustIgnoredUnchanged": 36,
+    "gatewayPassed": 23,
+    "marketUIResults": 2,
+    "sharedUIResults": 15,
+    "desktopBuild": "PASS",
+    "standards": "PASS / 0",
+    "spec": "PASS / 0"
+  },
+  "scope": "Local child114 only; parent113 OPEN; no real Arm or broker mutation; no CI or signed-package claim",
+  "evidenceSha256": {
+    "docs/implementation/evidence/s28/artifact-hashes.json": "11bfeb5b18915ac5b60cee11cd4f26bbbd797a40f3b59eefa848f31df111a9a3",
+    "docs/implementation/evidence/s28/desktop-build.txt": "e48c78e5316d164646ae107ea0fcd8dbef3334e48ebd30bfd825345ea1ca8518",
+    "docs/implementation/evidence/s28/final-check.txt": "94c7d752439e4505c83a30c059576ddb14b0ea9e516b396cd2e436d1a78adc67",
+    "docs/implementation/evidence/s28/full-ui-result.png": "1b076683ef5689790718a48d6cda4dd8647ae49af50a3221196518fc0acfd409",
+    "docs/implementation/evidence/s28/full-ui.json": "7957448721f09e5a0856cebe2dc2d21abf42df59ce69183a3f917d93da14999d",
+    "docs/implementation/evidence/s28/gateway-check.txt": "8f78af43aee8b6c59cc1be8e2e2d0fc8d2e1fdbf45f69b78d689dd1ebba845fe",
+    "docs/implementation/evidence/s28/market-result-view.png": "9c5581237b2f3fd80b4cb2301376097e107729d60033693d83e94443d4940efe",
+    "docs/implementation/evidence/s28/market-result.png": "1b80101f1b0e715f2fc267ccdd778cbf0050e733645564e88236a8560460c889",
+    "docs/implementation/evidence/s28/market-ui.json": "323cb0abe848f6090ba6482920892e981a1ef8f94247c3f29db348ac38fbcc4d",
+    "docs/implementation/evidence/s28/native-retained.json": "23f01c8569024928e2cabdea84ce12f4c83231b79496dae63fa80c674d9161a9",
+    "docs/implementation/evidence/s28/spec-review.txt": "aefe7b66caf6780edd836a443980a56e07f1c6a6b44bcf9bf583b863cfd7b397",
+    "docs/implementation/evidence/s28/standards-review.txt": "b9e9ff5801ff84e5f1c30edb17ec45676242939b089eaafff0860d9542967e34"
+  }
+}

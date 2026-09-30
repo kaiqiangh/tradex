@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-09-30T16:58:37.955556+00:00",
+  "kind": "retained SQLite observations; no provider read performed",
+  "accounts": [
+    {
+      "sequence": 103,
+      "connectionState": "FAILED",
+      "health": {
+        "connection": "STALE",
+        "authentication": "UNVERIFIED",
+        "credential": "UNCHECKED",
+        "reconciliation": "STALE",
+        "executionEligibility": "BLOCKED",
+        "arming": "DISARMED",
+        "armingReason": "SESSION_RESUMED"
+      },
+      "lastSuccessfulSync": "2026-09-30T10:23:03.856359Z",
+      "positionCount": 3,
+      "openOrderCount": 0,
+      "recentOrderCount": 6,
+      "permissions": {
+        "scope": "UNVERIFIED",
+        "detected": [
+          "account.read",
+          "positions.read",
+          "orders.read"
+        ],
+        "acknowledged": true,
+        "ipAllowListStatus": "UNKNOWN"
+      }
+    }
+  ]
+}

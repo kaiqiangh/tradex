@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-09-30T17:32:23.631Z",
+  "results": [
+    "Market BUY review shows backend capacity, quote provenance and displayed-depth slippage; insufficient maximum and unsupported Market GTC block approval, and the review fits at 1280/768/390px.",
+    "A DISARMED Live PLACE opens an exact Arm confirmation; explicit Arm returns to the same proposal, hash and account for a fresh review without issuing approval.",
+    "Enter on the review trigger focuses the safe Reject action; explicit Enter records a rejection without an order.",
+    "Enter is inert on Approve; Space explicitly issues the approval, while preparation remains a separate action and no order has been placed or reserved.",
+    "Disarming the selected Live account invalidates its issued approval when history is re-read.",
+    "A concurrent account-state change during Arm confirmation fails closed and leaves the disarmed proposal without approval.",
+    "A proposal refreshed during Arm confirmation fails closed; the changed proposal stays DISARMED and neither the original nor replacement proposal receives approval.",
+    "The explicit Prepare action consumes the approval, dispatches one exact fake-provider POST, and persists ACCEPTED with provider order 901 while keeping capacity held.",
+    "Reopening Order Drafts restores the preparation through its approval ID without renderer-held idempotency state.",
+    "F11 shows $1,000 provider capacity, $400 reserved by TradeX, and $600 effective before a $700 request; refusal evidence fits at 1280/768/390px, preserves the approval, records remediation, and creates no attempt.",
+    "F11 stale capacity review hides every amount, announces the stale state to assistive technology, blocks approval, and fits at 1280/768/390px.",
+    "A risk-policy update after provider acceptance preserves the persisted ACCEPTED attempt and its active capacity reservation.",
+    "An ambiguous provider outcome remains UNKNOWN_RECONCILING with active capacity after policy change and navigation; inconclusive evidence is accessible at 1280/768/390px and cannot be resent.",
+    "A definitive provider rejection is persisted, releases only its reservation, displays accurate status, and cannot be resent.",
+    "After the Trading 212 timeout, only Keep is authorized; recording it preserves the attempt/reservation and sends no provider write."
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-09-30T17:18:44.952699+00:00",
+  "reviewBaseline": "5f33334e8885e66afae542a239f23341821708a7",
+  "sha256": {
+    "target/release/tradex": "030ed582d47b661bd1e1d4e160012e3889b88ca4514868e71446e27535d82ca8",
+    "target/release/tradex-order-gateway": "bb4fc0d9c4ddd2b957f83179dc2e2a75a0238a5d90c34f2d48e685dd4f358cca",
+    "tests/live-approval-ui.mjs": "5c278730bb4ebe47c01021188efede045de43a6ed14b4419d9342e42a7227671"
+  }
+}
