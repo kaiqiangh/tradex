@@ -20,7 +20,13 @@ Review baseline: `3ca4d54` (`S27.1 #108`). Implementation commit: `f9e81ca`. Ver
 - NOTE: An earlier default-parallel `npm run check` had two workspace-reopen test failures. Both exact tests passed in isolation, and the complete check passed with Rust tests serialized.
 - PASS: On the running native development app, returning to TradeX triggered `NSApplicationDidBecomeActiveNotification` and persisted the connected Trading 212 Live account to `SESSION_RESUMED / STALE / BLOCKED / DISARMED`; its prior successful observation remained unchanged.
 - PASS: Standards and Spec review of `3ca4d54..f9e81ca`; no actionable findings.
-- BLOCKED: The native read-only provider refresh stopped at macOS SecurityAgent, which requested the `login` Keychain password for `com.tradex.broker.credentials`. No password or replacement credential was entered. Native provider recovery completion is therefore unverified; no order write was attempted.
+- BLOCKED on 2026-09-29 (cleared in the follow-up below): The native read-only provider refresh stopped at macOS SecurityAgent, which requested the `login` Keychain password for `com.tradex.broker.credentials`. No password or replacement credential was entered by the agent; no order write was attempted.
 - Not exercised: actual OS sleep/wake. The wake notification path compiled on Darwin; native app reactivation was exercised directly.
 
 The normal production recovery path uses the existing fixed read-only provider adapters and requires no new provider route or financial authority.
+
+## Follow-up, 2026-09-30
+
+The Keychain/provider-completion block is cleared in the ordinary native development run at `dev@b0750634d5e770fc5c955b061908ed4da66578aa`. Read-only outbox inspection recorded T212 `SESSION_RESUMED` at `08:03:12.085077Z`, a fresh successful provider observation at `08:03:23.244385Z`, and `CURRENT` reconciliation at `08:03:23.25236Z`. Live remained `DISARMED / BLOCKED` with explicit Arm required; the projection retained 3 positions, 0 open orders and 6 recent orders. No broker order write or agent credential/ACL mutation occurred.
+
+Actual OS sleep/wake remains unverified. After the user's completion report, the approximately `08:15 UTC` and rechecked at `08:19 UTC` power-log check found no Sleep/Wake/DarkWake event that day; a pre-existing `caffeinate` process still held sleep assertions, and the account remained at sequence 83. Several resume triggers occurred and provider-start timing was not measured, so this proves provider completion after resume, not physical wake or a new `<5 s` result. See the paired [parent acceptance audit](s27-parent-acceptance-audit.md) for the remaining boundaries.

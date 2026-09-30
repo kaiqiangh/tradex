@@ -18,7 +18,7 @@
 
 仅按已命名证据更新需求清单；本审计不将任何 S27 需求提升为 VERIFIED。本地实现、真实物理生命周期、真实 Provider 证据及签名包验收分别记录。
 
-## 当前原生尝试
+## 原生尝试，2026-09-29
 
 - 在审计基线和已有默认工作区运行普通 `npm run desktop`。原生构建成功，`target/debug/tradex` 在原始启动 session 中运行；未使用集成 fixture 或替代凭据路径。
 - 工作区在 `2026-09-29T22:35:14.836325Z` 重开。只读 SQLite 检查显示已连接 T212 Live 账户 sequence 68，STALE/UNVERIFIED/UNCHECKED/STALE/BLOCKED/DISARMED，保留 `lastSuccessfulSync=2026-09-29T17:35:17.79051Z`。
@@ -31,3 +31,13 @@
 ## 审计文档验证
 
 基于审计基线的串行独立 Standards 与 Spec 审查均 PASS，无可执行发现。本地证据链接、14 行作用域/无 VERIFIED 提升、需求清单及 `git diff --check` 检查通过。此项仅验证文档增量，不关闭待完成的原生验收门禁，也未复跑应用测试套件。交付 SHA 记录在 issue 进度评论中。
+
+## 后续：原生 Provider 恢复完成，2026-09-30
+
+较早的启动以 exit code 0 结束。确认没有 TradeX 进程后，在 `dev@b0750634d5e770fc5c955b061908ed4da66578aa` 重新运行普通 `npm run desktop`。开发程序 SHA-256 为 `34fdfcd760e56a6eec53a31c4383d5f123ad63e1bef2007decb24e61afdee30d`。凭据 worker 最初停在 `SecItemCopyMatching`；桌面工具明确禁止访问 SecurityAgent。代理未更改凭据或安全权限。
+
+只读 SQLite/outbox 检查证明真实 T212 恢复：sequence 78 在 `08:03:12.085077Z` 持久化 `SESSION_RESUMED / STALE / BLOCKED / DISARMED`；sequence 79–81 记录了更多 resume 触发。sequence 82 在 `08:03:23.245049Z` 持久化 `ONLINE / VALID / CONFIGURED`，`lastSuccessfulSync=08:03:23.244385Z`，保留 3 个持仓、0 个开放订单、6 个近期订单。sequence 83 在 `08:03:23.25236Z` 恢复 `CURRENT`，但保持 `BLOCKED / DISARMED` 并明确要求重新 Arm。之后进程采样不再出现 `SecItemCopyMatching` 等待。本次凭据/Provider 完成阻塞已解除。未进行 broker 订单写操作或 Arm。
+
+此记录不证明真实 OS wake 或新的 `<5 s` 计时结果：存在多次 resume 触发，未测量 Provider 请求开始时间。用户报告睡眠唤醒并解锁后，约 `08:15 UTC` 捕获并于 `08:19 UTC` 复查的电源日志仍没有 2026-09-30 Sleep/Wake/DarkWake 事件；账户仍为 sequence 83，没有后续恢复事件。已有 `caffeinate -s -d -i` 进程仍持有睡眠/显示断言，代理未停止或修改该进程。已请求用户暂时停止自己的进程，实际睡眠唤醒并解锁后切到 TradeX。物理生命周期验收仍待完成；表中更广泛的证据边界分别保留。父项 #107 保持 OPEN，不启动 S28。
+
+这五份文件的后续增量基于 `b0750634d5e770fc5c955b061908ed4da66578aa` 完成串行独立 Standards 与 Spec 审查，两个轴均为 0 发现。双语证据标记、本地链接、程序 hash、需求清单与 `git diff --check` 均通过。此次仅更新文档，未复跑应用测试套件。

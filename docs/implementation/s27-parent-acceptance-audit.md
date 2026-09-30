@@ -18,7 +18,7 @@ Parent: [Recover Live execution and coordinate interrupted work](https://github.
 
 The requirement inventory is updated only where named evidence exists. No S27 requirement is promoted to VERIFIED by this audit. Local implementation, physical lifecycle, real-provider evidence and signed-package acceptance remain distinct.
 
-## Current native attempt
+## Native attempt, 2026-09-29
 
 - Started ordinary `npm run desktop` against the audit baseline and existing default workspace. The native build succeeded; `target/debug/tradex` is running under the original launch session. No integration fixture or alternative credential path is used.
 - The workspace reopened at `2026-09-29T22:35:14.836325Z`. Read-only SQLite inspection found the connected T212 Live account at sequence 68, STALE/UNVERIFIED/UNCHECKED/STALE/BLOCKED/DISARMED, retaining `lastSuccessfulSync=2026-09-29T17:35:17.79051Z`.
@@ -31,3 +31,13 @@ No broker order placement/cancellation, Arm action, credential entry, Keychain A
 ## Audit-document verification
 
 Serial independent Standards and Spec reviews against the audit baseline both PASS, with zero actionable findings. Local evidence-link, 14-row scope/no-VERIFIED-promotion, requirement inventory and `git diff --check` checks pass. This verifies the documentation delta only; it does not close the pending native acceptance gate or rerun the application test suites. The issue progress comment records the delivery SHA.
+
+## Follow-up: native provider recovery completed, 2026-09-30
+
+The earlier launch exited with code 0. After confirming no TradeX process remained, ordinary `npm run desktop` was restarted at `dev@b0750634d5e770fc5c955b061908ed4da66578aa`. The development executable SHA-256 was `34fdfcd760e56a6eec53a31c4383d5f123ad63e1bef2007decb24e61afdee30d`. Its credential workers initially waited in `SecItemCopyMatching`; the desktop tool explicitly prohibited access to SecurityAgent. No credential or security permission was changed by the agent.
+
+Read-only SQLite/outbox inspection established real T212 recovery: sequence 78 at `08:03:12.085077Z` persisted `SESSION_RESUMED / STALE / BLOCKED / DISARMED`; sequences 79–81 recorded further resume triggers. Sequence 82 at `08:03:23.245049Z` persisted `ONLINE / VALID / CONFIGURED` with `lastSuccessfulSync=08:03:23.244385Z`, 3 positions, 0 open orders and 6 recent orders. Sequence 83 at `08:03:23.25236Z` became `CURRENT` while remaining `BLOCKED / DISARMED` and explicitly requiring a new Arm. A subsequent process sample no longer found `SecItemCopyMatching` waits. The credential/provider-completion blocker is cleared for this run. No broker order write or Arm was performed.
+
+This does not establish physical OS wake or another `<5 s` timing result: multiple resume triggers occurred, and the provider request start was not measured. After the user reported sleep/wake/unlock, the power log captured at approximately `08:15 UTC` and rechecked at `08:19 UTC` still contained no 2026-09-30 Sleep/Wake/DarkWake events; the account remained at sequence 83 without a later recovery event. A pre-existing `caffeinate -s -d -i` process still held sleep/display assertions. It was not stopped or modified. The user was asked to temporarily stop their process and perform actual sleep/wake/unlock followed by activating TradeX. Physical lifecycle acceptance remains pending; the broader evidence boundaries in the table remain separate. Parent #107 stays OPEN and S28 is not started.
+
+The five-file follow-up delta passed serial independent Standards and Spec reviews against `b0750634d5e770fc5c955b061908ed4da66578aa`, with 0 findings on each axis. Paired evidence tokens, local links, executable hash, requirement inventory and `git diff --check` passed. No application test suite was rerun for this documentation-only update.

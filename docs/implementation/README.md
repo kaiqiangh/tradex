@@ -32,12 +32,12 @@ S26 [Spec：刷新并审批 Live 撤单与成交竞态收敛](https://github.com
 
 S27.1 #108 已完成实现与隔离 Rust 验证：所有已连接的受支持 Live 账户在启动/重开后保持 DISARMED，未知 PLACE 先走 S25 精确证据读取，只有可信时钟、成功账户刷新且无未决未知提交时才恢复 `CURRENT`。[验收证据](s27-1-live-startup-recovery-evidence.md)。未访问真实 provider；原生启动 `< 5 s` 计时与 S27 其余切片仍待完成。
 
-S27.2 #109 已在 `dev@f9e81ca` 完成实现，Standards 与 Spec 按 `3ca4d54` 基线独立审查均 PASS。原生应用重新激活已验证；实际 OS 睡眠唤醒未执行，真实 Keychain provider refresh 因系统要求 `login` Keychain 密码而未完成。[双语验收证据](s27-2-live-resume-recovery-evidence.md)。
+S27.2 #109 已在 `dev@f9e81ca` 完成实现，Standards 与 Spec 按 `3ca4d54` 基线独立审查均 PASS。原生应用重新激活已验证；2026-09-30 真实 T212 Provider 刷新与 CURRENT 对账已完成，账户仍 DISARMED/BLOCKED。实际 OS 睡眠唤醒尚无系统事件证据。[双语验收证据](s27-2-live-resume-recovery-evidence.md)。
 S27.3 [优先调度并限制 Provider 工作队列](https://github.com/kaiqiangh/tradex/issues/110)已完成本地实现、双语契约与独立 Standards/Spec 复审；最终完整检查、21 项隔离 Gateway 子进程测试和桌面构建检查通过。[双语验收证据](s27-3-provider-scheduling-evidence.md)。真实 provider/原生账户恢复与 S33 验收不属于本票证据。
 
 S27.4 [验证模型故障不阻塞可信 Live 控制面](https://github.com/kaiqiangh/tradex/issues/111)已补充模型故障矩阵、可信路径精确撤单、负载下 P0 对账、账户级 auth/stream 隔离、resume/reopen 与不自动 Arm 验证，并修复集成浏览器 SSE 连接耗尽问题。最终检查与 390/768/1280px 浏览器验证通过；基于 `495fc745` 的串行独立 Standards/Spec 审查均 PASS，无可执行发现。[双语验收证据](s27-4-model-failure-isolation-evidence.md)。S27 父级与 S33 门禁仍单独验收。
 
-S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 User Stories，并同步 14 条需求证据；四张实现子票已关闭，父项保持 OPEN。当前原生开发程序已启动，但 Provider 凭据 worker 仍在 `SecItemCopyMatching`，尚未完成本次恢复；实际 OS 睡眠唤醒及 Provider 完成记录等待用户本机认证/操作。未进行 Arm 或 broker 写操作，未将 S27 需求提升为 VERIFIED；该门禁未完成时不开始 S28。
+S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 User Stories，并同步 14 条需求证据；四张实现子票已关闭，父项保持 OPEN。2026-09-30 原生 T212 已完成新鲜 Provider 观察与 CURRENT 对账，凭据等待已解除。用户报告睡眠唤醒后，约 08:15 UTC 及 08:19 UTC 的系统电源日志仍无当天 Sleep/Wake/DarkWake 事件，已有 caffeinate 仍持有睡眠断言；物理生命周期门禁继续待验证。未进行 Arm 或 broker 写操作，未将 S27 需求提升为 VERIFIED；该门禁未完成时不开始 S28。
 
 - [逐条需求清单](requirements.csv)：203 条 FR/AC/NFR/SEC/DATA/OPS/UX 的原文、来源行、实施项、验证边界和状态；FR-041–043 按规范 DEFERRED，其余需求按各自证据状态推进。
 - [页面及原型回归清单](surfaces.csv)：UI Spec 全部页面与 QA-01–QA-13 的负责工作项。
