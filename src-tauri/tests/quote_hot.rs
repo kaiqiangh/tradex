@@ -1210,7 +1210,16 @@ fn oversized_provider_frames_fail_once_without_retrying_or_creating_quotes() {
         let mut socket = tungstenite::accept(tcp).unwrap();
         let auth: Value = serde_json::from_str(socket.read().unwrap().to_text().unwrap()).unwrap();
         assert_eq!(auth["action"], "auth");
-        socket.send(Message::text("X".repeat(300_000))).unwrap();
+        // The client may reject the frame header before the whole body is sent.
+        if let Err(error) = socket.send(Message::text("X".repeat(300_000))) {
+            assert!(
+                matches!(&error, tungstenite::Error::Io(io) if matches!(
+                    io.kind(), std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::BrokenPipe
+                )),
+                "Unexpected oversized-frame send failure: {error}"
+            );
+            return;
+        }
         let _ = socket.read();
     });
     let supervisor = QuoteHotSupervisor::new();

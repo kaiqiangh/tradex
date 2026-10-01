@@ -1213,7 +1213,9 @@ fn quote_evidence(
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    let regular = names.iter().all(|condition| condition.name == "Regular");
+    let regular = names
+        .iter()
+        .all(|condition| condition.code == "R" && condition.name == "Regular Two Sided Open");
     let evidence = crate::protocol::AlpacaQuoteEvidence {
         feed: feed.clone(),
         coverage: if *feed == AlpacaFeed::Iex {

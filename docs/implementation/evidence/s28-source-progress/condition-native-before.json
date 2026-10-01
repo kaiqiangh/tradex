@@ -1,0 +1,22 @@
+{
+  "observedAt": "2026-10-01T13:33:17.722Z",
+  "streaming": true,
+  "authenticationAndSubscriptionConfirmed": true,
+  "actualQuoteDisplayed": true,
+  "realtimeHealthy": true,
+  "iexVenueDisplayed": true,
+  "officialRegularConditionNameDisplayed": true,
+  "executionConditionMisclassification": true,
+  "financialWritePerformed": false,
+  "build": {
+    "app": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-native-current-cs2c2wa7/TradeX.app",
+    "sourceCommit": "1955d3fbc96e2997b218be1245d8cd120eba7326",
+    "currentHead": "0c8fd90bbd35cf198d70ae19dc5566df4182ae2d",
+    "signedBinarySha256": "c00084886e7ab4af172094d54dff9056d556331638eb60ffc0fa1ad74c6eadb2",
+    "ordinaryReleaseSha256": "972d0d7f6dff9ec0fd73ec2eb0784d214827b8a8bbdf8f1917bfd32b0b8de11c",
+    "gatewaySha256": "047afc9c74864487e54bc6b23de762da6a762726270b93af074b302c289125fb",
+    "integrationFeature": false
+  },
+  "scope": "Ordinary native release; existing saved IEX credential; read-only hosted quote; no SIP or financial-positive acceptance claim",
+  "officialContract": "https://github.com/alpacahq/alpaca-docs/blob/master/oas/data/openapi.yaml#L1531-L1546"
+}

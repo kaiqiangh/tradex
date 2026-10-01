@@ -138,7 +138,7 @@ export async function checkActualQuoteProjectionUI(tab, browser) {
   assert.match(await quote.textContent(),/US_SIP/);
   assert.match(await quote.textContent(),/NYSE Arca/);
   assert.match(await quote.textContent(),/Nasdaq/);
-  assert.match(await quote.textContent(),/Regular/);
+  assert.match(await quote.textContent(),/Regular Two Sided Open/);
   assert.match(await quote.textContent(),/Bid size \(BASE\)205/);
   assert.match(await quote.textContent(),/Ask size \(BASE\)310/);
   assert.match(await quote.textContent(),/Not supplied by quote endpoint/);
@@ -264,7 +264,7 @@ export async function checkPreArmingQuoteEvidenceUI(tab, browser) {
     const evidence = dialog.getByRole('region', { name: 'Quote evidence before arming', exact: true });
     assert.equal(await evidence.count(), 1, 'DISARMED review must expose read-only configured quote evidence before Arm');
     const text = await evidence.textContent();
-    for (const value of [snapshot, '250.7234567890123456789', '250.8234567890123456789', 'SIP', 'US_SIP', 'NYSE Arca', 'Nasdaq', 'Regular', '2026-09-30T14:10:00.123456789Z']) assert.ok(text.includes(value), `Missing producer-derived evidence: ${value}`);
+    for (const value of [snapshot, '250.7234567890123456789', '250.8234567890123456789', 'SIP', 'US_SIP', 'NYSE Arca', 'Nasdaq', 'Regular Two Sided Open', '2026-09-30T14:10:00.123456789Z']) assert.ok(text.includes(value), `Missing producer-derived evidence: ${value}`);
     assert.match(text, /Read only.*does not approve or arm/s);
     assert.equal(await dialog.getByRole('button', { name: 'Arm this Live account', exact: true }).isEnabled(), false);
     assert.equal(await ui.getByRole('button', { name: 'Approve for up to 30 seconds', exact: true }).count(), 0);

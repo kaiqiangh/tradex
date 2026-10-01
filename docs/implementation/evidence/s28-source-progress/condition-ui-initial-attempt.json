@@ -1,0 +1,6 @@
+{
+  "observedAt": "2026-10-01T14:08:21.150Z",
+  "outcome": "HARNESS_SEQUENCE_FAILED",
+  "reason": "A manual connection was created before invoking the helper that itself creates that same connection; duplicate account setup blocked confirmation. Restart with one public connection flow.",
+  "financialWritePerformed": false
+}

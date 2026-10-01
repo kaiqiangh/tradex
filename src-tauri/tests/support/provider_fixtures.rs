@@ -52,6 +52,7 @@ pub fn credentials() -> Result<Credentials> {
 pub struct Http {
     pub alpaca_quote_status: Cell<u16>,
     pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
+    pub alpaca_condition_body: RefCell<Option<Vec<u8>>>,
     pub fail: Cell<bool>,
     pub identity: String,
     pub calls: RefCell<Vec<String>>,
@@ -108,6 +109,7 @@ impl Default for Http {
         Self {
             alpaca_quote_status: Cell::new(200),
             alpaca_quote_body: RefCell::new(None),
+            alpaca_condition_body: RefCell::new(None),
             fail: Cell::new(false),
             identity: "81161e77-bafd-44bb-b2a0-60b9055e3cd4".into(),
             calls: RefCell::new(vec![]),
@@ -327,9 +329,10 @@ impl ProviderHttp for Http {
                 "/v2/stocks/meta/exchanges" => {
                     Some(br#"{"P":"NYSE Arca","Q":"Nasdaq"}"#.as_slice())
                 }
-                "/v2/stocks/meta/conditions/quote?tape=C" => {
-                    Some(br#"{"R":"Regular","Y":"Non-Firm Quote"}"#.as_slice())
-                }
+                "/v2/stocks/meta/conditions/quote?tape=C" => Some(
+                    br#"{"R":"Regular Two Sided Open","Y":"No Offer No Bid One Sided Open"}"#
+                        .as_slice(),
+                ),
                 _ => None,
             };
             if metadata.is_none()
@@ -347,7 +350,14 @@ impl ProviderHttp for Http {
             if let Some(body) = metadata {
                 return Ok(ProviderHttpResponse {
                     status: 200,
-                    body: body.to_vec(),
+                    body: if path == "/v2/stocks/meta/conditions/quote?tape=C" {
+                        self.alpaca_condition_body
+                            .borrow()
+                            .clone()
+                            .unwrap_or_else(|| body.to_vec())
+                    } else {
+                        body.to_vec()
+                    },
                 });
             }
             if let Some(body) = self.alpaca_quote_body.borrow().as_ref() {

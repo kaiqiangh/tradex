@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-10-01T14:06:10.707Z",
+  "savedIexTechnicalAccessVerified": true,
+  "ordinaryNativeUrl": true,
+  "streaming": true,
+  "authenticationAndSubscriptionConfirmed": true,
+  "actualQuoteDisplayed": true,
+  "realtimeHealthy": true,
+  "officialRegularConditionNameDisplayed": true,
+  "conditionMisclassificationAbsent": true,
+  "selectedQuoteAvailable": true,
+  "financialWritePerformed": false,
+  "scope": "IEX quote connectivity only; no SIP entitlement or issued approval/Prepare/dispatch acceptance"
+}

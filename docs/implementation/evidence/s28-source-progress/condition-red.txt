@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.48s
+     Running tests/data_sources.rs (target/debug/deps/data_sources-a8e0fdc90cdee4ca)
+
+running 1 test
+test selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt ... FAILED
+
+failures:
+
+---- selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt stdout ----
+
+thread 'selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt' (414761) panicked at src-tauri/tests/data_sources.rs:51:5:
+assertion `left == right` failed
+  left: Null
+ right: "205"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test data_sources`

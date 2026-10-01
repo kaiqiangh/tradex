@@ -1,0 +1,9 @@
+# S28 #116 condition correction checkpoint
+
+Native existing-key authentication and actual hosted IEX Hot quote: PASS on the current ordinary release. Auth/subscription acknowledged; actual quote REALTIME/HEALTHY; official Tape C R name displayed; old unsupported-condition misclassification absent. No real prices, balances, account identities or credential references are retained in native quote evidence. IEX remains single-venue coverage, with no SIP entitlement or financial authority claim.
+
+Default checks:17 Node /342 Rust PASS,36 existing ignored. Full integration:373 Rust PASS,36 ignored. Independent Gateway target:23 PASS. Ordinary desktop and pure integration IPC builds, formatting/schema/type checks:PASS. Six fresh public UI observations pass keyboard and390/768/1280px with official condition evidence, blocked read-only pre-Arm review and source replacement invalidating the same immutable proposal. Initial frame-peer race and duplicate-setup harness failures are retained rather than hidden; passing rechecks are separate.
+
+Independent serial Standards:PASS,0 hard breaches/1 nonblocking maintenance advisory. Independent serial Spec:condition correction passes; whole-ticket NOT PASS because positive issued approval/Prepare/dispatch remains unverified. #116/#115/#113/map remain OPEN; S17/physical S27 and original S28 requirements remain unverified. The pending sequencing choice for financial prerequisite dependency work is unchanged.
+
+Temporary UI pages/services and four identified disposable workspaces were cleaned. User workspace/accounts/keys retained; native Hot detail released. Development remains on dev; unrelated user dashboard commit is preserved. No main PR or merge. See [integrity manifest](condition-manifest.json), [native facts](condition-native-after.json), [Standards](condition-standards-review.md) and [Spec](condition-spec-review.md).

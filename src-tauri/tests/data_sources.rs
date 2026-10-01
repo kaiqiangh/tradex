@@ -126,6 +126,93 @@ fn selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_ke
     );
 }
 
+#[test]
+fn non_regular_or_mismatched_tape_c_conditions_cannot_supply_execution_depth() {
+    use std::sync::{Arc, Mutex};
+    use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+    // Tape C quote definitions come from Alpaca's authenticated metadata API
+    // and its official OpenAPI example, independently of the quote parser.
+    for (label, metadata, conditions) in [
+        ("shortened label", json!({"R":"Regular"}), json!(["R"])),
+        (
+            "wrong code",
+            json!({"Y":"Regular Two Sided Open"}),
+            json!(["Y"]),
+        ),
+        (
+            "one sided",
+            json!({"Y":"No Offer No Bid One Sided Open"}),
+            json!(["Y"]),
+        ),
+        (
+            "mixed",
+            json!({"R":"Regular Two Sided Open","Y":"No Offer No Bid One Sided Open"}),
+            json!(["R", "Y"]),
+        ),
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let control = Arc::new(Mutex::new(ControlPlane::new(
+            directory.path().join("workspace"),
+        )));
+        let workspace = command(&mut control.lock().unwrap(), "workspace.open", json!({}))["data"]
+            ["workspaceId"]
+            .clone();
+        let source = command(
+            &mut control.lock().unwrap(),
+            "data.source.connection",
+            json!({"workspaceId":workspace}),
+        );
+        let vault = provider_fixtures::Vault::default();
+        let http = provider_fixtures::Http::default();
+        let configured = tradex::quote_source::execute_configuration(
+            &control,
+            &json!({"requestId":"condition-source","schemaVersion":1,"command":"data.source.configure","payload":{"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"feed":"sip","credential":{"kind":"DEDICATED"}}}),
+            "main",
+            &vault,
+            provider_fixtures::credentials,
+        );
+        assert_eq!(configured["ok"], true, "{label}: {configured}");
+        let now = command(
+            &mut control.lock().unwrap(),
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        let timestamp =
+            (OffsetDateTime::parse(now["data"]["wallClock"].as_str().unwrap(), &Rfc3339).unwrap()
+                - time::Duration::seconds(1))
+            .format(&Rfc3339)
+            .unwrap();
+        *http.alpaca_quote_body.borrow_mut() = Some(serde_json::to_vec(&json!({"quotes":{"AAPL":{"t":timestamp,"bx":"P","bp":250,"bs":205,"ax":"Q","ap":251,"as":310,"c":conditions,"z":"C"}}})).unwrap());
+        *http.alpaca_condition_body.borrow_mut() = Some(serde_json::to_vec(&metadata).unwrap());
+        let read = tradex::quote_source::execute_market(
+            &control,
+            &json!({"requestId":"condition-read","schemaVersion":1,"command":"market.get","payload":{"workspaceId":workspace,"instrumentId":"equity:US:AAPL","tier":"CENSUS"}}),
+            "main",
+            &vault,
+            &http,
+        );
+        assert_eq!(read["ok"], true, "{label}: {read}");
+        assert_eq!(read["data"]["status"], "UNAVAILABLE", "{label}: {read}");
+        let snapshot = &read["data"]["snapshot"];
+        assert_eq!(
+            snapshot["provenance"]["alpaca"]["regularConditions"], false,
+            "{label}"
+        );
+        assert_eq!(
+            snapshot["provenance"]["alpaca"]["depthUnit"], "UNAVAILABLE",
+            "{label}"
+        );
+        assert!(
+            snapshot["bidSize"].is_null() && snapshot["askSize"].is_null(),
+            "{label}"
+        );
+        assert_eq!(
+            snapshot["bid"], "250",
+            "Unsupported depth does not invent a quote: {label}"
+        );
+    }
+}
+
 fn command(control: &mut ControlPlane, name: &str, payload: Value) -> Value {
     control.dispatch(json!({
         "requestId": "data-source-test",
@@ -364,7 +451,7 @@ fn quote_http_auth_denial_and_quota_retire_evidence_without_fallback_or_cooldown
                         200,
                         match index {
                             0 | 4 => body.clone(),
-                            1 | 5 => r#"{"R":"Regular"}"#.into(),
+                            1 | 5 => r#"{"R":"Regular Two Sided Open"}"#.into(),
                             2 | 6 => r#"{"P":"NYSE Arca","Q":"Nasdaq"}"#.into(),
                             _ => unreachable!(),
                         },
@@ -1123,7 +1210,7 @@ fn selected_feed_is_verified_through_the_actual_read_only_http_boundary_and_reop
             let body = r#"{"quotes":{"AAPL":{"t":"2026-09-30T14:10:00.123456789Z","bx":"P","bp":250.1234567890123456789,"bs":205,"ax":"Q","ap":250.2234567890123456789,"as":310,"c":["R"],"z":"C"}}}"#;
             let body = match read {
                 0 | 1 => body,
-                2 => r#"{"R":"Regular"}"#,
+                2 => r#"{"R":"Regular Two Sided Open"}"#,
                 3 => r#"{"P":"NYSE Arca","Q":"Nasdaq"}"#,
                 _ => unreachable!(),
             };

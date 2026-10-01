@@ -1,0 +1,12 @@
+{
+  "builtAt": "2026-10-01T14:03:55.633855+00:00",
+  "app": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-condition-native-uvllsykp/TradeX.app",
+  "baseline": "0c8fd90bbd35cf198d70ae19dc5566df4182ae2d",
+  "worktreeSource": "condition fix and fixture recovery on dev; source hashes bound by final manifest",
+  "integrationFeature": false,
+  "ordinaryReleaseSha256": "ee54e7d98fe99369f5f29c1d3fcd180ddffb68595d79cb7e4cbd2afe0c408fef",
+  "signedBinarySha256": "16e8b1a3ed803e227fd8d0853bd7b9dc90aca3a857df17de972616530b14a661",
+  "gatewaySha256": "d33f93bbf5eb7571c023e34a797d0bf3609ce8ea5fed9fd291349a9be1afdec4",
+  "gatewayCopySha256": "d33f93bbf5eb7571c023e34a797d0bf3609ce8ea5fed9fd291349a9be1afdec4",
+  "signing": "Temporary local ad-hoc bundle for validation, not distribution signing acceptance"
+}

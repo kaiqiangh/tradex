@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-10-01T14:11:42.630006+00:00",
+  "ownedTemporaryWorkspacesRemoved": [
+    "tradex-browser-OOoFIu",
+    "tradex-browser-blocked-QSlap6",
+    "tradex-browser-c5c6Bx",
+    "tradex-browser-blocked-YOTCx3"
+  ],
+  "allAbsent": true,
+  "ownedViteAndIpcProcessesStopped": true,
+  "port1422Released": true,
+  "nativeHotDetailReleased": true,
+  "normalUserWorkspacePreserved": true
+}

@@ -2375,7 +2375,7 @@ fn verified_sip_quote(
         && evidence
             .conditions
             .iter()
-            .all(|condition| condition.name == "Regular")
+            .all(|condition| condition.code == "R" && condition.name == "Regular Two Sided Open")
         && evidence.depth_unit == QuoteDepthUnit::Base
         && positive(snapshot.bid.as_deref())
         && positive(snapshot.ask.as_deref())
