@@ -1,0 +1,8 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.81s
+     Running unittests src/lib.rs (target/debug/deps/tradex-a7d04870edf24fb7)
+
+running 1 test
+test thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.22s

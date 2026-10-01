@@ -2959,6 +2959,27 @@ The Hot lease wire target is `market.hot.acquire {workspaceId, instrumentId, exp
 
 Implementation/local fixture verification is separate from actual authenticated reads and current feed evidence. FR-016/AC-010 and the original S28 permission/calendar/action/tradability/FX/real-order gates remain unverified until their own acceptance.
 
+### 41.38 Read-only XNAS calendar prerequisite (S28 #118; implementation in progress)
+
+This slice supplies calendar evidence only; it does not certify Trading 212 Live or close the quote acceptance ticket. Existing permission, quote/depth, corporate-action/tradability, FX, consent and Gateway guards remain independent.
+
+| Command | Payload | Success data |
+|---|---|---|
+| data.calendar.connection | `{workspaceId}` | `CalendarConnection` |
+| data.calendar.configure | `{workspaceId, expectedStateVersion, connectionId}` | `CalendarConnection`; explicit eligible saved Alpaca Paper account selection |
+| data.calendar.disconnect | `{workspaceId, expectedStateVersion}` | `CalendarConnection`; retain borrowed account/key |
+| data.calendar.refresh | `{workspaceId, expectedStateVersion}` | `CalendarConnection`; authenticated fixed-host read outside the Control Plane lock |
+
+Inputs reject unknown fields, secrets, caller observations, arbitrary hosts and vault references. Only saved connected Alpaca `PAPER` accounts with credential status `CONFIGURED` or `UNCHECKED` are eligible; `UNCHECKED` permits selection after reopen but a new successful vault/provider read is still required for calendar evidence. SQLite schema33 persists source generation/account selection and metadata audit; no secret or calendar observation is persisted. Selection uses CAS; reopening restores metadata only and retires observations.
+
+`CalendarConnection` has workspaceId/sourceId/stateVersion/configured, optional connectionId, fixed environment `PAPER`, calendar-specific status/availabilityReason, eligibleAccounts, optional observedAt/calendarVersion/coverageStart/coverageEnd and exactly four typed capabilityStatuses. Each capability result contains capability (`MARKET_CALENDAR`, `CORPORATE_ACTIONS`, `HALTS`, `HISTORICAL_ADJUSTMENT`), status and reason. OD-005 combined catalog status stays UNVERIFIED while only calendar is implemented. Scheduled times are not provider observation times; an absent provider timestamp remains absent.
+
+Use only authenticated GET `https://paper-api.alpaca.markets/v3/calendar/XNAS?start=<UTC date minus one day>&end=<UTC date plus fourteen days>&timezone=UTC`. The canonical scope is AAPL/MSFT on XNAS. No host/key/feed fallback or provider mutation. Validate market identity/timezone, UTC intervals, bounded dates/order/duplicates and optional paired boundaries; incomplete, mismatched, oversized or unavailable data fails closed. Determine regular OPEN, CLOSED and EXTENDED_HOURS from provider boundaries, including early closes/holiday gaps, rather than local weekday/DST assumptions. Corporate actions, halts and historical adjustment are not inferred.
+
+Process-scoped evidence binds source generation, exact account version/reference, workspace/session, trusted clock generation and refresh sequence. Vault/network work uses the existing bounded read-priority scheduler outside the Control Plane lock; late results cannot publish after a binding change. Preserve first receipt for projections. Execution age is at most30 trusted seconds by wall and monotonic time; clock reset/revalidation, reopen, credential/source/account change or failed refresh retires eligibility. The calendar version hashes validated requested coverage/material schedule and authority-relevant source/account/session/clock binding without exposing secrets. Repeated UI projection cannot renew receipt age.
+
+The same producer projection reaches market detail, risk/approval review, consumption and dispatch revalidation. Only its matching calendar check can pass. CLOSED/EXTENDED/stale/UNKNOWN block execution; no source setup/read grants Arm, approval or reservation. Explicitly configured calendar data also bypasses historical synthetic market/Live-approval fixtures. Tests use the previously agreed public UI/real Rust/disposable-storage/external-provider seam; provider-hosted read evidence and financial positive acceptance remain separate.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

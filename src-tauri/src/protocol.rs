@@ -184,6 +184,7 @@ pub enum ReplyData {
     ContextCatalog(ContextCatalog),
     DataSourceCatalog(DataSourceCatalog),
     DataSourceConnection(DataSourceConnection),
+    CalendarConnection(CalendarConnection),
     MarketCatalog(MarketCatalog),
     MarketDetail(Box<MarketDetail>),
     HotQuoteProjection(Box<HotQuoteProjection>),
@@ -308,6 +309,8 @@ pub struct IpcSchema {
     pub data_source_query: DataSourceQuery,
     pub data_source_probe: DataSourceProbe,
     pub data_source_connection: DataSourceConnection,
+    pub calendar_connection: CalendarConnection,
+    pub calendar_configure: CalendarConfigure,
     pub data_source_configure: DataSourceConfigure,
     pub data_source_mutation: DataSourceMutation,
     pub market_catalog_query: MarketCatalogQuery,
@@ -459,7 +462,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 32))]
+    #[schemars(range(min = 1, max = 33))]
     pub storage_schema_version: u32,
 }
 
@@ -1769,6 +1772,71 @@ pub struct DataSourceCatalog {
     pub state_version: String,
     #[schemars(length(min = 1, max = 8))]
     pub sources: Vec<DataSourceEntry>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub connection_id: Option<String>,
+    #[schemars(extend("const"="PAPER"))]
+    pub environment: String,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[schemars(length(max = 256))]
+    pub eligible_accounts: Vec<DataSourceAccountChoice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub calendar_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 10, max = 10))]
+    pub coverage_start: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 10, max = 10))]
+    pub coverage_end: Option<String>,
+    #[schemars(length(min = 4, max = 4))]
+    pub capability_statuses: Vec<CalendarCapabilityResult>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CalendarCapability {
+    MarketCalendar,
+    CorporateActions,
+    Halts,
+    HistoricalAdjustment,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarCapabilityResult {
+    pub capability: CalendarCapability,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
 }
 
 /// Source configuration is separate from account connectivity and quote readiness.

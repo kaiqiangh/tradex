@@ -187,6 +187,12 @@
     "bitgetDemoOrderSubmit": {
       "$ref": "#/$defs/BitgetDemoOrderSubmit"
     },
+    "calendarConfigure": {
+      "$ref": "#/$defs/CalendarConfigure"
+    },
+    "calendarConnection": {
+      "$ref": "#/$defs/CalendarConnection"
+    },
     "cancellationApprovalAction": {
       "$ref": "#/$defs/CancellationApprovalAction"
     },
@@ -583,6 +589,8 @@
     "dataSourceQuery",
     "dataSourceProbe",
     "dataSourceConnection",
+    "calendarConnection",
+    "calendarConfigure",
     "dataSourceConfigure",
     "dataSourceMutation",
     "marketCatalogQuery",
@@ -4866,6 +4874,150 @@
         "orders",
         "fills",
         "observedAt"
+      ]
+    },
+    "CalendarCapability": {
+      "type": "string",
+      "enum": [
+        "MARKET_CALENDAR",
+        "CORPORATE_ACTIONS",
+        "HALTS",
+        "HISTORICAL_ADJUSTMENT"
+      ]
+    },
+    "CalendarCapabilityResult": {
+      "type": "object",
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/CalendarCapability"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "status",
+        "reason"
+      ]
+    },
+    "CalendarConfigure": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "connectionId"
+      ]
+    },
+    "CalendarConnection": {
+      "type": "object",
+      "properties": {
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "calendarVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "capabilityStatuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CalendarCapabilityResult"
+          },
+          "maxItems": 4,
+          "minItems": 4
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "coverageEnd": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "coverageStart": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "eligibleAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSourceAccountChoice"
+          },
+          "maxItems": 256
+        },
+        "environment": {
+          "type": "string",
+          "const": "PAPER"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "stateVersion",
+        "configured",
+        "environment",
+        "status",
+        "availabilityReason",
+        "eligibleAccounts",
+        "capabilityStatuses"
       ]
     },
     "CancellationApprovalAction": {
@@ -11727,6 +11879,9 @@
           "$ref": "#/$defs/DataSourceConnection"
         },
         {
+          "$ref": "#/$defs/CalendarConnection"
+        },
+        {
           "$ref": "#/$defs/MarketCatalog"
         },
         {
@@ -16947,7 +17102,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 32,
+          "maximum": 33,
           "minimum": 1
         },
         "workspaceId": {

@@ -1741,13 +1741,15 @@ impl BrokerHttp {
     }
 
     fn url(&self, endpoint: ProviderEndpoint, path: &str) -> String {
-        let base = if matches!(
-            endpoint,
-            ProviderEndpoint::Trading212Live
-                | ProviderEndpoint::AlpacaMarketData
-                | ProviderEndpoint::BinanceLive
-                | ProviderEndpoint::BitgetLive
-        ) {
+        let base = if (endpoint == ProviderEndpoint::AlpacaPaper
+            && crate::calendar_source::allowed_path(path))
+            || matches!(
+                endpoint,
+                ProviderEndpoint::Trading212Live
+                    | ProviderEndpoint::AlpacaMarketData
+                    | ProviderEndpoint::BinanceLive
+                    | ProviderEndpoint::BitgetLive
+            ) {
             self.local_test_base_url()
                 .unwrap_or_else(|| endpoint.base_url())
         } else {
@@ -5692,6 +5694,9 @@ pub(super) fn decimal_cmp(left: &str, right: &str) -> Result<std::cmp::Ordering>
 }
 
 fn allowed_path(path: &str) -> bool {
+    if crate::calendar_source::allowed_path(path) {
+        return true;
+    }
     if matches!(
         path,
         "/v2/account"

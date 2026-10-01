@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.09s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-575b90bc4724c9bb)
+
+running 1 test
+test user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only ... FAILED
+
+failures:
+
+---- user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only stdout ----
+
+thread 'user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only' (670047) panicked at src-tauri/tests/calendar_source.rs:37:5:
+assertion `left == right` failed
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tradex --test calendar_source`

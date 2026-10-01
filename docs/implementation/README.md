@@ -181,6 +181,8 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 
 ## 6. 完成判定与交接
 
+当前串行前置项为 [接入 Alpaca XNAS 日历与可信时段](https://github.com/kaiqiangh/tradex/issues/118)，见 [日历实施证据](s28-calendar-evidence.md) / [中文](s28-calendar-evidence_zh.md)。生产者、公开 Rust/UI、全套检查及普通桌面构建已验证；原生工作区迁移及已有账户选择已验证，真实日历读取等待 Keychain 认证，Standards PASS，Spec 因真实读取待验证而 NOT PASS。原报价正向审批/Prepare/派发仍 OPEN。金融前置依赖与外部权限缺口见 [审计](s28-financial-prerequisites.md) / [中文](s28-financial-prerequisites_zh.md)。
+
 当前 S28 进度见 [Trading 212 Live 证据](s28-trading212-live-evidence.md) / [中文](s28-trading212-live-evidence_zh.md)：共享市价额度请求修正、显示深度滑点估算与公开 Market 审批/预留/单次假提供方派发已通过本地检查；普通桌面仍缺生产报价 producer 与已验证 entitlement。单张实现票已完成本地验收，Standards/Spec 串行复审均 PASS / 0 发现；实现提交 `b0fec527c892e3a99d760db94526fdaa785efd06`，全套检查、23 项 Gateway、2 项 Market UI、15 项共享审批 UI 与普通桌面构建通过。S28 父级保持 OPEN，不以 fixture 关闭真实权限/行情/交易 gate。
 
 需求表初始 `NOT_STARTED`；计划映射通过不是功能通过。每项验证后补 evidence 引用与 SHA，再更新为 `VERIFIED`。外部能力未证实使用 `BLOCKED_EXTERNAL`，已有代码无所需证据使用 `IMPLEMENTED_UNVERIFIED`；这两种状态都不能让总 map 关闭。

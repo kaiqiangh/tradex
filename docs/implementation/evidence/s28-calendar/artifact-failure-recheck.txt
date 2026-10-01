@@ -1,0 +1,23 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.45s
+     Running unittests src/lib.rs (target/debug/deps/tradex-a7d04870edf24fb7)
+
+running 1 test
+test thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely ... FAILED
+
+failures:
+
+---- thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely stdout ----
+
+thread 'thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely' (756745) panicked at src-tauri/src/lib.rs:13492:9:
+assertion `left == right` failed: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"WORKSPACE_OPEN_FAILED","message":"The workspace could not be opened. Check folder access and available storage.","remediationActions":[{"id":"retry_workspace","label":"Retry opening"}],"retryable":true},"ok":false,"requestId":"request-workspace.open","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tradex --lib`

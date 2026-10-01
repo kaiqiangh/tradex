@@ -987,3 +987,7 @@ Data credentials 显式区分已有账户 key 与专用行情 key。“Save data
 Live 审批的报价来源部分在精确观察标识及时间戳旁保留同一已配置 Alpaca feed/覆盖范围、上市场所或提供方符号、买卖交易所、tape/条件及来源或连接代次。单位未验证的深度显示单位不可用，不显示 BASE。这些只读字段不改变现有解锁交易、审阅、审批顺序或授权门禁。
 
 解锁交易前只读证据说明（2026-10-01，story20）：现有 DISARMED PLACE 操作仍打开独立 Arm 确认。该视图另请求公开后端审批审阅投影，展示当前不可变 proposal 的报价来源及阻断原因，均为只读证据。核对返回 proposal 或账户身份，不将它呈现为已签发审批，也不改变 Arm 资格。缺少审阅或报价时明确显示不可用；后续显式 Arm 仍重新读取同一意图，并打开全新的独立审批审阅。继续使用已确认的公开 UI/Rust/一次性存储/外部提供方测试边界，报价来自提供方帧，假账户按正常连接保持 UNVERIFIED/DISARMED，不注入授权状态或报价 snapshot。
+
+## 14.22 日历前置项保持独立（S28 #118；实现进行中）
+
+Settings → Data & Storage 提供独立 Alpaca XNAS calendar 区域：合格已有 Paper 账户选择、Save calendar source、Refresh selected calendar、Disconnect calendar source 和明确 reload/error 控件。流程不包含 renderer 秘密输入、host 回退或金融动作；有未保存账户选择时禁用刷新。显示不可延长的首次接收时间、calendar version、requested coverage 和四项独立能力。Markets 的 regular/extended/closed 边界来自认证 UTC 日历；缺少 provider observation time 时保持 unavailable。30秒执行过期、clock/source/account 改变及读取失败必须撤销资格，不能延长上次状态。日历刷新不 Arm、不审批；Trading 212 UNVERIFIED 权限、公司行为/tradability、quote/FX 及其他阻塞保持可见。Backend §41.38 拥有 wire/lifecycle 契约。按已确认公开 seam 验证键盘、live status/errors 和390/768/1280px；此目标不是 runtime 验收，不修复点击原型。

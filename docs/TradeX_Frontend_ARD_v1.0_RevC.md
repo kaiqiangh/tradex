@@ -698,6 +698,10 @@ The immutable Market approval review displays its positive `maximumSpend` as the
 
 Display bid/ask depth in BASE units. Label slippage as an approximate quote-midpoint estimate limited to displayed depth, with no fill guarantee. Missing trusted depth or quantity beyond that depth remains unavailable and approval stays disabled.
 
+### 13.23 XNAS calendar source and independent capability states (S28 #118; implementation in progress)
+
+Use Backend §41.38 typed `data.calendar.*` contracts. Settings explicitly selects an eligible saved Alpaca Paper account, saves metadata, refreshes separately and disconnects without deleting the borrowed key. Display receipt/version/requested coverage and each of MARKET_CALENDAR/CORPORATE_ACTIONS/HALTS/HISTORICAL_ADJUSTMENT separately; calendar success does not label combined OD-005 or Live Ready. Read-only local projection polling may update expiry status; it must not fetch the provider or renew receipt. Source changes refresh Settings/Markets projections. Market detail retains source/time/session boundaries, unavailable provider timestamps and unrelated guards. Preserve keyboard/error handling and390/768/1280px layouts. Prototype behavior and provider acceptance remain unverified by this target.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

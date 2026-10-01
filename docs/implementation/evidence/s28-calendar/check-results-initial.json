@@ -1,0 +1,12 @@
+[
+  {
+    "name": "full-check",
+    "command": [
+      "npm",
+      "run",
+      "check"
+    ],
+    "exitCode": 101,
+    "elapsedSeconds": 69.66
+  }
+]

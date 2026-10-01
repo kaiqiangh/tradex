@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "-p",
+    "tradex",
+    "--features",
+    "integration-test order-gateway-runtime",
+    "--test",
+    "order_gateway"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 39.85
+}

@@ -2959,6 +2959,27 @@ Hot lease wire 目标为 `market.hot.acquire {workspaceId, instrumentId, expecte
 
 实现/本地 fixture 验证与实际认证读取和当前 feed 证据分开。FR-016/AC-010 与原 S28 权限/日历/公司行为/可交易性/FX/真实订单门禁，须各自验收后才能验证。
 
+### 41.38 只读 XNAS 日历前置项（S28 #118；实现进行中）
+
+本切片只提供日历证据，不证明 Trading 212 Live 验收，不关闭当前报价验收票。权限、报价/depth、公司行为/tradability、FX、同意及 Gateway 门禁保持独立。
+
+| Command | Payload | Success data |
+|---|---|---|
+| data.calendar.connection | `{workspaceId}` | `CalendarConnection` |
+| data.calendar.configure | `{workspaceId, expectedStateVersion, connectionId}` | `CalendarConnection`；明确选择合格的已有 Alpaca Paper 账户 |
+| data.calendar.disconnect | `{workspaceId, expectedStateVersion}` | `CalendarConnection`；保留借用的账户/key |
+| data.calendar.refresh | `{workspaceId, expectedStateVersion}` | `CalendarConnection`；Control Plane 锁外认证读取固定 host |
+
+输入拒绝未知字段、秘密、调用方观察、任意 host/vault reference。只支持凭据状态为 `CONFIGURED` 或 `UNCHECKED` 且 connected 的已有 Alpaca `PAPER` 账户；`UNCHECKED` 允许重开后选择，但日历证据仍须新的成功 vault/提供方读取。SQLite schema33 只保存来源 generation/账户选择及 metadata audit，不保存秘密或日历观察。选择使用 CAS；重开只恢复 metadata，撤销观察。
+
+`CalendarConnection` 包含 workspaceId/sourceId/stateVersion/configured、可选 connectionId、固定 environment `PAPER`、日历专属 status/availabilityReason、eligibleAccounts、可选 observedAt/calendarVersion/coverageStart/coverageEnd，以及恰好四项 typed capabilityStatuses。每项含 capability（`MARKET_CALENDAR`、`CORPORATE_ACTIONS`、`HALTS`、`HISTORICAL_ADJUSTMENT`）、status、reason。只有日历实现时，OD-005 综合 catalog status 保持 UNVERIFIED。计划时段不是 provider observation time；缺少 provider timestamp 时保持缺失。
+
+只认证 GET `https://paper-api.alpaca.markets/v3/calendar/XNAS?start=<UTC date minus one day>&end=<UTC date plus fourteen days>&timezone=UTC`，canonical 范围为 XNAS 上 AAPL/MSFT。不回退 host/key/feed，不调用 provider mutation。校验市场 identity/timezone、UTC 时段、有界日期/顺序/重复和可选成对边界；不完整、错配、过大、不可用数据失败关闭。OPEN/CLOSED/EXTENDED_HOURS 来自 provider 边界，包括 early-close/holiday gap，不使用本地 weekday/DST 推算。不推断公司行为、停牌或历史调整。
+
+进程级证据绑定 source generation、精确账户版本/reference、workspace/session、可信 clock generation 和 refresh sequence。vault/network 在 Control Plane 锁外复用已有有界 read-priority scheduler；绑定变化后的延迟结果不能发布。投影保留首次接收时间。执行证据按 wall 与 monotonic time 最多存活30个可信秒；clock reset/revalidation、重开、凭据/source/account 改变或读取失败均撤销资格。calendar version 哈希校验后的请求覆盖/实质时段及影响权限的 source/account/session/clock 绑定，不暴露秘密。反复 UI 投影不能延长接收时间。
+
+同一 producer 投影用于 market detail、risk/approval review、消费及 dispatch 重新校验，只能满足匹配的日历检查。CLOSED/EXTENDED/stale/UNKNOWN 阻止执行；来源设置/读取不授予 Arm、审批或 reservation。明确配置日历后同样绕过历史 synthetic market/Live-approval fixture。测试沿用已确认的公开 UI/真实 Rust/隔离存储/外部 provider seam；真实 provider 只读证据与正向金融验收分开。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

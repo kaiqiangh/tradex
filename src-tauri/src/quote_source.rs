@@ -380,7 +380,7 @@ pub(crate) struct AcceptedQuote {
     failure: Option<String>,
 }
 
-fn source_headers(credentials: &Credentials) -> Result<HeaderMap> {
+pub(crate) fn source_headers(credentials: &Credentials) -> Result<HeaderMap> {
     let secrets = credentials.values()?;
     if secrets.len() != 2 {
         return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));

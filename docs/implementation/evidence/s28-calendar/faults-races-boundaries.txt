@@ -1,0 +1,27 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.74s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-96f7e429a868e95e)
+
+running 6 tests
+test actual_utc_bounds_drive_holiday_extended_early_close_and_dst_without_weekday_rules ... FAILED
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... ok
+test user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only ... ok
+test legacy_opt_ins_cannot_override_explicit_calendar_or_grant_live_authority ... ok
+test public_source_account_workspace_and_clock_changes_discard_late_http_result ... ok
+test malformed_and_failed_provider_reads_retire_prior_calendar ... ok
+
+failures:
+
+---- actual_utc_bounds_drive_holiday_extended_early_close_and_dst_without_weekday_rules stdout ----
+
+thread 'actual_utc_bounds_drive_holiday_extended_early_close_and_dst_without_weekday_rules' (729721) panicked at src-tauri/tests/calendar_source.rs:755:69:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    actual_utc_bounds_drive_holiday_extended_early_close_and_dst_without_weekday_rules
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s
+
+error: test failed, to rerun pass `-p tradex --test calendar_source`

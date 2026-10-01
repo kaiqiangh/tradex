@@ -1,0 +1,7 @@
+NOT PASS
+
+No concrete behavioral defect or unauthorized scope expansion found. Inspection supports AC1–7: saved Paper selection/CAS, fixed read-only destination, validated UTC schedule projection, immutable receipt/expiry, independent capabilities, shared risk/revalidation consumers, public-seam failures/races.
+
+Acceptance gap—AC8 requires “sanitized real read-only native calendar evidence with existing credentials if supported” and “atomic dev commit and authorized normal dev push before closing this child.” native-after-selection.json:17 records AWAITING_PROTECTED_KEYCHAIN_AUTH; migration/selection do not prove hosted reading. Complete user authentication, record the sanitized actual hosted outcome, then reviewed commit/normal dev push before closure. s28-calendar-evidence.md:18 correctly preserves the distinction.
+
+Evidence supports17 Node/348 default Rust,382 integration,23 actual Gateway tests, ordinary desktop build and Rust-backed UI. Earlier zero-test Gateway command and failed migration follow-up are superseded, not counted as successful coverage. HEAD equals baseline aa43091ea2eef732b5865b163cbeee3cac3e03c9; changes uncommitted at review. Source/document/log inspection only; no tests/build/UI/network/hosted read performed. Calendar review does not certify quote #116 positive financial path.

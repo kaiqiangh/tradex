@@ -319,6 +319,16 @@ export type BinanceTestnetOrderBookAction = "PENDING" | "ACCOUNT" | "HISTORY" | 
 export type BitgetDemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarCapability".
+ */
+export type CalendarCapability = "MARKET_CALENDAR" | "CORPORATE_ACTIONS" | "HALTS" | "HISTORICAL_ADJUSTMENT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceStatus".
+ */
+export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialApproval".
  */
 export type FinancialApproval = {
@@ -408,11 +418,6 @@ export type DataSourceCredential =
  * via the `definition` "DataSourceCredentialKind".
  */
 export type DataSourceCredentialKind = "EXISTING_ACCOUNT" | "DEDICATED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceStatus".
- */
-export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
@@ -690,6 +695,7 @@ export type ReplyData =
   | ContextCatalog
   | DataSourceCatalog
   | DataSourceConnection
+  | CalendarConnection
   | MarketCatalog
   | MarketDetail
   | HotQuoteProjection
@@ -914,6 +920,8 @@ export interface IpcSchema {
   bitgetDemoOrderAttemptQueryResult: BitgetDemoOrderAttemptQueryResult;
   bitgetDemoOrderReconcile: BitgetDemoOrderReconcile;
   bitgetDemoOrderSubmit: BitgetDemoOrderSubmit;
+  calendarConfigure: CalendarConfigure;
+  calendarConnection: CalendarConnection;
   cancellationApprovalAction: CancellationApprovalAction;
   cancellationApprovalHistory: CancellationApprovalHistory;
   cancellationApprovalHistoryQuery: CancellationApprovalHistoryQuery;
@@ -2703,6 +2711,64 @@ export interface BitgetDemoOrderSubmit {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarConfigure".
+ */
+export interface CalendarConfigure {
+  connectionId: string;
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarConnection".
+ */
+export interface CalendarConnection {
+  availabilityReason: string;
+  calendarVersion?: string;
+  /**
+   * @minItems 4
+   * @maxItems 4
+   */
+  capabilityStatuses: [
+    CalendarCapabilityResult,
+    CalendarCapabilityResult,
+    CalendarCapabilityResult,
+    CalendarCapabilityResult
+  ];
+  configured: boolean;
+  connectionId?: string;
+  coverageEnd?: string;
+  coverageStart?: string;
+  /**
+   * @maxItems 256
+   */
+  eligibleAccounts: DataSourceAccountChoice[];
+  environment: "PAPER";
+  observedAt?: string;
+  sourceId: string;
+  stateVersion: string;
+  status: DataSourceStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarCapabilityResult".
+ */
+export interface CalendarCapabilityResult {
+  capability: CalendarCapability;
+  reason: string;
+  status: DataSourceStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceAccountChoice".
+ */
+export interface DataSourceAccountChoice {
+  connectionId: string;
+  displayName: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CancellationApprovalAction".
  */
 export interface CancellationApprovalAction {
@@ -2940,14 +3006,6 @@ export interface DataSourceConnection {
   stateVersion: string;
   status: DataSourceStatus;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceAccountChoice".
- */
-export interface DataSourceAccountChoice {
-  connectionId: string;
-  displayName: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

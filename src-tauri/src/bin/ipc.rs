@@ -1235,6 +1235,20 @@ fn main() -> io::Result<()> {
                 oversized = false;
                 continue;
             }
+            #[cfg(feature = "integration-test")]
+            if command == Some("data.calendar.refresh") {
+                let result = tradex::calendar_source::execute_refresh(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             if command == Some("data.source.probe") {
                 #[cfg(feature = "integration-test")]
                 let result = tradex::quote_source::execute_probe(

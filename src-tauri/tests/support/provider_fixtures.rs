@@ -1031,6 +1031,21 @@ impl ProviderHttp for Http {
         if self.fail.get() {
             return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
         }
+        if let Some(query) = path.strip_prefix("/v3/calendar/XNAS?start=") {
+            let (start, end) = query.split_once("&end=").unwrap();
+            let end = end.strip_suffix("&timezone=UTC").unwrap();
+            let format =
+                time::format_description::parse_borrowed::<2>("[year]-[month]-[day]").unwrap();
+            let start = time::Date::parse(start, &format).unwrap();
+            let end = time::Date::parse(end, &format).unwrap();
+            assert_eq!(end - start, time::Duration::days(15));
+            // External provider JSON only: production still derives sessions from returned UTC bounds.
+            let calendar = (0..=15).map(|offset| start + time::Duration::days(offset))
+                .filter(|date| !matches!(date.weekday(), time::Weekday::Saturday | time::Weekday::Sunday))
+                .map(|date| json!({"date":date.to_string(),"core_start":format!("{date}T13:30:00Z"),"core_end":format!("{date}T20:00:00Z"),"pre_start":format!("{date}T08:00:00Z"),"pre_end":format!("{date}T13:30:00Z"),"post_start":format!("{date}T20:00:00Z"),"post_end":format!("{date}T23:59:00Z")}))
+                .collect::<Vec<_>>();
+            return Ok(serde_json::to_vec(&json!({"market":{"mic":"XNAS","acronym":"NASDAQ","name":"NASDAQ","timezone":"America/New_York"},"calendar":calendar})).unwrap());
+        }
         let response = match path {
             "/v2/account" => {
                 json!({"id":self.identity,"currency":"USD","status":"ACTIVE","cash":"001000.2500","equity":"1200.5500","buying_power":"1100.9876543210123456789","account_blocked":false,"trading_blocked":false,"trade_suspended_by_user":false,"shorting_enabled":true})

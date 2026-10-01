@@ -97,6 +97,10 @@ declare const validators: {
   BitgetSpotFill: (value: unknown) => boolean;
   BitgetSpotOrder: (value: unknown) => boolean;
   BitgetSpotOrderBook: (value: unknown) => boolean;
+  CalendarCapability: (value: unknown) => boolean;
+  CalendarCapabilityResult: (value: unknown) => boolean;
+  CalendarConfigure: (value: unknown) => boolean;
+  CalendarConnection: (value: unknown) => boolean;
   CancellationApprovalAction: (value: unknown) => boolean;
   CancellationApprovalHistory: (value: unknown) => boolean;
   CancellationApprovalHistoryQuery: (value: unknown) => boolean;

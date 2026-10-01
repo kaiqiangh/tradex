@@ -6,6 +6,7 @@ pub mod alpaca_stream;
 pub mod backtest;
 #[cfg(target_os = "macos")]
 pub mod binance_stream;
+pub mod calendar_source;
 pub mod capability;
 pub mod codex_runtime;
 pub mod data_sources;
@@ -2369,6 +2370,9 @@ pub struct ControlPlane {
     store: Option<Store>,
     subscribers: HashMap<(String, String, String), EventSink>,
     data_source_observations: HashMap<(String, String), protocol::DataSourceEntry>,
+    calendar_observation: Option<calendar_source::CalendarObservation>,
+    calendar_failure: Option<String>,
+    calendar_request_sequence: u64,
     quote_source_epoch: String,
     quote_connection_generation: String,
     quote_source_probe_sequence: u64,
@@ -2393,6 +2397,9 @@ impl ControlPlane {
             store: None,
             subscribers: HashMap::new(),
             data_source_observations: HashMap::new(),
+            calendar_observation: None,
+            calendar_failure: None,
+            calendar_request_sequence: 0,
             quote_source_epoch: uuid::Uuid::new_v4().to_string(),
             quote_connection_generation: uuid::Uuid::new_v4().to_string(),
             quote_source_probe_sequence: 0,
@@ -3392,6 +3399,9 @@ impl ControlPlane {
                     let event = self.store.as_mut().unwrap().record_open()?;
                     let workspace_id = event.aggregate_id.clone();
                     self.time.reset(&workspace_id);
+                    self.calendar_observation = None;
+                    self.calendar_failure = None;
+                    self.calendar_request_sequence = 0;
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -3441,6 +3451,9 @@ impl ControlPlane {
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.subscribers.clear();
                     self.session = uuid::Uuid::new_v4().to_string();
+                    self.calendar_observation = None;
+                    self.calendar_failure = None;
+                    self.calendar_request_sequence = 0;
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -4498,6 +4511,9 @@ impl ControlPlane {
                 let input: BacktestCancel = payload(request.payload)?;
                 let run = self.cancel_backtest(input)?;
                 Ok((json!(run), Some(run.state_version.clone())))
+            }
+            "data.calendar.connection" | "data.calendar.configure" | "data.calendar.disconnect" => {
+                calendar_source::metadata(self, request, consumer)
             }
             "data.source.connection" => {
                 let input: DataSourceQuery = payload(request.payload)?;
@@ -7450,10 +7466,15 @@ impl ControlPlane {
                         unavailable
                     });
                 }
-                self.data_source_observations
+                let source = self.data_source_observations
                     .get(&(workspace_id.to_owned(), source.source_id.clone()))
                     .cloned()
-                    .unwrap_or(source)
+                    .unwrap_or(source);
+                if source.source_id == "OD-005" {
+                    calendar_source::catalog_entry(self, workspace_id, source)
+                } else {
+                    source
+                }
             })
             .collect()
     }
@@ -7555,16 +7576,25 @@ impl ControlPlane {
         let time_status = self.time.status(workspace_id)?;
         let configured =
             source.is_some_and(|source| source.source_id == "OD-001" && source.configured);
+        let calendar_configured = input.instrument_id.starts_with("equity:")
+            && self
+                .store
+                .as_ref()
+                .unwrap()
+                .calendar_source()?
+                .connection_id
+                .is_some();
         let mut detail = market::detail_with_fixture(
             &input,
             source,
             calendar_source,
             &time_status,
-            fixture && !configured,
+            fixture && !configured && !calendar_configured,
         )?;
         if configured {
             quote_source::project_quote(self, &time_status, &mut detail);
         }
+        calendar_source::project(self, &time_status, &mut detail);
         Ok(detail)
     }
 
@@ -7581,6 +7611,13 @@ impl ControlPlane {
                 tier: MarketTier::Census,
             };
             if live_provider_id(&proposal.fields.environment).is_some()
+                && self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .calendar_source()?
+                    .connection_id
+                    .is_none()
                 && !(market::source_id_for_instrument(
                     &proposal.fields.instrument_id,
                     &MarketTier::Census,
@@ -13442,6 +13479,11 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute_batch("DROP TABLE quote_source_config; DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials;")
+            .unwrap();
+        migration_database
+            .execute_batch(
+                "DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit;",
+            )
             .unwrap();
         migration_database
             .pragma_update(None, "user_version", 8)

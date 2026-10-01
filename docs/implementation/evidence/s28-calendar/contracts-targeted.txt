@@ -1,0 +1,10 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.53s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-96f7e429a868e95e)
+
+running 3 tests
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... ok
+test user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only ... ok
+test legacy_opt_ins_cannot_override_explicit_calendar_or_grant_live_authority ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s

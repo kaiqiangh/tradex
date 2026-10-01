@@ -1,0 +1,15 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.02s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-96f7e429a868e95e)
+
+running 8 tests
+test vault_read_releases_control_lock_and_account_disconnect_prevents_http ... ok
+test legacy_opt_ins_cannot_override_explicit_calendar_or_grant_live_authority ... ok
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... ok
+test user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only ... ok
+test actual_utc_bounds_drive_holiday_extended_early_close_and_dst_without_weekday_rules ... ok
+test public_source_account_workspace_and_clock_changes_discard_late_http_result ... ok
+test malformed_and_failed_provider_reads_retire_prior_calendar ... ok
+test real_http_boundary_preserves_fixed_read_destination_and_fails_closed ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.46s
