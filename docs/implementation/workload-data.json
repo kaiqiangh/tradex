@@ -1,13 +1,13 @@
 {
- "generated": "2026-09-29 17:10 +0100",
- "commit": "4f3fe18",
+ "generated": "2026-10-01 10:02 +0100",
+ "commit": "dc4c350",
  "branch": "dev",
- "ahead": 3,
+ "ahead": 0,
  "req_total": 203,
  "req_status": {
-  "IMPLEMENTED_UNVERIFIED": 63,
-  "NOT_STARTED": 68,
-  "IN_PROGRESS": 46,
+  "IMPLEMENTED_UNVERIFIED": 68,
+  "NOT_STARTED": 62,
+  "IN_PROGRESS": 47,
   "VERIFIED": 23,
   "DEFERRED": 3
  },
@@ -18,19 +18,18 @@
   "IMPLEMENTED_UNVERIFIED": 39,
   "NOT_STARTED": 29
  },
- "issue_total": 111,
- "issue_open": 7,
+ "issue_total": 115,
+ "issue_open": 6,
  "open_issues": [
   1,
   56,
   107,
-  108,
-  109,
-  110,
-  111
+  113,
+  115,
+  116
  ],
  "slice_closed": 25,
- "slice_inprog": 2,
+ "slice_inprog": 3,
  "slices": [
   {
    "id": "S01",
@@ -90,12 +89,12 @@
    "issues_closed": 6,
    "issues_open": 0,
    "total": 13,
-   "not_started": 1,
+   "not_started": 0,
    "in_progress": 6,
-   "hold": 4,
+   "hold": 5,
    "verified": 2,
    "deferred": 0,
-   "open": 7,
+   "open": 6,
    "done": 2,
    "phase": "P1"
   },
@@ -505,12 +504,12 @@
    "issues_closed": 5,
    "issues_open": 0,
    "total": 35,
-   "not_started": 25,
+   "not_started": 23,
    "in_progress": 9,
-   "hold": 1,
+   "hold": 3,
    "verified": 0,
    "deferred": 0,
-   "open": 34,
+   "open": 32,
    "done": 0,
    "phase": "P5"
   },
@@ -616,25 +615,30 @@
     110,
     111
    ],
-   "issues_closed": 0,
-   "issues_open": 5,
+   "issues_closed": 4,
+   "issues_open": 1,
    "total": 19,
-   "not_started": 6,
-   "in_progress": 12,
-   "hold": 1,
+   "not_started": 0,
+   "in_progress": 13,
+   "hold": 6,
    "verified": 0,
    "deferred": 0,
-   "open": 18,
+   "open": 13,
    "done": 0,
    "phase": "P5"
   },
   {
    "id": "S28",
    "title": "验证 Trading 212 Live 可信执行",
-   "state": "NOT_STARTED",
-   "issues": [],
-   "issues_closed": 0,
-   "issues_open": 0,
+   "state": "IN_PROGRESS",
+   "issues": [
+    113,
+    114,
+    115,
+    116
+   ],
+   "issues_closed": 1,
+   "issues_open": 3,
    "total": 2,
    "not_started": 0,
    "in_progress": 1,
@@ -767,13 +771,13 @@
  ],
  "phases": [
   {
-   "not_started": 1,
+   "not_started": 0,
    "in_progress": 15,
-   "hold": 4,
+   "hold": 5,
    "verified": 14,
    "deferred": 0,
    "total": 34,
-   "open": 16,
+   "open": 15,
    "done": 14,
    "code": "P1",
    "name": "基础与连接",
@@ -855,13 +859,13 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 29,
-   "in_progress": 20,
-   "hold": 3,
+   "not_started": 24,
+   "in_progress": 21,
+   "hold": 7,
    "verified": 5,
    "deferred": 0,
    "total": 57,
-   "open": 49,
+   "open": 45,
    "done": 5,
    "code": "P5",
    "name": "风控与实盘",
@@ -879,7 +883,7 @@
     "S30"
    ],
    "slice_closed": 6,
-   "slice_inprog": 1
+   "slice_inprog": 2
   },
   {
    "not_started": 13,
@@ -923,13 +927,13 @@
  ],
  "phases_first": [
   {
-   "not_started": 1,
+   "not_started": 0,
    "in_progress": 15,
-   "hold": 4,
+   "hold": 5,
    "verified": 14,
    "deferred": 0,
    "total": 34,
-   "open": 16,
+   "open": 15,
    "done": 14,
    "code": "P1",
    "name": "基础与连接",
@@ -1011,13 +1015,13 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 29,
-   "in_progress": 20,
-   "hold": 3,
+   "not_started": 24,
+   "in_progress": 21,
+   "hold": 7,
    "verified": 5,
    "deferred": 0,
    "total": 57,
-   "open": 49,
+   "open": 45,
    "done": 5,
    "code": "P5",
    "name": "风控与实盘",
@@ -1035,7 +1039,7 @@
     "S30"
    ],
    "slice_closed": 6,
-   "slice_inprog": 1
+   "slice_inprog": 2
   },
   {
    "not_started": 13,
@@ -1167,13 +1171,13 @@
    "slice_inprog": 1
   },
   {
-   "not_started": 41,
-   "in_progress": 28,
-   "hold": 10,
+   "not_started": 35,
+   "in_progress": 29,
+   "hold": 15,
    "verified": 6,
    "deferred": 0,
    "total": 85,
-   "open": 69,
+   "open": 64,
    "done": 6,
    "code": "P5",
    "name": "风控与实盘",
@@ -1191,7 +1195,7 @@
     "S30"
    ],
    "slice_closed": 6,
-   "slice_inprog": 1
+   "slice_inprog": 2
   },
   {
    "not_started": 16,
@@ -1237,25 +1241,25 @@
   {
    "id": "FR",
    "name": "功能需求",
-   "not_started": 21,
+   "not_started": 20,
    "in_progress": 13,
-   "hold": 33,
+   "hold": 34,
    "verified": 11,
    "deferred": 3,
    "total": 81,
-   "open": 34,
+   "open": 33,
    "done": 14
   },
   {
    "id": "AC",
    "name": "验收准则",
-   "not_started": 27,
-   "in_progress": 16,
-   "hold": 15,
+   "not_started": 24,
+   "in_progress": 17,
+   "hold": 17,
    "verified": 9,
    "deferred": 0,
    "total": 67,
-   "open": 43,
+   "open": 41,
    "done": 9
   },
   {
@@ -1297,39 +1301,39 @@
   {
    "id": "OPS",
    "name": "运维",
-   "not_started": 4,
+   "not_started": 3,
    "in_progress": 3,
-   "hold": 1,
+   "hold": 2,
    "verified": 1,
    "deferred": 0,
    "total": 9,
-   "open": 7,
+   "open": 6,
    "done": 1
   },
   {
    "id": "UX",
    "name": "交互体验",
-   "not_started": 4,
+   "not_started": 3,
    "in_progress": 3,
-   "hold": 2,
+   "hold": 3,
    "verified": 1,
    "deferred": 0,
    "total": 10,
-   "open": 7,
+   "open": 6,
    "done": 1
   }
  ],
  "owners": [
   {
    "id": "kaiqiangh",
-   "total": 94,
-   "open": 3,
-   "closed": 91
+   "total": 101,
+   "open": 5,
+   "closed": 96
   },
   {
    "id": "unassigned",
-   "total": 17,
-   "open": 4,
+   "total": 14,
+   "open": 1,
    "closed": 13
   }
  ],
@@ -3089,9 +3093,9 @@
    "total": 19
   },
   "S03": {
-   "not_started": 1,
+   "not_started": 0,
    "in_progress": 6,
-   "hold": 4,
+   "hold": 5,
    "verified": 2,
    "deferred": 0,
    "total": 13
@@ -3241,9 +3245,9 @@
    "total": 11
   },
   "S22": {
-   "not_started": 25,
+   "not_started": 23,
    "in_progress": 9,
-   "hold": 1,
+   "hold": 3,
    "verified": 0,
    "deferred": 0,
    "total": 35
@@ -3281,9 +3285,9 @@
    "total": 4
   },
   "S27": {
-   "not_started": 6,
-   "in_progress": 12,
-   "hold": 1,
+   "not_started": 0,
+   "in_progress": 13,
+   "hold": 6,
    "verified": 0,
    "deferred": 0,
    "total": 19
